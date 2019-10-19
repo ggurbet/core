@@ -148,7 +148,7 @@ class BackendImpl : public ImplBaseT
             const Reference< ucb::XCommandEnvironment >& xCmdEnv,
             const OUString& licenseUrl);
 
-        DescriptionInfoset getDescriptionInfoset();
+        DescriptionInfoset getDescriptionInfoset() const;
 
         // Package
         virtual beans::Optional< beans::Ambiguous<sal_Bool> > isRegistered_(
@@ -304,7 +304,7 @@ void BackendImpl::disposing()
 // XServiceInfo
 OUString BackendImpl::getImplementationName()
 {
-    return OUString("com.sun.star.comp.deployment.bundle.PackageRegistryBackend");
+    return "com.sun.star.comp.deployment.bundle.PackageRegistryBackend";
 }
 
 sal_Bool BackendImpl::supportsService(OUString const & ServiceName)
@@ -561,7 +561,7 @@ OUString BackendImpl::PackageImpl::getTextFromURL(
 
 }
 
-DescriptionInfoset BackendImpl::PackageImpl::getDescriptionInfoset()
+DescriptionInfoset BackendImpl::PackageImpl::getDescriptionInfoset() const
 {
     return dp_misc::getDescriptionInfoset(m_url_expanded);
 }
@@ -846,7 +846,7 @@ void BackendImpl::PackageImpl::processPackage_(
                         }
                         catch (const Exception &)
                         {
-                            SAL_WARN( "desktop", exceptionToString( cppu::getCaughtException() ) );
+                            TOOLS_WARN_EXCEPTION( "desktop", "" );
                             // ignore any errors of rollback
                         }
                     }
@@ -933,7 +933,7 @@ OUString BackendImpl::PackageImpl::getDescription()
         }
         catch ( const css::deployment::DeploymentException& )
         {
-            SAL_WARN( "desktop", exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "desktop", "" );
         }
     }
 
@@ -1055,10 +1055,10 @@ void BackendImpl::PackageImpl::exportTo(
         }
         // xxx todo: think about exception specs:
         catch (const deployment::DeploymentException &) {
-            SAL_WARN( "desktop", exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "desktop", "" );
         }
-        catch (const lang::IllegalArgumentException & exc) {
-            SAL_WARN( "desktop", exceptionToString(Any(exc)) );
+        catch (const lang::IllegalArgumentException &) {
+            TOOLS_WARN_EXCEPTION( "desktop", "" );
         }
 
         std::vector< Sequence<beans::PropertyValue> > manifest;

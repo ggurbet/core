@@ -50,7 +50,7 @@ protected:
 
     virtual sal_uInt16 getDefaultAccessibleRole() const override;
 
-    // evtl. support for screenshot context menu
+    // support for screenshot context menu
     virtual void Command(const CommandEvent& rCEvt) override;
 
 public:
@@ -90,6 +90,7 @@ public:
         m_bHomogeneous = bHomogeneous;
     }
     virtual bool set_property(const OString &rKey, const OUString &rValue) override;
+    virtual boost::property_tree::ptree DumpAsPropertyTree() override;
 protected:
     virtual sal_uInt16 getDefaultAccessibleRole() const override;
     void accumulateMaxes(const Size &rChildSize, Size &rSize) const;
@@ -321,6 +322,7 @@ private:
     Size calculateRequisitionForSpacings(sal_Int32 nRowSpacing, sal_Int32 nColSpacing) const;
     virtual Size calculateRequisition() const override;
     virtual void setAllocation(const Size &rAllocation) override;
+    virtual boost::property_tree::ptree DumpAsPropertyTree() override;
 public:
     VclGrid(vcl::Window *pParent)
         : VclContainer(pParent)
@@ -407,6 +409,7 @@ public:
     virtual const vcl::Window *get_child() const override;
     vcl::Window *get_label_widget();
     const vcl::Window *get_label_widget() const;
+    virtual boost::property_tree::ptree DumpAsPropertyTree() override;
 protected:
     virtual Size calculateRequisition() const override;
     virtual void setAllocation(const Size &rAllocation) override;
@@ -620,7 +623,7 @@ private:
     Link<const KeyEvent&, bool> m_aKeyPressHdl;
     Link<const KeyEvent&, bool> m_aKeyReleaseHdl;
     Link<VclDrawingArea&, void> m_aStyleUpdatedHdl;
-    Link<const CommandEvent&, bool> m_aPopupMenuHdl;
+    Link<const CommandEvent&, bool> m_aCommandHdl;
     Link<tools::Rectangle&, OUString> m_aQueryTooltipHdl;
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override
@@ -677,7 +680,7 @@ private:
     }
     virtual void Command(const CommandEvent& rEvent) override
     {
-        if (rEvent.GetCommand() == CommandEventId::ContextMenu && m_aPopupMenuHdl.Call(rEvent))
+        if (m_aCommandHdl.Call(rEvent))
             return;
         Control::Command(rEvent);
     }
@@ -757,9 +760,9 @@ public:
     {
         m_aStyleUpdatedHdl = rLink;
     }
-    void SetPopupMenuHdl(const Link<const CommandEvent&, bool>& rLink)
+    void SetCommandHdl(const Link<const CommandEvent&, bool>& rLink)
     {
-        m_aPopupMenuHdl = rLink;
+        m_aCommandHdl = rLink;
     }
     void SetQueryTooltipHdl(const Link<tools::Rectangle&, OUString>& rLink)
     {

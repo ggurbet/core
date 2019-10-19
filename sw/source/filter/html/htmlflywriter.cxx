@@ -298,7 +298,8 @@ void SwHTMLWriter::CollectFlyFrames()
     OSL_ENSURE( HTML_CFG_MAX+1 == MAX_BROWSERS,
             "number of browser configurations has changed" );
 
-    SwPosFlyFrames aFlyPos(m_pDoc->GetAllFlyFormats(m_bWriteAll ? nullptr : m_pCurrentPam, true));
+    SwPosFlyFrames aFlyPos(
+        m_pDoc->GetAllFlyFormats(m_bWriteAll ? nullptr : m_pCurrentPam.get(), true));
 
     for(const auto& rpItem : aFlyPos)
     {
@@ -441,7 +442,7 @@ void SwHTMLWriter::OutFrameFormat( AllHtmlFlags nMode, const SwFrameFormat& rFra
         sOut.append('<').append(GetNamespace() + aContainerStr).append(' ')
             .append(OOO_STRING_SVTOOLS_HTML_O_class).append("=\"")
             .append("sd-abs-pos").append('\"');
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
 
         // Output a width for non-draw objects
         HtmlFrmOpts nFrameFlags = HTML_FRMOPTS_CNTNR;
@@ -536,7 +537,7 @@ OString SwHTMLWriter::OutFrameFormatOptions( const SwFrameFormat &rFrameFormat,
             (nFrameOpts & HtmlFrmOpts::Id) ? OOO_STRING_SVTOOLS_HTML_O_id : OOO_STRING_SVTOOLS_HTML_O_name;
         sOut.append(' ').append(pStr).
             append("=\"");
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
         HTMLOutFuncs::Out_String( Strm(), rFrameFormat.GetName(), m_eDestEnc, &m_aNonConvertableCharacters );
         sOut.append('\"');
     }
@@ -545,7 +546,7 @@ OString SwHTMLWriter::OutFrameFormatOptions( const SwFrameFormat &rFrameFormat,
     if( nFrameOpts & HtmlFrmOpts::Dir )
     {
         SvxFrameDirection nDir = GetHTMLDirection( rItemSet );
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
         OutDirection( nDir );
     }
 
@@ -554,7 +555,7 @@ OString SwHTMLWriter::OutFrameFormatOptions( const SwFrameFormat &rFrameFormat,
     {
         sOut.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_alt).
             append("=\"");
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
         HTMLOutFuncs::Out_String( Strm(), rAlternateText, m_eDestEnc, &m_aNonConvertableCharacters );
         sOut.append('\"');
     }
@@ -734,7 +735,7 @@ OString SwHTMLWriter::OutFrameFormatOptions( const SwFrameFormat &rFrameFormat,
     }
 
     if (!sOut.isEmpty())
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
 
     // Insert wrap for graphics that are anchored to a paragraph as
     // <BR CLEAR=...> in the string
@@ -1502,14 +1503,14 @@ Writer& OutHTML_BulletImage( Writer& rWrt,
     if(!aLink.isEmpty())
     {
         sOut.append(OOO_STRING_SVTOOLS_HTML_O_src).append("=\"");
-        rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
         HTMLOutFuncs::Out_String( rWrt.Strm(), aLink, rHTMLWrt.m_eDestEnc, &rHTMLWrt.m_aNonConvertableCharacters );
     }
     else
     {
         sOut.append("list-style-image: ").append("url(").
         append(OOO_STRING_SVTOOLS_HTML_O_data).append(":");
-        rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
         HTMLOutFuncs::Out_String( rWrt.Strm(), aGraphicInBase64, rHTMLWrt.m_eDestEnc, &rHTMLWrt.m_aNonConvertableCharacters );
         sOut.append(");");
     }
@@ -1517,7 +1518,7 @@ Writer& OutHTML_BulletImage( Writer& rWrt,
 
     if (pTag)
         sOut.append('>');
-    rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
 
     return rWrt;
 }
@@ -1612,7 +1613,7 @@ static Writer & OutHTML_FrameFormatAsMulticol( Writer& rWrt,
             append("=\"").append(static_cast<sal_Int32>(nGutter)).append("\"");
     }
 
-    rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
 
     // WIDTH
     HtmlFrmOpts nFrameFlags = HTML_FRMOPTS_MULTICOL;
@@ -1639,7 +1640,7 @@ static Writer & OutHTML_FrameFormatAsMulticol( Writer& rWrt,
                                 pSttNd->EndOfSectionIndex(),
                                    true, &rFrameFormat );
         rHTMLWrt.m_bOutFlyFrame = true;
-        rHTMLWrt.Out_SwDoc( rWrt.m_pCurrentPam );
+        rHTMLWrt.Out_SwDoc( rWrt.m_pCurrentPam.get() );
     }
 
     rHTMLWrt.DecIndentLevel();  // indent the content of Multicol;
@@ -1659,18 +1660,18 @@ static Writer& OutHTML_FrameFormatAsSpacer( Writer& rWrt, const SwFrameFormat& r
     if( rHTMLWrt.m_bLFPossible )
         rHTMLWrt.OutNewLine( true );
 
-    OStringBuffer sOut;
-    sOut.append('<').append(OOO_STRING_SVTOOLS_HTML_spacer).append(' ')
-        .append(OOO_STRING_SVTOOLS_HTML_O_type).append("=\"")
-        .append(OOO_STRING_SVTOOLS_HTML_SPTYPE_block).append("\"");
-    rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    OString sOut =
+        "<" OOO_STRING_SVTOOLS_HTML_spacer " "
+        OOO_STRING_SVTOOLS_HTML_O_type "=\""
+        OOO_STRING_SVTOOLS_HTML_SPTYPE_block "\"";
+    rWrt.Strm().WriteOString( sOut );
 
     // ALIGN, WIDTH, HEIGHT
     OString aEndTags = rHTMLWrt.OutFrameFormatOptions(rFrameFormat, OUString(), HTML_FRMOPTS_SPACER);
 
     rWrt.Strm().WriteChar( '>' );
     if( !aEndTags.isEmpty() )
-        rWrt.Strm().WriteCharPtr( aEndTags.getStr() );
+        rWrt.Strm().WriteOString( aEndTags );
 
     return rWrt;
 }
@@ -1699,7 +1700,7 @@ static Writer& OutHTML_FrameFormatAsDivOrSpan( Writer& rWrt,
     OStringBuffer sOut;
     sOut.append('<').append(rHTMLWrt.GetNamespace() + aTag);
 
-    rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
     HtmlFrmOpts nFrameFlags = HTML_FRMOPTS_DIV;
     if( rHTMLWrt.IsHTMLMode( HTMLMODE_BORDER_NONE ) )
        nFrameFlags |= HtmlFrmOpts::SNoBorder;
@@ -1726,7 +1727,7 @@ static Writer& OutHTML_FrameFormatAsDivOrSpan( Writer& rWrt,
                                 pSttNd->EndOfSectionIndex(),
                                    true, &rFrameFormat );
         rHTMLWrt.m_bOutFlyFrame = true;
-        rHTMLWrt.Out_SwDoc( rWrt.m_pCurrentPam );
+        rHTMLWrt.Out_SwDoc( rWrt.m_pCurrentPam.get() );
     }
 
     rHTMLWrt.DecIndentLevel();  // indent the content of Multicol;
@@ -1735,7 +1736,7 @@ static Writer& OutHTML_FrameFormatAsDivOrSpan( Writer& rWrt,
     HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + aTag, false );
 
     if( !aEndTags.isEmpty() )
-        rWrt.Strm().WriteCharPtr( aEndTags.getStr() );
+        rWrt.Strm().WriteOString( aEndTags );
 
     return rWrt;
 }
@@ -2000,7 +2001,7 @@ Writer& OutHTML_HeaderFooter( Writer& rWrt, const SwFrameFormat& rFrameFormat,
         else
             rHTMLWrt.m_bOutFooter = true;
 
-        rHTMLWrt.Out_SwDoc( rWrt.m_pCurrentPam );
+        rHTMLWrt.Out_SwDoc( rWrt.m_pCurrentPam.get() );
     }
 
     if( bHeader && !aSpacer.isEmpty() )

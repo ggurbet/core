@@ -29,15 +29,13 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <comphelper/stl_types.hxx>
 #include "TypeInfo.hxx"
-#include <vcl/button.hxx>
-#include <svtools/wizdlg.hxx>
+#include <vcl/roadmapwizard.hxx>
 #include "DExport.hxx"
 #include "WTabPage.hxx"
 #include "FieldDescriptions.hxx"
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
 #include <com/sun/star/sdbcx/XKeysSupplier.hpp>
 #include <com/sun/star/task/XInteractionHandler.hpp>
-#include <vcl/lstbox.hxx>
 #include <map>
 #include <algorithm>
 
@@ -212,7 +210,7 @@ namespace dbaui
     };
 
     // Wizard Dialog
-    class OCopyTableWizard : public WizardDialog
+    class OCopyTableWizard : public vcl::RoadmapWizardMachine
     {
         friend class        OWizColumnSelect;
         friend class        OWizTypeSelect;
@@ -237,12 +235,6 @@ namespace dbaui
         ODatabaseExport::TColumnVector  m_aDestVec;     // the order to insert the columns
         ODatabaseExport::TColumns       m_vSourceColumns;
         ODatabaseExport::TColumnVector  m_vSourceVec;
-
-        VclPtr<HelpButton>             m_pbHelp;
-        VclPtr<CancelButton>           m_pbCancel;
-        VclPtr<PushButton>             m_pbPrev;
-        VclPtr<PushButton>             m_pbNext;
-        VclPtr<PushButton>             m_pbFinish;
 
         OTypeInfoMap                            m_aTypeInfo;
         std::vector<OTypeInfoMap::iterator>   m_aTypeInfoIndex;
@@ -278,10 +270,9 @@ namespace dbaui
         bool                     m_bUseHeaderLine;
 
     private:
-        DECL_LINK( ImplPrevHdl, Button*, void );
-        DECL_LINK( ImplNextHdl, Button*, void);
-        DECL_LINK( ImplOKHdl, Button*, void );
-        DECL_LINK( ImplActivateHdl, WizardDialog*, void );
+        DECL_LINK( ImplPrevHdl, weld::Button&, void );
+        DECL_LINK( ImplNextHdl, weld::Button&, void);
+        DECL_LINK( ImplOKHdl, weld::Button&, void );
         bool CheckColumns(sal_Int32& _rnBreakPos);
         void loadData( const ICopyTableSourceObject& _rSourceObject,
                        ODatabaseExport::TColumns& _rColumns,
@@ -293,10 +284,22 @@ namespace dbaui
         // checks if the type is supported in the destination database
         bool supportsType(sal_Int32 _nDataType,sal_Int32& _rNewDataType);
 
+        virtual std::unique_ptr<BuilderPage> createPage(vcl::WizardTypes::WizardState /*nState*/) override
+        {
+            assert(false);
+            return nullptr;
+        }
+
+        virtual void ActivatePage() override;
+
+        sal_uInt16 GetCurLevel() const { return getCurrentState(); }
+
+        weld::Container* CreatePageContainer();
+
     public:
         // used for copy tables or queries
         OCopyTableWizard(
-            vcl::Window * pParent,
+            weld::Window * pParent,
             const OUString& _rDefaultName,
             sal_Int16 _nOperation,
             const ICopyTableSourceObject&                                                           _rSourceObject,
@@ -308,7 +311,7 @@ namespace dbaui
 
         // used for importing rtf/html sources
         OCopyTableWizard(
-            vcl::Window* pParent,
+            weld::Window* pParent,
             const OUString& _rDefaultName,
             sal_Int16 _nOperation,
             const ODatabaseExport::TColumns& _rDestColumns,
@@ -321,13 +324,12 @@ namespace dbaui
         );
 
         virtual ~OCopyTableWizard() override;
-        virtual void        dispose() override;
 
         virtual bool        DeactivatePage() override;
-        OKButton&           GetOKButton() { return static_cast<OKButton&>(*m_pbFinish); }
+        weld::Button&       GetOKButton() { return *m_xFinish; }
         Wizard_Button_Style GetPressedButton() const { return m_ePressed; }
         void                EnableNextButton(bool bEnable);
-        void                AddWizardPage(OWizardPage* pPage); // delete page from OCopyTableWizard
+        void                AddWizardPage(std::unique_ptr<OWizardPage> xPage); // delete page from OCopyTableWizard
         void                CheckButtons(); // checks which button can be disabled, enabled
 
         // returns a vector where the position of a column and if the column is in the selection

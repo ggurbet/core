@@ -314,7 +314,7 @@ XMLShapeExport* SwXMLExport::CreateShapeExport()
     Reference < XDrawPageSupplier > xDPS( GetModel(), UNO_QUERY );
     if( xDPS.is() )
     {
-        Reference < XShapes > xShapes( xDPS->getDrawPage(), UNO_QUERY );
+        Reference < XShapes > xShapes = xDPS->getDrawPage();
         pShapeExport->seekShapes( xShapes );
     }
 
@@ -489,9 +489,7 @@ const Sequence< sal_Int8 > & SwXMLExport::getUnoTunnelId() throw()
 
 sal_Int64 SAL_CALL SwXMLExport::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXMLExport>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >(this) );
     }

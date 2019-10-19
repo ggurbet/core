@@ -25,7 +25,7 @@
 #include "IItemSetHelper.hxx"
 #include <tools/urlobj.hxx>
 #include <memory>
-#include <svtools/roadmapwizard.hxx>
+#include <vcl/roadmapwizard.hxx>
 #include <connectivity/dbtools.hxx>
 
 namespace com { namespace sun { namespace star {
@@ -39,6 +39,10 @@ namespace com { namespace sun { namespace star {
         class XMultiServiceFactory;
     }
 }}}
+
+using vcl::WizardTypes::WizardState;
+using vcl::WizardTypes::CommitPageReason;
+using vcl::RoadmapWizardTypes::PathId;
 
 namespace dbaui
 {
@@ -54,7 +58,7 @@ class ODbDataSourceAdministrationHelper;
 class OMySQLIntroPageSetup;
 class OFinalDBPageSetup;
 
-class ODbTypeWizDialogSetup final : public svt::RoadmapWizard , public IItemSetHelper, public IDatabaseSettingsDialog
+class ODbTypeWizDialogSetup final : public vcl::RoadmapWizardMachine, public IItemSetHelper, public IDatabaseSettingsDialog
 {
 private:
     std::unique_ptr<ODbDataSourceAdministrationHelper>  m_pImpl;
@@ -78,9 +82,9 @@ private:
     OUString                m_sRM_FinalText;
     INetURLObject           m_aDocURL;
     OUString                m_sWorkPath;
-    VclPtr<OGeneralPageWizard>     m_pGeneralPage;
-    VclPtr<OMySQLIntroPageSetup>   m_pMySQLIntroPage;
-    VclPtr<OFinalDBPageSetup>      m_pFinalPage;
+    OGeneralPageWizard*     m_pGeneralPage;
+    OMySQLIntroPageSetup*   m_pMySQLIntroPage;
+    OFinalDBPageSetup*      m_pFinalPage;
 
     ::dbaccess::ODsnTypeCollection*
                             m_pCollection;  /// the DSN type collection instance
@@ -89,13 +93,12 @@ public:
     /** ctor. The itemset given should have been created by <method>createItemSet</method> and should be destroyed
         after the dialog has been destroyed
     */
-    ODbTypeWizDialogSetup(vcl::Window* pParent
+    ODbTypeWizDialogSetup(weld::Window* pParent
         ,SfxItemSet const * _pItems
         ,const css::uno::Reference< css::uno::XComponentContext >& _rxORB
         ,const css::uno::Any& _aDataSourceName
         );
     virtual ~ODbTypeWizDialogSetup() override;
-    virtual void dispose() override;
 
     virtual const SfxItemSet* getOutputSet() const override;
     virtual SfxItemSet* getWriteOutputSet() override;
@@ -121,10 +124,10 @@ public:
 
 private:
     /// to override to create new pages
-    virtual VclPtr<TabPage> createPage(WizardState _nState) override;
+    virtual std::unique_ptr<BuilderPage> createPage(WizardState _nState) override;
     virtual bool        leaveState(WizardState _nState) override;
     virtual void        enterState(WizardState _nState) override;
-    virtual ::svt::IWizardPageController* getPageController( TabPage* _pCurrentPage ) const override;
+    virtual ::vcl::IWizardPageController* getPageController(BuilderPage* pCurrentPage) const override;
     virtual bool        onFinish() override;
 
     void resetPages(const css::uno::Reference< css::beans::XPropertySet >& _rxDatasource);
@@ -141,7 +144,7 @@ private:
             the first state in this path, following by an arbitrary number of others, as in
             RoadmapWizard::declarePath.
     */
-    void declareAuthDepPath( const OUString& _sURL, PathId _nPathId, const svt::RoadmapWizardTypes::WizardPath& _rPaths);
+    void declareAuthDepPath( const OUString& _sURL, PathId _nPathId, const vcl::RoadmapWizardTypes::WizardPath& _rPaths);
 
     void RegisterDataSourceByLocation(const OUString& sPath);
     bool SaveDatabaseDocument();

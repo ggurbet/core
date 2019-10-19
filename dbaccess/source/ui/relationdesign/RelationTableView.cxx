@@ -47,6 +47,7 @@
 #include "RTableWindow.hxx"
 #include <JAccess.hxx>
 #include <svl/undo.hxx>
+#include <vcl/stdtext.hxx>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 
 using namespace dbaui;
@@ -219,8 +220,8 @@ void ORelationTableView::AddConnection(const OJoinExchangeData& jxdSource, const
 
 void ORelationTableView::ConnDoubleClicked(VclPtr<OTableConnection>& rConnection)
 {
-    ScopedVclPtrInstance< ORelationDialog > aRelDlg( this, rConnection->GetData() );
-    switch (aRelDlg->Execute())
+    ORelationDialog aRelDlg(this, rConnection->GetData());
+    switch (aRelDlg.run())
     {
         case RET_OK:
             // successfully updated
@@ -247,9 +248,9 @@ void ORelationTableView::AddNewRelation()
 {
 
     TTableConnectionData::value_type pNewConnData( new ORelationTableConnectionData() );
-    ScopedVclPtrInstance< ORelationDialog > aRelDlg(this, pNewConnData, true);
+    ORelationDialog aRelDlg(this, pNewConnData, true);
 
-    bool bSuccess = (aRelDlg->Execute() == RET_OK);
+    bool bSuccess = (aRelDlg.run() == RET_OK);
     if (bSuccess)
     {
         // already updated by the dialog
@@ -346,7 +347,7 @@ void ORelationTableView::lookForUiActivities()
         aDlg.add_button(DBA_RES(STR_QUERY_REL_EDIT), RET_OK);
         aDlg.set_default_response(RET_OK);
         aDlg.add_button(DBA_RES(STR_QUERY_REL_CREATE), RET_YES);
-        aDlg.add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+        aDlg.add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
         sal_uInt16 nRet = aDlg.run();
         if (nRet == RET_CANCEL)
         {
@@ -361,8 +362,8 @@ void ORelationTableView::lookForUiActivities()
     }
     if(m_pCurrentlyTabConnData)
     {
-        ScopedVclPtrInstance< ORelationDialog > aRelDlg( this, m_pCurrentlyTabConnData );
-        if (aRelDlg->Execute() == RET_OK)
+        ORelationDialog aRelDlg(this, m_pCurrentlyTabConnData);
+        if (aRelDlg.run() == RET_OK)
         {
             // already updated by the dialog
             addConnection( VclPtr<ORelationTableConnection>::Create( this, m_pCurrentlyTabConnData ) );

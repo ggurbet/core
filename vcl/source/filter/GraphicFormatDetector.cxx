@@ -90,6 +90,10 @@ sal_uInt8* ImplSearchEntry(sal_uInt8* pSource, sal_uInt8 const* pDest, sal_uLong
 GraphicFormatDetector::GraphicFormatDetector(SvStream& rStream, OUString const& rFormatExtension)
     : mrStream(rStream)
     , maExtension(rFormatExtension)
+    , mnFirstLong(0)
+    , mnSecondLong(0)
+    , mnStreamPosition(0)
+    , mnStreamLength(0)
 {
 }
 
@@ -458,7 +462,7 @@ bool GraphicFormatDetector::checkSVG()
     {
         ZCodec aCodec;
         mrStream.Seek(mnStreamPosition);
-        aCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, false, true);
+        aCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, /*gzLib*/ true);
         nDecompressedSize = aCodec.Read(mrStream, sExtendedOrDecompressedFirstBytes, 2048);
         nCheckSize = std::min<sal_uInt64>(nDecompressedSize, 256);
         aCodec.EndCompression();

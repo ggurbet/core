@@ -31,6 +31,7 @@
 #include <com/sun/star/datatransfer/clipboard/SystemClipboard.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
 #include <com/sun/star/datatransfer/clipboard/XFlushableClipboard.hpp>
+#include <comphelper/lok.hxx>
 #include <editeng/flditem.hxx>
 #include <svl/intitem.hxx>
 #include <vcl/inputctx.hxx>
@@ -39,7 +40,6 @@
 #include <sot/exchange.hxx>
 #include <sot/formats.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
-#include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <sfx2/lokhelper.hxx>
@@ -411,7 +411,10 @@ void ImpEditView::DrawSelectionXOR( EditSelection aTmpSel, vcl::Region* pRegion,
 
             OString sRectangle;
             // If we are not in selection mode, then the exported own selection should be empty.
-            if (pEditEngine->pImpEditEngine->IsInSelectionMode() || mpOtherShell)
+            // This is needed always in Online, regardless whether in "selection mode" (whatever
+            // that is) or not, for tdf#125568, but I don't have the clout to make this completely
+            // unconditional also for desktop LO.
+            if (comphelper::LibreOfficeKit::isActive() || pEditEngine->pImpEditEngine->IsInSelectionMode() || mpOtherShell)
             {
                 std::vector<tools::Rectangle> aRectangles;
                 pRegion->GetRegionRectangles(aRectangles);
@@ -1275,11 +1278,18 @@ Pair ImpEditView::Scroll( long ndX, long ndY, ScrollRangeCheck nRangeCheck )
     return Pair( nRealDiffX, nRealDiffY );
 }
 
-Reference<css::datatransfer::clipboard::XClipboard> ImpEditView::GetClipboard()
+Reference<css::datatransfer::clipboard::XClipboard> ImpEditView::GetClipboard() const
 {
     if (vcl::Window* pWindow = GetWindow())
         return pWindow->GetClipboard();
-    return css::datatransfer::clipboard::SystemClipboard::create(comphelper::getProcessComponentContext());
+    return GetSystemClipboard();
+}
+
+Reference<css::datatransfer::clipboard::XClipboard> ImpEditView::GetSelection() const
+{
+    if (vcl::Window* pWindow = GetWindow())
+        return pWindow->GetPrimarySelection();
+    return GetSystemPrimarySelection();
 }
 
 bool ImpEditView::PostKeyEvent( const KeyEvent& rKeyEvent, vcl::Window const * pFrameWin )
@@ -1343,12 +1353,12 @@ bool ImpEditView::MouseButtonUp( const MouseEvent& rMouseEvent )
         if ( rMouseEvent.IsMiddle() && !bReadOnly &&
              ( pWindow->GetSettings().GetMouseSettings().GetMiddleButtonAction() == MouseMiddleButtonAction::PasteSelection ) )
         {
-            Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(GetClipboard());
+            Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(GetSelection());
             Paste( aClipBoard );
         }
         else if ( rMouseEvent.IsLeft() && GetEditSelection().HasRange() )
         {
-            Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(GetClipboard());
+            Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(GetSelection());
             CutCopy( aClipBoard, false );
         }
     }
@@ -1431,7 +1441,7 @@ OUString ImpEditView::SpellIgnoreWord()
 
         if ( !aWord.isEmpty() )
         {
-            Reference< XDictionary >  xDic( LinguMgr::GetIgnoreAllList(), UNO_QUERY );
+            Reference< XDictionary >  xDic = LinguMgr::GetIgnoreAllList();
             if (xDic.is())
                 xDic->add( aWord, false, OUString() );
             EditDoc& rDoc = pEditEngine->GetEditDoc();
@@ -1484,7 +1494,7 @@ const SvxFieldItem* ImpEditView::GetField( const Point& rPos, sal_Int32* pPara, 
     const sal_Int32 nXPos = aPaM.GetIndex();
     for (size_t nAttr = rAttrs.size(); nAttr; )
     {
-        const EditCharAttrib& rAttr = *rAttrs[--nAttr].get();
+        const EditCharAttrib& rAttr = *rAttrs[--nAttr];
         if (rAttr.GetStart() == nXPos)
         {
             if (rAttr.Which() == EE_FEATURE_FIELD)
@@ -1610,7 +1620,7 @@ void ImpEditView::Paste( css::uno::Reference< css::datatransfer::clipboard::XCli
                 OUString aTmpText;
                 aData >>= aTmpText;
                 OUString aText(convertLineEnd(aTmpText, LINEEND_LF));
-                aText = aText.replaceAll( OUStringLiteral1(LINE_SEP), " " );
+                aText = aText.replaceAll( OUStringChar(LINE_SEP), " " );
                 aSel = pEditEngine->InsertText(aSel, aText);
             }
             catch( ... )
@@ -1726,7 +1736,7 @@ bool ImpEditView::SetCursorAtPoint( const Point& rPointPixel )
 
     // Can be optimized: first go through the lines within a paragraph for PAM,
     // then again with the PaM for the Rect, even though the line is already
-    // known .... This must not be, though!
+    // known... This must not be, though!
     EditPaM aPaM = pEditEngine->GetPaM(aDocPos);
     bool bGotoCursor = DoAutoScroll();
 
@@ -2318,8 +2328,7 @@ void ImpEditView::RemoveDragAndDropListeners()
 
         if ( mxDnDListener.is() )
         {
-            uno::Reference< lang::XEventListener> xEL( mxDnDListener, uno::UNO_QUERY );
-            xEL->disposing( lang::EventObject() );  // #95154# Empty Source means it's the Client
+            mxDnDListener->disposing( lang::EventObject() );  // #95154# Empty Source means it's the Client
             mxDnDListener.clear();
         }
 

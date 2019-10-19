@@ -186,13 +186,13 @@ void SwTextShell::ExecDB(SfxRequest const &rReq)
                 OUString sColumnName;
                 if(pColumnNameItem)
                     static_cast<const SfxUnoAnyItem*>(pColumnNameItem)->GetValue() >>= sColumnName;
-                OUString sDBName = sSourceArg + OUStringLiteral1(DB_DELIM)
-                    + sCommandArg + OUStringLiteral1(DB_DELIM)
+                OUString sDBName = sSourceArg + OUStringChar(DB_DELIM)
+                    + sCommandArg + OUStringChar(DB_DELIM)
                     + OUString::number(nCommandTypeArg)
-                    + OUStringLiteral1(DB_DELIM) + sColumnName;
+                    + OUStringChar(DB_DELIM) + sColumnName;
 
                 SwFieldMgr aFieldMgr(GetShellPtr());
-                SwInsertField_Data aData(TYP_DBFLD, 0, sDBName, OUString(), 0);
+                SwInsertField_Data aData(SwFieldTypesEnum::Database, 0, sDBName, OUString(), 0);
                 if(pConnectionItem)
                     aData.m_aDBConnection = static_cast<const SfxUnoAnyItem*>(pConnectionItem)->GetValue();
                 if(pColumnItem)
@@ -204,7 +204,7 @@ void SwTextShell::ExecDB(SfxRequest const &rReq)
                 if ( xRecorder.is() )
                 {
                     SfxRequest aReq( pViewFrame, FN_INSERT_DBFIELD );
-                    aReq.AppendItem( SfxUInt16Item(FN_PARAM_FIELD_TYPE, TYP_DBFLD));
+                    aReq.AppendItem( SfxUInt16Item(FN_PARAM_FIELD_TYPE, static_cast<sal_uInt16>(SwFieldTypesEnum::Database)));
                     aReq.AppendItem( SfxStringItem( FN_INSERT_DBFIELD, sDBName ));
                     aReq.AppendItem( SfxStringItem( FN_PARAM_1, sCommandArg ));
                     aReq.AppendItem( SfxStringItem( FN_PARAM_2, sColumnName ));
@@ -228,7 +228,7 @@ IMPL_LINK( SwBaseShell, InsertDBTextHdl, void*, p, void )
         bool bDispose = false;
         Reference< sdbc::XConnection> xConnection = pDBStruct->xConnection;
         Reference<XDataSource> xSource = SwDBManager::getDataSourceAsParent(xConnection,pDBStruct->aDBData.sDataSource);
-        // #111987# the connection is disposed an so no parent has been found
+        // #111987# the connection is disposed and so no parent has been found
         if(xConnection.is() && !xSource.is())
             return;
 

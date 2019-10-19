@@ -165,8 +165,8 @@ public:
     */
     virtual AppendResult AppendRedline(/*[in]*/SwRangeRedline* pNewRedl, /*[in]*/bool bCallDelete) = 0;
 
-    virtual bool AppendTableRowRedline(/*[in]*/SwTableRowRedline* pPtr, /*[in]*/bool bCallDelete) = 0;
-    virtual bool AppendTableCellRedline(/*[in]*/SwTableCellRedline* pPtr, /*[in]*/bool bCallDelete) = 0;
+    virtual bool AppendTableRowRedline(/*[in]*/SwTableRowRedline* pPtr) = 0;
+    virtual bool AppendTableCellRedline(/*[in]*/SwTableCellRedline* pPtr) = 0;
 
     virtual bool SplitRedline(/*[in]*/const SwPaM& rPam) = 0;
 
@@ -228,10 +228,6 @@ public:
 
     virtual void SetRedlinePassword(
         /*[in]*/const css::uno::Sequence <sal_Int8>& rNewPassword) = 0;
-
-    virtual bool IsFinalizeImport() const = 0;
-
-    virtual void SetFinalizeImport(bool const bFinalizeImport) = 0;
 
 protected:
      virtual ~IDocumentRedlineAccess() {};

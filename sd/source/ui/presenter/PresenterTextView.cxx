@@ -18,13 +18,10 @@
  */
 
 #include "PresenterTextView.hxx"
-#include <facreg.hxx>
 
 #include <i18nlangtag/mslangid.hxx>
 #include <cppcanvas/vclfactory.hxx>
 #include <svl/itempool.hxx>
-#include <svl/itemset.hxx>
-#include <unotools/linguprops.hxx>
 #include <unotools/lingucfg.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/editeng.hxx>
@@ -32,14 +29,12 @@
 #include <editeng/eeitem.hxx>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/fontitem.hxx>
-#include <svx/xflclit.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/awt/Size.hpp>
-#include <com/sun/star/rendering/XSpriteCanvas.hpp>
-#include <com/sun/star/rendering/XBitmapCanvas.hpp>
+#include <com/sun/star/rendering/XCanvas.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/util/Color.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
@@ -247,7 +242,7 @@ PresenterTextView::Implementation::Implementation()
     aTable[1].nLang = MsLangId::resolveSystemLanguageByScriptType(aOpt.nDefaultLanguage_CJK, css::i18n::ScriptType::ASIAN);
     aTable[2].nLang = MsLangId::resolveSystemLanguageByScriptType(aOpt.nDefaultLanguage_CTL, css::i18n::ScriptType::COMPLEX);
 
-    for (FontDta & rFntDta : aTable)
+    for (const FontDta & rFntDta : aTable)
     {
         LanguageType nLang = (LANGUAGE_NONE == rFntDta.nLang) ?
             rFntDta.nFallbackLang : rFntDta.nLang;

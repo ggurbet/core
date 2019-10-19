@@ -1131,7 +1131,7 @@ void SdrMeasureObj::RestGeoData(const SdrObjGeoData& rGeo)
     SetTextDirty();
 }
 
-SdrObject* SdrMeasureObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
+SdrObjectUniquePtr SdrMeasureObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 {
     // get XOR Poly as base
     XPolyPolygon aTmpPolyPolygon(TakeXorPoly());
@@ -1141,7 +1141,7 @@ SdrObject* SdrMeasureObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
     SfxStyleSheet* pStyleSheet = GetStyleSheet();
 
     // prepare group
-    SdrObjGroup* pGroup = new SdrObjGroup(getSdrModelFromSdrObject());
+    std::unique_ptr<SdrObjGroup,SdrObjectFreeOp> pGroup(new SdrObjGroup(getSdrModelFromSdrObject()));
 
     // prepare parameters
     basegfx::B2DPolyPolygon aPolyPoly;
@@ -1259,7 +1259,7 @@ SdrObject* SdrMeasureObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 
     if(bAddText)
     {
-        return ImpConvertAddText(pGroup, bBezier);
+        return ImpConvertAddText(std::move(pGroup), bBezier);
     }
     else
     {

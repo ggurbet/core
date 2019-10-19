@@ -41,7 +41,7 @@ public:
     ThemeTable();
     virtual ~ThemeTable() override;
 
-    const OUString getFontNameForTheme(const Id id) const;
+    OUString getFontNameForTheme(const Id id) const;
     static OUString getStringForTheme(const Id id);
     void setThemeFontLangProperties(const css::uno::Sequence<css::beans::PropertyValue>& aPropSeq);
 
@@ -51,7 +51,7 @@ public:
     virtual void lcl_sprm(Sprm & sprm) override;
 
     // Table
-    virtual void lcl_entry(int pos, writerfilter::Reference<Properties>::Pointer_t ref) override;
+    virtual void lcl_entry(writerfilter::Reference<Properties>::Pointer_t ref) override;
 
     // Helper methods
     static OUString fromLocaleToScriptTag(const OUString& sLocale);

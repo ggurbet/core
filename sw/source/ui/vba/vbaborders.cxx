@@ -80,7 +80,7 @@ private:
                 break;
             case word::WdBorderType::wdBorderDiagonalDown:
             case word::WdBorderType::wdBorderDiagonalUp:
-                // #TODO have to ignore at the momement, would be
+                // #TODO have to ignore at the moment, would be
                 // nice to investigate what we can do here
                 break;
             default:
@@ -122,7 +122,7 @@ private:
 
             case word::WdBorderType::wdBorderDiagonalDown:
             case word::WdBorderType::wdBorderDiagonalUp:
-                // #TODO have to ignore at the momement, would be
+                // #TODO have to ignore at the moment, would be
                 // nice to investigate what we can do here
                 break;
             default:
@@ -134,7 +134,7 @@ private:
 protected:
     virtual OUString getServiceImplName() override
     {
-        return OUString("SwVbaBorder");
+        return "SwVbaBorder";
     }
 
     virtual css::uno::Sequence<OUString> getServiceNames() override
@@ -343,7 +343,7 @@ void SAL_CALL SwVbaBorders::setShadow( sal_Bool /*_shadow*/ )
 OUString
 SwVbaBorders::getServiceImplName()
 {
-    return OUString("SwVbaBorders");
+    return "SwVbaBorders";
 }
 
 uno::Sequence< OUString >

@@ -17,7 +17,7 @@ $(eval $(call gb_Library_set_include,dbu,\
 	-I$(WORKDIR)/YaccTarget/connectivity/source/parse \
 ))
 
-$(eval $(call gb_Library_set_precompiled_header,dbu,$(SRCDIR)/dbaccess/inc/pch/precompiled_dbu))
+$(eval $(call gb_Library_set_precompiled_header,dbu,dbaccess/inc/pch/precompiled_dbu))
 
 $(eval $(call gb_Library_use_custom_headers,dbu,\
 	officecfg/registry \
@@ -172,7 +172,6 @@ $(eval $(call gb_Library_add_exception_objects,dbu,\
     dbaccess/source/ui/misc/stringlistitem \
     dbaccess/source/ui/misc/TableCopyHelper \
     dbaccess/source/ui/misc/TokenWriter \
-    dbaccess/source/ui/misc/ToolBoxHelper \
     dbaccess/source/ui/misc/uiservices \
     dbaccess/source/ui/misc/UITools \
     dbaccess/source/ui/misc/WColumnSelect \

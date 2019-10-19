@@ -212,7 +212,7 @@ endef
 define gb_UnpackedTarball_UnpackedTarball
 $(call gb_UnpackedTarball_UnpackedTarball_internal,$(1))
 
-$$(eval $$(call gb_Module_register_target,$(call gb_UnpackedTarball_get_final_target,$(1)),$(call gb_UnpackedTarball_get_clean_target,$(1))))
+$$(eval $$(call gb_Module_register_target,UnpackedTarball_$(1),$(call gb_UnpackedTarball_get_final_target,$(1)),$(call gb_UnpackedTarball_get_clean_target,$(1))))
 $(call gb_Helper_make_userfriendly_targets,$(1),UnpackedTarball,$(call gb_UnpackedTarball_get_final_target,$(1)))
 
 endef
@@ -230,7 +230,7 @@ $(call gb_UnpackedTarball_get_target,$(1)) : UNPACKED_FIX_EOL += $(addprefix $(c
 endef
 
 
-# Internal version of set_tarbal, mostly to avoid repeated invocation of $(shel
+# Internal version of set_tarball, mostly to avoid repeated invocation of $(shell
 define gb_UnpackedTarball_set_tarball_internal
 $(call gb_UnpackedTarget_UnpackedTarget,$(2),$(call gb_UnpackedTarball_get_dir,$(1)),$(3),$(4))
 $(call gb_UnpackedTarball_get_target,$(1)) : $(call gb_UnpackedTarget_get_target,$(2))
@@ -347,7 +347,7 @@ endef
 # around or delete files (typically because the file causes build
 # problems in the original location, c.f. clucene). This is doable by
 # using -E with patch (we use GNU patch anyway), but it would mean an
-# additional patch to maintain....
+# additional patch to maintain...
 #
 # gb_UnpackedTarball_set_post_action unpacked shell-command
 define gb_UnpackedTarball_set_post_action

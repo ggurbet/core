@@ -354,7 +354,7 @@ CSS1Token CSS1Parser::GetNextToken()
                     m_cNextCh = GetNextChar();
                 }
 
-                // check now, of there is an unit
+                // check now, of there is a unit
                 switch( m_cNextCh )
                 {
                 case '%': // PERCENTAGE
@@ -391,7 +391,7 @@ CSS1Token CSS1Parser::GetNextToken()
 
                         aIdent += sTmpBuffer2;
 
-                        // Is it an unit?
+                        // Is it a unit?
                         const sal_Char *pCmp1 = nullptr, *pCmp2 = nullptr, *pCmp3 = nullptr;
                         double nScale1 = 1., nScale2 = 1.;
                         CSS1Token nToken1 = CSS1_LENGTH,
@@ -817,7 +817,7 @@ void CSS1Parser::ParseRule()
 // id_selector
 //  : '#' IDENT
 
-// pseude_element
+// pseudo_element
 //  : IDENT
 
 std::unique_ptr<CSS1Selector> CSS1Parser::ParseSelector()
@@ -952,7 +952,8 @@ std::unique_ptr<CSS1Selector> CSS1Parser::ParseSelector()
         m_nToken = GetNextToken();
         if( CSS1_IDENT==m_nToken )
         {
-            pLast->SetNext( new CSS1Selector(CSS1_SELTYPE_PSEUDO,m_aToken) );
+            if (pLast)
+                pLast->SetNext( new CSS1Selector(CSS1_SELTYPE_PSEUDO,m_aToken) );
             m_nToken = GetNextToken();
         }
         else

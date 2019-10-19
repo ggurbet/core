@@ -355,7 +355,7 @@ void SwAnchoredDrawObject::MakeObjPos()
     }
 }
 
-/** method for the intrinsic positioning of a at-paragraph|at-character
+/** method for the intrinsic positioning of an at-paragraph|at-character
     anchored drawing object
 
     #i32795# - helper method for method <MakeObjPos>
@@ -449,7 +449,7 @@ void SwAnchoredDrawObject::MakeObjPosAnchoredAtPara()
     }
 }
 
-/** method for the intrinsic positioning of a at-page|at-frame anchored
+/** method for the intrinsic positioning of an at-page|at-frame anchored
     drawing object
 
     #i32795# - helper method for method <MakeObjPos>
@@ -605,7 +605,7 @@ const SwFrameFormat& SwAnchoredDrawObject::GetFrameFormat() const
     return *(static_cast<SwDrawContact*>(GetUserCall(GetDrawObj()))->GetFormat());
 }
 
-const SwRect SwAnchoredDrawObject::GetObjRect() const
+SwRect SwAnchoredDrawObject::GetObjRect() const
 {
     // use geometry of drawing object
     //return GetDrawObj()->GetCurrentBoundRect();
@@ -613,7 +613,7 @@ const SwRect SwAnchoredDrawObject::GetObjRect() const
 }
 
 // --> #i70122#
-const SwRect SwAnchoredDrawObject::GetObjBoundRect() const
+SwRect SwAnchoredDrawObject::GetObjBoundRect() const
 {
     bool bGroupShape = dynamic_cast<const SdrObjGroup*>( GetDrawObj() );
     // Resize objects with relative width or height

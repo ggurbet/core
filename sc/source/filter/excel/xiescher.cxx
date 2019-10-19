@@ -49,6 +49,7 @@
 #include <vcl/window.hxx>
 #include <vcl/wmf.hxx>
 #include <comphelper/classids.hxx>
+#include <comphelper/documentinfo.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
@@ -174,7 +175,8 @@ XclImpDrawObjBase::XclImpDrawObjBase( const XclImpRoot& rRoot ) :
     mbSimpleMacro( true ),
     mbProcessSdr( true ),
     mbInsertSdr( true ),
-    mbCustomDff( false )
+    mbCustomDff( false ),
+    mbNotifyMacroEventRead( false )
 {
 }
 
@@ -510,7 +512,18 @@ SdrObjectUniquePtr XclImpDrawObjBase::CreateSdrObject( XclImpDffConverter& rDffC
     return xSdrObj;
 }
 
-void XclImpDrawObjBase::PreProcessSdrObject( XclImpDffConverter& rDffConv, SdrObject& rSdrObj ) const
+void XclImpDrawObjBase::NotifyMacroEventRead()
+{
+    if (mbNotifyMacroEventRead)
+        return;
+    SfxObjectShell* pDocShell = GetDocShell();
+    if (!pDocShell)
+        return;
+    comphelper::DocumentInfo::notifyMacroEventRead(pDocShell->GetModel());
+    mbNotifyMacroEventRead = true;
+}
+
+void XclImpDrawObjBase::PreProcessSdrObject( XclImpDffConverter& rDffConv, SdrObject& rSdrObj )
 {
     // default: front layer, derived classes may have to set other layer in DoPreProcessSdrObj()
     rSdrObj.NbcSetLayer( SC_LAYER_FRONT );
@@ -537,7 +550,10 @@ void XclImpDrawObjBase::PreProcessSdrObject( XclImpDffConverter& rDffConv, SdrOb
     {
         if( ScMacroInfo* pInfo = ScDrawLayer::GetMacroInfo( &rSdrObj, true ) )
         {
-            pInfo->SetMacro( XclTools::GetSbMacroUrl( maMacroName, GetDocShell() ) );
+            OUString sMacro = XclTools::GetSbMacroUrl(maMacroName, GetDocShell());
+            if (!sMacro.isEmpty())
+                NotifyMacroEventRead();
+            pInfo->SetMacro(sMacro);
             pInfo->SetHlink( maHyperlink );
         }
     }
@@ -1231,7 +1247,7 @@ SdrObjectUniquePtr XclImpOvalObj::DoCreateSdrObj( XclImpDffConverter& rDffConv, 
     SdrObjectUniquePtr xSdrObj(
         new SdrCircObj(
             *GetDoc().GetDrawLayer(),
-            OBJ_CIRC,
+            SdrCircKind::Full,
             rAnchorRect));
     ConvertRectStyle( *xSdrObj );
     rDffConv.Progress();
@@ -1303,7 +1319,7 @@ SdrObjectUniquePtr XclImpArcObj::DoCreateSdrObj( XclImpDffConverter& rDffConv, c
             aNewRect.AdjustTop( -(rAnchorRect.GetHeight()) );
         break;
     }
-    SdrObjKind eObjKind = maFillData.IsFilled() ? OBJ_SECT : OBJ_CARC;
+    SdrCircKind eObjKind = maFillData.IsFilled() ? SdrCircKind::Section : SdrCircKind::Arc;
     SdrObjectUniquePtr xSdrObj(
         new SdrCircObj(
             *GetDoc().GetDrawLayer(),
@@ -2164,7 +2180,7 @@ void XclImpButtonObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 
 OUString XclImpButtonObj::DoGetServiceName() const
 {
-    return OUString( "com.sun.star.form.component.CommandButton" );
+    return "com.sun.star.form.component.CommandButton";
 }
 
 XclTbxEventType XclImpButtonObj::DoGetEventType() const
@@ -2256,7 +2272,7 @@ void XclImpCheckBoxObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 
 OUString XclImpCheckBoxObj::DoGetServiceName() const
 {
-    return OUString( "com.sun.star.form.component.CheckBox" );
+    return "com.sun.star.form.component.CheckBox";
 }
 
 XclTbxEventType XclImpCheckBoxObj::DoGetEventType() const
@@ -2332,7 +2348,7 @@ void XclImpOptionButtonObj::DoProcessControl( ScfPropertySet& rPropSet ) const
                 if ( pLeader->HasCellLink() && !pTbxObj->HasCellLink() )
                 {
                     // propagate cell link info
-                    pTbxObj->mxCellLink.reset( new ScAddress( *pLeader->mxCellLink.get() ) );
+                    pTbxObj->mxCellLink.reset( new ScAddress( *pLeader->mxCellLink ) );
                     pTbxObj->ApplySheetLinkProps();
                 }
                 pTbxObj = dynamic_cast< XclImpOptionButtonObj* >( GetObjectManager().GetSheetDrawing( GetTab() ).FindDrawObj( pTbxObj->mnNextInGroup ).get() );
@@ -2349,7 +2365,7 @@ void XclImpOptionButtonObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 
 OUString XclImpOptionButtonObj::DoGetServiceName() const
 {
-    return OUString( "com.sun.star.form.component.RadioButton" );
+    return "com.sun.star.form.component.RadioButton";
 }
 
 XclTbxEventType XclImpOptionButtonObj::DoGetEventType() const
@@ -2378,7 +2394,7 @@ void XclImpLabelObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 
 OUString XclImpLabelObj::DoGetServiceName() const
 {
-    return OUString( "com.sun.star.form.component.FixedText" );
+    return "com.sun.star.form.component.FixedText";
 }
 
 XclTbxEventType XclImpLabelObj::DoGetEventType() const
@@ -2429,7 +2445,7 @@ void XclImpGroupBoxObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 
 OUString XclImpGroupBoxObj::DoGetServiceName() const
 {
-    return OUString( "com.sun.star.form.component.GroupBox" );
+    return "com.sun.star.form.component.GroupBox";
 }
 
 XclTbxEventType XclImpGroupBoxObj::DoGetEventType() const
@@ -2451,7 +2467,7 @@ void XclImpDialogObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 OUString XclImpDialogObj::DoGetServiceName() const
 {
     // dialog frame faked by a groupbox
-    return OUString( "com.sun.star.form.component.GroupBox" );
+    return "com.sun.star.form.component.GroupBox";
 }
 
 XclTbxEventType XclImpDialogObj::DoGetEventType() const
@@ -2607,7 +2623,7 @@ void XclImpSpinButtonObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 
 OUString XclImpSpinButtonObj::DoGetServiceName() const
 {
-    return OUString( "com.sun.star.form.component.SpinButton" );
+    return "com.sun.star.form.component.SpinButton";
 }
 
 XclTbxEventType XclImpSpinButtonObj::DoGetEventType() const
@@ -2647,7 +2663,7 @@ void XclImpScrollBarObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 
 OUString XclImpScrollBarObj::DoGetServiceName() const
 {
-    return OUString( "com.sun.star.form.component.ScrollBar" );
+    return "com.sun.star.form.component.ScrollBar";
 }
 
 XclTbxEventType XclImpScrollBarObj::DoGetEventType() const
@@ -2769,7 +2785,7 @@ void XclImpListBoxObj::DoProcessControl( ScfPropertySet& rPropSet ) const
 
 OUString XclImpListBoxObj::DoGetServiceName() const
 {
-    return OUString( "com.sun.star.form.component.ListBox" );
+    return "com.sun.star.form.component.ListBox";
 }
 
 XclTbxEventType XclImpListBoxObj::DoGetEventType() const
@@ -2902,7 +2918,7 @@ OUString XclImpPictureObj::GetOleStorageName() const
         aStrgName = mbEmbedded ? OUString(EXC_STORAGE_OLE_EMBEDDED) : OUString(EXC_STORAGE_OLE_LINKED);
         static const sal_Char spcHexChars[] = "0123456789ABCDEF";
         for( sal_uInt8 nIndex = 32; nIndex > 0; nIndex -= 4 )
-            aStrgName.append(OUStringLiteral1( spcHexChars[ ::extract_value< sal_uInt8 >( mnStorageId, nIndex - 4, 4 ) ] ));
+            aStrgName.append(OUStringChar( spcHexChars[ ::extract_value< sal_uInt8 >( mnStorageId, nIndex - 4, 4 ) ] ));
     }
     return aStrgName.makeStringAndClear();
 }
@@ -3138,8 +3154,7 @@ void XclImpPictureObj::ReadPictFmla( XclImpStream& rStrm, sal_uInt16 nLinkSize )
                 // a class name may follow inside the picture link
                 if( rStrm.GetRecPos() + 2 <= nLinkEnd )
                 {
-                    sal_uInt16 nLen;
-                    nLen = rStrm.ReaduInt16();
+                    sal_uInt16 nLen = rStrm.ReaduInt16();
                     if( nLen > 0 )
                         maClassName = (GetBiff() == EXC_BIFF8) ? rStrm.ReadUniString( nLen ) : rStrm.ReadRawByteString( nLen );
                 }
@@ -3286,7 +3301,8 @@ static const OUStringLiteral gaStdFormName( "Standard" ); /// Standard name of c
 XclImpDffConverter::XclImpDffConverter( const XclImpRoot& rRoot, SvStream& rDffStrm ) :
     XclImpSimpleDffConverter( rRoot, rDffStrm ),
     oox::ole::MSConvertOCXControls( rRoot.GetDocShell()->GetModel() ),
-    mnOleImpFlags( 0 )
+    mnOleImpFlags( 0 ),
+    mbNotifyMacroEventRead(false)
 {
     const SvtFilterOptions& rFilterOpt = SvtFilterOptions::Get();
     if( rFilterOpt.IsMathType2Math() )
@@ -3343,7 +3359,7 @@ void XclImpDffConverter::InitializeDrawing( XclImpDrawing& rDrawing, SdrModel& r
     SetModel( &xConvData->mrSdrModel, 1440 );
 }
 
-void XclImpDffConverter::ProcessObject( SdrObjList& rObjList, const XclImpDrawObjBase& rDrawObj )
+void XclImpDffConverter::ProcessObject( SdrObjList& rObjList, XclImpDrawObjBase& rDrawObj )
 {
     if( rDrawObj.IsProcessSdrObj() )
     {
@@ -3392,6 +3408,14 @@ void XclImpDffConverter::FinalizeDrawing()
         SetModel( &maDataStack.back()->mrSdrModel, 1440 );
 }
 
+void XclImpDffConverter::NotifyMacroEventRead()
+{
+    if (mbNotifyMacroEventRead)
+        return;
+    comphelper::DocumentInfo::notifyMacroEventRead(mxModel);
+    mbNotifyMacroEventRead = true;
+}
+
 SdrObjectUniquePtr XclImpDffConverter::CreateSdrObject( const XclImpTbxObjBase& rTbxObj, const tools::Rectangle& rAnchorRect )
 {
     SdrObjectUniquePtr xSdrObj;
@@ -3414,6 +3438,7 @@ SdrObjectUniquePtr XclImpDffConverter::CreateSdrObject( const XclImpTbxObjBase& 
             ScriptEventDescriptor aDescriptor;
             if( (rConvData.mnLastCtrlIndex >= 0) && rTbxObj.FillMacroDescriptor( aDescriptor ) )
             {
+                NotifyMacroEventRead();
                 Reference< XEventAttacherManager > xEventMgr( rConvData.mxCtrlForm, UNO_QUERY_THROW );
                 xEventMgr->registerScriptEvent( rConvData.mnLastCtrlIndex, aDescriptor );
             }

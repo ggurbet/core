@@ -18,8 +18,9 @@
  */
 
 #include <string>
-#include <vcl/toolbox.hxx>
 #include <vcl/button.hxx>
+#include <vcl/toolbox.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
@@ -222,7 +223,8 @@ void TableWindow::KeyInput( const KeyEvent& rKEvt )
                 break;
             case KEY_RETURN:
                 EndPopupMode( FloatWinPopupEndFlags::CloseAll );
-                break;
+                GrabFocusToDocument();
+                return;
             case KEY_TAB:
                 CloseAndShowTableDialog();
                 break;
@@ -237,6 +239,8 @@ void TableWindow::KeyInput( const KeyEvent& rKEvt )
     else if(KEY_MOD1 == nModifier && KEY_RETURN == nKey)
     {
         EndPopupMode( FloatWinPopupEndFlags::CloseAll );
+        GrabFocusToDocument();
+        return;
     }
 
     if(!bHandled)
@@ -248,6 +252,7 @@ void TableWindow::MouseButtonUp( const MouseEvent& rMEvt )
 {
     SfxPopupWindow::MouseButtonUp( rMEvt );
     EndPopupMode( FloatWinPopupEndFlags::CloseAll );
+    GrabFocusToDocument();
 }
 
 
@@ -288,14 +293,10 @@ void TableWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Rectang
     if (!nCol || !nLine)
         return;
 
-    OUString aText;
-    aText += OUString::number( nCol );
-    aText += " x ";
-    aText += OUString::number( nLine );
+    OUString aText = OUString::number( nCol ) + " x " + OUString::number( nLine );
     if(GetId() == FN_SHOW_MULTIPLE_PAGES)
     {
-        aText += " ";
-        aText += SvxResId(RID_SVXSTR_PAGES);
+        aText += " " + SvxResId(RID_SVXSTR_PAGES);
     }
 
     Size aTextSize(rRenderContext.GetTextWidth(aText), rRenderContext.GetTextHeight());
@@ -319,7 +320,7 @@ void TableWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Rectang
 
     // #i95350# force RTL output
     if (IsRTLEnabled())
-        aText = OUStringLiteral1(0x202D) + aText;
+        aText = u"\u202D" + aText;
 
     rRenderContext.DrawText(Point(nTextX, nTextY), aText);
 }
@@ -656,7 +657,7 @@ void ColumnsWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Recta
     if (nCol)
         aText = OUString::number(nCol);
     else
-        aText = Button::GetStandardText(StandardButtonType::Cancel).replaceAll("~", "");
+        aText = GetStandardText(StandardButtonType::Cancel).replaceAll("~", "");
 
     Size aTextSize(rRenderContext.GetTextWidth(aText), rRenderContext.GetTextHeight());
     rRenderContext.DrawText(Point((aSize.Width() - aTextSize.Width()) / 2, aSize.Height() - nTextHeight + 2), aText);

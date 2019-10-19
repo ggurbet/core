@@ -11,22 +11,11 @@
 #include <cppunit/extensions/HelperMacros.h>
 #include <cppunit/plugin/TestPlugIn.h>
 
-#include <vcl/GraphicObject.hxx>
-
 #include <test/bootstrapfixture.hxx>
 
-#include <tools/stream.hxx>
-
-#include <vcl/image.hxx>
-
 #include <com/sun/star/frame/Desktop.hpp>
-#include <officecfg/Office/Common.hxx>
 #include <unotest/macros_test.hxx>
 #include <comphelper/processfactory.hxx>
-#include <unotxdoc.hxx>
-#include <docsh.hxx>
-#include <doc.hxx>
-#include <ndgrf.hxx>
 
 using namespace css;
 

@@ -25,6 +25,8 @@
 
 #include <com/sun/star/ui/dialogs/WizardTravelType.hpp>
 
+using vcl::RoadmapWizardTypes::WizardPath;
+
 namespace svt { namespace uno
 {
 
@@ -48,10 +50,9 @@ namespace svt { namespace uno
         }
     }
 
-
     //= WizardShell
-    WizardShell::WizardShell( vcl::Window* i_pParent, const Reference< XWizardController >& i_rController,
-            const Sequence< Sequence< sal_Int16 > >& i_rPaths )
+    WizardShell::WizardShell(weld::Window* i_pParent, const Reference< XWizardController >& i_rController,
+            const Sequence< Sequence< sal_Int16 > >& i_rPaths)
         :WizardShell_Base( i_pParent )
         ,m_xController( i_rController )
         ,m_nFirstPageID( lcl_determineFirstPageID( i_rPaths ) )
@@ -63,39 +64,36 @@ namespace svt { namespace uno
         {
             const Sequence< sal_Int16 >& rPath( i_rPaths[i] );
             WizardPath aPath( rPath.getLength() );
-            for ( sal_Int32 j=0; j<rPath.getLength(); ++j )
-                aPath[j] = impl_pageIdToState( rPath[j] );
+            std::transform(rPath.begin(), rPath.end(), aPath.begin(),
+                [this](const sal_Int16 nPageId) -> WizardPath::value_type { return impl_pageIdToState(nPageId); });
             declarePath( i, aPath );
         }
 
         // create the first page, to know the page size
-        TabPage* pStartPage = GetOrCreatePage( impl_pageIdToState( i_rPaths[0][0] ) );
-        SetPageSizePixel( pStartPage->GetSizePixel() );
+        GetOrCreatePage( impl_pageIdToState( i_rPaths[0][0] ) );
+        m_xAssistant->set_current_page(0);
 
         // some defaults
-        SetRoadmapInteractive( true );
         enableAutomaticNextButtonState();
     }
 
-
-    short WizardShell::Execute()
+    short WizardShell::run()
     {
         ActivatePage();
-        return WizardShell_Base::Execute();
+        return WizardShell_Base::run();
     }
-
 
     sal_Int16 WizardShell::convertCommitReasonToTravelType( const CommitPageReason i_eReason )
     {
         switch ( i_eReason )
         {
-        case WizardTypes::eTravelForward:
+        case vcl::WizardTypes::eTravelForward:
             return WizardTravelType::FORWARD;
 
-        case WizardTypes::eTravelBackward:
+        case vcl::WizardTypes::eTravelBackward:
             return WizardTravelType::BACKWARD;
 
-        case WizardTypes::eFinish:
+        case vcl::WizardTypes::eFinish:
             return WizardTravelType::FINISH;
 
         default:
@@ -145,7 +143,7 @@ namespace svt { namespace uno
     }
 
 
-    PWizardPageController WizardShell::impl_getController( TabPage* i_pPage ) const
+    PWizardPageController WizardShell::impl_getController(BuilderPage* i_pPage) const
     {
         Page2ControllerMap::const_iterator pos = m_aPageControllers.find( i_pPage );
         ENSURE_OR_RETURN( pos != m_aPageControllers.end(), "WizardShell::impl_getController: no controller for this page!", PWizardPageController() );
@@ -163,36 +161,47 @@ namespace svt { namespace uno
         return pController->getWizardPage();
     }
 
-
     void WizardShell::enablePage( const sal_Int16 i_nPageID, const bool i_bEnable )
     {
         enableState( impl_pageIdToState( i_nPageID ), i_bEnable );
     }
 
+    namespace
+    {
+        class EmptyPage : public BuilderPage
+        {
+        public:
+            EmptyPage(weld::Widget* pParent, weld::DialogController* pController)
+                : BuilderPage(pParent, pController, "svt/ui/emptypage.ui", "EmptyPage")
+            {
+                m_xContainer->set_size_request(m_xContainer->get_approximate_digit_width() * 70,
+                                               m_xContainer->get_text_height() * 45);
+            }
+            weld::Container* GetContainer() const { return m_xContainer.get(); }
+        };
+    }
 
-    VclPtr<TabPage> WizardShell::createPage( WizardState i_nState )
+    std::unique_ptr<BuilderPage> WizardShell::createPage( WizardState i_nState )
     {
         ENSURE_OR_RETURN( m_xController.is(), "WizardShell::createPage: no WizardController!", nullptr );
 
-        std::shared_ptr< WizardPageController > pController( new WizardPageController( *this, m_xController, impl_stateToPageId( i_nState ) ) );
-        VclPtr<TabPage> pPage = pController->getTabPage();
-        OSL_ENSURE( pPage, "WizardShell::createPage: illegal tab page!" );
-        if ( !pPage )
-        {
-            // fallback for ill-behaved clients: empty page
-            pPage = VclPtr<TabPage>::Create( this, 0 );
-            pPage->SetSizePixel(LogicToPixel(Size(280, 185), MapMode(MapUnit::MapAppFont)));
-        }
+        sal_Int16 nPageId = impl_stateToPageId(i_nState);
 
-        m_aPageControllers[ pPage ] = pController;
-        return pPage;
+        OString sIdent(OString::number(nPageId));
+        weld::Container* pPageContainer = m_xAssistant->append_page(sIdent);
+
+        auto xPage = std::make_unique<EmptyPage>(pPageContainer, this);
+        std::shared_ptr< WizardPageController > pController(new WizardPageController(xPage->GetContainer(), m_xController, nPageId));
+
+        m_aPageControllers[xPage.get()] = pController;
+
+        return xPage;
     }
 
-    IWizardPageController* WizardShell::getPageController( TabPage* i_pCurrentPage ) const
+    vcl::IWizardPageController* WizardShell::getPageController(BuilderPage* i_pCurrentPage) const
     {
         return impl_getController( i_pCurrentPage ).get();
     }
-
 
     OUString WizardShell::getStateDisplayName( WizardState i_nState ) const
     {

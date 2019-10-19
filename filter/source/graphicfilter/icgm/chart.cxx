@@ -33,7 +33,7 @@ CGMChart::CGMChart()
 CGMChart::~CGMChart()
 {
     // delete the whole textentry structure
-    for (auto & pTextEntry : maTextEntryList)
+    for (const auto & pTextEntry : maTextEntryList)
     {
         if ( pTextEntry )
             delete pTextEntry->pText;
@@ -50,7 +50,7 @@ void CGMChart::ResetAnnotation()
     mDataNode[ 0 ].nZoneEnum = 0;
 }
 
-bool CGMChart::IsAnnotation()
+bool CGMChart::IsAnnotation() const
 {
     return ( mDataNode[ 0 ].nZoneEnum == 0 );
 }

@@ -289,7 +289,7 @@ uno::Reference<XAccessibleRelationSet> SAL_CALL
 
 OUString SAL_CALL ScAccessibleCell::getImplementationName()
 {
-    return OUString("ScAccessibleCell");
+    return "ScAccessibleCell";
 }
 
 uno::Sequence< OUString> SAL_CALL
@@ -328,7 +328,7 @@ bool ScAccessibleCell::IsEditable(
     return bEditable;
 }
 
-bool ScAccessibleCell::IsOpaque()
+bool ScAccessibleCell::IsOpaque() const
 {
     // test whether there is a background color
     bool bOpaque(true);
@@ -453,7 +453,7 @@ void ScAccessibleCell::AddRelation(const ScRange& rRange,
                 ++nPos;
             }
         }
-        OSL_ENSURE(nCount == nPos, "something wents wrong");
+        OSL_ENSURE(nCount == nPos, "something went wrong");
         AccessibleRelation aRelation;
         aRelation.RelationType = aRelationType;
         aRelation.TargetSet = aTargetSet;
@@ -493,8 +493,8 @@ uno::Any SAL_CALL ScAccessibleCell::getExtendedAttributes()
         OUString strFor = mpViewShell->GetFormula(maCellAddress) ;
         strFor = strFor.replaceAt(0,1,"");
         strFor = ReplaceFourChar(strFor);
-        strFor = "Formula:" + strFor;
-        strFor += ";Note:";
+        strFor = "Formula:" + strFor +
+            ";Note:";
         strFor += ReplaceFourChar(GetAllDisplayNote());
         strFor += ";";
         strFor += getShadowAttrs();//the string returned contains the spliter ";"
@@ -520,19 +520,14 @@ uno::Sequence< beans::PropertyValue > SAL_CALL ScAccessibleCell::getCharacterAtt
     SolarMutexGuard aGuard;
 
     uno::Sequence< beans::PropertyValue > aAttribs = AccessibleStaticTextBase::getCharacterAttributes( nIndex, aRequestedAttributes );
-    beans::PropertyValue *pAttribs = aAttribs.getArray();
 
     sal_uInt16 nParaIndent = mpDoc->GetAttr( maCellAddress, ATTR_INDENT )->GetValue();
     if (nParaIndent > 0)
     {
-        for (int i = 0; i < aAttribs.getLength(); ++i)
-        {
-            if ("ParaLeftMargin" == pAttribs[i].Name)
-            {
-                pAttribs[i].Value <<= nParaIndent;
-                break;
-            }
-        }
+        auto pAttrib = std::find_if(aAttribs.begin(), aAttribs.end(),
+            [](const beans::PropertyValue& rAttrib) { return "ParaLeftMargin" == rAttrib.Name; });
+        if (pAttrib != aAttribs.end())
+            pAttrib->Value <<= nParaIndent;
     }
     return aAttribs;
 }
@@ -547,7 +542,7 @@ bool ScAccessibleCell::IsFormulaMode()
     return false;
 }
 
-bool ScAccessibleCell::IsDropdown()
+bool ScAccessibleCell::IsDropdown() const
 {
     sal_uInt16 nPosX = maCellAddress.Col();
     sal_uInt16 nPosY = sal_uInt16(maCellAddress.Row());

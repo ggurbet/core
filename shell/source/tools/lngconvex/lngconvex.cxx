@@ -108,7 +108,7 @@ OUString get_absolute_path(
     osl::FileBase::getFileURLFromSystemPath(RelDir, rel_url);
 
     OUString abs_url;
-    osl::FileBase::getAbsoluteFileURL(base_url, rel_url, abs_url);
+    (void)osl::FileBase::getAbsoluteFileURL(base_url, rel_url, abs_url);
 
     OUString abs_sys_path;
     osl::FileBase::getSystemPathFromFileURL(abs_url, abs_sys_path);
@@ -169,7 +169,7 @@ private:
     OString maBcp47;
 };
 
-/** Convert a OUString to the MS resource
+/** Convert an OUString to the MS resource
     file format string e.g.
     OUString -> L"\x1A00\x2200\x3400" */
 std::string make_winrc_unicode_string(const OUString& str)
@@ -462,6 +462,7 @@ void inflate_rc_template_to_file(
                 // a particular language that others
                 // don't have in order to keep the
                 // build
+                // coverity[tainted_data] - trusted data source
                 if (is_placeholder(token))
                     token = make_winrc_unicode_string(token);
 

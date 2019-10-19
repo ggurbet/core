@@ -20,14 +20,12 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/xml/sax/XParser.hpp>
 #include <com/sun/star/xml/sax/FastParser.hpp>
-#include <com/sun/star/xml/sax/FastToken.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/beans/Pair.hpp>
 #include <comphelper/attributelist.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/processfactory.hxx>
 #include <rtl/ref.hxx>
-#include <sax/fastparser.hxx>
 #include <memory>
 #include <vector>
 
@@ -130,8 +128,8 @@ private:
     Reference< XDocumentHandler > m_xDocumentHandler;
     Reference< XFastTokenHandler > m_xTokenHandler;
     rtl::Reference< NamespaceHandler > m_aNamespaceHandler;
-    const OUString getNamespacePrefixFromToken( sal_Int32 nToken );
-    const OUString getNameFromToken( sal_Int32 nToken );
+    OUString getNamespacePrefixFromToken( sal_Int32 nToken );
+    OUString getNameFromToken( sal_Int32 nToken );
 
     static const OUString aDefaultNamespace;
     static const OUString aNamespaceSeparator;
@@ -161,7 +159,7 @@ public:
 const OUString CallbackDocumentHandler::aDefaultNamespace = OUString("");
 const OUString CallbackDocumentHandler::aNamespaceSeparator = OUString(":");
 
-const OUString CallbackDocumentHandler::getNamespacePrefixFromToken( sal_Int32 nToken )
+OUString CallbackDocumentHandler::getNamespacePrefixFromToken( sal_Int32 nToken )
 {
     if ( ( nToken & 0xffff0000 ) != 0 )
     {
@@ -173,7 +171,7 @@ const OUString CallbackDocumentHandler::getNamespacePrefixFromToken( sal_Int32 n
         return OUString();
 }
 
-const OUString CallbackDocumentHandler::getNameFromToken( sal_Int32 nToken )
+OUString CallbackDocumentHandler::getNameFromToken( sal_Int32 nToken )
 {
     Sequence< sal_Int8 > aSeq = m_xTokenHandler->getUTF8Identifier( nToken & 0xffff );
     return OUString( reinterpret_cast< const char* >(
@@ -227,12 +225,11 @@ void SAL_CALL CallbackDocumentHandler::startUnknownElement( const OUString& /*Na
         rtl::Reference < comphelper::AttributeList > rAttrList = new comphelper::AttributeList;
         m_aNamespaceHandler->addNSDeclAttributes( rAttrList );
 
-        Sequence< xml::FastAttribute > fastAttribs = Attribs->getFastAttributes();
-        sal_uInt16 len = fastAttribs.getLength();
-        for (sal_uInt16 i = 0; i < len; i++)
+        const Sequence< xml::FastAttribute > fastAttribs = Attribs->getFastAttributes();
+        for (const auto& rAttr : fastAttribs)
         {
-            const OUString& rAttrValue = fastAttribs[i].Value;
-            sal_Int32 nToken = fastAttribs[i].Token;
+            const OUString& rAttrValue = rAttr.Value;
+            sal_Int32 nToken = rAttr.Token;
             const OUString& rAttrNamespacePrefix = CallbackDocumentHandler::getNamespacePrefixFromToken( nToken );
             OUString sAttrName = CallbackDocumentHandler::getNameFromToken( nToken );
             if ( !rAttrNamespacePrefix.isEmpty() )
@@ -241,12 +238,11 @@ void SAL_CALL CallbackDocumentHandler::startUnknownElement( const OUString& /*Na
             rAttrList->AddAttribute( sAttrName, "CDATA", rAttrValue );
         }
 
-        Sequence< xml::Attribute > unknownAttribs = Attribs->getUnknownAttributes();
-        len = unknownAttribs.getLength();
-        for (sal_uInt16 i = 0; i < len; i++)
+        const Sequence< xml::Attribute > unknownAttribs = Attribs->getUnknownAttributes();
+        for (const auto& rAttr : unknownAttribs)
         {
-            const OUString& rAttrValue = unknownAttribs[i].Value;
-            const OUString& rAttrName = unknownAttribs[i].Name;
+            const OUString& rAttrValue = rAttr.Value;
+            const OUString& rAttrName = rAttr.Name;
 
             rAttrList->AddAttribute( rAttrName, "CDATA", rAttrValue );
         }
@@ -357,7 +353,7 @@ void SaxLegacyFastParser::setLocale( const Locale &locale )
 
 OUString SaxLegacyFastParser::getImplementationName()
 {
-    return OUString("com.sun.star.comp.extensions.xml.sax.LegacyFastParser");
+    return "com.sun.star.comp.extensions.xml.sax.LegacyFastParser";
 }
 
 sal_Bool SaxLegacyFastParser::supportsService(const OUString& ServiceName)

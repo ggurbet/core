@@ -136,11 +136,7 @@ ObjectType OViewContainer::appendObject( const OUString& _rForName, const Refere
         OUString sCommand;
         descriptor->getPropertyValue(PROPERTY_COMMAND) >>= sCommand;
 
-        OUStringBuffer aSQL;
-        aSQL.append( "CREATE VIEW " );
-        aSQL.append     ( sComposedName );
-        aSQL.append( " AS " );
-        aSQL.append     ( sCommand );
+        OUString aSQL = "CREATE VIEW " + sComposedName + " AS " + sCommand;
 
         Reference<XConnection> xCon = m_xConnection;
         OSL_ENSURE(xCon.is(),"Connection is null!");
@@ -148,7 +144,7 @@ ObjectType OViewContainer::appendObject( const OUString& _rForName, const Refere
         {
             ::utl::SharedUNOComponent< XStatement > xStmt( xCon->createStatement() );
             if ( xStmt.is() )
-                xStmt->execute( aSQL.makeStringAndClear() );
+                xStmt->execute( aSQL );
         }
     }
 
@@ -180,8 +176,7 @@ void OViewContainer::dropObject(sal_Int32 _nPos, const OUString& _sElementName)
             if(sComposedName.isEmpty())
                 ::dbtools::throwFunctionSequenceException(static_cast<XTypeProvider*>(static_cast<OFilteredContainer*>(this)));
 
-            OUString aSql("DROP VIEW ");
-            aSql += sComposedName;
+            OUString aSql = "DROP VIEW " + sComposedName;
             Reference<XConnection> xCon = m_xConnection;
             OSL_ENSURE(xCon.is(),"Connection is null!");
             if ( xCon.is() )
@@ -243,7 +238,7 @@ void SAL_CALL OViewContainer::elementReplaced( const ContainerEvent& /*Event*/ )
 OUString OViewContainer::getTableTypeRestriction() const
 {
     // no restriction at all (other than the ones provided externally)
-    return OUString( "VIEW"  );
+    return "VIEW";
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

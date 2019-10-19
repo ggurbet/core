@@ -19,7 +19,6 @@
 
 #include <svtools/statusbarcontroller.hxx>
 #include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/frame/XDispatchProvider.hpp>
 #include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
@@ -30,11 +29,8 @@
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 #include <vcl/status.hxx>
-#include <svtools/imgdef.hxx>
-#include <svtools/miscopt.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/processfactory.hxx>
-#include <cppuhelper/interfacecontainer.hxx>
 
 using namespace ::cppu;
 using namespace css::awt;
@@ -141,9 +137,9 @@ void SAL_CALL StatusbarController::initialize( const Sequence< Any >& aArguments
     m_bInitialized = true;
 
     PropertyValue aPropValue;
-    for ( int i = 0; i < aArguments.getLength(); i++ )
+    for ( const auto& rArgument : aArguments )
     {
-        if ( aArguments[i] >>= aPropValue )
+        if ( rArgument >>= aPropValue )
         {
             if ( aPropValue.Name == "Frame" )
                 aPropValue.Value >>= m_xFrame;
@@ -184,7 +180,7 @@ void SAL_CALL StatusbarController::update()
 // XComponent
 void SAL_CALL StatusbarController::dispose()
 {
-    Reference< XComponent > xThis( static_cast< OWeakObject* >(this), UNO_QUERY );
+    Reference< XComponent > xThis = this;
 
     {
         SolarMutexGuard aSolarMutexGuard;
@@ -196,7 +192,7 @@ void SAL_CALL StatusbarController::dispose()
     m_aListenerContainer.disposeAndClear( aEvent );
 
     SolarMutexGuard aSolarMutexGuard;
-    Reference< XStatusListener > xStatusListener( static_cast< OWeakObject* >( this ), UNO_QUERY );
+    Reference< XStatusListener > xStatusListener = this;
     Reference< XURLTransformer > xURLTransformer = getURLTransformer();
     css::util::URL aTargetURL;
     for (auto const& listener : m_aListenerMap)
@@ -369,7 +365,7 @@ void StatusbarController::addStatusListener( const OUString& aCommandURL )
                 xURLTransformer->parseStrict( aTargetURL );
                 xDispatch = xDispatchProvider->queryDispatch( aTargetURL, OUString(), 0 );
 
-                xStatusListener.set( static_cast< OWeakObject* >( this ), UNO_QUERY );
+                xStatusListener = this;
                 URLToDispatchMap::iterator aIter = m_aListenerMap.find( aCommandURL );
                 if ( aIter != m_aListenerMap.end() )
                 {
@@ -417,7 +413,7 @@ void StatusbarController::bindListener()
         Reference< XDispatchProvider > xDispatchProvider( m_xFrame, UNO_QUERY );
         if ( m_xContext.is() && xDispatchProvider.is() )
         {
-            xStatusListener.set( static_cast< OWeakObject* >( this ), UNO_QUERY );
+            xStatusListener = this;
             for (auto & listener : m_aListenerMap)
             {
                 Reference< XURLTransformer > xURLTransformer = getURLTransformer();

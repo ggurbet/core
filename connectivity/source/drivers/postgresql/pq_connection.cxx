@@ -50,7 +50,6 @@
 #include "pq_xviews.hxx"
 #include "pq_xusers.hxx"
 
-#include <rtl/ustrbuf.hxx>
 #include <rtl/strbuf.hxx>
 #include <rtl/uuid.h>
 #include <rtl/bootstrap.hxx>
@@ -119,7 +118,7 @@ public:
 
 static OUString    ConnectionGetImplementationName()
 {
-    return OUString( "org.openoffice.comp.connectivity.pq.Connection.noext" );
+    return "org.openoffice.comp.connectivity.pq.Connection.noext";
 }
 static css::uno::Sequence<OUString> ConnectionGetSupportedServiceNames()
 {
@@ -132,11 +131,11 @@ static LogLevel readLogLevelFromConfiguration()
     OUString fileName;
     osl_getModuleURLFromFunctionAddress(
         reinterpret_cast<oslGenericFunction>(readLogLevelFromConfiguration), &fileName.pData );
-    fileName = fileName.copy( fileName.lastIndexOf( '/' )+1 );
+    fileName = fileName.copy( fileName.lastIndexOf( '/' )+1 ) +
 #ifdef MACOSX
-    fileName += "../Resources/";
+        "../Resources/"
 #endif
-    fileName += "postgresql-sdbc.ini";
+        "postgresql-sdbc.ini";
     rtl::Bootstrap bootstrapHandle( fileName );
 
     OUString str;
@@ -232,13 +231,13 @@ void Connection::close()
 
     // close all created statements
     for (auto const& elem : vectorCloseable)
-        elem.get()->close();
+        elem->close();
 
     // close all created statements
     for (auto const& elem : vectorDispose)
     {
         if( elem.is() )
-            elem.get()->dispose();
+            elem->dispose();
     }
 }
 
@@ -576,11 +575,7 @@ void Connection::initialize( const Sequence< Any >& aArguments )
 
     if (isLog(&m_settings, LogLevel::Info))
     {
-        OUStringBuffer buf( 128 );
-        buf.append( "connection to '" );
-        buf.append( url );
-        buf.append( "' successfully opened" );
-        log(&m_settings, LogLevel::Info, buf.makeStringAndClear());
+        log(&m_settings, LogLevel::Info, "connection to '" + url + "' successfully opened");
     }
 }
 

@@ -139,7 +139,7 @@ class SwAutoFormat
 
     void SetColl( sal_uInt16 nId, bool bHdLineOrText = false );
     void GoNextPara();
-    bool HasObjects(const SwTextFrame &);
+    static bool HasObjects(const SwTextFrame &);
 
     // TextNode methods
     const SwTextFrame * GetNextNode(bool isCheckEnd = true) const;
@@ -349,20 +349,18 @@ bool SwAutoFormat::HasObjects(const SwTextFrame & rFrame)
 {
     // Is there something bound to the paragraph in the paragraph
     // like Frames, DrawObjects, ...
-    bool bRet = false;
-    const SwFrameFormats& rFormats = *m_pDoc->GetSpzFrameFormats();
-    for( auto pFrameFormat : rFormats )
+    SwNodeIndex node(*rFrame.GetTextNodeFirst());
+    do
     {
-        const SwFormatAnchor& rAnchor = pFrameFormat->GetAnchor();
-        if ((RndStdIds::FLY_AT_PAGE != rAnchor.GetAnchorId()) &&
-            rAnchor.GetContentAnchor() &&
-            sw::FrameContainsNode(rFrame, rAnchor.GetContentAnchor()->nNode.GetIndex()))
+        if (node.GetNode().GetAnchoredFlys() != nullptr)
         {
-            bRet = true;
-            break;
+            assert(!node.GetNode().GetAnchoredFlys()->empty());
+            return true;
         }
+        ++node;
     }
-    return bRet;
+    while (sw::FrameContainsNode(rFrame, node.GetIndex()));
+    return false;
 }
 
 const SwTextFrame* SwAutoFormat::GetNextNode(bool const isCheckEnd) const
@@ -412,7 +410,7 @@ bool SwAutoFormat::IsEnumericChar(const SwTextFrame& rFrame) const
             return true;
     }
 
-    // 1.) / 1. / 1.1.1 / (1). / (1) / ....
+    // 1.) / 1. / 1.1.1 / (1). / (1) / ...
     return USHRT_MAX != GetDigitLevel(rFrame, nBlanks);
 }
 
@@ -481,7 +479,7 @@ sal_uInt16 SwAutoFormat::CalcLevel(const SwTextFrame & rFrame,
                     break;
         default:
             if( pDigitLvl )
-                // test 1.) / 1. / 1.1.1 / (1). / (1) / ....
+                // test 1.) / 1. / 1.1.1 / (1). / (1) / ...
                 *pDigitLvl = GetDigitLevel(rFrame, n);
             return nLvl;
         }
@@ -761,7 +759,7 @@ SwAutoFormat::GetDigitLevel(const SwTextFrame& rFrame, TextFrameIndex& rPos,
         OUString* pPrefix, OUString* pPostfix, OUString* pNumTypes ) const
 {
 
-    // check for 1.) / 1. / 1.1.1 / (1). / (1) / ....
+    // check for 1.) / 1. / 1.1.1 / (1). / (1) / ...
     const OUString& rText = rFrame.GetText();
     sal_Int32 nPos(rPos);
     int eScan = NONE;
@@ -790,12 +788,12 @@ SwAutoFormat::GetDigitLevel(const SwTextFrame& rFrame, TextFrameIndex& rPos,
                 }
 
                 if( pNumTypes )
-                    *pNumTypes += OUStringLiteral1('0' + SVX_NUM_ARABIC);
+                    *pNumTypes += OUStringChar('0' + SVX_NUM_ARABIC);
 
                 eScan = eScan | CHG;
             }
             else if( pNumTypes && !(eScan & DIGIT) )
-                *pNumTypes += OUStringLiteral1('0' + SVX_NUM_ARABIC);
+                *pNumTypes += OUStringChar('0' + SVX_NUM_ARABIC);
 
             eScan &= ~DELIM;        // remove Delim
             if( 0 != (eScan & ~CHG) && DIGIT != (eScan & ~CHG))
@@ -877,11 +875,11 @@ SwAutoFormat::GetDigitLevel(const SwTextFrame& rFrame, TextFrameIndex& rPos,
                 }
 
                 if( pNumTypes )
-                    *pNumTypes += OUStringLiteral1(cNumTyp);
+                    *pNumTypes += OUStringChar(cNumTyp);
                 eScan = eScan | CHG;
             }
             else if( pNumTypes && !(eScan & eTmpScan) )
-                *pNumTypes += OUStringLiteral1(cNumTyp);
+                *pNumTypes += OUStringChar(cNumTyp);
 
             eScan &= ~DELIM;        // remove Delim
 
@@ -975,9 +973,9 @@ CHECK_ROMAN_5:
                 nClosingParentheses++;
             // only if no numbers were read until here
             if( pPrefix && !( eScan & ( NO_DELIM | CHG )) )
-                *pPrefix += OUStringLiteral1(rText[nPos]);
+                *pPrefix += OUStringChar(rText[nPos]);
             else if( pPostfix )
-                *pPostfix += OUStringLiteral1(rText[nPos]);
+                *pPostfix += OUStringChar(rText[nPos]);
 
             if( NO_DELIM & eScan )
             {
@@ -1736,7 +1734,7 @@ void SwAutoFormat::BuildEnum( sal_uInt16 nLvl, sal_uInt16 nDigitLevel )
         {
             OUString sChgStr('\t');
             if( bChgBullet )
-                sChgStr = OUStringLiteral1( m_aFlags.cBullet ) + sChgStr;
+                sChgStr = OUStringChar( m_aFlags.cBullet ) + sChgStr;
             m_pDoc->getIDocumentContentOperations().InsertString( m_aDelPam, sChgStr );
 
             SfxItemSet aSet( m_pDoc->GetAttrPool(), aTextNodeSetRange );

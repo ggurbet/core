@@ -20,7 +20,8 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_CUSTOMNOTEBOOKBARGENERATOR_HXX
 #define INCLUDED_CUI_SOURCE_INC_CUSTOMNOTEBOOKBARGENERATOR_HXX
 
-#include "cfg.hxx"
+#include <com/sun/star/uno/Sequence.hxx>
+#include <rtl/ustring.hxx>
 
 using namespace css::uno;
 
@@ -33,7 +34,7 @@ public:
     static char* convertToCharPointer(const OUString& sString);
     static Sequence<OUString> getCustomizedUIItem(OUString sNotebookbarConfigType);
     static void getFileNameAndAppName(OUString& sAppName, OUString& sNotebookbarUIFileName);
-    static void modifyCustomizedUIFile(Sequence<OUString> sUIItemProperties);
+    static void modifyCustomizedUIFile(const Sequence<OUString>& sUIItemProperties);
     static void createCustomizedUIFile();
     static void setCustomizedUIItem(Sequence<OUString> sUIItemProperties,
                                     OUString sNotebookbarConfigType);

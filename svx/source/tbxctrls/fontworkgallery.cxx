@@ -146,7 +146,7 @@ void FontWorkGalleryDialog::fillFavorites(sal_uInt16 nThemeId)
     aThumbSize.AdjustWidth( -12 );
     aThumbSize.AdjustHeight( -12 );
 
-    std::vector< Bitmap * >::size_type nFavCount = maFavoritesHorizontal.size();
+    auto nFavCount = maFavoritesHorizontal.size();
 
     // ValueSet favorites
     if( nFavCount > (nColCount * nLineCount) )
@@ -158,11 +158,9 @@ void FontWorkGalleryDialog::fillFavorites(sal_uInt16 nThemeId)
 
     maCtlFavorites.Clear();
 
-    for( std::vector<Bitmap *>::size_type nFavorite = 1; nFavorite <= nFavCount; nFavorite++ )
+    for( size_t nFavorite = 1; nFavorite <= nFavCount; nFavorite++ )
     {
-        OUString aStr(SvxResId(RID_SVXFLOAT3D_FAVORITE));
-        aStr += " ";
-        aStr += OUString::number(nFavorite);
+        OUString aStr = SvxResId(RID_SVXFLOAT3D_FAVORITE) + " " + OUString::number(nFavorite);
         Image aThumbImage( maFavoritesHorizontal[nFavorite-1] );
         maCtlFavorites.InsertItem( static_cast<sal_uInt16>(nFavorite), aThumbImage, aStr );
     }
@@ -395,7 +393,7 @@ void SAL_CALL FontworkAlignmentControl::initialize( const css::uno::Sequence< cs
 
 OUString FontworkAlignmentControl::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.svx.FontworkAlignmentController" );
+    return "com.sun.star.comp.svx.FontworkAlignmentController";
 }
 
 
@@ -608,7 +606,7 @@ void SAL_CALL FontworkCharacterSpacingControl::initialize( const css::uno::Seque
 
 OUString FontworkCharacterSpacingControl::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.svx.FontworkCharacterSpacingController" );
+    return "com.sun.star.comp.svx.FontworkCharacterSpacingController";
 }
 
 

@@ -233,7 +233,7 @@ void SAL_CALL OfficeDocumentsManager::documentEventOccured(
             // Document has been closed (unloaded)
 
             // Official event "OnUnload" does not work here. Event
-            // gets fired to early. Other OnUnload listeners called after this
+            // gets fired too early. Other OnUnload listeners called after this
             // listener may still need TDOC access to the document. Remove the
             // document from TDOC docs list on XCloseListener::notifyClosing.
             // See OfficeDocumentsManager::OfficeDocumentsListener::notifyClosing.
@@ -444,7 +444,7 @@ void OfficeDocumentsManager::buildDocumentsList()
 
                         uno::Reference< embed::XStorage > xStorage
                             = xDoc->getDocumentStorage();
-                        OSL_ENSURE( xDoc.is(), "Got no document storage!" );
+                        OSL_ENSURE( xStorage.is(), "Got no document storage!" );
 
                         {
                             osl::MutexGuard aGuard( m_aMtx );

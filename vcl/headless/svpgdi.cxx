@@ -36,11 +36,13 @@
 #include <basegfx/numeric/ftools.hxx>
 #include <basegfx/range/b2drange.hxx>
 #include <basegfx/range/b2ibox.hxx>
+#include <basegfx/range/b2irange.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
+#include <basegfx/utils/canvastools.hxx>
 #include <basegfx/utils/systemdependentdata.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <comphelper/lok.hxx>
@@ -74,7 +76,8 @@ namespace
     {
         double x1, y1, x2, y2;
 
-        cairo_fill_extents(cr, &x1, &y1, &x2, &y2);
+        // this is faster than cairo_fill_extents, at the cost of some overdraw
+        cairo_path_extents(cr, &x1, &y1, &x2, &y2);
 
         // support B2DRange::isEmpty()
         if(0.0 != x1 || 0.0 != y1 || 0.0 != x2 || 0.0 != y2)
@@ -553,16 +556,16 @@ bool SvpSalGraphics::drawAlphaRect(long nX, long nY, long nWidth, long nHeight, 
     // To make releaseCairoContext work, use empty extents
     basegfx::B2DRange extents;
 
-    cairo_rectangle(cr, nX, nY, nWidth, nHeight);
-
     if (bHasFill)
     {
+        cairo_rectangle(cr, nX, nY, nWidth, nHeight);
+
         applyColor(cr, m_aFillColor, fTransparency);
 
         // set FillDamage
         extents = getClippedFillDamage(cr);
 
-        cairo_fill_preserve(cr);
+        cairo_fill(cr);
     }
 
     if (bHasLine)
@@ -573,12 +576,16 @@ bool SvpSalGraphics::drawAlphaRect(long nX, long nY, long nWidth, long nHeight, 
         cairo_matrix_init_translate(&aMatrix, 0.5, 0.5);
         cairo_set_matrix(cr, &aMatrix);
 
+        cairo_rectangle(cr, nX, nY, nWidth, nHeight);
+
         applyColor(cr, m_aLineColor, fTransparency);
 
         // expand with possible StrokeDamage
-        extents.expand(getClippedStrokeDamage(cr));
+        basegfx::B2DRange stroke_extents = getClippedStrokeDamage(cr);
+        stroke_extents.transform(basegfx::utils::createTranslateB2DHomMatrix(0.5, 0.5));
+        extents.expand(stroke_extents);
 
-        cairo_stroke_preserve(cr);
+        cairo_stroke(cr);
     }
 
     releaseCairoContext(cr, false, extents);
@@ -1029,6 +1036,7 @@ void SvpSalGraphics::drawLine( long nX1, long nY1, long nX2, long nY2 )
     applyColor(cr, m_aLineColor);
 
     basegfx::B2DRange extents = getClippedStrokeDamage(cr);
+    extents.transform(basegfx::utils::createTranslateB2DHomMatrix(0.5, 0.5));
 
     cairo_stroke(cr);
 
@@ -1139,9 +1147,6 @@ bool SvpSalGraphics::drawPolyLine(
             fMiterMinimumAngle,
             bPixelSnapHairline));
 
-    // if transformation has been applied, transform also extents (ranges)
-    // of damage so they can be correctly redrawn
-    aExtents.transform(rObjectToDevice);
     releaseCairoContext(cr, false, aExtents);
 
     return bRetval;
@@ -1191,7 +1196,9 @@ bool SvpSalGraphics::drawPolyLine(
     // PixelOffset used: Need to reflect in linear transformation
     cairo_matrix_t aMatrix;
 
-    if(bObjectToDeviceIsIdentity)
+    basegfx::B2DHomMatrix aDamageMatrix(basegfx::utils::createTranslateB2DHomMatrix(0.5, 0.5));
+
+    if (bObjectToDeviceIsIdentity)
     {
         // Set PixelOffset as requested
         cairo_matrix_init_translate(&aMatrix, 0.5, 0.5);
@@ -1200,16 +1207,15 @@ bool SvpSalGraphics::drawPolyLine(
     {
         // Prepare ObjectToDevice transformation. Take PixelOffset for Lines into
         // account: Multiply from left to act in DeviceCoordinates
-        const basegfx::B2DHomMatrix aCombined(
-            basegfx::utils::createTranslateB2DHomMatrix(0.5, 0.5) * rObjectToDevice);
+        aDamageMatrix = aDamageMatrix * rObjectToDevice;
         cairo_matrix_init(
             &aMatrix,
-            aCombined.get( 0, 0 ),
-            aCombined.get( 1, 0 ),
-            aCombined.get( 0, 1 ),
-            aCombined.get( 1, 1 ),
-            aCombined.get( 0, 2 ),
-            aCombined.get( 1, 2 ));
+            aDamageMatrix.get( 0, 0 ),
+            aDamageMatrix.get( 1, 0 ),
+            aDamageMatrix.get( 0, 1 ),
+            aDamageMatrix.get( 1, 1 ),
+            aDamageMatrix.get( 0, 2 ),
+            aDamageMatrix.get( 1, 2 ));
     }
 
     // set linear transformation
@@ -1279,7 +1285,8 @@ bool SvpSalGraphics::drawPolyLine(
         // check data validity
         if(nullptr == pSystemDependentData_CairoPath->getCairoPath()
             || pSystemDependentData_CairoPath->getNoJoin() != bNoJoin
-            || pSystemDependentData_CairoPath->getAntiAliasB2DDraw() != bAntiAliasB2DDraw)
+            || pSystemDependentData_CairoPath->getAntiAliasB2DDraw() != bAntiAliasB2DDraw
+            || bPixelSnapHairline /*tdf#124700*/ )
         {
             // data invalid, forget
             pSystemDependentData_CairoPath.reset();
@@ -1334,16 +1341,23 @@ bool SvpSalGraphics::drawPolyLine(
         }
 
         // copy and add to buffering mechanism
-        pSystemDependentData_CairoPath = rPolyLine.addOrReplaceSystemDependentData<SystemDependentData_CairoPath>(
-            ImplGetSystemDependentDataManager(),
-            cairo_copy_path(cr),
-            bNoJoin,
-            bAntiAliasB2DDraw);
+        if (!bPixelSnapHairline /*tdf#124700*/)
+        {
+            pSystemDependentData_CairoPath = rPolyLine.addOrReplaceSystemDependentData<SystemDependentData_CairoPath>(
+                ImplGetSystemDependentDataManager(),
+                cairo_copy_path(cr),
+                bNoJoin,
+                bAntiAliasB2DDraw);
+        }
     }
 
     // extract extents
     if (pExtents)
+    {
         *pExtents = getClippedStrokeDamage(cr);
+        // transform also extents (ranges) of damage so they can be correctly redrawn
+        pExtents->transform(aDamageMatrix);
+    }
 
     // draw and consume
     cairo_stroke(cr);
@@ -1374,6 +1388,45 @@ bool SvpSalGraphics::drawPolyPolygonBezier( sal_uInt32,
 {
     SAL_INFO("vcl.gdi", "unsupported SvpSalGraphics::drawPolyPolygonBezier case");
     return false;
+}
+
+namespace
+{
+    void add_polygon_path(cairo_t* cr, const basegfx::B2DPolyPolygon& rPolyPolygon, const basegfx::B2DHomMatrix& rObjectToDevice, bool bPixelSnap)
+    {
+        // try to access buffered data
+        std::shared_ptr<SystemDependentData_CairoPath> pSystemDependentData_CairoPath(
+            rPolyPolygon.getSystemDependentData<SystemDependentData_CairoPath>());
+
+        if(pSystemDependentData_CairoPath)
+        {
+            // re-use data
+            cairo_append_path(cr, pSystemDependentData_CairoPath->getCairoPath());
+        }
+        else
+        {
+            // create data
+            for (const auto & rPoly : rPolyPolygon)
+            {
+                // PixelOffset used: Was dependent of 'm_aLineColor != SALCOLOR_NONE'
+                // Adapt setupPolyPolygon-users to set a linear transformation to achieve PixelOffset
+                AddPolygonToPath(
+                    cr,
+                    rPoly,
+                    rObjectToDevice,
+                    bPixelSnap,
+                    false);
+            }
+
+            // copy and add to buffering mechanism
+            // for decisions how/what to buffer, see Note in WinSalGraphicsImpl::drawPolyPolygon
+            pSystemDependentData_CairoPath = rPolyPolygon.addOrReplaceSystemDependentData<SystemDependentData_CairoPath>(
+                ImplGetSystemDependentDataManager(),
+                cairo_copy_path(cr),
+                false,
+                false);
+        }
+    }
 }
 
 bool SvpSalGraphics::drawPolyPolygon(
@@ -1408,49 +1461,18 @@ bool SvpSalGraphics::drawPolyPolygon(
         cairo_set_matrix(cr, &aMatrix);
     }
 
-    // try to access buffered data
-    std::shared_ptr<SystemDependentData_CairoPath> pSystemDependentData_CairoPath(
-        rPolyPolygon.getSystemDependentData<SystemDependentData_CairoPath>());
-
-    if(pSystemDependentData_CairoPath)
-    {
-        // re-use data
-        cairo_append_path(cr, pSystemDependentData_CairoPath->getCairoPath());
-    }
-    else
-    {
-        // create data
-        for (const auto & rPoly : rPolyPolygon)
-        {
-            // PixelOffset used: Was dependent of 'm_aLineColor != SALCOLOR_NONE'
-            // Adapt setupPolyPolygon-users to set a linear transformation to achieve PixelOffset
-            AddPolygonToPath(
-                cr,
-                rPoly,
-                rObjectToDevice,
-                !getAntiAliasB2DDraw(),
-                false);
-        }
-
-        // copy and add to buffering mechanism
-        // for decisions how/what to buffer, see Note in WinSalGraphicsImpl::drawPolyPolygon
-        pSystemDependentData_CairoPath = rPolyPolygon.addOrReplaceSystemDependentData<SystemDependentData_CairoPath>(
-            ImplGetSystemDependentDataManager(),
-            cairo_copy_path(cr),
-            false,
-            false);
-    }
-
     // To make releaseCairoContext work, use empty extents
     basegfx::B2DRange extents;
 
     if (bHasFill)
     {
+        add_polygon_path(cr, rPolyPolygon, rObjectToDevice, !getAntiAliasB2DDraw());
+
         applyColor(cr, m_aFillColor, fTransparency);
         // Get FillDamage (will be extended for LineDamage below)
         extents = getClippedFillDamage(cr);
 
-        cairo_fill_preserve(cr);
+        cairo_fill(cr);
     }
 
     if (bHasLine)
@@ -1460,12 +1482,16 @@ bool SvpSalGraphics::drawPolyPolygon(
         cairo_matrix_init_translate(&aMatrix, 0.5, 0.5);
         cairo_set_matrix(cr, &aMatrix);
 
+        add_polygon_path(cr, rPolyPolygon, rObjectToDevice, !getAntiAliasB2DDraw());
+
         applyColor(cr, m_aLineColor, fTransparency);
 
         // expand with possible StrokeDamage
-        extents.expand(getClippedStrokeDamage(cr));
+        basegfx::B2DRange stroke_extents = getClippedStrokeDamage(cr);
+        stroke_extents.transform(basegfx::utils::createTranslateB2DHomMatrix(0.5, 0.5));
+        extents.expand(stroke_extents);
 
-        cairo_stroke_preserve(cr);
+        cairo_stroke(cr);
     }
 
     // if transformation has been applied, transform also extents (ranges)
@@ -1962,8 +1988,9 @@ void SvpSalGraphics::releaseCairoContext(cairo_t* cr, bool bXorModeAllowed, cons
         return;
     }
 
-    sal_Int32 nExtentsLeft(rExtents.getMinX()), nExtentsTop(rExtents.getMinY());
-    sal_Int32 nExtentsRight(rExtents.getMaxX()), nExtentsBottom(rExtents.getMaxY());
+    basegfx::B2IRange aIntExtents(basegfx::unotools::b2ISurroundingRangeFromB2DRange(rExtents));
+    sal_Int32 nExtentsLeft(aIntExtents.getMinX()), nExtentsTop(aIntExtents.getMinY());
+    sal_Int32 nExtentsRight(aIntExtents.getMaxX()), nExtentsBottom(aIntExtents.getMaxY());
     sal_Int32 nWidth = m_aFrameSize.getX();
     sal_Int32 nHeight = m_aFrameSize.getY();
     nExtentsLeft = std::max<sal_Int32>(nExtentsLeft, 0);

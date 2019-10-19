@@ -23,15 +23,11 @@
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/xmltoken.hxx>
-#include <xmloff/xmlmetae.hxx>
-#include <com/sun/star/lang/ServiceNotRegisteredException.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/presentation/XPresentationSupplier.hpp>
 #include <com/sun/star/presentation/XCustomPresentationSupplier.hpp>
 #include <com/sun/star/geometry/RealPoint2D.hpp>
-#include <com/sun/star/task/XStatusIndicatorSupplier.hpp>
 #include <com/sun/star/office/XAnnotationAccess.hpp>
-#include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/uno/Any.hxx>
 #include "sdxmlexp_impl.hxx"
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
@@ -40,13 +36,11 @@
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/view/PaperOrientation.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
-#include <com/sun/star/style/XStyle.hpp>
 
 #include <com/sun/star/form/XFormsSupplier2.hpp>
 #include <com/sun/star/presentation/XPresentationPage.hpp>
 #include <com/sun/star/drawing/XMasterPageTarget.hpp>
 #include <com/sun/star/text/XText.hpp>
-#include <com/sun/star/chart/XChartDocument.hpp>
 #include <com/sun/star/animations/XAnimationNodeSupplier.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/util/Duration.hpp>
@@ -64,12 +58,9 @@
 #include <xmloff/ProgressBarHelper.hxx>
 #include "sdpropls.hxx"
 #include <xmloff/xmlexppr.hxx>
-#include <com/sun/star/beans/XPropertyState.hpp>
 #include <facreg.hxx>
-#include <xexptran.hxx>
 
 #include <comphelper/processfactory.hxx>
-#include <com/sun/star/lang/XServiceInfo.hpp>
 #include <PropertySetMerger.hxx>
 #include "layerexp.hxx"
 
@@ -446,7 +437,7 @@ void SAL_CALL SdXMLExport::setSourceDocument( const Reference< lang::XComponent 
     Reference < drawing::XMasterPagesSupplier > xMasterPagesSupplier(GetModel(), UNO_QUERY);
     if(xMasterPagesSupplier.is())
     {
-        mxDocMasterPages.set(xMasterPagesSupplier->getMasterPages(), css::uno::UNO_QUERY);
+        mxDocMasterPages = xMasterPagesSupplier->getMasterPages();
         if(mxDocMasterPages.is())
         {
             mnDocMasterPageCount = mxDocMasterPages->getCount();
@@ -458,7 +449,7 @@ void SAL_CALL SdXMLExport::setSourceDocument( const Reference< lang::XComponent 
     Reference <XDrawPagesSupplier> xDrawPagesSupplier(GetModel(), UNO_QUERY);
     if(xDrawPagesSupplier.is())
     {
-        mxDocDrawPages.set(xDrawPagesSupplier->getDrawPages(), css::uno::UNO_QUERY);
+        mxDocDrawPages = xDrawPagesSupplier->getDrawPages();
         if(mxDocDrawPages.is())
         {
             mnDocDrawPageCount = mxDocDrawPages->getCount();
@@ -485,14 +476,8 @@ void SAL_CALL SdXMLExport::setSourceDocument( const Reference< lang::XComponent 
             if(xHandoutSupp.is())
             {
                 Reference<XDrawPage> xHandoutPage(xHandoutSupp->getHandoutMasterPage());
-                if(xHandoutPage.is())
-                {
-                    Reference<drawing::XShapes> xShapes(xHandoutPage, UNO_QUERY);
-                    if(xShapes.is() && xShapes->getCount())
-                    {
-                        mnObjectCount += ImpRecursiveObjectCount(xShapes);
-                    }
-                }
+                if(xHandoutPage.is() && xHandoutPage->getCount())
+                    mnObjectCount += ImpRecursiveObjectCount(xHandoutPage);
             }
         }
 
@@ -515,14 +500,8 @@ void SAL_CALL SdXMLExport::setSourceDocument( const Reference< lang::XComponent 
                     if((aAny >>= xPresPage) && xPresPage.is())
                     {
                         Reference<XDrawPage> xNotesPage(xPresPage->getNotesPage());
-                        if(xNotesPage.is())
-                        {
-                            Reference<drawing::XShapes> xShapes(xNotesPage, UNO_QUERY);
-                            if(xShapes.is() && xShapes->getCount())
-                            {
-                                mnObjectCount += ImpRecursiveObjectCount(xShapes);
-                            }
-                        }
+                        if(xNotesPage.is() && xNotesPage->getCount())
+                            mnObjectCount += ImpRecursiveObjectCount(xNotesPage);
                     }
                 }
             }
@@ -547,14 +526,8 @@ void SAL_CALL SdXMLExport::setSourceDocument( const Reference< lang::XComponent 
                     if((aAny >>= xPresPage) && xPresPage.is())
                     {
                         Reference<XDrawPage> xNotesPage(xPresPage->getNotesPage());
-                        if(xNotesPage.is())
-                        {
-                            Reference<drawing::XShapes> xShapes(xNotesPage, UNO_QUERY);
-                            if(xShapes.is() && xShapes->getCount())
-                            {
-                                mnObjectCount += ImpRecursiveObjectCount(xShapes);
-                            }
-                        }
+                        if(xNotesPage.is() && xNotesPage->getCount())
+                            mnObjectCount += ImpRecursiveObjectCount(xNotesPage);
                     }
                 }
             }
@@ -718,8 +691,7 @@ bool SdXMLExport::ImpPrepAutoLayoutInfo(const Reference<XDrawPage>& xPage, OUStr
                     mvAutoLayoutInfoList.emplace_back( pNew );
                     OUString sNewName = "AL";
                     sNewName += OUString::number(mvAutoLayoutInfoList.size() - 1);
-                    sNewName += "T";
-                    sNewName += OUString::number(nType);
+                    sNewName += "T" + OUString::number(nType);
                     pNew->SetLayoutName(sNewName);
                 }
 
@@ -734,7 +706,7 @@ bool SdXMLExport::ImpPrepAutoLayoutInfo(const Reference<XDrawPage>& xPage, OUStr
 
 void SdXMLExport::ImpWriteAutoLayoutInfos()
 {
-    for(auto & pInfo : mvAutoLayoutInfoList)
+    for(const auto & pInfo : mvAutoLayoutInfoList)
     {
         if(pInfo)
         {
@@ -1246,9 +1218,7 @@ void SdXMLExport::ImpWritePageMasterInfos()
         if(pInfo)
         {
             // create name
-            OUString sNewName("PM");
-
-            sNewName += OUString::number(nCnt);
+            OUString sNewName = "PM" + OUString::number(nCnt);
             pInfo->SetName(sNewName);
 
             // prepare page-master attributes
@@ -1307,7 +1277,7 @@ ImpXMLEXPPageMasterInfo* SdXMLExport::ImpGetPageMasterInfoByName(const OUString&
 {
     if(!rName.isEmpty())
     {
-        for(auto & pInfo : mvPageMasterInfoList)
+        for(const auto & pInfo : mvPageMasterInfoList)
         {
             if(pInfo)
             {
@@ -1357,9 +1327,7 @@ static OUString findOrAppendImpl( std::vector< OUString >& rVector, const OUStri
 
     // create a reference string with pPrefix and the index of the
     // found or created rText
-    OUString aStr( OUString::createFromAscii( pPrefix ) );
-    aStr += OUString::number( nIndex );
-    return aStr;
+    return OUString::createFromAscii( pPrefix ) + OUString::number( nIndex );
 }
 
 static OUString findOrAppendImpl( std::vector< DateTimeDeclImpl >& rVector, const OUString& rText, bool bFixed, sal_Int32 nFormat, const sal_Char* pPrefix )
@@ -1385,9 +1353,7 @@ static OUString findOrAppendImpl( std::vector< DateTimeDeclImpl >& rVector, cons
 
     // create a reference string with pPrefix and the index of the
     // found or created DateTimeDeclImpl
-    OUString aStr( OUString::createFromAscii( pPrefix ) );
-    aStr += OUString::number( nIndex );
-    return aStr;
+    return OUString::createFromAscii( pPrefix ) + OUString::number( nIndex );
 }
 
 static const sal_Char gpStrHeaderTextPrefix[] = "hdr";
@@ -1787,9 +1753,8 @@ void SdXMLExport::ExportContent_()
             exportFormsElement( xDrawPage );
 
             // write graphic objects on this page (if any)
-            Reference< drawing::XShapes > xExportShapes(xDrawPage, UNO_QUERY);
-            if(xExportShapes.is() && xExportShapes->getCount())
-                GetShapeExport()->exportShapes( xExportShapes );
+            if(xDrawPage.is() && xDrawPage->getCount())
+                GetShapeExport()->exportShapes( xDrawPage );
 
             // write animations and presentation notes (ONLY if presentation)
             if(IsImpress())
@@ -1816,23 +1781,19 @@ void SdXMLExport::ExportContent_()
                     Reference< XDrawPage > xNotesPage(xPresPage->getNotesPage());
                     if(xNotesPage.is())
                     {
-                        Reference< drawing::XShapes > xShapes(xNotesPage, UNO_QUERY);
-                        if(xShapes.is())
-                        {
-                            if( !maDrawNotesPagesStyleNames[nPageInd].isEmpty() )
-                                AddAttribute(XML_NAMESPACE_DRAW, XML_STYLE_NAME, maDrawNotesPagesStyleNames[nPageInd]);
+                        if( !maDrawNotesPagesStyleNames[nPageInd].isEmpty() )
+                            AddAttribute(XML_NAMESPACE_DRAW, XML_STYLE_NAME, maDrawNotesPagesStyleNames[nPageInd]);
 
-                            ImplExportHeaderFooterDeclAttributes( maDrawNotesPagesHeaderFooterSettings[nPageInd] );
+                        ImplExportHeaderFooterDeclAttributes( maDrawNotesPagesHeaderFooterSettings[nPageInd] );
 
-                            // write presentation notes
-                            SvXMLElementExport aPSY(*this, XML_NAMESPACE_PRESENTATION, XML_NOTES, true, true);
+                        // write presentation notes
+                        SvXMLElementExport aPSY(*this, XML_NAMESPACE_PRESENTATION, XML_NOTES, true, true);
 
-                            // write optional office:forms
-                            exportFormsElement( xNotesPage );
+                        // write optional office:forms
+                        exportFormsElement( xNotesPage );
 
-                            // write shapes per se
-                            GetShapeExport()->exportShapes( xShapes );
-                        }
+                        // write shapes per se
+                        GetShapeExport()->exportShapes( xNotesPage );
                     }
                 }
             }
@@ -1989,7 +1950,7 @@ void SdXMLExport::exportPresentationSettings()
 
             OUStringBuffer sTmp;
 
-            for( const auto& rShowName : aShowNames )
+            for( const auto& rShowName : std::as_const(aShowNames) )
             {
                 AddAttribute(XML_NAMESPACE_PRESENTATION, XML_NAME, rShowName );
 
@@ -2104,12 +2065,8 @@ void SdXMLExport::collectAutoStyles()
             if( xHandoutSupp.is() )
             {
                 Reference< XDrawPage > xHandoutPage( xHandoutSupp->getHandoutMasterPage() );
-                if( xHandoutPage.is() )
-                {
-                    Reference< drawing::XShapes > xShapes(xHandoutPage, UNO_QUERY);
-                    if(xShapes.is() && xShapes->getCount())
-                        GetShapeExport()->collectShapesAutoStyles( xShapes );
-                }
+                if( xHandoutPage.is() && xHandoutPage->getCount())
+                    GetShapeExport()->collectShapesAutoStyles( xHandoutPage );
             }
         }
 
@@ -2136,9 +2093,8 @@ void SdXMLExport::collectAutoStyles()
                 }
                 GetShapeExport()->setPresentationStylePrefix( aMasterPageNamePrefix );
 
-                Reference< drawing::XShapes > xMasterShapes(xMasterPage, UNO_QUERY);
-                if(xMasterShapes.is() && xMasterShapes->getCount())
-                    GetShapeExport()->collectShapesAutoStyles( xMasterShapes );
+                if(xMasterPage.is() && xMasterPage->getCount())
+                    GetShapeExport()->collectShapesAutoStyles( xMasterPage );
 
                 if(IsImpress())
                 {
@@ -2151,9 +2107,8 @@ void SdXMLExport::collectAutoStyles()
                             // collect layer information
                             GetFormExport()->examineForms( xNotesPage );
 
-                            Reference< drawing::XShapes > xShapes(xNotesPage, UNO_QUERY);
-                            if(xShapes.is() && xShapes->getCount())
-                                GetShapeExport()->collectShapesAutoStyles( xShapes );
+                            if(xNotesPage->getCount())
+                                GetShapeExport()->collectShapesAutoStyles( xNotesPage );
                         }
                     }
                 }
@@ -2203,9 +2158,8 @@ void SdXMLExport::collectAutoStyles()
                 GetShapeExport()->setPresentationStylePrefix( aMasterPageNamePrefix );
 
                 // prepare object infos
-                Reference< drawing::XShapes > xDrawShapes(xDrawPage, UNO_QUERY);
-                if(xDrawShapes.is() && xDrawShapes->getCount())
-                    GetShapeExport()->collectShapesAutoStyles( xDrawShapes );
+                if(xDrawPage.is() && xDrawPage->getCount())
+                    GetShapeExport()->collectShapesAutoStyles( xDrawPage );
 
                 // prepare presentation notes page object infos (ONLY if presentation)
                 if(IsImpress())
@@ -2219,9 +2173,8 @@ void SdXMLExport::collectAutoStyles()
                             // collect layer information
                             GetFormExport()->examineForms( xNotesPage );
 
-                            Reference< drawing::XShapes > xShapes(xNotesPage, UNO_QUERY);
-                            if(xShapes.is() && xShapes->getCount())
-                                GetShapeExport()->collectShapesAutoStyles( xShapes );
+                            if(xNotesPage->getCount())
+                                GetShapeExport()->collectShapesAutoStyles( xNotesPage );
                         }
                     }
                 }
@@ -2301,9 +2254,8 @@ void SdXMLExport::ExportMasterStyles_()
                 SvXMLElementExport aMPG(*this, XML_NAMESPACE_STYLE, XML_HANDOUT_MASTER, true, true);
 
                 // write graphic objects on this master page (if any)
-                Reference< drawing::XShapes > xShapes(xHandoutPage, UNO_QUERY);
-                if(xShapes.is() && xShapes->getCount())
-                    GetShapeExport()->exportShapes( xShapes );
+                if(xHandoutPage.is() && xHandoutPage->getCount())
+                    GetShapeExport()->exportShapes( xHandoutPage );
             }
         }
     }
@@ -2348,9 +2300,8 @@ void SdXMLExport::ExportMasterStyles_()
             exportFormsElement( xMasterPage );
 
             // write graphic objects on this master page (if any)
-            Reference< drawing::XShapes > xMasterShapes(xMasterPage, UNO_QUERY);
-            if(xMasterShapes.is() && xMasterShapes->getCount())
-                GetShapeExport()->exportShapes( xMasterShapes );
+            if(xMasterPage.is() && xMasterPage->getCount())
+                GetShapeExport()->exportShapes( xMasterPage );
 
             // write presentation notes (ONLY if presentation)
             if(IsImpress())
@@ -2361,25 +2312,21 @@ void SdXMLExport::ExportMasterStyles_()
                     Reference< XDrawPage > xNotesPage(xPresPage->getNotesPage());
                     if(xNotesPage.is())
                     {
-                        Reference< drawing::XShapes > xShapes(xNotesPage, UNO_QUERY);
-                        if(xShapes.is())
+                        ImpXMLEXPPageMasterInfo* pMasterInfo = mvNotesPageMasterUsageList.at( nMPageId );
+                        if(pMasterInfo)
                         {
-                            ImpXMLEXPPageMasterInfo* pMasterInfo = mvNotesPageMasterUsageList.at( nMPageId );
-                            if(pMasterInfo)
-                            {
-                                const OUString& sString = pMasterInfo->GetName();
-                                AddAttribute(XML_NAMESPACE_STYLE, XML_PAGE_LAYOUT_NAME, sString);
-                            }
-
-                            // write presentation notes
-                            SvXMLElementExport aPSY(*this, XML_NAMESPACE_PRESENTATION, XML_NOTES, true, true);
-
-                            // write optional office:forms
-                            exportFormsElement( xNotesPage );
-
-                            // write shapes per se
-                            GetShapeExport()->exportShapes( xShapes );
+                            const OUString& sString = pMasterInfo->GetName();
+                            AddAttribute(XML_NAMESPACE_STYLE, XML_PAGE_LAYOUT_NAME, sString);
                         }
+
+                        // write presentation notes
+                        SvXMLElementExport aPSY(*this, XML_NAMESPACE_PRESENTATION, XML_NOTES, true, true);
+
+                        // write optional office:forms
+                        exportFormsElement( xNotesPage );
+
+                        // write shapes per se
+                        GetShapeExport()->exportShapes( xNotesPage );
                     }
                 }
             }
@@ -2503,7 +2450,7 @@ OUString SdXMLExport::getNavigationOrder( const Reference< XDrawPage >& xDrawPag
         Reference< XPropertySet > xSet( xDrawPage, UNO_QUERY_THROW );
         Reference< XIndexAccess > xNavOrder( xSet->getPropertyValue("NavigationOrder"), UNO_QUERY_THROW );
 
-        Reference< XIndexAccess > xZOrderAccess( xDrawPage, UNO_QUERY );
+        Reference< XIndexAccess > xZOrderAccess = xDrawPage;
 
         // only export navigation order if it is different from the z-order
         if( (xNavOrder.get() != xZOrderAccess.get()) && (xNavOrder->getCount() == xDrawPage->getCount())  )
@@ -2639,7 +2586,7 @@ uno::Sequence< OUString > classname##_getSupportedServiceNames() throw()\
 }\
 OUString classname##_getImplementationName() throw()\
 {\
-    return OUString( implementationname );\
+    return implementationname;\
 }\
 uno::Reference< uno::XInterface > classname##_createInstance(const uno::Reference< lang::XMultiServiceFactory > & rSMgr)\
 {\
@@ -2694,23 +2641,114 @@ com_sun_star_comp_Impress_XMLOasisSettingsExporter_get_implementation(
                                          SvXMLExportFlags::OASIS | SvXMLExportFlags::SETTINGS));
 }
 
-SERVICE( XMLImpressExportOOO, "com.sun.star.comp.Impress.XMLExporter", "XMLImpressExportOOO", false, SvXMLExportFlags::META|SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::SETTINGS|SvXMLExportFlags::FONTDECLS|SvXMLExportFlags::EMBEDDED );
-SERVICE( XMLImpressStylesExportOOO, "com.sun.star.comp.Impress.XMLStylesExporter", "XMLImpressStylesExportOOO", false, SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::FONTDECLS );
-SERVICE( XMLImpressContentExportOOO, "com.sun.star.comp.Impress.XMLContentExporter", "XMLImpressContentExportOOO", false, SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::FONTDECLS );
-SERVICE( XMLImpressMetaExportOOO, "com.sun.star.comp.Impress.XMLMetaExporter", "XMLImpressMetaExportOOO", false, SvXMLExportFlags::META );
-SERVICE( XMLImpressSettingsExportOOO, "com.sun.star.comp.Impress.XMLSettingsExporter", "XMLImpressSettingsExportOOO", false, SvXMLExportFlags::SETTINGS );
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLStylesExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(pCtx, "XMLImpressStylesExportOOO", false,
+                                         SvXMLExportFlags::STYLES | SvXMLExportFlags::MASTERSTYLES
+                                             | SvXMLExportFlags::AUTOSTYLES
+                                             | SvXMLExportFlags::FONTDECLS));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLContentExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(pCtx, "XMLImpressContentExportOOO", false,
+                                         SvXMLExportFlags::AUTOSTYLES | SvXMLExportFlags::CONTENT
+                                             | SvXMLExportFlags::SCRIPTS
+                                             | SvXMLExportFlags::FONTDECLS));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLMetaExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(
+        new SdXMLExport(pCtx, "XMLImpressMetaExportOOO", false, SvXMLExportFlags::META));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLSettingsExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(
+        new SdXMLExport(pCtx, "XMLImpressSettingsExportOOO", false, SvXMLExportFlags::SETTINGS));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLExporter_get_implementation(uno::XComponentContext* pCtx,
+                                                         uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(
+        pCtx, "XMLImpressExportOOO", false,
+        SvXMLExportFlags::META | SvXMLExportFlags::STYLES | SvXMLExportFlags::MASTERSTYLES
+            | SvXMLExportFlags::AUTOSTYLES | SvXMLExportFlags::CONTENT | SvXMLExportFlags::SCRIPTS
+            | SvXMLExportFlags::SETTINGS | SvXMLExportFlags::FONTDECLS
+            | SvXMLExportFlags::EMBEDDED));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Draw_XMLExporter_get_implementation(uno::XComponentContext* pCtx,
+                                                      uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(
+        pCtx, "XMLDrawExportOOO", true,
+        SvXMLExportFlags::META | SvXMLExportFlags::STYLES | SvXMLExportFlags::MASTERSTYLES
+            | SvXMLExportFlags::AUTOSTYLES | SvXMLExportFlags::CONTENT | SvXMLExportFlags::SCRIPTS
+            | SvXMLExportFlags::SETTINGS | SvXMLExportFlags::FONTDECLS
+            | SvXMLExportFlags::EMBEDDED));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Draw_XMLStylesExporter_get_implementation(uno::XComponentContext* pCtx,
+                                                            uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(pCtx, "XMLDrawStylesExportOOO", true,
+                                         SvXMLExportFlags::STYLES | SvXMLExportFlags::MASTERSTYLES
+                                             | SvXMLExportFlags::AUTOSTYLES
+                                             | SvXMLExportFlags::FONTDECLS));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Draw_XMLContentExporter_get_implementation(uno::XComponentContext* pCtx,
+                                                            uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(pCtx, "XMLDrawContentExportOOO", true,
+                                         SvXMLExportFlags::AUTOSTYLES | SvXMLExportFlags::CONTENT
+                                             | SvXMLExportFlags::SCRIPTS
+                                             | SvXMLExportFlags::FONTDECLS));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Draw_XMLMetaExporter_get_implementation(uno::XComponentContext* pCtx,
+                                                            uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(
+        new SdXMLExport(pCtx, "XMLDrawMetaExportOOO", true, SvXMLExportFlags::META));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Draw_XMLSettingsExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(
+        new SdXMLExport(pCtx, "XMLDrawSettingsExportOOO", true, SvXMLExportFlags::SETTINGS));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Draw_XMLOasisSettingsExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(pCtx, "XMLDrawSettingsExportOasis", true,
+                                         SvXMLExportFlags::OASIS | SvXMLExportFlags::SETTINGS));
+}
 
 SERVICE( XMLDrawExportOasis, "com.sun.star.comp.Draw.XMLOasisExporter", "XMLDrawExportOasis", true, SvXMLExportFlags::OASIS|SvXMLExportFlags::META|SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::SETTINGS|SvXMLExportFlags::FONTDECLS|SvXMLExportFlags::EMBEDDED );
 SERVICE( XMLDrawStylesExportOasis, "com.sun.star.comp.Draw.XMLOasisStylesExporter", "XMLDrawStylesExportOasis", true, SvXMLExportFlags::OASIS|SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::FONTDECLS );
 SERVICE( XMLDrawContentExportOasis, "com.sun.star.comp.Draw.XMLOasisContentExporter", "XMLDrawContentExportOasis", true, SvXMLExportFlags::OASIS|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::FONTDECLS );
 SERVICE( XMLDrawMetaExportOasis, "com.sun.star.comp.Draw.XMLOasisMetaExporter", "XMLDrawMetaExportOasis", true, SvXMLExportFlags::OASIS|SvXMLExportFlags::META );
-SERVICE( XMLDrawSettingsExportOasis, "com.sun.star.comp.Draw.XMLOasisSettingsExporter", "XMLDrawSettingsExportOasis", true, SvXMLExportFlags::OASIS|SvXMLExportFlags::SETTINGS );
-
-SERVICE( XMLDrawExportOOO, "com.sun.star.comp.Draw.XMLExporter", "XMLDrawExportOOO", true, SvXMLExportFlags::META|SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::SETTINGS|SvXMLExportFlags::FONTDECLS|SvXMLExportFlags::EMBEDDED );
-SERVICE( XMLDrawStylesExportOOO, "com.sun.star.comp.Draw.XMLStylesExporter", "XMLDrawStylesExportOOO", true, SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::FONTDECLS );
-SERVICE( XMLDrawContentExportOOO, "com.sun.star.comp.Draw.XMLContentExporter", "XMLDrawContentExportOOO", true, SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::FONTDECLS );
-SERVICE( XMLDrawMetaExportOOO, "com.sun.star.comp.Draw.XMLMetaExporter", "XMLDrawMetaExportOOO", true, SvXMLExportFlags::META );
-SERVICE( XMLDrawSettingsExportOOO, "com.sun.star.comp.Draw.XMLSettingsExporter", "XMLDrawSettingsExportOOO", true, SvXMLExportFlags::SETTINGS );
 
 SERVICE( XMLDrawingLayerExport, "com.sun.star.comp.DrawingLayer.XMLExporter", "XMLDrawingLayerExport", true, SvXMLExportFlags::OASIS|SvXMLExportFlags::STYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::FONTDECLS|SvXMLExportFlags::EMBEDDED );
 SERVICE( XMLImpressClipboardExport, "com.sun.star.comp.Impress.XMLClipboardExporter", "XMLImpressClipboardExport", false, SvXMLExportFlags::OASIS|SvXMLExportFlags::STYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::FONTDECLS|SvXMLExportFlags::EMBEDDED );
@@ -2734,7 +2772,7 @@ XMLFontAutoStylePool* SdXMLExport::CreateFontAutoStylePool()
             if (xFactory.is())
                 xProps.set(xFactory->createInstance("com.sun.star.document.Settings"), UNO_QUERY);
             if (xProps.is())
-                xInfo.set(xProps->getPropertySetInfo(), uno::UNO_QUERY);
+                xInfo =  xProps->getPropertySetInfo();
             if (xInfo.is() && xProps.is())
             {
                 if (xInfo->hasPropertyByName("EmbedFonts"))

@@ -17,14 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <rtl/ustrbuf.hxx>
 #include <osl/diagnose.h>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <comphelper/base64.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/servicehelper.hxx>
-#include <sax/tools/converter.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
@@ -1149,8 +1147,7 @@ void XMLDocumentTransformerContext_Impl::StartElement(
 
             pMutableAttrList = new XMLMutableAttributeList( xAttrList );
             xAttrList = pMutableAttrList;
-            OUString sMime("application/vnd.oasis.opendocument.");
-            sMime += rValue;
+            OUString sMime = "application/vnd.oasis.opendocument." + rValue;
             pMutableAttrList->SetValueByIndex( i, sMime );
             OUString aNewAttrQName( GetTransformer().GetNamespaceMap().GetQNameByKey( XML_NAMESPACE_OFFICE, ::xmloff::token::GetXMLToken( XML_MIMETYPE ) ) );
             pMutableAttrList->RenameAttributeByIndex(i, aNewAttrQName );
@@ -1934,19 +1931,20 @@ namespace
     class theOOo2OasisTransformerUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theOOo2OasisTransformerUnoTunnelId> {};
 }
 
+const css::uno::Sequence<sal_Int8>& OOo2OasisTransformer::getUnoTunnelId() throw()
+{
+    return theOOo2OasisTransformerUnoTunnelId::get().getSeq();
+}
+
 // XUnoTunnel
 sal_Int64 SAL_CALL OOo2OasisTransformer::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( theOOo2OasisTransformerUnoTunnelId::get().getSeq().getConstArray(),
-                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<OOo2OasisTransformer>(rId) )
     {
         return reinterpret_cast< sal_Int64 >( this );
     }
-    else
-    {
-        return sal_Int64(0);
-    }
+
+    return sal_Int64(0);
 }
 
 // XServiceInfo
@@ -1962,8 +1960,7 @@ sal_Bool SAL_CALL OOo2OasisTransformer::supportsService( const OUString& Service
 
 Sequence< OUString > SAL_CALL OOo2OasisTransformer::getSupportedServiceNames(  )
 {
-    Sequence<OUString> aSeq(0);
-    return aSeq;
+    return { };
 }
 
 // XTypeProvider
@@ -1980,14 +1977,12 @@ Sequence< css::uno::Type > SAL_CALL OOo2OasisTransformer::getTypes()
 
 OUString OOo2OasisTransformer_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.OOo2OasisTransformer" );
+    return "com.sun.star.comp.OOo2OasisTransformer";
 }
 
 Sequence< OUString > OOo2OasisTransformer_getSupportedServiceNames() throw()
 {
-    const OUString aServiceName( OOo2OasisTransformer_getImplementationName() );
-    const Sequence< OUString > aSeq( &aServiceName, 1 );
-    return aSeq;
+    return { OOo2OasisTransformer_getImplementationName() };
 }
 
 Reference< XInterface > OOo2OasisTransformer_createInstance(
@@ -1999,14 +1994,12 @@ Reference< XInterface > OOo2OasisTransformer_createInstance(
 #define OOO_IMPORTER( className, implName, subServiceName )             \
 OUString className##_getImplementationName() throw()           \
 {                                                                       \
-    return OUString(implName);         \
+    return implName;         \
 }                                                                       \
                                                                         \
 Sequence< OUString > className##_getSupportedServiceNames() throw()\
 {                                                                       \
-    const OUString aServiceName( className##_getImplementationName() ); \
-    const Sequence< OUString > aSeq( &aServiceName, 1 );                \
-    return aSeq;                                                        \
+    return { className##_getImplementationName() };                     \
 }                                                                       \
                                                                         \
 Reference< XInterface > className##_createInstance(            \

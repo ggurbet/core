@@ -35,7 +35,6 @@ class SvxClipboardFormatItem;
 class TransferableDataHelper;
 class TransferableClipboardListener;
 class AbstractScLinkedAreaDlg;
-class Dialog;
 
 struct CellShell_Impl
 {
@@ -67,7 +66,6 @@ private:
     void ExecuteFillSingleEdit();
 
     DECL_LINK( ClipboardChanged, TransferableDataHelper*, void );
-    DECL_LINK( DialogClosed, Dialog&, void );
 
     RotateTransliteration m_aRotateCase;
 
@@ -106,7 +104,7 @@ public:
     void        ExecutePageSel( SfxRequest& rReq );
     void        ExecuteMove( SfxRequest& rReq );
 
-    const VclPtr<vcl::Window>& GetFrameWin();
+    const VclPtr<vcl::Window>& GetFrameWin() const;
 
     static void GetStateCursor( SfxItemSet& rSet );
 };

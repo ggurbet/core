@@ -205,7 +205,7 @@ void VCLXAccessibleList::UpdateSelection_Impl_Acc(bool bHasDropDownList)
         {
             sal_Int32 i=0;
             m_nCurSelectedPos = LISTBOX_ENTRY_NOTFOUND;
-            for ( auto& rChild : m_aAccessibleChildren )
+            for ( const auto& rChild : m_aAccessibleChildren )
             {
                 Reference< XAccessible > xHold = rChild;
                 if ( xHold.is() )
@@ -581,16 +581,13 @@ sal_Int16 SAL_CALL VCLXAccessibleList::getAccessibleRole()
 // XServiceInfo
 OUString VCLXAccessibleList::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.toolkit.AccessibleList" );
+    return "com.sun.star.comp.toolkit.AccessibleList";
 }
 
 Sequence< OUString > VCLXAccessibleList::getSupportedServiceNames()
 {
-    Sequence< OUString > aNames = VCLXAccessibleComponent::getSupportedServiceNames();
-    sal_Int32 nLength = aNames.getLength();
-    aNames.realloc( nLength + 1 );
-    aNames[nLength] = "com.sun.star.accessibility.AccessibleList";
-    return aNames;
+    return comphelper::concatSequences(VCLXAccessibleComponent::getSupportedServiceNames(),
+                                       Sequence<OUString>{"com.sun.star.accessibility.AccessibleList"});
 }
 
 void VCLXAccessibleList::UpdateVisibleLineCount()
@@ -670,7 +667,7 @@ void VCLXAccessibleList::UpdateSelection_Impl(sal_Int32)
         {
             sal_Int32 i=0;
             m_nCurSelectedPos = LISTBOX_ENTRY_NOTFOUND;
-            for ( auto& rChild : m_aAccessibleChildren )
+            for ( const auto& rChild : m_aAccessibleChildren )
             {
                 Reference< XAccessible > xHold = rChild;
                 if ( xHold.is() )
@@ -918,7 +915,7 @@ awt::Point VCLXAccessibleList::getLocationOnScreen(  )
 }
 
 
-bool VCLXAccessibleList::IsInDropDown()
+bool VCLXAccessibleList::IsInDropDown() const
 {
     return m_pListBoxHelper->IsInDropDown();
 }

@@ -41,7 +41,7 @@ OComponentEnumeration::OComponentEnumeration( const std::vector< css::uno::Refer
 
 OComponentEnumeration::~OComponentEnumeration()
 {
-    // Reset instance, free memory ....
+    // Reset instance, free memory...
     impl_resetObject();
 }
 
@@ -66,7 +66,7 @@ sal_Bool SAL_CALL OComponentEnumeration::hasMoreElements()
     // First position in a valid list is 0.
     // => The last one is getLength() - 1!
     // m_nPosition's current value is the position for the next element, which will be return, if user call "nextElement()"
-    // => We have more elements if current position less then the length of the list!
+    // => We have more elements if current position less than the length of the list!
     return ( m_nPosition < static_cast<sal_uInt32>(m_seqComponents.size()) );
 }
 
@@ -100,7 +100,7 @@ void OComponentEnumeration::impl_resetObject()
     // Attention:
     // Write this for multiple calls - NOT AT THE SAME TIME - but for more than one call again)!
     // It exist two ways to call this method. From destructor and from disposing().
-    // I can't say, which one is the first. Normally the disposing-call - but other way ....
+    // I can't say, which one is the first. Normally the disposing-call - but other way...
 
     // Delete list of components.
     m_seqComponents.clear();

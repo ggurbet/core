@@ -97,15 +97,13 @@ namespace svx
         bool bValidPropsOnly = true;
 
         // loop through the sequence, and fill our m_aValues
-        const PropertyValue* pValues = _rValues.getConstArray();
-        const PropertyValue* pValuesEnd = pValues + _rValues.getLength();
-        for (;pValues != pValuesEnd; ++pValues)
+        for (const PropertyValue& rValue : _rValues)
         {
-            MapString2PropertyEntry::const_iterator aPropPos = rProperties.find( pValues->Name );
+            MapString2PropertyEntry::const_iterator aPropPos = rProperties.find( rValue.Name );
             if ( aPropPos != rProperties.end() )
             {
                 DataAccessDescriptorProperty eProperty = aPropPos->second;
-                m_aValues[eProperty] = pValues->Value;
+                m_aValues[eProperty] = rValue.Value;
             }
             else
                 // unknown property
@@ -135,17 +133,16 @@ namespace svx
         }
 
         // build a PropertyValue sequence with the current values
-        Sequence< Property > aProperties = xPropInfo->getProperties();
-        const Property* pProperty = aProperties.getConstArray();
-        const Property* pPropertyEnd = pProperty + aProperties.getLength();
+        const Sequence< Property > aProperties = xPropInfo->getProperties();
 
         Sequence< PropertyValue > aValues(aProperties.getLength());
         PropertyValue* pValues = aValues.getArray();
 
-        for (;pProperty != pPropertyEnd; ++pProperty, ++pValues)
+        for (const Property& rProperty : aProperties)
         {
-            pValues->Name = pProperty->Name;
-            pValues->Value = _rxValues->getPropertyValue(pProperty->Name);
+            pValues->Name = rProperty.Name;
+            pValues->Value = _rxValues->getPropertyValue(rProperty.Name);
+            ++pValues;
         }
 
         bool bValidPropsOnly = buildFrom(aValues);
@@ -244,7 +241,7 @@ namespace svx
     {
     }
 
-    ODataAccessDescriptor::ODataAccessDescriptor( ODataAccessDescriptor&& _rSource )
+    ODataAccessDescriptor::ODataAccessDescriptor(ODataAccessDescriptor&& _rSource) noexcept
         :m_pImpl(std::move(_rSource.m_pImpl))
     {
     }
@@ -256,7 +253,7 @@ namespace svx
         return *this;
     }
 
-    ODataAccessDescriptor& ODataAccessDescriptor::operator=(ODataAccessDescriptor&& _rSource)
+    ODataAccessDescriptor& ODataAccessDescriptor::operator=(ODataAccessDescriptor&& _rSource) noexcept
     {
         m_pImpl = std::move(_rSource.m_pImpl);
         return *this;

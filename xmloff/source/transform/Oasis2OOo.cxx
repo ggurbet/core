@@ -22,7 +22,6 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
-#include <sax/tools/converter.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
@@ -44,7 +43,6 @@
 #include "TransformerActions.hxx"
 #include "FamilyType.hxx"
 #include "XMLFilterRegistration.hxx"
-#include <facreg.hxx>
 #include <comphelper/servicehelper.hxx>
 #include "Oasis2OOo.hxx"
 #include <cppuhelper/supportsservice.hxx>
@@ -1926,19 +1924,20 @@ namespace
     class theOasis2OOoTransformerUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theOasis2OOoTransformerUnoTunnelId> {};
 }
 
+const css::uno::Sequence<sal_Int8>& Oasis2OOoTransformer::getUnoTunnelId() throw()
+{
+    return theOasis2OOoTransformerUnoTunnelId::get().getSeq();
+}
+
 // XUnoTunnel
 sal_Int64 SAL_CALL Oasis2OOoTransformer::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( theOasis2OOoTransformerUnoTunnelId::get().getSeq().getConstArray(),
-                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<Oasis2OOoTransformer>(rId) )
     {
         return reinterpret_cast< sal_Int64 >( this );
     }
-    else
-    {
-        return sal_Int64(0);
-    }
+
+    return sal_Int64(0);
 }
 
 // XServiceInfo
@@ -1954,23 +1953,20 @@ sal_Bool SAL_CALL Oasis2OOoTransformer::supportsService( const OUString& Service
 
 Sequence< OUString > SAL_CALL Oasis2OOoTransformer::getSupportedServiceNames(  )
 {
-    Sequence<OUString> aSeq(0);
-    return aSeq;
+    return { };
 }
 
 // Service registration
 
 OUString Oasis2OOoTransformer_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Oasis2OOoTransformer" );
+    return "com.sun.star.comp.Oasis2OOoTransformer";
 }
 
 Sequence< OUString > Oasis2OOoTransformer_getSupportedServiceNames()
     throw()
 {
-    const OUString aServiceName( Oasis2OOoTransformer_getImplementationName() );
-    const Sequence< OUString > aSeq( &aServiceName, 1 );
-    return aSeq;
+    return { Oasis2OOoTransformer_getImplementationName() };
 }
 
 Reference< XInterface > Oasis2OOoTransformer_createInstance(

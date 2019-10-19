@@ -427,6 +427,10 @@ void TIFFReader::ReadTagData( sal_uInt16 nTagType, sal_uInt32 nDataLen)
         case 0x0115:   // Samples Per Pixel
             nSamplesPerPixel = ReadIntData();
             SAL_INFO("filter.tiff","SamplesPerPixel: " << nSamplesPerPixel);
+
+            if (nSamplesPerPixel > USHRT_MAX) // ofz#15993 the expected type is SHORT
+                bStatus = false;
+
             break;
 
         case 0x0116:   // Rows Per Strip
@@ -570,9 +574,11 @@ bool TIFFReader::ReadMap()
                 if ( nStrip >= aStripOffsets.size())
                     return false;
                 pTIFF->Seek( aStripOffsets[ nStrip ] + ( ny % GetRowsPerStrip() ) * nStripBytesPerRow );
-                pTIFF->ReadBytes(getMapData(np), nBytesPerRow);
-                if (!pTIFF->good())
-                    return false;
+                // tdf#126147 allow a short incomplete read
+                auto pDest = getMapData(np);
+                auto nRead = pTIFF->ReadBytes(pDest, nBytesPerRow);
+                if (nRead != nBytesPerRow)
+                    memset(pDest + nRead, 0, nBytesPerRow - nRead);
             }
             if ( !ConvertScanline( ny ) )
                 return false;
@@ -1142,15 +1148,34 @@ bool TIFFReader::ConvertScanline(sal_Int32 nY)
         }
     }
     else if ( ( nSamplesPerPixel == 2 ) && ( nBitsPerSample == 8 ) &&
-        ( nPlanarConfiguration == 1 ) && aColorMap.empty() )               // grayscale
+        ( nPlanarConfiguration == 1 ) && aColorMap.empty() )               // grayscale + alpha
     {
         if ( nMaxSampleValue > nMinSampleValue )
         {
-            sal_uInt32 nMinMax = ( ( 1 << 8 /*nDstBitsPerPixel*/ ) - 1 ) / ( nMaxSampleValue - nMinSampleValue );
-            sal_uInt8*  pt = getMapData(0);
-            for (sal_Int32 nx = 0; nx < nImageWidth; nx++, pt += 2 )
+            sal_uInt8* pt = getMapData(0);
+
+            if (nPredictor == 2)
             {
-                SetPixel(nY, nx, static_cast<sal_uInt8>( (static_cast<sal_uInt32>(*pt) - nMinSampleValue) * nMinMax));
+                sal_uInt8 nLastPixel = 0;
+                sal_uInt8 nLastAlpha = 0;
+                for (sal_Int32 nx = 0; nx < nImageWidth; nx++, pt += 2)
+                {
+                    nLastPixel = (nLastPixel + pt[0]) & 0xFF;
+                    SetPixel(nY, nx, nLastPixel);
+
+                    nLastAlpha = (nLastAlpha + pt[1]) & 0xFF;
+                    SetPixelAlpha(nY, nx, ~nLastAlpha);
+                }
+            }
+            else
+            {
+                sal_uInt32 nMinMax = ( ( 1 << 8 /*nDstBitsPerPixel*/ ) - 1 ) / ( nMaxSampleValue - nMinSampleValue );
+                for (sal_Int32 nx = 0; nx < nImageWidth; nx++, pt += 2)
+                {
+                    SetPixel(nY, nx, static_cast<sal_uInt8>( (static_cast<sal_uInt32>(pt[0]) - nMinSampleValue) * nMinMax ));
+                    sal_uInt8 nAlpha = static_cast<sal_uInt8>( (static_cast<sal_uInt32>(pt[1]) - nMinSampleValue) * nMinMax );
+                    SetPixelAlpha(nY, nx, ~nAlpha);
+                }
             }
         }
     }
@@ -1233,13 +1258,21 @@ void TIFFReader::ReadHeader()
 bool TIFFReader::HasAlphaChannel() const
 {
     /*There are undoubtedly more variants we could support, but keep it simple for now*/
-    return (
-             nDstBitsPerPixel == 24 &&
-             nBitsPerSample == 8 &&
-             nSamplesPerPixel >= 4 &&
-             nPlanes == 1 &&
-             nPhotometricInterpretation == 2
-           );
+    bool bRGBA = nDstBitsPerPixel == 24 &&
+                 nBitsPerSample == 8 &&
+                 nSamplesPerPixel >= 4 &&
+                 nPlanes == 1 &&
+                 nPhotometricInterpretation == 2;
+    if (bRGBA)
+        return true;
+
+    // additionally support the format used in tdf#126460
+    bool bGrayScaleAlpha = nDstBitsPerPixel == 8 &&
+                           nBitsPerSample == 8 &&
+                           nSamplesPerPixel == 2 &&
+                           nPlanarConfiguration == 1;
+
+    return bGrayScaleAlpha;
 }
 
 namespace
@@ -1475,7 +1508,10 @@ bool TIFFReader::ReadTIFF(SvStream & rTIFF, Graphic & rGraphic )
             if ( bStatus )
             {
                 sal_uInt64 nRowSize = (static_cast<sal_uInt64>(nImageWidth) * nSamplesPerPixel / nPlanes * nBitsPerSample + 7) >> 3;
-                if (nRowSize > SAL_MAX_INT32 / SAL_N_ELEMENTS(aMap))
+                auto nMaxSize = SAL_MAX_INT32 / SAL_N_ELEMENTS(aMap);
+                if (utl::ConfigManager::IsFuzzing())
+                    nMaxSize /= 2;
+                if (nRowSize > nMaxSize)
                 {
                     SAL_WARN("filter.tiff", "Ludicrous row size of: " << nRowSize << " required");
                     bStatus = false;
@@ -1512,8 +1548,7 @@ bool TIFFReader::ReadTIFF(SvStream & rTIFF, Graphic & rGraphic )
                     if (bStatus)
                     {
                         auto nStart = aStripOffsets[ nStrip ] + ( ny % GetRowsPerStrip() ) * nStripBytesPerRow;
-                        auto nEnd = nStart + nBytesPerRow;
-                        if (nEnd > nEndOfFile)
+                        if (nStart > nEndOfFile)
                             bStatus = false;
                     }
                 }
@@ -1618,7 +1653,7 @@ bool TIFFReader::ReadTIFF(SvStream & rTIFF, Graphic & rGraphic )
                         {
                             for (sal_Int32 nX = 0; nX < nImageWidth; ++nX)
                             {
-                                auto p = maBitmap.data() + ((maBitmapPixelSize.Width() * nY + nX) * 3);
+                                auto p = maBitmap.data() + ((maBitmapPixelSize.Width() * nY + nX) * (HasAlphaChannel() ? 4 : 3));
                                 auto c = SanitizePaletteIndex(*p, mvPalette);
                                 *p = c.GetRed();
                                 p++;

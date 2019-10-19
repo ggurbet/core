@@ -20,11 +20,6 @@
 #define INCLUDED_SW_SOURCE_UI_FLDUI_FLDDOK_HXX
 
 #include <sfx2/tabdlg.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/button.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/field.hxx>
 
 #include <numfmtlb.hxx>
 #include "fldpage.hxx"
@@ -53,18 +48,18 @@ class SwFieldDokPage : public SwFieldPage
     DECL_LINK(FormatHdl, weld::TreeView&, void);
     DECL_LINK(SubTypeHdl, weld::TreeView&, void);
 
-    void                AddSubType(sal_uInt16 nTypeId);
-    sal_Int32           FillFormatLB(sal_uInt16 nTypeId);
+    void                AddSubType(SwFieldTypesEnum nTypeId);
+    sal_Int32           FillFormatLB(SwFieldTypesEnum nTypeId);
 
 protected:
     virtual sal_uInt16      GetGroup() override;
 
 public:
-    SwFieldDokPage(TabPageParent pWindow, const SfxItemSet * pSet);
+    SwFieldDokPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet * pSet);
 
     virtual ~SwFieldDokPage() override;
 
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage>  Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

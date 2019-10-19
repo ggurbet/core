@@ -18,7 +18,7 @@
  */
 
 #include <memory>
-#include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <services/layoutmanager.hxx>
 #include "helpers.hxx"
@@ -789,7 +789,7 @@ void LayoutManager::implts_updateUIElementsVisibleState( bool bSetVisible )
         implts_notifyListeners( frame::LayoutManagerEvents::INVISIBLE, a );
 
     SolarMutexResettableGuard aWriteLock;
-    Reference< XUIElement >   xMenuBar( m_xMenuBar, UNO_QUERY );
+    Reference< XUIElement >   xMenuBar = m_xMenuBar;
     Reference< awt::XWindow > xContainerWindow( m_xContainerWindow );
     rtl::Reference< MenuBarManager > xInplaceMenuBar( m_xInplaceMenuBar );
     aWriteLock.clear();
@@ -903,8 +903,8 @@ void LayoutManager::implts_createProgressBar()
     Reference< awt::XWindow > xContainerWindow;
 
     SolarMutexResettableGuard aWriteLock;
-    xStatusBar.set( m_aStatusBarElement.m_xUIElement, UNO_QUERY );
-    xProgressBar.set( m_aProgressBarElement.m_xUIElement, UNO_QUERY );
+    xStatusBar = m_aStatusBarElement.m_xUIElement;
+    xProgressBar = m_aProgressBarElement.m_xUIElement;
     xProgressBarBackup = m_xProgressBarBackup;
     m_xProgressBarBackup.clear();
     xContainerWindow = m_xContainerWindow;
@@ -995,8 +995,8 @@ void LayoutManager::implts_setStatusBarPosSize( const ::Point& rPos, const ::Siz
 
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
     SolarMutexClearableGuard aReadLock;
-    xStatusBar.set( m_aStatusBarElement.m_xUIElement, UNO_QUERY );
-    xProgressBar.set( m_aProgressBarElement.m_xUIElement, UNO_QUERY );
+    xStatusBar = m_aStatusBarElement.m_xUIElement;
+    xProgressBar = m_aProgressBarElement.m_xUIElement;
     xContainerWindow = m_xContainerWindow;
 
     Reference< awt::XWindow > xWindow;
@@ -1034,8 +1034,8 @@ bool LayoutManager::implts_showProgressBar()
 
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
     SolarMutexGuard aWriteLock;
-    xStatusBar.set( m_aStatusBarElement.m_xUIElement, UNO_QUERY );
-    xProgressBar.set( m_aProgressBarElement.m_xUIElement, UNO_QUERY );
+    xStatusBar = m_aStatusBarElement.m_xUIElement;
+    xProgressBar = m_aProgressBarElement.m_xUIElement;
     bool bVisible( m_bVisible );
 
     m_aProgressBarElement.m_bVisible = true;
@@ -1075,7 +1075,7 @@ bool LayoutManager::implts_hideProgressBar()
     bool bHideStatusBar( false );
 
     SolarMutexGuard g;
-    xProgressBar.set( m_aProgressBarElement.m_xUIElement, UNO_QUERY );
+    xProgressBar = m_aProgressBarElement.m_xUIElement;
 
     bool bInternalStatusBar( false );
     if ( xProgressBar.is() )
@@ -2525,7 +2525,7 @@ void LayoutManager::implts_createMSCompatibleMenuBar( const OUString& aName )
 {
     SolarMutexGuard aWriteLock;
 
-    // Find Forms menu in the original menubar
+    // Find Form menu in the original menubar
     m_xMenuBar = implts_createElement( aName );
     uno::Reference< XUIElementSettings > xMenuBarSettings(m_xMenuBar, UNO_QUERY);
     uno::Reference< container::XIndexReplace > xMenuIndex(xMenuBarSettings->getSettings(true), UNO_QUERY);
@@ -2550,12 +2550,12 @@ void LayoutManager::implts_createMSCompatibleMenuBar( const OUString& aName )
     }
     assert(nFormsMenu != -1);
 
-    // Create the MS compatible Forms menu
+    // Create the MS compatible Form menu
     css::uno::Reference< css::ui::XUIElement > xFormsMenu = implts_createElement( "private:resource/menubar/mscompatibleformsmenu" );
     if(!xFormsMenu.is())
         return;
 
-    // Merge the MS compatible Forms menu into the menubar
+    // Merge the MS compatible Form menu into the menubar
     uno::Reference< XUIElementSettings > xFormsMenuSettings(xFormsMenu, UNO_QUERY);
     uno::Reference< container::XIndexAccess > xFormsMenuIndex(xFormsMenuSettings->getSettings(true));
 

@@ -8,17 +8,53 @@
  * License. See LICENSE.TXT for details.
  *
  */
+#ifndef LO_CLANG_SHARED_PLUGINS
 
-#include "sallogareas.hxx"
+#include "plugin.hxx"
 #include "check.hxx"
 #include "compat.hxx"
 
 #include <clang/Lex/Lexer.h>
 
 #include <fstream>
+#include <set>
 
-namespace loplugin
+namespace
 {
+
+class SalLogAreas
+    : public loplugin::FilteringPlugin< SalLogAreas >
+    {
+    public:
+        explicit SalLogAreas( const loplugin::InstantiationData& data )
+            : FilteringPlugin(data), inFunction(nullptr) {}
+
+        bool preRun() override {
+            return true;
+        }
+
+        void run() override {
+            if (preRun())
+                {
+                lastSalDetailLogStreamMacro = SourceLocation();
+                TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
+                }
+        }
+
+        bool VisitFunctionDecl( const FunctionDecl* function );
+        bool VisitCallExpr( const CallExpr* call );
+    private:
+        void checkArea( StringRef area, SourceLocation location );
+        void checkAreaSyntax(StringRef area, SourceLocation location);
+        void readLogAreas();
+        const FunctionDecl* inFunction;
+        SourceLocation lastSalDetailLogStreamMacro;
+        std::set< std::string > logAreas;
+#if 0
+        std::string firstSeenLogArea;
+        SourceLocation firstSeenLocation;
+#endif
+    };
 
 /*
 This is a compile check.
@@ -27,18 +63,6 @@ Check area used in SAL_INFO/SAL_WARN macros against the list in include/sal/log-
 report if the area is not listed there. The fix is either use a proper area or add it to the list
 if appropriate.
 */
-
-SalLogAreas::SalLogAreas( const InstantiationData& data )
-    : FilteringPlugin(data), inFunction(nullptr)
-    {
-    }
-
-void SalLogAreas::run()
-    {
-    inFunction = NULL;
-    lastSalDetailLogStreamMacro = SourceLocation();
-    TraverseDecl( compiler.getASTContext().getTranslationUnitDecl());
-    }
 
 bool SalLogAreas::VisitFunctionDecl( const FunctionDecl* function )
     {
@@ -244,8 +268,10 @@ void SalLogAreas::readLogAreas()
         report( DiagnosticsEngine::Warning, "error reading log areas" );
     }
 
-static Plugin::Registration< SalLogAreas > X( "sallogareas" );
+static loplugin::Plugin::Registration< SalLogAreas > sallogareas( "sallogareas" );
 
 } // namespace
+
+#endif // LO_CLANG_SHARED_PLUGINS
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

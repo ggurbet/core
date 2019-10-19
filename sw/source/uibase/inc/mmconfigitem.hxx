@@ -84,9 +84,9 @@ public:
         css::uno::Reference< css::sdbcx::XColumnsSupplier> const & xColumnsSupplier,
         const SwDBData& rDBData);
 
-    css::uno::Reference< css::sdbc::XDataSource> const & GetSource();
+    css::uno::Reference< css::sdbc::XDataSource> const & GetSource() const;
 
-    SharedConnection const & GetConnection();
+    SharedConnection const & GetConnection() const;
 
     css::uno::Reference< css::sdbcx::XColumnsSupplier> const & GetColumnsSupplier();
 
@@ -120,7 +120,7 @@ public:
     bool IsHideEmptyParagraphs() const;
     void SetHideEmptyParagraphs(bool bSet);
 
-    const css::uno::Sequence<OUString> GetAddressBlocks() const;
+    css::uno::Sequence<OUString> GetAddressBlocks() const;
     void SetAddressBlocks(const css::uno::Sequence< OUString>& rBlocks);
 
     void SetCurrentAddressBlockIndex( sal_Int32 nSet );
@@ -136,7 +136,7 @@ public:
     bool IsGreetingLine(bool bInEMail) const;
     void SetGreetingLine(bool bSet, bool bInEMail);
 
-    const css::uno::Sequence<OUString> GetGreetings(Gender eType) const;
+    css::uno::Sequence<OUString> GetGreetings(Gender eType) const;
     void SetGreetings(Gender eType, const css::uno::Sequence< OUString>& rBlocks);
 
     sal_Int32 GetCurrentGreeting(Gender eType) const;
@@ -225,7 +225,7 @@ public:
 
     bool IsMailAvailable() const;
 
-    // notify a completed merge, provid the appropriate e-Mail address if available
+    // notify a completed merge, provide the appropriate e-Mail address if available
     void AddMergedDocument(SwDocMergeInfo const & rInfo);
     //returns the page and database cursor information of each merged document
     SwDocMergeInfo& GetDocumentMergeInfo(sal_uInt32 nDocument);

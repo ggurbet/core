@@ -11,6 +11,7 @@
 #include "csv_handler.hxx"
 #include "debughelper.hxx"
 #include <drwlayer.hxx>
+#include <comphelper/sequence.hxx>
 #include <compiler.hxx>
 #include <conditio.hxx>
 #include <stlsheet.hxx>
@@ -116,8 +117,7 @@ void loadFile(const OUString& aFileName, std::string& aContent)
 
     std::ifstream aFile(aOFileName.getStr());
 
-    OStringBuffer aErrorMsg("Could not open csv file: ");
-    aErrorMsg.append(aOFileName);
+    OString aErrorMsg = "Could not open csv file: " + aOFileName;
     CPPUNIT_ASSERT_MESSAGE(aErrorMsg.getStr(), aFile);
     std::ostringstream aOStream;
     aOStream << aFile.rdbuf();
@@ -375,8 +375,7 @@ std::vector<OUString> getChartRangeRepresentations(const SdrOle2Obj& rChartObj)
     }
 
     Sequence<OUString> aRangeRepSeqs = xDataRec->getUsedRangeRepresentations();
-    for (sal_Int32 i = 0, n = aRangeRepSeqs.getLength(); i < n; ++i)
-        aRangeReps.push_back(aRangeRepSeqs[i]);
+    comphelper::sequenceToContainer(aRangeReps, aRangeRepSeqs);
 
     return aRangeReps;
 }
@@ -405,8 +404,6 @@ ScRangeList getChartRanges(ScDocument& rDoc, const SdrOle2Obj& rChartObj)
     return aRanges;
 }
 
-namespace {
-
 ScTokenArray* getTokens(ScDocument& rDoc, const ScAddress& rPos)
 {
     ScFormulaCell* pCell = rDoc.GetFormulaCell(rPos);
@@ -418,8 +415,6 @@ ScTokenArray* getTokens(ScDocument& rDoc, const ScAddress& rPos)
     }
 
     return pCell->GetCode();
-}
-
 }
 
 bool checkFormula(ScDocument& rDoc, const ScAddress& rPos, const char* pExpected)
@@ -778,13 +773,9 @@ void ScBootstrapFixture::miscRowHeightsTest( TestParam const * aTestValues, unsi
     }
 }
 
-namespace {
-
 std::string to_std_string(const OUString& rStr)
 {
     return std::string(rStr.toUtf8().getStr());
-}
-
 }
 
 void checkFormula(ScDocument& rDoc, const ScAddress& rPos, const char* expected, const char* msg, CppUnit::SourceLine const & sourceLine)

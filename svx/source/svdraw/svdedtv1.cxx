@@ -765,8 +765,6 @@ void SdrEditView::SetNotPersistAttrToMarked(const SfxItemSet& rAttr)
     }
 
     const bool bUndo = IsUndoEnabled();
-    if( bUndo )
-        EndTextEditAllViews();
 
     // TODO: check if WhichRange is necessary.
     const size_t nMarkCount=GetMarkedObjectCount();
@@ -939,8 +937,7 @@ std::vector<sal_uInt16> GetAllCharPropIds(const SfxItemSet& rSet)
     std::vector<sal_uInt16> aCharWhichIds;
     {
         SfxItemIter aIter(rSet);
-        const SfxPoolItem* pItem=aIter.FirstItem();
-        while (pItem!=nullptr)
+        for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
         {
             if (!IsInvalidItem(pItem))
             {
@@ -948,7 +945,6 @@ std::vector<sal_uInt16> GetAllCharPropIds(const SfxItemSet& rSet)
                 if (nWhich>=EE_CHAR_START && nWhich<=EE_CHAR_END)
                     aCharWhichIds.push_back( nWhich );
             }
-            pItem=aIter.NextItem();
         }
     }
     return aCharWhichIds;
@@ -963,13 +959,13 @@ void SdrEditView::SetAttrToMarked(const SfxItemSet& rAttr, bool bReplaceAll)
     {
         bool bHasEEFeatureItems=false;
         SfxItemIter aIter(rAttr);
-        const SfxPoolItem* pItem=aIter.FirstItem();
-        while (!bHasEEFeatureItems && pItem!=nullptr) {
+        for (const SfxPoolItem* pItem = aIter.GetCurItem(); !bHasEEFeatureItems && pItem;
+             pItem = aIter.NextItem())
+        {
             if (!IsInvalidItem(pItem)) {
                 sal_uInt16 nW=pItem->Which();
                 if (nW>=EE_FEATURE_START && nW<=EE_FEATURE_END) bHasEEFeatureItems=true;
             }
-            pItem=aIter.NextItem();
         }
         if(bHasEEFeatureItems)
         {
@@ -1073,7 +1069,7 @@ void SdrEditView::SetAttrToMarked(const SfxItemSet& rAttr, bool bReplaceAll)
             // #i8508#
             // If this is a text object also rescue the OutlinerParaObject since
             // applying attributes to the object may change text layout when
-            // multiple portions exist with multiple formats. If a OutlinerParaObject
+            // multiple portions exist with multiple formats. If an OutlinerParaObject
             // really exists and needs to be rescued is evaluated in the undo
             // implementation itself.
             const bool bRescueText = dynamic_cast< SdrTextObj* >(pObj) != nullptr;

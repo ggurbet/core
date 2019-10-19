@@ -21,7 +21,6 @@
 #include <tools/stream.hxx>
 #include <tools/solar.h>
 #include <rtl/string.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <svtools/rtfkeywd.hxx>
 #include <svtools/rtfout.hxx>
 
@@ -152,7 +151,7 @@ SvStream& Out_Char(SvStream& rStream, sal_Unicode c,
                             // #i47831# add an additional whitespace, so that
                             // "document whitespaces" are not ignored.;
                             rStream.WriteCharPtr( "\\uc" )
-                               .WriteCharPtr( OString::number(nLen).getStr() ).WriteCharPtr( " " );
+                               .WriteOString( OString::number(nLen) ).WriteCharPtr( " " );
                             *pUCMode = nLen;
                         }
                         rStream.WriteCharPtr( "\\u" )

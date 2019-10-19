@@ -26,7 +26,6 @@
 #include <swurl.hxx>
 #include <vcl/keycodes.hxx>
 #include <vcl/svapp.hxx>
-#include <ndtxt.hxx>
 #include <txtinet.hxx>
 #include "accpara.hxx"
 #include "acchyperlink.hxx"
@@ -211,14 +210,10 @@ sal_Bool SAL_CALL SwAccessibleHyperlink::isValid(  )
                 uno::Reference< css::container::XNameAccess > xLinks = xLTS->getLinks();
                 uno::Reference< css::container::XNameAccess > xSubLinks;
                 const uno::Sequence< OUString > aNames( xLinks->getElementNames() );
-                const sal_uLong nLinks = aNames.getLength();
-                const OUString* pNames = aNames.getConstArray();
 
-                for( sal_uLong i = 0; i < nLinks; i++ )
+                for( const OUString& aLink : aNames )
                 {
-                    uno::Any aAny;
-                    OUString aLink( *pNames++ );
-                    aAny = xLinks->getByName( aLink );
+                    uno::Any aAny = xLinks->getByName( aLink );
                     aAny >>= xSubLinks;
                     if (xSubLinks->hasByName(sText.copy(1)) )
                         return true;

@@ -545,7 +545,7 @@ public:
                             SCCOL nDestCol, SCROW nDestRow, SCTAB nDestTab );
 
     void        CopyScenarioFrom( const ScTable* pSrcTab );
-    void        CopyScenarioTo( ScTable* pDestTab ) const;
+    void        CopyScenarioTo( const ScTable* pDestTab ) const;
     bool        TestCopyScenarioTo( const ScTable* pDestTab ) const;
     void        MarkScenarioIn(ScMarkData& rMark, ScScenarioFlags nNeededBits) const;
     bool        HasScenarioRange( const ScRange& rRange ) const;
@@ -715,6 +715,8 @@ public:
                             const ScPatternAttr& rPattern, SvNumFormatType nNewType );
     void        AddCondFormatData( const ScRangeList& rRange, sal_uInt32 nIndex );
     void        RemoveCondFormatData( const ScRangeList& rRange, sal_uInt32 nIndex );
+    void        SetPatternAreaCondFormat( SCCOL nCol, SCROW nStartRow, SCROW nEndRow,
+                    const ScPatternAttr& rAttr, const ScCondFormatIndexes& rCondFormatIndexes );
 
     void        ApplyStyle( SCCOL nCol, SCROW nRow, const ScStyleSheet* rStyle );
     void        ApplyStyleArea( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol, SCROW nEndRow, const ScStyleSheet& rStyle );
@@ -1010,8 +1012,9 @@ public:
 
     void SetFormulaResults( SCCOL nCol, SCROW nRow, const double* pResults, size_t nLen );
 
-    void CalculateInColumnInThread( ScInterpreterContext& rContext, SCCOL nCol, SCROW nRow, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal);
-    void HandleStuffAfterParallelCalculation( SCCOL nCol, SCROW nRow, size_t nLen);
+    void CalculateInColumnInThread( ScInterpreterContext& rContext, SCCOL nColStart, SCCOL nColEnd,
+                                    SCROW nRowStart, SCROW nRowEnd, unsigned nThisThread, unsigned nThreadsTotal);
+    void HandleStuffAfterParallelCalculation( SCCOL nColStart, SCCOL nColEnd, SCROW nRow, size_t nLen, ScInterpreter* pInterpreter);
 
     /**
      * Either start all formula cells as listeners unconditionally, or start

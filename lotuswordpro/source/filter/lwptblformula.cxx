@@ -101,8 +101,7 @@ void LwpFormulaInfo::ReadText()
     std::vector<char> aBuf(nStrLen + 1);
     m_pObjStrm->QuickRead(aBuf.data(), nStrLen);
     aBuf[nStrLen]= '\0';
-    OUString aText;
-    aText += "\"";
+    OUString aText = "\"";
     aText += OUString(aBuf.data(), nStrLen, osl_getThreadTextEncoding());
     aText += "\"";
 
@@ -411,7 +410,7 @@ void LwpFormulaFunc::AddArg(std::unique_ptr<LwpFormulaArg> pArg)
     m_aArgs.push_back(std::move(pArg));
 }
 /**
-*   Convert the functions to a string, which is a argument of other formula
+*   Convert the functions to a string, which is an argument of other formula
 */
 OUString LwpFormulaFunc::ToArgString(LwpTableLayout* pCellsMap)
 {

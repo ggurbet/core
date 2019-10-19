@@ -53,7 +53,7 @@ public:
     SVX_DLLPRIVATE virtual bool onMouseButtonUp(const MouseEvent& rMEvt, vcl::Window* pWin) override;
     SVX_DLLPRIVATE virtual bool onMouseMove(const MouseEvent& rMEvt, vcl::Window* pWin) override;
 
-    SVX_DLLPRIVATE bool HasMarked();
+    SVX_DLLPRIVATE bool HasMarked() const;
     SVX_DLLPRIVATE virtual bool DeleteMarked() override;
 
     SVX_DLLPRIVATE virtual void onSelectionHasChanged() override;
@@ -64,7 +64,6 @@ public:
     SVX_DLLPRIVATE virtual bool GetStyleSheet( SfxStyleSheet* &rpStyleSheet ) const override;
     SVX_DLLPRIVATE virtual bool SetStyleSheet( SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr ) override;
 
-    SVX_DLLPRIVATE virtual bool TakeFormatPaintBrush( std::shared_ptr< SfxItemSet >& rFormatSet  ) override;
     SVX_DLLPRIVATE virtual bool ApplyFormatPaintBrush( SfxItemSet& rFormatSet, bool bNoCharacterFormats, bool bNoParagraphFormats ) override;
 
     // slots
@@ -77,6 +76,7 @@ public:
     SVX_DLLPRIVATE void DistributeColumns( const bool bOptimize, const bool bMinimize );
     SVX_DLLPRIVATE void DistributeRows( const bool bOptimize, const bool bMinimize );
     SVX_DLLPRIVATE void SetVertical( sal_uInt16 nSId );
+    SVX_DLLPRIVATE void changeTableEdge(const SfxRequest& rReq);
 
     SVX_DLLPRIVATE static rtl::Reference< sdr::SelectionController > create(
         SdrView& rView,

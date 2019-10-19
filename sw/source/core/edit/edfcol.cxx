@@ -411,8 +411,8 @@ std::pair<bool, OUString> lcl_MakeParagraphSignatureFieldText(const SignatureDes
             valid = valid
                     && aInfo.nStatus == xml::crypto::SecurityOperationStatus_OPERATION_SUCCEEDED;
 
-            msg = SwResId(STR_SIGNED_BY) + ": " + aInfo.ouSubject + ", ";
-            msg += aDescr.msDate;
+            msg = SwResId(STR_SIGNED_BY) + ": " + aInfo.ouSubject + ", " +
+                aDescr.msDate;
             msg += (!aDescr.msUsage.isEmpty() ? (" (" + aDescr.msUsage + "): ") : OUString(": "));
             msg += (valid ? SwResId(STR_VALID) : SwResId(STR_INVALID));
         }
@@ -432,7 +432,7 @@ lcl_MakeParagraphSignatureFieldText(const uno::Reference<frame::XModel>& xModel,
     return lcl_MakeParagraphSignatureFieldText(aDescr, utf8Text);
 }
 
-/// Generate the next valid ID for the a new signature on this paragraph.
+/// Generate the next valid ID for the new signature on this paragraph.
 OUString lcl_getNextSignatureId(const uno::Reference<frame::XModel>& xModel,
                                 const uno::Reference<text::XTextContent>& xParagraph)
 {
@@ -527,10 +527,8 @@ bool lcl_UpdateParagraphSignatureField(SwDoc* pDoc,
 
 void lcl_RemoveParagraphMetadataField(const uno::Reference<css::text::XTextField>& xField)
 {
-    uno::Reference<css::text::XTextContent> xFieldTextContent(xField, uno::UNO_QUERY);
-    uno::Reference<css::text::XTextRange> xParagraph(xFieldTextContent->getAnchor());
-    uno::Reference<css::text::XText> xParagraphText(xParagraph->getText(), uno::UNO_QUERY);
-    xParagraphText->removeTextContent(xFieldTextContent);
+    uno::Reference<css::text::XTextRange> xParagraph(xField->getAnchor());
+    xParagraph->getText()->removeTextContent(xField);
 }
 
 /// Returns true iff the field in question is paragraph classification.
@@ -784,7 +782,7 @@ void SwEditShell::ApplyAdvancedClassification(std::vector<svx::ClassificationRes
 
     uno::Reference<frame::XModel> xModel = pDocShell->GetBaseModel();
     uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xModel, uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
     uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("PageStyles"), uno::UNO_QUERY);
 
     uno::Reference<lang::XMultiServiceFactory> xMultiServiceFactory(xModel, uno::UNO_QUERY);
@@ -962,7 +960,7 @@ std::vector<svx::ClassificationResult> SwEditShell::CollectAdvancedClassificatio
 
     uno::Reference<frame::XModel> xModel = pDocShell->GetBaseModel();
     uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xModel, uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
     uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("PageStyles"), uno::UNO_QUERY);
 
     std::vector<OUString> aPageStyles = lcl_getUsedPageStyles(this);
@@ -1095,9 +1093,9 @@ void SwEditShell::SetClassification(const OUString& rName, SfxClassificationPoli
 
     uno::Reference<frame::XModel> xModel = pDocShell->GetBaseModel();
     uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xModel, uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
     uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("PageStyles"), uno::UNO_QUERY);
-    uno::Sequence<OUString> aStyles = xStyleFamily->getElementNames();
+    const uno::Sequence<OUString> aStyles = xStyleFamily->getElementNames();
 
     for (const OUString& rPageStyleName : aStyles)
     {
@@ -1382,7 +1380,7 @@ static sal_Int16 lcl_GetAngle(const drawing::HomogenMatrix3& rMatrix)
     return nDeg < 0 ? round(nDeg) * -1 : round(360.0 - nDeg);
 }
 
-SfxWatermarkItem SwEditShell::GetWatermark()
+SfxWatermarkItem SwEditShell::GetWatermark() const
 {
     SwDocShell* pDocShell = GetDoc()->GetDocShell();
     if (!pDocShell)
@@ -1390,7 +1388,7 @@ SfxWatermarkItem SwEditShell::GetWatermark()
 
     uno::Reference<frame::XModel> xModel = pDocShell->GetBaseModel();
     uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xModel, uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
     uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("PageStyles"), uno::UNO_QUERY);
     std::vector<OUString> aUsedPageStyles = lcl_getUsedPageStyles(this);
     for (const OUString& rPageStyleName : aUsedPageStyles)
@@ -1616,9 +1614,9 @@ void SwEditShell::SetWatermark(const SfxWatermarkItem& rWatermark)
 
     uno::Reference<frame::XModel> xModel = pDocShell->GetBaseModel();
     uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xModel, uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
     uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("PageStyles"), uno::UNO_QUERY);
-    uno::Sequence<OUString> aStyles = xStyleFamily->getElementNames();
+    const uno::Sequence<OUString> aStyles = xStyleFamily->getElementNames();
 
     for (const OUString& rPageStyleName : aStyles)
     {
@@ -1893,7 +1891,7 @@ static uno::Reference<text::XTextField> lcl_GetParagraphMetadataFieldAtIndex(con
             SwFormatMeta& rFormatMeta(static_cast<SwFormatMeta&>(pTextMeta->GetAttr()));
             if (::sw::Meta* pMeta = rFormatMeta.GetMeta())
             {
-                const css::uno::Reference<css::rdf::XResource> xSubject(pMeta->MakeUnoObject(), uno::UNO_QUERY);
+                const css::uno::Reference<css::rdf::XResource> xSubject = pMeta->MakeUnoObject();
                 uno::Reference<frame::XModel> xModel = pDocSh->GetBaseModel();
                 const std::map<OUString, OUString> aStatements = lcl_getRDFStatements(xModel, xSubject);
                 if (aStatements.find(ParagraphSignatureIdRDFName) != aStatements.end() ||

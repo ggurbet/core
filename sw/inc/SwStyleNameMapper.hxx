@@ -78,51 +78,6 @@ class SwStyleNameMapper final
     friend void InitCore();
     friend void FinitCore();
 
-    // UI Name tables
-    static std::vector<OUString> *s_pTextUINameArray,
-                            *s_pListsUINameArray,
-                            *s_pExtraUINameArray,
-                            *s_pRegisterUINameArray,
-                            *s_pDocUINameArray,
-                            *s_pHTMLUINameArray,
-                            *s_pFrameFormatUINameArray,
-                            *s_pChrFormatUINameArray,
-                            *s_pHTMLChrFormatUINameArray,
-                            *s_pPageDescUINameArray,
-                            *s_pNumRuleUINameArray,
-                            *s_pTableStyleUINameArray,
-                            *s_pCellStyleUINameArray,
-    // Programmatic Name tables
-                            *s_pTextProgNameArray,
-                            *s_pListsProgNameArray,
-                            *s_pExtraProgNameArray,
-                            *s_pRegisterProgNameArray,
-                            *s_pDocProgNameArray,
-                            *s_pHTMLProgNameArray,
-                            *s_pFrameFormatProgNameArray,
-                            *s_pChrFormatProgNameArray,
-                            *s_pHTMLChrFormatProgNameArray,
-                            *s_pPageDescProgNameArray,
-                            *s_pNumRuleProgNameArray,
-                            *s_pTableStyleProgNameArray,
-                            *s_pCellStyleProgNameArray;
-
-    static NameToIdHash     *s_pParaUIMap,
-                            *s_pCharUIMap,
-                            *s_pPageUIMap,
-                            *s_pFrameUIMap,
-                            *s_pNumRuleUIMap,
-                            *s_pTableStyleUIMap,
-                            *s_pCellStyleUIMap,
-
-                            *s_pParaProgMap,
-                            *s_pCharProgMap,
-                            *s_pPageProgMap,
-                            *s_pFrameProgMap,
-                            *s_pNumRuleProgMap,
-                            *s_pTableStyleProgMap,
-                            *s_pCellStyleProgMap;
-
     static void fillNameFromId(sal_uInt16 nId, OUString &rName, bool bProgName);
     static const OUString& getNameFromId(sal_uInt16 nId, const OUString &rName,
                                          bool bProgName);
@@ -166,9 +121,9 @@ public:
     // RES_POOLCOLL_LABEL_TABLE, RES_POOLCOLL_LABEL_FRAME
     // forth and back.
     // Non-matching names remain unchanged.
-    SW_DLLPUBLIC static const OUString GetSpecialExtraProgName(
+    SW_DLLPUBLIC static const OUString & GetSpecialExtraProgName(
                     const OUString& rExtraUIName);
-    static const OUString GetSpecialExtraUIName(const OUString& rExtraProgName);
+    static const OUString & GetSpecialExtraUIName(const OUString& rExtraProgName);
 
     static const std::vector<OUString>& GetTextUINameArray();
     static const std::vector<OUString>& GetListsUINameArray();

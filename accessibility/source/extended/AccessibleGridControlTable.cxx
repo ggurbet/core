@@ -111,7 +111,7 @@ OUString SAL_CALL AccessibleGridControlTable::getAccessibleRowDescription( sal_I
 
     ensureIsAlive();
     ensureIsValidRow( nRow );
-    return m_aTable.GetRowDescription( nRow );
+    return "row description";
 }
 
 OUString SAL_CALL AccessibleGridControlTable::getAccessibleColumnDescription( sal_Int32 nColumn )
@@ -120,7 +120,7 @@ OUString SAL_CALL AccessibleGridControlTable::getAccessibleColumnDescription( sa
 
     ensureIsAlive();
     ensureIsValidColumn( nColumn );
-    return m_aTable.GetColumnDescription( static_cast<sal_uInt16>(nColumn) );
+    return "col description";
 }
 
 Reference< XAccessibleTable > SAL_CALL AccessibleGridControlTable::getAccessibleRowHeaders()
@@ -165,17 +165,8 @@ sal_Bool SAL_CALL AccessibleGridControlTable::isAccessibleRowSelected( sal_Int32
 
     ensureIsAlive();
     ensureIsValidRow( nRow );
-    bool bSelected = false;
     Sequence< sal_Int32 > selectedRows = getSelectedAccessibleRows();
-    for(int i=0; i<selectedRows.getLength(); i++)
-    {
-        if(nRow == selectedRows[i])
-        {
-            bSelected = true;
-            break;
-        }
-    }
-    return bSelected;
+    return comphelper::findValue(selectedRows, nRow) != -1;
 }
 
 //columns aren't selectable
@@ -303,7 +294,7 @@ void SAL_CALL AccessibleGridControlTable::release() throw ()
 
 OUString SAL_CALL AccessibleGridControlTable::getImplementationName()
 {
-    return OUString( "com.sun.star.accessibility.AccessibleGridControlTable" );
+    return "com.sun.star.accessibility.AccessibleGridControlTable";
 }
 
 // internal virtual methods ---------------------------------------------------

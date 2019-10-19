@@ -31,7 +31,7 @@ namespace sw {
     namespace mark {
     typedef std::unordered_map<OUString, sal_Int32> MarkBasenameMapUniqueOffset_t;
 
-    class DropDownFieldmark;
+    class FieldmarkWithDropDownButton;
 
     class MarkManager
         : virtual public IDocumentMarkAccess
@@ -74,7 +74,6 @@ namespace sw {
             virtual const_iterator_t getAllMarksEnd() const override;
             virtual sal_Int32 getAllMarksCount() const override;
             virtual const_iterator_t findMark(const OUString& rName) const override;
-            virtual const_iterator_t findFirstMarkStartsBefore(const SwPosition& rPos) const override;
 
             // bookmarks
             virtual const_iterator_t getBookmarksBegin() const override;
@@ -84,6 +83,7 @@ namespace sw {
             virtual const_iterator_t findFirstBookmarkStartsAfter(const SwPosition& rPos) const override;
 
             // Fieldmarks
+            virtual ::sw::mark::IFieldmark* getFieldmarkAt(const SwPosition& rPos) const override;
             virtual ::sw::mark::IFieldmark* getFieldmarkFor(const SwPosition& rPos) const override;
             virtual ::sw::mark::IFieldmark* getFieldmarkBefore(const SwPosition& rPos) const override;
             virtual ::sw::mark::IFieldmark* getFieldmarkAfter(const SwPosition& rPos) const override;
@@ -92,7 +92,7 @@ namespace sw {
             virtual std::vector< ::sw::mark::IFieldmark* > getDropDownsFor(const SwPaM &rPaM) const override;
 
             virtual void deleteFieldmarkAt(const SwPosition& rPos) override;
-            virtual ::sw::mark::IFieldmark* changeNonTextFieldmarkType(::sw::mark::IFieldmark* pFieldmark, const OUString& rNewType) override;
+            virtual ::sw::mark::IFieldmark* changeFormFieldmarkType(::sw::mark::IFieldmark* pFieldmark, const OUString& rNewType) override;
 
             virtual void NotifyCursorUpdate(const SwCursorShell& rCursorShell) override;
             virtual void ClearFieldActivation() override;
@@ -138,7 +138,7 @@ namespace sw {
 
             SwDoc * const m_pDoc;
 
-            sw::mark::DropDownFieldmark* m_pLastActiveFieldmark;
+            sw::mark::FieldmarkWithDropDownButton* m_pLastActiveFieldmark;
     };
     } // namespace mark
 }

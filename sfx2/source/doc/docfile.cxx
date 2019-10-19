@@ -83,6 +83,7 @@
 #include <comphelper/fileurl.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/interaction.hxx>
+#include <comphelper/sequence.hxx>
 #include <comphelper/simplefileaccessinteraction.hxx>
 #include <framework/interaction.hxx>
 #include <unotools/streamhelper.hxx>
@@ -332,7 +333,7 @@ public:
     SfxMedium_Impl(const SfxMedium_Impl&) = delete;
     SfxMedium_Impl& operator=(const SfxMedium_Impl&) = delete;
 
-    OUString getFilterMimeType()
+    OUString getFilterMimeType() const
         { return !m_pFilter ? OUString() : m_pFilter->GetMimeType(); }
 };
 
@@ -387,7 +388,7 @@ void SfxMedium::ResetError()
         pImpl->m_pOutStream->ResetError();
 }
 
-ErrCode const & SfxMedium::GetLastStorageCreationState()
+ErrCode const & SfxMedium::GetLastStorageCreationState() const
 {
     return pImpl->nLastStorageError;
 }
@@ -506,7 +507,7 @@ Reference < XContent > SfxMedium::GetContent() const
         }
         else
         {
-            // TODO: SAL_WARN( "sfx.doc", "SfxMedium::GetContent()\nCreate Content? This code exists as fallback only. Please clarify, why its used.");
+            // TODO: SAL_WARN( "sfx.doc", "SfxMedium::GetContent()\nCreate Content? This code exists as fallback only. Please clarify, why it's used.");
             OUString aURL;
             if ( !pImpl->m_aName.isEmpty() )
                 osl::FileBase::getFileURLFromSystemPath( pImpl->m_aName, aURL );
@@ -552,7 +553,7 @@ OUString SfxMedium::GetBaseURL( bool bForSaving )
     return aBaseURL;
 }
 
-bool SfxMedium::IsSkipImages()
+bool SfxMedium::IsSkipImages() const
 {
     const SfxStringItem* pSkipImagesItem = GetItemSet()->GetItem<SfxStringItem>(SID_FILE_FILTEROPTIONS);
     return pSkipImagesItem && pSkipImagesItem->GetValue() == "SkipImages";
@@ -783,7 +784,7 @@ bool SfxMedium::IsStorage()
 }
 
 
-bool SfxMedium::IsPreview_Impl()
+bool SfxMedium::IsPreview_Impl() const
 {
     bool bPreview = false;
     const SfxBoolItem* pPreview = SfxItemSet::GetItem<SfxBoolItem>(GetItemSet(), SID_PREVIEW, false);
@@ -1128,12 +1129,15 @@ namespace
 
 // sets SID_DOC_READONLY if the document cannot be opened for editing
 // if user cancel the loading the ERROR_ABORT is set
-SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool bNoUI, bool bTryIgnoreLockFile )
+SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand(bool bLoading, bool bNoUI,
+                                                          bool bTryIgnoreLockFile,
+                                                          LockFileEntry* pLockData)
 {
 #if !HAVE_FEATURE_MULTIUSER_ENVIRONMENT
     (void) bLoading;
     (void) bNoUI;
     (void) bTryIgnoreLockFile;
+    (void) pLockData;
     return LockFileResult::Succeeded;
 #else
     LockFileResult eResult = LockFileResult::Failed;
@@ -1183,38 +1187,47 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
                         catch ( ucb::InteractiveLockingLockedException& )
                         {
                             // received when the resource is already locked
-                            // get the lock owner, using a special ucb.webdav property
-                            // the owner property retrieved here is  what the other principal send the server
-                            // when activating the lock.
-                            // See http://tools.ietf.org/html/rfc4918#section-14.17 for details
-                            LockFileEntry aLockData;
-                            aLockData[LockFileComponent::OOOUSERNAME] = "Unknown user";
-                            // This solution works right when the LO user name and the WebDAV user
-                            // name are the same.
-                            // A better thing to do would be to obtain the 'real' WebDAV user name,
-                            // but that's not possible from a WebDAV UCP provider client.
-                            LockFileEntry aOwnData = svt::LockFileCommon::GenerateOwnEntry();
-                            // use the current LO user name as the system name
-                            aLockData[LockFileComponent::SYSUSERNAME] = aOwnData[LockFileComponent::SYSUSERNAME];
-
-                            uno::Sequence< css::ucb::Lock >  aLocks;
-                            // getting the property, send a PROPFIND to the server over the net
-                            if( aContentToLock.getPropertyValue( "DAV:lockdiscovery" )  >>= aLocks )
+                            if (!bNoUI || pLockData)
                             {
-                                // got at least a lock, show the owner of the first lock returned
-                                css::ucb::Lock aLock = aLocks[0];
-                                OUString aOwner;
-                                if(aLock.Owner >>= aOwner)
+                                // get the lock owner, using a special ucb.webdav property
+                                // the owner property retrieved here is  what the other principal send the server
+                                // when activating the lock.
+                                // See http://tools.ietf.org/html/rfc4918#section-14.17 for details
+                                LockFileEntry aLockData;
+                                aLockData[LockFileComponent::OOOUSERNAME] = "Unknown user";
+                                // This solution works right when the LO user name and the WebDAV user
+                                // name are the same.
+                                // A better thing to do would be to obtain the 'real' WebDAV user name,
+                                // but that's not possible from a WebDAV UCP provider client.
+                                LockFileEntry aOwnData = svt::LockFileCommon::GenerateOwnEntry();
+                                // use the current LO user name as the system name
+                                aLockData[LockFileComponent::SYSUSERNAME]
+                                    = aOwnData[LockFileComponent::SYSUSERNAME];
+
+                                uno::Sequence<css::ucb::Lock> aLocks;
+                                // getting the property, send a PROPFIND to the server over the net
+                                if (aContentToLock.getPropertyValue("DAV:lockdiscovery") >>= aLocks)
                                 {
-                                    // we need to display the WebDAV user name owning the lock, not the local one
-                                    aLockData[LockFileComponent::OOOUSERNAME] = aOwner;
+                                    // got at least a lock, show the owner of the first lock returned
+                                    css::ucb::Lock aLock = aLocks[0];
+                                    OUString aOwner;
+                                    if (aLock.Owner >>= aOwner)
+                                    {
+                                        // we need to display the WebDAV user name owning the lock, not the local one
+                                        aLockData[LockFileComponent::OOOUSERNAME] = aOwner;
+                                    }
                                 }
-                            }
 
-                            if ( !bResult && !bNoUI )
-                            {
-                                bUIStatus
-                                    = ShowLockedDocumentDialog(aLockData, bLoading, false, true);
+                                if (!bNoUI)
+                                {
+                                    bUIStatus = ShowLockedDocumentDialog(aLockData, bLoading, false,
+                                                                         true);
+                                }
+
+                                if (pLockData)
+                                {
+                                    std::copy(aLockData.begin(), aLockData.end(), pLockData->begin());
+                                }
                             }
                         }
                         catch( ucb::InteractiveNetworkWriteException& )
@@ -1259,8 +1272,7 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
         }
         catch ( const uno::Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "sfx.doc", "Locking exception: WebDAV while trying to lock the file " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "sfx.doc", "Locking exception: WebDAV while trying to lock the file" );
         }
         return eResult;
     }
@@ -1467,6 +1479,11 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
                                     }
                                     else if (bLoading && !bHandleSysLocked)
                                         eResult = LockFileResult::FailedLockFile;
+
+                                    if (!bResult && pLockData)
+                                    {
+                                        std::copy(aData.begin(), aData.end(), pLockData->begin());
+                                    }
                                 }
                             }
                         }
@@ -1506,8 +1523,7 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
     }
     catch( const uno::Exception& )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sfx.doc", "Locking exception: high probability, that the content has not been created " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "sfx.doc", "Locking exception: high probability, that the content has not been created" );
     }
 
     return eResult;
@@ -1622,7 +1638,7 @@ uno::Reference < embed::XStorage > SfxMedium::GetStorage( bool bCreateTempIfNo )
     if ( pVersion && pVersion->GetValue() )
     {
         // Read all available versions
-        if ( pImpl->aVersions.getLength() )
+        if ( pImpl->aVersions.hasElements() )
         {
             // Search for the version fits the comment
             // The versions are numbered starting with 1, versions with
@@ -1738,7 +1754,7 @@ void SfxMedium::CloseStorage()
 {
     if ( pImpl->xStorage.is() )
     {
-        uno::Reference < lang::XComponent > xComp( pImpl->xStorage, uno::UNO_QUERY );
+        uno::Reference < lang::XComponent > xComp = pImpl->xStorage;
         // in the salvage mode the medium does not own the storage
         if ( pImpl->bDisposeStorage && !pImpl->m_bSalvageMode )
         {
@@ -2427,7 +2443,7 @@ void SfxMedium::DoInternalBackup_Impl( const ::ucbhelper::Content& aOriginalCont
     if ( !pImpl->m_aBackupURL.isEmpty() )
         return;
 
-    // the copiing to the backup catalog failed ( for example because
+    // the copying to the backup catalog failed ( for example because
     // of using an encrypted partition as target catalog )
     // since the user did not specify to make backup explicitly
     // office should try to make backup in another place,
@@ -2969,8 +2985,7 @@ void SfxMedium::UnlockFile( bool bReleaseLockStream )
             }
             catch ( uno::Exception& )
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN( "sfx.doc", "Locking exception: WebDAV while trying to lock the file " << exceptionToString(ex) );
+                TOOLS_WARN_EXCEPTION( "sfx.doc", "Locking exception: WebDAV while trying to lock the file" );
             }
         }
         return;
@@ -3440,7 +3455,7 @@ css::uno::Reference< css::io::XInputStream > const &  SfxMedium::GetInputStream(
 const uno::Sequence < util::RevisionTag >& SfxMedium::GetVersionList( bool _bNoReload )
 {
     // if the medium has no name, then this medium should represent a new document and can have no version info
-    if ( ( !_bNoReload || !pImpl->m_bVersionsAlreadyLoaded ) && !pImpl->aVersions.getLength() &&
+    if ( ( !_bNoReload || !pImpl->m_bVersionsAlreadyLoaded ) && !pImpl->aVersions.hasElements() &&
          ( !pImpl->m_aName.isEmpty() || !pImpl->m_aLogicName.isEmpty() ) && GetStorage().is() )
     {
         uno::Reference < document::XDocumentRevisionListPersistence > xReader =
@@ -3483,9 +3498,9 @@ void SfxMedium::AddVersion_Impl( util::RevisionTag& rRevision )
     // To determine a unique name for the stream
     std::vector<sal_uInt32> aLongs;
     sal_Int32 nLength = pImpl->aVersions.getLength();
-    for ( sal_Int32 m=0; m<nLength; m++ )
+    for ( const auto& rVersion : std::as_const(pImpl->aVersions) )
     {
-        sal_uInt32 nVer = static_cast<sal_uInt32>( pImpl->aVersions[m].Identifier.copy(7).toInt32());
+        sal_uInt32 nVer = static_cast<sal_uInt32>( rVersion.Identifier.copy(7).toInt32());
         size_t n;
         for ( n=0; n<aLongs.size(); ++n )
             if ( nVer<aLongs[n] )
@@ -3507,25 +3522,21 @@ void SfxMedium::AddVersion_Impl( util::RevisionTag& rRevision )
 
 void SfxMedium::RemoveVersion_Impl( const OUString& rName )
 {
-    if ( !pImpl->aVersions.getLength() )
+    if ( !pImpl->aVersions.hasElements() )
         return;
 
-    sal_Int32 nLength = pImpl->aVersions.getLength();
-    for ( sal_Int32 n=0; n<nLength; n++ )
+    auto pVersion = std::find_if(pImpl->aVersions.begin(), pImpl->aVersions.end(),
+        [&rName](const auto& rVersion) { return rVersion.Identifier == rName; });
+    if (pVersion != pImpl->aVersions.end())
     {
-        if ( pImpl->aVersions[n].Identifier == rName )
-        {
-            for ( sal_Int32 m=n; m<nLength-1; m++ )
-                pImpl->aVersions[m] = pImpl->aVersions[m+1];
-            pImpl->aVersions.realloc(nLength-1);
-            return;
-        }
+        auto nIndex = static_cast<sal_Int32>(std::distance(pImpl->aVersions.begin(), pVersion));
+        comphelper::removeElementAt(pImpl->aVersions, nIndex);
     }
 }
 
 bool SfxMedium::TransferVersionList_Impl( SfxMedium const & rMedium )
 {
-    if ( rMedium.pImpl->aVersions.getLength() )
+    if ( rMedium.pImpl->aVersions.hasElements() )
     {
         pImpl->aVersions = rMedium.pImpl->aVersions;
         return true;
@@ -3539,7 +3550,7 @@ void SfxMedium::SaveVersionList_Impl()
     if ( !GetStorage().is() )
         return;
 
-    if ( !pImpl->aVersions.getLength() )
+    if ( !pImpl->aVersions.hasElements() )
         return;
 
     uno::Reference < document::XDocumentRevisionListPersistence > xWriter =
@@ -3812,8 +3823,7 @@ bool SfxMedium::SignDocumentContentUsingCertificate(bool bHasValidDocumentSignat
             throw uno::RuntimeException();
 
         uno::Reference< embed::XStorage > xMetaInf;
-        uno::Reference<container::XNameAccess> xNameAccess(xWriteableZipStor, uno::UNO_QUERY);
-        if (xNameAccess.is() && xNameAccess->hasByName("META-INF"))
+        if (xWriteableZipStor.is() && xWriteableZipStor->hasByName("META-INF"))
         {
             xMetaInf = xWriteableZipStor->openStorageElement(
                                             "META-INF",
@@ -3939,8 +3949,7 @@ bool SfxMedium::SignContents_Impl(weld::Window* pDialogParent,
             throw uno::RuntimeException();
 
         uno::Reference< embed::XStorage > xMetaInf;
-        uno::Reference<container::XNameAccess> xNameAccess(xWriteableZipStor, uno::UNO_QUERY);
-        if (xNameAccess.is() && xNameAccess->hasByName("META-INF"))
+        if (xWriteableZipStor.is() && xWriteableZipStor->hasByName("META-INF"))
         {
             xMetaInf = xWriteableZipStor->openStorageElement(
                                             "META-INF",
@@ -4057,7 +4066,7 @@ bool SfxMedium::SignContents_Impl(weld::Window* pDialogParent,
 }
 
 
-SignatureState SfxMedium::GetCachedSignatureState_Impl()
+SignatureState SfxMedium::GetCachedSignatureState_Impl() const
 {
     return pImpl->m_nSignatureState;
 }
@@ -4283,7 +4292,7 @@ void SfxMedium::SetInCheckIn( bool bInCheckIn )
     pImpl->m_bInCheckIn = bInCheckIn;
 }
 
-bool SfxMedium::IsInCheckIn( )
+bool SfxMedium::IsInCheckIn( ) const
 {
     return pImpl->m_bInCheckIn;
 }

@@ -1,0 +1,9 @@
+---
+assumeFilename: toolkit/source/controls/unocontrol.cxx
+blacklist:
+    toolkit/source/awt/vclxmenu.cxx:
+    # Needed for direct member access
+    - vcl/window.hxx
+    toolkit/source/helper/servicenames.cxx:
+    # Needed for extern array declarations
+    - toolkit/helper/servicenames.hxx

@@ -224,7 +224,7 @@ static map<sal_uInt16,OUString> & GetItemWhichMap()
     return aItemWhichMap;
 }
 
-static const OUString lcl_dbg_out(const SfxPoolItem & rItem)
+static OUString lcl_dbg_out(const SfxPoolItem & rItem)
 {
     OUString aStr("[ ");
 
@@ -248,16 +248,13 @@ const char * dbg_out(const SfxPoolItem * pItem)
     return dbg_out(pItem ? lcl_dbg_out(*pItem) : OUString("(nil)"));
 }
 
-static const OUString lcl_dbg_out(const SfxItemSet & rSet)
+static OUString lcl_dbg_out(const SfxItemSet & rSet)
 {
     SfxItemIter aIter(rSet);
-    const SfxPoolItem * pItem;
     bool bFirst = true;
     OUStringBuffer aStr = "[ ";
 
-    pItem = aIter.FirstItem();
-
-    while (pItem )
+    for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
     {
         if (!bFirst)
             aStr.append(", ");
@@ -268,8 +265,6 @@ static const OUString lcl_dbg_out(const SfxItemSet & rSet)
             aStr.append("invalid");
 
         bFirst = false;
-
-        pItem = aIter.NextItem();
     }
 
     aStr.append(" ]");
@@ -282,7 +277,7 @@ const char * dbg_out(const SfxItemSet & rSet)
     return dbg_out(lcl_dbg_out(rSet));
 }
 
-static const OUString lcl_dbg_out(const SwTextAttr & rAttr)
+static OUString lcl_dbg_out(const SwTextAttr & rAttr)
 {
     OUString aStr("[ ");
 
@@ -302,7 +297,7 @@ const char * dbg_out(const SwTextAttr & rAttr)
     return dbg_out(lcl_dbg_out(rAttr));
 }
 
-static const OUString lcl_dbg_out(const SwpHints & rHints)
+static OUString lcl_dbg_out(const SwpHints & rHints)
 {
     OUStringBuffer aStr("[ SwpHints\n");
 
@@ -400,13 +395,12 @@ const char * dbg_out(const SwRect & rRect)
 
 static OUString lcl_dbg_out(const SwFrameFormat & rFrameFormat)
 {
-    OUString aResult("[ ");
-
     char sBuffer[256];
     sprintf(sBuffer, "%p", &rFrameFormat);
 
-    aResult += OUString(sBuffer, strlen(sBuffer), RTL_TEXTENCODING_ASCII_US);
-    aResult += "(";
+    OUString aResult = "[ " +
+        OUString(sBuffer, strlen(sBuffer), RTL_TEXTENCODING_ASCII_US) +
+        "(";
     aResult += rFrameFormat.GetName();
     aResult += ")";
 
@@ -425,7 +419,7 @@ const char * dbg_out(const SwFrameFormat & rFrameFormat)
     return dbg_out(lcl_dbg_out(rFrameFormat));
 }
 
-static const OUString lcl_AnchoredFrames(const SwNode & rNode)
+static OUString lcl_AnchoredFrames(const SwNode & rNode)
 {
     OUStringBuffer aResult("[");
 
@@ -502,28 +496,22 @@ static OUString lcl_dbg_out_NumType(sal_Int16 nType)
 
 static OUString lcl_dbg_out(const SwNode & rNode)
 {
-    OUString aTmpStr;
-
-    aTmpStr += "<node ";
-    aTmpStr += "index=\"";
-    aTmpStr += OUString::number(rNode.GetIndex());
-    aTmpStr += "\"";
-
-    aTmpStr += " serial=\"";
-    aTmpStr += OUString::number(rNode.GetSerial());
-    aTmpStr += "\"";
-
-    aTmpStr += " type=\"";
-    aTmpStr += OUString::number(sal_Int32( rNode.GetNodeType() ) );
-    aTmpStr += "\"";
-
-    aTmpStr += " pointer=\"";
-
     char aBuffer[128];
     sprintf(aBuffer, "%p", &rNode);
-    aTmpStr += OUString(aBuffer, strlen(aBuffer), RTL_TEXTENCODING_ASCII_US);
 
-    aTmpStr += "\">";
+    OUString aTmpStr = "<node "
+        "index=\"" +
+        OUString::number(rNode.GetIndex()) +
+        "\""
+        " serial=\"" +
+        OUString::number(rNode.GetSerial()) +
+        "\""
+        " type=\"" +
+        OUString::number(sal_Int32( rNode.GetNodeType() ) ) +
+        "\""
+        " pointer=\"" +
+        OUString(aBuffer, strlen(aBuffer), RTL_TEXTENCODING_ASCII_US) +
+        "\">";
 
     const SwTextNode * pTextNode = rNode.GetTextNode();
 
@@ -553,8 +541,8 @@ static OUString lcl_dbg_out(const SwNode & rNode)
             }
             aTmpStr += "</number>";
 
-            aTmpStr += "<rule>";
-            aTmpStr += pNumRule->GetName();
+            aTmpStr += "<rule>" +
+                pNumRule->GetName();
 
             const SfxPoolItem * pItem = nullptr;
 
@@ -564,8 +552,7 @@ static OUString lcl_dbg_out(const SwNode & rNode)
                 aTmpStr += "(";
                 aTmpStr +=
                     static_cast<const SwNumRuleItem *>(pItem)->GetValue();
-                aTmpStr += ")";
-                aTmpStr += "*";
+                aTmpStr += ")*";
             }
 
             const SwNumFormat * pNumFormat = nullptr;
@@ -611,11 +598,10 @@ static OUString lcl_dbg_out(const SwNode & rNode)
 
             if (!sNumruleName.isEmpty())
             {
-                aTmpStr += ", ";
-                aTmpStr += sNumruleName;
+                aTmpStr += ", " + sNumruleName;
             }
-            aTmpStr += ")";
-            aTmpStr += "</coll>";
+            aTmpStr += ")"
+                "</coll>";
         }
 
         SwFormatColl * pCColl = pTextNode->GetCondFormatColl();
@@ -806,30 +792,30 @@ static OUString lcl_TokenType2Str(FormTokenType nType)
     switch(nType)
     {
     case TOKEN_ENTRY_NO:
-        return OUString("NO");
+        return "NO";
     case TOKEN_ENTRY_TEXT:
-        return OUString("ENTRY_TEXT");
+        return "ENTRY_TEXT";
     case TOKEN_ENTRY:
-        return OUString("ENTRY");
+        return "ENTRY";
     case TOKEN_TAB_STOP:
-        return OUString("TAB_STOP");
+        return "TAB_STOP";
     case TOKEN_TEXT:
-        return OUString("TOKEN_TEXT");
+        return "TOKEN_TEXT";
     case TOKEN_PAGE_NUMS:
-        return OUString("NUMS");
+        return "NUMS";
     case TOKEN_CHAPTER_INFO:
-        return OUString("CHAPTER_INFO");
+        return "CHAPTER_INFO";
     case TOKEN_LINK_START:
-        return OUString("LINK_START");
+        return "LINK_START";
     case TOKEN_LINK_END:
-        return OUString("LINK_END");
+        return "LINK_END";
     case TOKEN_AUTHORITY:
-        return OUString("AUTHORITY");
+        return "AUTHORITY";
     case TOKEN_END:
-        return OUString("END");
+        return "END";
     default:
         OSL_FAIL("should not be reached");
-        return OUString("??");
+        return "??";
     }
 }
 

@@ -128,7 +128,7 @@ class TopicsControl(ControlScroller):
     '''
 
     def initializeScrollFields(self, agenda):
-        # create a row for each topic with the given values....
+        # create a row for each topic with the given values...
         for index,item  in enumerate(agenda.cp_Topics.childrenList):
             row = self.newRow(index)
             item.setDataToRow(row)
@@ -555,7 +555,7 @@ class TopicsControl(ControlScroller):
             lowerRow = self.ControlGroupVector[guiRow]
         else:
             # if we scrolled we are done...
-            #otherwise..
+            #otherwise...
             lowerRow = self.ControlGroupVector[guiRow + 1]
 
         self.focus(self.getControl(lowerRow, control))

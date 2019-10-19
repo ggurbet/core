@@ -18,17 +18,19 @@
  */
 
 #include "ximpstyl.hxx"
+#include <xmloff/maptype.hxx>
 #include <xmloff/XMLShapeStyleContext.hxx>
 #include <xmloff/xmlnmspe.hxx>
+#include <xmloff/xmlprmap.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmluconv.hxx>
 #include "ximpnote.hxx"
+#include <xmlsdtypes.hxx>
 #include <tools/debug.hxx>
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
 
 #include <com/sun/star/style/XStyle.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/presentation/XPresentationPage.hpp>
 #include <com/sun/star/drawing/XDrawPages.hpp>
@@ -42,8 +44,6 @@
 #include <xmloff/families.hxx>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <svl/zforlist.hxx>
-#include <PropertySetMerger.hxx>
-#include "sdpropls.hxx"
 #include "layerimp.hxx"
 #include <xmloff/XMLGraphicsDefaultStyle.hxx>
 #include <XMLNumberStylesImport.hxx>
@@ -855,15 +855,11 @@ SvXMLImportContextRef SdXMLMasterPageContext::CreateChildContext(
                 uno::Reference< presentation::XPresentationPage > xPresPage(GetLocalShapesContext(), uno::UNO_QUERY);
                 if(xPresPage.is())
                 {
-                    uno::Reference< drawing::XDrawPage > xNotesDrawPage(xPresPage->getNotesPage(), uno::UNO_QUERY);
+                    uno::Reference< drawing::XDrawPage > xNotesDrawPage = xPresPage->getNotesPage();
                     if(xNotesDrawPage.is())
                     {
-                        uno::Reference< drawing::XShapes > xNewShapes(xNotesDrawPage, uno::UNO_QUERY);
-                        if(xNewShapes.is())
-                        {
-                            // presentation:notes inside master-page context
-                            xContext = new SdXMLNotesContext( GetSdImport(), nPrefix, rLocalName, xAttrList, xNewShapes);
-                        }
+                        // presentation:notes inside master-page context
+                        xContext = new SdXMLNotesContext( GetSdImport(), nPrefix, rLocalName, xAttrList, xNotesDrawPage);
                     }
                 }
             }
@@ -1170,7 +1166,7 @@ void SdXMLStylesContext::ImpSetCellStyles() const
 
 //Resolves: fdo#34987 if the style's auto height before and after is the same
 //then don't reset it back to the underlying default of true for the small
-//period before its going to be reset to false again. Doing this avoids the
+//period before it's going to be reset to false again. Doing this avoids the
 //master page shapes from resizing themselves due to autoheight becoming
 //enabled before having autoheight turned off again and getting stuck on that
 //autosized height
@@ -1417,12 +1413,11 @@ SvXMLImportContextRef SdXMLMasterStylesContext::CreateChildContext(
 
             if(xNewMasterPage.is())
             {
-                uno::Reference< drawing::XShapes > xNewShapes(xNewMasterPage, uno::UNO_QUERY);
-                if(xNewShapes.is() && GetSdImport().GetShapeImport()->GetStylesContext())
+                if(GetSdImport().GetShapeImport()->GetStylesContext())
                 {
                     const rtl::Reference<SdXMLMasterPageContext> xLclContext{
                         new SdXMLMasterPageContext(GetSdImport(),
-                            nPrefix, rLocalName, xAttrList, xNewShapes)};
+                            nPrefix, rLocalName, xAttrList, xNewMasterPage)};
                     xContext = xLclContext.get();
                     maMasterPageList.push_back(xLclContext);
                 }
@@ -1435,7 +1430,7 @@ SvXMLImportContextRef SdXMLMasterStylesContext::CreateChildContext(
         uno::Reference< presentation::XHandoutMasterSupplier > xHandoutSupp( GetSdImport().GetModel(), uno::UNO_QUERY );
         if( xHandoutSupp.is() )
         {
-            uno::Reference< drawing::XShapes > xHandoutPage( xHandoutSupp->getHandoutMasterPage(), uno::UNO_QUERY );
+            uno::Reference< drawing::XShapes > xHandoutPage = xHandoutSupp->getHandoutMasterPage();
             if(xHandoutPage.is() && GetSdImport().GetShapeImport()->GetStylesContext())
             {
                 xContext = new SdXMLMasterPageContext(GetSdImport(),

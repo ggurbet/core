@@ -99,13 +99,12 @@ XTYPEPROVIDER_IMPL_4( HierarchyContentProvider,
 // XServiceInfo methods.
 
 XSERVICEINFO_COMMOM_IMPL( HierarchyContentProvider,
-                          OUString( "com.sun.star.comp.ucb.HierarchyContentProvider" ) )
+                          "com.sun.star.comp.ucb.HierarchyContentProvider" )
 /// @throws css::uno::Exception
 static css::uno::Reference< css::uno::XInterface >
 HierarchyContentProvider_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new HierarchyContentProvider( ucbhelper::getComponentContext(rSMgr) ));
+    css::lang::XServiceInfo* pX = new HierarchyContentProvider( ucbhelper::getComponentContext(rSMgr) );
     return css::uno::Reference< css::uno::XInterface >::query( pX );
 }
 
@@ -208,7 +207,6 @@ HierarchyContentProvider::getConfigProvider(
     return (*it).second.xConfigProvider;
 }
 
-
 uno::Reference< container::XHierarchicalNameAccess >
 HierarchyContentProvider::getRootConfigReadNameAccess(
                                 const OUString & rServiceSpecifier )
@@ -216,56 +214,55 @@ HierarchyContentProvider::getRootConfigReadNameAccess(
     osl::MutexGuard aGuard( m_aMutex );
     ConfigProviderMap::iterator it = m_aConfigProviderMap.find(
                                                     rServiceSpecifier );
-    if ( it != m_aConfigProviderMap.end() )
+    if (it == m_aConfigProviderMap.end())
+        return uno::Reference< container::XHierarchicalNameAccess >();
+
+    if ( !( (*it).second.xRootReadAccess.is() ) )
     {
-        if ( !( (*it).second.xRootReadAccess.is() ) )
+        if ( (*it).second.bTriedToGetRootReadAccess )
         {
-            if ( (*it).second.bTriedToGetRootReadAccess )
+            OSL_FAIL( "HierarchyContentProvider::getRootConfigReadNameAccess - "
+                "Unable to read any config data! -> #82494#" );
+            return uno::Reference< container::XHierarchicalNameAccess >();
+        }
+
+        try
+        {
+            uno::Reference< lang::XMultiServiceFactory > xConfigProv
+                = getConfigProvider( rServiceSpecifier );
+
+            if ( xConfigProv.is() )
             {
-                OSL_FAIL( "HierarchyContentProvider::getRootConfigReadNameAccess - "
-                    "Unable to read any config data! -> #82494#" );
-                return uno::Reference< container::XHierarchicalNameAccess >();
+                uno::Sequence< uno::Any > aArguments( 1 );
+                beans::PropertyValue      aProperty;
+                aProperty.Name = "nodepath" ;
+                aProperty.Value <<= OUString(); // root path
+                aArguments[ 0 ] <<= aProperty;
+
+                (*it).second.bTriedToGetRootReadAccess = true;
+
+                (*it).second.xRootReadAccess.set(
+                        xConfigProv->createInstanceWithArguments(
+                            "com.sun.star.ucb.HierarchyDataReadAccess",
+                            aArguments ),
+                        uno::UNO_QUERY );
             }
+        }
+        catch ( uno::RuntimeException const & )
+        {
+            throw;
+        }
+        catch ( uno::Exception const & )
+        {
+            // createInstance, createInstanceWithArguments
 
-            try
-            {
-                uno::Reference< lang::XMultiServiceFactory > xConfigProv
-                    = getConfigProvider( rServiceSpecifier );
-
-                if ( xConfigProv.is() )
-                {
-                    uno::Sequence< uno::Any > aArguments( 1 );
-                    beans::PropertyValue      aProperty;
-                    aProperty.Name = "nodepath" ;
-                    aProperty.Value <<= OUString(); // root path
-                    aArguments[ 0 ] <<= aProperty;
-
-                    (*it).second.bTriedToGetRootReadAccess = true;
-
-                    (*it).second.xRootReadAccess.set(
-                            xConfigProv->createInstanceWithArguments(
-                                "com.sun.star.ucb.HierarchyDataReadAccess",
-                                aArguments ),
-                            uno::UNO_QUERY );
-                }
-            }
-            catch ( uno::RuntimeException const & )
-            {
-                throw;
-            }
-            catch ( uno::Exception const & )
-            {
-                // createInstance, createInstanceWithArguments
-
-                OSL_FAIL( "HierarchyContentProvider::getRootConfigReadNameAccess - "
-                    "caught Exception!" );
-            }
+            OSL_FAIL( "HierarchyContentProvider::getRootConfigReadNameAccess - "
+                "caught Exception!" );
         }
     }
 
     return (*it).second.xRootReadAccess;
 }
-
 
 uno::Reference< util::XOfficeInstallationDirectories >
 HierarchyContentProvider::getOfficeInstallationDirectories()

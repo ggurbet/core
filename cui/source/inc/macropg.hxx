@@ -24,9 +24,7 @@
 
 #include <com/sun/star/container/XNameReplace.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/uno/Reference.hxx>
-#include <svl/macitem.hxx>
 #include <rtl/ustring.hxx>
 
 #include <unordered_map>
@@ -58,9 +56,9 @@ class SvxMacroTabPage_ : public SfxTabPage
 {
     DECL_LINK( SelectEvent_Impl, weld::TreeView&, void );
     DECL_LINK( AssignDeleteHdl_Impl, weld::Button&, void );
-    DECL_LINK( DoubleClickHdl_Impl, weld::TreeView&, void );
+    DECL_LINK( DoubleClickHdl_Impl, weld::TreeView&, bool );
 
-    static void GenericHandler_Impl( SvxMacroTabPage_* pThis, weld::Button* pBtn );
+    static void GenericHandler_Impl( SvxMacroTabPage_* pThis, const weld::Button* pBtn );
 
     css::uno::Reference< css::container::XNameReplace > m_xAppEvents;
 protected:
@@ -72,7 +70,7 @@ protected:
     bool bDocModified, bAppEvents, bInitialized;
     EventDisplayNames aDisplayNames;
 
-    SvxMacroTabPage_(TabPageParent pParent, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet& rItemSet);
+    SvxMacroTabPage_(weld::Container* pPage, weld::DialogController* pController, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet& rItemSet);
 
     void                        EnableButtons();
     static css::uno::Any  GetPropsByName( const OUString& eventName, EventsHash& eventsHash );
@@ -81,7 +79,6 @@ protected:
 public:
 
     virtual                     ~SvxMacroTabPage_() override;
-    virtual void                dispose() override;
     void                        InitResources();
 
     void                        InitAndSetHandler( const css::uno::Reference< css::container::XNameReplace >& xAppEvents, const css::uno::Reference< css::container::XNameReplace >& xDocEvents, const css::uno::Reference< css::util::XModifiable >& xModifiable );
@@ -98,7 +95,7 @@ class SvxMacroTabPage : public SvxMacroTabPage_
 {
 public:
     SvxMacroTabPage(
-        TabPageParent pParent,
+        weld::Container* pPage, weld::DialogController* pController,
         const css::uno::Reference< css::frame::XFrame >& _rxDocumentFrame,
         const SfxItemSet& rSet,
         css::uno::Reference< css::container::XNameReplace > const & xNameReplace,

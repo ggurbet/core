@@ -556,7 +556,7 @@ void FmFilterModel::Update(const Reference< XIndexAccess > & xControllers, FmPar
             // insert the existing filters for the form
             OUString aTitle(SvxResId(RID_STR_FILTER_FILTER_FOR));
 
-            Sequence< Sequence< OUString > > aExpressions = xFilterController->getPredicateExpressions();
+            const Sequence< Sequence< OUString > > aExpressions = xFilterController->getPredicateExpressions();
             for ( auto const & conjunctionTerm : aExpressions )
             {
                 // we always display one row, even if there's no term to be displayed
@@ -564,23 +564,21 @@ void FmFilterModel::Update(const Reference< XIndexAccess > & xControllers, FmPar
                 Insert( pFormItem->GetChildren().end(), std::unique_ptr<FmFilterData>(pFilterItems) );
 
                 const Sequence< OUString >& rDisjunction( conjunctionTerm );
-                for (  const OUString* pDisjunctiveTerm = rDisjunction.getConstArray();
-                        pDisjunctiveTerm != rDisjunction.getConstArray() + rDisjunction.getLength();
-                        ++pDisjunctiveTerm
-                    )
+                sal_Int32 nComponentIndex = -1;
+                for ( const OUString& rDisjunctiveTerm : rDisjunction )
                 {
-                    if ( pDisjunctiveTerm->isEmpty() )
+                    ++nComponentIndex;
+
+                    if ( rDisjunctiveTerm.isEmpty() )
                         // no condition for this particular component in this particular conjunction term
                         continue;
-
-                    const sal_Int32 nComponentIndex = pDisjunctiveTerm - rDisjunction.getConstArray();
 
                     // determine the display name of the control
                     const Reference< XControl > xFilterControl( xFilterController->getFilterComponent( nComponentIndex ) );
                     const OUString sDisplayName( lcl_getLabelName_nothrow( xFilterControl ) );
 
                     // insert a new entry
-                    std::unique_ptr<FmFilterItem> pANDCondition(new FmFilterItem( pFilterItems, sDisplayName, *pDisjunctiveTerm, nComponentIndex ));
+                    std::unique_ptr<FmFilterItem> pANDCondition(new FmFilterItem( pFilterItems, sDisplayName, rDisjunctiveTerm, nComponentIndex ));
                     Insert( pFilterItems->GetChildren().end(), std::move(pANDCondition) );
                 }
 
@@ -819,7 +817,7 @@ bool FmFilterModel::ValidateText(FmFilterItem const * pItem, OUString& rText, OU
             OUString aPreparedText;
             Locale aAppLocale = Application::GetSettings().GetUILanguageTag().getLocale();
             pParseNode->parseNodeToPredicateStr(
-                aPreparedText, xConnection, xFormatter, xField, OUString(), aAppLocale, '.', getParseContext() );
+                aPreparedText, xConnection, xFormatter, xField, OUString(), aAppLocale, OUString("."), getParseContext() );
             rText = aPreparedText;
             return true;
         }
@@ -912,7 +910,7 @@ void FmFilterModel::EnsureEmptyFilterRows( FmParentData& _rItem )
     ::std::vector< std::unique_ptr<FmFilterData> >& rChildren = _rItem.GetChildren();
     bool bAppendLevel = dynamic_cast<const FmFormItem*>(&_rItem) !=  nullptr;
 
-    for ( auto& rpChild : rChildren )
+    for ( const auto& rpChild : rChildren )
     {
         FmFilterItems* pItems = dynamic_cast<FmFilterItems*>( rpChild.get() );
         if ( pItems && pItems->GetChildren().empty() )
@@ -1335,10 +1333,9 @@ sal_Int8 FmFilterNavigator::ExecuteDrop( const ExecuteDropEvent& rEvt )
 void FmFilterNavigator::InitEntry(SvTreeListEntry* pEntry,
                                   const OUString& rStr,
                                   const Image& rImg1,
-                                  const Image& rImg2,
-                                  SvLBoxButtonKind eButtonKind)
+                                  const Image& rImg2)
 {
-    SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2, eButtonKind );
+    SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2 );
     std::unique_ptr<SvLBoxString> pString;
 
     if (dynamic_cast<const FmFilterItem*>(static_cast<FmFilterData*>(pEntry->GetUserData())) != nullptr)
@@ -1520,7 +1517,7 @@ void FmFilterNavigator::StartDrag( sal_Int8 /*_nAction*/, const Point& /*_rPosPi
 {
     EndSelection();
 
-    // be sure that the data is only used within a only one form!
+    // be sure that the data is only used within an only one form!
     m_aControlExchange.prepareDrag();
 
     ::std::vector<FmFilterItem*> aItemList;
@@ -1812,7 +1809,7 @@ void FmFilterNavigatorWin::UpdateContent(FmFormShell const * pFormShell)
         Reference< XIndexAccess >   xContainer;
         if (xController.is())
         {
-            Reference< XChild >  xChild(xController, UNO_QUERY);
+            Reference< XChild >  xChild = xController;
             for (Reference< XInterface >  xParent(xChild->getParent());
                  xParent.is();
                  xParent = xChild.is() ? xChild->getParent() : Reference< XInterface > ())

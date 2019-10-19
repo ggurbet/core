@@ -20,21 +20,8 @@
 #define INCLUDED_CUI_SOURCE_INC_SVXMENUCONFIGPAGE_HXX
 
 #include <vcl/weld.hxx>
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/container/XIndexContainer.hpp>
-#include <com/sun/star/container/XNameAccess.hpp>
-#include <com/sun/star/ui/XUIConfigurationListener.hpp>
 #include <com/sun/star/ui/XUIConfigurationManager.hpp>
-#include <com/sun/star/ui/XImageManager.hpp>
-#include <com/sun/star/frame/XFrame.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
-#include <com/sun/star/lang/XSingleComponentFactory.hpp>
 
-#include <sfx2/tabdlg.hxx>
-#include <memory>
-#include <vector>
-
-#include "cfgutil.hxx"
 #include "cfg.hxx" //for SvxConfigPage and SaveInData
 
 class SvxMenuConfigPage : public SvxConfigPage
@@ -69,9 +56,8 @@ private:
     virtual void    SelectElement() override;
 
 public:
-    SvxMenuConfigPage(TabPageParent pParent, const SfxItemSet& rItemSet, bool bIsMenuBar = true);
+    SvxMenuConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rItemSet, bool bIsMenuBar = true);
     virtual ~SvxMenuConfigPage() override;
-    virtual void dispose() override;
 
     SaveInData* CreateSaveInData(
         const css::uno::Reference <

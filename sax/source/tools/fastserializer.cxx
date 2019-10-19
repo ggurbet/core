@@ -20,7 +20,7 @@
 #include "fastserializer.hxx"
 
 #include <com/sun/star/xml/sax/FastTokenHandler.hpp>
-#include <rtl/math.hxx>
+#include <rtl/math.h>
 #include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
@@ -130,7 +130,9 @@ namespace sax_fastparser {
         if (nLen == -1)
             nLen = pStr ? strlen(pStr) : 0;
 
-        if (!bEscape)
+        if ( !bEscape ||
+            // tdf#127274 don't escape the special VML shape type id "#_x0000_t202"
+            (pStr && strcmp(pStr, "#_x0000_t202") == 0) )
         {
             writeBytes( pStr, nLen );
             return;
@@ -226,7 +228,7 @@ namespace sax_fastparser {
                                         // sequence that was not unescaped and
                                         // shall be written as is, to not end
                                         // up with "_x005F_x005F_xHHHH_" and
-                                        // repeated..
+                                        // repeated...
                                         if (c1 == '0' && c2 == '0' && c3 == '5' && (c4 | 0x20) == 'f' &&
                                                 i + kXescapeLen <= nLen - 6 &&
                                                 pStr[i+kXescapeLen+5] == '_' &&
@@ -773,9 +775,9 @@ namespace sax_fastparser {
 
         // Sort it all
         std::map< sal_Int32, Int8Sequence >::iterator iter;
-        for ( sal_Int32 i=0, len=maOrder.getLength(); i < len; i++ )
+        for ( const auto nIndex : std::as_const(maOrder) )
         {
-            iter = maData.find( maOrder[i] );
+            iter = maData.find( nIndex );
             if ( iter != maData.end() )
                 ForMerge::append( iter->second );
         }

@@ -102,7 +102,7 @@ class SwInsertDBColAutoPilot : public SfxDialogController, public utl::ConfigIte
     std::unique_ptr<weld::Frame> m_xFormatFrame;
     std::unique_ptr<weld::RadioButton> m_xRbDbFormatFromDb;
     std::unique_ptr<weld::RadioButton> m_xRbDbFormatFromUsr;
-    std::unique_ptr<SwNumFormatListBox> m_xLbDbFormatFromUsr;
+    std::unique_ptr<NumFormatListBox> m_xLbDbFormatFromUsr;
 
     // Page Text/Field
     std::unique_ptr<weld::Button> m_xIbDbcolToEdit;
@@ -130,7 +130,7 @@ class SwInsertDBColAutoPilot : public SfxDialogController, public utl::ConfigIte
     DECL_LINK( TableToFromHdl, weld::Button&, void );
     DECL_LINK( TVSelectHdl, weld::TreeView&, void );
     DECL_LINK( CBSelectHdl, weld::ComboBox&, void );
-    DECL_LINK( DblClickHdl, weld::TreeView&, void );
+    DECL_LINK( DblClickHdl, weld::TreeView&, bool );
     DECL_LINK( HeaderHdl, weld::Button&, void );
 
     bool SplitTextToColArr( const OUString& rText, DB_Columns& rColArr, bool bInsField );

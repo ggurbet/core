@@ -35,12 +35,11 @@ SwNumFormatDlg::SwNumFormatDlg(weld::Widget* pParent, const SfxItemSet& rSet)
     ::CreateTabPage fnCreatePage = pFact->GetTabPageCreatorFunc(RID_SVXPAGE_NUMBERFORMAT);
     if ( fnCreatePage )
     {
-        TabPageParent pPageParent(get_content_area(), this);
-        VclPtr<SfxTabPage> xNewPage = (*fnCreatePage)(pPageParent, &rSet);
+        std::unique_ptr<SfxTabPage> xNewPage = (*fnCreatePage)(get_content_area(), this, &rSet);
         SfxAllItemSet aSet(*(rSet.GetPool()));
         aSet.Put(xNewPage->GetItemSet().Get( SID_ATTR_NUMBERFORMAT_INFO));
         xNewPage->PageCreated(aSet);
-        SetTabPage(xNewPage);
+        SetTabPage(std::move(xNewPage));
     }
 }
 

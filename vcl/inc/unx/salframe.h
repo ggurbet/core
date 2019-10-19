@@ -58,7 +58,7 @@ enum class WMWindowType
     Dock
 };
 
-class VCLPLUG_GEN_PUBLIC X11SalFrame : public SalFrame, public NativeWindowHandleProvider
+class VCLPLUG_GEN_PUBLIC X11SalFrame final : public SalFrame, public NativeWindowHandleProvider
 {
     friend class vcl_sal::WMAdaptor;
     friend class vcl_sal::NetWMAdaptor;
@@ -96,7 +96,6 @@ class VCLPLUG_GEN_PUBLIC X11SalFrame : public SalFrame, public NativeWindowHandl
     bool            bAlwaysOnTop_;
     bool            bViewable_;
     bool            bMapped_;
-    bool            mbInShow;
     bool            bDefaultPosition_;  // client is centered initially
     bool            m_bXEmbed;
     int             nVisibility_;

@@ -11,6 +11,7 @@ $(eval $(call gb_UIConfig_UIConfig,vcl))
 
 $(eval $(call gb_UIConfig_add_uifiles,vcl,\
 	vcl/uiconfig/ui/aboutbox \
+	vcl/uiconfig/ui/wizard \
 	vcl/uiconfig/ui/cupspassworddialog \
 	vcl/uiconfig/ui/editmenu \
 	vcl/uiconfig/ui/errornocontentdialog \
@@ -22,6 +23,7 @@ $(eval $(call gb_UIConfig_add_uifiles,vcl,\
 	vcl/uiconfig/ui/printerpropertiesdialog \
 	vcl/uiconfig/ui/printprogressdialog \
 	vcl/uiconfig/ui/querydialog \
+	vcl/uiconfig/ui/screenshotparent \
 ))
 
 $(eval $(call gb_UIConfig_add_a11yerrors_uifiles,vcl,\

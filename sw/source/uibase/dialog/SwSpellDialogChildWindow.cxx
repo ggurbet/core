@@ -138,7 +138,7 @@ static void lcl_LeaveDrawText(SwWrtShell& rSh)
         // go out of the frame
         rSh.SelectObj(aPt, SW_LEAVE_FRAME);
         rSh.EnterStdMode();
-        rSh.GetView().AttrChangedNotify(&rSh);
+        rSh.GetView().AttrChangedNotify(nullptr);
     }
 }
 
@@ -254,7 +254,7 @@ svx::SpellPortions SwSpellDialogChildWindow::GetNextWrongSentence(bool bRecheck)
 Note: spelling in a selection only, or starting in a mid of a drawing object requires
 further changes elsewhere. (Especially if it should work in sc and sd as well.)
 The code below would only be part of the solution.
-(Keeping it a as a comment for the time being)
+(Keeping it as a comment for the time being)
                 ESelection aCurSel( pOLV->GetSelection() );
                 ESelection aSentenceSel( pOLV->GetEditView().GetEditEngine()->SelectSentence( aCurSel ) );
                 if (!aCurSel.HasRange())
@@ -668,7 +668,7 @@ void SwSpellDialogChildWindow::MakeTextSelection_Impl(SwWrtShell& rShell, ShellM
         {
             rShell.UnSelectFrame();
             rShell.LeaveSelFrameMode();
-            rView.AttrChangedNotify(&rShell);
+            rView.AttrChangedNotify(nullptr);
         }
         break;
 
@@ -677,7 +677,7 @@ void SwSpellDialogChildWindow::MakeTextSelection_Impl(SwWrtShell& rShell, ShellM
         case ShellMode::Bezier:
             if(FindNextDrawTextError_Impl(rShell))
             {
-                rView.AttrChangedNotify(&rShell);
+                rView.AttrChangedNotify(nullptr);
                 break;
             }
             [[fallthrough]]; // to deselect the object
@@ -687,7 +687,7 @@ void SwSpellDialogChildWindow::MakeTextSelection_Impl(SwWrtShell& rShell, ShellM
             if ( rShell.IsDrawCreate() )
             {
                 rView.GetDrawFuncPtr()->BreakCreate();
-                rView.AttrChangedNotify(&rShell);
+                rView.AttrChangedNotify(nullptr);
             }
             else if ( rShell.HasSelection() || rView.IsDrawMode() )
             {
@@ -706,7 +706,7 @@ void SwSpellDialogChildWindow::MakeTextSelection_Impl(SwWrtShell& rShell, ShellM
                     SfxBindings& rBind = rView.GetViewFrame()->GetBindings();
                     rBind.Invalidate( SID_ATTR_SIZE );
                     rShell.EnterStdMode();
-                    rView.AttrChangedNotify(&rShell);
+                    rView.AttrChangedNotify(nullptr);
                 }
             }
         }
@@ -790,7 +790,7 @@ bool SwSpellDialogChildWindow::FindNextDrawTextError_Impl(SwWrtShell& rSh)
                     rSh.SelectObj( aTmp, 0, pTextObj );
                     SdrPageView* pPV = pDrView->GetSdrPageView();
                     rView.BeginTextEdit( pTextObj, pPV, &rView.GetEditWin(), false, true );
-                    rView.AttrChangedNotify(&rSh);
+                    rView.AttrChangedNotify(nullptr);
                     bNextDoc = true;
                 }
             }

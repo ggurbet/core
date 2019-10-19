@@ -24,7 +24,6 @@
 
 #include <ooo/vba/office/MsoFileDialogType.hpp>
 
-#include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/ui/dialogs/FilePicker.hpp>
 #include <com/sun/star/ui/dialogs/FolderPicker.hpp>
 #include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
@@ -99,7 +98,8 @@ sal_Int32 ScVbaFileDialog::Show()
                     break;
                 }
 
-                for( auto& sURL : xFilePicker->getSelectedFiles() )
+                const uno::Sequence<OUString> aSelectedFiles = xFilePicker->getSelectedFiles();
+                for( const auto& sURL : aSelectedFiles )
                 {
                     OUString sPath;
                     osl::FileBase::getSystemPathFromFileURL(sURL, sPath);
@@ -147,7 +147,7 @@ sal_Int32 ScVbaFileDialog::Show()
 OUString
 ScVbaFileDialog::getServiceImplName()
 {
-    return OUString("ScVbaFileDialog");
+    return "ScVbaFileDialog";
 }
 
 uno::Sequence<OUString>

@@ -29,7 +29,7 @@
 #include <com/sun/star/awt/Point.hpp>
 #include <com/sun/star/awt/Rectangle.hpp>
 #include <com/sun/star/awt/Size.hpp>
-#include <com/sun/star/document/XEventListener.hpp>
+#include <com/sun/star/document/XShapeEventListener.hpp>
 #include <com/sun/star/lang/EventObject.hpp>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Reference.hxx>
@@ -76,7 +76,7 @@ class IAccessibleParent;
 
     <p>The children of a shape can stem from two sources which, in case of
     SVX and SD shapes, are mutually exclusive.  This implementation,
-    however, handles both simultaniously to cope with future extensions or
+    however, handles both simultaneously to cope with future extensions or
     shapes from other projects.
     <ul>
         <li>If this shape is a group shape, i.e. a
@@ -99,7 +99,7 @@ class SVX_DLLPUBLIC AccessibleShape
         public css::accessibility::XAccessibleGroupPosition,
         public css::accessibility::XAccessibleHypertext,
         public IAccessibleViewForwarderListener,
-        public css::document::XEventListener,
+        public css::document::XShapeEventListener,
         public css::lang::XUnoTunnel
 {
 public:
@@ -112,7 +112,7 @@ public:
             and the accessible object that will become the parent of the new
             object.
         @param rShapeTreeInfo
-            Bundel of information passed to this shape and all of its desendants.
+            Bundle of information passed to this shape and all of its descendants.
         @attention
             Always call the <member>init</member> method after creating a
             new accessible shape.  This is one way to overcome the potential
@@ -312,18 +312,15 @@ public:
     //=====  IAccessibleViewForwarderListener  ================================
     virtual void ViewForwarderChanged() override;
 
-    //=====  lang::XEventListener  ============================================
-
     /** Listen for disposing events of the model.  The accessible shape
         remains functional when this happens.
     */
-    virtual void SAL_CALL
-        disposing (const css::lang::EventObject& Source) override;
+    void disposing (const css::lang::EventObject& Source);
 
-    //=====  document::XEventListener  ========================================
+    //=====  document::XShapeEventListener  ========================================
 
     virtual void SAL_CALL
-        notifyEvent (const css::document::EventObject& rEventObject) override;
+        notifyShapeEvent (const css::document::EventObject& rEventObject) override;
 
 
     //===== XUnoTunnel ========================================================
@@ -357,7 +354,7 @@ public:
     //===== Misc ========================================================
 
     const css::uno::Reference< css::drawing::XShape >&
-        GetXShape() { return mxShape; }
+        GetXShape() const { return mxShape; }
 
     /** set the index _nIndex at the accessible shape
         @param  _nIndex

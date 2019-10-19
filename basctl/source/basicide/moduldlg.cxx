@@ -165,8 +165,7 @@ void Shell::CopyDialogResources(
     {
         if( bSourceLocalized && bDestLocalized )
         {
-            Reference< resource::XStringResourceResolver > xSourceStringResolver( xSourceMgr, UNO_QUERY );
-            LocalizationMgr::copyResourceForDroppedDialog( xDialogModel, rDlgName, xDestMgr, xSourceStringResolver );
+            LocalizationMgr::copyResourceForDroppedDialog( xDialogModel, rDlgName, xDestMgr, xSourceMgr );
         }
         else if( bSourceLocalized )
         {
@@ -538,6 +537,9 @@ ObjectPage::ObjectPage(weld::Container* pParent, const OString &rName, BrowseMod
                m_xBasicBox->get_height_rows(14));
     m_xBasicBox->set_size_request(aSize.Width(), aSize.Height());
 
+    // tdf#93476 The dialogs should be listed alphabetically
+    m_xBasicBox->make_sorted();
+
     m_xEditButton->connect_clicked( LINK( this, ObjectPage, ButtonHdl ) );
     m_xDelButton->connect_clicked( LINK( this, ObjectPage, ButtonHdl ) );
     m_xBasicBox->connect_changed( LINK( this, ObjectPage, BasicBoxHighlightHdl ) );
@@ -888,6 +890,8 @@ LibDialog::LibDialog(weld::Window* pParent)
 {
     m_xLibBox->set_size_request(m_xLibBox->get_approximate_digit_width() * 28,
                                 m_xLibBox->get_height_rows(8));
+    // tdf#93476 The libraries should be listed alphabetically
+    m_xLibBox->make_sorted();
 }
 
 LibDialog::~LibDialog()

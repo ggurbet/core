@@ -37,6 +37,8 @@
 #include <inputopt.hxx>
 #include <rangeutl.hxx>
 #include <tokenarray.hxx>
+#include <comphelper/lok.hxx>
+#include <output.hxx>
 
 #include <memory>
 
@@ -53,7 +55,7 @@ ScFormulaReferenceHelper::ScFormulaReferenceHelper(IAnyRefDialog* _pDlg,SfxBindi
     m_bEnableColorRef=aInputOption.GetRangeFinder();
 }
 
-ScFormulaReferenceHelper::~ScFormulaReferenceHelper()
+ScFormulaReferenceHelper::~ScFormulaReferenceHelper() COVERITY_NOEXCEPT_FALSE
 {
     dispose();
 }
@@ -241,6 +243,13 @@ void ScFormulaReferenceHelper::HideReference( bool bDoneRefMode )
             if ( bDoneRefMode )
                 pTabViewShell->DoneRefMode();
             pTabViewShell->ClearHighlightRanges();
+
+            if( comphelper::LibreOfficeKit::isActive() )
+            {
+                // Clear
+                std::vector<ReferenceMark> aReferenceMarks;
+                ScInputHandler::SendReferenceMarks( pTabViewShell, aReferenceMarks );
+            }
         }
         m_bHighlightRef=false;
     }
@@ -605,7 +614,7 @@ bool ScRefHandler::EnterRefMode()
     return m_bInRefMode = true;
 }
 
-ScRefHandler::~ScRefHandler()
+ScRefHandler::~ScRefHandler() COVERITY_NOEXCEPT_FALSE
 {
     disposeRefHandler();
 }

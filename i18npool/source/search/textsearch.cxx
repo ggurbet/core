@@ -266,7 +266,7 @@ void TextSearch::setOptions( const SearchOptions& rOptions )
             break;
     }
     // It would be nice if an inherited struct had a ctor that takes an
-    // instance of the object the struct derived from..
+    // instance of the object the struct derived from...
     SearchOptions2 aOptions2(
             rOptions.algorithmType,
             rOptions.searchFlag,
@@ -278,7 +278,7 @@ void TextSearch::setOptions( const SearchOptions& rOptions )
             rOptions.insertedChars,
             rOptions.transliterateFlags,
             nAlgorithmType2,
-            0   // no wildcard search, no escape character..
+            0   // no wildcard search, no escape character...
             );
     setOptions2( aOptions2);
 }
@@ -867,7 +867,7 @@ void TextSearch::RESrchPrepare( const css::util::SearchOptions2& rOptions)
         // of the processor and the details of the specific pattern, but will
         // typically be on the order of milliseconds."
         // Just what is a good value? 42 is always an answer ... the 23 enigma
-        // as well.. which on the dev's machine is roughly 50 seconds with the
+        // as well... which on the dev's machine is roughly 50 seconds with the
         // pattern of fdo#70627.
         /* TODO: make this a configuration settable value and possibly take
          * complexity of expression into account and maybe even length of text
@@ -1348,7 +1348,7 @@ SearchResult TextSearch::WildcardSrchBkwrd( const OUString& searchStr, sal_Int32
                     {
                         // Copy the escape character code units first in the
                         // unlikely case that it would not be of BMP.
-                        assert(nIndex - nOld == 2);  // it's UTF-16, so..
+                        assert(nIndex - nOld == 2);  // it's UTF-16, so...
                         sal_Unicode buf[2];
                         buf[0] = rPattern[nOld];
                         buf[1] = rPattern[nOld+1];
@@ -1526,7 +1526,7 @@ static uno::Sequence< OUString > getServiceName_Static()
 
 static OUString getImplementationName_Static()
 {
-    return OUString( cSearchImpl );
+    return cSearchImpl;
 }
 
 OUString SAL_CALL

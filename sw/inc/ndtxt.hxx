@@ -79,7 +79,6 @@ typedef std::set< sal_Int32 > SwSoftPageBreakList;
 class SW_DLLPUBLIC SwTextNode
     : public SwContentNode
     , public ::sfx2::Metadatable
-    , public sw::BroadcasterMixin
 {
     friend class SwContentNode;
     /// For creating the first TextNode.
@@ -563,7 +562,7 @@ public:
        Returns outline level of this text node.
 
        If a text node has an outline number (i.e. it has an SwNodeNum
-       and a outline numbering rule) the outline level is the level of
+       and an outline numbering rule) the outline level is the level of
        this SwNodeNum.
 
        If a text node has no outline number and has a paragraph style
@@ -596,7 +595,7 @@ public:
      */
     void SetAttrOutlineLevel(int nLevel);
 
-    bool IsEmptyListStyleDueToSetOutlineLevelAttr() { return mbEmptyListStyleSetDueToSetOutlineLevelAttr;}
+    bool IsEmptyListStyleDueToSetOutlineLevelAttr() const { return mbEmptyListStyleSetDueToSetOutlineLevelAttr;}
     void SetEmptyListStyleDueToSetOutlineLevelAttr();
     void ResetEmptyListStyleDueToResetOutlineLevelAttr();
 

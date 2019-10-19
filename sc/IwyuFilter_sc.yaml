@@ -32,9 +32,6 @@ blacklist:
     - com/sun/star/sheet/XFunctionDescriptions.hpp
     - com/sun/star/sheet/XGlobalSheetSettings.hpp
     - com/sun/star/sheet/XRecentFunctions.hpp
-    sc/inc/autoform.hxx:
-    # contains macro definitions
-    - scitems.hxx
     sc/inc/chartuno.hxx:
     # base class has to be a complete type
     - com/sun/star/container/XEnumerationAccess.hpp
@@ -61,9 +58,6 @@ blacklist:
     sc/inc/chgviset.hxx:
     # base class has to be a complete type
     - unotools/textsearch.hxx
-    sc/inc/colcontainer.hxx:
-    # Needed to silence the check on colcontainer.cxx
-    - column.hxx
     sc/inc/column.hxx:
     # base class has to be a complete type
     - mdds/flat_segment_tree.hpp
@@ -387,9 +381,6 @@ blacklist:
     sc/source/filter/inc/formulabase.hxx:
     # Needed for typedef
     - com/sun/star/table/CellAddress.hpp
-    sc/source/filter/inc/fprogressbar.hxx:
-    # Avoid collision with fprogressbar.cxx checking
-    - progress.hxx
     sc/source/filter/inc/ooxformulaparser.hxx:
     # base class has to be a complete type
     - com/sun/star/lang/XInitialization.hpp
@@ -583,6 +574,9 @@ blacklist:
     # base class has to be a complete type
     - ooo/vba/excel/XFont.hpp
     - vbahelper/vbafontbase.hxx
+    sc/source/ui/vba/vbaformat.cxx:
+    # Needed for variable initialization
+    - docsh.hxx
     sc/source/ui/vba/vbaformatconditions.hxx:
     # base class has to be a complete type
     - ooo/vba/excel/XFormatConditions.hpp
@@ -631,6 +625,9 @@ blacklist:
     sc/source/ui/vba/vbarange.hxx:
     # base class has to be a complete type
     - ooo/vba/excel/XRange.hpp
+    sc/source/ui/vba/vbarange.cxx:
+    # Needed for linker visibility of range::serviceDecl
+    - service.hxx
     sc/source/ui/vba/vbasheetobjects.hxx:
     # base class has to be a complete type
     - ooo/vba/excel/XGraphicObjects.hpp
@@ -647,9 +644,21 @@ blacklist:
     sc/source/ui/vba/vbawindows.hxx:
     # base class has to be a complete type
     - ooo/vba/excel/XWindows.hpp
+    sc/source/ui/vba/vbawindow.cxx:
+    # Needed for linker visibility of window::serviceDecl
+    - service.hxx
+    sc/source/ui/vba/vbaworkbook.cxx:
+    # Needed for linker visibility of workbook::serviceDecl
+    - service.hxx
+    sc/source/ui/vba/vbaworkbooks.cxx:
+    # Needed for linker visibility of worksheet::serviceDecl
+    - service.hxx
     sc/source/ui/vba/vbaworksheet.hxx:
     # base class has to be a complete type
     - ooo/vba/excel/XWorksheet.hpp
+    sc/source/ui/vba/vbaworksheet.cxx:
+    # Needed for linker visibility of workbook::serviceDecl
+    - service.hxx
     sc/source/ui/vba/vbaworksheets.hxx:
     # base class has to be a complete type
     - ooo/vba/excel/XWorksheets.hpp
@@ -873,4 +882,21 @@ blacklist:
     sc/source/ui/undo/undoolk.cxx:
     # Avoid loplugin:unreffun error
     - undoolk.hxx
-
+    sc/source/ui/unoobj/cellsuno.cxx:
+    # Needed for direct member access
+    - refundo.hxx
+    sc/source/ui/unoobj/confuno.cxx:
+    # Used with function template
+    - docpool.hxx
+    sc/source/ui/unoobj/notesuno.cxx:
+    # Needed for macro defines
+    - editeng/unoprnms.hxx
+    sc/source/ui/unoobj/textuno.cxx:
+    # Needed for macro defines
+    - editeng/unoprnms.hxx
+    sc/source/ui/view/tabview.cxx:
+    # Needed for direct member access
+    - pagedata.hxx
+    sc/source/ui/view/viewfun4.cxx:
+    # Needed for direct member access
+    - refundo.hxx

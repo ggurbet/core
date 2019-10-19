@@ -602,7 +602,7 @@ void Outliner::SetText( const OutlinerParaObject& rPObj )
     DBG_ASSERT( pEditEngine->GetParagraphCount()==rPObj.Count(),"SetText failed");
 }
 
-void Outliner::AddText( const OutlinerParaObject& rPObj )
+void Outliner::AddText( const OutlinerParaObject& rPObj, bool bAppend )
 {
 
     bool bUpdate = pEditEngine->GetUpdateMode();
@@ -615,16 +615,25 @@ void Outliner::AddText( const OutlinerParaObject& rPObj )
         pParaList->Clear();
         pEditEngine->SetText(rPObj.GetTextObject());
         nPara = 0;
+        bAppend = false;
     }
     else
     {
         nPara = pParaList->GetParagraphCount();
-        pEditEngine->InsertParagraph( EE_PARA_APPEND, rPObj.GetTextObject() );
+        pEditEngine->InsertParagraph( EE_PARA_APPEND, rPObj.GetTextObject(), bAppend );
     }
     bFirstParaIsEmpty = false;
 
     for( sal_Int32 n = 0; n < rPObj.Count(); n++ )
     {
+        if ( n == 0 && bAppend )
+        {
+            // This first "paragraph" was just appended to an existing (incomplete) paragraph.
+            // Since no new paragraph will be added, the assumed increase-by-1 also won't happen.
+            --nPara;
+            continue;
+        }
+
         Paragraph* pPara = new Paragraph( rPObj.GetParagraphData(n) );
         pParaList->Append(std::unique_ptr<Paragraph>(pPara));
         sal_Int32 nP = nPara+n;
@@ -695,8 +704,8 @@ void Outliner::ImplSetLevelDependentStyleSheet( sal_Int32 nPara )
             nDepth = 0;
 
         OUString aNewStyleSheetName( pStyle->GetName() );
-        aNewStyleSheetName = aNewStyleSheetName.copy( 0, aNewStyleSheetName.getLength()-1 );
-        aNewStyleSheetName += OUString::number( nDepth+1 );
+        aNewStyleSheetName = aNewStyleSheetName.copy( 0, aNewStyleSheetName.getLength()-1 ) +
+            OUString::number( nDepth+1 );
         SfxStyleSheet* pNewStyle = static_cast<SfxStyleSheet*>(GetStyleSheetPool()->Find( aNewStyleSheetName, pStyle->GetFamily() ));
         DBG_ASSERT( pNewStyle, "AutoStyleSheetName - Style not found!" );
         if ( pNewStyle && ( pNewStyle != GetStyleSheet( nPara ) ) )
@@ -1837,7 +1846,7 @@ void Outliner::ImplCalcBulletText( sal_Int32 nPara, bool bRecalcLevel, bool bRec
             aBulletText += pFmt->GetPrefix();
             if( pFmt->GetNumberingType() == SVX_NUM_CHAR_SPECIAL )
             {
-                aBulletText += OUStringLiteral1(pFmt->GetBulletChar());
+                aBulletText += OUStringChar(pFmt->GetBulletChar());
             }
             else if( pFmt->GetNumberingType() != SVX_NUM_NUMBER_NONE )
             {
@@ -2003,7 +2012,7 @@ bool Outliner::IsPageOverflow()
     return pEditEngine->IsPageOverflow();
 }
 
-NonOverflowingText *Outliner::GetNonOverflowingText() const
+std::unique_ptr<NonOverflowingText> Outliner::GetNonOverflowingText() const
 {
     /* XXX:
      * nCount should be the number of paragraphs of the non overflowing text
@@ -2067,7 +2076,7 @@ NonOverflowingText *Outliner::GetNonOverflowingText() const
         ESelection aEmptySel(0,0,0,0);
         //EditTextObject *pTObj = pEditEngine->CreateTextObject(aEmptySel);
         bool const bLastParaInterrupted = true; // Last Para was interrupted since everything overflew
-        return new NonOverflowingText(aEmptySel, bLastParaInterrupted);
+        return std::make_unique<NonOverflowingText>(aEmptySel, bLastParaInterrupted);
     } else { // Get the lines that of the overflowing para fit in the box
 
         sal_Int32 nOverflowingPara = nCount;
@@ -2104,7 +2113,7 @@ NonOverflowingText *Outliner::GetNonOverflowingText() const
         bool bLastParaInterrupted =
             pEditEngine->GetOverflowingLineNum() > 0;
 
-        return new NonOverflowingText(aOverflowingTextSelection, bLastParaInterrupted);
+        return std::make_unique<NonOverflowingText>(aOverflowingTextSelection, bLastParaInterrupted);
     }
 }
 
@@ -2116,7 +2125,7 @@ std::unique_ptr<OutlinerParaObject> Outliner::GetEmptyParaObject() const
     return pPObj;
 }
 
-OverflowingText *Outliner::GetOverflowingText() const
+std::unique_ptr<OverflowingText> Outliner::GetOverflowingText() const
 {
     if ( pEditEngine->GetOverflowingParaNum() < 0)
         return nullptr;
@@ -2147,7 +2156,7 @@ OverflowingText *Outliner::GetOverflowingText() const
     sal_Int32 nLastParaLen = GetText(GetParagraph(nLastPara)).getLength();
     aOverflowingTextSel = ESelection(nOverflowingPara, nLen,
                                      nLastPara, nLastParaLen);
-    return new OverflowingText(pEditEngine->CreateTransferable(aOverflowingTextSel));
+    return std::make_unique<OverflowingText>(pEditEngine->CreateTransferable(aOverflowingTextSel));
 
 }
 

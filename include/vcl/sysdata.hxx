@@ -51,17 +51,19 @@ typedef struct CGContext *CGContextRef;
 
 struct SystemEnvData
 {
-    sal_uInt32          nSize;          // size in bytes of this structure
 #if defined(_WIN32)
     HWND                hWnd;           // the window hwnd
 #elif defined( MACOSX )
     NSView*             mpNSView;       // the cocoa (NSView *) implementing this object
-    bool                mbOpenGL;       // use a OpenGL providing NSView
+    bool                mbOpenGL;       // use an OpenGL providing NSView
 #elif defined( ANDROID )
     // Nothing
 #elif defined( IOS )
     // Nothing
 #elif defined( UNX )
+    enum class Toolkit { Gtk3, Qt5 };
+    enum class Platform { Wayland, Xcb };
+
     void*               pDisplay;       // the relevant display connection
     unsigned long       aWindow;        // the window of the object
     void*               pSalFrame;      // contains a salframe, if object has one
@@ -71,29 +73,28 @@ struct SystemEnvData
     // note: this is a "long" in Xlib *but* in the protocol it's only 32-bit
     // however, the GTK3 vclplug wants to store pointers in here!
     sal_IntPtr          aShellWindow;   // the window of the frame's shell
-    const char*         pToolkit;       // the toolkit in use (gtk2 vs gtk3)
-    const char*         pPlatformName; // the windowing system in use (xcb vs wayland)
+    Toolkit             toolkit;        // the toolkit in use
+    Platform            platform;       // the windowing system in use
 #endif
 
     SystemEnvData()
-        : nSize(0)
 #if defined(_WIN32)
-        , hWnd(nullptr)
+        : hWnd(nullptr)
 #elif defined( MACOSX )
-        , mpNSView(nullptr)
+        : mpNSView(nullptr)
         , mbOpenGL(false)
 #elif defined( ANDROID )
 #elif defined( IOS )
 #elif defined( UNX )
-        , pDisplay(nullptr)
+        : pDisplay(nullptr)
         , aWindow(0)
         , pSalFrame(nullptr)
         , pWidget(nullptr)
         , pVisual(nullptr)
         , nScreen(0)
         , aShellWindow(0)
-        , pToolkit(nullptr)
-        , pPlatformName(nullptr)
+        , toolkit(Toolkit())
+        , platform(Platform())
 #endif
     {
     }
@@ -143,7 +144,8 @@ struct SystemGraphicsData
     long            hDrawable;      // a drawable
     void*           pVisual;        // the visual in use
     int             nScreen;        // the current screen of the drawable
-    void*           pXRenderFormat;  // render format for drawable
+    void*           pXRenderFormat; // render format for drawable
+    void*           pSurface;       // the cairo surface when using svp-based backends
 #endif
     SystemGraphicsData()
         : nSize( sizeof( SystemGraphicsData ) )
@@ -162,6 +164,7 @@ struct SystemGraphicsData
         , pVisual( nullptr )
         , nScreen( 0 )
         , pXRenderFormat( nullptr )
+        , pSurface( nullptr )
 #endif
     { }
 };
@@ -170,7 +173,7 @@ struct SystemWindowData
 {
 #if defined(_WIN32)                  // meaningless on Windows
 #elif defined( MACOSX )
-    bool            bOpenGL;        // create a OpenGL providing NSView
+    bool            bOpenGL;        // create an OpenGL providing NSView
     bool            bLegacy;        // create a 2.1 legacy context, only valid if bOpenGL == true
 #elif defined( ANDROID )
     // Nothing

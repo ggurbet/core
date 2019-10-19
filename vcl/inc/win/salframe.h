@@ -27,7 +27,7 @@
 class WinSalGraphics;
 
 
-class WinSalFrame : public SalFrame
+class WinSalFrame final: public SalFrame
 {
 public:
     HWND                    mhWnd;                  // Window handle
@@ -39,7 +39,7 @@ public:
     HMENU                   mSelectedhMenu;         // the menu where highlighting is currently going on
     HMENU                   mLastActivatedhMenu;    // the menu that was most recently opened
     SystemEnvData           maSysData;              // system data
-    SalFrameState           maState;                // frame state
+    SalFrameState           maState = {};           // frame state
     int                     mnShowState;            // show state
     long                    mnWidth;                // client width in pixeln
     long                    mnHeight;               // client height in pixeln

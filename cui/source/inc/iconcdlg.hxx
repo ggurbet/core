@@ -20,15 +20,7 @@
 #define INCLUDED_CUI_SOURCE_INC_ICONCDLG_HXX
 
 #include <rtl/ustring.hxx>
-#include <vcl/ivctrl.hxx>
-#include <vcl/tabpage.hxx>
-#include <vcl/dialog.hxx>
-#include <vcl/button.hxx>
-#include <vcl/image.hxx>
-#include <vcl/layout.hxx>
 #include <sfx2/tabdlg.hxx>
-#include <sfx2/basedlgs.hxx>
-#include <vector>
 
 // forward-declarations
 struct IconChoicePageData;
@@ -36,7 +28,6 @@ class SvxHpLinkDlg;
 class IconChoicePage;
 class SfxItemPool;
 class SfxItemSet;
-enum class HyperLinkPageType;
 
 // Create-Function
 typedef std::unique_ptr<IconChoicePage> (*CreatePage)(weld::Container* pParent, SvxHpLinkDlg* pDlg, const SfxItemSet* pAttrSet);
@@ -65,8 +56,6 @@ protected:
 private:
     const SfxItemSet*   pSet;
     bool                bHasExchangeSupport;
-
-    void                ImplInitSettings();
 
 protected:
 

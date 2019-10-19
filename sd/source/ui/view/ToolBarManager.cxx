@@ -25,21 +25,16 @@
 #include <ViewShellManager.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
-#include <com/sun/star/ui/UIElementType.hpp>
 
 #include <sal/log.hxx>
 #include <osl/mutex.hxx>
 #include <o3tl/deleter.hxx>
 #include <o3tl/enumrange.hxx>
-#include <rtl/ref.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/objsh.hxx>
-#include <sfx2/request.hxx>
 #include <sfx2/toolbarids.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/eitem.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svx/extrusionbar.hxx>
 #include <svx/fontworkbar.hxx>
@@ -692,7 +687,7 @@ void ToolBarManager::Implementation::PreUpdate()
     maToolBarList.GetToolBarsToDeactivate(aToolBars);
 
     // Turn off the tool bars.
-    for (auto& aToolBar : aToolBars)
+    for (const auto& aToolBar : aToolBars)
     {
         OUString sFullName (GetToolBarResourceName(aToolBar));
         SAL_INFO("sd.view", OSL_THIS_FUNC << ":    turning off tool bar " << sFullName);
@@ -721,7 +716,7 @@ void ToolBarManager::Implementation::PostUpdate()
     SAL_INFO("sd.view", OSL_THIS_FUNC << ": ToolBarManager::PostUpdate [");
 
     // Turn on the tool bars that are visible in the new context.
-    for (auto& aToolBar : aToolBars)
+    for (const auto& aToolBar : aToolBars)
     {
         OUString sFullName (GetToolBarResourceName(aToolBar));
         SAL_INFO("sd.view", OSL_THIS_FUNC << ":    turning on tool bar " << sFullName);
@@ -1262,7 +1257,7 @@ void ToolBarList::GetToolBarsToActivate (std::vector<OUString>& rToolBars) const
     std::vector<OUString> aRequestedToolBars;
     MakeRequestedToolBarList(aRequestedToolBars);
 
-    for (auto& aToolBar : aRequestedToolBars)
+    for (const auto& aToolBar : aRequestedToolBars)
     {
         if (::std::find(maActiveToolBars.begin(),maActiveToolBars.end(),aToolBar)
             == maActiveToolBars.end())

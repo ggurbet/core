@@ -31,7 +31,6 @@
 #include <editeng/justifyitem.hxx>
 #include <editeng/editobj.hxx>
 #include <editeng/unoipset.hxx>
-#include <svx/fmdpage.hxx>
 #include <editeng/langitem.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <svl/srchitem.hxx>
@@ -50,11 +49,9 @@
 #include <com/sun/star/util/CellProtection.hpp>
 #include <com/sun/star/table/CellHoriJustify.hpp>
 #include <com/sun/star/table/CellOrientation.hpp>
-#include <com/sun/star/table/CellVertJustify2.hpp>
 #include <com/sun/star/table/ShadowFormat.hpp>
 #include <com/sun/star/table/TableBorder.hpp>
 #include <com/sun/star/table/TableBorder2.hpp>
-#include <com/sun/star/table/BorderLineStyle.hpp>
 #include <com/sun/star/sheet/CellFlags.hpp>
 #include <com/sun/star/sheet/FormulaResult.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
@@ -96,7 +93,6 @@
 #include <olinefun.hxx>
 #include <hints.hxx>
 #include <formulacell.hxx>
-#include <undocell.hxx>
 #include <undotab.hxx>
 #include <undoblk.hxx>
 #include <stlsheet.hxx>
@@ -113,7 +109,6 @@
 #include <conditio.hxx>
 #include <validat.hxx>
 #include <sc.hrc>
-#include <brdcst.hxx>
 #include <cellform.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
@@ -139,7 +134,6 @@
 #include <refundo.hxx>
 #include <columnspanset.hxx>
 
-#include <list>
 #include <memory>
 
 using namespace com::sun::star;
@@ -910,12 +904,10 @@ static void lcl_CopyProperties( beans::XPropertySet& rDest, beans::XPropertySet&
     uno::Reference<beans::XPropertySetInfo> xInfo(rSource.getPropertySetInfo());
     if (xInfo.is())
     {
-        uno::Sequence<beans::Property> aSeq(xInfo->getProperties());
-        const beans::Property* pAry = aSeq.getConstArray();
-        sal_uLong nCount = aSeq.getLength();
-        for (sal_uLong i=0; i<nCount; i++)
+        const uno::Sequence<beans::Property> aSeq(xInfo->getProperties());
+        for (const beans::Property& rProp : aSeq)
         {
-            OUString aName(pAry[i].Name);
+            OUString aName(rProp.Name);
             rDest.setPropertyValue( aName, rSource.getPropertyValue( aName ) );
         }
     }
@@ -1120,9 +1112,8 @@ static bool lcl_PutDataArray( ScDocShell& rDocShell, const ScRange& rRange,
 
     long nCols = 0;
     long nRows = aData.getLength();
-    const uno::Sequence<uno::Any>* pArray = aData.getConstArray();
     if ( nRows )
-        nCols = pArray[0].getLength();
+        nCols = aData[0].getLength();
 
     if ( nCols != nEndCol-nStartCol+1 || nRows != nEndRow-nStartRow+1 )
     {
@@ -1142,18 +1133,15 @@ static bool lcl_PutDataArray( ScDocShell& rDocShell, const ScRange& rRange,
 
     bool bError = false;
     SCROW nDocRow = nStartRow;
-    for (long nRow=0; nRow<nRows; nRow++)
+    for (const uno::Sequence<uno::Any>& rColSeq : aData)
     {
-        const uno::Sequence<uno::Any>& rColSeq = pArray[nRow];
         if ( rColSeq.getLength() == nCols )
         {
             SCCOL nDocCol = nStartCol;
-            const uno::Any* pColArr = rColSeq.getConstArray();
-            for (long nCol=0; nCol<nCols; nCol++)
+            for (const uno::Any& rElement : rColSeq)
             {
                 ScAddress aPos(nDocCol, nDocRow, nTab);
 
-                const uno::Any& rElement = pColArr[nCol];
                 switch( rElement.getValueTypeClass() )
                 {
                     case uno::TypeClass_VOID:
@@ -1259,9 +1247,8 @@ static bool lcl_PutFormulaArray( ScDocShell& rDocShell, const ScRange& rRange,
 
     long nCols = 0;
     long nRows = aData.getLength();
-    const uno::Sequence<OUString>* pArray = aData.getConstArray();
     if ( nRows )
-        nCols = pArray[0].getLength();
+        nCols = aData[0].getLength();
 
     if ( nCols != nEndCol-nStartCol+1 || nRows != nEndRow-nStartRow+1 )
     {
@@ -1281,16 +1268,13 @@ static bool lcl_PutFormulaArray( ScDocShell& rDocShell, const ScRange& rRange,
 
     bool bError = false;
     SCROW nDocRow = nStartRow;
-    for (long nRow=0; nRow<nRows; nRow++)
+    for (const uno::Sequence<OUString>& rColSeq : aData)
     {
-        const uno::Sequence<OUString>& rColSeq = pArray[nRow];
         if ( rColSeq.getLength() == nCols )
         {
             SCCOL nDocCol = nStartCol;
-            const OUString* pColArr = rColSeq.getConstArray();
-            for (long nCol=0; nCol<nCols; nCol++)
+            for (const OUString& aText : rColSeq)
             {
-                OUString aText(pColArr[nCol]);
                 ScAddress aPos( nDocCol, nDocRow, nTab );
 
                 ScInputStringType aRes =
@@ -1647,7 +1631,7 @@ void ScCellRangesBase::Notify( SfxBroadcaster&, const SfxHint& rHint )
                 // the EventObject holds a Ref to this object until after the listener calls
 
                 ScDocument& rDoc = pDocShell->GetDocument();
-                for (uno::Reference<util::XModifyListener> & xValueListener : aValueListeners)
+                for (const uno::Reference<util::XModifyListener> & xValueListener : aValueListeners)
                     rDoc.AddUnoListenerCall( xValueListener, aEvent );
 
                 bGotDataChangedHint = false;
@@ -1737,64 +1721,6 @@ void ScCellRangesBase::SetCursorOnly( bool bSet )
     //  without anything selected (may contain several sheets)
 
     bCursorOnly = bSet;
-}
-
-uno::Any SAL_CALL ScCellRangesBase::queryInterface( const uno::Type& rType )
-{
-    SC_QUERYINTERFACE( beans::XPropertySet )
-    SC_QUERYINTERFACE( beans::XMultiPropertySet )
-    SC_QUERYINTERFACE( beans::XTolerantMultiPropertySet )
-    SC_QUERYINTERFACE( beans::XPropertyState )
-    SC_QUERYINTERFACE( sheet::XSheetOperation )
-    SC_QUERYINTERFACE( chart::XChartDataArray )
-    SC_QUERYINTERFACE( chart::XChartData )
-    SC_QUERYINTERFACE( util::XIndent )
-    SC_QUERYINTERFACE( sheet::XCellRangesQuery )
-    SC_QUERYINTERFACE( sheet::XFormulaQuery )
-    SC_QUERYINTERFACE( util::XReplaceable )
-    SC_QUERYINTERFACE( util::XSearchable )
-    SC_QUERYINTERFACE( util::XModifyBroadcaster )
-    SC_QUERYINTERFACE( lang::XServiceInfo )
-    SC_QUERYINTERFACE( lang::XUnoTunnel )
-    SC_QUERYINTERFACE( lang::XTypeProvider )
-
-    return OWeakObject::queryInterface( rType );
-}
-
-void SAL_CALL ScCellRangesBase::acquire() throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL ScCellRangesBase::release() throw()
-{
-    OWeakObject::release();
-}
-
-uno::Sequence<uno::Type> SAL_CALL ScCellRangesBase::getTypes()
-{
-    static uno::Sequence<uno::Type> const aTypes
-    {
-        cppu::UnoType<beans::XPropertySet>::get(),
-        cppu::UnoType<beans::XMultiPropertySet>::get(),
-        cppu::UnoType<beans::XPropertyState>::get(),
-        cppu::UnoType<sheet::XSheetOperation>::get(),
-        cppu::UnoType<chart::XChartDataArray>::get(),
-        cppu::UnoType<util::XIndent>::get(),
-        cppu::UnoType<sheet::XCellRangesQuery>::get(),
-        cppu::UnoType<sheet::XFormulaQuery>::get(),
-        cppu::UnoType<util::XReplaceable>::get(),
-        cppu::UnoType<util::XModifyBroadcaster>::get(),
-        cppu::UnoType<lang::XServiceInfo>::get(),
-        cppu::UnoType<lang::XUnoTunnel>::get(),
-        cppu::UnoType<lang::XTypeProvider>::get()
-    };
-    return aTypes;
-}
-
-uno::Sequence<sal_Int8> SAL_CALL ScCellRangesBase::getImplementationId()
-{
-    return css::uno::Sequence<sal_Int8>();
 }
 
 void ScCellRangesBase::PaintGridRanges_Impl( )
@@ -1947,14 +1873,13 @@ uno::Sequence<beans::PropertyState> SAL_CALL ScCellRangesBase::getPropertyStates
     const SfxItemPropertyMap& rPropertyMap = GetItemPropertyMap();     // from derived class
 
     uno::Sequence<beans::PropertyState> aRet(aPropertyNames.getLength());
-    beans::PropertyState* pStates = aRet.getArray();
-    for(sal_Int32 i = 0; i < aPropertyNames.getLength(); i++)
-    {
-        sal_uInt16 nItemWhich = 0;
-        const SfxItemPropertySimpleEntry* pEntry  = rPropertyMap.getByName( aPropertyNames[i] );
-        lcl_GetPropertyWhich( pEntry, nItemWhich );
-        pStates[i] = GetOnePropertyState(nItemWhich, pEntry);
-    }
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aRet.begin(),
+        [this, &rPropertyMap](const auto& rName) -> beans::PropertyState {
+            sal_uInt16 nItemWhich = 0;
+            const SfxItemPropertySimpleEntry* pEntry  = rPropertyMap.getByName( rName );
+            lcl_GetPropertyWhich( pEntry, nItemWhich );
+            return GetOnePropertyState(nItemWhich, pEntry);
+        });
     return aRet;
 }
 
@@ -2236,7 +2161,7 @@ void SAL_CALL ScCellRangesBase::setPropertyValue(
     const SfxItemPropertyMap& rPropertyMap = GetItemPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     SetOnePropertyValue( pEntry, aValue );
 }
@@ -2448,7 +2373,7 @@ uno::Any SAL_CALL ScCellRangesBase::getPropertyValue( const OUString& aPropertyN
     const SfxItemPropertyMap& rPropertyMap = GetItemPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     uno::Any aAny;
     GetOnePropertyValue( pEntry, aAny );
@@ -4272,34 +4197,24 @@ void SAL_CALL ScCellRangesObj::addRangeAddresses( const uno::Sequence<table::Cel
                                     sal_Bool bMergeRanges )
 {
     SolarMutexGuard aGuard;
-    sal_Int32 nCount(rRanges.getLength());
-    if (nCount)
+    for (const table::CellRangeAddress& rRange : rRanges)
     {
-        const table::CellRangeAddress* pRanges = rRanges.getConstArray();
-        for (sal_Int32 i = 0; i < rRanges.getLength(); i++, pRanges++)
-        {
-            ScRange aRange(static_cast<SCCOL>(pRanges->StartColumn),
-                    static_cast<SCROW>(pRanges->StartRow),
-                    static_cast<SCTAB>(pRanges->Sheet),
-                    static_cast<SCCOL>(pRanges->EndColumn),
-                    static_cast<SCROW>(pRanges->EndRow),
-                    static_cast<SCTAB>(pRanges->Sheet));
-            AddRange(aRange, bMergeRanges);
-        }
+        ScRange aRange(static_cast<SCCOL>(rRange.StartColumn),
+                static_cast<SCROW>(rRange.StartRow),
+                static_cast<SCTAB>(rRange.Sheet),
+                static_cast<SCCOL>(rRange.EndColumn),
+                static_cast<SCROW>(rRange.EndRow),
+                static_cast<SCTAB>(rRange.Sheet));
+        AddRange(aRange, bMergeRanges);
     }
 }
 
 void SAL_CALL ScCellRangesObj::removeRangeAddresses( const uno::Sequence<table::CellRangeAddress >& rRangeSeq )
 {
     // use sometimes a better/faster implementation
-    sal_uInt32 nCount(rRangeSeq.getLength());
-    if (nCount)
+    for (const table::CellRangeAddress& rRange : rRangeSeq)
     {
-        const table::CellRangeAddress* pRanges = rRangeSeq.getConstArray();
-        for (sal_uInt32 i=0; i < nCount; ++i, ++pRanges)
-        {
-            removeRangeAddress(*pRanges);
-        }
+        removeRangeAddress(rRange);
     }
 }
 
@@ -4627,7 +4542,7 @@ sal_Bool SAL_CALL ScCellRangesObj::hasElements()
 // XServiceInfo
 OUString SAL_CALL ScCellRangesObj::getImplementationName()
 {
-    return OUString( "ScCellRangesObj" );
+    return "ScCellRangesObj";
 }
 
 sal_Bool SAL_CALL ScCellRangesObj::supportsService( const OUString& rServiceName )
@@ -5489,7 +5404,7 @@ void SAL_CALL ScCellRangeObj::filter( const uno::Reference<sheet::XSheetFilterDe
 {
     SolarMutexGuard aGuard;
 
-    //  This could be theoretically a unknown object, so only use the
+    //  This could be theoretically an unknown object, so only use the
     //  public XSheetFilterDescriptor interface to copy the data into a
     //  ScFilterDescriptor object:
     //! if it already a ScFilterDescriptor is, direct via getImplementation?
@@ -5845,7 +5760,7 @@ const SfxItemPropertyMap& ScCellRangeObj::GetItemPropertyMap()
 
 OUString SAL_CALL ScCellRangeObj::getImplementationName()
 {
-    return OUString( "ScCellRangeObj" );
+    return "ScCellRangeObj";
 }
 
 sal_Bool SAL_CALL ScCellRangeObj::supportsService( const OUString& rServiceName )
@@ -6330,7 +6245,7 @@ table::CellContentType SAL_CALL ScCellObj::getType()
     return eRet;
 }
 
-sal_Int32 ScCellObj::GetResultType_Impl()
+sal_Int32 ScCellObj::GetResultType_Impl() const
 {
     SolarMutexGuard aGuard;
     sal_Int32 eRet = sheet::FormulaResult::STRING;
@@ -6545,7 +6460,7 @@ const SfxItemPropertyMap& ScCellObj::GetItemPropertyMap()
 
 OUString SAL_CALL ScCellObj::getImplementationName()
 {
-    return OUString( "ScCellObj" );
+    return "ScCellObj";
 }
 
 sal_Bool SAL_CALL ScCellObj::supportsService( const OUString& rServiceName )
@@ -7183,10 +7098,9 @@ void SAL_CALL ScTableSheetObj::setPrintAreas(
         if (nCount)
         {
             ScRange aPrintRange;
-            const table::CellRangeAddress* pAry = aPrintAreas.getConstArray();
-            for (sal_uInt16 i=0; i<nCount; i++)
+            for (const table::CellRangeAddress& rPrintArea : aPrintAreas)
             {
-                ScUnoConversion::FillScRange( aPrintRange, pAry[i] );
+                ScUnoConversion::FillScRange( aPrintRange, rPrintArea );
                 rDoc.AddPrintRange( nTab, aPrintRange );
             }
         }
@@ -7774,18 +7688,13 @@ void SAL_CALL ScTableSheetObj::addRanges( const uno::Sequence<table::CellRangeAd
             ScMarkData aMarkData;
             aMarkData.SelectTable( nTab, true );
 
-            sal_uInt16 nRangeCount = static_cast<sal_uInt16>(rScenRanges.getLength());
-            if (nRangeCount)
+            for (const table::CellRangeAddress& rRange : rScenRanges)
             {
-                const table::CellRangeAddress* pAry = rScenRanges.getConstArray();
-                for (sal_uInt16 i=0; i<nRangeCount; i++)
-                {
-                    OSL_ENSURE( pAry[i].Sheet == nTab, "addRanges with wrong Tab" );
-                    ScRange aOneRange( static_cast<SCCOL>(pAry[i].StartColumn), static_cast<SCROW>(pAry[i].StartRow), nTab,
-                                       static_cast<SCCOL>(pAry[i].EndColumn),   static_cast<SCROW>(pAry[i].EndRow),   nTab );
+                OSL_ENSURE( rRange.Sheet == nTab, "addRanges with wrong Tab" );
+                ScRange aOneRange( static_cast<SCCOL>(rRange.StartColumn), static_cast<SCROW>(rRange.StartRow), nTab,
+                                   static_cast<SCCOL>(rRange.EndColumn),   static_cast<SCROW>(rRange.EndRow),   nTab );
 
-                    aMarkData.SetMultiMarkArea( aOneRange );
-                }
+                aMarkData.SetMultiMarkArea( aOneRange );
             }
 
             //  Scenario ranges are tagged with attribute
@@ -8373,7 +8282,7 @@ const SfxItemPropertyMap& ScTableSheetObj::GetItemPropertyMap()
 
 OUString SAL_CALL ScTableSheetObj::getImplementationName()
 {
-    return OUString( "ScTableSheetObj" );
+    return "ScTableSheetObj";
 }
 
 sal_Bool SAL_CALL ScTableSheetObj::supportsService( const OUString& rServiceName )

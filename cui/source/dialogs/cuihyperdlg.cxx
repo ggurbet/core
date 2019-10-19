@@ -21,15 +21,15 @@
 
 #include <osl/diagnose.h>
 #include <comphelper/lok.hxx>
-#include <vcl/settings.hxx>
 #include <unotools/viewoptions.hxx>
 #include <cuihyperdlg.hxx>
 #include <hlinettp.hxx>
 #include <hlmailtp.hxx>
 #include <hldoctp.hxx>
 #include <hldocntp.hxx>
-#include <bitmaps.hlst>
+#include <sfx2/app.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <svl/eitem.hxx>
 #include <svx/svxids.hrc>
 #include <dialmgr.hxx>
 #include <strings.hrc>
@@ -88,7 +88,7 @@ SvxHpLinkDlg::SvxHpLinkDlg(SfxBindings* pBindings, SfxChildWindow* pChild, weld:
     , pExampleSet     ( nullptr )
     , maCtrl          ( SID_HYPERLINK_GETLINK, *pBindings, this )
     , mbIsHTMLDoc     ( false )
-    , m_xIconCtrl(m_xBuilder->weld_notebook("icon_control"))
+    , m_xIconCtrl(m_xBuilder->weld_notebook("tabcontrol"))
     , m_xOKBtn(m_xBuilder->weld_button("ok"))
     , m_xApplyBtn(m_xBuilder->weld_button("apply"))
     , m_xCancelBtn(m_xBuilder->weld_button("cancel"))

@@ -25,6 +25,7 @@
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <comphelper/uno3.hxx>
 #include <comphelper/sequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/hash.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
@@ -109,7 +110,7 @@ OConnectionWrapper::~OConnectionWrapper()
 
 OUString SAL_CALL OConnectionWrapper::getImplementationName(  )
 {
-    return OUString( "com.sun.star.sdbc.drivers.OConnectionWrapper" );
+    return "com.sun.star.sdbc.drivers.OConnectionWrapper";
 }
 
 
@@ -157,7 +158,7 @@ Sequence< Type > SAL_CALL OConnectionWrapper::getTypes(  )
 // css::lang::XUnoTunnel
 sal_Int64 SAL_CALL OConnectionWrapper::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    if (isUnoTunnelId<OConnectionWrapper>(rId))
         return reinterpret_cast< sal_Int64 >( this );
 
     if(m_xUnoTunnel.is())
@@ -166,7 +167,7 @@ sal_Int64 SAL_CALL OConnectionWrapper::getSomething( const Sequence< sal_Int8 >&
 }
 
 
-Sequence< sal_Int8 > OConnectionWrapper::getUnoTunnelImplementationId()
+Sequence< sal_Int8 > OConnectionWrapper::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 
@@ -206,7 +207,7 @@ void OConnectionWrapper::createUniqueId( const OUString& _rURL
     // now we need to sort the properties
     std::sort(_rInfo.begin(),_rInfo.end(),TPropertyValueLessFunctor());
 
-    for (PropertyValue const & prop : _rInfo)
+    for (PropertyValue const & prop : std::as_const(_rInfo))
     {
         // we only include strings an integer values
         OUString sValue;
@@ -222,7 +223,7 @@ void OConnectionWrapper::createUniqueId( const OUString& _rURL
                 Sequence< OUString> aSeq;
                 if ( prop.Value >>= aSeq )
                 {
-                    for(OUString const & s : aSeq)
+                    for(OUString const & s : std::as_const(aSeq))
                         sha1.update(reinterpret_cast<unsigned char const*>(s.getStr()), s.getLength() * sizeof(sal_Unicode));
                 }
             }

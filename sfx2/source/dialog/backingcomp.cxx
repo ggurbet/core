@@ -271,7 +271,7 @@ css::uno::Sequence< sal_Int8 > SAL_CALL BackingComp::getImplementationId()
 
 OUString SAL_CALL BackingComp::getImplementationName()
 {
-    return OUString("com.sun.star.comp.sfx2.BackingComp");
+    return "com.sun.star.comp.sfx2.BackingComp";
 }
 
 sal_Bool SAL_CALL BackingComp::supportsService( /*IN*/ const OUString& sServiceName )
@@ -281,10 +281,7 @@ sal_Bool SAL_CALL BackingComp::supportsService( /*IN*/ const OUString& sServiceN
 
 css::uno::Sequence< OUString > SAL_CALL BackingComp::getSupportedServiceNames()
 {
-    css::uno::Sequence< OUString > lNames(2);
-    lNames[0] = "com.sun.star.frame.StartModule";
-    lNames[1] = "com.sun.star.frame.ProtocolHandler";
-    return lNames;
+    return { "com.sun.star.frame.StartModule", "com.sun.star.frame.ProtocolHandler" };
 }
 
 
@@ -398,7 +395,7 @@ void SAL_CALL BackingComp::attachFrame( /*IN*/ const css::uno::Reference< css::f
         pBack->setOwningFrame( m_xFrame );
 
     // set NotebookBar
-    SystemWindow* pSysWindow = static_cast<SystemWindow*>(pParent);
+    SystemWindow* pSysWindow = pParent;
     if (pSysWindow)
     {
         //sfx2::SfxNotebookBar::StateMethod(pSysWindow, m_xFrame, "sfx/ui/notebookbar.ui");
@@ -577,14 +574,8 @@ void SAL_CALL BackingComp::dispose()
     // stop listening at the window
     if (m_xWindow.is())
     {
-        css::uno::Reference< css::lang::XComponent > xBroadcaster(m_xWindow, css::uno::UNO_QUERY);
-        if (xBroadcaster.is())
-        {
-            css::uno::Reference< css::lang::XEventListener > xEventThis(static_cast< ::cppu::OWeakObject* >(this), css::uno::UNO_QUERY);
-            xBroadcaster->removeEventListener(xEventThis);
-        }
-        css::uno::Reference< css::awt::XKeyListener > xKeyThis(static_cast< ::cppu::OWeakObject* >(this), css::uno::UNO_QUERY);
-        m_xWindow->removeKeyListener(xKeyThis);
+        m_xWindow->removeEventListener(this);
+        m_xWindow->removeKeyListener(this);
         m_xWindow.clear();
     }
 
@@ -678,9 +669,7 @@ void SAL_CALL BackingComp::initialize( /*IN*/ const css::uno::Sequence< css::uno
 
     // start listening for window disposing
     // It's set at our owner frame as component window later too. So it will may be disposed there ...
-    css::uno::Reference< css::lang::XComponent > xBroadcaster(m_xWindow, css::uno::UNO_QUERY);
-    if (xBroadcaster.is())
-        xBroadcaster->addEventListener(static_cast< css::lang::XEventListener* >(this));
+    m_xWindow->addEventListener(static_cast< css::lang::XEventListener* >(this));
 
     m_xWindow->setVisible(true);
 
@@ -719,8 +708,9 @@ css::uno::Sequence < css::uno::Reference< css::frame::XDispatch > > SAL_CALL Bac
     sal_Int32 nCount = seqDescripts.getLength();
     css::uno::Sequence < css::uno::Reference < XDispatch > > lDispatcher( nCount );
 
-    for( sal_Int32 i=0; i<nCount; ++i )
-        lDispatcher[i] = queryDispatch( seqDescripts[i].FeatureURL, seqDescripts[i].FrameName, seqDescripts[i].SearchFlags );
+    std::transform(seqDescripts.begin(), seqDescripts.end(), lDispatcher.begin(),
+        [this](const css::frame::DispatchDescriptor& rDesc) -> css::uno::Reference<XDispatch> {
+            return queryDispatch(rDesc.FeatureURL, rDesc.FrameName, rDesc.SearchFlags); });
 
     return lDispatcher;
 }

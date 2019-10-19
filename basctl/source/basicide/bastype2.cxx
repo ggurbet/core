@@ -165,7 +165,6 @@ TreeListBox::TreeListBox (vcl::Window* pParent, WinBits nStyle)
 {
     SetNodeDefaultImages();
     SetSelectionMode( SelectionMode::Single );
-    nMode = BrowseMode::All;   // everything
 }
 
 VCL_BUILDER_FACTORY_CONSTRUCTOR(TreeListBox, WB_TABSTOP)
@@ -257,11 +256,7 @@ void TreeListBox::ImpCreateLibEntries( SvTreeListEntry* pDocumentRootEntry, cons
             }
 
             // create tree list box entry
-            OUString sId;
-            if ( ( nMode & BrowseMode::Dialogs ) && !( nMode & BrowseMode::Modules ) )
-                sId = bLoaded ? OUStringLiteral(RID_BMP_DLGLIB) : OUStringLiteral(RID_BMP_DLGLIBNOTLOADED);
-            else
-                sId = bLoaded ? OUStringLiteral(RID_BMP_MODLIB) : OUStringLiteral(RID_BMP_MODLIBNOTLOADED);
+            OUString sId = bLoaded ? OUStringLiteral(RID_BMP_MODLIB) : OUStringLiteral(RID_BMP_MODLIBNOTLOADED);
             SvTreeListEntry* pLibRootEntry = FindEntry( pDocumentRootEntry, aLibName, OBJ_TYPE_LIBRARY );
             if ( pLibRootEntry )
             {
@@ -284,7 +279,6 @@ void TreeListBox::ImpCreateLibEntries( SvTreeListEntry* pDocumentRootEntry, cons
 void TreeListBox::ImpCreateLibSubEntries( SvTreeListEntry* pLibRootEntry, const ScriptDocument& rDocument, const OUString& rLibName )
 {
     // modules
-    if ( nMode & BrowseMode::Modules )
     {
         Reference< script::XLibraryContainer > xModLibContainer( rDocument.getLibraryContainer( E_SCRIPTS ) );
 
@@ -315,7 +309,6 @@ void TreeListBox::ImpCreateLibSubEntries( SvTreeListEntry* pLibRootEntry, const 
                         }
 
                         // methods
-                        if ( nMode & BrowseMode::Subs )
                         {
                             Sequence< OUString > aNames = GetMethodNames( rDocument, rLibName, aModName );
                             FillTreeListBox( pModuleEntry, aNames, OBJ_TYPE_METHOD, RID_BMP_MACRO );
@@ -331,7 +324,6 @@ void TreeListBox::ImpCreateLibSubEntries( SvTreeListEntry* pLibRootEntry, const 
     }
 
     // dialogs
-    if ( nMode & BrowseMode::Dialogs )
     {
          Reference< script::XLibraryContainer > xDlgLibContainer( rDocument.getLibraryContainer( E_DIALOGS ) );
 
@@ -440,7 +432,6 @@ void TreeListBox::ImpCreateLibSubSubEntriesInVBAMode( SvTreeListEntry* pLibSubRo
             }
 
             // methods
-            if ( nMode & BrowseMode::Subs )
             {
                 Sequence< OUString > aNames = GetMethodNames( rDocument, rLibName, aModName );
                 FillTreeListBox( pModuleEntry, aNames, OBJ_TYPE_METHOD, RID_BMP_MACRO );
@@ -667,19 +658,9 @@ void TreeListBox::SetEntryBitmaps( SvTreeListEntry * pEntry, const Image& rImage
     SetCollapsedEntryBmp( pEntry, rImage );
 }
 
-LibraryType TreeListBox::GetLibraryType() const
+OUString TreeListBox::GetRootEntryName( const ScriptDocument& rDocument, LibraryLocation eLocation )
 {
-    LibraryType eType = LibraryType::All;
-    if ( ( nMode & BrowseMode::Modules ) && !( nMode & BrowseMode::Dialogs ) )
-        eType = LibraryType::Module;
-    else if ( !( nMode & BrowseMode::Modules ) && ( nMode & BrowseMode::Dialogs ) )
-        eType = LibraryType::Dialog;
-    return eType;
-}
-
-OUString TreeListBox::GetRootEntryName( const ScriptDocument& rDocument, LibraryLocation eLocation ) const
-{
-    return rDocument.getTitle( eLocation, GetLibraryType() );
+    return rDocument.getTitle( eLocation, LibraryType::All );
 }
 
 void TreeListBox::GetRootEntryBitmaps( const ScriptDocument& rDocument, Image& rImage )
@@ -696,20 +677,16 @@ void TreeListBox::GetRootEntryBitmaps( const ScriptDocument& rDocument, Image& r
         try
         {
             OUString sModule( xModuleManager->identify( rDocument.getDocument() ) );
-            Reference< container::XNameAccess > xModuleConfig( xModuleManager, UNO_QUERY );
-            if ( xModuleConfig.is() )
+            Sequence< beans::PropertyValue > aModuleDescr;
+            xModuleManager->getByName( sModule ) >>= aModuleDescr;
+            sal_Int32 nCount = aModuleDescr.getLength();
+            const beans::PropertyValue* pModuleDescr = aModuleDescr.getConstArray();
+            for ( sal_Int32 i = 0; i < nCount; ++i )
             {
-                Sequence< beans::PropertyValue > aModuleDescr;
-                xModuleConfig->getByName( sModule ) >>= aModuleDescr;
-                sal_Int32 nCount = aModuleDescr.getLength();
-                const beans::PropertyValue* pModuleDescr = aModuleDescr.getConstArray();
-                for ( sal_Int32 i = 0; i < nCount; ++i )
+                if ( pModuleDescr[ i ].Name == "ooSetupFactoryEmptyDocumentURL" )
                 {
-                    if ( pModuleDescr[ i ].Name == "ooSetupFactoryEmptyDocumentURL" )
-                    {
-                        pModuleDescr[ i ].Value >>= sFactoryURL;
-                        break;
-                    }
+                    pModuleDescr[ i ].Value >>= sFactoryURL;
+                    break;
                 }
             }
         }
@@ -1392,20 +1369,16 @@ OUString SbTreeListBox::GetRootEntryBitmaps(const ScriptDocument& rDocument)
         try
         {
             OUString sModule( xModuleManager->identify( rDocument.getDocument() ) );
-            Reference< container::XNameAccess > xModuleConfig( xModuleManager, UNO_QUERY );
-            if ( xModuleConfig.is() )
+            Sequence< beans::PropertyValue > aModuleDescr;
+            xModuleManager->getByName( sModule ) >>= aModuleDescr;
+            sal_Int32 nCount = aModuleDescr.getLength();
+            const beans::PropertyValue* pModuleDescr = aModuleDescr.getConstArray();
+            for ( sal_Int32 i = 0; i < nCount; ++i )
             {
-                Sequence< beans::PropertyValue > aModuleDescr;
-                xModuleConfig->getByName( sModule ) >>= aModuleDescr;
-                sal_Int32 nCount = aModuleDescr.getLength();
-                const beans::PropertyValue* pModuleDescr = aModuleDescr.getConstArray();
-                for ( sal_Int32 i = 0; i < nCount; ++i )
+                if ( pModuleDescr[ i ].Name == "ooSetupFactoryEmptyDocumentURL" )
                 {
-                    if ( pModuleDescr[ i ].Name == "ooSetupFactoryEmptyDocumentURL" )
-                    {
-                        pModuleDescr[ i ].Value >>= sFactoryURL;
-                        break;
-                    }
+                    pModuleDescr[ i ].Value >>= sFactoryURL;
+                    break;
                 }
             }
         }
@@ -1421,10 +1394,10 @@ OUString SbTreeListBox::GetRootEntryBitmaps(const ScriptDocument& rDocument)
         else
         {
             // default icon
-            return OUString(RID_BMP_DOCUMENT);
+            return RID_BMP_DOCUMENT;
         }
     }
-    return OUString(RID_BMP_INSTALLATION);
+    return RID_BMP_INSTALLATION;
 }
 
 void SbTreeListBox::SetCurrentEntry (EntryDescriptor const & rDesc)
@@ -1525,11 +1498,11 @@ void SbTreeListBox::SetCurrentEntry (EntryDescriptor const & rDesc)
     m_xControl->set_cursor(*xCurIter);
 }
 
-IMPL_LINK_NOARG(SbTreeListBox, OpenCurrentHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SbTreeListBox, OpenCurrentHdl, weld::TreeView&, bool)
 {
     bool bValidIter = m_xControl->get_cursor(m_xIter.get());
     if (!bValidIter)
-        return;
+        return true;
     EntryDescriptor aDesc = GetEntryDescriptor(m_xIter.get());
     switch (aDesc.GetType())
     {
@@ -1547,7 +1520,7 @@ IMPL_LINK_NOARG(SbTreeListBox, OpenCurrentHdl, weld::TreeView&, void)
                     SID_BASICIDE_SHOWSBX, SfxCallMode::SYNCHRON,
                     { &aSbxItem }
                 );
-                return;
+                return true;
             }
             break;
 
@@ -1558,6 +1531,7 @@ IMPL_LINK_NOARG(SbTreeListBox, OpenCurrentHdl, weld::TreeView&, void)
                 m_xControl->collapse_row(*m_xIter);
             break;
     }
+    return true;
 }
 
 } // namespace basctl

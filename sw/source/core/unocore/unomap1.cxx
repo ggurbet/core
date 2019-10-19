@@ -200,9 +200,10 @@ const SfxItemPropertyMapEntry*  SwUnoPropertyMapProvider::GetAutoParaStyleProper
         { OUString(UNO_NAME_CELL), FN_UNO_CELL,         cppu::UnoType<css::table::XCell>::get(),         PropertyAttribute::MAYBEVOID|PropertyAttribute::READONLY ,0 },
         { OUString(UNO_NAME_TEXT_FRAME), FN_UNO_TEXT_FRAME,     cppu::UnoType<css::text::XTextFrame>::get(),        PropertyAttribute::MAYBEVOID|PropertyAttribute::READONLY ,0 },
         { OUString(UNO_NAME_TEXT_SECTION), FN_UNO_TEXT_SECTION, cppu::UnoType<css::text::XTextSection>::get(),  PropertyAttribute::MAYBEVOID|PropertyAttribute::READONLY ,0 },
-        { OUString(UNO_NAME_PARA_CHAPTER_NUMBERING_LEVEL), FN_UNO_PARA_CHAPTER_NUMBERING_LEVEL,cppu::UnoType<sal_Int8>::get(), PROPERTY_NONE, 0},
+        { OUString(UNO_NAME_PARA_CHAPTER_NUMBERING_LEVEL), FN_UNO_PARA_CHAPTER_NUMBERING_LEVEL,cppu::UnoType<sal_Int8>::get(), PropertyAttribute::MAYBEVOID, 0},
         { OUString(UNO_NAME_PARA_CONDITIONAL_STYLE_NAME), RES_FRMATR_CONDITIONAL_STYLE_NAME,        cppu::UnoType<OUString>::get(),         PropertyAttribute::MAYBEVOID|PropertyAttribute::READONLY,   0},
         { OUString(UNO_NAME_PARA_IS_NUMBERING_RESTART), FN_NUMBER_NEWSTART,     cppu::UnoType<bool>::get(),     PropertyAttribute::MAYBEVOID, 0 },
+        // TODO add RES_PARATR_LIST_AUTOFMT?
         { OUString(UNO_NAME_OUTLINE_LEVEL), RES_PARATR_OUTLINELEVEL,        cppu::UnoType<sal_Int16>::get(),                PropertyAttribute::MAYBEVOID,     0},
         COMMON_CRSR_PARA_PROPERTIES_WITHOUT_FN
         TABSTOPS_MAP_ENTRY
@@ -458,6 +459,7 @@ const SfxItemPropertyMapEntry*  SwUnoPropertyMapProvider::GetFrameStylePropertyM
         { OUString(UNO_NAME_IS_LAYOUT_IN_CELL), RES_FOLLOW_TEXT_FLOW,     cppu::UnoType<bool>::get(), PROPERTY_NONE, MID_FTF_LAYOUT_IN_CELL},
         // #i28701#
         { OUString(UNO_NAME_WRAP_INFLUENCE_ON_POSITION), RES_WRAP_INFLUENCE_ON_OBJPOS, cppu::UnoType<sal_Int8>::get(), PROPERTY_NONE, MID_WRAP_INFLUENCE},
+        { OUString(UNO_NAME_ALLOW_OVERLAP), RES_WRAP_INFLUENCE_ON_OBJPOS, cppu::UnoType<bool>::get(), PROPERTY_NONE, MID_ALLOW_OVERLAP},
         { OUString(UNO_NAME_WRITING_MODE), RES_FRAMEDIR, cppu::UnoType<sal_Int16>::get(), PROPERTY_NONE, 0 },
         { OUString(UNO_NAME_HIDDEN), FN_UNO_HIDDEN,     cppu::UnoType<bool>::get(), PROPERTY_NONE, 0},
         { OUString(UNO_NAME_TEXT_VERT_ADJUST), RES_TEXT_VERT_ADJUST, cppu::UnoType<css::drawing::TextVerticalAdjust>::get(), PROPERTY_NONE ,0},

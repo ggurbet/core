@@ -20,9 +20,6 @@
 #include <memory>
 #include <svl/eitem.hxx>
 #include <svl/stritem.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
-#include <sfx2/sfxsids.hrc>
 #include <dialmgr.hxx>
 #include <svx/dlgutil.hxx>
 #include <editeng/sizeitem.hxx>
@@ -32,11 +29,11 @@
 #include <rtl/ustring.hxx>
 #include <tools/debug.hxx>
 #include <tools/fract.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <strings.hrc>
 #include <vcl/field.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <svtools/unitconv.hxx>
 
 #define CM_1_TO_TWIP        567
@@ -52,8 +49,8 @@ static int lcl_GetValue(const weld::MetricSpinButton& rMetric, FieldUnit eUnit)
     description: crop graphic
  --------------------------------------------------------------------*/
 
-SvxGrfCropPage::SvxGrfCropPage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SfxTabPage(pParent, "cui/ui/croppage.ui", "CropPage", &rSet)
+SvxGrfCropPage::SvxGrfCropPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/croppage.ui", "CropPage", &rSet)
     , nOldWidth(0)
     , nOldHeight(0)
     , bSetOrigSize(false)
@@ -106,18 +103,12 @@ SvxGrfCropPage::SvxGrfCropPage(TabPageParent pParent, const SfxItemSet &rSet)
 
 SvxGrfCropPage::~SvxGrfCropPage()
 {
-    disposeOnce();
-}
-
-void SvxGrfCropPage::dispose()
-{
     m_xExampleWN.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxGrfCropPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
+std::unique_ptr<SfxTabPage> SvxGrfCropPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet)
 {
-    return VclPtr<SvxGrfCropPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxGrfCropPage>(pPage, pController, *rSet);
 }
 
 void SvxGrfCropPage::Reset( const SfxItemSet *rSet )
@@ -635,7 +626,7 @@ void SvxGrfCropPage::GraphicHasChanged( bool bFound )
         // display original size
         const FieldUnit eMetric = GetModuleFieldUnit( GetItemSet() );
 
-        ScopedVclPtrInstance< MetricField > aFld(this, WB_HIDE);
+        ScopedVclPtrInstance< MetricField > aFld(Application::GetDefDialogParent(), WB_HIDE);
         SetFieldUnit( *aFld, eMetric );
         aFld->SetDecimalDigits(m_xWidthMF->get_digits());
         aFld->SetMax( LONG_MAX - 1 );
@@ -644,18 +635,17 @@ void SvxGrfCropPage::GraphicHasChanged( bool bFound )
         OUString sTemp = aFld->GetText();
         aFld->SetValue( aFld->Normalize( aOrigSize.Height() ), eUnit );
         // multiplication sign (U+00D7)
-        sTemp += OUStringLiteral1(0x00D7) + aFld->GetText();
+        sTemp += u"\u00D7" + aFld->GetText();
 
         if ( aOrigPixelSize.Width() && aOrigPixelSize.Height() ) {
              sal_Int32 ax = sal_Int32(floor(static_cast<float>(aOrigPixelSize.Width()) /
                         (static_cast<float>(aOrigSize.Width())/TWIP_TO_INCH)+0.5));
              sal_Int32 ay = sal_Int32(floor(static_cast<float>(aOrigPixelSize.Height()) /
                         (static_cast<float>(aOrigSize.Height())/TWIP_TO_INCH)+0.5));
-             sTemp += " ";
-             sTemp += CuiResId( RID_SVXSTR_PPI );
+             sTemp += " " + CuiResId( RID_SVXSTR_PPI );
              OUString sPPI = OUString::number(ax);
              if (abs(ax - ay) > 1) {
-                sPPI += OUStringLiteral1(0x00D7) + OUString::number(ay);
+                sPPI += u"\u00D7" + OUString::number(ay);
              }
              sTemp = sTemp.replaceAll("%1", sPPI);
         }
@@ -669,12 +659,12 @@ void SvxGrfCropPage::GraphicHasChanged( bool bFound )
     m_xZoomConstRB->set_sensitive(bFound);
 }
 
-Size SvxGrfCropPage::GetGrfOrigSize( const Graphic& rGrf ) const
+Size SvxGrfCropPage::GetGrfOrigSize(const Graphic& rGrf)
 {
     const MapMode aMapTwip( MapUnit::MapTwip );
     Size aSize( rGrf.GetPrefSize() );
     if( MapUnit::MapPixel == rGrf.GetPrefMapMode().GetMapUnit() )
-        aSize = PixelToLogic( aSize, aMapTwip );
+        aSize = Application::GetDefaultDevice()->PixelToLogic(aSize, aMapTwip);
     else
         aSize = OutputDevice::LogicToLogic( aSize,
                                         rGrf.GetPrefMapMode(), aMapTwip );

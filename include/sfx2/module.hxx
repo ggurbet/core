@@ -24,7 +24,6 @@
 #include <sfx2/dllapi.h>
 #include <sfx2/shell.hxx>
 #include <sfx2/styfitem.hxx>
-#include <vcl/tabpage.hxx>
 #include <sal/types.h>
 #include <tools/fldunit.hxx>
 #include <com/sun/star/uno/Reference.hxx>
@@ -44,6 +43,10 @@ namespace com { namespace sun { namespace star { namespace frame {
     class XFrame;
 } } } }
 
+namespace weld {
+    class Container;
+    class DialogController;
+}
 
 class SFX2_DLLPUBLIC SfxModule : public SfxShell
 {
@@ -73,8 +76,8 @@ public:
     void                        RegisterChildWindow(std::unique_ptr<SfxChildWinFactory>);
     void                        RegisterStatusBarControl(const SfxStbCtrlFactory&);
 
-    virtual VclPtr<SfxTabPage>  CreateTabPage( sal_uInt16 nId,
-                                               TabPageParent pParent,
+    virtual std::unique_ptr<SfxTabPage>  CreateTabPage( sal_uInt16 nId,
+                                               weld::Container* pPage, weld::DialogController* pController,
                                                const SfxItemSet& rSet );
     virtual void                Invalidate(sal_uInt16 nId = 0) override;
 

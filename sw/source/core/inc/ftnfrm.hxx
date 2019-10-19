@@ -39,9 +39,9 @@ void RemoveFootnotesForNode(
 
 }
 
-// There exists a special section on a page for footnotes. It's called
+// There exists a special container frame on a page for footnotes. It's called
 // SwFootnoteContFrame. Each footnote is separated by a SwFootnoteFrame which contains
-// the paragraphs of a footnote. SwFootnoteFrame can be splitted and will then
+// the text frames of a footnote. SwFootnoteFrame can be split and will then
 // continue on another page.
 class SwFootnoteContFrame: public SwLayoutFrame
 {
@@ -115,7 +115,7 @@ public:
 
     void LockBackMove()     { mbBackMoveLocked = true; }
     void UnlockBackMove()   { mbBackMoveLocked = false;}
-    bool IsBackMoveLocked() { return mbBackMoveLocked; }
+    bool IsBackMoveLocked() const { return mbBackMoveLocked; }
 
     // prevents that the last content deletes the SwFootnoteFrame as well (Cut())
     void ColLock()       { mbColLocked = true; }
@@ -130,7 +130,7 @@ public:
     {
         mbUnlockPosOfLowerObjs = false;
     }
-    bool IsUnlockPosOfLowerObjs()
+    bool IsUnlockPosOfLowerObjs() const
     {
         return mbUnlockPosOfLowerObjs;
     }

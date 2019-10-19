@@ -26,7 +26,7 @@
     class TestName : public Test                                                                   \
     {                                                                                              \
     protected:                                                                                     \
-        virtual OUString getTestName() override { return OUString(#TestName); }                    \
+        virtual OUString getTestName() override { return #TestName; }                    \
         virtual void postLoad(const char*) override                                                \
         {                                                                                          \
             if (!bUseTempDir)                                                                      \
@@ -38,21 +38,13 @@
                                                                                                    \
             /* Get original link */                                                                \
             OUString sOriginalFileName = getProperty<OUString>(xText, "HyperLinkURL");             \
-            INetURLObject aOriginalURL;                                                            \
-            bool bOk = aOriginalURL.setFSysPath(sOriginalFileName, FSysStyle::Detect);             \
-            if (!bOk)                                                                              \
-                aOriginalURL = INetURLObject(sOriginalFileName);                                   \
-            OUString sFileName = aOriginalURL.GetLastName().isEmpty()                              \
-                                     ? sOriginalFileName                                           \
-                                     : aOriginalURL.GetLastName();                                 \
+            INetURLObject aOriginalURL(sOriginalFileName);                                         \
+            CPPUNIT_ASSERT(!aOriginalURL.HasError());                                              \
+            OUString sFileName = aOriginalURL.GetLastName();                                       \
+            CPPUNIT_ASSERT(!sFileName.isEmpty());                                                  \
                                                                                                    \
             /* Get temp path */                                                                    \
-            OUString sTempDir = utl::TempFile::CreateTempName();                                   \
-            INetURLObject aTempURL;                                                                \
-            aTempURL.setFSysPath(sTempDir, FSysStyle::Detect);                                     \
-            /* remove file name */                                                                 \
-            aTempURL.removeSegment();                                                              \
-            sTempDir = INetURLObject::GetScheme(aTempURL.GetProtocol()) + aTempURL.GetURLPath();   \
+            OUString sTempDir = utl::TempFile::GetTempNameBaseDirectory();                         \
                                                                                                    \
             /* Create & apply new URL */                                                           \
             OUString sOriginalFileInTempDir = sTempDir + sFileName;                                \
@@ -90,7 +82,7 @@
     class TestName : public Test                                                                   \
     {                                                                                              \
     protected:                                                                                     \
-        virtual OUString getTestName() override { return OUString(#TestName); }                    \
+        virtual OUString getTestName() override { return #TestName; }                    \
                                                                                                    \
     public:                                                                                        \
         CPPUNIT_TEST_SUITE(TestName);                                                              \
@@ -141,7 +133,9 @@ DECLARE_LINKS_IMPORT_TEST(testRelativeToRelativeImport, "relative-link.docx", US
 {
     uno::Reference<text::XTextRange> xParagraph = getParagraph(1);
     uno::Reference<text::XTextRange> xText = getRun(xParagraph, 1);
-    CPPUNIT_ASSERT_EQUAL(OUString("relative.docx"), getProperty<OUString>(xText, "HyperLinkURL"));
+    OUString sTarget = getProperty<OUString>(xText, "HyperLinkURL");
+    CPPUNIT_ASSERT(sTarget.startsWith("file:///"));
+    CPPUNIT_ASSERT(sTarget.endsWith("relative.docx"));
 }
 
 DECLARE_LINKS_IMPORT_TEST(testRelativeToAbsoluteImport, "relative-link.docx", USE_ABSOLUTE)
@@ -171,16 +165,25 @@ DECLARE_LINKS_IMPORT_TEST(testAbsoluteToRelativeImport, "absolute-link.docx", US
                          getProperty<OUString>(xText, "HyperLinkURL"));
 }
 
+DECLARE_LINKS_IMPORT_TEST(testTdf123627_import, "tdf123627.docx", USE_RELATIVE)
+{
+    uno::Reference<text::XTextRange> xText = getRun(getParagraph(1), 1);
+    OUString sTarget = getProperty<OUString>(xText, "HyperLinkURL");
+    CPPUNIT_ASSERT(sTarget.startsWith("file:///"));
+    CPPUNIT_ASSERT(sTarget.endsWith("New/test.docx"));
+}
+
 /* EXPORT */
 
 DECLARE_LINKS_EXPORT_TEST(testRelativeToRelativeExport, "relative-link.docx", USE_RELATIVE,
-                          DONT_MODIFY_LINK)
+                          USE_TEMP_DIR)
 {
     xmlDocPtr pXmlDoc = parseExport("word/_rels/document.xml.rels");
     if (!pXmlDoc)
         return;
 
-    assertXPath(pXmlDoc, "/rels:Relationships/rels:Relationship[2]", "Target", "relative.docx");
+    assertXPath(pXmlDoc, "/rels:Relationships/rels:Relationship[@TargetMode='External']", "Target",
+                "relative.docx");
 }
 
 DECLARE_LINKS_EXPORT_TEST(testRelativeToAbsoluteExport, "relative-link.docx", USE_ABSOLUTE,
@@ -215,6 +218,49 @@ DECLARE_LINKS_EXPORT_TEST(testAbsoluteToAbsoluteExport, "absolute-link.docx", US
     OUString sTarget = getXPath(pXmlDoc, "/rels:Relationships/rels:Relationship[2]", "Target");
     CPPUNIT_ASSERT(sTarget.startsWith("file:///"));
     CPPUNIT_ASSERT(sTarget.endsWith("test.docx"));
+}
+
+DECLARE_LINKS_EXPORT_TEST(testTdf123627_export, "tdf123627.docx", USE_RELATIVE, USE_TEMP_DIR)
+{
+    xmlDocPtr pXmlDoc = parseExport("word/_rels/document.xml.rels");
+    if (!pXmlDoc)
+        return;
+
+    assertXPath(pXmlDoc, "/rels:Relationships/rels:Relationship[@TargetMode='External']", "Target",
+                "test.docx");
+}
+
+DECLARE_LINKS_EXPORT_TEST(testTdf126590_export, "tdf126590.docx", USE_ABSOLUTE, DONT_MODIFY_LINK)
+{
+    xmlDocPtr pXmlDoc = parseExport("word/_rels/document.xml.rels");
+    if (!pXmlDoc)
+        return;
+    // in the original file: Target="file:///C:\TEMP\test.docx" => invalid file URI
+    assertXPath(pXmlDoc, "/rels:Relationships/rels:Relationship[@TargetMode='External']", "Target",
+                "file:///C:/TEMP/test.docx");
+}
+
+DECLARE_LINKS_EXPORT_TEST(testTdf126768_export, "tdf126768.docx", USE_ABSOLUTE, DONT_MODIFY_LINK)
+{
+    xmlDocPtr pXmlDoc = parseExport("word/_rels/document.xml.rels");
+    if (!pXmlDoc)
+        return;
+    // in the original file: "file:///C:\\TEMP\\test.docx" => invalid file URI
+    assertXPath(pXmlDoc, "/rels:Relationships/rels:Relationship[@TargetMode='External']", "Target",
+                "file:///C:/TEMP/test.docx");
+}
+
+DECLARE_LINKS_EXPORT_TEST(testNon_ascii_link_export, "non_ascii_link.docx", USE_ABSOLUTE,
+                          DONT_MODIFY_LINK)
+{
+    xmlDocPtr pXmlDoc = parseExport("word/_rels/document.xml.rels");
+    if (!pXmlDoc)
+        return;
+
+    OUString sTarget = "file:///C:/TEMP/%C3%A9kezet.docx";
+    assertXPath(pXmlDoc, "/rels:Relationships/rels:Relationship[@TargetMode='External']", "Target",
+                INetURLObject::decode( sTarget, INetURLObject::DecodeMechanism::ToIUri,
+                RTL_TEXTENCODING_UTF8));
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

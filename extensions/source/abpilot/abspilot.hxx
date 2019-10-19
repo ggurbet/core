@@ -20,16 +20,16 @@
 #ifndef INCLUDED_EXTENSIONS_SOURCE_ABPILOT_ABSPILOT_HXX
 #define INCLUDED_EXTENSIONS_SOURCE_ABPILOT_ABSPILOT_HXX
 
-#include <svtools/roadmapwizard.hxx>
+#include <vcl/roadmapwizard.hxx>
 #include "addresssettings.hxx"
-#include <vcl/fixed.hxx>
 #include "datasourcehandling.hxx"
 
+using vcl::WizardTypes::WizardState;
+using vcl::WizardTypes::CommitPageReason;
 
 namespace abp
 {
-
-    typedef ::svt::RoadmapWizard OAddressBookSourcePilot_Base;
+    typedef ::vcl::RoadmapWizardMachine OAddressBookSourcePilot_Base;
     class OAddressBookSourcePilot final : public OAddressBookSourcePilot_Base
     {
         css::uno::Reference< css::uno::XComponentContext >
@@ -42,12 +42,14 @@ namespace abp
     public:
         /// ctor
         OAddressBookSourcePilot(
-            vcl::Window* _pParent,
+            weld::Window* _pParent,
             const css::uno::Reference< css::uno::XComponentContext >& _rxORB);
+
+        virtual short run() override;
 
         /// get the service factory which was used to create the dialog
         const css::uno::Reference< css::uno::XComponentContext >&
-                                getORB() { return m_xORB; }
+                                getORB() const { return m_xORB; }
         AddressSettings&        getSettings() { return m_aSettings; }
         const AddressSettings&  getSettings() const { return m_aSettings; }
 
@@ -62,17 +64,13 @@ namespace abp
 
     private:
         // OWizardMachine overridables
-        virtual VclPtr<TabPage>     createPage( WizardState _nState ) override;
+        virtual std::unique_ptr<BuilderPage> createPage( WizardState _nState ) override;
         virtual void                enterState( WizardState _nState ) override;
         virtual bool                prepareLeaveCurrentState( CommitPageReason _eReason ) override;
         virtual bool                onFinish() override;
 
         // RoadmapWizard
         virtual OUString            getStateDisplayName( WizardState _nState ) const override;
-
-        virtual bool    Close() override;
-
-        DECL_LINK( OnCancelClicked, Button*, void );
 
         /** creates a new data source of the type indicated by m_aSettings
             <p>If another data source has been created before, this one is deleted.</p>
@@ -118,10 +116,7 @@ namespace abp
 
         void impl_updateRoadmap( AddressSourceType _eType );
     };
-
-
 }   // namespace abp
-
 
 #endif // INCLUDED_EXTENSIONS_SOURCE_ABPILOT_ABSPILOT_HXX
 

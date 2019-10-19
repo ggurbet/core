@@ -20,54 +20,15 @@
 #define INCLUDED_SVX_FNTCTRL_HXX
 
 #include <memory>
-#include <vcl/customweld.hxx>
-#include <vcl/window.hxx>
 #include <editeng/svxfont.hxx>
-#include <svx/svxdllapi.h>
-
 #include <rtl/ustring.hxx>
+#include <svx/svxdllapi.h>
+#include <vcl/customweld.hxx>
 
 class SfxItemSet;
 class FontPrevWin_Impl;
 
-class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxFontPrevWindow : public vcl::Window
-{
-    using OutputDevice::SetFont;
-private:
-    std::unique_ptr<FontPrevWin_Impl> pImpl;
-    bool mbResetForeground : 1;
-    bool mbResetBackground : 1;
-
-    SVX_DLLPRIVATE void ResetSettings(bool bForeground, bool bBackground);
-    SVX_DLLPRIVATE void ApplySettings(vcl::RenderContext& rRenderContext) override;
-    SVX_DLLPRIVATE void Init ();
-
-public:
-                        SvxFontPrevWindow(vcl::Window* pParent, WinBits nStyle);
-    virtual             ~SvxFontPrevWindow() override;
-    virtual void        dispose() override;
-
-    virtual void        StateChanged( StateChangedType nStateChange ) override;
-    virtual void        DataChanged( const DataChangedEvent& rDCEvt ) override;
-
-    // for reasons of efficiency not const
-    SvxFont&            GetFont();
-    const SvxFont&      GetFont() const;
-    void                SetFont( const SvxFont& rNormalFont, const SvxFont& rCJKFont, const SvxFont& rCTLFont );
-    SvxFont&            GetCJKFont();
-    SvxFont&            GetCTLFont();
-    void                SetColor( const Color& rColor );
-    void                ResetColor();
-    void                SetBackColor( const Color& rColor );
-    void                UseResourceText();
-    void                Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& ) override;
-
-    bool                IsTwoLines() const;
-
-    virtual Size GetOptimalSize() const override;
-};
-
-class SAL_WARN_UNUSED SVX_DLLPUBLIC FontPrevWindow : public weld::CustomWidgetController
+class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxFontPrevWindow : public weld::CustomWidgetController
 {
 private:
     std::unique_ptr<FontPrevWin_Impl> pImpl;
@@ -78,14 +39,16 @@ private:
     SVX_DLLPRIVATE static void SetFontLang(const SfxItemSet& rSet, sal_uInt16 nSlot, SvxFont& rFont);
 
 public:
-                        FontPrevWindow();
-    virtual             ~FontPrevWindow() override;
+                        SvxFontPrevWindow();
+    virtual             ~SvxFontPrevWindow() override;
 
     SvxFont&            GetFont();
     const SvxFont&      GetFont() const;
     void                SetFont( const SvxFont& rNormalFont, const SvxFont& rCJKFont, const SvxFont& rCTLFont );
     SvxFont&            GetCJKFont();
     SvxFont&            GetCTLFont();
+    void                SetColor( const Color& rColor );
+    void                ResetColor();
     void                SetBackColor( const Color& rColor );
     void                SetTextLineColor(const Color& rColor);
     void                SetOverlineColor(const Color& rColor);

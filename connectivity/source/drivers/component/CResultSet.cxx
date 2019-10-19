@@ -46,15 +46,12 @@ OComponentResultSet::OComponentResultSet( OStatement_Base* pStmt,connectivity::O
 
 OUString SAL_CALL OComponentResultSet::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdbcx.component.ResultSet");
+    return "com.sun.star.sdbcx.component.ResultSet";
 }
 
 Sequence< OUString > SAL_CALL OComponentResultSet::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSupported(2);
-    aSupported[0] = "com.sun.star.sdbc.ResultSet";
-    aSupported[1] = "com.sun.star.sdbcx.ResultSet";
-    return aSupported;
+    return { "com.sun.star.sdbc.ResultSet", "com.sun.star.sdbcx.ResultSet" };
 }
 
 sal_Bool SAL_CALL OComponentResultSet::supportsService( const OUString& _rServiceName )

@@ -31,6 +31,7 @@
 #include <com/sun/star/script/vba/XVBAMacroResolver.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <comphelper/configurationhelper.hxx>
+#include <comphelper/documentinfo.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <osl/diagnose.h>
 #include <rtl/tencinfo.h>
@@ -162,7 +163,7 @@ bool VbaProject::importVbaProject( StorageBase& rVbaPrjStrg )
    }
    StorageRef noStorage;
    // if the GraphicHelper tries to use noStorage it will of course crash
-   // but.. this shouldn't happen as there is no reason for GraphicHelper
+   // but... this shouldn't happen as there is no reason for GraphicHelper
    // to do that when importing VBA projects
    GraphicHelper grfHlp( mxContext, xFrame, noStorage );
    importVbaProject( rVbaPrjStrg, grfHlp );
@@ -187,7 +188,7 @@ void VbaProject::importVbaProject( StorageBase& rVbaPrjStrg, const GraphicHelper
 void VbaProject::importVbaData(const uno::Reference<io::XInputStream>& xInputStream)
 {
     uno::Reference<document::XStorageBasedDocument> xStorageBasedDoc(mxDocModel, uno::UNO_QUERY);
-    uno::Reference<embed::XStorage> xDocStorage(xStorageBasedDoc->getDocumentStorage(), uno::UNO_QUERY);
+    uno::Reference<embed::XStorage> xDocStorage = xStorageBasedDoc->getDocumentStorage();
     {
         const sal_Int32 nOpenMode = ElementModes::SEEKABLE | ElementModes::WRITE | ElementModes::TRUNCATE;
         uno::Reference<io::XOutputStream> xDocStream(xDocStorage->openStreamElement("_MS_VBA_Macros_XML", nOpenMode), uno::UNO_QUERY);
@@ -515,6 +516,8 @@ void VbaProject::attachMacros()
 {
     if( !maMacroAttachers.empty() && mxContext.is() ) try
     {
+        comphelper::DocumentInfo::notifyMacroEventRead(mxDocModel);
+
         Reference< XMultiComponentFactory > xFactory( mxContext->getServiceManager(), UNO_SET_THROW );
         Sequence< Any > aArgs( 2 );
         aArgs[ 0 ] <<= mxDocModel;
@@ -522,6 +525,7 @@ void VbaProject::attachMacros()
         Reference< XVBAMacroResolver > xResolver( xFactory->createInstanceWithArgumentsAndContext(
             "com.sun.star.script.vba.VBAMacroResolver", aArgs, mxContext ), UNO_QUERY_THROW );
         maMacroAttachers.forEachMem( &VbaMacroAttacherBase::resolveAndAttachMacro, ::std::cref( xResolver ) );
+
     }
     catch(const Exception& )
     {

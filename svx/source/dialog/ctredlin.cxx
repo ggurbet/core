@@ -25,8 +25,6 @@
 #include <sfx2/module.hxx>
 #include <svtools/ctrlbox.hxx>
 #include <unotools/textsearch.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/viewdataentry.hxx>
 #include <unotools/charclass.hxx>
 
 #include <editeng/unolingu.hxx>
@@ -47,38 +45,13 @@ RedlinData::~RedlinData()
 {
 }
 
-SvLBoxColorString::SvLBoxColorString()
-: SvLBoxString()
-{
-}
-
-SvLBoxColorString::~SvLBoxColorString()
-{
-}
-
-std::unique_ptr<SvLBoxItem> SvLBoxColorString::Clone(SvLBoxItem const *) const
-{
-    return std::unique_ptr<SvLBoxItem>(new SvLBoxColorString);
-}
-
-void SvLBoxColorString::Paint(const Point& rPos, SvTreeListBox& rDev, vcl::RenderContext& rRenderContext,
-                              const SvViewDataEntry* pView, const SvTreeListEntry& rEntry)
-{
-    Color aColor = rRenderContext.GetTextColor();
-    if (!pView->IsSelected())
-    {
-        rRenderContext.SetTextColor(Color());
-    }
-    SvLBoxString::Paint(rPos, rDev, rRenderContext, pView, rEntry);
-    rRenderContext.SetTextColor(aColor);
-}
-
 SvxRedlinTable::SvxRedlinTable(std::unique_ptr<weld::TreeView> xWriterControl,
                                std::unique_ptr<weld::TreeView> xCalcControl)
     : xSorter(new comphelper::string::NaturalStringSorter(::comphelper::getProcessComponentContext(),
         Application::GetSettings().GetUILanguageTag().getLocale()))
     , xWriterTreeView(std::move(xWriterControl))
     , xCalcTreeView(std::move(xCalcControl))
+    , pTreeView(nullptr)
     , nDatePos(WRITER_DATE)
     , bAuthor(false)
     , bDate(false)
@@ -307,13 +280,14 @@ void SvxTPage::ActivatePage()
 {
 }
 
-SvxTPView::SvxTPView(weld::Container* pParent, weld::Builder* pTopLevel)
+SvxTPView::SvxTPView(weld::Container* pParent, weld::Window* pDialog, weld::Builder* pTopLevel)
     : SvxTPage(pParent, "svx/ui/redlineviewpage.ui", "RedlineViewPage")
     , bEnableAccept(true)
     , bEnableAcceptAll(true)
     , bEnableReject(true)
     , bEnableRejectAll(true)
     , bEnableUndo(true)
+    , m_pDialog(pDialog)
     , m_xAccept(pTopLevel->weld_button("accept"))
     , m_xReject(pTopLevel->weld_button("reject"))
     , m_xAcceptAll(pTopLevel->weld_button("acceptall"))
@@ -438,6 +412,12 @@ void SvxTPView::EnableClearFormatButton(weld::Button& rButton, bool bFlag)
         {
             rButton.set_label(sText.copy(0, nPos - 1));
         }
+    }
+
+    if (m_pDialog)
+    {
+        // tdf#127218 allow dialog to shrink
+        m_pDialog->resize_to_request();
     }
 }
 
@@ -648,7 +628,7 @@ void SvxTPFilter::SetDateMode(sal_uInt16 nMode)
     SelDateHdl(*m_xLbDate);
 }
 
-SvxRedlinDateMode SvxTPFilter::GetDateMode()
+SvxRedlinDateMode SvxTPFilter::GetDateMode() const
 {
     return static_cast<SvxRedlinDateMode>(m_xLbDate->get_active());
 }
@@ -720,27 +700,27 @@ OUString SvxTPFilter::GetComment()const
     return m_xEdComment->get_text();
 }
 
-bool SvxTPFilter::IsDate()
+bool SvxTPFilter::IsDate() const
 {
     return m_xCbDate->get_active();
 }
 
-bool SvxTPFilter::IsAuthor()
+bool SvxTPFilter::IsAuthor() const
 {
     return m_xCbAuthor->get_active();
 }
 
-bool SvxTPFilter::IsRange()
+bool SvxTPFilter::IsRange() const
 {
     return m_xCbRange->get_active();
 }
 
-bool SvxTPFilter::IsAction()
+bool SvxTPFilter::IsAction() const
 {
     return m_xCbAction->get_active();
 }
 
-bool SvxTPFilter::IsComment()
+bool SvxTPFilter::IsComment() const
 {
     return m_xCbComment->get_active();
 }
@@ -981,15 +961,15 @@ IMPL_LINK_NOARG(SvxTPFilter, RefHandle, weld::Button&, void)
     aRefLink.Call(this);
 }
 
-SvxAcceptChgCtr::SvxAcceptChgCtr(weld::Container* pParent, weld::Builder* pTopLevel)
+SvxAcceptChgCtr::SvxAcceptChgCtr(weld::Container* pParent, weld::Window* pDialog, weld::Builder* pTopLevel)
     : m_xBuilder(Application::CreateBuilder(pParent, "svx/ui/redlinecontrol.ui"))
-    , m_xTabCtrl(m_xBuilder->weld_notebook("RedlineControl"))
+    , m_xTabCtrl(m_xBuilder->weld_notebook("tabcontrol"))
 {
     m_xTabCtrl->connect_enter_page(LINK(this, SvxAcceptChgCtr, ActivatePageHdl));
     m_xTabCtrl->connect_leave_page(LINK(this, SvxAcceptChgCtr, DeactivatePageHdl));
 
     m_xTPFilter.reset(new SvxTPFilter(m_xTabCtrl->get_page("filter")));
-    m_xTPView.reset(new SvxTPView(m_xTabCtrl->get_page("view"), pTopLevel));
+    m_xTPView.reset(new SvxTPView(m_xTabCtrl->get_page("view"), pDialog, pTopLevel));
     m_xTPFilter->SetRedlinTable(m_xTPView->GetTableControl());
     m_xTabCtrl->set_current_page("view");
     m_xTabCtrl->show();

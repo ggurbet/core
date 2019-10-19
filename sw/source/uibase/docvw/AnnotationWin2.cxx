@@ -158,7 +158,7 @@ namespace sw { namespace annotation {
 #define METABUTTON_WIDTH        16
 #define METABUTTON_HEIGHT       18
 #define METABUTTON_AREA_WIDTH   30
-#define POSTIT_META_HEIGHT  sal_Int32(30)
+#define POSTIT_META_FIELD_HEIGHT  sal_Int32(15)
 #define POSTIT_MINIMUMSIZE_WITHOUT_META     50
 
 
@@ -178,11 +178,13 @@ void SwAnnotationWin::Paint(vcl::RenderContext& rRenderContext, const tools::Rec
             rRenderContext.SetFillColor(mColorDark);
         }
 
+        sal_uInt32 boxHeight = mpMetadataAuthor->GetSizePixel().Height() + mpMetadataDate->GetSizePixel().Height();
+        boxHeight += IsThreadResolved() ? mpMetadataResolved->GetSizePixel().Height() : 0;
+
         rRenderContext.SetLineColor();
         tools::Rectangle aRectangle(Point(mpMetadataAuthor->GetPosPixel().X() + mpMetadataAuthor->GetSizePixel().Width(),
                                    mpMetadataAuthor->GetPosPixel().Y()),
-                             Size(GetMetaButtonAreaWidth(),
-                                  mpMetadataAuthor->GetSizePixel().Height() + mpMetadataDate->GetSizePixel().Height()));
+                             Size(GetMetaButtonAreaWidth(), boxHeight));
 
         if (comphelper::LibreOfficeKit::isActive())
             aRectangle = rRect;
@@ -301,6 +303,18 @@ void SwAnnotationWin::Draw(OutputDevice* pDev, const Point& rPt, const Size& rSz
         mpMetadataDate->SetControlFont( aFont );
         mpMetadataDate->Draw(pDev, aPos, aSize, nInFlags);
         mpMetadataDate->SetControlFont( aOrigFont );
+    }
+
+    if (mpMetadataResolved->IsVisible())
+    {
+        vcl::Font aOrigFont(mpMetadataResolved->GetControlFont());
+        Size aSize(PixelToLogic(mpMetadataResolved->GetSizePixel()));
+        Point aPos(PixelToLogic(mpMetadataResolved->GetPosPixel()));
+        aPos += rPt;
+        vcl::Font aFont( mpMetadataResolved->GetSettings().GetStyleSettings().GetFieldFont() );
+        mpMetadataResolved->SetControlFont( aFont );
+        mpMetadataResolved->Draw(pDev, aPos, aSize, nInFlags);
+        mpMetadataResolved->SetControlFont( aOrigFont );
     }
 
     mpSidebarTextControl->Draw(pDev, rPt, rSz, nInFlags);
@@ -490,6 +504,26 @@ void SwAnnotationWin::InitControls()
         mpMetadataDate->SetSettings(aSettings);
     }
 
+    mpMetadataResolved = VclPtr<Edit>::Create( this, 0 );
+    mpMetadataResolved->SetAccessibleName( SwResId( STR_ACCESS_ANNOTATION_RESOLVED_NAME ) );
+    mpMetadataResolved->EnableRTL(AllSettings::GetLayoutRTL());
+    mpMetadataResolved->SetReadOnly();
+    mpMetadataResolved->AlwaysDisableInput(true);
+    mpMetadataResolved->SetCallHandlersOnInputDisabled(true);
+    mpMetadataResolved->AddEventListener( LINK( this, SwAnnotationWin, WindowEventListener ) );
+    // we should leave this setting alone, but for this we need a better layout algo
+    // with variable meta size height
+    {
+        AllSettings aSettings = mpMetadataResolved->GetSettings();
+        StyleSettings aStyleSettings = aSettings.GetStyleSettings();
+        vcl::Font aFont = aStyleSettings.GetFieldFont();
+        aFont.SetFontHeight(8);
+        aStyleSettings.SetFieldFont(aFont);
+        aSettings.SetStyleSettings(aStyleSettings);
+        mpMetadataResolved->SetSettings(aSettings);
+        mpMetadataResolved->SetText( SwResId( STR_ACCESS_ANNOTATION_RESOLVED_NAME ) );
+    }
+
     SwDocShell* aShell = mrView.GetDocShell();
     mpOutliner.reset(new Outliner(&aShell->GetPool(),OutlinerMode::TextObject));
     aShell->GetDoc()->SetCalcFieldValueHdl( mpOutliner.get() );
@@ -549,6 +583,7 @@ void SwAnnotationWin::InitControls()
     mpSidebarTextControl->Show();
     mpMetadataAuthor->Show();
     mpMetadataDate->Show();
+    if(IsThreadResolved()) { mpMetadataResolved->Show(); }
     mpVScrollbar->Show();
 }
 
@@ -591,6 +626,14 @@ void SwAnnotationWin::CheckMetaText()
 
 void SwAnnotationWin::Rescale()
 {
+    // On Android, this method leads to invoke ImpEditEngine::UpdateViews
+    // which hides the text cursor. Moreover it causes sudden document scroll
+    // when modifying a commented text. Not clear the root cause,
+    // anyway skipping this method fixes the problem, and there should be
+    // no side effect, since the client has disabled annotations rendering.
+    if (comphelper::LibreOfficeKit::isActive() && !comphelper::LibreOfficeKit::isTiledAnnotations())
+        return;
+
     MapMode aMode = GetParent()->GetMapMode();
     aMode.SetOrigin( Point() );
     mpOutliner->SetRefMapMode( aMode );
@@ -610,6 +653,13 @@ void SwAnnotationWin::Rescale()
         sal_Int32 nHeight = long(aFont.GetFontHeight() * rFraction);
         aFont.SetFontHeight( nHeight );
         mpMetadataDate->SetControlFont( aFont );
+    }
+    if ( mpMetadataResolved )
+    {
+        vcl::Font aFont( mpMetadataResolved->GetSettings().GetStyleSettings().GetFieldFont() );
+        sal_Int32 nHeight = long(aFont.GetFontHeight() * rFraction);
+        aFont.SetFontHeight( nHeight );
+        mpMetadataResolved->SetControlFont( aFont );
     }
 }
 
@@ -747,7 +797,7 @@ void SwAnnotationWin::SetPosAndSize()
             }
             SwAnnotationWin* pWin = GetTopReplyNote();
             // #i111964#
-            if ( pWin && pWin->Anchor() )
+            if ( pWin != this && pWin->Anchor() )
             {
                 pWin->Anchor()->SetAnchorState(AnchorState::End);
             }
@@ -799,13 +849,14 @@ void SwAnnotationWin::SetPosAndSize()
             if (bDisableMapMode)
                 EditWin().EnableMapMode(false);
 
-            pTmpCursorForAnnotationTextRange->FillRects();
+            if (mrSidebarItem.maLayoutInfo.mPositionFromCommentAnchor)
+                pTmpCursorForAnnotationTextRange->FillRects();
 
             if (bDisableMapMode)
                 EditWin().EnableMapMode();
 
             SwRects* pRects(pTmpCursorForAnnotationTextRange.get());
-            for(SwRect & rNextRect : *pRects)
+            for(const SwRect & rNextRect : *pRects)
             {
                 const tools::Rectangle aPntRect(rNextRect.SVRect());
                 maAnnotationTextRanges.emplace_back(
@@ -854,9 +905,10 @@ void SwAnnotationWin::DoResize()
 
     aHeight -= GetMetaHeight();
     mpMetadataAuthor->Show();
+    if(IsThreadResolved()) { mpMetadataResolved->Show(); }
     mpMetadataDate->Show();
     mpSidebarTextControl->SetQuickHelpText(OUString());
-
+    unsigned int numFields = GetNumFields();
     if (aTextHeight > aHeight)
     {   // we need vertical scrollbars and have to reduce the width
         aWidth -= GetScrollbarWidth();
@@ -869,7 +921,7 @@ void SwAnnotationWin::DoResize()
 
     {
         const Size aSizeOfMetadataControls( GetSizePixel().Width() - GetMetaButtonAreaWidth(),
-                                            GetMetaHeight()/2 );
+                                            GetMetaHeight()/numFields );
         mpMetadataAuthor->setPosSizePixel( 0,
                                            aHeight,
                                            aSizeOfMetadataControls.Width(),
@@ -878,6 +930,12 @@ void SwAnnotationWin::DoResize()
                                          aHeight + aSizeOfMetadataControls.Height(),
                                          aSizeOfMetadataControls.Width(),
                                          aSizeOfMetadataControls.Height() );
+        if(IsThreadResolved()) {
+            mpMetadataResolved->setPosSizePixel( 0,
+                                                 aHeight + aSizeOfMetadataControls.Height()*2,
+                                                 aSizeOfMetadataControls.Width(),
+                                                 aSizeOfMetadataControls.Height() );
+        }
     }
 
     mpOutliner->SetPaperSize( PixelToLogic( Size(aWidth,aHeight) ) ) ;
@@ -995,6 +1053,15 @@ void SwAnnotationWin::SetColor(Color aColorDark,Color aColorLight, Color aColorA
             aStyleSettings.SetFieldTextColor(aColorAnchor);
             aSettings.SetStyleSettings(aStyleSettings);
             mpMetadataDate->SetSettings(aSettings);
+        }
+
+        {
+            mpMetadataResolved->SetControlBackground(mColorDark);
+            AllSettings aSettings = mpMetadataResolved->GetSettings();
+            StyleSettings aStyleSettings = aSettings.GetStyleSettings();
+            aStyleSettings.SetFieldTextColor(aColorAnchor);
+            aSettings.SetStyleSettings(aStyleSettings);
+            mpMetadataResolved->SetSettings(aSettings);
         }
 
         AllSettings aSettings2 = mpVScrollbar->GetSettings();
@@ -1196,9 +1263,15 @@ void SwAnnotationWin::ExecuteCommand(sal_uInt16 nSlot)
             break;
         }
         case FN_DELETE_COMMENT:
-
             //Delete(); // do not kill the parent of our open popup menu
             mnEventId = Application::PostUserEvent( LINK( this, SwAnnotationWin, DeleteHdl), nullptr, true );
+            break;
+        case FN_RESOLVE_NOTE:
+            GetTopReplyNote()->ToggleResolved();
+            mrMgr.UpdateResolvedStatus(GetTopReplyNote());
+            DoResize();
+            Invalidate();
+            mrMgr.LayoutPostIts();
             break;
         case FN_FORMAT_ALL_NOTES:
         case FN_DELETE_ALL_NOTES:
@@ -1299,12 +1372,12 @@ void SwAnnotationWin::ResetAttributes()
     mpOutlinerView->SetAttribs(DefaultItem());
 }
 
-sal_Int32 SwAnnotationWin::GetScrollbarWidth()
+sal_Int32 SwAnnotationWin::GetScrollbarWidth() const
 {
     return mrView.GetWrtShell().GetViewOptions()->GetZoom() / 10;
 }
 
-sal_Int32 SwAnnotationWin::GetMetaButtonAreaWidth()
+sal_Int32 SwAnnotationWin::GetMetaButtonAreaWidth() const
 {
     const Fraction& f( GetMapMode().GetScaleX() );
     return long(METABUTTON_AREA_WIDTH * f);
@@ -1313,15 +1386,21 @@ sal_Int32 SwAnnotationWin::GetMetaButtonAreaWidth()
 sal_Int32 SwAnnotationWin::GetMetaHeight()
 {
     const Fraction& f(mrView.GetWrtShellPtr()->GetOut()->GetMapMode().GetScaleY());
-    return long(POSTIT_META_HEIGHT * f);
+    const int fields = GetNumFields();
+    return long(fields*POSTIT_META_FIELD_HEIGHT*f);
 }
 
-sal_Int32 SwAnnotationWin::GetMinimumSizeWithMeta()
+sal_Int32 SwAnnotationWin::GetNumFields()
+{
+    return IsThreadResolved() ? 3 : 2;
+}
+
+sal_Int32 SwAnnotationWin::GetMinimumSizeWithMeta() const
 {
     return mrMgr.GetMinimumSizeWithMeta();
 }
 
-sal_Int32 SwAnnotationWin::GetMinimumSizeWithoutMeta()
+sal_Int32 SwAnnotationWin::GetMinimumSizeWithoutMeta() const
 {
     const Fraction& f(mrView.GetWrtShellPtr()->GetOut()->GetMapMode().GetScaleY());
     return long(POSTIT_MINIMUMSIZE_WITHOUT_META * f);
@@ -1352,7 +1431,7 @@ void SwAnnotationWin::SetViewState(ViewState bViewState)
                 mpAnchor->SetAnchorState(AnchorState::All);
                 SwAnnotationWin* pWin = GetTopReplyNote();
                 // #i111964#
-                if ( pWin && pWin->Anchor() )
+                if ( pWin != this && pWin->Anchor() )
                 {
                     pWin->Anchor()->SetAnchorState(AnchorState::End);
                 }
@@ -1394,7 +1473,8 @@ void SwAnnotationWin::SetViewState(ViewState bViewState)
                                                   ? mrMgr.GetActiveSidebarWin()->GetTopReplyNote()
                                                   : nullptr;
                     // #i111964#
-                    if ( pTopWinSelf && ( pTopWinSelf != pTopWinActive ) &&
+                    if ( ( pTopWinSelf != this ) &&
+                         ( pTopWinSelf != pTopWinActive ) &&
                          pTopWinSelf->Anchor() )
                     {
                         if ( pTopWinSelf != mrMgr.GetActiveSidebarWin() )

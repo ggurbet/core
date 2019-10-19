@@ -21,9 +21,41 @@
 
 #include <swabstdlg.hxx>
 
+#include <abstract.hxx>
+#include <ascfldlg.hxx>
+#include <break.hxx>
+#include <cnttab.hxx>
+#include <colwd.hxx>
+#include <convert.hxx>
+#include <DateFormFieldDialog.hxx>
+#include <dbinsdlg.hxx>
+#include <DropDownFieldDialog.hxx>
+#include <DropDownFormFieldDialog.hxx>
+#include <fldtdlg.hxx>
+#include <glossary.hxx>
+#include <inpdlg.hxx>
+#include <insfnote.hxx>
+#include <instable.hxx>
+#include <javaedit.hxx>
+#include <label.hxx>
+#include <mailmergewizard.hxx>
+#include <mailmrge.hxx>
+#include <mergetbl.hxx>
+#include <multmrk.hxx>
+#include <regionsw.hxx>
+#include <rowht.hxx>
+#include <selglos.hxx>
+#include <splittbl.hxx>
+#include <srtdlg.hxx>
+#include <swmodalredlineacceptdlg.hxx>
+#include <swrenamexnameddlg.hxx>
+#include <swuicnttab.hxx>
+#include <swuiidxmrk.hxx>
+#include <tautofmt.hxx>
+#include <wordcountdialog.hxx>
+
 class SwInsertAbstractDlg;
 class SwAsciiFilterDlg;
-class Dialog;
 class SwBreakDlg;
 class SwMultiTOXMarkDlg;
 class SwSortDlg;
@@ -50,26 +82,7 @@ namespace sw
 {
 class DropDownFieldDialog;
 class DropDownFormFieldDialog;
-}
-
-#define DECL_ABSTDLG_BASE(Class,DialogClass)        \
-private:                                          \
-    ScopedVclPtr<DialogClass> pDlg;                 \
-public:                                             \
-    explicit        Class( DialogClass* p)          \
-                     : pDlg(p)                      \
-                     {}                             \
-    virtual short   Execute() override;             \
-    virtual bool    StartExecuteAsync(VclAbstractDialog::AsyncContext &rCtx) override;
-
-#define IMPL_ABSTDLG_BASE(Class)                    \
-short Class::Execute()                              \
-{                                                   \
-    return pDlg->Execute();                         \
-}                                                   \
-bool Class::StartExecuteAsync(VclAbstractDialog::AsyncContext &rCtx) \
-{ \
-    return pDlg->StartExecuteAsync(rCtx); \
+class DateFormFieldDialog;
 }
 
 class SwWordCountFloatDlg;
@@ -302,6 +315,17 @@ public:
     virtual short Execute() override;
 };
 
+class AbstractDateFormFieldDialog_Impl : public VclAbstractDialog
+{
+    std::unique_ptr<sw::DateFormFieldDialog> m_xDlg;
+public:
+    explicit AbstractDateFormFieldDialog_Impl(std::unique_ptr<sw::DateFormFieldDialog> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+};
+
 class AbstractSwLabDlg_Impl  : public AbstractSwLabDlg
 {
     std::unique_ptr<SwLabDlg> m_xDlg;
@@ -479,10 +503,16 @@ public:
 class SwMailMergeDlg;
 class AbstractMailMergeDlg_Impl : public AbstractMailMergeDlg
 {
-    DECL_ABSTDLG_BASE(AbstractMailMergeDlg_Impl,SwMailMergeDlg)
+    std::unique_ptr<SwMailMergeDlg> m_xDlg;
+public:
+    explicit AbstractMailMergeDlg_Impl(std::unique_ptr<SwMailMergeDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
     virtual DBManagerOptions GetMergeType() override ;
     virtual const OUString& GetSaveFilter() const override;
-    virtual const css::uno::Sequence< css::uno::Any > GetSelection() const override ;
+    virtual css::uno::Sequence< css::uno::Any > GetSelection() const override ;
     virtual css::uno::Reference< css::sdbc::XResultSet> GetResultSet() const override;
     virtual bool IsSaveSingleDoc() const override;
     virtual bool IsGenerateFromDataBase() const override;
@@ -592,14 +622,14 @@ public:
 class SwMailMergeWizard;
 class AbstractMailMergeWizard_Impl : public AbstractMailMergeWizard
 {
-    VclPtr<SwMailMergeWizard> pDlg;
+    std::shared_ptr<SwMailMergeWizard> m_xDlg;
 
 public:
-    explicit AbstractMailMergeWizard_Impl( SwMailMergeWizard* p )
-     : pDlg(p)
-     {}
+    explicit AbstractMailMergeWizard_Impl(std::unique_ptr<SwMailMergeWizard> p)
+        : m_xDlg(std::move(p))
+    {
+    }
     virtual         ~AbstractMailMergeWizard_Impl() override;
-    virtual void    dispose() override;
     virtual bool    StartExecuteAsync(VclAbstractDialog::AsyncContext &rCtx) override;
     virtual short   Execute() override;
 
@@ -640,6 +670,8 @@ public:
     virtual VclPtr<AbstractDropDownFieldDialog> CreateDropDownFieldDialog(weld::Widget* pParent, SwWrtShell &rSh,
         SwField* pField, bool bPrevButton, bool bNextButton) override;
     virtual VclPtr<VclAbstractDialog> CreateDropDownFormFieldDialog(weld::Widget* pParent, sw::mark::IFieldmark* pDropDownField) override;
+    virtual VclPtr<VclAbstractDialog> CreateDateFormFieldDialog(weld::Widget* pParent, sw::mark::IDateFieldmark* pDateField, SwDoc* pDoc) override;
+
     virtual VclPtr<SfxAbstractTabDialog> CreateSwEnvDlg(weld::Window* pParent, const SfxItemSet& rSet, SwWrtShell* pWrtSh, Printer* pPrt, bool bInsert) override;
     virtual VclPtr<AbstractSwLabDlg> CreateSwLabDlg(weld::Window* pParent, const SfxItemSet& rSet,
                                                      SwDBManager* pDBManager, bool bLabel) override;
@@ -700,7 +732,7 @@ public:
     virtual VclPtr<AbstractJavaEditDialog>     CreateJavaEditDialog(weld::Window* pParent,
         SwWrtShell* pWrtSh) override;
     virtual VclPtr<AbstractMailMergeDlg>       CreateMailMergeDlg(
-                                                vcl::Window* pParent, SwWrtShell& rSh,
+                                                weld::Window* pParent, SwWrtShell& rSh,
                                                 const OUString& rSourceName,
                                                 const OUString& rTableName,
                                                 sal_Int32 nCommandType,

@@ -73,6 +73,7 @@ class ImpPDFTabDialog final : public SfxTabDialogController
     bool                        mbReduceImageResolution;
     sal_Int32                   mnMaxImageResolution;
     bool                        mbUseTaggedPDF;
+    bool                        mbUseTaggedPDFUserSelection;
     sal_Int32                   mnPDFTypeSelection;
     bool                        mbExportNotes;
     bool                        mbViewPDF;
@@ -88,6 +89,7 @@ class ImpPDFTabDialog final : public SfxTabDialogController
     bool                        mbAllowDuplicateFieldNames;
     bool                        mbExportBookmarks;
     bool                        mbExportHiddenSlides;
+    bool                        mbSinglePageSheets;
     sal_Int32                   mnOpenBookmarkLevels;
 
     bool                        mbHideViewerToolbar;
@@ -164,8 +166,7 @@ class ImpPDFTabGeneralPage : public SfxTabPage
 {
     friend class ImpPDFTabLinksPage;
 
-    bool                         mbTaggedPDFUserSelection;
-    bool                         mbExportFormFieldsUserSelection;
+    bool                         mbUseTaggedPDFUserSelection;
     bool                         mbIsPresentation;
     bool                         mbIsSpreadsheet;
     bool                         mbIsWriter;
@@ -192,6 +193,7 @@ class ImpPDFTabGeneralPage : public SfxTabPage
     std::unique_ptr<weld::CheckButton> mxCbAllowDuplicateFieldNames;
     std::unique_ptr<weld::CheckButton> mxCbExportBookmarks;
     std::unique_ptr<weld::CheckButton> mxCbExportHiddenSlides;
+    std::unique_ptr<weld::CheckButton> mxCbSinglePageSheets;
     std::unique_ptr<weld::CheckButton> mxCbExportNotes;
     std::unique_ptr<weld::CheckButton> mxCbViewPDF;
     std::unique_ptr<weld::CheckButton> mxCbUseReferenceXObject;
@@ -222,10 +224,10 @@ class ImpPDFTabGeneralPage : public SfxTabPage
 public:
     DECL_LINK(ToggleExportPDFAHdl, weld::ToggleButton&, void);
 
-    ImpPDFTabGeneralPage(TabPageParent pParent, const SfxItemSet& rSet);
+    ImpPDFTabGeneralPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual                     ~ImpPDFTabGeneralPage() override;
 
-    static VclPtr<SfxTabPage>   Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     void                        GetFilterConfigItem(ImpPDFTabDialog* paParent);
     void                        SetFilterConfigItem(ImpPDFTabDialog* paParent);
@@ -259,10 +261,10 @@ class ImpPDFTabOpnFtrPage : public SfxTabPage
     void                        ToggleRbPgLyContinueFacingHdl();
 
 public:
-    ImpPDFTabOpnFtrPage(TabPageParent pParent, const SfxItemSet& rSet);
+    ImpPDFTabOpnFtrPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual                     ~ImpPDFTabOpnFtrPage() override;
 
-    static VclPtr<SfxTabPage>   Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet );
 
     void                        GetFilterConfigItem( ImpPDFTabDialog* paParent);
     void                        SetFilterConfigItem( const ImpPDFTabDialog* paParent );
@@ -288,10 +290,10 @@ class ImpPDFTabViewerPage : public SfxTabPage
     DECL_LINK(ToggleRbBookmarksHdl, weld::ToggleButton&, void);
 
 public:
-    ImpPDFTabViewerPage(TabPageParent pParent, const SfxItemSet& rSet);
+    ImpPDFTabViewerPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual                     ~ImpPDFTabViewerPage() override;
 
-    static VclPtr<SfxTabPage>   Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet );
 
     void                        GetFilterConfigItem( ImpPDFTabDialog* paParent);
     void                        SetFilterConfigItem( const ImpPDFTabDialog* paParent );
@@ -336,10 +338,10 @@ class ImpPDFTabSecurityPage : public SfxTabPage
     void                        enablePermissionControls();
 
 public:
-    ImpPDFTabSecurityPage(TabPageParent pParent, const SfxItemSet& rSet);
+    ImpPDFTabSecurityPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual                     ~ImpPDFTabSecurityPage() override;
 
-    static VclPtr<SfxTabPage>   Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     void                        GetFilterConfigItem( ImpPDFTabDialog* paParent);
     void                        SetFilterConfigItem( const ImpPDFTabDialog* paParent );
@@ -365,10 +367,10 @@ class ImpPDFTabLinksPage : public SfxTabPage
     DECL_LINK(ClickRbOpnLnksBrowserHdl, weld::ToggleButton&, void);
 
 public:
-    ImpPDFTabLinksPage(TabPageParent pParent, const SfxItemSet& rSet);
+    ImpPDFTabLinksPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual                     ~ImpPDFTabLinksPage() override;
 
-    static VclPtr<SfxTabPage>   Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     void                        GetFilterConfigItem( ImpPDFTabDialog* paParent);
     void                        SetFilterConfigItem( const ImpPDFTabDialog* paParent );
@@ -394,10 +396,10 @@ class ImpPDFTabSigningPage : public SfxTabPage
     DECL_LINK(ClickmaPbSignCertClear, weld::Button&, void);
 
 public:
-    ImpPDFTabSigningPage(TabPageParent pParent, const SfxItemSet& rSet);
+    ImpPDFTabSigningPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual                     ~ImpPDFTabSigningPage() override;
 
-    static VclPtr<SfxTabPage>   Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet );
 
     void                        GetFilterConfigItem( ImpPDFTabDialog* paParent);
     void                        SetFilterConfigItem( const ImpPDFTabDialog* paParent );

@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <rtl/alloc.h>
 #include <rtl/ustring.hxx>
 #include <sal/log.hxx>
 #include <tools/solar.h>
@@ -342,8 +341,7 @@ SvStream& WriteJobSetup( SvStream& rOStream, const JobSetup& rJobSetup )
             UInt32ToSVBT32( static_cast<sal_uLong>(rJobData.GetPaperWidth()), aOldJobData.nPaperWidth );
             UInt32ToSVBT32( static_cast<sal_uLong>(rJobData.GetPaperHeight()), aOldJobData.nPaperHeight );
 
-            ImplOldJobSetupData aOldData;
-            memset( &aOldData, 0, sizeof( aOldData ) );
+            ImplOldJobSetupData aOldData = {};
             OString aPrnByteName(OUStringToOString(rJobData.GetPrinterName(), RTL_TEXTENCODING_UTF8));
             strncpy(aOldData.cPrinterName, aPrnByteName.getStr(), SAL_N_ELEMENTS(aOldData.cPrinterName) - 1);
             OString aDriverByteName(OUStringToOString(rJobData.GetDriver(), RTL_TEXTENCODING_UTF8));

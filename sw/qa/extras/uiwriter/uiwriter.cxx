@@ -57,6 +57,10 @@
 #include <editeng/eeitem.hxx>
 #include <editeng/scripttypeitem.hxx>
 #include <editeng/fontitem.hxx>
+#include <editeng/lrspitem.hxx>
+#include <editeng/opaqitem.hxx>
+#include <editeng/protitem.hxx>
+#include <editeng/ulspitem.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/rsiditem.hxx>
 #include <i18nutil/transliteration.hxx>
@@ -71,6 +75,7 @@
 #include <unofldmid.h>
 #include <UndoManager.hxx>
 #include <textsh.hxx>
+#include <frmatr.hxx>
 #include <frmmgr.hxx>
 #include <tblafmt.hxx>
 
@@ -249,9 +254,7 @@ public:
     void testUnicodeNotationToggle();
     void testTextTableCellNames();
     void testShapeAnchorUndo();
-#if HAVE_FEATURE_UI
     void testDde();
-#endif
     void testDocModState();
     void testTdf94804();
     void testTdf34957();
@@ -259,9 +262,7 @@ public:
     void testTdf89720();
     void testTdf88986();
     void testTdf87922();
-#if HAVE_MORE_FONTS
     void testTdf77014();
-#endif
     void testTdf92648();
     void testTdf103978_backgroundTextShape();
     void testTdf96515();
@@ -297,9 +298,7 @@ public:
     void testTdf104425();
     void testTdf104814();
     void testTdf66405();
-#if HAVE_MORE_FONTS
     void testTdf35021_tabOverMarginDemo();
-#endif
     void testTdf106701_tabOverMarginAutotab();
     void testTdf104492();
     void testTdf107025();
@@ -320,7 +319,6 @@ public:
     void testCreateDocxAnnotation();
     void testTdf107976();
     void testTdf108524();
-#if HAVE_MORE_FONTS
     void testTableInSection();
     void testTableInNestedSection();
     void testTableInSectionInTable();
@@ -335,7 +333,6 @@ public:
     void testTdf113287();
     void testTdf113445();
     void testTdf113686();
-#endif
     void testFontEmbedding();
     void testLinesInSectionInTable();
     void testParagraphOfTextRange();
@@ -457,9 +454,7 @@ public:
     CPPUNIT_TEST(testUnicodeNotationToggle);
     CPPUNIT_TEST(testTextTableCellNames);
     CPPUNIT_TEST(testShapeAnchorUndo);
-#if HAVE_FEATURE_UI
     CPPUNIT_TEST(testDde);
-#endif
     CPPUNIT_TEST(testDocModState);
     CPPUNIT_TEST(testTdf94804);
     CPPUNIT_TEST(testTdf34957);
@@ -467,9 +462,7 @@ public:
     CPPUNIT_TEST(testTdf89720);
     CPPUNIT_TEST(testTdf88986);
     CPPUNIT_TEST(testTdf87922);
-#if HAVE_MORE_FONTS
     CPPUNIT_TEST(testTdf77014);
-#endif
     CPPUNIT_TEST(testTdf92648);
     CPPUNIT_TEST(testTdf103978_backgroundTextShape);
     CPPUNIT_TEST(testTdf96515);
@@ -505,9 +498,7 @@ public:
     CPPUNIT_TEST(testTdf104425);
     CPPUNIT_TEST(testTdf104814);
     CPPUNIT_TEST(testTdf66405);
-#if HAVE_MORE_FONTS
     CPPUNIT_TEST(testTdf35021_tabOverMarginDemo);
-#endif
     CPPUNIT_TEST(testTdf106701_tabOverMarginAutotab);
     CPPUNIT_TEST(testTdf104492);
     CPPUNIT_TEST(testTdf107025);
@@ -528,7 +519,6 @@ public:
     CPPUNIT_TEST(testCreateDocxAnnotation);
     CPPUNIT_TEST(testTdf107976);
     CPPUNIT_TEST(testTdf108524);
-#if HAVE_MORE_FONTS
     CPPUNIT_TEST(testTableInSection);
     CPPUNIT_TEST(testTableInNestedSection);
     CPPUNIT_TEST(testTableInSectionInTable);
@@ -544,7 +534,6 @@ public:
     CPPUNIT_TEST(testTdf113445);
     CPPUNIT_TEST(testTdf113686);
     CPPUNIT_TEST(testFontEmbedding);
-#endif
     CPPUNIT_TEST(testLinesInSectionInTable);
     CPPUNIT_TEST(testParagraphOfTextRange);
     CPPUNIT_TEST(testTdf99689TableOfContents);
@@ -927,12 +916,11 @@ void SwUiWriterTest::testFdo70807()
     for (sal_Int32 i = 0; i < xStylesIter->getCount(); ++i)
     {
         uno::Reference<style::XStyle> xStyle(xStylesIter->getByIndex(i), uno::UNO_QUERY);
-        uno::Reference<container::XNamed> xName(xStyle, uno::UNO_QUERY);
 
         bool expectedUsedStyle = false;
         bool expectedUserDefined = false;
 
-        OUString styleName(xName->getName());
+        OUString styleName(xStyle->getName());
 
         // just these styles are user defined styles
         if (styleName == "pagestyle1" || styleName == "pagestyle2")
@@ -1124,7 +1112,7 @@ void SwUiWriterTest::testWatermarkPosition()
         const OUString rPageStyleName = "Default Style";
         uno::Reference<frame::XModel> xModel = pDoc->GetDocShell()->GetBaseModel();
         uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xModel, uno::UNO_QUERY);
-        uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+        uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
         uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("PageStyles"), uno::UNO_QUERY);
         uno::Reference<beans::XPropertySet> xPageStyle(xStyleFamily->getByName(rPageStyleName), uno::UNO_QUERY);
 
@@ -1158,7 +1146,7 @@ void SwUiWriterTest::testWatermarkPosition()
 
         pEditShell->SetWatermark(aWatermark);
 
-        uno::Reference<css::drawing::XShape> xShape(getShape(1), uno::UNO_QUERY);
+        uno::Reference<css::drawing::XShape> xShape = getShape(1);
         CPPUNIT_ASSERT(xShape.is());
 
         SdrPage* pPage = pWrtShell->GetDoc()->getIDocumentDrawModelAccess().GetDrawModel()->GetPage(0);
@@ -1229,9 +1217,9 @@ void SwUiWriterTest::testTdf98512()
     pWrtShell->SetMark();
     pWrtShell->SttEndDoc(/*bStt=*/false);
     OUString const expected1(
-        OUStringLiteral1(CH_TXT_ATR_INPUTFIELDSTART) + "foo" + OUStringLiteral1(CH_TXT_ATR_INPUTFIELDEND));
+        OUStringChar(CH_TXT_ATR_INPUTFIELDSTART) + "foo" + OUStringChar(CH_TXT_ATR_INPUTFIELDEND));
     OUString const expected2(
-        OUStringLiteral1(CH_TXT_ATR_INPUTFIELDSTART) + "baz" + OUStringLiteral1(CH_TXT_ATR_INPUTFIELDEND)
+        OUStringChar(CH_TXT_ATR_INPUTFIELDSTART) + "baz" + OUStringChar(CH_TXT_ATR_INPUTFIELDEND)
         + expected1);
     CPPUNIT_ASSERT_EQUAL(expected2, pWrtShell->getShellCursor(false)->GetText());
     sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
@@ -1917,19 +1905,19 @@ void SwUiWriterTest::testDefaultsOfOutlineNumbering()
     css::lang::Locale alocale;
     alocale.Language = "en";
     alocale.Country = "US";
-    uno::Sequence<beans::PropertyValues> aPropVal(xDefNum->getDefaultContinuousNumberingLevels(alocale));
+    const uno::Sequence<beans::PropertyValues> aPropVal(xDefNum->getDefaultContinuousNumberingLevels(alocale));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(8), aPropVal.getLength());
-    for(int i=0;i<aPropVal.getLength();i++)
+    for(const auto& rPropValues : aPropVal)
     {
-        CPPUNIT_ASSERT_EQUAL(sal_Int32(5), aPropVal[i].getLength());
-        for(int j=0;j<aPropVal[i].getLength();j++)
+        CPPUNIT_ASSERT_EQUAL(sal_Int32(5), rPropValues.getLength());
+        for(const auto& rPropVal : rPropValues)
         {
-            uno::Any aAny = (aPropVal[i])[j].Value;
-            if((aPropVal[i])[j].Name == "Prefix" || (aPropVal[i])[j].Name == "Suffix" || (aPropVal[i])[j].Name == "Transliteration")
+            uno::Any aAny = rPropVal.Value;
+            if(rPropVal.Name == "Prefix" || rPropVal.Name == "Suffix" || rPropVal.Name == "Transliteration")
                 CPPUNIT_ASSERT_EQUAL(OUString("string"), aAny.getValueTypeName());
-            else if((aPropVal[i])[j].Name == "NumberingType")
+            else if(rPropVal.Name == "NumberingType")
                 CPPUNIT_ASSERT_EQUAL(OUString("short"), aAny.getValueTypeName());
-            else if((aPropVal[i])[j].Name == "NatNum")
+            else if(rPropVal.Name == "NatNum")
                 CPPUNIT_ASSERT_EQUAL(OUString("short"), aAny.getValueTypeName());
                 //It is expected to be long but right now its short !error!
             else
@@ -1992,7 +1980,7 @@ void SwUiWriterTest::testXFlatParagraph()
     xFlatPara3->changeAttributes(sal_Int32(0), sal_Int32(5), aDescriptor);
     //checking Language Portions
     uno::Sequence<::sal_Int32> aLangPortions(xFlatPara4->getLanguagePortions());
-    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), aLangPortions.getLength());
+    CPPUNIT_ASSERT(!aLangPortions.hasElements());
     //examining Language of text
     css::lang::Locale alocale = xFlatPara4->getLanguageOfText(sal_Int32(0), sal_Int32(4));
     CPPUNIT_ASSERT_EQUAL(OUString("en"), alocale.Language);
@@ -2009,19 +1997,18 @@ void SwUiWriterTest::testTdf81995()
     css::lang::Locale alocale;
     alocale.Language = "en";
     alocale.Country = "US";
-    uno::Sequence<uno::Reference<container::XIndexAccess>> aIndexAccess(xDefNum->getDefaultOutlineNumberings(alocale));
+    const uno::Sequence<uno::Reference<container::XIndexAccess>> aIndexAccess(xDefNum->getDefaultOutlineNumberings(alocale));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(8), aIndexAccess.getLength());
-    for(int i=0;i<aIndexAccess.getLength();i++)
+    for(const auto& rIndexAccess : aIndexAccess)
     {
-        CPPUNIT_ASSERT_EQUAL(sal_Int32(5), aIndexAccess[i]->getCount());
-        for(int j=0;j<aIndexAccess[i]->getCount();j++)
+        CPPUNIT_ASSERT_EQUAL(sal_Int32(5), rIndexAccess->getCount());
+        for(int j=0;j<rIndexAccess->getCount();j++)
         {
             uno::Sequence<beans::PropertyValue> aProps;
-            aIndexAccess[i]->getByIndex(j) >>= aProps;
+            rIndexAccess->getByIndex(j) >>= aProps;
             CPPUNIT_ASSERT_EQUAL(sal_Int32(12), aProps.getLength());
-            for(int k=0;k<aProps.getLength();k++)
+            for(const beans::PropertyValue& rProp : std::as_const(aProps))
             {
-                const beans::PropertyValue& rProp = aProps[k];
                 uno::Any aAny = rProp.Value;
                 if(rProp.Name == "Prefix" || rProp.Name == "Suffix" || rProp.Name == "BulletChar" || rProp.Name == "BulletFontName" || rProp.Name == "Transliteration")
                     CPPUNIT_ASSERT_EQUAL(OUString("string"), aAny.getValueTypeName());
@@ -2207,7 +2194,7 @@ void SwUiWriterTest::testTextSearch()
     rIDCO.InsertPoolItem(*pCursor, aWeightItem);
     //Performing Search Operation and also covering the UNO coverage for setProperty
     uno::Reference<util::XSearchable> xSearch(mxComponent, uno::UNO_QUERY);
-    uno::Reference<util::XSearchDescriptor> xSearchDes(xSearch->createSearchDescriptor(), uno::UNO_QUERY);
+    uno::Reference<util::XSearchDescriptor> xSearchDes = xSearch->createSearchDescriptor();
     uno::Reference<util::XPropertyReplace> xProp(xSearchDes, uno::UNO_QUERY);
     //setting some properties
     uno::Sequence<beans::PropertyValue> aDescriptor( comphelper::InitPropertySequence({
@@ -2228,7 +2215,7 @@ void SwUiWriterTest::testTextSearch()
     CPPUNIT_ASSERT_EQUAL(sal_Int32(2), xIndex->getCount());
     //Replacing the searched string via XReplaceable
     uno::Reference<util::XReplaceable> xReplace(mxComponent, uno::UNO_QUERY);
-    uno::Reference<util::XReplaceDescriptor> xReplaceDes(xReplace->createReplaceDescriptor(), uno::UNO_QUERY);
+    uno::Reference<util::XReplaceDescriptor> xReplaceDes = xReplace->createReplaceDescriptor();
     uno::Reference<util::XPropertyReplace> xProp2(xReplaceDes, uno::UNO_QUERY);
     xProp2->setReplaceAttributes(aDescriptor);
     //checking that the proper attributes are there or not
@@ -2256,7 +2243,7 @@ void SwUiWriterTest::testTdf69282()
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
     SwDoc* source = pTextDoc->GetDocShell()->GetDoc();
-    uno::Reference<lang::XComponent> xSourceDoc(mxComponent, uno::UNO_QUERY);
+    uno::Reference<lang::XComponent> xSourceDoc = mxComponent;
     mxComponent.clear();
     SwDoc* target = createDoc();
     SwPageDesc* sPageDesc = source->MakePageDesc("SourceStyle");
@@ -2317,7 +2304,7 @@ void SwUiWriterTest::testTdf69282WithMirror()
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
     SwDoc* source = pTextDoc->GetDocShell()->GetDoc();
-    uno::Reference<lang::XComponent> xSourceDoc(mxComponent, uno::UNO_QUERY);
+    uno::Reference<lang::XComponent> xSourceDoc = mxComponent;
     mxComponent.clear();
     SwDoc* target = createDoc();
     SwPageDesc* sPageDesc = source->MakePageDesc("SourceStyle");
@@ -2595,10 +2582,10 @@ void SwUiWriterTest::testTdf73660()
 {
     SwDoc* pDoc = createDoc();
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
-    OUString aData1 = "First" + OUStringLiteral1(CHAR_SOFTHYPHEN) + "Word";
-    OUString aData2 = "Seco" + OUStringLiteral1(CHAR_SOFTHYPHEN) + "nd";
-    OUString aData3 = OUStringLiteral1(CHAR_SOFTHYPHEN) + "Third";
-    OUString aData4 = "Fourth" + OUStringLiteral1(CHAR_SOFTHYPHEN);
+    OUString aData1 = "First" + OUStringChar(CHAR_SOFTHYPHEN) + "Word";
+    OUString aData2 = "Seco" + OUStringChar(CHAR_SOFTHYPHEN) + "nd";
+    OUString aData3 = OUStringChar(CHAR_SOFTHYPHEN) + "Third";
+    OUString aData4 = "Fourth" + OUStringChar(CHAR_SOFTHYPHEN);
     OUString aData5 = "Fifth";
     pWrtShell->Insert("We are inserting some text in the document to check the search feature ");
     pWrtShell->Insert(aData1 + " ");
@@ -3347,8 +3334,8 @@ void SwUiWriterTest::testTdf90808()
 {
     createDoc();
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XTextRange> xTextRange(xTextDocument->getText(), uno::UNO_QUERY);
-    uno::Reference<text::XText> xText(xTextRange->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xTextRange = xTextDocument->getText();
+    uno::Reference<text::XText> xText = xTextRange->getText();
     uno::Reference<text::XParagraphCursor> xCursor(xText->createTextCursor(), uno::UNO_QUERY);
     //inserting text into document so that the paragraph is not empty
     xText->setString("Hello World!");
@@ -3661,7 +3648,7 @@ void SwUiWriterTest::testTdf88899()
     createDoc();
     uno::Reference<document::XDocumentPropertiesSupplier> xDocumentPropertiesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<document::XDocumentProperties> xProps(xDocumentPropertiesSupplier->getDocumentProperties());
-    uno::Reference<beans::XPropertyContainer> xUserProps(xProps->getUserDefinedProperties(), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertyContainer> xUserProps = xProps->getUserDefinedProperties();
     css::util::DateTime aDateTime = {sal_uInt32(1234567), sal_uInt16(3), sal_uInt16(3), sal_uInt16(3), sal_uInt16(10), sal_uInt16(11), sal_uInt16(2014), true};
     xUserProps->addProperty("dateTime", sal_Int16(beans::PropertyAttribute::OPTIONAL), uno::makeAny(aDateTime));
     uno::Reference<lang::XMultiServiceFactory> xFact(mxComponent, uno::UNO_QUERY);
@@ -3679,8 +3666,8 @@ void SwUiWriterTest::testTdf88899()
     xPropSet->setPropertyValue("NumberFormat", uno::makeAny(key));
     //Inserting Text Content
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XTextRange> xTextRange(xTextDocument->getText(), uno::UNO_QUERY);
-    uno::Reference<text::XText> xText(xTextRange->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xTextRange = xTextDocument->getText();
+    uno::Reference<text::XText> xText = xTextRange->getText();
     xText->insertTextContent(xTextRange, xTextField, true);
     //Retrieving the contents for verification
     CPPUNIT_ASSERT_EQUAL(OUString("11/10/14 03:03 AM"), xTextField->getPresentation(false));
@@ -3729,7 +3716,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     // now we have "\1foo\1" with the "foo" hidden
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(0, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(4, RES_TXTATR_FLYCNT));
-    CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
+    CPPUNIT_ASSERT_EQUAL(OUString(OUStringChar(CH_TXTATR_BREAKWORD) + u"foo" + OUStringChar(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
     SfxPoolItem const* pItem;
     SfxItemSet query(pDoc->GetAttrPool(), svl::Items<RES_CHRATR_HIDDEN, RES_CHRATR_HIDDEN>{});
     pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 1, 4);
@@ -3751,7 +3738,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(4, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT_EQUAL(size_t(2), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pShell->GetCursor()->GetNode().GetTextNode()->Len());
-    CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
+    CPPUNIT_ASSERT_EQUAL(OUString(OUStringChar(CH_TXTATR_BREAKWORD) + u"foo" + OUStringChar(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
     pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 0, 1);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3771,7 +3758,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(4, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT_EQUAL(size_t(2), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pShell->GetCursor()->GetNode().GetTextNode()->Len());
-    CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
+    CPPUNIT_ASSERT_EQUAL(OUString(OUStringChar(CH_TXTATR_BREAKWORD) + u"foo" + OUStringChar(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
     pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 0, 1);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3794,7 +3781,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(4, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT_EQUAL(size_t(2), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pShell->GetCursor()->GetNode().GetTextNode()->Len());
-    CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
+    CPPUNIT_ASSERT_EQUAL(OUString(OUStringChar(CH_TXTATR_BREAKWORD) + u"foo" + OUStringChar(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
     pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 4, 5);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3814,7 +3801,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(4, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT_EQUAL(size_t(2), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pShell->GetCursor()->GetNode().GetTextNode()->Len());
-    CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
+    CPPUNIT_ASSERT_EQUAL(OUString(OUStringChar(CH_TXTATR_BREAKWORD) + u"foo" + OUStringChar(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
     pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 4, 5);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3936,10 +3923,9 @@ void SwUiWriterTest::testEmbeddedDataSource()
     uno::Reference<sdbc::XDataSource> xDataSource(xDatabaseContext->getByName("calc-data-source"), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xDataSource.is());
     auto xConnection = xDataSource->getConnection("", "");
-    uno::Reference<container::XNameAccess> xTables(
+    uno::Reference<container::XNameAccess> xTables =
         css::uno::Reference<css::sdbcx::XTablesSupplier>(
-            xConnection, uno::UNO_QUERY_THROW)->getTables(),
-        uno::UNO_QUERY);
+            xConnection, uno::UNO_QUERY_THROW)->getTables();
     CPPUNIT_ASSERT(xTables.is());
     CPPUNIT_ASSERT(xTables->hasByName("Sheet1"));
     xConnection->close();
@@ -3952,11 +3938,10 @@ void SwUiWriterTest::testEmbeddedDataSource()
     // Data source has a table named Sheet1 after saving to a different directory.
     xDataSource.set(xDatabaseContext->getByName("calc-data-source"), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xDataSource.is());
-    xConnection.set(xDataSource->getConnection("", ""), uno::UNO_QUERY);
-    xTables.set(
+    xConnection = xDataSource->getConnection("", "");
+    xTables =
         css::uno::Reference<css::sdbcx::XTablesSupplier>(
-            xConnection, uno::UNO_QUERY_THROW)->getTables(),
-        uno::UNO_QUERY);
+            xConnection, uno::UNO_QUERY_THROW)->getTables();
     CPPUNIT_ASSERT(xTables.is());
     CPPUNIT_ASSERT(xTables->hasByName("Sheet1"));
     xConnection->close();
@@ -4041,9 +4026,10 @@ static void lcl_dispatchCommand(const uno::Reference<lang::XComponent>& xCompone
 
     xDispatchHelper->executeDispatch(xFrame, rCommand, OUString(), 0, rPropertyValues);
 }
-#if HAVE_FEATURE_UI
+
 void SwUiWriterTest::testDde()
 {
+#if HAVE_FEATURE_UI
     // Type asdf and copy it.
     SwDoc* pDoc = createDoc();
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
@@ -4064,13 +4050,14 @@ void SwUiWriterTest::testDde()
     const uno::Reference< text::XTextRange > xField = getRun(getParagraph(1), 1);
     CPPUNIT_ASSERT_EQUAL(OUString("TextField"), getProperty<OUString>(xField, "TextPortionType"));
     CPPUNIT_ASSERT(xField->getString().endsWith("asdf"));
-}
 #endif
+}
+
 //IdleTask class to add a low priority Idle task
 class IdleTask
 {
     public:
-    bool GetFlag();
+    bool GetFlag() const;
     IdleTask();
     DECL_LINK( FlipFlag, Timer *, void );
     private:
@@ -4090,7 +4077,7 @@ IdleTask::IdleTask() : flag( false )
 }
 
 //GetFlag() of IdleTask Class
-bool IdleTask::GetFlag()
+bool IdleTask::GetFlag() const
 {
     //returning the status of current flag
     return flag;
@@ -4209,7 +4196,6 @@ void SwUiWriterTest::testTdf89954()
 
 void SwUiWriterTest::testTdf89720()
 {
-#ifndef MACOSX
     SwDoc* pDoc = createDoc("tdf89720.odt");
     SwView* pView = pDoc->GetDocShell()->GetView();
     SwPostItMgr* pPostItMgr = pView->GetPostItMgr();
@@ -4220,7 +4206,6 @@ void SwUiWriterTest::testTdf89720()
             // resulting in unexpected dark color.
             CPPUNIT_ASSERT(!pItem->pPostIt->TextRange());
     }
-#endif
 }
 
 void SwUiWriterTest::testTdf88986()
@@ -4321,9 +4306,11 @@ class PortionHandler : public SwPortionHandler
         mPortionItems.emplace_back("finish", 0, PortionType::NONE);
     }
 };
+#endif
 
 void SwUiWriterTest::testTdf77014()
 {
+#if HAVE_MORE_FONTS
     // The problem described in the bug tdf#77014 is that the input
     // field text ("ThisIsAllOneWord") is broken up on linebreak, but
     // it should be in one piece (like normal text).
@@ -4416,7 +4403,7 @@ void SwUiWriterTest::testTdf77014()
     {
         printf ("Portions:\n");
 
-        for (auto& rPortionItem : aHandler.mPortionItems)
+        for (const auto& rPortionItem : aHandler.mPortionItems)
         {
             printf ("-- Type: %s length: %" SAL_PRIdINT32 " text type: %d\n",
                         rPortionItem.msItemType.toUtf8().getStr(),
@@ -4467,8 +4454,8 @@ void SwUiWriterTest::testTdf77014()
         rPortionItem = aHandler.mPortionItems[7];
         CPPUNIT_ASSERT_EQUAL(OUString("finish"), rPortionItem.msItemType);
     }
-}
 #endif
+}
 
 void SwUiWriterTest::testTdf92648()
 {
@@ -4583,7 +4570,7 @@ void SwUiWriterTest::testTdf96479()
 {
     // We want to verify the empty input text field in the bookmark
     static const OUString emptyInputTextField =
-        OUStringLiteral1(CH_TXT_ATR_INPUTFIELDSTART) + OUStringLiteral1(CH_TXT_ATR_INPUTFIELDEND);
+        OUStringChar(CH_TXT_ATR_INPUTFIELDSTART) + OUStringChar(CH_TXT_ATR_INPUTFIELDEND);
 
     SwDoc* pDoc = createDoc();
     SwXTextDocument *pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
@@ -4608,8 +4595,8 @@ void SwUiWriterTest::testTdf96479()
 
         // Create cursor from bookmark
         uno::Reference<text::XTextContent> xTextContent(xBookmarksSupplier->getBookmarks()->getByName("original"), uno::UNO_QUERY);
-        uno::Reference<text::XTextRange> xRange(xTextContent->getAnchor(), uno::UNO_QUERY);
-        uno::Reference<text::XTextCursor> xCursor(xRange->getText()->createTextCursorByRange(xRange), uno::UNO_QUERY);
+        uno::Reference<text::XTextRange> xRange = xTextContent->getAnchor();
+        uno::Reference<text::XTextCursor> xCursor = xRange->getText()->createTextCursorByRange(xRange);
         CPPUNIT_ASSERT(xCursor->isCollapsed());
 
         // Remove bookmark
@@ -4664,8 +4651,8 @@ void SwUiWriterTest::testTdf96479()
         CPPUNIT_ASSERT(xBookmarksSupplier->getBookmarks()->hasByName("replacement"));
 
         uno::Reference<text::XTextContent> xTextContent(xBookmarksSupplier->getBookmarks()->getByName("replacement"), uno::UNO_QUERY);
-        uno::Reference<text::XTextRange> xRange(xTextContent->getAnchor(), uno::UNO_QUERY);
-        uno::Reference<text::XTextCursor> xCursor(xRange->getText()->createTextCursorByRange(xRange), uno::UNO_QUERY);
+        uno::Reference<text::XTextRange> xRange = xTextContent->getAnchor();
+        uno::Reference<text::XTextCursor> xCursor = xRange->getText()->createTextCursorByRange(xRange);
         CPPUNIT_ASSERT(!xCursor->isCollapsed());
 
         // Verify bookmark content via text node / PaM
@@ -4868,7 +4855,7 @@ void SwUiWriterTest::testRemoveBookmarkTextAndAddNew()
 
             // Create cursor from bookmark
             uno::Reference<text::XTextContent> xTextContent(xBookmarksSupplier->getBookmarks()->getByName("testBookmark"), uno::UNO_QUERY);
-            uno::Reference<text::XTextRange> xRange(xTextContent->getAnchor(), uno::UNO_QUERY);
+            uno::Reference<text::XTextRange> xRange = xTextContent->getAnchor();
             CPPUNIT_ASSERT_EQUAL(OUString(""), xRange->getString());
 
             // write "abc"
@@ -4935,7 +4922,7 @@ void SwUiWriterTest::testRemoveBookmarkTextAndAddNewAfterReload()
 
         // Create cursor from bookmark
         uno::Reference<text::XTextContent> xTextContent(xBookmarksSupplier->getBookmarks()->getByName("test"), uno::UNO_QUERY);
-        uno::Reference<text::XTextRange> xRange(xTextContent->getAnchor(), uno::UNO_QUERY);
+        uno::Reference<text::XTextRange> xRange = xTextContent->getAnchor();
         CPPUNIT_ASSERT_EQUAL(OUString(""), xRange->getString());
 
         // write "abc"
@@ -5008,7 +4995,7 @@ void SwUiWriterTest::testTdf88453Table()
 namespace
 {
 
-int checkShells(SwDocShell* pSource, SwDocShell* pDestination)
+int checkShells(const SwDocShell* pSource, const SwDocShell* pDestination)
 {
     return int(SfxClassificationHelper::CheckPaste(pSource->getDocProperties(), pDestination->getDocProperties()));
 }
@@ -5065,12 +5052,12 @@ void SwUiWriterTest::testTdf98987()
     sal_Int32 nRectangle1 = getXPath(pXmlDoc, "/root/page/body/txt/anchored/SwAnchoredDrawObject[2]/bounds", "top").toInt32();
     assertXPath(pXmlDoc, "/root/page/body/txt/anchored/SwAnchoredDrawObject[1]/SdrObject", "name", "Rectangle 2");
     sal_Int32 nRectangle2 = getXPath(pXmlDoc, "/root/page/body/txt/anchored/SwAnchoredDrawObject[1]/bounds", "top").toInt32();
-    CPPUNIT_ASSERT(nRectangle1 < nRectangle2);
+    CPPUNIT_ASSERT_GREATER(nRectangle1, nRectangle2);
 
     assertXPath(pXmlDoc, "/root/page/body/txt/anchored/SwAnchoredDrawObject[3]/SdrObject", "name", "Rectangle 3");
     sal_Int32 nRectangle3 = getXPath(pXmlDoc, "/root/page/body/txt/anchored/SwAnchoredDrawObject[3]/bounds", "top").toInt32();
     // This failed: the 3rd rectangle had a smaller "top" value than the 2nd one, it even overlapped with the 1st one.
-    CPPUNIT_ASSERT(nRectangle2 < nRectangle3);
+    CPPUNIT_ASSERT_GREATER(nRectangle2, nRectangle3);
 }
 
 void SwUiWriterTest::testTdf99004()
@@ -5560,9 +5547,9 @@ void SwUiWriterTest::testTdf66405()
     CPPUNIT_ASSERT_EQUAL(sal_Int32(0), nBottomMargin);
 }
 
-#if HAVE_MORE_FONTS
 void SwUiWriterTest::testTdf35021_tabOverMarginDemo()
 {
+#if HAVE_MORE_FONTS
     createDoc("tdf35021_tabOverMarginDemo.doc");
     calcLayout();
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -5580,8 +5567,8 @@ void SwUiWriterTest::testTdf35021_tabOverMarginDemo()
     // decimal tab was 266
     nWidth = getXPath(pXmlDoc, "//Text[@nType='PortionType::TabDecimal']", "nWidth").toInt32();
     CPPUNIT_ASSERT_MESSAGE("Decimal Tab width is ~4096", nMargin < nWidth);
-}
 #endif
+}
 
 void SwUiWriterTest::testTdf106701_tabOverMarginAutotab()
 {
@@ -6069,10 +6056,9 @@ void SwUiWriterTest::testLinesInSectionInTable()
     assertXPath(pXmlDoc, "/root/page[2]/body/tab/row/cell/section", 1);
 }
 
-#if HAVE_MORE_FONTS
 void SwUiWriterTest::testLinesMoveBackwardsInSectionInTable()
 {
-#ifndef MACOSX
+#if HAVE_MORE_FONTS
     // Assert that paragraph "4" is on page 1 and "5" is on page 2.
     SwDoc* pDoc = createDoc("lines-in-section-in-table.odt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -6101,6 +6087,7 @@ void SwUiWriterTest::testLinesMoveBackwardsInSectionInTable()
 
 void SwUiWriterTest::testTableInSection()
 {
+#if HAVE_MORE_FONTS
     // The document has a section, containing a table that spans over 2 pages.
     createDoc("table-in-sect.odt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -6110,10 +6097,12 @@ void SwUiWriterTest::testTableInSection()
     // Assert that on both pages the section contains 2 cells.
     assertXPath(pXmlDoc, "/root/page[1]/body/section/tab/row/cell", 2);
     assertXPath(pXmlDoc, "/root/page[2]/body/section/tab/row/cell", 2);
+#endif
 }
 
 void SwUiWriterTest::testTableInNestedSection()
 {
+#if HAVE_MORE_FONTS
     // The document has a nested section, containing a table that spans over 2 pages.
     // This crashed the layout.
     createDoc("rhbz739252-3.odt");
@@ -6121,10 +6110,12 @@ void SwUiWriterTest::testTableInNestedSection()
     // Make sure the table is inside a section and spans over 2 pages.
     assertXPath(pXmlDoc, "//page[1]//section/tab", 1);
     assertXPath(pXmlDoc, "//page[2]//section/tab", 1);
+#endif
 }
 
 void SwUiWriterTest::testTdf112741()
 {
+#if HAVE_MORE_FONTS
     createDoc("tdf112741.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
     // This was 5 pages.
@@ -6134,18 +6125,22 @@ void SwUiWriterTest::testTdf112741()
     // This failed, 3rd page contained no sections.
     assertXPath(pXmlDoc, "//page[3]/body/tab/row/cell/tab/row/cell/section", 1);
     assertXPath(pXmlDoc, "//page[4]/body/tab/row/cell/tab/row/cell/section", 1);
+#endif
 }
 
 void SwUiWriterTest::testTdf112860()
 {
+#if HAVE_MORE_FONTS
     // The document has a split section inside a nested table, and also a table
     // in the footer.
     // This crashed the layout.
     createDoc("tdf112860.fodt");
+#endif
 }
 
 void SwUiWriterTest::testTdf113287()
 {
+#if HAVE_MORE_FONTS
     createDoc("tdf113287.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
     assertXPath(pXmlDoc, "//page", 2);
@@ -6154,10 +6149,12 @@ void SwUiWriterTest::testTdf113287()
     // Make sure section frame is inside the cell frame.
     // Expected greater than 4593, was only 3714.
     CPPUNIT_ASSERT_GREATER(nCellTop, nSectionTop);
+#endif
 }
 
 void SwUiWriterTest::testTdf113445()
 {
+#if HAVE_MORE_FONTS
     // Force multiple-page view.
     SwDoc* pDoc = createDoc("tdf113445.fodt");
     SwDocShell* pDocShell = pDoc->GetDocShell();
@@ -6189,10 +6186,12 @@ void SwUiWriterTest::testTdf113445()
     // Also check if the two cells in the same row have the same top position.
     // This was 4818, expected only 1672.
     CPPUNIT_ASSERT_EQUAL(nCell3Top, nCell4Top);
+#endif
 }
 
 void SwUiWriterTest::testTdf113686()
 {
+#if HAVE_MORE_FONTS
     SwDoc* pDoc = createDoc("tdf113686.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
     assertXPath(pXmlDoc, "/root/page", 2);
@@ -6215,26 +6214,32 @@ void SwUiWriterTest::testTdf113686()
     pXmlDoc = parseLayoutDump();
     // This was still 2, content from 2nd page was not moved.
     assertXPath(pXmlDoc, "/root/page", 1);
+#endif
 }
 
 void SwUiWriterTest::testTableInSectionInTable()
 {
+#if HAVE_MORE_FONTS
     // The document has a table, containing a section, containing a nested
     // table.
     // This crashed the layout.
     createDoc("i95698.odt");
+#endif
 }
 
 void SwUiWriterTest::testSectionInTableInTable()
 {
+#if HAVE_MORE_FONTS
     // The document has a nested table, containing a multi-line section at a
     // page boundary.
     // This crashed the layout later in SwFrame::IsFootnoteAllowed().
     createDoc("tdf112109.fodt");
+#endif
 }
 
 void SwUiWriterTest::testSectionInTableInTable2()
 {
+#if HAVE_MORE_FONTS
     createDoc("split-section-in-nested-table.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
     sal_uInt32 nSection1 = getXPath(pXmlDoc, "//page[1]//body/tab/row/cell/tab/row/cell/section", "id").toUInt32();
@@ -6246,10 +6251,12 @@ void SwUiWriterTest::testSectionInTableInTable2()
     // Make sure that the first's follow and the second's precede is correct.
     CPPUNIT_ASSERT_EQUAL(nSection2, nSection1Follow);
     CPPUNIT_ASSERT_EQUAL(nSection1, nSection2Precede);
+#endif
 }
 
 void SwUiWriterTest::testSectionInTableInTable3()
 {
+#if HAVE_MORE_FONTS
     createDoc("tdf113153.fodt");
 
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
@@ -6278,10 +6285,12 @@ void SwUiWriterTest::testSectionInTableInTable3()
     CPPUNIT_ASSERT_EQUAL(nTable1, nTable2Precede);
     CPPUNIT_ASSERT_EQUAL(nTable3, nTable2Follow);
     CPPUNIT_ASSERT_EQUAL(nTable2, nTable3Precede);
+#endif
 }
 
 void SwUiWriterTest::testSectionInTableInTable4()
 {
+#if HAVE_MORE_FONTS
     SwDoc* pDoc = createDoc("tdf113520.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
     assertXPath(pXmlDoc, "/root/page", 3);
@@ -6313,10 +6322,12 @@ void SwUiWriterTest::testSectionInTableInTable4()
     sal_uInt32 nTable2Precede = getXPath(pXmlDoc, "//page[2]//body/tab", "precede").toUInt32();
     CPPUNIT_ASSERT_EQUAL(nTable2, nTable1Follow);
     CPPUNIT_ASSERT_EQUAL(nTable1, nTable2Precede);
+#endif
 }
 
 void SwUiWriterTest::testTdf112160()
 {
+#if HAVE_MORE_FONTS
     // Assert that the A2 cell is on page 1.
     SwDoc* pDoc = createDoc("tdf112160.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -6336,8 +6347,8 @@ void SwUiWriterTest::testTdf112160()
     sal_uInt32 nD2CellNode = getXPath(pXmlDoc, "/root/page[1]/body/tab/row[2]/cell[last()]/section/txt[last()]", "txtNodeIndex").toUInt32();
     // This was Table1.C2, Table1.D2 was moved to the next page, unexpected.
     CPPUNIT_ASSERT_EQUAL(OUString("Table1.D2"), pDoc->GetNodes()[nD2CellNode]->GetTextNode()->GetText());
-}
 #endif
+}
 
 void SwUiWriterTest::testTdf114536()
 {
@@ -6361,7 +6372,7 @@ void SwUiWriterTest::testParagraphOfTextRange()
     // Assert that we get the right paragraph object.
     uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
     uno::Reference<text::XTextViewCursorSupplier> xController(xModel->getCurrentController(), uno::UNO_QUERY);
-    uno::Reference<text::XTextRange> xViewCursor(xController->getViewCursor(), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xViewCursor = xController->getViewCursor();
     // This failed as there were no TextParagraph property.
     auto xParagraph = getProperty< uno::Reference<text::XTextRange> >(xViewCursor->getStart(), "TextParagraph");
     CPPUNIT_ASSERT_EQUAL(OUString("In section"), xParagraph->getString());
@@ -6934,7 +6945,7 @@ void SwUiWriterTest::testTdf108423()
     pWrtShell->AutoCorrect(corr, cChar);
     // The word "i" should be capitalized due to autocorrect, followed by a typographical apostrophe
     sal_uLong nIndex = pWrtShell->GetCursor()->GetNode().GetIndex();
-    OUString sIApostrophe(u"I" + OUStringLiteral1(0x2019));
+    OUString sIApostrophe(u"I\u2019");
     CPPUNIT_ASSERT_EQUAL(sIApostrophe, static_cast<SwTextNode*>(pDoc->GetNodes()[nIndex])->GetText());
     pWrtShell->Insert(" i");
     pWrtShell->AutoCorrect(corr, cChar);

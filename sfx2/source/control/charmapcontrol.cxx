@@ -20,6 +20,7 @@
 #include <comphelper/dispatchcommand.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <sfx2/charmapcontrol.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <vcl/event.hxx>
 
 using namespace css;
@@ -106,17 +107,11 @@ void SfxCharmapCtrl::getFavCharacterList()
 {
     //retrieve recent character list
     css::uno::Sequence< OUString > rFavCharList( officecfg::Office::Common::FavoriteCharacters::FavoriteCharacterList::get() );
-    for (int i = 0; i < rFavCharList.getLength(); ++i)
-    {
-        maFavCharList.push_back(rFavCharList[i]);
-    }
+    std::copy(rFavCharList.begin(), rFavCharList.end(), std::back_inserter(maFavCharList));
 
     //retrieve recent character font list
     css::uno::Sequence< OUString > rFavCharFontList( officecfg::Office::Common::FavoriteCharacters::FavoriteCharacterFontList::get() );
-    for (int i = 0; i < rFavCharFontList.getLength(); ++i)
-    {
-        maFavCharFontList.push_back(rFavCharFontList[i]);
-    }
+    std::copy(rFavCharFontList.begin(), rFavCharFontList.end(), std::back_inserter(maFavCharFontList));
 }
 
 
@@ -146,17 +141,11 @@ void SfxCharmapCtrl::getRecentCharacterList()
 {
     //retrieve recent character list
     css::uno::Sequence< OUString > rRecentCharList( officecfg::Office::Common::RecentCharacters::RecentCharacterList::get() );
-    for (int i = 0; i < rRecentCharList.getLength(); ++i)
-    {
-        maRecentCharList.push_back(rRecentCharList[i]);
-    }
+    std::copy(rRecentCharList.begin(), rRecentCharList.end(), std::back_inserter(maRecentCharList));
 
     //retrieve recent character font list
     css::uno::Sequence< OUString > rRecentCharFontList( officecfg::Office::Common::RecentCharacters::RecentCharacterFontList::get() );
-    for (int i = 0; i < rRecentCharFontList.getLength(); ++i)
-    {
-        maRecentCharFontList.push_back(rRecentCharFontList[i]);
-    }
+    std::copy(rRecentCharFontList.begin(), rRecentCharFontList.end(), std::back_inserter(maRecentCharFontList));
 }
 
 
@@ -215,7 +204,6 @@ IMPL_STATIC_LINK(SfxCharmapCtrl, FocusHdl, Control&, pItem, void)
 IMPL_LINK(SfxCharmapCtrl, CharClickHdl, SvxCharViewControl*, rView, void)
 {
     rView->InsertCharToDoc();
-    GrabFocusToDocument();
     Close();
 }
 
@@ -223,7 +211,8 @@ IMPL_LINK_NOARG(SfxCharmapCtrl, OpenDlgHdl, Button*, void)
 {
     Close();
 
-    comphelper::dispatchCommand(".uno:InsertSymbol", {});
+    uno::Reference<frame::XFrame> xFrame = SfxViewFrame::Current()->GetFrame().GetFrameInterface();
+    comphelper::dispatchCommand(".uno:InsertSymbol", xFrame, {});
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

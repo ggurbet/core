@@ -23,7 +23,6 @@
 #include <memory>
 
 #include <sfx2/tabdlg.hxx>
-#include <svx/Palette.hxx>
 #include <editeng/numdef.hxx>
 #include <editeng/svxenum.hxx>
 #include <svtools/ctrlbox.hxx>
@@ -58,9 +57,6 @@ typedef std::vector<std::unique_ptr<SvxNumSettings_Impl> > SvxNumSettingsArr_Imp
 
 class SvxSingleNumPickTabPage final : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
     SvxNumSettingsArr_Impl  aNumSettingsArr;
     std::unique_ptr<SvxNumRule> pActNum;
     std::unique_ptr<SvxNumRule> pSaveNum;
@@ -77,11 +73,10 @@ class SvxSingleNumPickTabPage final : public SfxTabPage
     DECL_LINK(DoubleClickHdl_Impl, SvtValueSet*, void);
 
 public:
-    SvxSingleNumPickTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SvxSingleNumPickTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxSingleNumPickTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 
     virtual void        ActivatePage(const SfxItemSet& rSet) override;
@@ -92,9 +87,6 @@ public:
 
 class SvxBulletPickTabPage final : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
     std::unique_ptr<SvxNumRule> pActNum;
     std::unique_ptr<SvxNumRule> pSaveNum;
     sal_uInt16          nActNumLvl;
@@ -110,11 +102,10 @@ class SvxBulletPickTabPage final : public SfxTabPage
     DECL_LINK(NumSelectHdl_Impl, SvtValueSet*, void);
     DECL_LINK(DoubleClickHdl_Impl, SvtValueSet*, void);
 public:
-    SvxBulletPickTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SvxBulletPickTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxBulletPickTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 
     virtual void        ActivatePage(const SfxItemSet& rSet) override;
@@ -130,9 +121,6 @@ public:
 /// TabPage for complete numeration
 class SvxNumPickTabPage final : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
     OUString            sNumCharFmtName;
     OUString            sBulletCharFormatName;
 
@@ -152,11 +140,10 @@ class SvxNumPickTabPage final : public SfxTabPage
     DECL_LINK(DoubleClickHdl_Impl, SvtValueSet*, void);
 
 public:
-    SvxNumPickTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SvxNumPickTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxNumPickTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 
     virtual void        ActivatePage(const SfxItemSet& rSet) override;
@@ -172,9 +159,6 @@ public:
 
 class SvxBitmapPickTabPage final : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
     std::vector<OUString> aGrfNames;
 
     std::unique_ptr<SvxNumRule> pActNum;
@@ -195,11 +179,10 @@ class SvxBitmapPickTabPage final : public SfxTabPage
     DECL_LINK(ClickAddBrowseHdl_Impl, weld::Button&, void);
 
 public:
-    SvxBitmapPickTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SvxBitmapPickTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxBitmapPickTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController,
                                       const SfxItemSet* rAttrSet);
 
     virtual void        ActivatePage(const SfxItemSet& rSet) override;
@@ -210,9 +193,6 @@ public:
 
 class SvxNumOptionsTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
     OUString        m_sNumCharFmtName;
     OUString        m_sBulletCharFormatName;
 
@@ -299,11 +279,10 @@ class SvxNumOptionsTabPage : public SfxTabPage
     void EditModifyHdl_Impl(const weld::Entry*);
 
 public:
-    SvxNumOptionsTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SvxNumOptionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxNumOptionsTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 
     virtual void        ActivatePage(const SfxItemSet& rSet) override;
@@ -325,14 +304,12 @@ public:
 
 class SvxNumPositionTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
     std::unique_ptr<SvxNumRule> pActNum;
     std::unique_ptr<SvxNumRule> pSaveNum;
 
-    sal_uInt16              nActNumLvl;
-    sal_uInt16              nNumItemId;
+    ImplSVEvent*        m_pLevelHdlEvent;
+    sal_uInt16          nActNumLvl;
+    sal_uInt16          nNumItemId;
     MapUnit             eCoreUnit;
 
     bool                bModified           : 1;
@@ -371,6 +348,7 @@ class SvxNumPositionTabPage : public SfxTabPage
     void                InitControls();
 
     DECL_LINK(LevelHdl_Impl, weld::TreeView&, void);
+    DECL_LINK(LevelHdl, void *, void);
     DECL_LINK(EditModifyHdl_Impl, weld::ComboBox&, void);
     DECL_LINK(DistanceHdl_Impl, weld::MetricSpinButton&, void);
     DECL_LINK(DistanceFocusHdl_Impl, Control&, void);
@@ -386,16 +364,15 @@ class SvxNumPositionTabPage : public SfxTabPage
     DECL_LINK(IndentAtHdl_Impl, weld::MetricSpinButton&, void);
 
 public:
-    SvxNumPositionTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SvxNumPositionTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxNumPositionTabPage() override;
-    virtual void dispose() override;
 
     virtual void        ActivatePage(const SfxItemSet& rSet) override;
     virtual DeactivateRC   DeactivatePage(SfxItemSet *pSet) override;
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 
     void                SetMetric(FieldUnit eSet);

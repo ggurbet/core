@@ -51,16 +51,6 @@ namespace comphelper
         }
     }
 
-    template <class TYPE>
-    TYPE* getImplementation(const css::uno::Reference< css::uno::XInterface >& _rxIFace)
-    {
-        css::uno::Reference< css::lang::XUnoTunnel > xTunnel(_rxIFace, css::uno::UNO_QUERY);
-        if (xTunnel.is())
-            return reinterpret_cast< TYPE* >(xTunnel->getSomething(TYPE::getUnoTunnelImplementationId()));
-
-        return nullptr;
-    }
-
 
     /** get a css::awt::FontDescriptor that is fully initialized with
         the XXX_DONTKNOW enum values (which isn't the case if you instantiate it
@@ -75,10 +65,10 @@ namespace comphelper
 
 //= replacement of the former UsrAny.getXXX methods
 
-    // may be used if you need the return value just as temporary, else it's may be too inefficient ....
+    // may be used if you need the return value just as temporary, else it's may be too inefficient...
 
     // no, we don't use templates here. This would lead to a lot of implicit uses of the conversion methods,
-    // which would be difficult to trace ...
+    // which would be difficult to trace...
 
     COMPHELPER_DLLPUBLIC sal_Int64      getINT64(const css::uno::Any& _rAny);
     COMPHELPER_DLLPUBLIC sal_Int32      getINT32(const css::uno::Any& _rAny);

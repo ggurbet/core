@@ -27,7 +27,6 @@
 #include <svx/svxdllapi.h>
 #include <tools/color.hxx>
 #include <vcl/animate/Animation.hxx>
-#include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/graph.hxx>
@@ -132,7 +131,7 @@ class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxBmpMask : public SfxDockingWindow
     sal_uInt16          InitColorArrays( Color* pSrcCols, Color* pDstCols,
                                          sal_uInt8* pTols );
 
-    Bitmap              ImpMask( const Bitmap& rBitmap );
+    void                ImpMask( BitmapEx& rBitmap );
     GDIMetaFile         ImpMask( const GDIMetaFile& rMtf );
     Animation           ImpMask( const Animation& rAnimation );
     BitmapEx            ImpMaskTransparent( const BitmapEx& rBitmapEx,
@@ -141,8 +140,6 @@ class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxBmpMask : public SfxDockingWindow
 
     GDIMetaFile         GetMetaFile(const Graphic& rGraphic);
 
-    static BitmapEx     ImpReplaceTransparency( const BitmapEx& rBmpEx,
-                                                const Color& rColor );
     static Animation    ImpReplaceTransparency( const Animation& rAnim,
                                                 const Color& rColor );
     static GDIMetaFile  ImpReplaceTransparency( const GDIMetaFile& rMtf,

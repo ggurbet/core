@@ -27,7 +27,7 @@
 
 // Object IDs for UserData
 #define SC_UD_OBJDATA       1
-#define SC_UD_IMAPDATA      2
+// SVX_IMAPINFO_ID = 2
 #define SC_UD_MACRODATA     3
 
 class SC_DLLPUBLIC ScDrawObjData : public SdrObjUserData
@@ -45,8 +45,8 @@ public:
 
     explicit            ScDrawObjData();
 
-    const tools::Rectangle & getShapeRect() { return maShapeRect; };
-    const tools::Rectangle & getLastCellRect() { return maLastCellRect; };
+    const tools::Rectangle & getShapeRect() const { return maShapeRect; };
+    const tools::Rectangle & getLastCellRect() const { return maLastCellRect; };
     void setShapeRect(const ScDocument* rDoc, tools::Rectangle rNewRect, bool bIsVisible=true)
     {
         // bIsVisible should be false when the object is hidden obviously. we dont want to store the old cell rect in that
@@ -65,21 +65,6 @@ private:
     tools::Rectangle maLastCellRect;
     // Stores the rect of the shape to which this ScDrawObjData belongs.
     tools::Rectangle maShapeRect;
-};
-
-class ScIMapInfo : public SdrObjUserData
-{
-    ImageMap        aImageMap;
-
-public:
-                    ScIMapInfo( const ImageMap& rImageMap );
-                    ScIMapInfo( const ScIMapInfo& rIMapInfo );
-    virtual         ~ScIMapInfo() override;
-
-    virtual std::unique_ptr<SdrObjUserData> Clone( SdrObject* pObj ) const override;
-
-    void    SetImageMap( const ImageMap& rIMap )    { aImageMap = rIMap; }
-    const ImageMap& GetImageMap() const             { return aImageMap; }
 };
 
 class SAL_DLLPUBLIC_RTTI ScMacroInfo : public SdrObjUserData

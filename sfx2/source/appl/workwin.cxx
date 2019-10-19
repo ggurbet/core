@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_feature_desktop.h>
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 
@@ -477,7 +477,7 @@ SfxWorkWindow::SfxWorkWindow( vcl::Window *pWin, SfxFrame *pFrm, SfxFrame* pMast
 
     pBindings->SetWorkWindow_Impl( this );
 
-    // For the ObjectBars a integral place in the Childlist is reserved,
+    // For the ObjectBars an integral place in the Childlist is reserved,
     // so that they always come in a defined order.
     for (int i=0; i<SFX_OBJECTBAR_MAX; ++i)
         aChildren.push_back( nullptr );
@@ -580,6 +580,14 @@ void SfxWorkWindow::DeleteControllers_Impl()
         SfxChildWindow *pChild = pCW->pWin;
         if (pChild)
         {
+            if (comphelper::LibreOfficeKit::isActive())
+            {
+                vcl::Window* pWindow = pChild->GetWindow();
+                if (pWindow)
+                {
+                    pWindow->ReleaseLOKNotifier();
+                }
+            }
             pChild->Hide();
 
             // If the child window is a direct child window and not in a
@@ -670,7 +678,7 @@ void SfxWorkWindow::ArrangeChildren_Impl( bool bForce )
     SvBorder aBorder;
     if ( nChildren && IsVisible_Impl() )
         aBorder = Arrange_Impl();
-    // If the current application document contains a IPClient, then the
+    // If the current application document contains an IPClient, then the
     // object through SetTopToolFramePixel has to be assigned the available
     // space. The object will then point to its UITools and sets the app border
     // (-> SfxInPlaceEnv_Impl:: ArrangeChildren_Impl ()). Otherwise the
@@ -861,7 +869,7 @@ SvBorder SfxWorkWindow::Arrange_Impl()
 
 bool SfxWorkWindow::PrepareClose_Impl()
 {
-    for (std::unique_ptr<SfxChildWin_Impl> &pCW : aChildWins)
+    for (const std::unique_ptr<SfxChildWin_Impl> &pCW : aChildWins)
     {
         SfxChildWindow *pChild = pCW->pWin;
         if ( pChild && !pChild->QueryClose() )
@@ -972,7 +980,7 @@ void SfxWorkWindow::ShowChildren_Impl()
         {
             // We have to find the SfxChildWin_Impl to retrieve the
             // SFX_CHILDWIN flags that can influence visibility.
-            for (std::unique_ptr<SfxChildWin_Impl>& pCWin : aChildWins)
+            for (const std::unique_ptr<SfxChildWin_Impl>& pCWin : aChildWins)
             {
                 SfxChild_Impl*    pChild  = pCWin->pCli;
                 if ( pChild == pCli.get() )
@@ -1484,7 +1492,7 @@ void SfxWorkWindow::MakeVisible_Impl( bool bVis )
         nUpdateMode = nOrigMode;
 }
 
-bool SfxWorkWindow::IsVisible_Impl()
+bool SfxWorkWindow::IsVisible_Impl() const
 {
     return nOrigMode != SfxVisibilityFlags::Invisible;
 }
@@ -1495,7 +1503,7 @@ void SfxWorkWindow::HidePopups_Impl(bool bHide, sal_uInt16 nId )
     if (comphelper::LibreOfficeKit::isActive() && bHide)
         return;
 
-    for (std::unique_ptr<SfxChildWin_Impl>& i : aChildWins)
+    for (const std::unique_ptr<SfxChildWin_Impl>& i : aChildWins)
     {
         SfxChildWindow *pCW = i->pWin;
         if (pCW && pCW->GetAlignment() == SfxChildAlignment::NOALIGNMENT && pCW->GetType() != nId)
@@ -1533,7 +1541,7 @@ void SfxWorkWindow::ConfigChild_Impl(SfxChildIdentifier eChild,
     SfxChildWin_Impl *pCW = nullptr;
 
     // configure direct childwindow
-    for (std::unique_ptr<SfxChildWin_Impl>& i : aChildWins)
+    for (const std::unique_ptr<SfxChildWin_Impl>& i : aChildWins)
     {
         pCW = i.get();
         SfxChildWindow *pChild = pCW->pWin;
@@ -2095,7 +2103,7 @@ void SfxWorkWindow::ResetChildWindows_Impl()
 // returns the size of the area (client area) of the
 // parent windows, in which the ChildWindow can be fitted.
 
-tools::Rectangle SfxWorkWindow::GetTopRect_Impl()
+tools::Rectangle SfxWorkWindow::GetTopRect_Impl() const
 {
     return pMasterFrame->GetTopOuterRectPixel_Impl();
 }
@@ -2249,7 +2257,7 @@ void SfxWorkWindow::MakeChildrenVisible_Impl( bool bVis )
 
 bool SfxWorkWindow::IsAutoHideMode( const SfxSplitWindow *pSplitWin )
 {
-    for (VclPtr<SfxSplitWindow> & pWin : pSplit)
+    for (const VclPtr<SfxSplitWindow> & pWin : pSplit)
     {
         if ( pWin.get() != pSplitWin && pWin->IsAutoHide( true ) )
             return true;

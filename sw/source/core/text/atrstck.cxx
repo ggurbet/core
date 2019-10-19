@@ -129,7 +129,7 @@ const sal_uInt8 StackPos[ RES_TXTATR_WITHEND_END - RES_CHRATR_BEGIN + 1 ] =
 namespace CharFormat
 {
 
-/// Returns the item set associated with an character/inet/auto style
+/// Returns the item set associated with a character/inet/auto style
 const SfxItemSet* GetItemSet( const SfxPoolItem& rAttr )
 {
     const SfxItemSet* pSet = nullptr;
@@ -304,7 +304,7 @@ void SwAttrHandler::Init( const SfxPoolItem** pPoolItem, const SwAttrSet* pAS,
         SfxItemIter aIter( *pAS );
         sal_uInt16 nWhich;
         const SfxPoolItem* pItem = aIter.GetCurItem();
-        while( true )
+        do
         {
             nWhich = pItem->Which();
             if (isCHRATR(nWhich))
@@ -313,11 +313,8 @@ void SwAttrHandler::Init( const SfxPoolItem** pPoolItem, const SwAttrSet* pAS,
                 FontChg( *pItem, rFnt, true );
             }
 
-            if( aIter.IsAtEnd() )
-                break;
-
             pItem = aIter.NextItem();
-        }
+        } while (pItem);
     }
 
     // It is possible, that Init is called more than once, e.g., in a
@@ -526,7 +523,7 @@ void SwAttrHandler::ActivateTop( SwFont& rFnt, const sal_uInt16 nAttr )
     else if ( RES_TXTATR_CJK_RUBY == nAttr )
     {
         // ruby stack has no more attributes
-        // check, if an rotation attribute has to be applied
+        // check, if a rotation attribute has to be applied
         const sal_uInt16 nTwoLineStack = StackPos[ RES_CHRATR_TWO_LINES ];
         bool bTwoLineAct = false;
         const SwTextAttr* pTwoLineAttr = GetTop(nTwoLineStack);
@@ -543,7 +540,7 @@ void SwAttrHandler::ActivateTop( SwFont& rFnt, const sal_uInt16 nAttr )
         if ( bTwoLineAct )
             return;
 
-        // eventually, an rotate attribute has to be activated
+        // eventually, a rotate attribute has to be activated
         const sal_uInt16 nRotateStack = StackPos[ RES_CHRATR_ROTATE ];
         const SwTextAttr* pRotateAttr = GetTop(nRotateStack);
 

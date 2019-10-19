@@ -21,7 +21,6 @@
 #include <com/sun/star/i18n/TextConversionOption.hpp>
 
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 
 #include <editeng/langitem.hxx>
 #include <editeng/editobj.hxx>
@@ -36,9 +35,7 @@
 #include <docsh.hxx>
 #include <cellvalue.hxx>
 #include <cellform.hxx>
-#include <formulacell.hxx>
 #include <patattr.hxx>
-#include <waitoff.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <markdata.hxx>
@@ -156,7 +153,7 @@ bool ScConversionEngineBase::FindNextConversionCell()
                 bLoop = false;
                 mbFinished = true;
             }
-            else if( nNewCol > MAXCOL )
+            else if( nNewCol > mrDoc.MaxCol() )
             {
                 // no more cells in the sheet - try to restart at top of sheet
 
@@ -170,7 +167,7 @@ bool ScConversionEngineBase::FindNextConversionCell()
                 else if( ShowTableWrapDialog() )
                 {
                     // conversion started anywhere but in cell A1, user wants to restart
-                    nNewRow = MAXROW + 2;
+                    nNewRow = mrDoc.MaxRow() + 2;
                     mbWrappedInTable = true;
                 }
                 else

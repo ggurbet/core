@@ -59,6 +59,7 @@ bool isDerivedFrom(
             if (bases->insert(bd).second) {
                 auto const d = isDerivedFrom(bd, base, bases, hidden);
                 assert(d);
+                (void)d;
                 *hidden |= getTypeVisibility(bd) != DefaultVisibility;
             }
             derived = true;
@@ -75,9 +76,8 @@ StringRef vis(Visibility v) {
         return "protected";
     case DefaultVisibility:
         return "default";
-    default:
-        llvm_unreachable("unknown visibility");
     }
+    llvm_unreachable("unknown visibility");
 }
 
 class DynCastVisibility final:
@@ -117,7 +117,7 @@ public:
             // at least some interesting cases (though it would still not be aggressive enough to
             // have found ff570b4b58dbf274d3094d21d974f18b613e9b4b "DocumentSettingsSerializer must
             // be SAL_DLLPUBLIC_RTTI for dynamic_cast"):
-            auto const file = getFileNameOfSpellingLoc(
+            auto const file = getFilenameOfLocation(
                 compiler.getSourceManager().getSpellingLoc(rdd->getLocation()));
             if (loplugin::hasPathnamePrefix(file, SRCDIR "/include/")) {
                 std::size_t const n1 = std::strlen(SRCDIR "/include/");

@@ -19,11 +19,8 @@
 
 #include <ucbhelper/contentidentifier.hxx>
 #include <com/sun/star/sdbc/SQLException.hpp>
-#include <com/sun/star/ucb/OpenMode.hpp>
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
-#include <com/sun/star/ucb/ListActionType.hpp>
-#include <com/sun/star/ucb/XSourceInitialization.hpp>
 #include <ucbhelper/resultsetmetadata.hxx>
 #include <cppuhelper/queryinterface.hxx>
 
@@ -374,7 +371,7 @@ public:
             [&aName](const beans::Property& rProp) { return aName == rProp.Name; });
         if (pProp != m_aSeq.end())
             return *pProp;
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aName);
     }
 
     sal_Bool SAL_CALL hasPropertyByName( const OUString& Name ) override
@@ -416,7 +413,7 @@ void SAL_CALL ResultSetBase::setPropertyValue(
         aPropertyName == "RowCount" )
         return;
 
-    throw beans::UnknownPropertyException();
+    throw beans::UnknownPropertyException(aPropertyName);
 }
 
 
@@ -433,7 +430,7 @@ uno::Any SAL_CALL ResultSetBase::getPropertyValue(
         return uno::Any(count);
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(PropertyName);
 }
 
 
@@ -459,7 +456,7 @@ void SAL_CALL ResultSetBase::addPropertyChangeListener(
         m_pRowCountListeners->addInterface( xListener );
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 }
 
 
@@ -480,7 +477,7 @@ void SAL_CALL ResultSetBase::removePropertyChangeListener(
         m_pRowCountListeners->removeInterface( aListener );
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 }
 
 

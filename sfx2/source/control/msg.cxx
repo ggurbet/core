@@ -46,9 +46,7 @@ sal_uInt16 SfxSlot::GetWhich( const SfxItemPool &rPool ) const
 
 OString SfxSlot::GetCommand() const
 {
-    OString sRet(".uno:");
-    sRet += pUnoName;
-    return sRet;
+    return OStringLiteral(".uno:") + pUnoName;
 }
 
 OUString SfxSlot::GetCommandString() const

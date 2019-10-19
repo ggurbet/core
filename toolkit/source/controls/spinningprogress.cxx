@@ -18,10 +18,9 @@
  */
 
 #include <com/sun/star/uno/XComponentContext.hpp>
-#include <rtl/ustrbuf.hxx>
 #include <toolkit/controls/animatedimages.hxx>
 #include <tools/diagnose_ex.h>
-#include <vcl/throbber.hxx>
+#include <vcl/toolkit/throbber.hxx>
 
 using namespace css;
 using namespace css::uno;
@@ -103,23 +102,21 @@ protected:
 
     OUString SAL_CALL SpinningProgressControlModel::getServiceName()
     {
-        return OUString("com.sun.star.awt.SpinningProgressControlModel");
+        return "com.sun.star.awt.SpinningProgressControlModel";
     }
 
 
     OUString SAL_CALL SpinningProgressControlModel::getImplementationName(  )
     {
-        return OUString("org.openoffice.comp.toolkit.SpinningProgressControlModel");
+        return "org.openoffice.comp.toolkit.SpinningProgressControlModel";
     }
 
 
     Sequence< OUString > SAL_CALL SpinningProgressControlModel::getSupportedServiceNames()
     {
-        Sequence< OUString > aServiceNames(3);
-        aServiceNames[0] = "com.sun.star.awt.SpinningProgressControlModel";
-        aServiceNames[1] = "com.sun.star.awt.AnimatedImagesControlModel";
-        aServiceNames[2] = "com.sun.star.awt.UnoControlModel";
-        return aServiceNames;
+        return { "com.sun.star.awt.SpinningProgressControlModel",
+                 "com.sun.star.awt.AnimatedImagesControlModel",
+                 "com.sun.star.awt.UnoControlModel" };
     }
 
 }

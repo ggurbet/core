@@ -50,7 +50,7 @@
 // Move methods
 
 /// Return value tells whether the Frame should be moved.
-bool SwContentFrame::ShouldBwdMoved( SwLayoutFrame *pNewUpper, bool, bool & )
+bool SwContentFrame::ShouldBwdMoved( SwLayoutFrame *pNewUpper, bool & )
 {
     if ( SwFlowFrame::IsMoveBwdJump() || !IsPrevObjMove() )
     {
@@ -404,18 +404,31 @@ void SwFrame::PrepareCursor()
         const bool bTab = IsTabFrame();
         bool bNoSect = IsInSct();
 
+#if BOOST_VERSION < 105600
+        std::list<FlowFrameJoinLockGuard> tabGuard;
+        std::list<SwFrameDeleteGuard> rowGuard;
+#else
         boost::optional<FlowFrameJoinLockGuard> tabGuard;
         boost::optional<SwFrameDeleteGuard> rowGuard;
+#endif
         SwFlowFrame* pThis = bCnt ? static_cast<SwContentFrame*>(this) : nullptr;
 
         if ( bTab )
         {
+#if BOOST_VERSION < 105600
+            tabGuard.emplace_back(static_cast<SwTabFrame*>(this)); // tdf#125741
+#else
             tabGuard.emplace(static_cast<SwTabFrame*>(this)); // tdf#125741
+#endif
             pThis = static_cast<SwTabFrame*>(this);
         }
         else if (IsRowFrame())
         {
+#if BOOST_VERSION < 105600
+            rowGuard.emplace_back(this); // tdf#125741 keep this alive
+#else
             rowGuard.emplace(this); // tdf#125741 keep this alive
+#endif
         }
         else if( IsSctFrame() )
         {
@@ -1973,7 +1986,7 @@ static bool lcl_IsNextFootnoteBoss( const SwFrame *pFrame, const SwFrame* pNxt )
     // If pNxt is a first column, we use the page instead.
     while( pNxt && pNxt->IsColumnFrame() && !pNxt->GetPrev() )
         pNxt = pNxt->GetUpper()->FindFootnoteBossFrame();
-    // So.. now pFrame and pNxt are either two adjacent pages or columns.
+    // So... now pFrame and pNxt are either two adjacent pages or columns.
     return pFrame && pNxt && pFrame->GetNext() == pNxt;
 }
 

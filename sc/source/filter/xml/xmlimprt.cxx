@@ -111,13 +111,12 @@ using namespace ::formula;
 
 OUString ScXMLImport_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Calc.XMLOasisImporter" );
+    return "com.sun.star.comp.Calc.XMLOasisImporter";
 }
 
 uno::Sequence< OUString > ScXMLImport_getSupportedServiceNames() throw()
 {
-    const OUString aServiceName( ScXMLImport_getImplementationName() );
-    return uno::Sequence< OUString > ( &aServiceName, 1 );
+    return { ScXMLImport_getImplementationName() };
 }
 
 uno::Reference< uno::XInterface > ScXMLImport_createInstance(
@@ -129,13 +128,12 @@ uno::Reference< uno::XInterface > ScXMLImport_createInstance(
 
 OUString ScXMLImport_Meta_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Calc.XMLOasisMetaImporter" );
+    return "com.sun.star.comp.Calc.XMLOasisMetaImporter";
 }
 
 uno::Sequence< OUString > ScXMLImport_Meta_getSupportedServiceNames() throw()
 {
-    const OUString aServiceName( ScXMLImport_Meta_getImplementationName() );
-    return uno::Sequence< OUString > ( &aServiceName, 1 );
+    return { ScXMLImport_Meta_getImplementationName() };
 }
 
 uno::Reference< uno::XInterface > ScXMLImport_Meta_createInstance(
@@ -147,13 +145,12 @@ uno::Reference< uno::XInterface > ScXMLImport_Meta_createInstance(
 
 OUString ScXMLImport_Styles_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Calc.XMLOasisStylesImporter" );
+    return "com.sun.star.comp.Calc.XMLOasisStylesImporter";
 }
 
 uno::Sequence< OUString > ScXMLImport_Styles_getSupportedServiceNames() throw()
 {
-    const OUString aServiceName( ScXMLImport_Styles_getImplementationName() );
-    return uno::Sequence< OUString > ( &aServiceName, 1 );
+    return { ScXMLImport_Styles_getImplementationName() };
 }
 
 uno::Reference< uno::XInterface > ScXMLImport_Styles_createInstance(
@@ -165,13 +162,12 @@ uno::Reference< uno::XInterface > ScXMLImport_Styles_createInstance(
 
 OUString ScXMLImport_Content_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Calc.XMLOasisContentImporter" );
+    return "com.sun.star.comp.Calc.XMLOasisContentImporter";
 }
 
 uno::Sequence< OUString > ScXMLImport_Content_getSupportedServiceNames() throw()
 {
-    const OUString aServiceName( ScXMLImport_Content_getImplementationName() );
-    return uno::Sequence< OUString > ( &aServiceName, 1 );
+    return { ScXMLImport_Content_getImplementationName() };
 }
 
 uno::Reference< uno::XInterface > ScXMLImport_Content_createInstance(
@@ -183,13 +179,12 @@ uno::Reference< uno::XInterface > ScXMLImport_Content_createInstance(
 
 OUString ScXMLImport_Settings_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Calc.XMLOasisSettingsImporter" );
+    return "com.sun.star.comp.Calc.XMLOasisSettingsImporter";
 }
 
 uno::Sequence< OUString > ScXMLImport_Settings_getSupportedServiceNames() throw()
 {
-    const OUString aServiceName( ScXMLImport_Settings_getImplementationName() );
-    return uno::Sequence< OUString > ( &aServiceName, 1 );
+    return { ScXMLImport_Settings_getImplementationName() };
 }
 
 uno::Reference< uno::XInterface > ScXMLImport_Settings_createInstance(
@@ -811,8 +806,7 @@ SvXMLImportContext *ScXMLImport::CreateScriptContext(
     return pContext;
 }
 
-void ScXMLImport::SetStatistics(
-                                const uno::Sequence<beans::NamedValue> & i_rStats)
+void ScXMLImport::SetStatistics(const uno::Sequence<beans::NamedValue> & i_rStats)
 {
     static const char* s_stats[] =
     { "TableCount", "CellCount", "ObjectCount", nullptr };
@@ -820,11 +814,11 @@ void ScXMLImport::SetStatistics(
     SvXMLImport::SetStatistics(i_rStats);
 
     sal_uInt32 nCount(0);
-    for (sal_Int32 i = 0; i < i_rStats.getLength(); ++i) {
+    for (const auto& rStat : i_rStats) {
         for (const char** pStat = s_stats; *pStat != nullptr; ++pStat) {
-            if (i_rStats[i].Name.equalsAscii(*pStat)) {
+            if (rStat.Name.equalsAscii(*pStat)) {
                 sal_Int32 val = 0;
-                if (i_rStats[i].Value >>= val) {
+                if (rStat.Value >>= val) {
                     nCount += val;
                 } else {
                     OSL_FAIL("ScXMLImport::SetStatistics: invalid entry");
@@ -960,32 +954,31 @@ void ScXMLImport::SetChangeTrackingViewSettings(const css::uno::Sequence<css::be
 {
     if (pDoc)
     {
-        sal_Int32 nCount(rChangeProps.getLength());
-        if (nCount)
+        if (rChangeProps.hasElements())
         {
             ScXMLImport::MutexGuard aGuard(*this);
             sal_Int16 nTemp16(0);
             std::unique_ptr<ScChangeViewSettings> pViewSettings(new ScChangeViewSettings());
-            for (sal_Int32 i = 0; i < nCount; ++i)
+            for (const auto& rChangeProp : rChangeProps)
             {
-                OUString sName(rChangeProps[i].Name);
+                OUString sName(rChangeProp.Name);
                 if (sName == "ShowChanges")
-                    pViewSettings->SetShowChanges(::cppu::any2bool(rChangeProps[i].Value));
+                    pViewSettings->SetShowChanges(::cppu::any2bool(rChangeProp.Value));
                 else if (sName == "ShowAcceptedChanges")
-                    pViewSettings->SetShowAccepted(::cppu::any2bool(rChangeProps[i].Value));
+                    pViewSettings->SetShowAccepted(::cppu::any2bool(rChangeProp.Value));
                 else if (sName == "ShowRejectedChanges")
-                    pViewSettings->SetShowRejected(::cppu::any2bool(rChangeProps[i].Value));
+                    pViewSettings->SetShowRejected(::cppu::any2bool(rChangeProp.Value));
                 else if (sName == "ShowChangesByDatetime")
-                    pViewSettings->SetHasDate(::cppu::any2bool(rChangeProps[i].Value));
+                    pViewSettings->SetHasDate(::cppu::any2bool(rChangeProp.Value));
                 else if (sName == "ShowChangesByDatetimeMode")
                 {
-                    if (rChangeProps[i].Value >>= nTemp16)
+                    if (rChangeProp.Value >>= nTemp16)
                         pViewSettings->SetTheDateMode(static_cast<SvxRedlinDateMode>(nTemp16));
                 }
                 else if (sName == "ShowChangesByDatetimeFirstDatetime")
                 {
                     util::DateTime aDateTime;
-                    if (rChangeProps[i].Value >>= aDateTime)
+                    if (rChangeProp.Value >>= aDateTime)
                     {
                         pViewSettings->SetTheFirstDateTime(::DateTime(aDateTime));
                     }
@@ -993,37 +986,37 @@ void ScXMLImport::SetChangeTrackingViewSettings(const css::uno::Sequence<css::be
                 else if (sName == "ShowChangesByDatetimeSecondDatetime")
                 {
                     util::DateTime aDateTime;
-                    if (rChangeProps[i].Value >>= aDateTime)
+                    if (rChangeProp.Value >>= aDateTime)
                     {
                         pViewSettings->SetTheLastDateTime(::DateTime(aDateTime));
                     }
                 }
                 else if (sName == "ShowChangesByAuthor")
-                    pViewSettings->SetHasAuthor(::cppu::any2bool(rChangeProps[i].Value));
+                    pViewSettings->SetHasAuthor(::cppu::any2bool(rChangeProp.Value));
                 else if (sName == "ShowChangesByAuthorName")
                 {
                     OUString sOUName;
-                    if (rChangeProps[i].Value >>= sOUName)
+                    if (rChangeProp.Value >>= sOUName)
                     {
                         pViewSettings->SetTheAuthorToShow(sOUName);
                     }
                 }
                 else if (sName == "ShowChangesByComment")
-                    pViewSettings->SetHasComment(::cppu::any2bool(rChangeProps[i].Value));
+                    pViewSettings->SetHasComment(::cppu::any2bool(rChangeProp.Value));
                 else if (sName == "ShowChangesByCommentText")
                 {
                     OUString sOUComment;
-                    if (rChangeProps[i].Value >>= sOUComment)
+                    if (rChangeProp.Value >>= sOUComment)
                     {
                         pViewSettings->SetTheComment(sOUComment);
                     }
                 }
                 else if (sName == "ShowChangesByRanges")
-                    pViewSettings->SetHasRange(::cppu::any2bool(rChangeProps[i].Value));
+                    pViewSettings->SetHasRange(::cppu::any2bool(rChangeProp.Value));
                 else if (sName == "ShowChangesByRangesList")
                 {
                     OUString sRanges;
-                    if ((rChangeProps[i].Value >>= sRanges) && !sRanges.isEmpty())
+                    if ((rChangeProp.Value >>= sRanges) && !sRanges.isEmpty())
                     {
                         ScRangeList aRangeList;
                         ScRangeStringConverter::GetRangeListFromString(
@@ -1039,26 +1032,25 @@ void ScXMLImport::SetChangeTrackingViewSettings(const css::uno::Sequence<css::be
 
 void ScXMLImport::SetViewSettings(const uno::Sequence<beans::PropertyValue>& aViewProps)
 {
-    sal_Int32 nCount(aViewProps.getLength());
     sal_Int32 nHeight(0);
     sal_Int32 nLeft(0);
     sal_Int32 nTop(0);
     sal_Int32 nWidth(0);
-    for (sal_Int32 i = 0; i < nCount; ++i)
+    for (const auto& rViewProp : aViewProps)
     {
-        OUString sName(aViewProps[i].Name);
+        OUString sName(rViewProp.Name);
         if (sName == "VisibleAreaHeight")
-            aViewProps[i].Value >>= nHeight;
+            rViewProp.Value >>= nHeight;
         else if (sName == "VisibleAreaLeft")
-            aViewProps[i].Value >>= nLeft;
+            rViewProp.Value >>= nLeft;
         else if (sName == "VisibleAreaTop")
-            aViewProps[i].Value >>= nTop;
+            rViewProp.Value >>= nTop;
         else if (sName == "VisibleAreaWidth")
-            aViewProps[i].Value >>= nWidth;
+            rViewProp.Value >>= nWidth;
         else if (sName == "TrackedChangesViewSettings")
         {
             uno::Sequence<beans::PropertyValue> aChangeProps;
-            if(aViewProps[i].Value >>= aChangeProps)
+            if(rViewProp.Value >>= aChangeProps)
                 SetChangeTrackingViewSettings(aChangeProps);
         }
     }
@@ -1089,8 +1081,7 @@ void ScXMLImport::SetConfigurationSettings(const uno::Sequence<beans::PropertyVa
         if (xMultiServiceFactory.is())
         {
             sal_Int32 nCount(aConfigProps.getLength());
-            css::uno::Sequence<css::beans::PropertyValue> aFilteredProps(
-                aConfigProps.getLength());
+            css::uno::Sequence<css::beans::PropertyValue> aFilteredProps(nCount);
             sal_Int32 nFilteredPropsLen = 0;
             for (sal_Int32 i = nCount - 1; i >= 0; --i)
             {
@@ -1179,10 +1170,9 @@ sal_Int32 ScXMLImport::SetCurrencySymbol(const sal_Int32 nKey, const OUString& r
             }
             catch ( const util::MalformedNumberFormatException& rException )
             {
-                OUString sErrorMessage("Error in Formatstring ");
-                sErrorMessage += sFormatString;
-                sErrorMessage += " at position ";
-                sErrorMessage += OUString::number(rException.CheckPos);
+                OUString sErrorMessage ="Error in Formatstring " +
+                    sFormatString + " at position " +
+                    OUString::number(rException.CheckPos);
                 uno::Sequence<OUString> aSeq { sErrorMessage };
                 uno::Reference<xml::sax::XLocator> xLocator;
                 SetError(XMLERROR_API | XMLERROR_FLAG_ERROR, aSeq, rException.Message, xLocator);
@@ -1721,20 +1711,19 @@ void SAL_CALL ScXMLImport::endDocument()
                     uno::Sequence< beans::PropertyValue > aSeq;
                     if (xIndexAccess->getByIndex(0) >>= aSeq)
                     {
-                        sal_Int32 nCount (aSeq.getLength());
-                        for (sal_Int32 i = 0; i < nCount; ++i)
+                        for (const auto& rProp : std::as_const(aSeq))
                         {
-                            OUString sName(aSeq[i].Name);
+                            OUString sName(rProp.Name);
                             if (sName == SC_ACTIVETABLE)
                             {
                                 OUString sTabName;
-                                if(aSeq[i].Value >>= sTabName)
+                                if(rProp.Value >>= sTabName)
                                 {
                                     SCTAB nTab(0);
                                     if (pDoc->GetTable(sTabName, nTab))
                                     {
                                         pDoc->SetVisibleTab(nTab);
-                                        i = nCount;
+                                        break;
                                     }
                                 }
                             }
@@ -1866,7 +1855,7 @@ void ScXMLImport::UnlockSolarMutex()
     }
 }
 
-sal_Int32 ScXMLImport::GetByteOffset()
+sal_Int32 ScXMLImport::GetByteOffset() const
 {
     sal_Int32 nOffset = -1;
     uno::Reference<xml::sax::XLocator> xLocator = GetLocator();
@@ -2034,8 +2023,8 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportFODS(SvStream &rStream)
 
     uno::Reference<document::XFilter> xFilter(xInterface, uno::UNO_QUERY_THROW);
     //SetLoading hack because the document properties will be re-initted
-    //by the xml filter and during the init, while its considered uninitialized,
-    //setting a property will inform the document its modified, which attempts
+    //by the xml filter and during the init, while it's considered uninitialized,
+    //setting a property will inform the document it's modified, which attempts
     //to update the properties, which throws cause the properties are uninitialized
     xDocSh->SetLoading(SfxLoadedFlags::NONE);
     bool ret = xFilter->filter(aArgs);
@@ -2068,8 +2057,8 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportXLSX(SvStream &rStream)
     xImporter->setTargetDocument(xModel);
 
     //SetLoading hack because the document properties will be re-initted
-    //by the xml filter and during the init, while its considered uninitialized,
-    //setting a property will inform the document its modified, which attempts
+    //by the xml filter and during the init, while it's considered uninitialized,
+    //setting a property will inform the document it's modified, which attempts
     //to update the properties, which throws cause the properties are uninitialized
     xDocSh->SetLoading(SfxLoadedFlags::NONE);
     bool ret = false;

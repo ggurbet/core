@@ -66,7 +66,18 @@ struct GtvMainToolbarPrivate
     }
 };
 
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#endif
+#endif
 G_DEFINE_TYPE_WITH_PRIVATE(GtvMainToolbar, gtv_main_toolbar, GTK_TYPE_BOX);
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic pop
+#endif
+#endif
 
 static GtvMainToolbarPrivate&
 getPrivate(GtvMainToolbar* toolbar)
@@ -250,7 +261,7 @@ gtv_main_toolbar_add_recent_uno(GtvMainToolbar* toolbar, const std::string& rUno
     // TODO: Remove other text entries with same key
 }
 
-const std::string
+std::string
 gtv_main_toolbar_get_recent_uno_args(GtvMainToolbar* toolbar, const std::string& rUnoCmd)
 {
     GtvMainToolbarPrivate& priv = getPrivate(toolbar);

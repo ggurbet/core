@@ -14,7 +14,7 @@
 
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/task/InteractionHandler.hpp>
+#include <com/sun/star/task/XInteractionHandler2.hpp>
 #include <com/sun/star/task/XInteractionAbort.hpp>
 #include <com/sun/star/task/XInteractionApprove.hpp>
 #include <com/sun/star/task/XInteractionPassword2.hpp>
@@ -47,7 +47,7 @@ public:
 
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.uui.TestInteractionHandler");
+        return "com.sun.star.comp.uui.TestInteractionHandler";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & rServiceName) override
@@ -57,13 +57,11 @@ public:
 
     virtual css::uno::Sequence<OUString> SAL_CALL getSupportedServiceNames() override
     {
-        css::uno::Sequence<OUString> aNames(3);
-        aNames[0] = "com.sun.star.task.InteractionHandler";
+        return { "com.sun.star.task.InteractionHandler",
         // added to indicate support for configuration.backend.MergeRecoveryRequest
-        aNames[1] = "com.sun.star.configuration.backend.InteractionHandler";
-        aNames[2] = "com.sun.star.uui.InteractionHandler";
+                 "com.sun.star.configuration.backend.InteractionHandler",
         // for backwards compatibility
-        return aNames;
+                 "com.sun.star.uui.InteractionHandler" };
     }
 
     virtual void SAL_CALL initialize(css::uno::Sequence<css::uno::Any> const & /*rArguments*/) override

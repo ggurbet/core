@@ -21,12 +21,11 @@
 #include <xmloff/xmlimp.hxx>
 #include <xmloff/xmlnumi.hxx>
 #include <xmltabi.hxx>
+#include <xmlsdtypes.hxx>
 #include <xmloff/txtprmap.hxx>
 #include <xmloff/xmlimppr.hxx>
 
 #include <com/sun/star/container/XIndexReplace.hpp>
-
-#include "sdpropls.hxx"
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;

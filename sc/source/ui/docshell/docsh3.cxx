@@ -69,6 +69,7 @@
 
 #include <comphelper/lok.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
+#include <sfx2/lokhelper.hxx>
 
 //          Redraw - Notifications
 
@@ -171,12 +172,8 @@ void ScDocShell::PostPaint( const ScRangeList& rRanges, PaintPartFlags nPart, sa
     // the document size too - cell size affects that, obviously)
     if ((nPart & (PaintPartFlags::Top | PaintPartFlags::Left)) && comphelper::LibreOfficeKit::isActive())
     {
-        SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-        while (pViewShell)
-        {
-            pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, "");
-            pViewShell = SfxViewShell::GetNext(*pViewShell);
-        }
+        ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(this->GetModel());
+        SfxLokHelper::notifyDocumentSizeChangedAllViews(pModel);
     }
 }
 
@@ -634,7 +631,7 @@ void ScDocShell::SetChangeComment( ScChangeAction* pAction, const OUString& rCom
 
 void ScDocShell::ExecuteChangeCommentDialog( ScChangeAction* pAction, weld::Window* pParent, bool bPrevNext)
 {
-    if (!pAction) return;           // without action is nothing..
+    if (!pAction) return;           // without action is nothing...
 
     OUString aComment = pAction->GetComment();
     OUString aAuthor = pAction->GetUser();

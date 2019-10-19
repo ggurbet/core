@@ -7,10 +7,9 @@ Settings about which desktops have support enabled.
 #ifndef CONFIG_VCLPLUG_H
 #define CONFIG_VCLPLUG_H
 
-#define ENABLE_GTK 0
 #define ENABLE_GTK3 0
 #define ENABLE_GTK3_KDE5 0
-#define ENABLE_KDE5 0
+#define ENABLE_KF5 0
 #define ENABLE_QT5 0
 
 #define ENABLE_GSTREAMER_1_0 0

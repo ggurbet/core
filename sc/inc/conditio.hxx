@@ -31,7 +31,6 @@
 
 #include <svl/listener.hxx>
 
-#include <comphelper/stl_types.hxx>
 #include <com/sun/star/sheet/ConditionOperator.hpp>
 
 #include <rtl/math.hxx>
@@ -280,7 +279,7 @@ inline std::basic_ostream<charT, traits> & operator <<(std::basic_ostream<charT,
         stream << "Iconset";
         break;
     case ScFormatEntry::Type::Date:
-        stream << "Data";
+        stream << "Date";
         break;
     default:
         stream << "?(" << static_cast<int>(rType) << ")";

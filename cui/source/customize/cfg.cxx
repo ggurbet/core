@@ -22,31 +22,20 @@
 
 #include <cassert>
 #include <stdlib.h>
-#include <time.h>
 #include <typeinfo>
 
-#include <vcl/button.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/commandinfoprovider.hxx>
-#include <vcl/edit.hxx>
 #include <vcl/event.hxx>
-#include <vcl/help.hxx>
+#include <vcl/graph.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/toolbox.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/virdev.hxx>
-#include <vcl/settings.hxx>
 
 #include <sfx2/sfxhelp.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/sfxdlg.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <sfx2/viewsh.hxx>
-#include <sfx2/msg.hxx>
-#include <sfx2/msgpool.hxx>
-#include <sfx2/minfitem.hxx>
-#include <sfx2/objsh.hxx>
-#include <sfx2/request.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <svl/stritem.hxx>
@@ -70,6 +59,7 @@
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/FileSystemStorageFactory.hpp>
+#include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/frame/UnknownModuleException.hpp>
 #include <com/sun/star/frame/XFrames.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
@@ -79,17 +69,12 @@
 #include <com/sun/star/frame/theUICommandDescription.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/io/IOException.hpp>
-#include <com/sun/star/lang/IllegalAccessException.hpp>
 #include <com/sun/star/ui/ItemType.hpp>
 #include <com/sun/star/ui/ItemStyle.hpp>
 #include <com/sun/star/ui/ImageManager.hpp>
 #include <com/sun/star/ui/theModuleUIConfigurationManagerSupplier.hpp>
-#include <com/sun/star/ui/XUIConfiguration.hpp>
-#include <com/sun/star/ui/XUIConfigurationListener.hpp>
 #include <com/sun/star/ui/XUIConfigurationManagerSupplier.hpp>
 #include <com/sun/star/ui/XUIConfigurationPersistence.hpp>
-#include <com/sun/star/ui/XUIConfigurationStorage.hpp>
-#include <com/sun/star/ui/XModuleUIConfigurationManager.hpp>
 #include <com/sun/star/ui/XUIElement.hpp>
 #include <com/sun/star/ui/UIElementType.hpp>
 #include <com/sun/star/ui/ImageType.hpp>
@@ -101,8 +86,6 @@
 #include <comphelper/documentinfo.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/processfactory.hxx>
-
-#include <dlgname.hxx>
 
 namespace uno = com::sun::star::uno;
 namespace frame = com::sun::star::frame;
@@ -177,35 +160,35 @@ SvxConfigPage::CanConfig( const OUString& aModuleId )
     return !(aModuleId == "com.sun.star.script.BasicIDE" || aModuleId == "com.sun.star.frame.Bibliography");
 }
 
-static VclPtr<SfxTabPage> CreateSvxMenuConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static std::unique_ptr<SfxTabPage> CreateSvxMenuConfigPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxMenuConfigPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxMenuConfigPage>(pPage, pController, *rSet);
 }
 
-static VclPtr<SfxTabPage> CreateSvxContextMenuConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static std::unique_ptr<SfxTabPage> CreateSvxContextMenuConfigPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxMenuConfigPage>::Create(pParent, *rSet, false);
+    return std::make_unique<SvxMenuConfigPage>(pPage, pController, *rSet, false);
 }
 
-static VclPtr<SfxTabPage> CreateKeyboardConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static std::unique_ptr<SfxTabPage> CreateKeyboardConfigPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-       return VclPtr<SfxAcceleratorConfigPage>::Create(pParent, *rSet);
+       return std::make_unique<SfxAcceleratorConfigPage>(pPage, pController, *rSet);
 }
 
-static VclPtr<SfxTabPage> CreateSvxNotebookbarConfigPage(TabPageParent pParent,
+static std::unique_ptr<SfxTabPage> CreateSvxNotebookbarConfigPage(weld::Container* pPage, weld::DialogController* pController,
                                                          const SfxItemSet* rSet)
 {
-    return VclPtr<SvxNotebookbarConfigPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxNotebookbarConfigPage>(pPage, pController, *rSet);
 }
 
-static VclPtr<SfxTabPage> CreateSvxToolbarConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static std::unique_ptr<SfxTabPage> CreateSvxToolbarConfigPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxToolbarConfigPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxToolbarConfigPage>(pPage, pController, *rSet);
 }
 
-static VclPtr<SfxTabPage> CreateSvxEventConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static std::unique_ptr<SfxTabPage> CreateSvxEventConfigPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxEventConfigPage>::Create(pParent, *rSet, SvxEventConfigPage::EarlyInit());
+    return std::make_unique<SvxEventConfigPage>(pPage, pController, *rSet, SvxEventConfigPage::EarlyInit());
 }
 
 /******************************************************************************
@@ -568,7 +551,7 @@ bool MenuSaveInData::Apply()
     if ( IsModified() )
     {
         // Apply new menu bar structure to our settings container
-        m_xMenuSettings.set( GetConfigManager()->createSettings(), uno::UNO_QUERY );
+        m_xMenuSettings = GetConfigManager()->createSettings();
 
         uno::Reference< container::XIndexContainer > xIndexContainer (
             m_xMenuSettings, uno::UNO_QUERY );
@@ -593,8 +576,7 @@ bool MenuSaveInData::Apply()
         }
         catch ( css::uno::Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("cui.customize", "caught some other exception saving settings " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("cui.customize", "caught some other exception saving settings");
         }
 
         SetModified( false );
@@ -727,7 +709,7 @@ OUString ContextMenuSaveInData::GetUIName( const OUString& rResourceURL )
         catch ( const css::uno::Exception& )
         {}
 
-        for ( const auto& aProp : aProps )
+        for ( const auto& aProp : std::as_const(aProps) )
         {
             if ( aProp.Name == ITEM_DESCRIPTOR_UINAME )
             {
@@ -755,7 +737,7 @@ SvxEntries* ContextMenuSaveInData::GetEntries()
         catch ( const css::lang::IllegalArgumentException& )
         {}
 
-        for ( const auto& aElement : aElementsInfo )
+        for ( const auto& aElement : std::as_const(aElementsInfo) )
         {
             OUString aUrl;
             for ( const auto& aElementProp : aElement )
@@ -803,7 +785,7 @@ SvxEntries* ContextMenuSaveInData::GetEntries()
         catch ( const css::lang::IllegalArgumentException& )
         {}
 
-        for ( const auto& aElement : aParentElementsInfo )
+        for ( const auto& aElement : std::as_const(aParentElementsInfo) )
         {
             OUString aUrl;
             for ( const auto& aElementProp : aElement )
@@ -871,7 +853,7 @@ bool ContextMenuSaveInData::Apply()
     {
         if ( pEntry->IsModified() || SvxConfigPageHelper::SvxConfigEntryModified( pEntry ) )
         {
-            css::uno::Reference< css::container::XIndexContainer > xIndexContainer( GetConfigManager()->createSettings(), css::uno::UNO_QUERY );
+            css::uno::Reference< css::container::XIndexContainer > xIndexContainer = GetConfigManager()->createSettings();
             css::uno::Reference< css::lang::XSingleComponentFactory > xFactory( xIndexContainer, css::uno::UNO_QUERY );
             ApplyMenu( xIndexContainer, xFactory, pEntry );
 
@@ -944,7 +926,7 @@ void SvxMenuEntriesListBox::CreateDropDown()
 SvxMenuEntriesListBox::SvxMenuEntriesListBox(std::unique_ptr<weld::TreeView> xControl, SvxConfigPage* pPg)
     : m_xControl(std::move(xControl))
     , m_xDropDown(m_xControl->create_virtual_device())
-    , pPage(pPg)
+    , m_pPage(pPg)
 {
     CreateDropDown();
     m_xControl->connect_key_press(LINK(this, SvxMenuEntriesListBox, KeyInputHdl));
@@ -961,16 +943,16 @@ IMPL_LINK(SvxMenuEntriesListBox, KeyInputHdl, const KeyEvent&, rKeyEvent, bool)
     // support DELETE for removing the current entry
     if ( keycode == KEY_DELETE )
     {
-        pPage->DeleteSelectedContent();
+        m_pPage->DeleteSelectedContent();
     }
     // support CTRL+UP and CTRL+DOWN for moving selected entries
     else if ( keycode.GetCode() == KEY_UP && keycode.IsMod1() )
     {
-        pPage->MoveEntry( true );
+        m_pPage->MoveEntry( true );
     }
     else if ( keycode.GetCode() == KEY_DOWN && keycode.IsMod1() )
     {
-        pPage->MoveEntry( false );
+        m_pPage->MoveEntry( false );
     }
     else
     {
@@ -986,8 +968,8 @@ IMPL_LINK(SvxMenuEntriesListBox, KeyInputHdl, const KeyEvent&, rKeyEvent, bool)
  * both tabpages to add, delete, move and rename items etc.
  *
  *****************************************************************************/
-SvxConfigPage::SvxConfigPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/menuassignpage.ui", "MenuAssignPage", &rSet)
+SvxConfigPage::SvxConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/menuassignpage.ui", "MenuAssignPage", &rSet)
     , m_aUpdateDataTimer("UpdateDataTimer")
     , bInitialised(false)
     , pCurrentSaveInData(nullptr)
@@ -1011,7 +993,7 @@ SvxConfigPage::SvxConfigPage(TabPageParent pParent, const SfxItemSet& rSet)
     , m_xAddCommandButton(m_xBuilder->weld_button("add"))
     , m_xRemoveCommandButton(m_xBuilder->weld_button("remove"))
 {
-    m_xTopLevelListBox->connect_changed(LINK(this, SvxMenuConfigPage, SelectElementHdl));
+    m_xTopLevelListBox->connect_changed(LINK(this, SvxConfigPage, SelectElementHdl));
 
     weld::TreeView& rTreeView = m_xFunctions->get_widget();
     Size aSize(rTreeView.get_approximate_digit_width() * 40, rTreeView.get_height_rows(8));
@@ -1036,7 +1018,6 @@ IMPL_LINK_NOARG(SvxConfigPage, SelectElementHdl, weld::ComboBox&, void)
 
 SvxConfigPage::~SvxConfigPage()
 {
-    disposeOnce();
 }
 
 void SvxConfigPage::Reset( const SfxItemSet* )
@@ -1322,7 +1303,7 @@ OUString SvxConfigPage::GetScriptURL() const
     return result;
 }
 
-OUString SvxConfigPage::GetSelectedDisplayName()
+OUString SvxConfigPage::GetSelectedDisplayName() const
 {
     return m_xFunctions->get_selected_text();
 }
@@ -1422,7 +1403,7 @@ SvxEntries* SvxConfigPage::FindParentForChild(
     return nullptr;
 }
 
-int SvxConfigPage::AddFunction(int nTarget, bool bFront, bool bAllowDuplicates)
+int SvxConfigPage::AddFunction(int nTarget, bool bAllowDuplicates)
 {
     OUString aURL = GetScriptURL();
     SvxConfigEntry* pParent = GetTopLevelSelection();
@@ -1456,7 +1437,7 @@ int SvxConfigPage::AddFunction(int nTarget, bool bFront, bool bAllowDuplicates)
         {
             if ( entry->GetCommand() == pNewEntryData->GetCommand() )
             {
-                std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+                std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                           VclMessageType::Info, VclButtonsType::Ok, CuiResId(RID_SVXSTR_MNUCFG_ALREADY_INCLUDED)));
                 xBox->run();
                 delete pNewEntryData;
@@ -1465,7 +1446,7 @@ int SvxConfigPage::AddFunction(int nTarget, bool bFront, bool bAllowDuplicates)
         }
     }
 
-    return InsertEntry(pNewEntryData, nTarget, bFront);
+    return InsertEntry(pNewEntryData, nTarget, /*bFront*/false);
 }
 
 int SvxConfigPage::InsertEntry(
@@ -1572,10 +1553,11 @@ IMPL_LINK(SvxConfigPage, MoveHdl, weld::Button&, rButton, void)
     MoveEntry(&rButton == m_xMoveUpButton.get());
 }
 
-IMPL_LINK_NOARG(SvxConfigPage, FunctionDoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SvxConfigPage, FunctionDoubleClickHdl, weld::TreeView&, bool)
 {
     if (m_xAddCommandButton->get_sensitive())
         m_xAddCommandButton->clicked();
+    return true;
 }
 
 IMPL_LINK_NOARG(SvxConfigPage, SelectFunctionHdl, weld::TreeView&, void)
@@ -1890,17 +1872,17 @@ SvxConfigEntry::~SvxConfigEntry()
     }
 }
 
-bool SvxConfigEntry::IsMovable()
+bool SvxConfigEntry::IsMovable() const
 {
     return !IsPopup() || IsMain();
 }
 
-bool SvxConfigEntry::IsDeletable()
+bool SvxConfigEntry::IsDeletable() const
 {
     return !IsMain() || IsUserDefined();
 }
 
-bool SvxConfigEntry::IsRenamable()
+bool SvxConfigEntry::IsRenamable() const
 {
     return !IsMain() || IsUserDefined();
 }
@@ -2400,8 +2382,8 @@ void ToolbarSaveInData::ApplyToolbar(
 void ToolbarSaveInData::ApplyToolbar( SvxConfigEntry* pToolbar )
 {
     // Apply new toolbar structure to our settings container
-    uno::Reference< container::XIndexAccess > xSettings(
-        GetConfigManager()->createSettings(), uno::UNO_QUERY );
+    uno::Reference< container::XIndexAccess > xSettings =
+        GetConfigManager()->createSettings();
 
     uno::Reference< container::XIndexContainer > xIndexContainer (
         xSettings, uno::UNO_QUERY );
@@ -2438,8 +2420,7 @@ void ToolbarSaveInData::ApplyToolbar( SvxConfigEntry* pToolbar )
     }
     catch ( css::uno::Exception const & )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("cui.customize", "caught exception saving settings " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("cui.customize", "caught exception saving settings");
     }
 
     PersistChanges( GetConfigManager() );
@@ -2449,7 +2430,7 @@ void ToolbarSaveInData::CreateToolbar( SvxConfigEntry* pToolbar )
 {
     // show the new toolbar in the UI also
     uno::Reference< container::XIndexAccess >
-        xSettings( GetConfigManager()->createSettings(), uno::UNO_QUERY );
+        xSettings = GetConfigManager()->createSettings();
 
     uno::Reference< beans::XPropertySet >
         xPropertySet( xSettings, uno::UNO_QUERY );
@@ -2464,8 +2445,7 @@ void ToolbarSaveInData::CreateToolbar( SvxConfigEntry* pToolbar )
     }
     catch ( css::uno::Exception const & )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("cui.customize", "caught exception saving settings " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("cui.customize", "caught exception saving settings");
     }
 
     GetEntries()->push_back( pToolbar );
@@ -2892,11 +2872,9 @@ IMPL_LINK_NOARG(SvxIconSelectorDialog, DeleteHdl, weld::Button&, void)
         uno::Sequence< OUString > URLs { aSelImageText };
         m_xTbSymbol->RemoveItem(nId);
         m_xImportedImageManager->removeImages( SvxConfigPageHelper::GetImageType(), URLs );
-        uno::Reference< css::ui::XUIConfigurationPersistence >
-            xConfigPersistence( m_xImportedImageManager, uno::UNO_QUERY );
-        if ( xConfigPersistence.is() && xConfigPersistence->isModified() )
+        if ( m_xImportedImageManager->isModified() )
         {
-            xConfigPersistence->store();
+            m_xImportedImageManager->store();
         }
     }
 }
@@ -2906,8 +2884,6 @@ bool SvxIconSelectorDialog::ReplaceGraphicItem(
 {
     uno::Sequence< OUString > URLs(1);
     uno::Sequence< uno::Reference<graphic::XGraphic > > aImportGraph( 1 );
-    uno::Reference< css::ui::XUIConfigurationPersistence >
-        xConfigPer( m_xImportedImageManager, uno::UNO_QUERY );
 
     uno::Reference< graphic::XGraphic > xGraphic;
     uno::Sequence< beans::PropertyValue > aMediaProps( 1 );
@@ -2964,7 +2940,7 @@ bool SvxIconSelectorDialog::ReplaceGraphicItem(
                 URLs[0] = aURL;
                 aImportGraph[ 0 ] = xGraphic;
                 m_xImportedImageManager->replaceImages( SvxConfigPageHelper::GetImageType(), URLs, aImportGraph );
-                xConfigPer->store();
+                m_xImportedImageManager->store();
 
                 bResult = true;
                 break;
@@ -3004,11 +2980,11 @@ namespace
             : m_xQueryBox(Application::CreateMessageDialog(pParent, VclMessageType::Warning, VclButtonsType::NONE, ReplaceIconName(rMessage)))
         {
             m_xQueryBox->set_title(CuiResId(RID_SVXSTR_REPLACE_ICON_CONFIRM));
-            m_xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Yes), 2);
+            m_xQueryBox->add_button(GetStandardText(StandardButtonType::Yes), 2);
             if (bYestoAll)
                 m_xQueryBox->add_button(CuiResId(RID_SVXSTR_YESTOALL), 5);
-            m_xQueryBox->add_button(Button::GetStandardText(StandardButtonType::No), 4);
-            m_xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), 6);
+            m_xQueryBox->add_button(GetStandardText(StandardButtonType::No), 4);
+            m_xQueryBox->add_button(GetStandardText(StandardButtonType::Cancel), 6);
             m_xQueryBox->set_default_response(2);
         }
         short run() { return m_xQueryBox->run(); }
@@ -3157,12 +3133,9 @@ bool SvxIconSelectorDialog::ImportGraphic( const OUString& aURL )
                 uno::Sequence< uno::Reference<graphic::XGraphic > > aImportGraph( 1 );
                 aImportGraph[ 0 ] = xGraphic;
                 m_xImportedImageManager->insertImages( SvxConfigPageHelper::GetImageType(), aImportURL, aImportGraph );
-                uno::Reference< css::ui::XUIConfigurationPersistence >
-                xConfigPersistence( m_xImportedImageManager, uno::UNO_QUERY );
-
-                if ( xConfigPersistence.is() && xConfigPersistence->isModified() )
+                if ( m_xImportedImageManager->isModified() )
                 {
-                    xConfigPersistence->store();
+                    m_xImportedImageManager->store();
                 }
 
                 result = true;
@@ -3179,8 +3152,7 @@ bool SvxIconSelectorDialog::ImportGraphic( const OUString& aURL )
     }
     catch( uno::Exception const & )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("cui.customize", "Caught exception importing XGraphic: " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("cui.customize", "Caught exception importing XGraphic");
     }
     return result;
 }

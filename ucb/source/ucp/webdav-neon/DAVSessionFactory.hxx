@@ -39,7 +39,6 @@
 #include <rtl/ref.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <ucbhelper/proxydecider.hxx>
-#include "DAVException.hxx"
 
 using namespace com::sun::star;
 
@@ -67,7 +66,7 @@ public:
                           const ::uno::Sequence< css::beans::NamedValue >& rFlags,
                           const ::uno::Reference< ::uno::XComponentContext >& rxContext );
 
-    const ::uno::Reference< ::uno::XComponentContext >& getComponentContext() {  return m_xContext; }
+    const ::uno::Reference< ::uno::XComponentContext >& getComponentContext() const { return m_xContext; }
 private:
     typedef std::map< OUString, DAVSession * > Map;
 

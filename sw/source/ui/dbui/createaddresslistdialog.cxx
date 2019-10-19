@@ -108,7 +108,7 @@ SwAddressControl_Impl::SwAddressControl_Impl(weld::Builder& rBuilder)
 void SwAddressControl_Impl::SetData(SwCSVData& rDBData)
 {
     m_pData = &rDBData;
-    //when the address data is updated then remove the controls an build again
+    //when the address data is updated then remove the controls and build again
     if (!m_aLines.empty())
     {
         m_aLines.clear();
@@ -421,9 +421,8 @@ IMPL_LINK_NOARG(SwCreateAddressListDialog, OkHdl_Impl, weld::Button&, void)
 
         const OUString sPath( SvtPathOptions().SubstituteVariable("$(userurl)/database") );
         aDlgHelper.SetDisplayDirectory( sPath );
-        uno::Reference< XFilterManager > xFltMgr(xFP, uno::UNO_QUERY);
-        xFltMgr->appendFilter( m_sAddressListFilterName, "*.csv" );
-        xFltMgr->setCurrentFilter( m_sAddressListFilterName ) ;
+        xFP->appendFilter( m_sAddressListFilterName, "*.csv" );
+        xFP->setCurrentFilter( m_sAddressListFilterName ) ;
 
         if( ERRCODE_NONE == aDlgHelper.Execute() )
         {

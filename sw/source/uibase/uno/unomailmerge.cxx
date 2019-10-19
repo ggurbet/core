@@ -151,13 +151,8 @@ static bool LoadFromURL_impl(
 
     // try to get the DocShell
     SwDocShell *pTmpDocShell = nullptr;
-    Reference < XUnoTunnel > xTunnel( xTmpModel, UNO_QUERY );
-    if (xTunnel.is())
-    {
-        SwXTextDocument* pTextDoc = reinterpret_cast<SwXTextDocument *>(
-                xTunnel->getSomething( SwXTextDocument::getUnoTunnelId() ));
-        pTmpDocShell = pTextDoc ? pTextDoc->GetDocShell() : nullptr;
-    }
+    if (auto pTextDoc = comphelper::getUnoTunnelImplementation<SwXTextDocument>(xTmpModel); pTextDoc)
+        pTmpDocShell = pTextDoc->GetDocShell();
 
     bool bRes = false;
     if (xTmpModel.is() && pTmpDocShell)    // everything available?
@@ -386,7 +381,7 @@ SwXMailMerge::SwXMailMerge() :
     m_xDocSh->DoInitNew();
     SfxViewFrame *pFrame = SfxViewFrame::LoadHiddenDocument( *m_xDocSh, SFX_INTERFACE_NONE );
     SwView *pView = static_cast<SwView*>( pFrame->GetViewShell() );
-    pView->AttrChangedNotify( &pView->GetWrtShell() ); //So that SelectShell is called.
+    pView->AttrChangedNotify(nullptr); //So that SelectShell is called.
     m_xModel = m_xDocSh->GetModel();
 }
 
@@ -561,7 +556,7 @@ uno::Any SAL_CALL SwXMailMerge::execute(
             try
             {
                 bool bEverythingsFine = true;
-                for ( const Any& rBookmark : aCurSelection )
+                for ( const Any& rBookmark : std::as_const(aCurSelection) )
                 {
                     bEverythingsFine = xRowLocate->moveToBookmark( rBookmark );
                     if ( !bEverythingsFine )
@@ -601,7 +596,7 @@ uno::Any SAL_CALL SwXMailMerge::execute(
     // while still in Update of Sfx.
     // (GetSelection in Update is not allowed)
     if (!aCurDocumentURL.isEmpty())
-        pView->AttrChangedNotify( &pView->GetWrtShell() );//So that SelectShell is called.
+        pView->AttrChangedNotify(nullptr);//So that SelectShell is called.
 
     SharedComponent aRowSetDisposeHelper;
     if (!xCurResultSet.is())
@@ -637,7 +632,7 @@ uno::Any SAL_CALL SwXMailMerge::execute(
                     xRowSet->execute(); // build ResultSet from properties
                 if( !xCurConnection.is() )
                     xCurConnection.set( xRowSetPropSet->getPropertyValue( "ActiveConnection" ), UNO_QUERY );
-                xCurResultSet.set( xRowSet, UNO_QUERY );
+                xCurResultSet = xRowSet;
                 OSL_ENSURE( xCurResultSet.is(), "failed to build ResultSet" );
             }
         }
@@ -874,7 +869,7 @@ void SAL_CALL SwXMailMerge::setPropertyValue(
 
     const SfxItemPropertySimpleEntry* pCur = m_pPropSet->getPropertyMap().getByName( rPropertyName );
     if (!pCur)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     else if (pCur->nFlags & PropertyAttribute::READONLY)
         throw PropertyVetoException();
     else
@@ -1029,7 +1024,7 @@ uno::Any SAL_CALL SwXMailMerge::getPropertyValue(
 
     const SfxItemPropertySimpleEntry* pCur = m_pPropSet->getPropertyMap().getByName( rPropertyName );
     if (!pCur)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
 
     switch (pCur->nWID)
     {
@@ -1080,7 +1075,7 @@ void SAL_CALL SwXMailMerge::addPropertyChangeListener(
     {
         const SfxItemPropertySimpleEntry* pCur = m_pPropSet->getPropertyMap().getByName( rPropertyName );
         if (!pCur)
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(rPropertyName);
         m_aPropListeners.addInterface( pCur->nWID, rListener );
     }
 }
@@ -1094,7 +1089,7 @@ void SAL_CALL SwXMailMerge::removePropertyChangeListener(
     {
         const SfxItemPropertySimpleEntry* pCur = m_pPropSet->getPropertyMap().getByName( rPropertyName );
         if (!pCur)
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(rPropertyName);
         m_aPropListeners.removeInterface( pCur->nWID, rListener );
     }
 }
@@ -1164,7 +1159,7 @@ void SAL_CALL SwXMailMerge::removeMailMergeEventListener(
 
 OUString SAL_CALL SwXMailMerge::getImplementationName()
 {
-    return OUString( "SwXMailMerge" );
+    return "SwXMailMerge";
 }
 
 sal_Bool SAL_CALL SwXMailMerge::supportsService( const OUString& rServiceName )
@@ -1174,11 +1169,7 @@ sal_Bool SAL_CALL SwXMailMerge::supportsService( const OUString& rServiceName )
 
 uno::Sequence< OUString > SAL_CALL SwXMailMerge::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aNames(2);
-    OUString *pName = aNames.getArray();
-    pName[0] = "com.sun.star.text.MailMerge";
-    pName[1] = "com.sun.star.sdb.DataAccessDescriptor";
-    return aNames;
+    return { "com.sun.star.text.MailMerge", "com.sun.star.sdb.DataAccessDescriptor" };
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

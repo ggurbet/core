@@ -22,7 +22,7 @@ $(eval $(call gb_Library_add_defs,xmlsecurity,\
 
 $(eval $(call gb_Library_use_externals,xmlsecurity,boost_headers))
 
-$(eval $(call gb_Library_set_precompiled_header,xmlsecurity,$(SRCDIR)/xmlsecurity/inc/pch/precompiled_xmlsecurity))
+$(eval $(call gb_Library_set_precompiled_header,xmlsecurity,xmlsecurity/inc/pch/precompiled_xmlsecurity))
 
 $(eval $(call gb_Library_use_sdk_api,xmlsecurity))
 
@@ -83,6 +83,8 @@ $(eval $(call gb_Library_add_defs,xmlsecurity,\
 ))
 $(eval $(call gb_Library_use_system_win32_libs,xmlsecurity,\
     crypt32 \
+    Ole32 \
+    Shell32 \
 ))
 else
 ifneq (,$(filter DESKTOP,$(BUILD_TYPE))$(filter ANDROID,$(OS)))

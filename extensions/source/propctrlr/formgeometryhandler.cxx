@@ -285,7 +285,7 @@ namespace pcr
             Reference< XControlModel > xControlModel( m_xComponent, UNO_QUERY );
             if ( xControlModel.is() )
             {
-                // do not ask the map for shapes for grid control columns ....
+                // do not ask the map for shapes for grid control columns...
                 Reference< XChild > xCompChild( m_xComponent, UNO_QUERY_THROW );
                 Reference< XGridColumnFactory > xCheckGrid( xCompChild->getParent(), UNO_QUERY );
                 if ( !xCheckGrid.is() )
@@ -310,7 +310,7 @@ namespace pcr
 
     OUString FormGeometryHandler::getImplementationName_static(  )
     {
-        return OUString( "com.sun.star.comp.extensions.FormGeometryHandler" );
+        return "com.sun.star.comp.extensions.FormGeometryHandler";
     }
 
 

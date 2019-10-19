@@ -225,7 +225,16 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
                     insertTableProps(pPropMap);
                 }
                 else
+                {
+                    if ( nIntValue == 0 && m_nRow == 0 )
+                    {
+                        // explicit tblHeader=0 in the first row must overwrite table style
+                        TablePropertyMapPtr pPropMap( new TablePropertyMap );
+                        pPropMap->Insert( PROP_HEADER_ROW_COUNT, uno::makeAny(sal_Int32(0)));
+                        insertTableProps(pPropMap);
+                    }
                     m_nHeaderRepeat = -1;
+                }
                 if (nIntValue)
                 {
                     // Store the info that this is a header, we'll need that when we apply table styles.
@@ -400,12 +409,12 @@ DomainMapperTableManager::IntVectorPtr const & DomainMapperTableManager::getCurr
     return m_aCellWidths.back( );
 }
 
-const uno::Sequence<beans::PropertyValue> DomainMapperTableManager::getCurrentTablePosition( )
+uno::Sequence<beans::PropertyValue> DomainMapperTableManager::getCurrentTablePosition( )
 {
     if ( !m_aTablePositions.empty( ) && m_aTablePositions.back() )
         return m_aTablePositions.back( )->getTablePosition();
     else
-        return uno::Sequence< beans::PropertyValue >( 0 );
+        return uno::Sequence< beans::PropertyValue >();
 }
 
 TablePositionHandler* DomainMapperTableManager::getCurrentTableRealPosition()
@@ -609,7 +618,7 @@ void DomainMapperTableManager::endOfRowAction()
     //calculate number of used grids - it has to match the size of m_aTableGrid
     size_t nGrids = std::accumulate(pCurrentSpans->begin(), pCurrentSpans->end(), sal::static_int_cast<size_t>(0));
 
-    // sj: the grid is having no units... they is containing only relative values.
+    // sj: the grid is having no units... it is containing only relative values.
     // a table with a grid of "1:2:1" looks identical as if the table is having
     // a grid of "20:40:20" and it doesn't have to do something with the tableWidth
     // -> so we have get the sum of each grid entry for the fullWidthRelative:

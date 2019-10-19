@@ -54,7 +54,7 @@ public:
     void            ClearTextAreas();
 
 protected:
-                ScHFEditPage( TabPageParent pParent,
+                ScHFEditPage( weld::Container* pPage, weld::DialogController* pController,
                               const SfxItemSet& rCoreSet,
                               sal_uInt16        nWhich,
                               bool              bHeader );
@@ -115,42 +115,30 @@ private:
 
 class ScRightHeaderEditPage : public ScHFEditPage
 {
-    friend class VclPtr<ScRightHeaderEditPage>;
 public:
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rCoreSet );
-
-private:
-    ScRightHeaderEditPage( TabPageParent pParent, const SfxItemSet& rSet );
+    static std::unique_ptr<SfxTabPage>  Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rCoreSet );
+    ScRightHeaderEditPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet );
 };
 
 class ScLeftHeaderEditPage : public ScHFEditPage
 {
-    friend class VclPtr<ScLeftHeaderEditPage>;
 public:
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rCoreSet );
-
-private:
-    ScLeftHeaderEditPage( TabPageParent pParent, const SfxItemSet& rSet );
+    static std::unique_ptr<SfxTabPage>  Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rCoreSet );
+    ScLeftHeaderEditPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet );
 };
 
 class ScRightFooterEditPage : public ScHFEditPage
 {
-    friend class VclPtr<ScRightFooterEditPage>;
 public:
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rCoreSet );
-
-private:
-    ScRightFooterEditPage( TabPageParent pParent, const SfxItemSet& rSet );
+    static std::unique_ptr<SfxTabPage>  Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rCoreSet );
+    ScRightFooterEditPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet );
 };
 
 class ScLeftFooterEditPage : public ScHFEditPage
 {
-    friend class VclPtr<ScLeftFooterEditPage>;
 public:
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rCoreSet );
-
-private:
-    ScLeftFooterEditPage( TabPageParent pParent, const SfxItemSet& rSet );
+    static std::unique_ptr<SfxTabPage>  Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rCoreSet );
+    ScLeftFooterEditPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet );
 };
 
 #endif

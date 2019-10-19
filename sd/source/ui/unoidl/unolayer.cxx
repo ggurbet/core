@@ -41,11 +41,9 @@
 #include <DrawViewShell.hxx>
 #include <View.hxx>
 #include <ViewShell.hxx>
-#include <app.hrc>
 #include <strings.hrc>
 #include <sdresid.hxx>
 
-#include <unokywds.hxx>
 #include "unowcntr.hxx"
 #include <vcl/svapp.hxx>
 
@@ -95,7 +93,7 @@ UNO3_GETIMPLEMENTATION_IMPL( SdLayer );
 // XServiceInfo
 OUString SAL_CALL SdLayer::getImplementationName()
 {
-    return OUString("SdUnoLayer");
+    return "SdUnoLayer";
 }
 
 sal_Bool SAL_CALL SdLayer::supportsService( const OUString& ServiceName )
@@ -105,9 +103,7 @@ sal_Bool SAL_CALL SdLayer::supportsService( const OUString& ServiceName )
 
 uno::Sequence< OUString > SAL_CALL SdLayer::getSupportedServiceNames()
 {
-    OUString aServiceName("com.sun.star.drawing.Layer");
-    uno::Sequence< OUString > aSeq( &aServiceName, 1 );
-    return aSeq;
+    return { "com.sun.star.drawing.Layer" };
 }
 
 // beans::XPropertySet
@@ -264,6 +260,15 @@ bool SdLayer::get( LayerAttribute what ) throw()
                 case LOCKED:    return pFrameView->GetLockedLayers().IsSet(pLayer->GetID());
                 }
         }
+
+        // no view at all, e.g. Draw embedded as OLE in text document, ODF default values
+        switch(what)
+        {
+            case VISIBLE:   return true;
+            case PRINTABLE: return true;
+            case LOCKED:    return false;
+        }
+
     }
     return false; //TODO: uno::Exception?
 }
@@ -400,7 +405,7 @@ void SAL_CALL SdLayerManager::removeEventListener( const uno::Reference< lang::X
 // XServiceInfo
 OUString SAL_CALL SdLayerManager::getImplementationName()
 {
-    return OUString("SdUnoLayerManager");
+    return "SdUnoLayerManager";
 }
 
 sal_Bool SAL_CALL SdLayerManager::supportsService( const OUString& ServiceName )

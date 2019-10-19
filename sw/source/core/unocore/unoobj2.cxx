@@ -293,25 +293,6 @@ UnoActionRemoveContext::~UnoActionRemoveContext() COVERITY_NOEXCEPT_FALSE
     }
 }
 
-void ClientModify(SwClient* pClient, const SfxPoolItem *pOld, const SfxPoolItem *pNew)
-{
-    switch( pOld ? pOld->Which() : 0 )
-    {
-    case RES_REMOVE_UNO_OBJECT:
-    case RES_OBJECTDYING:
-        if( static_cast<void*>(pClient->GetRegisteredIn()) == static_cast<const SwPtrMsgPoolItem *>(pOld)->pObject )
-            pClient->EndListeningAll();
-        break;
-
-    case RES_FMT_CHG:
-        // Is the move to the new one finished and will the old one be deleted?
-        if( static_cast<const SwFormatChg*>(pNew)->pChangedFormat == pClient->GetRegisteredIn() &&
-            static_cast<const SwFormatChg*>(pOld)->pChangedFormat->IsFormatInDTOR() )
-            pClient->EndListeningAll();
-        break;
-    }
-}
-
 void SwUnoCursorHelper::SetCursorAttr(SwPaM & rPam,
         const SfxItemSet& rSet,
         const SetAttrMode nAttrMode, const bool bTableMode)
@@ -480,7 +461,7 @@ struct SwXParagraphEnumerationImpl final : public SwXParagraphEnumeration
 
     // XServiceInfo
     virtual OUString SAL_CALL getImplementationName() override
-        { return OUString("SwXParagraphEnumeration"); }
+        { return "SwXParagraphEnumeration"; }
     virtual sal_Bool SAL_CALL supportsService( const OUString& rServiceName) override
         { return cppu::supportsService(this, rServiceName); };
     virtual css::uno::Sequence< OUString > SAL_CALL getSupportedServiceNames() override
@@ -663,8 +644,7 @@ SwXParagraphEnumerationImpl::NextElement_Impl()
             pTableNode && (&pTableNode->GetTable() != m_pOwnTable))
         {
             // this is a foreign table
-            SwFrameFormat* pTableFormat =
-                static_cast<SwFrameFormat*>(pTableNode->GetTable().GetFrameFormat());
+            SwFrameFormat* pTableFormat = pTableNode->GetTable().GetFrameFormat();
             xRef = SwXTextTable::CreateXTextTable(pTableFormat);
         }
         else
@@ -863,7 +843,7 @@ SwXTextRange::getSomething(const uno::Sequence< sal_Int8 >& rId)
 OUString SAL_CALL
 SwXTextRange::getImplementationName()
 {
-    return OUString("SwXTextRange");
+    return "SwXTextRange";
 }
 
 sal_Bool SAL_CALL SwXTextRange::supportsService(const OUString& rServiceName)
@@ -1036,10 +1016,8 @@ bool XTextRangeToSwPaM( SwUnoInternalPaM & rToFill,
     {
         xTextCursor.set( pText->CreateCursor() );
         xTextCursor->gotoEnd(true);
-        const uno::Reference<lang::XUnoTunnel> xCursorTunnel(
-                xTextCursor, uno::UNO_QUERY);
         pCursor =
-            ::sw::UnoTunnelGetImplementation<OTextCursorHelper>(xCursorTunnel);
+            comphelper::getUnoTunnelImplementation<OTextCursorHelper>(xTextCursor);
     }
     if(pRange && &pRange->GetDoc() == rToFill.GetDoc())
     {
@@ -1146,7 +1124,7 @@ CreateParentXText(SwDoc & rDoc, const SwPosition& rPos)
         {
             SwTableNode const*const pTableNode = pSttNode->FindTableNode();
             SwFrameFormat *const pTableFormat =
-                static_cast<SwFrameFormat*>(pTableNode->GetTable().GetFrameFormat());
+                pTableNode->GetTable().GetFrameFormat();
             SwTableBox *const  pBox = pSttNode->GetTableBox();
 
             xParentText = pBox
@@ -1448,7 +1426,7 @@ struct SwXTextRangesImpl final : public SwXTextRanges
 
     // XServiceInfo
     virtual OUString SAL_CALL getImplementationName() override
-        { return OUString("SwXTextRanges"); };
+        { return "SwXTextRanges"; };
     virtual sal_Bool SAL_CALL supportsService( const OUString& rServiceName) override
         { return cppu::supportsService(this, rServiceName); };
     virtual css::uno::Sequence< OUString > SAL_CALL getSupportedServiceNames() override
@@ -1566,7 +1544,7 @@ struct SwXParaFrameEnumerationImpl final : public SwXParaFrameEnumeration
 {
     // XServiceInfo
     virtual OUString SAL_CALL getImplementationName() override
-        { return OUString("SwXParaFrameEnumeration"); };
+        { return "SwXParaFrameEnumeration"; };
     virtual sal_Bool SAL_CALL supportsService(const OUString& rServiceName) override
         { return cppu::supportsService(this, rServiceName); };
     virtual css::uno::Sequence< OUString > SAL_CALL getSupportedServiceNames() override

@@ -412,18 +412,6 @@ void Player::processMessage( GstMessage *message )
     }
 }
 
-
-static gboolean wrap_element_query_position (GstElement *element, GstFormat format, gint64 *cur)
-{
-    return gst_element_query_position( element, format, cur );
-}
-
-
-static gboolean wrap_element_query_duration (GstElement *element, GstFormat format, gint64 *duration)
-{
-    return gst_element_query_duration( element, format, duration );
-}
-
 #define LCL_WAYLAND_DISPLAY_HANDLE_CONTEXT_TYPE "GstWaylandDisplayHandleContextType"
 
 static gboolean lcl_is_wayland_display_handle_need_context_message(GstMessage* msg)
@@ -495,7 +483,7 @@ GstBusSyncReply Player::processSyncMessage( GstMessage *message )
     if( GST_MESSAGE_TYPE( message ) == GST_MESSAGE_ASYNC_DONE ) {
         if( mnDuration == 0) {
             gint64 gst_duration = 0;
-            if( wrap_element_query_duration( mpPlaybin, GST_FORMAT_TIME, &gst_duration) )
+            if( gst_element_query_duration( mpPlaybin, GST_FORMAT_TIME, &gst_duration) )
                 mnDuration = gst_duration;
         }
         if( mnWidth == 0 ) {
@@ -712,7 +700,7 @@ double SAL_CALL Player::getMediaTime()
     if( mpPlaybin ) {
         // get current position in the stream
         gint64 gst_position;
-        if( wrap_element_query_position( mpPlaybin, GST_FORMAT_TIME, &gst_position ) )
+        if( gst_element_query_position( mpPlaybin, GST_FORMAT_TIME, &gst_position ) )
             position = gst_position / GST_SECOND;
     }
 
@@ -846,10 +834,9 @@ uno::Reference< ::media::XPlayerWindow > SAL_CALL Player::createPlayerWindow( co
 
     if( aSize.Width > 0 && aSize.Height > 0 )
     {
-        ::avmedia::gstreamer::Window* pWindow = new ::avmedia::gstreamer::Window;
         if (rArguments.getLength() <= 2)
         {
-            xRet = pWindow;
+            xRet = new ::avmedia::gstreamer::Window;
             return xRet;
         }
 
@@ -863,13 +850,10 @@ uno::Reference< ::media::XPlayerWindow > SAL_CALL Player::createPlayerWindow( co
         if (!pEnvData)
             return nullptr;
 
-        OUString aToolkit = OUString::createFromAscii(pEnvData->pToolkit);
-        OUString aPlatform = OUString::createFromAscii(pEnvData->pPlatformName);
-
         // tdf#124027: the position of embedded window is identical w/ the position
-        // of media object in all other vclplugs (gtk, kde5, gen), in gtk3 w/o gtksink it
+        // of media object in all other vclplugs (kf5, gen), in gtk3 w/o gtksink it
         // needs to be translated
-        if (aToolkit == "gtk3")
+        if (pEnvData->toolkit == SystemEnvData::Toolkit::Gtk3)
         {
             Point aPoint = pParentWindow->GetPosPixel();
             maArea.X = aPoint.getX();
@@ -881,12 +865,12 @@ uno::Reference< ::media::XPlayerWindow > SAL_CALL Player::createPlayerWindow( co
         GstElement *pVideosink = static_cast<GstElement*>(pParentWindow->CreateGStreamerSink());
         if (pVideosink)
         {
-            if (aToolkit == "gtk3")
+            if (pEnvData->toolkit == SystemEnvData::Toolkit::Gtk3)
                 mbUseGtkSink = true;
         }
         else
         {
-            if (aPlatform == "wayland")
+            if (pEnvData->platform == SystemEnvData::Platform::Wayland)
                 pVideosink = gst_element_factory_make("waylandsink", "video-output");
             else
                 pVideosink = gst_element_factory_make("autovideosink", "video-output");
@@ -894,7 +878,7 @@ uno::Reference< ::media::XPlayerWindow > SAL_CALL Player::createPlayerWindow( co
                 return nullptr;
         }
 
-        xRet = pWindow;
+        xRet = new ::avmedia::gstreamer::Window;
 
         g_object_set(G_OBJECT(mpPlaybin), "video-sink", pVideosink, nullptr);
         g_object_set(G_OBJECT(mpPlaybin), "force-aspect-ratio", FALSE, nullptr);
@@ -926,7 +910,7 @@ uno::Reference< media::XFrameGrabber > SAL_CALL Player::createFrameGrabber()
 
 OUString SAL_CALL Player::getImplementationName()
 {
-    return OUString( AVMEDIA_GST_PLAYER_IMPLEMENTATIONNAME );
+    return AVMEDIA_GST_PLAYER_IMPLEMENTATIONNAME;
 }
 
 

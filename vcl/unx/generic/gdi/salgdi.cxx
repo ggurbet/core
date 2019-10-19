@@ -17,31 +17,19 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vector>
-#include <queue>
-#include <set>
-
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xrender.h>
-#include <X11/Xproto.h>
 
 
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
-#include <basegfx/polygon/b2dpolygontools.hxx>
-#include <basegfx/polygon/b2dpolygonclipper.hxx>
-#include <basegfx/polygon/b2dlinegeometry.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
-#include <basegfx/matrix/b2dhommatrixtools.hxx>
-#include <basegfx/polygon/b2dpolypolygoncutter.hxx>
-#include <basegfx/polygon/b2dtrapezoid.hxx>
 #include <basegfx/curve/b2dcubicbezier.hxx>
 
 #include <headless/svpgdi.hxx>
 
-#include <vcl/jobdata.hxx>
 #include <vcl/sysdata.hxx>
 #include <vcl/virdev.hxx>
 #include <sal/log.hxx>
@@ -49,19 +37,17 @@
 #include <unx/salunx.h>
 #include <unx/saldisp.hxx>
 #include <unx/salgdi.h>
-#include <unx/salvd.h>
-#include <unx/x11/x11gdiimpl.h>
 #include <unx/x11/xlimits.hxx>
 
+#include <salframe.hxx>
 #include <salgdiimpl.hxx>
-#include <unx/nativewindowhandleprovider.hxx>
 #include <textrender.hxx>
+#include <salvd.hxx>
 #include "gdiimpl.hxx"
 #include <opengl/x11/gdiimpl.hxx>
 #include "x11cairotextrender.hxx"
 #include "openglx11cairotextrender.hxx"
 
-#include <unx/printergfx.hxx>
 #include <unx/x11/xrender_peer.hxx>
 #include "cairo_xlib_cairo.hxx"
 #include <cairo-xlib.h>
@@ -82,12 +68,10 @@ X11SalGraphics::X11SalGraphics():
     mnPenColor(SALCOLOR_NONE),
     mnFillColor(SALCOLOR_NONE),
 #endif // ENABLE_CAIRO_CANVAS
-    pFontGC_(nullptr),
     nTextPixel_(0),
     hBrush_(None),
     bWindow_(false),
     bVirDev_(false),
-    bFontGC_(false),
     m_bOpenGL(OpenGLHelper::isVCLOpenGLEnabled())
 {
     if (m_bOpenGL)
@@ -103,7 +87,7 @@ X11SalGraphics::X11SalGraphics():
 
 }
 
-X11SalGraphics::~X11SalGraphics()
+X11SalGraphics::~X11SalGraphics() COVERITY_NOEXCEPT_FALSE
 {
     DeInit();
     ReleaseFonts();
@@ -127,11 +111,6 @@ void X11SalGraphics::freeResources()
         XFreePixmap( pDisplay, hBrush_ );
         hBrush_ = None;
     }
-    if( pFontGC_ )
-    {
-        XFreeGC( pDisplay, pFontGC_ );
-        pFontGC_ = None;
-    }
     if( m_pDeleteColormap )
     {
         m_pDeleteColormap.reset();
@@ -142,8 +121,6 @@ void X11SalGraphics::freeResources()
         XRenderPeer::GetInstance().FreePicture( m_aXRenderPicture );
         m_aXRenderPicture = 0;
     }
-
-    bFontGC_ = false;
 }
 
 SalGraphicsImpl* X11SalGraphics::GetImpl() const

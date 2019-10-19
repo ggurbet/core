@@ -78,7 +78,6 @@ protected:
         XML      // XML Block List
     };
     static FileType GetFileType( const OUString& );
-    virtual FileType GetFileType() const = 0;
 
     virtual void   ClearDoc();          // Delete Doc content
     std::unique_ptr<SwPaM> MakePaM();   // Span PaM over Doc
@@ -100,14 +99,14 @@ public:
     const OUString& GetFileName() const {return m_aFile;}      /// Return physical file name
     void SetName( const OUString& rName )             /// Logic name
         { m_aName = rName; m_bInfoChanged = true; }
-    const OUString& GetName()
+    const OUString& GetName() const
         { return m_aName; }
 
     const OUString&     GetBaseURL() const { return m_sBaseURL;}
     void                SetBaseURL( const OUString& rURL ) { m_sBaseURL = rURL; }
 
     virtual ErrCode Delete( sal_uInt16 ) = 0;
-    virtual ErrCode Rename( sal_uInt16, const OUString&, const OUString& ) = 0;
+    virtual ErrCode Rename( sal_uInt16, const OUString& ) = 0;
     virtual ErrCode GetDoc( sal_uInt16 ) = 0;
     virtual ErrCode BeginPutDoc( const OUString&, const OUString& ) = 0;
     virtual ErrCode PutDoc() = 0;

@@ -28,6 +28,7 @@
 #include <svl/lstner.hxx>
 #include <svl/poolitem.hxx>
 #include <svl/typedwhich.hxx>
+#include <svx/DiagramDataInterface.hxx>
 #include <svx/svdtypes.hxx>
 #include <svx/svxdllapi.h>
 #include <svx/shapeproperty.hxx>
@@ -103,6 +104,12 @@ namespace svx
 }
 
 class SvxShape;
+class SdrObject;
+struct SVX_DLLPUBLIC SdrObjectFreeOp;
+
+// helper for constructing std::unique_ptr for SdrObjects where a
+// deleter is needed - here, SdrObject::Free needs to be used.
+typedef std::unique_ptr< SdrObject, SdrObjectFreeOp > SdrObjectUniquePtr;
 
 enum SdrObjKind {
     OBJ_NONE       = 0,  /// abstract object (SdrObject)
@@ -375,6 +382,9 @@ public:
     const double* GetRelativeHeight() const;
     sal_Int16 GetRelativeHeightRelation() const;
 
+    void SetDiagramData(std::shared_ptr<DiagramDataInterface> pDiagramData);
+    std::shared_ptr<DiagramDataInterface> GetDiagramData() const;
+
     /// @param bNotMyself = true: set only ObjList to dirty, don't mark this object as dirty.
     ///
     /// This is needed for instance for NbcMove, because usually one moves SnapRect and aOutRect
@@ -447,7 +457,7 @@ public:
     // @return
     //     If no navigation position has been explicitly defined then the
     //     result of GetOrdNum() is returned.
-    sal_uInt32 GetNavigationPosition();
+    sal_uInt32 GetNavigationPosition() const;
 
     // To make clearer that this method may trigger RecalcBoundRect and thus may be
     // expensive and sometimes problematic (inside a bigger object change You will get
@@ -470,7 +480,7 @@ public:
     // set modified-flag in the model
     virtual void SetChanged();
 
-    // Tooling for painting a single object to a OutputDevice. This will be needed as long
+    // Tooling for painting a single object to an OutputDevice. This will be needed as long
     // as not all painting is changed to use DrawContact objects.
     void SingleObjectPainter(OutputDevice& rOut) const;
     bool LineGeometryUsageIsNecessary() const;
@@ -539,7 +549,7 @@ public:
     // part of the model, thus not changing anything since it's only a temporary
     // helper object for interaction
     virtual bool supportsFullDrag() const;
-    virtual SdrObject* getFullDragClone() const;
+    virtual SdrObjectUniquePtr getFullDragClone() const;
 
     /// Every object must be able to create itself interactively.
     /// On MouseDown first an object is created, and its BegCreate() method
@@ -627,7 +637,7 @@ public:
     // (e.g. polygons, polylines, lines)
     // The points of those objects are selected (if necessary multiselection),
     // deleted, inserted, or as a multiselection moved or rotated...
-    // Only such objects can have PlusHandles (e.g. the weights of an Bezier curve).
+    // Only such objects can have PlusHandles (e.g. the weights of a Bezier curve).
     virtual bool IsPolyObj() const;
     virtual sal_uInt32 GetPointCount() const;
     virtual Point GetPoint(sal_uInt32 i) const;
@@ -697,9 +707,6 @@ public:
     // This is also true for SetGluePoint()... on the node.
     // On the other hand, moving/resizing an edge breaks the connection.
 
-    // is object a node?
-    virtual bool IsNode() const;
-
     // automatic glue points:
     // a node object must provide four vertex and corner positions
     // usually 0: top, 1: right, 2: bottom, 3: left
@@ -757,8 +764,8 @@ public:
     // In the case of the conversion from TextObj to PathObj,
     // both modi (bLineToArea=true/false) would be identical.
     // The methods' default implementations report "I'm unable to do this" (false/null).
-    virtual SdrObject* DoConvertToPolyObj(bool bBezier, bool bAddText) const;
-    SdrObject* ConvertToPolyObj(bool bBezier, bool bLineToArea) const;
+    virtual SdrObjectUniquePtr DoConvertToPolyObj(bool bBezier, bool bAddText) const;
+    SdrObjectUniquePtr ConvertToPolyObj(bool bBezier, bool bLineToArea) const;
 
     // convert this path object to contour object; bForceLineDash converts even
     // when there is no filled new polygon created from line-to-polygon conversion,
@@ -946,7 +953,7 @@ protected:
     tools::Rectangle ImpDragCalcRect(const SdrDragStat& rDrag) const;
 
     // for GetDragComment
-    void ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rStr) const;
+    OUString ImpGetDescriptionStr(const char* pStrCacheID) const;
 
     void ImpForcePlusData();
 
@@ -1021,8 +1028,6 @@ private:
     SdrObject( const SdrObject& ) = delete;
 };
 
-// helper for constructing std::unique_ptr for SdrObjects where a
-// deleter is needed - here, SdrObject::Free needs to be used.
 struct SVX_DLLPUBLIC SdrObjectFreeOp
 {
     void operator()(SdrObject* obj)
@@ -1030,7 +1035,6 @@ struct SVX_DLLPUBLIC SdrObjectFreeOp
         SdrObject::Free(obj);
     }
 };
-typedef std::unique_ptr< SdrObject, SdrObjectFreeOp > SdrObjectUniquePtr;
 
 struct SdrObjCreatorParams
 {

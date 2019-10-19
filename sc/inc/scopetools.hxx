@@ -11,7 +11,6 @@
 #define INCLUDED_SC_INC_SCOPETOOLS_HXX
 
 #include "scdllapi.h"
-#include <vcl/vclptr.hxx>
 
 class ScDocument;
 namespace vcl { class Window; }
@@ -64,7 +63,7 @@ class SC_DLLPUBLIC DelayFormulaGroupingSwitch
     bool const mbOldValue;
 public:
     DelayFormulaGroupingSwitch(ScDocument& rDoc, bool delay);
-    ~DelayFormulaGroupingSwitch();
+    ~DelayFormulaGroupingSwitch() COVERITY_NOEXCEPT_FALSE;
     void reset();
 };
 

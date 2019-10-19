@@ -22,7 +22,8 @@
 
 #include <tools/gen.hxx>
 
-#include <vcl/salbtype.hxx>
+#include <vcl/BitmapBuffer.hxx>
+#include <vcl/BitmapPalette.hxx>
 
 #include <quartz/salgdi.h>
 
@@ -95,6 +96,8 @@ public:
     CGImageRef      CreateWithMask( const QuartzSalBitmap& rMask, int nX, int nY, int nWidth, int nHeight ) const;
     CGImageRef      CreateColorMask( int nX, int nY, int nWidth, int nHeight, Color nMaskColor ) const;
     CGImageRef      CreateCroppedImage( int nX, int nY, int nWidth, int nHeight ) const;
+
+    void doDestroy();
 };
 
 #endif // INCLUDED_VCL_INC_QUARTZ_SALBMP_H

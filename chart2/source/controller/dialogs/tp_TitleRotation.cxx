@@ -29,9 +29,9 @@
 namespace chart
 {
 
-SchAlignmentTabPage::SchAlignmentTabPage(TabPageParent pParent,
+SchAlignmentTabPage::SchAlignmentTabPage(weld::Container* pPage, weld::DialogController* pController,
                                          const SfxItemSet& rInAttrs, bool bWithRotation)
-    : SfxTabPage(pParent, "modules/schart/ui/titlerotationtabpage.ui", "TitleRotationTabPage", &rInAttrs)
+    : SfxTabPage(pPage, pController, "modules/schart/ui/titlerotationtabpage.ui", "TitleRotationTabPage", &rInAttrs)
     , m_xFtRotate(m_xBuilder->weld_label("degreeL"))
     , m_xNfRotate(m_xBuilder->weld_spin_button("OrientDegree"))
     , m_xCbStacked(m_xBuilder->weld_check_button("stackedCB"))
@@ -69,26 +69,20 @@ IMPL_LINK_NOARG(SchAlignmentTabPage, StackedToggleHdl, weld::ToggleButton&, void
 
 SchAlignmentTabPage::~SchAlignmentTabPage()
 {
-    disposeOnce();
-}
-
-void SchAlignmentTabPage::dispose()
-{
     m_xCtrlDial.reset();
     m_xLbTextDirection.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SchAlignmentTabPage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SchAlignmentTabPage::Create(weld::Container* pPage, weld::DialogController* pController,
                                                const SfxItemSet* rInAttrs)
 {
-    return VclPtr<SchAlignmentTabPage>::Create(pParent, *rInAttrs);
+    return std::make_unique<SchAlignmentTabPage>(pPage, pController, *rInAttrs);
 }
 
-VclPtr<SfxTabPage> SchAlignmentTabPage::CreateWithoutRotation(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SchAlignmentTabPage::CreateWithoutRotation(weld::Container* pPage, weld::DialogController* pController,
                                                               const SfxItemSet* rInAttrs)
 {
-    return VclPtr<SchAlignmentTabPage>::Create(pParent, *rInAttrs, false);
+    return std::make_unique<SchAlignmentTabPage>(pPage, pController, *rInAttrs, false);
 }
 
 bool SchAlignmentTabPage::FillItemSet(SfxItemSet* rOutAttrs)

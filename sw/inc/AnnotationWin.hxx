@@ -70,12 +70,12 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
         void    SetPostItText();
         void    Delete();
         void    GotoPos();
-        const SwPostItField* GetPostItField() { return mpField; }
+        const SwPostItField* GetPostItField() const { return mpField; }
         void UpdateText(const OUString& aText);
 
-        OUString GetAuthor();
-        Date     GetDate();
-        tools::Time GetTime();
+        OUString GetAuthor() const;
+        Date     GetDate() const;
+        tools::Time GetTime() const;
 
         sal_uInt32 MoveCaret();
 
@@ -83,7 +83,7 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
         sal_uInt32 CalcParent();
         void       InitAnswer(OutlinerParaObject const * pText);
 
-        bool IsProtected();
+        bool IsProtected() const;
 
         void SetSize( const Size& rNewSize );
         void SetPosSizePixelRect( long nX,
@@ -97,10 +97,10 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
         void CheckMetaText();
 
         Point const & GetAnchorPos() { return mAnchorRect.Pos(); }
-        const SwRect& GetAnchorRect() { return mAnchorRect; }
-        bool IsAnchorRectChanged() { return mbAnchorRectChanged; }
+        const SwRect& GetAnchorRect() const { return mAnchorRect; }
+        bool IsAnchorRectChanged() const { return mbAnchorRectChanged; }
         void ResetAnchorRectChanged() { mbAnchorRectChanged = false; }
-        const std::vector<basegfx::B2DRange>& GetAnnotationTextRanges() { return maAnnotationTextRanges; }
+        const std::vector<basegfx::B2DRange>& GetAnnotationTextRanges() const { return maAnnotationTextRanges; }
         SwEditWin& EditWin();
         SwSidebarItem& GetSidebarItem() { return mrSidebarItem; }
 
@@ -124,8 +124,8 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
         void            SetScrollbar();
 
         void            SetVirtualPosSize( const Point& aPoint, const Size& aSize);
-        const Point     VirtualPos()    { return mPosSize.TopLeft(); }
-        const Size      VirtualSize()   { return mPosSize.GetSize(); }
+        Point           VirtualPos()    { return mPosSize.TopLeft(); }
+        Size            VirtualSize()   { return mPosSize.GetSize(); }
 
         void            ShowAnchorOnly(const Point &aPoint);
         void            ShowNote();
@@ -136,7 +136,7 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
 
         void            SetSidebarPosition(sw::sidebarwindows::SidebarPosition eSidebarPosition);
         void            SetReadonly(bool bSet);
-        bool            IsReadOnly()
+        bool            IsReadOnly() const
         {
             return mbReadonly;
         }
@@ -149,14 +149,15 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
 
         void            SetViewState(::sw::sidebarwindows::ViewState bViewState);
 
-        bool            IsFollow() { return mbIsFollow; }
+        bool            IsFollow() const { return mbIsFollow; }
         void            SetFollow( bool bIsFollow) { mbIsFollow = bIsFollow; };
 
         sal_Int32   GetMetaHeight();
-        sal_Int32   GetMinimumSizeWithMeta();
-        sal_Int32   GetMinimumSizeWithoutMeta();
-        sal_Int32   GetMetaButtonAreaWidth();
-        sal_Int32   GetScrollbarWidth();
+        sal_Int32   GetMinimumSizeWithMeta() const;
+        sal_Int32   GetMinimumSizeWithoutMeta() const;
+        sal_Int32   GetMetaButtonAreaWidth() const;
+        sal_Int32   GetScrollbarWidth() const;
+        sal_Int32   GetNumFields();
 
         void    SetSpellChecking();
 
@@ -167,8 +168,8 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
 
         void SetChangeTracking( const SwPostItHelper::SwLayoutStatus aStatus,
                                 const Color& aColor);
-        SwPostItHelper::SwLayoutStatus GetLayoutStatus() { return mLayoutStatus; }
-        const Color& GetChangeColor() { return mChangeColor; }
+        SwPostItHelper::SwLayoutStatus GetLayoutStatus() const { return mLayoutStatus; }
+        const Color& GetChangeColor() const { return mChangeColor; }
 
         DECL_LINK( WindowEventListener, VclWindowEvent&, void );
         bool IsMouseOverSidebarWin() const { return mbMouseOver; }
@@ -189,6 +190,17 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
         /// Allows adjusting the point or mark of the selection to a document coordinate.
         void SetCursorLogicPosition(const Point& rPosition, bool bPoint, bool bClearMark);
 
+        // Various access functions for 'resolved' status
+        void SetResolved(bool resolved);
+        void ToggleResolved();
+        void ToggleResolvedForThread();
+        bool IsResolved() const;
+        bool IsThreadResolved();
+
+        /// Find the first annotation for the thread which this annotation is in.
+        /// This may be the same annotation as this one.
+        SwAnnotationWin*   GetTopReplyNote();
+
     private:
         VclPtr<MenuButton> CreateMenuButton();
         virtual void    LoseFocus() override;
@@ -203,8 +215,8 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
         DECL_LINK(DeleteHdl, void*, void);
 
         sal_uInt32 CountFollowing();
-        SwAnnotationWin*   GetTopReplyNote();
-        SvxLanguageItem GetLanguage();
+
+        SvxLanguageItem GetLanguage() const;
 
         VclBuilder      maBuilder;
         SwPostItMgr&    mrMgr;
@@ -219,6 +231,7 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
         VclPtr<ScrollBar>      mpVScrollbar;
         VclPtr<Edit>           mpMetadataAuthor;
         VclPtr<Edit>           mpMetadataDate;
+        VclPtr<Edit>           mpMetadataResolved;
         VclPtr<MenuButton>     mpMenuButton;
 
         std::unique_ptr<sw::sidebarwindows::AnchorOverlayObject> mpAnchor;
@@ -236,6 +249,8 @@ class SAL_DLLPUBLIC_RTTI SwAnnotationWin : public vcl::Window
         SwRect          mAnchorRect;
         long            mPageBorder;
         bool            mbAnchorRectChanged;
+
+        bool            mbResolvedStateUpdated;
 
         std::vector<basegfx::B2DRange> maAnnotationTextRanges;
 

@@ -852,9 +852,7 @@ ActivitySharedPtr SlideShowImpl::createSlideTransition(
     // reached final size
     maEventQueue.addEvent(
         makeEvent( [pTransition] () {
-                        pTransition->prefetch(
-                            AnimatableShapeSharedPtr(),
-                            ShapeAttributeLayerSharedPtr()); },
+                        pTransition->prefetch(); },
             "Animation::prefetch"));
 
     return ActivitySharedPtr(
@@ -1356,7 +1354,7 @@ sal_Bool SlideShowImpl::addView(
                                               slideSize.getY() ) );
     }
 
-    // clear view area (since its newly added,
+    // clear view area (since it's newly added,
     // we need a clean slate)
     pView->clearAll();
 
@@ -1410,20 +1408,19 @@ void SlideShowImpl::registerUserPaintPolygons( const uno::Reference< lang::XMult
     uno::Reference< drawing::XLayerManager > xLayerManager(xNameAccess, uno::UNO_QUERY);
     // create a layer and set its properties
     uno::Reference< drawing::XLayer > xDrawnInSlideshow = xLayerManager->insertNewByIndex(xLayerManager->getCount());
-    uno::Reference< beans::XPropertySet > xLayerPropSet(xDrawnInSlideshow, uno::UNO_QUERY);
 
     //Layer Name which enables to catch annotations
     OUString layerName = "DrawnInSlideshow";
     uno::Any aPropLayer;
 
     aPropLayer <<= layerName;
-    xLayerPropSet->setPropertyValue("Name", aPropLayer);
+    xDrawnInSlideshow->setPropertyValue("Name", aPropLayer);
 
     aPropLayer <<= true;
-    xLayerPropSet->setPropertyValue("IsVisible", aPropLayer);
+    xDrawnInSlideshow->setPropertyValue("IsVisible", aPropLayer);
 
     aPropLayer <<= false;
-    xLayerPropSet->setPropertyValue("IsLocked", aPropLayer);
+    xDrawnInSlideshow->setPropertyValue("IsLocked", aPropLayer);
 
     //Register polygons for each slide
     for( const auto& rPoly : maPolygons )
@@ -1544,8 +1541,6 @@ sal_Bool SlideShowImpl::setProperty( beans::PropertyValue const& rProperty )
             // disable user paint
             maUserPaintColor.reset();
             maEventMultiplexer.notifyUserPaintDisabled();
-            if( mpCurrentSlide )
-                mpCurrentSlide->disablePaintOverlay();
         }
 
         resetCursor();
@@ -1833,8 +1828,7 @@ void SlideShowImpl::addShapeEventListener(
     if( aIter->second.get() )
         aIter->second->addInterface( xListener );
 
-    maEventMultiplexer.notifyShapeListenerAdded(xListener,
-                                                xShape);
+    maEventMultiplexer.notifyShapeListenerAdded(xShape);
 }
 
 void SlideShowImpl::removeShapeEventListener(
@@ -1860,8 +1854,7 @@ void SlideShowImpl::removeShapeEventListener(
         aIter->second->removeInterface( xListener );
     }
 
-    maEventMultiplexer.notifyShapeListenerRemoved(xListener,
-                                                  xShape);
+    maEventMultiplexer.notifyShapeListenerRemoved(xShape);
 }
 
 void SlideShowImpl::setShapeCursor(
@@ -2079,7 +2072,7 @@ sal_Bool SlideShowImpl::update( double & nNextTimeout )
                 }
                 catch( uno::Exception& )
                 {
-                    SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
+                    TOOLS_WARN_EXCEPTION( "slideshow", "" );
                 }
             }
 

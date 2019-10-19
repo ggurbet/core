@@ -21,7 +21,6 @@
 
 #include <com/sun/star/uno/Any.hxx>
 #include <rtl/ref.hxx>
-#include <rtl/ustring.h>
 #include <rtl/ustring.hxx>
 
 #include "localizedvaluenode.hxx"
@@ -42,7 +41,7 @@ rtl::Reference< Node > LocalizedValueNode::clone(bool) const {
 }
 
 OUString LocalizedValueNode::getTemplateName() const {
-    return OUString("*");
+    return "*";
 }
 
 

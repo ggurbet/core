@@ -158,7 +158,7 @@ void ClrContourCache()
 }
 
 // #i68520#
-const SwRect SwContourCache::CalcBoundRect( const SwAnchoredObject* pAnchoredObj,
+SwRect SwContourCache::CalcBoundRect( const SwAnchoredObject* pAnchoredObj,
                                             const SwRect &rLine,
                                             const SwTextFrame* pFrame,
                                             const long nXPos,
@@ -206,7 +206,7 @@ const SwRect SwContourCache::CalcBoundRect( const SwAnchoredObject* pAnchoredObj
     return aRet;
 }
 
-const SwRect SwContourCache::ContourRect( const SwFormat* pFormat,
+SwRect SwContourCache::ContourRect( const SwFormat* pFormat,
     const SdrObject* pObj, const SwTextFrame* pFrame, const SwRect &rLine,
     const long nXPos, const bool bRight )
 {
@@ -999,6 +999,24 @@ bool SwTextFly::ForEach( const SwRect &rRect, SwRect* pRect, bool bAvoid ) const
 {
     SwSwapIfSwapped swap(const_cast<SwTextFrame *>(m_pCurrFrame));
 
+    // Optimization
+    SwRectFnSet aRectFnSet(m_pCurrFrame);
+
+    // tdf#127235 stop if the area is larger than the page
+    if( aRectFnSet.GetHeight(pPage->getFrameArea()) < aRectFnSet.GetHeight(rRect))
+    {
+        // get the doc model description
+        const SwPageDesc* pPageDesc = pPage->GetPageDesc();
+
+        // if there is no next page style or it is the same as the current
+        // => stop trying to place the frame (it would end in an infinite loop)
+        if( pPageDesc &&
+            ( !pPageDesc->GetFollow() || pPageDesc->GetFollow() == pPageDesc) )
+        {
+            return false;
+        }
+    }
+
     bool bRet = false;
     // #i68520#
     const SwAnchoredObjList::size_type nCount( bOn ? GetAnchoredObjList()->size() : 0 );
@@ -1011,10 +1029,9 @@ bool SwTextFly::ForEach( const SwRect &rRect, SwRect* pRect, bool bAvoid ) const
 
             SwRect aRect( pAnchoredObj->GetObjRectWithSpaces() );
 
-            // Optimization
-            SwRectFnSet aRectFnSet(m_pCurrFrame);
             if( aRectFnSet.GetLeft(aRect) > aRectFnSet.GetRight(rRect) )
                 break;
+
             // #i68520#
             if ( mpCurrAnchoredObj != pAnchoredObj && aRect.IsOver( rRect ) )
             {

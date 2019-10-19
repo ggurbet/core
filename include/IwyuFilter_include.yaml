@@ -279,6 +279,10 @@ blacklist:
     include/vcl/FilterConfigItem.hxx:
     # Needed on Windows with --disable-pch
     - com/sun/star/beans/PropertyValue.hpp
+    include/vcl/builderfactory.hxx:
+    # Needed for macro #define
+    - vcl/builder.hxx
+    - vcl/vclptr.hxx
     include/vcl/decoview.hxx:
     # Full definition needed for VclPtr
     - vcl/outdev.hxx
@@ -460,6 +464,7 @@ blacklist:
     include/toolkit/helper/macros.hxx:
     # Needed for macros
     - comphelper/servicehelper.hxx
+    - tools/diagnose_ex.h
     include/xmloff/XMLEmbeddedObjectExportFilter.hxx:
     # base class has to be a complete type
     - com/sun/star/lang/XInitialization.hpp
@@ -1047,3 +1052,6 @@ blacklist:
     include/svx/svdtext.hxx:
     # TODO too many replacements would be needed
     - tools/weakbase.hxx
+    include/oox/helper/helper.hxx:
+    # OSL_BIGENDIAN is being checked
+    - osl/endian.h

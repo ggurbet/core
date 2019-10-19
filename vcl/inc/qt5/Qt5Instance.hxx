@@ -135,17 +135,17 @@ public:
     virtual void AddToRecentDocumentList(const OUString& rFileUrl, const OUString& rMimeType,
                                          const OUString& rDocumentService) override;
 
-    virtual GenPspGraphics* CreatePrintGraphics() override;
+    virtual std::unique_ptr<GenPspGraphics> CreatePrintGraphics() override;
 
     virtual bool IsMainThread() const override;
 
     virtual void TriggerUserEventProcessing() override;
     virtual void ProcessEvent(SalUserEvent aEvent) override;
 
-    virtual css::uno::Reference<css::ui::dialogs::XFilePicker2>
+    bool hasNativeFileSelection() const override { return true; }
+    css::uno::Reference<css::ui::dialogs::XFilePicker2>
     createFilePicker(const css::uno::Reference<css::uno::XComponentContext>&) override;
-
-    virtual css::uno::Reference<css::ui::dialogs::XFolderPicker2>
+    css::uno::Reference<css::ui::dialogs::XFolderPicker2>
     createFolderPicker(const css::uno::Reference<css::uno::XComponentContext>&) override;
 
     virtual css::uno::Reference<css::uno::XInterface>

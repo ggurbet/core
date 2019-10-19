@@ -67,7 +67,7 @@ public:
 
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.framework.TaskCreator");
+        return "com.sun.star.comp.framework.TaskCreator";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -197,8 +197,8 @@ css::uno::Reference< css::uno::XInterface > SAL_CALL TaskCreatorService::createI
     if (bEnableTitleBarUpdate)
         implts_establishTitleBarUpdate(xFrame);
 
-    // Make it visible directly here ...
-    // if its required from outside.
+    // Make it visible directly here...
+    // if it's required from outside.
     if (bVisible)
         xContainerWindow->setVisible(bVisible);
 

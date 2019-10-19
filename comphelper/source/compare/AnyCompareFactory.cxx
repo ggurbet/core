@@ -108,7 +108,7 @@ void SAL_CALL AnyCompareFactory::initialize( const Sequence< Any >& aArguments )
 
 OUString SAL_CALL AnyCompareFactory::getImplementationName(  )
 {
-    return OUString( "AnyCompareFactory" );
+    return "AnyCompareFactory";
 }
 
 sal_Bool SAL_CALL AnyCompareFactory::supportsService( const OUString& ServiceName )
@@ -118,9 +118,7 @@ sal_Bool SAL_CALL AnyCompareFactory::supportsService( const OUString& ServiceNam
 
 Sequence< OUString > SAL_CALL AnyCompareFactory::getSupportedServiceNames(  )
 {
-    const OUString aServiceName( "com.sun.star.ucb.AnyCompareFactory" );
-    const Sequence< OUString > aSeq( &aServiceName, 1 );
-    return aSeq;
+    return { "com.sun.star.ucb.AnyCompareFactory" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface *

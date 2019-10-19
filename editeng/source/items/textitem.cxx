@@ -965,7 +965,7 @@ bool SvxTextLineItem::GetPresentation
 {
     rText = GetValueTextByPos( GetValue() );
     if( !mColor.GetTransparency() )
-        rText = rText + OUString(cpDelim) + ::GetColorString( mColor );
+        rText += cpDelim + ::GetColorString( mColor );
     return true;
 }
 
@@ -1040,8 +1040,7 @@ bool SvxTextLineItem::PutValue( const uno::Any& rVal, sal_uInt8 nMemberId )
 
 bool SvxTextLineItem::operator==( const SfxPoolItem& rItem ) const
 {
-    assert(SfxPoolItem::operator==(rItem));
-    return SfxEnumItem::operator==( static_cast<const SfxEnumItem<FontLineStyle>&>(rItem) ) &&
+    return SfxEnumItem::operator==( rItem ) &&
            GetColor() == static_cast<const SvxTextLineItem&>(rItem).GetColor();
 }
 
@@ -1541,8 +1540,7 @@ bool SvxKerningItem::GetPresentation
 
             if (pId)
                 rText += EditResId(pId);
-            rText = rText +
-                    GetMetricText( static_cast<long>(GetValue()), eCoreUnit, MapUnit::MapPoint, &rIntl ) +
+            rText += GetMetricText( static_cast<long>(GetValue()), eCoreUnit, MapUnit::MapPoint, &rIntl ) +
                     " " + EditResId(GetMetricId(MapUnit::MapPoint));
             return true;
         }
@@ -1722,7 +1720,7 @@ bool SvxEscapementItem::GetPresentation
         if( DFLT_ESC_AUTO_SUPER == nEsc || DFLT_ESC_AUTO_SUB == nEsc )
             rText += EditResId(RID_SVXITEMS_ESCAPEMENT_AUTO);
         else
-            rText = rText + OUString::number( nEsc ) + "%";
+            rText += OUString::number( nEsc ) + "%";
     }
     return true;
 }
@@ -2165,9 +2163,9 @@ bool SvxTwoLinesItem::GetPresentation( SfxItemPresentation /*ePres*/,
     {
         rText = EditResId( RID_SVXITEMS_TWOLINES );
         if( GetStartBracket() )
-            rText = OUStringLiteral1(GetStartBracket()) + rText;
+            rText = OUStringChar(GetStartBracket()) + rText;
         if( GetEndBracket() )
-            rText += OUStringLiteral1(GetEndBracket());
+            rText += OUStringChar(GetEndBracket());
     }
     return true;
 }
@@ -2239,12 +2237,6 @@ bool SvxTextRotateItem::PutValue(const css::uno::Any& rVal, sal_uInt8 nMemberId)
         bRet = false;
     }
     return bRet;
-}
-
-bool SvxTextRotateItem::operator==(const SfxPoolItem& rItem) const
-{
-    assert(SfxPoolItem::operator==(rItem));
-    return SfxUInt16Item::operator==(rItem);
 }
 
 void SvxTextRotateItem::dumpAsXml(xmlTextWriterPtr pWriter) const

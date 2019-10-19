@@ -19,8 +19,10 @@
 
 #include <sal/config.h>
 
+#include <cassert>
 #include <cstddef>
 
+#include <rtl/character.hxx>
 #include <rtl/textcvt.h>
 #include <sal/types.h>
 
@@ -58,6 +60,9 @@ sal_Size rtl_textenc_convertSingleByteToBmpUnicode(
                     &infoFlags))
         {
         case sal::detail::textenc::BAD_INPUT_STOP:
+            if ((flags & RTL_TEXTTOUNICODE_FLAGS_FLUSH) == 0) {
+                ++converted;
+            }
             break;
 
         case sal::detail::textenc::BAD_INPUT_CONTINUE:
@@ -110,16 +115,18 @@ sal_Size rtl_textenc_convertBmpUnicodeToSingleByte(
                 highSurrogate = static_cast< sal_Unicode >(c);
                 continue;
             }
+            else if (ImplIsLowSurrogate(c))
+            {
+                undefined = false;
+                goto bad_input;
+            }
         } else if (ImplIsLowSurrogate(c)) {
             c = ImplCombineSurrogates(highSurrogate, c);
         } else {
             undefined = false;
             goto bad_input;
         }
-        if (ImplIsLowSurrogate(c) || ImplIsNoncharacter(c)) {
-            undefined = false;
-            goto bad_input;
-        }
+        assert(rtl::isUnicodeScalarValue(c));
         // Linearly searching through the ranges if probably fastest, assuming
         // that most converted characters belong to the ASCII subset:
         for (std::size_t i = 0; i < entries; ++i) {

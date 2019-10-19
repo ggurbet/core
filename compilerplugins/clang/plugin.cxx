@@ -216,7 +216,7 @@ const FunctionDecl* Plugin::getParentFunctionDecl( const Stmt* stmt )
     return nullptr;
 }
 
-StringRef Plugin::getFileNameOfSpellingLoc(SourceLocation spellingLocation) const
+StringRef Plugin::getFilenameOfLocation(SourceLocation spellingLocation) const
 {
     // prevent crashes when running the global-analysis plugins
     if (!spellingLocation.isValid())
@@ -244,13 +244,13 @@ StringRef Plugin::getFileNameOfSpellingLoc(SourceLocation spellingLocation) cons
         assert(fn.startswith("/") || fn == "<stdin>");
 #endif
         s_Mode = fn == "<stdin>" ? STDIN : GOOD;
-        return getFileNameOfSpellingLoc(spellingLocation);
+        return getFilenameOfLocation(spellingLocation);
     }
 }
 
 bool Plugin::isInUnoIncludeFile(SourceLocation spellingLocation) const
 {
-    StringRef name{ getFileNameOfSpellingLoc(spellingLocation) };
+    StringRef name{ getFilenameOfLocation(spellingLocation) };
     return compiler.getSourceManager().isInMainFile(spellingLocation)
         ? (isSamePathname(name, SRCDIR "/cppu/source/cppu/compat.cxx")
            || isSamePathname(name, SRCDIR "/cppuhelper/source/compat.cxx")
@@ -621,8 +621,7 @@ bool RewritePlugin::wouldRewriteWorkdir(SourceLocation loc)
         return false;
     }
     return
-        compiler.getSourceManager().getFilename(
-            compiler.getSourceManager().getSpellingLoc(loc))
+        getFilenameOfLocation(compiler.getSourceManager().getSpellingLoc(loc))
         .startswith(WORKDIR "/");
 }
 
@@ -685,6 +684,67 @@ bool isSamePathname(StringRef pathname, StringRef other)
     return checkPathname(
         pathname, other, [](StringRef p, StringRef a) { return p == a; });
 }
+
+bool hasCLanguageLinkageType(FunctionDecl const * decl) {
+    assert(decl != nullptr);
+    if (decl->isExternC()) {
+        return true;
+    }
+    if (decl->isInExternCContext()) {
+        return true;
+    }
+    return false;
+}
+
+static const CXXRecordDecl* stripTypeSugar(QualType qt)
+{
+    const clang::Type* t = qt.getTypePtr();
+    while (auto elaboratedType = dyn_cast<ElaboratedType>(t))
+        t = elaboratedType->desugar().getTypePtr();
+    auto recordType = dyn_cast<RecordType>(t);
+    if (!recordType)
+        return nullptr;
+    return dyn_cast_or_null<CXXRecordDecl>(recordType->getDecl());
+}
+
+int derivedFromCount(const CXXRecordDecl* subclassRecordDecl, const CXXRecordDecl* baseclassRecordDecl)
+{
+    if (!subclassRecordDecl || !baseclassRecordDecl)
+        return 0;
+    int derivedCount = 0;
+    if (subclassRecordDecl == baseclassRecordDecl)
+        derivedCount++;
+    if (!subclassRecordDecl->hasDefinition())
+        return derivedCount;
+    for (auto it = subclassRecordDecl->bases_begin(); it != subclassRecordDecl->bases_end(); ++it)
+    {
+        derivedCount += derivedFromCount(stripTypeSugar(it->getType()), baseclassRecordDecl);
+        // short-circuit, we only care about 0,1,2
+        if (derivedCount > 1)
+            return derivedCount;
+    }
+    for (auto it = subclassRecordDecl->vbases_begin(); it != subclassRecordDecl->vbases_end(); ++it)
+    {
+        derivedCount += derivedFromCount(stripTypeSugar(it->getType()), baseclassRecordDecl);
+        // short-circuit, we only care about 0,1,2
+        if (derivedCount > 1)
+            return derivedCount;
+    }
+    return derivedCount;
+}
+
+int derivedFromCount(QualType subclassQt, QualType baseclassQt)
+{
+    auto baseclassRecordDecl = stripTypeSugar(baseclassQt);
+    if (!baseclassRecordDecl)
+        return 0;
+    auto subclassRecordDecl = stripTypeSugar(subclassQt);
+    if (!subclassRecordDecl)
+        return 0;
+
+    return derivedFromCount(subclassRecordDecl, baseclassRecordDecl);
+}
+
 
 } // namespace
 

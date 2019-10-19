@@ -8,10 +8,7 @@
  *
  */
 
-#include <cppunit/TestCase.h>
 #include <cppunit/TestFixture.h>
-#include <cppunit/TestSuite.h>
-#include <cppunit/extensions/HelperMacros.h>
 #include <cppunit/plugin/TestPlugIn.h>
 
 #include <unotest/bootstrapfixturebase.hxx>
@@ -26,7 +23,7 @@ OString extractFromStream(SvMemoryStream& rStream)
     rStream.WriteChar('\0');
     rStream.Flush();
     rStream.Seek(STREAM_SEEK_TO_BEGIN);
-    return OString(static_cast<const sal_Char*>(rStream.GetData()));
+    return static_cast<const sal_Char*>(rStream.GetData());
 }
 
 }

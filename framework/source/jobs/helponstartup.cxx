@@ -84,9 +84,8 @@ DEFINE_INIT_SERVICE(HelpOnStartup,
                         xComponent.set(m_xModuleManager, css::uno::UNO_QUERY);
                         if (xComponent.is())
                             xComponent->addEventListener(static_cast< css::lang::XEventListener* >(this));
-                        xComponent.set(m_xDesktop, css::uno::UNO_QUERY);
-                        if (xComponent.is())
-                            xComponent->addEventListener(static_cast< css::lang::XEventListener* >(this));
+                        if (m_xDesktop.is())
+                            m_xDesktop->addEventListener(static_cast< css::lang::XEventListener* >(this));
                         xComponent.set(m_xConfig, css::uno::UNO_QUERY);
                         if (xComponent.is())
                             xComponent->addEventListener(static_cast< css::lang::XEventListener* >(this));
@@ -335,14 +334,7 @@ OUString HelpOnStartup::ist_createHelpURL(const OUString& sBaseURL,
                                                  const OUString& sLocale ,
                                                  const OUString& sSystem )
 {
-    OUStringBuffer sHelpURL(256);
-    sHelpURL.append     (sBaseURL    );
-    sHelpURL.append("?Language=");
-    sHelpURL.append     (sLocale     );
-    sHelpURL.append("&System="  );
-    sHelpURL.append     (sSystem     );
-
-    return sHelpURL.makeStringAndClear();
+    return sBaseURL + "?Language=" + sLocale + "&System=" + sSystem;
 }
 
 } // namespace framework

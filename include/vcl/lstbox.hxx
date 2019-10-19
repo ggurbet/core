@@ -74,6 +74,7 @@ class ImplBtn;
 class ImplWin;
 class ImplListBoxWindow;
 
+/// A widget used to choose from a list of items and which has no entry.
 class VCL_DLLPUBLIC ListBox : public Control
 {
 private:
@@ -281,6 +282,8 @@ public:
     static sal_Int32 NaturalSortCompare(const OUString &rA, const OUString &rB);
 
     virtual FactoryFunction GetUITestFactory() const override;
+
+    virtual boost::property_tree::ptree DumpAsPropertyTree() override;
 };
 
 class VCL_DLLPUBLIC MultiListBox : public ListBox

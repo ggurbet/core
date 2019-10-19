@@ -262,10 +262,11 @@ static sheet::DataPilotFieldOrientation lcl_GetDataGetOrientation( const uno::Re
     sheet::DataPilotFieldOrientation nRet = sheet::DataPilotFieldOrientation_HIDDEN;
     if ( xSource.is() )
     {
-        uno::Reference<container::XNameAccess> xDimNames = xSource->getDimensions();
-        for (const OUString& rDimName: xDimNames->getElementNames())
+        uno::Reference<container::XNameAccess> xDimNameAccess = xSource->getDimensions();
+        const uno::Sequence<OUString> aDimNames = xDimNameAccess->getElementNames();
+        for (const OUString& rDimName : aDimNames)
         {
-            uno::Reference<beans::XPropertySet> xDimProp(xDimNames->getByName(rDimName),
+            uno::Reference<beans::XPropertySet> xDimProp(xDimNameAccess->getByName(rDimName),
                                                          uno::UNO_QUERY);
             if ( xDimProp.is() )
             {
@@ -1174,11 +1175,9 @@ bool ScDPObject::IsDimNameInUse(const OUString& rName) const
         return false;
 
     Reference<container::XNameAccess> xDims = xSource->getDimensions();
-    Sequence<OUString> aDimNames = xDims->getElementNames();
-    sal_Int32 n = aDimNames.getLength();
-    for (sal_Int32 i = 0; i < n; ++i)
+    const Sequence<OUString> aDimNames = xDims->getElementNames();
+    for (const OUString& rDimName : aDimNames)
     {
-        const OUString& rDimName = aDimNames[i];
         if (rDimName.equalsIgnoreAsciiCase(rName))
             return true;
 
@@ -2121,10 +2120,8 @@ static PivotFunc lcl_FirstSubTotal( const uno::Reference<beans::XPropertySet>& x
                 if ( aSubAny >>= aSeq )
                 {
                     PivotFunc nMask = PivotFunc::NONE;
-                    const sal_Int16* pArray = aSeq.getConstArray();
-                    long nCount = aSeq.getLength();
-                    for (long i=0; i<nCount; i++)
-                        nMask |= ScDataPilotConversion::FunctionBit(pArray[i]);
+                    for (const sal_Int16 nElem : aSeq)
+                        nMask |= ScDataPilotConversion::FunctionBit(nElem);
                     return nMask;
                 }
             }
@@ -2696,7 +2693,7 @@ void ScDPObject::ConvertOrientation(
         pDim->RemoveSubtotalName();
         if (nDimIndex < rLabels.size())
         {
-            const ScDPLabelData& rLabel = *rLabels[nDimIndex].get();
+            const ScDPLabelData& rLabel = *rLabels[nDimIndex];
             if (!rLabel.maLayoutName.isEmpty())
                 pDim->SetLayoutName(rLabel.maLayoutName);
             if (!rLabel.maSubtotalName.isEmpty())
@@ -3654,12 +3651,12 @@ void ScDPCollection::WriteRefsTo( ScDPCollection& r ) const
         OSL_ENSURE( nSrcSize >= nDestSize, "WriteRefsTo: missing entries in document" );
         for (size_t nSrcPos = 0; nSrcPos < nSrcSize; ++nSrcPos)
         {
-            const ScDPObject& rSrcObj = *maTables[nSrcPos].get();
+            const ScDPObject& rSrcObj = *maTables[nSrcPos];
             const OUString& aName = rSrcObj.GetName();
             bool bFound = false;
             for (size_t nDestPos = 0; nDestPos < nDestSize && !bFound; ++nDestPos)
             {
-                ScDPObject& rDestObj = *r.maTables[nDestPos].get();
+                ScDPObject& rDestObj = *r.maTables[nDestPos];
                 if (rDestObj.GetName() == aName)
                 {
                     rSrcObj.WriteRefsTo(rDestObj);     // found object, copy refs
@@ -3684,12 +3681,12 @@ size_t ScDPCollection::GetCount() const
 
 ScDPObject& ScDPCollection::operator [](size_t nIndex)
 {
-    return *maTables[nIndex].get();
+    return *maTables[nIndex];
 }
 
 const ScDPObject& ScDPCollection::operator [](size_t nIndex) const
 {
-    return *maTables[nIndex].get();
+    return *maTables[nIndex];
 }
 
 ScDPObject* ScDPCollection::GetByName(const OUString& rName) const

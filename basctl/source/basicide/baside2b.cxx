@@ -235,7 +235,7 @@ EditorWindow::EditorWindow (vcl::Window* pParent, ModulWindow* pModulWindow) :
     bDelayHighlight(true),
     pCodeCompleteWnd(VclPtr<CodeCompleteWindow>::Create(this))
 {
-    SetBackground(Wallpaper(rModulWindow.GetLayout().GetBackgroundColor()));
+    SetBackground(Wallpaper(rModulWindow.GetLayout().GetSyntaxBackgroundColor()));
     SetPointer( PointerStyle::Text );
     SetHelpId( HID_BASICIDE_EDITORWINDOW );
 
@@ -675,7 +675,7 @@ void EditorWindow::HandleAutoCorrect()
     }
 }
 
-TextSelection EditorWindow::GetLastHighlightPortionTextSelection()
+TextSelection EditorWindow::GetLastHighlightPortionTextSelection() const
 {//creates a text selection from the highlight portion on the cursor
     const sal_uInt32 nLine = GetEditView()->GetSelection().GetStart().GetPara();
     const sal_Int32 nIndex = GetEditView()->GetSelection().GetStart().GetIndex();

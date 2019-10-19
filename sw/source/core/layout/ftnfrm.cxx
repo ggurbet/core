@@ -37,6 +37,7 @@
 #include <pam.hxx>
 #include <ndtxt.hxx>
 #include <sal/log.hxx>
+#include <IDocumentSettingAccess.hxx>
 
 #define ENDNOTE 0x80000000
 
@@ -1144,7 +1145,7 @@ void SwFootnoteBossFrame::ResetFootnote( const SwFootnoteFrame *pCheck )
                 pFootnote = pFootnote->GetMaster();
             if ( pFootnote != pCheck )
             {
-                while ( pFootnote )
+                while (pFootnote && !pFootnote->IsDeleteForbidden())
                 {
                     SwFootnoteFrame *pNxt = pFootnote->GetFollow();
                     pFootnote->Cut();
@@ -1431,9 +1432,11 @@ void SwFootnoteBossFrame::AppendFootnote( SwContentFrame *pRef, SwTextFootnote *
     if ( pAttr->GetFootnote().IsEndNote() )
     {
         bEnd = true;
+        const IDocumentSettingAccess& rSettings = *pAttr->GetTextNode().getIDocumentSettingAccess();
         if( GetUpper()->IsSctFrame() &&
             static_cast<SwSectionFrame*>(GetUpper())->IsEndnAtEnd() )
         {
+            // Endnotes at the end of the section.
             SwFrame* pLast =
                 static_cast<SwSectionFrame*>(GetUpper())->FindLastContent( SwFindMode::EndNote );
             if( pLast )
@@ -1442,8 +1445,15 @@ void SwFootnoteBossFrame::AppendFootnote( SwContentFrame *pRef, SwTextFootnote *
                 pPage = pBoss->FindPageFrame();
             }
         }
+        else if (rSettings.get(DocumentSettingId::CONTINUOUS_ENDNOTES))
+        {
+            // Endnotes at the end of the document.
+            pBoss = getRootFrame()->GetLastPage();
+            pPage = pBoss->FindPageFrame();
+        }
         else
         {
+            // Endnotes on a separate page.
             while ( pPage->GetNext() && !pPage->IsEndNotePage() )
             {
                 pPage = static_cast<SwPageFrame*>(pPage->GetNext());
@@ -2264,11 +2274,14 @@ void SwFootnoteBossFrame::RearrangeFootnotes( const SwTwips nDeadLine, const boo
                     // #i49383# - format anchored objects
                     if ( pCnt->IsTextFrame() && pCnt->isFrameAreaDefinitionValid() )
                     {
+                        SwFrameDeleteGuard aDeleteGuard(pFootnote);
                         if ( !SwObjectFormatter::FormatObjsAtFrame( *pCnt,
                                                                   *(pCnt->FindPageFrame()) ) )
                         {
                             // restart format with first content
-                            pCnt = pFootnote->ContainsAny();
+                            pCnt = pFootnote ? pFootnote->ContainsAny() : nullptr;
+                            if (!pCnt)
+                                bMore = false;
                             continue;
                         }
                     }
@@ -2284,6 +2297,8 @@ void SwFootnoteBossFrame::RearrangeFootnotes( const SwTwips nDeadLine, const boo
                             pLastFootnoteFrame = nullptr;
                             pFootnoteFrame->Cut();
                             SwFrame::DestroyFrame(pFootnoteFrame);
+                            if (pFootnote == pFootnoteFrame)
+                                pFootnote = nullptr;
                         }
                     }
                 }
@@ -2677,6 +2692,7 @@ bool SwLayoutFrame::MoveLowerFootnotes( SwContentFrame *pStart, SwFootnoteBossFr
             pNewBoss->MoveFootnotes_( aFootnoteArr, true );
         if( pFootnoteArr )
         {
+            assert(pNewChief);
             static_cast<SwFootnoteBossFrame*>(pNewChief)->MoveFootnotes_( *pFootnoteArr, true );
             pFootnoteArr.reset();
         }
@@ -2751,7 +2767,7 @@ bool SwContentFrame::MoveFootnoteCntFwd( bool bMakePage, SwFootnoteBossFrame *pO
         // then move the content inside of it.
         // If it is a container or the reference differs, create a new footnote and add
         // it into the container.
-        // Create also a SectionFrame if currently in a area inside a footnote.
+        // Create also a SectionFrame if currently in an area inside a footnote.
         SwFootnoteFrame* pTmpFootnote = pNewUpper->IsFootnoteFrame() ? static_cast<SwFootnoteFrame*>(pNewUpper) : nullptr;
         if( !pTmpFootnote )
         {

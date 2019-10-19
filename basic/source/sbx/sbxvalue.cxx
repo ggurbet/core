@@ -20,6 +20,8 @@
 #include <config_features.h>
 
 #include <math.h>
+
+#include <o3tl/float_int_conversion.hxx>
 #include <tools/debug.hxx>
 #include <tools/stream.hxx>
 #include <sal/log.hxx>
@@ -976,43 +978,40 @@ bool SbxValue::Compute( SbxOperator eOp, const SbxValue& rOp )
         {
             aL.eType = aR.eType = SbxDECIMAL;
             bDecimal = true;
-            if( rOp.Get( aR ) )
+            if( rOp.Get( aR ) && Get( aL ) )
             {
-                if( Get( aL ) )
+                if( aL.pDecimal && aR.pDecimal )
                 {
-                    if( aL.pDecimal && aR.pDecimal )
+                    bool bOk = true;
+                    switch( eOp )
                     {
-                        bool bOk = true;
-                        switch( eOp )
-                        {
-                            case SbxMUL:
-                                bOk = ( *(aL.pDecimal) *= *(aR.pDecimal) );
-                                break;
-                            case SbxDIV:
-                                if( aR.pDecimal->isZero() )
-                                    SetError( ERRCODE_BASIC_ZERODIV );
-                                else
-                                    bOk = ( *(aL.pDecimal) /= *(aR.pDecimal) );
-                                break;
-                            case SbxPLUS:
-                                bOk = ( *(aL.pDecimal) += *(aR.pDecimal) );
-                                break;
-                            case SbxMINUS:
-                                bOk = ( *(aL.pDecimal) -= *(aR.pDecimal) );
-                                break;
-                            case SbxNEG:
-                                bOk = ( aL.pDecimal->neg() );
-                                break;
-                            default:
-                                SetError( ERRCODE_BASIC_BAD_ARGUMENT );
-                        }
-                        if( !bOk )
-                            SetError( ERRCODE_BASIC_MATH_OVERFLOW );
+                        case SbxMUL:
+                            bOk = ( *(aL.pDecimal) *= *(aR.pDecimal) );
+                            break;
+                        case SbxDIV:
+                            if( aR.pDecimal->isZero() )
+                                SetError( ERRCODE_BASIC_ZERODIV );
+                            else
+                                bOk = ( *(aL.pDecimal) /= *(aR.pDecimal) );
+                            break;
+                        case SbxPLUS:
+                            bOk = ( *(aL.pDecimal) += *(aR.pDecimal) );
+                            break;
+                        case SbxMINUS:
+                            bOk = ( *(aL.pDecimal) -= *(aR.pDecimal) );
+                            break;
+                        case SbxNEG:
+                            bOk = ( aL.pDecimal->neg() );
+                            break;
+                        default:
+                            SetError( ERRCODE_BASIC_BAD_ARGUMENT );
                     }
-                    else
-                    {
-                        SetError( ERRCODE_BASIC_CONVERSION );
-                    }
+                    if( !bOk )
+                        SetError( ERRCODE_BASIC_MATH_OVERFLOW );
+                }
+                else
+                {
+                    SetError( ERRCODE_BASIC_CONVERSION );
                 }
             }
         }
@@ -1038,7 +1037,8 @@ bool SbxValue::Compute( SbxOperator eOp, const SbxValue& rOp )
                             }
                             // second overflow check: see if unscaled product overflows - if so use doubles
                             dTest = static_cast<double>(aL.nInt64) * static_cast<double>(aR.nInt64);
-                            if( dTest < SAL_MIN_INT64 || SAL_MAX_INT64 < dTest)
+                            if( !(o3tl::convertsToAtLeast(dTest, SAL_MIN_INT64)
+                                  && o3tl::convertsToAtMost(dTest, SAL_MAX_INT64)))
                             {
                                 aL.nInt64 = static_cast<sal_Int64>( dTest / double(CURRENCY_FACTOR) );
                                 break;
@@ -1065,7 +1065,8 @@ bool SbxValue::Compute( SbxOperator eOp, const SbxValue& rOp )
                             }
                             // second overflow check: see if scaled dividend overflows - if so use doubles
                             dTest = static_cast<double>(aL.nInt64) * double(CURRENCY_FACTOR);
-                            if( dTest < SAL_MIN_INT64 || SAL_MAX_INT64 < dTest)
+                            if( !(o3tl::convertsToAtLeast(dTest, SAL_MIN_INT64)
+                                  && o3tl::convertsToAtMost(dTest, SAL_MAX_INT64)))
                             {
                                 aL.nInt64 = static_cast<sal_Int64>(dTest / static_cast<double>(aR.nInt64));
                                 break;

@@ -39,9 +39,6 @@
 
 #include <xmloff/xmlnumfe.hxx>
 #include <xmloff/xmlnmspe.hxx>
-#include <xmloff/attrlist.hxx>
-#include <xmloff/nmspmap.hxx>
-#include <xmloff/families.hxx>
 #include <xmloff/xmlnumfi.hxx>
 
 #include <svl/nfsymbol.hxx>
@@ -110,7 +107,7 @@ public:
     bool    GetFirstUsed(sal_uInt32& nKey);
     bool    GetNextUsed(sal_uInt32& nKey);
 
-    uno::Sequence<sal_Int32> GetWasUsed();
+    uno::Sequence<sal_Int32> GetWasUsed() const;
     void SetWasUsed(const uno::Sequence<sal_Int32>& rWasUsed);
 };
 
@@ -186,7 +183,7 @@ bool SvXMLNumUsedList_Impl::GetNextUsed(sal_uInt32& nKey)
     return bRet;
 }
 
-uno::Sequence<sal_Int32> SvXMLNumUsedList_Impl::GetWasUsed()
+uno::Sequence<sal_Int32> SvXMLNumUsedList_Impl::GetWasUsed() const
 {
     return comphelper::containerToSequence<sal_Int32>(aWasUsed);
 }
@@ -1904,7 +1901,7 @@ void SvXMLNumFmtExport::SetUsed( sal_uInt32 nKey )
     }
 }
 
-uno::Sequence<sal_Int32> SvXMLNumFmtExport::GetWasUsed()
+uno::Sequence<sal_Int32> SvXMLNumFmtExport::GetWasUsed() const
 {
     if (pUsedList)
         return pUsedList->GetWasUsed();

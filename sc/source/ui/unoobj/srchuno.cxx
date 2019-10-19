@@ -21,13 +21,8 @@
 #include <svl/srchitem.hxx>
 #include <vcl/svapp.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <osl/diagnose.h>
 
 #include <srchuno.hxx>
-#include <docsh.hxx>
-#include <undoblk.hxx>
-#include <hints.hxx>
-#include <markdata.hxx>
 #include <miscuno.hxx>
 #include <unonames.hxx>
 
@@ -182,7 +177,7 @@ SC_IMPL_DUMMY_PROPERTY_LISTENER( ScCellSearchObj )
 
 OUString SAL_CALL ScCellSearchObj::getImplementationName()
 {
-    return OUString( "ScCellSearchObj" );
+    return "ScCellSearchObj";
 }
 
 sal_Bool SAL_CALL ScCellSearchObj::supportsService( const OUString& rServiceName )

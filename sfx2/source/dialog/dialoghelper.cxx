@@ -20,9 +20,9 @@ Size getParagraphPreviewOptimalSize(const OutputDevice& rReference)
     return rReference.LogicToPixel(Size(68 , 112), MapMode(MapUnit::MapAppFont));
 }
 
-Size getDrawPreviewOptimalSize(const vcl::Window *pReference)
+Size getDrawPreviewOptimalSize(const OutputDevice& rReference)
 {
-    return pReference->LogicToPixel(Size(88, 42), MapMode(MapUnit::MapAppFont));
+    return rReference.LogicToPixel(Size(88, 42), MapMode(MapUnit::MapAppFont));
 }
 
 Size getPreviewStripSize(const OutputDevice& rReference)
@@ -30,9 +30,9 @@ Size getPreviewStripSize(const OutputDevice& rReference)
     return rReference.LogicToPixel(Size(70 , 40), MapMode(MapUnit::MapAppFont));
 }
 
-Size getPreviewOptionsSize(const vcl::Window *pReference)
+Size getPreviewOptionsSize(const OutputDevice& rReference)
 {
-    return pReference->LogicToPixel(Size(70 , 27), MapMode(MapUnit::MapAppFont));
+    return rReference.LogicToPixel(Size(70 , 27), MapMode(MapUnit::MapAppFont));
 }
 
 OUString getWidestTime(const LocaleDataWrapper& rWrapper)

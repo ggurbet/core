@@ -17,11 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
-
-#include <svx/dialogs.hrc>
-
 #include <textanim.hxx>
 #include <textattr.hxx>
 #include <svx/dlgutil.hxx>
@@ -64,15 +59,18 @@ void SvxTextTabDialog::PageCreated(const OString& rId, SfxTabPage &rPage)
 {
     if (rId == "RID_SVXPAGE_TEXTATTR")
     {
-        const SdrMarkList& rMarkList = pView->GetMarkedObjectList();
-        bool bHasMarked = rMarkList.GetMarkCount() > 0;
         SdrObjKind eKind = OBJ_NONE;
-        if (bHasMarked)
+        if (pView)
         {
-            if (rMarkList.GetMarkCount() == 1)
+            const SdrMarkList& rMarkList = pView->GetMarkedObjectList();
+            bool bHasMarked = rMarkList.GetMarkCount() > 0;
+            if (bHasMarked)
             {
-                const SdrObject* pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
-                eKind = static_cast<SdrObjKind>(pObj->GetObjIdentifier());
+                if (rMarkList.GetMarkCount() == 1)
+                {
+                    const SdrObject* pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
+                    eKind = static_cast<SdrObjKind>(pObj->GetObjIdentifier());
+                }
             }
         }
         static_cast<SvxTextAttrPage&>(rPage).SetObjKind(eKind);
@@ -80,15 +78,13 @@ void SvxTextTabDialog::PageCreated(const OString& rId, SfxTabPage &rPage)
     }
 }
 
-
 /*************************************************************************
 |*
 |* Page
 |*
 \************************************************************************/
-
-SvxTextAnimationPage::SvxTextAnimationPage(TabPageParent pPage, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pPage, "cui/ui/textanimtabpage.ui", "TextAnimation", &rInAttrs)
+SvxTextAnimationPage::SvxTextAnimationPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/textanimtabpage.ui", "TextAnimation", &rInAttrs)
     , rOutAttrs(rInAttrs)
     , eAniKind(SdrTextAniKind::NONE)
     , m_aUpState(TRISTATE_INDET)
@@ -382,9 +378,9 @@ bool SvxTextAnimationPage::FillItemSet( SfxItemSet* rAttrs)
 |*
 \************************************************************************/
 
-VclPtr<SfxTabPage> SvxTextAnimationPage::Create(TabPageParent pParent, const SfxItemSet* rAttrs)
+std::unique_ptr<SfxTabPage> SvxTextAnimationPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrs)
 {
-    return VclPtr<SvxTextAnimationPage>::Create(pParent, *rAttrs);
+    return std::make_unique<SvxTextAnimationPage>(pPage, pController, *rAttrs);
 }
 
 IMPL_LINK_NOARG(SvxTextAnimationPage, SelectEffectHdl_Impl, weld::ComboBox&, void)
@@ -522,7 +518,7 @@ void SvxTextAnimationPage::SelectDirection( SdrTextAniDirection nValue )
     m_xBtnDown->set_active( nValue == SdrTextAniDirection::Down );
 }
 
-sal_uInt16 SvxTextAnimationPage::GetSelectedDirection()
+sal_uInt16 SvxTextAnimationPage::GetSelectedDirection() const
 {
     SdrTextAniDirection nValue = SdrTextAniDirection::Left;
 

@@ -73,7 +73,7 @@ void AxAlignedOutputStream::pad( sal_Int32 nBytes )
    css::uno::Sequence< sal_Int8 > aData( nBytes );
    // ok we could be padding with rubbish here, but really that shouldn't matter
    // set to 0(s), easier to not get fooled by 0's when looking at
-   // binary content......
+   // binary content...
    memset( static_cast<void*>( aData.getArray() ), 0, nBytes );
    mpOutStrm->writeData( aData );
    mnStrmPos = mpOutStrm->tell() - mnWrappedBeginPos;
@@ -144,8 +144,8 @@ void AxBinaryPropertyWriter::writePairProperty( AxPairData& orPairData )
 
 void AxBinaryPropertyWriter::writeStringProperty( OUString& orValue )
 {
-    sal_uInt32 nSize = orValue.getLength();
-    setFlag(  nSize, AX_STRING_COMPRESSED );
+    sal_uInt32 nSize = orValue.getLength() * 2;
+    setFlag(  nSize, AX_STRING_COMPRESSED, false );
     maOutStrm.writeAligned< sal_uInt32 >( nSize );
     maLargeProps.push_back( ComplexPropVector::value_type( new StringProperty( orValue, nSize ) ) );
     startNextProperty();

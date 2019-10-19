@@ -130,7 +130,7 @@ public:
     rtl::Reference<comphelper::RefCountedMutex>& GetSharedMutexRef() { return m_aMutexHolder; }
 
     void ConnectTo( const css::uno::Reference< css::io::XInputStream >& xInStream );
-    const css::uno::Sequence< sal_Int8 > GetEncryptionKey();
+    css::uno::Sequence< sal_Int8 > GetEncryptionKey();
 
     // XInitialization
     virtual void SAL_CALL initialize( const css::uno::Sequence< css::uno::Any >& aArguments ) override;
@@ -147,7 +147,7 @@ public:
     // XUnoTunnel
     virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& aIdentifier ) override;
     /// @throws css::uno::RuntimeException
-    static css::uno::Sequence < sal_Int8 > getUnoTunnelImplementationId();
+    static css::uno::Sequence < sal_Int8 > getUnoTunnelId();
     // XPropertySet
     virtual css::uno::Reference< css::beans::XPropertySetInfo > SAL_CALL getPropertySetInfo(  ) override;
     virtual void SAL_CALL setPropertyValue( const OUString& aPropertyName, const css::uno::Any& aValue ) override;

@@ -84,7 +84,6 @@ class UnoWrapperBase;
 class GraphicConverter;
 class ImplWheelWindow;
 class SalTimer;
-class SalI18NImeStatus;
 class DockingManager;
 class VclEventListeners2;
 class SalData;
@@ -129,12 +128,6 @@ typedef std::pair<VclPtr<vcl::Window>, ImplPostEventData *> ImplPostEventPair;
 struct ImplSVAppData
 {
     ~ImplSVAppData();
-    enum ImeStatusWindowMode
-    {
-        ImeStatusWindowMode_UNKNOWN,
-        ImeStatusWindowMode_HIDE,
-        ImeStatusWindowMode_SHOW
-    };
 
     std::unique_ptr<AllSettings> mpSettings;           // Application settings
     LocaleConfigurationListener* mpCfgListener = nullptr;
@@ -160,13 +153,6 @@ struct ImplSVAppData
     DialogCancelMode meDialogCancel = DialogCancelMode::Off; // true: All Dialog::Execute() calls will be terminated immediately with return false
     bool mbRenderToBitmaps = false; // set via svp / headless plugin
 
-    /** Controls whether showing any IME status window is toggled on or off.
-
-        Only meaningful if showing IME status windows can be toggled on and off
-        externally (see Application::CanToggleImeStatusWindow).
-     */
-    ImeStatusWindowMode meShowImeStatusWindow = ImeStatusWindowMode_UNKNOWN;
-
     SvFileStream*       mpEventTestInput = nullptr;
     Idle*               mpEventTestingIdle = nullptr;
     int                 mnEventTestLimit = 0;
@@ -187,8 +173,8 @@ struct ImplSVGDIData
     VclPtr<OutputDevice>    mpLastWinGraphics;              // Last OutputDevice with a Frame Graphics
     VclPtr<OutputDevice>    mpFirstVirGraphics;             // First OutputDevice with a VirtualDevice Graphics
     VclPtr<OutputDevice>    mpLastVirGraphics;              // Last OutputDevice with a VirtualDevice Graphics
-    VclPtr<OutputDevice>    mpFirstPrnGraphics;             // First OutputDevice with a InfoPrinter Graphics
-    VclPtr<OutputDevice>    mpLastPrnGraphics;              // Last OutputDevice with a InfoPrinter Graphics
+    VclPtr<OutputDevice>    mpFirstPrnGraphics;             // First OutputDevice with an InfoPrinter Graphics
+    VclPtr<OutputDevice>    mpLastPrnGraphics;              // Last OutputDevice with an InfoPrinter Graphics
     VclPtr<VirtualDevice>   mpFirstVirDev;                  // First VirtualDevice
     OpenGLContext*          mpLastContext = nullptr;        // Last OpenGLContext
     VclPtr<Printer>         mpFirstPrinter;                 // First Printer
@@ -280,17 +266,13 @@ struct ImplSVNWFData
     int                     mnStatusBarLowerRightOffset = 0; // amount in pixel to avoid in the lower righthand corner
     int                     mnMenuFormatBorderX = 0;        // horizontal inner popup menu border
     int                     mnMenuFormatBorderY = 0;        // vertical inner popup menu border
-    int                     mnMenuSeparatorBorderX = 0;     // gap at each side of separator
     ::Color                 maMenuBarHighlightTextColor = COL_TRANSPARENT; // override highlight text color
                                                             // in menubar if not transparent
     bool                    mbMenuBarDockingAreaCommonBG = false; // e.g. WinXP default theme
     bool                    mbDockingAreaSeparateTB = false; // individual toolbar backgrounds
                                                             // instead of one for docking area
     bool                    mbDockingAreaAvoidTBFrames = false; ///< don't draw frames around the individual toolbars if mbDockingAreaSeparateTB is false
-    bool                    mbToolboxDropDownSeparate = false; // two adjacent buttons for
-                                                            // toolbox dropdown buttons
     bool                    mbFlatMenu = false;             // no popup 3D border
-    bool                    mbOpenMenuOnF10 = false;        // on gnome the first menu opens on F10
     bool                    mbNoFocusRects = false;         // on Aqua/Gtk3 use native focus rendering, except for flat buttons
     bool                    mbNoFocusRectsForFlatButtons = false; // on Gtk3 native focusing is also preferred for flat buttons
     bool                    mbCenteredTabs = false;         // on Aqua, tabs are centered
@@ -303,7 +285,6 @@ struct ImplSVNWFData
 
     /// entire drop down listbox resembles a button, no textarea/button parts (as currently on Windows)
     bool                    mbDDListBoxNoTextArea = false;
-    bool                    mbEnableAccel = true;           // whether or not accelerators are shown
     bool                    mbAutoAccel = false;            // whether accelerators are only shown when Alt is held down
     bool                    mbRolloverMenubar = false;      // theming engine supports rollover in menubar
     // gnome#768128 I cannot see a route under wayland at present to support
@@ -356,7 +337,6 @@ struct ImplSVData
     Application*            mpApp = nullptr;                // pApp
     VclPtr<WorkWindow>      mpDefaultWin;                   // Default-Window
     bool                    mbDeInit = false;               // Is VCL deinitializing
-    std::unique_ptr<SalI18NImeStatus> mpImeStatus;          // interface to ime status window, only used by the X11 backend
     std::unique_ptr<SalSystem> mpSalSystem;                 // SalSystem interface
     int                     mnFontUpdatesLockCount = 0;     // avoid repeated font updates
     bool                    mbFontUpdatesPending = false;   // need to update font data after unlock
@@ -423,20 +403,6 @@ struct ImplSVEvent
     VclPtr<vcl::Window> mpInstanceRef;
     VclPtr<vcl::Window> mpWindow;
     bool                mbCall;
-};
-
-struct ControlCacheHashFunction
-{
-    std::size_t operator()(ControlCacheKey const& aCache) const
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, aCache.mnType);
-        boost::hash_combine(seed, aCache.mnPart);
-        boost::hash_combine(seed, aCache.mnState);
-        boost::hash_combine(seed, aCache.maSize.Width());
-        boost::hash_combine(seed, aCache.maSize.Height());
-        return seed;
-    }
 };
 
 extern int nImplSysDialog;

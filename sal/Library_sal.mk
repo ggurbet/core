@@ -12,7 +12,7 @@ $(eval $(call gb_Library_Library,sal))
 
 $(eval $(call gb_Library_set_soversion_script,sal,$(SRCDIR)/sal/util/sal.map))
 
-$(eval $(call gb_Library_set_precompiled_header,sal,$(SRCDIR)/sal/inc/pch/precompiled_sal))
+$(eval $(call gb_Library_set_precompiled_header,sal,sal/inc/pch/precompiled_sal))
 
 $(eval $(call gb_Library_set_include,sal,\
 	$$(INCLUDE) \
@@ -172,13 +172,14 @@ $(eval $(call gb_Library_add_exception_objects,sal,\
 	sal/osl/unx/profile \
 	sal/osl/unx/random \
 	sal/osl/unx/readwrite_helper \
+	sal/osl/unx/salinit \
 	sal/osl/unx/security \
 	sal/osl/unx/signal \
 	sal/osl/unx/socket \
+	sal/osl/unx/soffice \
 	sal/osl/unx/tempfile \
 	sal/osl/unx/thread \
 	sal/osl/unx/time \
-	$(if $(filter-out ANDROID iOS,$(OS)), sal/osl/unx/salinit) \
 ))
 
 # Note that the uunxapi.mm file just includes the uunxapi.cxx one. Ditto for system.mm

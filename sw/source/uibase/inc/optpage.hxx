@@ -20,11 +20,6 @@
 #define INCLUDED_SW_SOURCE_UIBASE_INC_OPTPAGE_HXX
 #include <sfx2/tabdlg.hxx>
 
-#include <vcl/button.hxx>
-#include <vcl/layout.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/field.hxx>
-#include <vcl/fixed.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/ctrlbox.hxx>
 #include <svx/colorbox.hxx>
@@ -39,36 +34,35 @@ class FontList;
 // Tools->Options->Writer/Web->View
 class SwContentOptPage : public SfxTabPage
 {
-    VclPtr<CheckBox>   m_pCrossCB;
+    std::unique_ptr<weld::CheckButton> m_xCrossCB;
 
-    VclPtr<ListBox>    m_pHMetric;
-    VclPtr<CheckBox>   m_pVRulerCBox;
-    VclPtr<CheckBox>   m_pVRulerRightCBox;
-    VclPtr<ListBox>    m_pVMetric;
-    VclPtr<CheckBox>   m_pSmoothCBox;
+    std::unique_ptr<weld::ComboBox> m_xHMetric;
+    std::unique_ptr<weld::CheckButton> m_xVRulerCBox;
+    std::unique_ptr<weld::CheckButton> m_xVRulerRightCBox;
+    std::unique_ptr<weld::ComboBox> m_xVMetric;
+    std::unique_ptr<weld::CheckButton> m_xSmoothCBox;
 
-    VclPtr<CheckBox>   m_pGrfCB;
-    VclPtr<CheckBox>   m_pTableCB;
-    VclPtr<CheckBox>   m_pDrwCB;
-    VclPtr<CheckBox>   m_pFieldNameCB;
-    VclPtr<CheckBox>   m_pPostItCB;
+    std::unique_ptr<weld::CheckButton> m_xGrfCB;
+    std::unique_ptr<weld::CheckButton> m_xTableCB;
+    std::unique_ptr<weld::CheckButton> m_xDrwCB;
+    std::unique_ptr<weld::CheckButton> m_xFieldNameCB;
+    std::unique_ptr<weld::CheckButton> m_xPostItCB;
 
-    VclPtr<VclFrame>   m_pSettingsFrame;
-    VclPtr<FixedText>  m_pSettingsLabel;
-    VclPtr<FixedText>  m_pMetricLabel;
-    VclPtr<ListBox>    m_pMetricLB;
+    std::unique_ptr<weld::Frame> m_xSettingsFrame;
+    std::unique_ptr<weld::Label> m_xSettingsLabel;
+    std::unique_ptr<weld::Label> m_xMetricLabel;
+    std::unique_ptr<weld::ComboBox> m_xMetricLB;
 
-    VclPtr<CheckBox>   m_pShowInlineTooltips;
-    VclPtr<CheckBox>   m_pFieldHiddenCB;
-    VclPtr<CheckBox>   m_pFieldHiddenParaCB;
-    DECL_LINK(VertRulerHdl, Button*, void);
+    std::unique_ptr<weld::CheckButton> m_xShowInlineTooltips;
+    std::unique_ptr<weld::CheckButton> m_xFieldHiddenCB;
+    std::unique_ptr<weld::CheckButton> m_xFieldHiddenParaCB;
+
+    DECL_LINK(VertRulerHdl, weld::ToggleButton&, void);
 public:
-    SwContentOptPage( vcl::Window* pParent, const SfxItemSet& rSet);
+    SwContentOptPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwContentOptPage() override;
 
-    virtual void dispose() override;
-
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool FillItemSet(SfxItemSet* rSet) override;
     virtual void Reset(const SfxItemSet* rSet) override;
@@ -109,10 +103,10 @@ class SwAddPrinterTabPage : public SfxTabPage
     DECL_LINK(SelectHdl, weld::ComboBox&, void);
 
 public:
-    SwAddPrinterTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwAddPrinterTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwAddPrinterTabPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool FillItemSet(SfxItemSet* rSet) override;
     virtual void Reset(const SfxItemSet* rSet) override;
@@ -123,21 +117,6 @@ public:
 
 class SwStdFontTabPage : public SfxTabPage
 {
-    friend class VclPtr<SwStdFontTabPage>;
-    VclPtr<FixedText>       m_pLabelFT;
-
-    VclPtr<ComboBox>        m_pStandardBox;
-    VclPtr<FontSizeBox>     m_pStandardHeightLB;
-    VclPtr<ComboBox>        m_pTitleBox   ;
-    VclPtr<FontSizeBox>     m_pTitleHeightLB;
-    VclPtr<ComboBox>        m_pListBox    ;
-    VclPtr<FontSizeBox>     m_pListHeightLB;
-    VclPtr<ComboBox>        m_pLabelBox   ;
-    VclPtr<FontSizeBox>     m_pLabelHeightLB;
-    VclPtr<ComboBox>        m_pIdxBox     ;
-    VclPtr<FontSizeBox>     m_pIndexHeightLB;
-    VclPtr<PushButton>      m_pStandardPB;
-
     OUString m_sShellStd;
     OUString m_sShellTitle;
     OUString m_sShellList;
@@ -157,6 +136,7 @@ class SwStdFontTabPage : public SfxTabPage
     bool    m_bSetLabelDefault :1;
     bool    m_bIdxDefault     :1;
     bool    m_bSetIdxDefault  :1;
+    bool    m_bDisposePrinter :1;
 
     bool    m_bListHeightDefault    :1;
     bool    m_bLabelHeightDefault   :1;
@@ -168,16 +148,27 @@ class SwStdFontTabPage : public SfxTabPage
     OUString const m_sScriptAsian;
     OUString const m_sScriptComplex;
 
-    DECL_LINK(StandardHdl, Button*, void );
-    DECL_LINK(ModifyHdl, Edit&, void );
-    DECL_LINK(LoseFocusHdl, Control&, void );
+    std::unique_ptr<weld::Label> m_xLabelFT;
+    std::unique_ptr<weld::ComboBox> m_xStandardBox;
+    std::unique_ptr<SvtFontSizeBox> m_xStandardHeightLB;
+    std::unique_ptr<weld::ComboBox> m_xTitleBox;
+    std::unique_ptr<SvtFontSizeBox> m_xTitleHeightLB;
+    std::unique_ptr<weld::ComboBox> m_xListBox;
+    std::unique_ptr<SvtFontSizeBox> m_xListHeightLB;
+    std::unique_ptr<weld::ComboBox> m_xLabelBox;
+    std::unique_ptr<SvtFontSizeBox> m_xLabelHeightLB;
+    std::unique_ptr<weld::ComboBox> m_xIdxBox;
+    std::unique_ptr<SvtFontSizeBox> m_xIndexHeightLB;
+    std::unique_ptr<weld::Button> m_xStandardPB;
 
-    SwStdFontTabPage(vcl::Window* pParent, const SfxItemSet& rSet);
-    virtual ~SwStdFontTabPage() override;
-    virtual void dispose() override;
+    DECL_LINK(StandardHdl, weld::Button&, void );
+    DECL_LINK(ModifyHdl, weld::ComboBox&, void );
+    DECL_LINK(LoseFocusHdl, weld::Widget&, void );
 
 public:
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    SwStdFontTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
+    virtual ~SwStdFontTabPage() override;
 
     virtual bool FillItemSet(SfxItemSet* rSet) override;
     virtual void Reset(const SfxItemSet* rSet) override;
@@ -187,36 +178,35 @@ public:
 
 class SwTableOptionsTabPage : public SfxTabPage
 {
-    VclPtr<CheckBox>    m_pHeaderCB;
-    VclPtr<CheckBox>    m_pRepeatHeaderCB;
-    VclPtr<CheckBox>    m_pDontSplitCB;
-    VclPtr<CheckBox>    m_pBorderCB;
-
-    VclPtr<CheckBox>    m_pNumFormattingCB;
-    VclPtr<CheckBox>    m_pNumFormatFormattingCB;
-    VclPtr<CheckBox>    m_pNumAlignmentCB;
-
-    VclPtr<MetricField> m_pRowMoveMF;
-    VclPtr<MetricField> m_pColMoveMF;
-
-    VclPtr<MetricField> m_pRowInsertMF;
-    VclPtr<MetricField> m_pColInsertMF;
-
-    VclPtr<RadioButton> m_pFixRB;
-    VclPtr<RadioButton> m_pFixPropRB;
-    VclPtr<RadioButton> m_pVarRB;
-
     SwWrtShell* m_pWrtShell;
     bool        m_bHTMLMode;
 
-    DECL_LINK(CheckBoxHdl, Button*, void);
+    std::unique_ptr<weld::CheckButton> m_xHeaderCB;
+    std::unique_ptr<weld::CheckButton> m_xRepeatHeaderCB;
+    std::unique_ptr<weld::CheckButton> m_xDontSplitCB;
+    std::unique_ptr<weld::CheckButton> m_xBorderCB;
+
+    std::unique_ptr<weld::CheckButton> m_xNumFormattingCB;
+    std::unique_ptr<weld::CheckButton> m_xNumFormatFormattingCB;
+    std::unique_ptr<weld::CheckButton> m_xNumAlignmentCB;
+
+    std::unique_ptr<weld::MetricSpinButton> m_xRowMoveMF;
+    std::unique_ptr<weld::MetricSpinButton> m_xColMoveMF;
+
+    std::unique_ptr<weld::MetricSpinButton> m_xRowInsertMF;
+    std::unique_ptr<weld::MetricSpinButton> m_xColInsertMF;
+
+    std::unique_ptr<weld::RadioButton> m_xFixRB;
+    std::unique_ptr<weld::RadioButton> m_xFixPropRB;
+    std::unique_ptr<weld::RadioButton> m_xVarRB;
+
+    DECL_LINK(CheckBoxHdl, weld::Button&, void);
 
 public:
-    SwTableOptionsTabPage(vcl::Window* pParent, const SfxItemSet& rSet);
+    SwTableOptionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwTableOptionsTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool FillItemSet(SfxItemSet* rSet) override;
     virtual void Reset(const SfxItemSet* rSet) override;
@@ -228,37 +218,36 @@ public:
 // TabPage for ShadowCursor
 class SwShdwCursorOptionsTabPage : public SfxTabPage
 {
-    //nonprinting characters
-    VclPtr<CheckBox> m_pParaCB;
-    VclPtr<CheckBox> m_pSHyphCB;
-    VclPtr<CheckBox> m_pSpacesCB;
-    VclPtr<CheckBox> m_pHSpacesCB;
-    VclPtr<CheckBox> m_pTabCB;
-    VclPtr<CheckBox> m_pBreakCB;
-    VclPtr<CheckBox> m_pCharHiddenCB;
-
-    VclPtr<VclFrame> m_pDirectCursorFrame;
-    VclPtr<CheckBox> m_pOnOffCB;
-
-    VclPtr<RadioButton> m_pFillMarginRB;
-    VclPtr<RadioButton> m_pFillIndentRB;
-    VclPtr<RadioButton> m_pFillTabRB;
-    VclPtr<RadioButton> m_pFillTabAndSpaceRB;
-    VclPtr<RadioButton> m_pFillSpaceRB;
-
-    VclPtr<VclFrame> m_pCursorProtFrame;
-    VclPtr<CheckBox> m_pCursorInProtCB;
-
-    VclPtr<CheckBox> m_pMathBaselineAlignmentCB;
-
     SwWrtShell *    m_pWrtShell;
 
-public:
-    SwShdwCursorOptionsTabPage( vcl::Window* pParent, const SfxItemSet& rSet );
-    virtual ~SwShdwCursorOptionsTabPage() override;
-    virtual void dispose() override;
+    //nonprinting characters
+    std::unique_ptr<weld::CheckButton> m_xParaCB;
+    std::unique_ptr<weld::CheckButton> m_xSHyphCB;
+    std::unique_ptr<weld::CheckButton> m_xSpacesCB;
+    std::unique_ptr<weld::CheckButton> m_xHSpacesCB;
+    std::unique_ptr<weld::CheckButton> m_xTabCB;
+    std::unique_ptr<weld::CheckButton> m_xBreakCB;
+    std::unique_ptr<weld::CheckButton> m_xCharHiddenCB;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    std::unique_ptr<weld::Frame> m_xDirectCursorFrame;
+    std::unique_ptr<weld::CheckButton> m_xOnOffCB;
+
+    std::unique_ptr<weld::RadioButton> m_xFillMarginRB;
+    std::unique_ptr<weld::RadioButton> m_xFillIndentRB;
+    std::unique_ptr<weld::RadioButton> m_xFillTabRB;
+    std::unique_ptr<weld::RadioButton> m_xFillTabAndSpaceRB;
+    std::unique_ptr<weld::RadioButton> m_xFillSpaceRB;
+
+    std::unique_ptr<weld::Frame> m_xCursorProtFrame;
+    std::unique_ptr<weld::CheckButton> m_xCursorInProtCB;
+
+    std::unique_ptr<weld::CheckButton> m_xMathBaselineAlignmentCB;
+
+public:
+    SwShdwCursorOptionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    virtual ~SwShdwCursorOptionsTabPage() override;
+
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool FillItemSet( SfxItemSet* rSet ) override;
     virtual void Reset( const SfxItemSet* rSet ) override;
@@ -267,10 +256,8 @@ public:
 };
 
 // mark preview
-class SwMarkPreview : public vcl::Window
+class SwMarkPreview : public weld::CustomWidgetController
 {
-    Size m_aInitialSize;
-
     Color m_aBgCol;    // background
     Color const m_aTransCol; // transparency
     Color m_aMarkCol;  // marks
@@ -285,55 +272,55 @@ class SwMarkPreview : public vcl::Window
 
     sal_uInt16 nMarkPos;
 
-    void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&) override;
+    virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&) override;
     void PaintPage(vcl::RenderContext& rRenderContext, const tools::Rectangle &rRect);
     void InitColors();
 
-protected:
-    virtual void DataChanged( const DataChangedEvent& rDCEvt ) override;
-
 public:
-    SwMarkPreview(vcl::Window* pParent, WinBits nWinBits);
+    SwMarkPreview();
+    virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
     virtual ~SwMarkPreview() override;
 
     void SetColor(const Color& rCol) { m_aMarkCol = rCol; }
     void SetMarkPos(sal_uInt16 nPos) { nMarkPos = nPos; }
-    virtual Size GetOptimalSize() const override;
 };
 
 // redlining options
 class SwRedlineOptionsTabPage : public SfxTabPage
 {
-    VclPtr<ListBox>             m_pInsertLB;
-    VclPtr<SvxColorListBox>     m_pInsertColorLB;
-    VclPtr<SvxFontPrevWindow>   m_pInsertedPreviewWN;
+    std::unique_ptr<weld::ComboBox> m_xInsertLB;
+    std::unique_ptr<ColorListBox> m_xInsertColorLB;
+    std::unique_ptr<SvxFontPrevWindow> m_xInsertedPreviewWN;
+    std::unique_ptr<weld::CustomWeld> m_xInsertedPreview;
 
-    VclPtr<ListBox>             m_pDeletedLB;
-    VclPtr<SvxColorListBox>     m_pDeletedColorLB;
-    VclPtr<SvxFontPrevWindow>   m_pDeletedPreviewWN;
+    std::unique_ptr<weld::ComboBox> m_xDeletedLB;
+    std::unique_ptr<ColorListBox> m_xDeletedColorLB;
+    std::unique_ptr<SvxFontPrevWindow> m_xDeletedPreviewWN;
+    std::unique_ptr<weld::CustomWeld> m_xDeletedPreview;
 
-    VclPtr<ListBox>             m_pChangedLB;
-    VclPtr<SvxColorListBox>     m_pChangedColorLB;
-    VclPtr<SvxFontPrevWindow>   m_pChangedPreviewWN;
+    std::unique_ptr<weld::ComboBox> m_xChangedLB;
+    std::unique_ptr<ColorListBox> m_xChangedColorLB;
+    std::unique_ptr<SvxFontPrevWindow> m_xChangedPreviewWN;
+    std::unique_ptr<weld::CustomWeld> m_xChangedPreview;
 
-    VclPtr<ListBox>             m_pMarkPosLB;
-    VclPtr<SvxColorListBox>     m_pMarkColorLB;
-    VclPtr<SwMarkPreview>       m_pMarkPreviewWN;
+    std::unique_ptr<weld::ComboBox> m_xMarkPosLB;
+    std::unique_ptr<ColorListBox> m_xMarkColorLB;
+    std::unique_ptr<SwMarkPreview> m_xMarkPreviewWN;
+    std::unique_ptr<weld::CustomWeld> m_xMarkPreview;
 
-    DECL_LINK(AttribHdl, ListBox&, void);
+    DECL_LINK(AttribHdl, weld::ComboBox&, void);
     void ChangedMaskPrev();
-    DECL_LINK(ChangedMaskPrevHdl, ListBox&, void);
-    DECL_LINK(ChangedMaskColorPrevHdl, SvxColorListBox&, void);
-    DECL_LINK(ColorHdl, SvxColorListBox&, void);
+    DECL_LINK(ChangedMaskPrevHdl, weld::ComboBox&, void);
+    DECL_LINK(ChangedMaskColorPrevHdl, ColorListBox&, void);
+    DECL_LINK(ColorHdl, ColorListBox&, void);
 
-    static void InitFontStyle(SvxFontPrevWindow& rExampleWin);
+    static void InitFontStyle(SvxFontPrevWindow& rExampleWin, const OUString& rText);
 
 public:
-    SwRedlineOptionsTabPage(vcl::Window* pParent, const SfxItemSet& rSet);
+    SwRedlineOptionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwRedlineOptionsTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool FillItemSet( SfxItemSet* rSet ) override;
     virtual void Reset( const SfxItemSet* rSet ) override;
@@ -346,54 +333,51 @@ public:
 class SwTestTabPage : public SfxTabPage
 {
 public:
-    SwTestTabPage(vcl::Window* pParent, const SfxItemSet& rSet);
+    SwTestTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwTestTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool FillItemSet( SfxItemSet* rSet ) override;
     virtual void Reset( const SfxItemSet* rSet ) override;
 
 private:
-    VclPtr<CheckBox> m_pTest1CBox;
-    VclPtr<CheckBox> m_pTest2CBox;
-    VclPtr<CheckBox> m_pTest3CBox;
-    VclPtr<CheckBox> m_pTest4CBox;
-    VclPtr<CheckBox> m_pTest5CBox;
-    VclPtr<CheckBox> m_pTest6CBox;
-    VclPtr<CheckBox> m_pTest7CBox;
-    VclPtr<CheckBox> m_pTest8CBox;
-    VclPtr<CheckBox> m_pTest9CBox;
-    VclPtr<CheckBox> m_pTest10CBox;
-
     bool bAttrModified;
 
+    std::unique_ptr<weld::CheckButton> m_xTest1CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest2CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest3CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest4CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest5CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest6CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest7CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest8CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest9CBox;
+    std::unique_ptr<weld::CheckButton> m_xTest10CBox;
+
     void Init();
-    DECL_LINK(AutoClickHdl, Button*, void);
+    DECL_LINK(AutoClickHdl, weld::Button&, void);
 };
 #endif // DBG_UTIL
 
 class SwCompareOptionsTabPage : public SfxTabPage
 {
-    VclPtr<RadioButton>  m_pAutoRB;
-    VclPtr<RadioButton>  m_pWordRB;
-    VclPtr<RadioButton>  m_pCharRB;
+    std::unique_ptr<weld::RadioButton> m_xAutoRB;
+    std::unique_ptr<weld::RadioButton> m_xWordRB;
+    std::unique_ptr<weld::RadioButton> m_xCharRB;
+    std::unique_ptr<weld::CheckButton> m_xRsidCB;
+    std::unique_ptr<weld::CheckButton> m_xIgnoreCB;
+    std::unique_ptr<weld::SpinButton> m_xLenNF;
+    std::unique_ptr<weld::CheckButton> m_xStoreRsidCB;
 
-    VclPtr<CheckBox>     m_pRsidCB;
-    VclPtr<CheckBox>     m_pIgnoreCB;
-    VclPtr<NumericField> m_pLenNF;
-    VclPtr<CheckBox>     m_pStoreRsidCB;
-
-    DECL_LINK(ComparisonHdl, Button*, void);
-    DECL_LINK(IgnoreHdl, Button*, void);
+    DECL_LINK(ComparisonHdl, weld::Button&, void);
+    DECL_LINK(IgnoreHdl, weld::Button&, void);
 
 public:
-    SwCompareOptionsTabPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    SwCompareOptionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwCompareOptionsTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rAttrSet );
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet );
 
     virtual bool FillItemSet( SfxItemSet* rSet ) override;
     virtual void Reset( const SfxItemSet* rSet ) override;

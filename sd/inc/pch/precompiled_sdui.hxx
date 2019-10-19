@@ -13,7 +13,7 @@
  manual changes will be rewritten by the next run of update_pch.sh (which presumably
  also fixes all possible problems, so it's usually better to use it).
 
- Generated on 2019-05-12 16:57:18 using:
+ Generated on 2019-10-17 15:16:08 using:
  ./bin/update_pch sd sdui --cutoff=4 --exclude:system --include:module --include:local
 
  If after updating build fails, use the following command to locate conflicting headers:
@@ -29,11 +29,13 @@
 #include <deque>
 #include <float.h>
 #include <functional>
+#include <initializer_list>
 #include <iomanip>
 #include <iterator>
 #include <limits.h>
 #include <limits>
 #include <list>
+#include <map>
 #include <math.h>
 #include <memory>
 #include <new>
@@ -49,6 +51,7 @@
 #include <utility>
 #include <vector>
 #include <boost/optional.hpp>
+#include <boost/property_tree/ptree.hpp>
 #endif // PCH_LEVEL >= 1
 #if PCH_LEVEL >= 2
 #include <osl/diagnose.h>
@@ -68,6 +71,7 @@
 #include <rtl/strbuf.hxx>
 #include <rtl/string.h>
 #include <rtl/string.hxx>
+#include <rtl/stringconcat.hxx>
 #include <rtl/stringutils.hxx>
 #include <rtl/textcvt.h>
 #include <rtl/textenc.h>
@@ -87,30 +91,25 @@
 #include <vcl/EnumContext.hxx>
 #include <vcl/GraphicExternalLink.hxx>
 #include <vcl/GraphicObject.hxx>
-#include <vcl/IContext.hxx>
 #include <vcl/IDialogRenderable.hxx>
-#include <vcl/NotebookbarContextControl.hxx>
-#include <vcl/abstdlg.hxx>
+#include <vcl/NotebookBarAddonsMerger.hxx>
+#include <vcl/Scanline.hxx>
 #include <vcl/alpha.hxx>
 #include <vcl/animate/Animation.hxx>
 #include <vcl/animate/AnimationBitmap.hxx>
 #include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/builder.hxx>
-#include <vcl/button.hxx>
 #include <vcl/cairo.hxx>
 #include <vcl/checksum.hxx>
-#include <vcl/combobox.hxx>
 #include <vcl/ctrl.hxx>
 #include <vcl/customweld.hxx>
 #include <vcl/devicecoordinate.hxx>
-#include <vcl/dialog.hxx>
 #include <vcl/dllapi.h>
 #include <vcl/dndhelp.hxx>
 #include <vcl/dockwin.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/errcode.hxx>
-#include <vcl/field.hxx>
 #include <vcl/floatwin.hxx>
 #include <vcl/fntstyle.hxx>
 #include <vcl/font.hxx>
@@ -124,19 +123,19 @@
 #include <vcl/mapmod.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/metaactiontypes.hxx>
+#include <vcl/metric.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/outdevmap.hxx>
 #include <vcl/outdevstate.hxx>
 #include <vcl/region.hxx>
+#include <vcl/salgtype.hxx>
 #include <vcl/salnativewidgets.hxx>
 #include <vcl/scopedbitmapaccess.hxx>
-#include <vcl/spinfld.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/syswin.hxx>
-#include <vcl/tabpage.hxx>
 #include <vcl/task.hxx>
+#include <vcl/textfilter.hxx>
 #include <vcl/timer.hxx>
-#include <vcl/toolbox.hxx>
 #include <vcl/uitest/factory.hxx>
 #include <vcl/vclenum.hxx>
 #include <vcl/vclevent.hxx>
@@ -156,8 +155,6 @@
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/range/b2drange.hxx>
-#include <basegfx/range/b2irange.hxx>
-#include <basegfx/range/b2irectangle.hxx>
 #include <basegfx/range/basicrange.hxx>
 #include <basegfx/tuple/b2dtuple.hxx>
 #include <basegfx/tuple/b2i64tuple.hxx>
@@ -170,18 +167,17 @@
 #include <com/sun/star/awt/GradientStyle.hpp>
 #include <com/sun/star/awt/Key.hpp>
 #include <com/sun/star/awt/KeyGroup.hpp>
-#include <com/sun/star/awt/XControlContainer.hpp>
+#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/datatransfer/dnd/XDragGestureListener.hpp>
 #include <com/sun/star/datatransfer/dnd/XDragSourceListener.hpp>
 #include <com/sun/star/datatransfer/dnd/XDropTargetListener.hpp>
 #include <com/sun/star/drawing/DashStyle.hpp>
-#include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/drawing/HatchStyle.hpp>
 #include <com/sun/star/drawing/LineCap.hpp>
-#include <com/sun/star/drawing/LineStyle.hpp>
 #include <com/sun/star/drawing/TextFitToSizeType.hpp>
 #include <com/sun/star/embed/XStorage.hpp>
+#include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/graphic/XPrimitive2D.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/EventObject.hpp>
@@ -258,8 +254,6 @@
 #include <sot/formats.hxx>
 #include <svl/SfxBroadcaster.hxx>
 #include <svl/aeitem.hxx>
-#include <svl/cenumitm.hxx>
-#include <svl/custritm.hxx>
 #include <svl/eitem.hxx>
 #include <svl/hint.hxx>
 #include <svl/intitem.hxx>
@@ -275,41 +269,33 @@
 #include <svl/typedwhich.hxx>
 #include <svl/undo.hxx>
 #include <svtools/svtdllapi.h>
+#include <svtools/unitconv.hxx>
 #include <svtools/valueset.hxx>
-#include <svx/SvxColorValueSet.hxx>
+#include <svx/DiagramDataInterface.hxx>
 #include <svx/XPropertyEntry.hxx>
 #include <svx/drawitem.hxx>
 #include <svx/flagsdef.hxx>
 #include <svx/itextprovider.hxx>
+#include <svx/sdr/properties/defaultproperties.hxx>
+#include <svx/sdr/properties/properties.hxx>
 #include <svx/sdtaditm.hxx>
 #include <svx/sdtaitm.hxx>
 #include <svx/sdtakitm.hxx>
 #include <svx/shapeproperty.hxx>
 #include <svx/svddef.hxx>
-#include <svx/svdhlpln.hxx>
 #include <svx/svdoattr.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdotext.hxx>
-#include <svx/svdpagv.hxx>
-#include <svx/svdsob.hxx>
 #include <svx/svdtext.hxx>
 #include <svx/svdtrans.hxx>
 #include <svx/svdtypes.hxx>
 #include <svx/svxdllapi.h>
 #include <svx/xdash.hxx>
 #include <svx/xdef.hxx>
-#include <svx/xenum.hxx>
-#include <svx/xfillit0.hxx>
-#include <svx/xflasit.hxx>
 #include <svx/xgrad.hxx>
 #include <svx/xhatch.hxx>
-#include <svx/xlineit0.hxx>
-#include <svx/xlnasit.hxx>
-#include <svx/xpoly.hxx>
 #include <svx/xtable.hxx>
-#include <svx/xtextit0.hxx>
 #include <tools/color.hxx>
-#include <tools/contnr.hxx>
 #include <tools/date.hxx>
 #include <tools/datetime.hxx>
 #include <tools/debug.hxx>

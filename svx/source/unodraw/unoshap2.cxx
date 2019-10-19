@@ -31,6 +31,7 @@
 #include <com/sun/star/drawing/PointSequence.hpp>
 #include <com/sun/star/drawing/PolygonKind.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
+#include <com/sun/star/drawing/QRCode.hpp>
 #include <o3tl/any.hxx>
 #include <tools/urlobj.hxx>
 #include <vcl/svapp.hxx>
@@ -206,7 +207,7 @@ void SvxShapeGroup::addUnoShape( const uno::Reference< drawing::XShape >& xShape
 
     GetSdrObject()->GetSubList()->InsertObject(pSdrShape, nPos);
     // TTTT Was created using mpModel in CreateSdrObject_ above
-    // TTTT may be good to add a assertion here for the future
+    // TTTT may be good to add an assertion here for the future
     // pSdrShape->SetModel(GetSdrObject()->GetModel());
 
     // #85922# It makes no sense to set the layer asked
@@ -1416,6 +1417,17 @@ bool SvxGraphicObject::setPropertyValueImpl( const OUString& rName, const SfxIte
         break;
     }
 
+    case OWN_ATTR_QRCODE:
+    {
+        css::drawing::QRCode aQrCode;
+        if (rValue >>= aQrCode)
+        {
+            static_cast<SdrGrafObj*>(GetSdrObject())->setQrCode(aQrCode);
+            bOk = true;
+        }
+        break;
+    }
+
     default:
         return SvxShapeText::setPropertyValueImpl( rName, pProperty, rValue );
     }
@@ -1475,13 +1487,13 @@ bool SvxGraphicObject::getPropertyValueImpl( const OUString& rName, const SfxIte
     }
 
     case OWN_ATTR_GRAPHIC_URL:
-    {
-        throw uno::RuntimeException("Getting from this property is not supported");
-        break;
-    }
-
     case OWN_ATTR_VALUE_GRAPHIC:
     {
+        if (pProperty->nWID == OWN_ATTR_GRAPHIC_URL)
+        {
+            SAL_WARN("svx", "Getting Graphic by URL is not supported, getting it by value");
+        }
+
         Reference<graphic::XGraphic> xGraphic;
         auto pSdrGraphicObject = static_cast<SdrGrafObj*>(GetSdrObject());
         if (pSdrGraphicObject->GetGraphicObject().GetType() != GraphicType::NONE)
@@ -1555,6 +1567,16 @@ bool SvxGraphicObject::getPropertyValueImpl( const OUString& rName, const SfxIte
     case OWN_ATTR_SIGNATURELINE_IS_SIGNED:
     {
         rValue <<= static_cast<SdrGrafObj*>(GetSdrObject())->isSignatureLineSigned();
+        break;
+    }
+
+    case OWN_ATTR_QRCODE:
+    {
+        css::drawing::QRCode* ptr = static_cast<SdrGrafObj*>(GetSdrObject())->getQrCode();
+        if(ptr)
+        {
+            rValue <<= *ptr;
+        }
         break;
     }
 

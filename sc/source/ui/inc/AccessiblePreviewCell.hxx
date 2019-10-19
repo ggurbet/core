@@ -73,7 +73,7 @@ public:
 
     ///=====  XTypeProvider  ===================================================
 
-    /** Returns a implementation id.
+    /** Returns an implementation id.
     */
     virtual css::uno::Sequence<sal_Int8> SAL_CALL
         getImplementationId() override;
@@ -91,7 +91,7 @@ private:
         const css::uno::Reference<css::accessibility::XAccessibleStateSet>& rxParentStates);
     virtual bool IsEditable(
         const css::uno::Reference<css::accessibility::XAccessibleStateSet>& rxParentStates) override;
-    bool IsOpaque();
+    bool IsOpaque() const;
 
     void CreateTextHelper();
 

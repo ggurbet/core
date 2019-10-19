@@ -57,7 +57,6 @@
 #include <com/sun/star/xml/sax/InputSource.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
 #include <com/sun/star/xml/sax/Writer.hpp>
-#include <com/sun/star/io/XActiveDataSource.hpp>
 #include <comphelper/genericpropertyset.hxx>
 #include <comphelper/propertysetinfo.hxx>
 #include <editeng/eeitem.hxx>
@@ -254,9 +253,8 @@ ErrCode ReadThroughComponent(
 
         SAL_WARN( "sd.filter", "SAX parse exception caught while importing: " << exceptionToString(ex));
 
-        OUString sErr( OUString::number( r.LineNumber ));
-        sErr += ",";
-        sErr += OUString::number( r.ColumnNumber );
+        OUString sErr =  OUString::number( r.LineNumber ) +
+            "," + OUString::number( r.ColumnNumber );
 
         if (!rStreamName.isEmpty())
         {
@@ -288,20 +286,17 @@ ErrCode ReadThroughComponent(
     }
     catch (const packages::zip::ZipIOException&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sd.filter", "Zip exception caught while importing: " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION( "sd.filter", "Zip exception caught while importing");
         return ERRCODE_IO_BROKENPACKAGE;
     }
     catch (const io::IOException&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sd.filter", "IO exception caught while importing: " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION( "sd.filter", "IO exception caught while importing");
         return SD_XML_READERROR;
     }
     catch (const uno::Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sd.filter", "uno exception caught while importing: " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION( "sd.filter", "uno exception caught while importing");
         return SD_XML_READERROR;
     }
 
@@ -523,7 +518,7 @@ bool SdXMLFilter::Import( ErrCode& nError )
     Reference< document::XEmbeddedObjectResolver > xObjectResolver;
     rtl::Reference<SvXMLEmbeddedObjectHelper> xObjectHelper;
 
-    Reference< lang::XComponent > xModelComp( mxModel, uno::UNO_QUERY );
+    Reference< lang::XComponent > xModelComp = mxModel;
 
     // try to get an XStatusIndicator from the Medium
     {
@@ -724,8 +719,7 @@ bool SdXMLFilter::Import( ErrCode& nError )
         }
         catch (const Exception&)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "sd.filter","sd::SdXMLFilter::Import(), exception during clearing of unused named items " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION( "sd.filter","sd::SdXMLFilter::Import(), exception during clearing of unused named items");
         }
     }
 
@@ -913,8 +907,6 @@ bool SdXMLFilter::Export()
                 xInfoSet->setPropertyValue( "ProgressCurrent" , aProgCurrent);
             }
 
-            uno::Reference< lang::XComponent > xComponent( mxModel, uno::UNO_QUERY );
-
             XML_SERVICES const * pServiceNames = getServices( false, IsDraw(), mnStoreVer );
 
             XML_SERVICEMAP aServices[5]; sal_uInt16 i = 0;
@@ -970,8 +962,7 @@ bool SdXMLFilter::Export()
                     xInfoSet->setPropertyValue( sStreamName, Any( sDocName ) );
                 }
 
-                uno::Reference< io::XActiveDataSource > xDocSrc( xWriter, uno::UNO_QUERY );
-                xDocSrc->setOutputStream( xDocOut );
+                xWriter->setOutputStream( xDocOut );
 
                 uno::Sequence< uno::Any > aArgs( 2 + ( mxStatusIndicator.is() ? 1 : 0 ) + ( xGraphicStorageHandler.is() ? 1 : 0 ) + ( xObjectResolver.is() ? 1 : 0 ) );
                 uno::Any* pArgs = aArgs.getArray();
@@ -991,7 +982,7 @@ bool SdXMLFilter::Export()
                     uno::Reference< document::XExporter > xExporter( xFilter, uno::UNO_QUERY );
                     if( xExporter.is() )
                     {
-                        xExporter->setSourceDocument( xComponent );
+                        xExporter->setSourceDocument( mxModel );
                         // outputstream will be closed by SAX parser
                         bDocRet = xFilter->filter( aDescriptor );
                     }
@@ -1061,8 +1052,8 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportFODP(SvStream &rStream)
 
     uno::Reference<document::XFilter> xFilter(xInterface, uno::UNO_QUERY_THROW);
     //SetLoading hack because the document properties will be re-initted
-    //by the xml filter and during the init, while its considered uninitialized,
-    //setting a property will inform the document its modified, which attempts
+    //by the xml filter and during the init, while it's considered uninitialized,
+    //setting a property will inform the document it's modified, which attempts
     //to update the properties, which throws cause the properties are uninitialized
     xDocSh->SetLoading(SfxLoadedFlags::NONE);
     bool ret = xFilter->filter(aArgs);
@@ -1095,8 +1086,8 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportPPTX(SvStream &rStream)
     xImporter->setTargetDocument(xModel);
 
     //SetLoading hack because the document properties will be re-initted
-    //by the xml filter and during the init, while its considered uninitialized,
-    //setting a property will inform the document its modified, which attempts
+    //by the xml filter and during the init, while it's considered uninitialized,
+    //setting a property will inform the document it's modified, which attempts
     //to update the properties, which throws cause the properties are uninitialized
     xDocSh->SetLoading(SfxLoadedFlags::NONE);
     bool ret = false;

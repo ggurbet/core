@@ -17,21 +17,18 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_feature_opencl.h>
 #include <osl/process.h>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <rtl/character.hxx>
-#include <vcl/graph.hxx>
 #include <vcl/graphicfilter.hxx>
-#include <vcl/layout.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 
-#include <tools/stream.hxx>
-#include <rtl/bootstrap.hxx>
 #include <unotools/configmgr.hxx>
 #include <unotools/bootstrap.hxx>
 #include <com/sun/star/uno/Any.h>
@@ -43,19 +40,13 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/anytostring.hxx>
 #include <cppuhelper/exc_hlp.hxx>
-#include <cppuhelper/bootstrap.hxx>
-#include <basegfx/numeric/ftools.hxx>
-#include <com/sun/star/geometry/RealRectangle2D.hpp>
 #include <svtools/optionsdrawinglayer.hxx>
 
-#include <sfx2/sfxuno.hxx>
 #include <about.hxx>
 #include <dialmgr.hxx>
 #include <strings.hrc>
 #include <config_buildid.h>
 #include <sfx2/app.hxx>
-#include <rtl/ustrbuf.hxx>
-#include <vcl/bitmap.hxx>
 
 #if HAVE_FEATURE_OPENCL
 #include <opencl/openclwrapper.hxx>
@@ -72,18 +63,18 @@ AboutDialog::AboutDialog(weld::Window* pParent)
     , m_xDialog(m_xBuilder->weld_about_dialog("AboutDialog"))
     , m_xContentArea(m_xDialog->weld_content_area())
 {
-    m_xDialog->add_button(Button::GetStandardText(StandardButtonType::Close), RET_CLOSE);
+    m_xDialog->add_button(GetStandardText(StandardButtonType::Close), RET_CLOSE);
     m_xDialog->add_button(CuiResId(RID_SVXSTR_ABOUT_CREDITS), 101);
     m_xDialog->add_button(CuiResId(RID_SVXSTR_ABOUT_WEBSITE), 102);
     m_xDialog->add_button(CuiResId(RID_SVXSTR_ABOUT_RELEASE_NOTES), 103);
 
-    m_pCreditsButton = m_xDialog->get_widget_for_response(101);
-    m_pCreditsButton->set_secondary(true);
-    m_pWebsiteButton = m_xDialog->get_widget_for_response(102);
-    m_pWebsiteButton->set_secondary(true);
-    m_pReleaseNotesButton = m_xDialog->get_widget_for_response(103);
-    m_pReleaseNotesButton->set_secondary(true);
-    m_pCloseButton = m_xDialog->get_widget_for_response(RET_CLOSE);
+    m_xCreditsButton.reset(m_xDialog->weld_widget_for_response(101));
+    m_xCreditsButton->set_secondary(true);
+    m_xWebsiteButton.reset(m_xDialog->weld_widget_for_response(102));
+    m_xWebsiteButton->set_secondary(true);
+    m_xReleaseNotesButton.reset(m_xDialog->weld_widget_for_response(103));
+    m_xReleaseNotesButton->set_secondary(true);
+    m_xCloseButton.reset(m_xDialog->weld_widget_for_response(RET_CLOSE));
 
     m_buildIdLinkString = m_xDialog->get_website_label();
 
@@ -97,10 +88,10 @@ AboutDialog::AboutDialog(weld::Window* pParent)
     m_xDialog->connect_size_allocate(LINK(this, AboutDialog, SizeAllocHdl));
 
     // Connect all handlers
-    m_pCreditsButton->connect_clicked( LINK( this, AboutDialog, HandleClick ) );
-    m_pWebsiteButton->connect_clicked( LINK( this, AboutDialog, HandleClick ) );
-    m_pReleaseNotesButton->connect_clicked( LINK( this, AboutDialog, HandleClick ) );
-    m_pCloseButton->grab_focus();
+    m_xCreditsButton->connect_clicked( LINK( this, AboutDialog, HandleClick ) );
+    m_xWebsiteButton->connect_clicked( LINK( this, AboutDialog, HandleClick ) );
+    m_xReleaseNotesButton->connect_clicked( LINK( this, AboutDialog, HandleClick ) );
+    m_xCloseButton->grab_focus();
 }
 
 AboutDialog::~AboutDialog()
@@ -112,14 +103,14 @@ IMPL_LINK(AboutDialog, HandleClick, weld::Button&, rButton, void)
     OUString sURL = "";
 
     // Find which button was pressed and from this, get the URL to be opened
-    if (&rButton == m_pCreditsButton)
+    if (&rButton == m_xCreditsButton.get())
         sURL = CuiResId(RID_SVXSTR_ABOUT_CREDITS_URL);
-    else if (&rButton == m_pWebsiteButton)
+    else if (&rButton == m_xWebsiteButton.get())
     {
         sURL = officecfg::Office::Common::Help::StartCenter::InfoURL::get();
         localizeWebserviceURI(sURL);
     }
-    else if (&rButton == m_pReleaseNotesButton)
+    else if (&rButton == m_xReleaseNotesButton.get())
     {
         sURL = officecfg::Office::Common::Menus::ReleaseNotesURL::get() +
                "?LOvers=" + utl::ConfigManager::getProductVersion() +
@@ -187,10 +178,8 @@ void AboutDialog::SetLogo()
         m_xDialog->set_logo(nullptr);
     else
     {
-        ScopedVclPtr<VirtualDevice> xDevice(m_xDialog->create_virtual_device());
-        xDevice->SetOutputSize(aLogoBitmap.GetSizePixel());
-        xDevice->DrawBitmapEx(Point(), aLogoBitmap);
-        m_xDialog->set_logo(xDevice.get());
+        Graphic aGraphic(aLogoBitmap);
+        m_xDialog->set_logo(aGraphic.GetXGraphic());
     }
 }
 
@@ -202,10 +191,8 @@ IMPL_LINK(AboutDialog, SizeAllocHdl, const Size&, rSize, void)
     if (!(Application::GetSettings().GetStyleSettings().GetHighContrastMode()))
     {
         SfxApplication::loadBrandSvg("shell/about", aBackgroundBitmap, rSize.Width());
-        ScopedVclPtr<VirtualDevice> xDevice(m_xDialog->create_virtual_device());
-        xDevice->SetOutputSize(aBackgroundBitmap.GetSizePixel());
-        xDevice->DrawBitmapEx(Point(), aBackgroundBitmap);
-        m_xDialog->set_background(xDevice.get());
+        Graphic aGraphic(aBackgroundBitmap);
+        m_xDialog->set_background(aGraphic.GetXGraphic());
     }
 }
 
@@ -237,7 +224,7 @@ OUString AboutDialog::GetLocaleString()
     if ( pLocale && pLocale->Language )
     {
         if (pLocale->Country && rtl_uString_getLength( pLocale->Country) > 0)
-            aLocaleStr = OUString(pLocale->Language) + "_" + OUString(pLocale->Country);
+            aLocaleStr = OUString::unacquired(&pLocale->Language) + "_" + OUString::unacquired(&pLocale->Country);
         else
             aLocaleStr = OUString(pLocale->Language);
         if (pLocale->Variant && rtl_uString_getLength( pLocale->Variant) > 0)

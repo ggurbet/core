@@ -19,9 +19,7 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_OPTDICT_HXX
 #define INCLUDED_CUI_SOURCE_INC_OPTDICT_HXX
 
-#include <vcl/timer.hxx>
 #include <vcl/weld.hxx>
-#include <com/sun/star/util/Language.hpp>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <svx/langbox.hxx>
@@ -41,7 +39,7 @@ class SvxNewDictionaryDialog : public weld::GenericDialogController
 {
 private:
     std::unique_ptr<weld::Entry> m_xNameEdit;
-    std::unique_ptr<LanguageBox> m_xLanguageLB;
+    std::unique_ptr<SvxLanguageBox> m_xLanguageLB;
     std::unique_ptr<weld::CheckButton> m_xExceptBtn;
     std::unique_ptr<weld::Button> m_xOKBtn;
     css::uno::Reference<css::linguistic2::XDictionary> m_xNewDic;
@@ -52,7 +50,7 @@ private:
 public:
     SvxNewDictionaryDialog(weld::Window* pParent);
 
-    const css::uno::Reference<css::linguistic2::XDictionary>& GetNewDictionary() { return m_xNewDic; }
+    const css::uno::Reference<css::linguistic2::XDictionary>& GetNewDictionary() const { return m_xNewDic; }
 };
 
 // class SvxEditDictionaryDialog -----------------------------------------
@@ -75,7 +73,7 @@ private:
     weld::TreeView* m_pWordsLB;
     std::unique_ptr<weld::ComboBox> m_xAllDictsLB;
     std::unique_ptr<weld::Label> m_xLangFT;
-    std::unique_ptr<LanguageBox> m_xLangLB;
+    std::unique_ptr<SvxLanguageBox> m_xLangLB;
     std::unique_ptr<weld::Entry> m_xWordED;
     std::unique_ptr<weld::Label> m_xReplaceFT;
     std::unique_ptr<weld::Entry> m_xReplaceED;

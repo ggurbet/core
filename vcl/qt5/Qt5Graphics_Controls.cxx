@@ -21,7 +21,6 @@
 
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
-#include <QtWidgets/QPushButton>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QFrame>
@@ -65,7 +64,7 @@ static QStyle::State vclStateValue2StateFlag(ControlState nControlState,
     return nState;
 }
 
-Qt5Graphics_Controls::Qt5Graphics_Controls() { initStyles(); }
+Qt5Graphics_Controls::Qt5Graphics_Controls() {}
 
 bool Qt5Graphics_Controls::isNativeControlSupported(ControlType type, ControlPart part)
 {
@@ -78,8 +77,9 @@ bool Qt5Graphics_Controls::isNativeControlSupported(ControlType type, ControlPar
 
         case ControlType::Radiobutton:
         case ControlType::Checkbox:
-        case ControlType::Pushbutton:
             return (part == ControlPart::Entire) || (part == ControlPart::Focus);
+        case ControlType::Pushbutton:
+            return (part == ControlPart::Entire);
 
         case ControlType::ListHeader:
             return (part == ControlPart::Button);
@@ -119,7 +119,7 @@ bool Qt5Graphics_Controls::isNativeControlSupported(ControlType type, ControlPar
 namespace
 {
 void draw(QStyle::ControlElement element, QStyleOption* option, QImage* image,
-          QStyle::State const& state, QRect rect = QRect())
+          QStyle::State const state = QStyle::State_None, QRect rect = QRect())
 {
     option->state |= state;
     option->rect = !rect.isNull() ? rect : image->rect();
@@ -129,7 +129,7 @@ void draw(QStyle::ControlElement element, QStyleOption* option, QImage* image,
 }
 
 void draw(QStyle::PrimitiveElement element, QStyleOption* option, QImage* image,
-          QStyle::State const& state, QRect rect = QRect())
+          QStyle::State const state = QStyle::State_None, QRect rect = QRect())
 {
     option->state |= state;
     option->rect = !rect.isNull() ? rect : image->rect();
@@ -139,7 +139,7 @@ void draw(QStyle::PrimitiveElement element, QStyleOption* option, QImage* image,
 }
 
 void draw(QStyle::ComplexControl element, QStyleOptionComplex* option, QImage* image,
-          QStyle::State const& state)
+          QStyle::State const state = QStyle::State_None)
 {
     option->state |= state;
     option->rect = image->rect();
@@ -250,27 +250,17 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
 
     if (type == ControlType::Pushbutton)
     {
-        if (part == ControlPart::Entire)
-        {
-            QStyleOptionButton option;
-            draw(QStyle::CE_PushButton, &option, m_image.get(),
-                 vclStateValue2StateFlag(nControlState, value));
-        }
-        else if (part == ControlPart::Focus)
-        {
-            QStyleOptionButton option;
-            option.state = QStyle::State_HasFocus;
-            option.rect = m_image->rect();
-            QPainter painter(m_image.get());
-            m_focusedButton->style()->drawControl(QStyle::CE_PushButton, &option, &painter,
-                                                  m_focusedButton.get());
-        }
+        assert(part == ControlPart::Entire);
+        QStyleOptionButton option;
+        draw(QStyle::CE_PushButton, &option, m_image.get(),
+             vclStateValue2StateFlag(nControlState, value));
     }
     else if (type == ControlType::Menubar)
     {
         if (part == ControlPart::MenuItem)
         {
             QStyleOptionMenuItem option;
+            option.state = vclStateValue2StateFlag(nControlState, value);
             if ((nControlState & ControlState::ROLLOVER)
                 && QApplication::style()->styleHint(QStyle::SH_MenuBar_MouseTracking))
                 option.state |= QStyle::State_Selected;
@@ -279,8 +269,7 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
                 & ControlState::SELECTED) // Passing State_Sunken is currently not documented.
                 option.state |= QStyle::State_Sunken; // But some kinds of QStyle interpret it.
 
-            draw(QStyle::CE_MenuBarItem, &option, m_image.get(),
-                 vclStateValue2StateFlag(nControlState, value));
+            draw(QStyle::CE_MenuBarItem, &option, m_image.get());
         }
         else if (part == ControlPart::Entire)
         {
@@ -361,14 +350,12 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
         else if (part == ControlPart::Entire)
         {
             QStyleOptionMenuItem option;
-            draw(QStyle::PE_PanelMenu, &option, m_image.get(),
-                 vclStateValue2StateFlag(nControlState, value));
+            option.state = vclStateValue2StateFlag(nControlState, value);
+            draw(QStyle::PE_PanelMenu, &option, m_image.get());
             // Try hard to get any frame!
             QStyleOptionFrame frame;
-            draw(QStyle::PE_FrameMenu, &frame, m_image.get(),
-                 vclStateValue2StateFlag(nControlState, value));
-            draw(QStyle::PE_FrameWindow, &frame, m_image.get(),
-                 vclStateValue2StateFlag(nControlState, value));
+            draw(QStyle::PE_FrameMenu, &frame, m_image.get());
+            draw(QStyle::PE_FrameWindow, &frame, m_image.get());
             m_lastPopupRect = widgetRect;
         }
         else
@@ -380,43 +367,33 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
 
         option.arrowType = Qt::NoArrow;
         option.subControls = QStyle::SC_ToolButton;
-
         option.state = vclStateValue2StateFlag(nControlState, value);
         option.state |= QStyle::State_Raised | QStyle::State_Enabled | QStyle::State_AutoRaise;
 
-        draw(QStyle::CC_ToolButton, &option, m_image.get(),
-             vclStateValue2StateFlag(nControlState, value));
+        draw(QStyle::CC_ToolButton, &option, m_image.get());
     }
     else if ((type == ControlType::Toolbar) && (part == ControlPart::Entire))
     {
         QStyleOptionToolBar option;
-
-        option.rect = QRect(0, 0, widgetRect.width(), widgetRect.height());
-        option.state = vclStateValue2StateFlag(nControlState, value);
-
         draw(QStyle::CE_ToolBar, &option, m_image.get(),
              vclStateValue2StateFlag(nControlState, value));
     }
     else if ((type == ControlType::Toolbar)
              && (part == ControlPart::ThumbVert || part == ControlPart::ThumbHorz))
-    { // reduce paint area only to the handle area
+    {
+        // reduce paint area only to the handle area
         const int handleExtend = QApplication::style()->pixelMetric(QStyle::PM_ToolBarHandleExtent);
         QStyleOption option;
-        option.state = vclStateValue2StateFlag(nControlState, value);
-
-        QPainter painter(m_image.get());
+        QRect aRect = m_image->rect();
         if (part == ControlPart::ThumbVert)
         {
-            option.rect = QRect(0, 0, handleExtend, widgetRect.height());
-            painter.setClipRect(widgetRect.x(), widgetRect.y(), handleExtend, widgetRect.height());
-            option.state |= QStyle::State_Horizontal;
+            aRect.setWidth(handleExtend);
+            option.state = QStyle::State_Horizontal;
         }
         else
-        {
-            option.rect = QRect(0, 0, widgetRect.width(), handleExtend);
-            painter.setClipRect(widgetRect.x(), widgetRect.y(), widgetRect.width(), handleExtend);
-        }
-        QApplication::style()->drawPrimitive(QStyle::PE_IndicatorToolBarHandle, &option, &painter);
+            aRect.setHeight(handleExtend);
+        draw(QStyle::PE_IndicatorToolBarHandle, &option, m_image.get(),
+             vclStateValue2StateFlag(nControlState, value), aRect);
     }
     else if (type == ControlType::Editbox || type == ControlType::MultilineEditbox)
     {
@@ -462,13 +439,13 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
     else if (type == ControlType::ListNode)
     {
         QStyleOption option;
-        option.state = QStyle::State_Item | QStyle::State_Children;
+        option.state = vclStateValue2StateFlag(nControlState, value);
+        option.state |= QStyle::State_Item | QStyle::State_Children;
 
         if (value.getTristateVal() == ButtonValue::On)
             option.state |= QStyle::State_Open;
 
-        draw(QStyle::PE_IndicatorBranch, &option, m_image.get(),
-             vclStateValue2StateFlag(nControlState, value));
+        draw(QStyle::PE_IndicatorBranch, &option, m_image.get());
     }
     else if (type == ControlType::ListHeader)
     {
@@ -598,10 +575,10 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
     {
         QStyleOptionMenuItem option;
         option.menuItemType = QStyleOptionMenuItem::Separator;
+        option.state = vclStateValue2StateFlag(nControlState, value);
         option.state |= QStyle::State_Item;
 
-        draw(QStyle::CE_MenuItem, &option, m_image.get(),
-             vclStateValue2StateFlag(nControlState, value));
+        draw(QStyle::CE_MenuItem, &option, m_image.get());
     }
     else if (type == ControlType::Slider
              && (part == ControlPart::TrackHorzArea || part == ControlPart::TrackVertArea))
@@ -610,7 +587,6 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
         const SliderValue* slVal = static_cast<const SliderValue*>(&value);
         QStyleOptionSlider option;
 
-        option.rect = QRect(0, 0, widgetRect.width(), widgetRect.height());
         option.state = vclStateValue2StateFlag(nControlState, value);
         option.maximum = slVal->mnMax;
         option.minimum = slVal->mnMin;
@@ -620,8 +596,7 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
         if (horizontal)
             option.state |= QStyle::State_Horizontal;
 
-        draw(QStyle::CC_Slider, &option, m_image.get(),
-             vclStateValue2StateFlag(nControlState, value));
+        draw(QStyle::CC_Slider, &option, m_image.get());
     }
     else if (type == ControlType::Progress && part == ControlPart::Entire)
     {
@@ -631,8 +606,6 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
         option.minimum = 0;
         option.maximum = widgetRect.width();
         option.progress = value.getNumericVal();
-        option.rect = QRect(0, 0, widgetRect.width(), widgetRect.height());
-        option.state = vclStateValue2StateFlag(nControlState, value);
 
         draw(QStyle::CE_ProgressBar, &option, m_image.get(),
              vclStateValue2StateFlag(nControlState, value));
@@ -1052,17 +1025,6 @@ bool Qt5Graphics_Controls::hitTestNativeControl(ControlType nType, ControlPart n
         return true;
     }
     return false;
-}
-
-void Qt5Graphics_Controls::initStyles()
-{
-    // button focus
-    m_focusedButton.reset(new QPushButton());
-    QString aHighlightColor = QApplication::palette().color(QPalette::Highlight).name();
-    QString focusStyleSheet("background-color: rgb(0,0,0,0%); border: 1px; border-radius: 2px; "
-                            "border-color: %1; border-style:solid;");
-    focusStyleSheet.replace("%1", aHighlightColor);
-    m_focusedButton->setStyleSheet(focusStyleSheet);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

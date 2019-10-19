@@ -84,11 +84,11 @@ namespace
     {
         OQueryTableConnectionData* pData = static_cast< OQueryTableConnectionData*>(_pConnectionData.get());
 
-        ScopedVclPtrInstance< DlgQryJoin > aDlg(_pView,_pConnectionData,&_pView->GetTabWinMap(),_pView->getDesignView()->getController().getConnection(),_bSelectableTables);
-        bool bOk = aDlg->Execute() == RET_OK;
+        DlgQryJoin aDlg(_pView,_pConnectionData,&_pView->GetTabWinMap(),_pView->getDesignView()->getController().getConnection(),_bSelectableTables);
+        bool bOk = aDlg.run() == RET_OK;
         if( bOk )
         {
-            pData->SetJoinType(aDlg->GetJoinType());
+            pData->SetJoinType(aDlg.GetJoinType());
             _pView->getDesignView()->getController().setModified(true);
         }
 
@@ -137,7 +137,8 @@ namespace
         OUString sRelatedColumn;
 
         // iterate through all foreignkey columns to create the connections
-        for(const OUString& rElement : _rxSourceForeignKeyColumns->getElementNames())
+        const Sequence<OUString> aKeyCols = _rxSourceForeignKeyColumns->getElementNames();
+        for(const OUString& rElement : aKeyCols)
         {
             Reference<XPropertySet> xColumn;
             if ( !( _rxSourceForeignKeyColumns->getByName(rElement) >>= xColumn ) )

@@ -27,25 +27,60 @@
 #include <sfx2/sidebar/Panel.hxx>
 #include <sfx2/sidebar/Tools.hxx>
 #include <sfx2/sidebar/Theme.hxx>
+#include <sfx2/viewsh.hxx>
+#include <sfx2/lokhelper.hxx>
 
 #include <vcl/event.hxx>
+#include <comphelper/lok.hxx>
 #include <vcl/dockwin.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/IDialogRenderable.hxx>
 #include <tools/svborder.hxx>
 #include <sal/log.hxx>
+#include <boost/property_tree/json_parser.hpp>
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 using namespace css;
 using namespace css::uno;
 
+
 namespace sfx2 { namespace sidebar {
+
+class DeckNotifyIdle : public Idle
+{
+    Deck &mrDeck;
+public:
+    DeckNotifyIdle(Deck &rDeck) :
+        Idle("Deck notify"),
+        mrDeck(rDeck)
+    {
+        SetPriority(TaskPriority::POST_PAINT);
+    }
+    void Invoke() override
+    {
+        auto pNotifier = mrDeck.GetLOKNotifier();
+        try
+        {
+            std::stringstream aStream;
+            boost::property_tree::write_json(aStream, mrDeck.DumpAsPropertyTree());
+            pNotifier->libreOfficeKitViewCallback(LOK_CALLBACK_JSDIALOG, aStream.str().c_str());
+        }
+        catch(boost::property_tree::json_parser::json_parser_error& rError)
+        {
+            SAL_WARN("sfx.sidebar", rError.message());
+        }
+    }
+};
 
 Deck::Deck(const DeckDescriptor& rDeckDescriptor, vcl::Window* pParentWindow,
            const std::function<void()>& rCloserAction)
     : Window(pParentWindow, 0)
     , msId(rDeckDescriptor.msId)
     , mnMinimalWidth(0)
+    , mnMinimalHeight(0)
     , maPanels()
+    , mpIdleNotify(new DeckNotifyIdle(*this))
     , mpTitleBar(VclPtr<DeckTitleBar>::Create(rDeckDescriptor.msTitle, this, rCloserAction))
     , mpScrollClipWindow(VclPtr<vcl::Window>::Create(this))
     , mpScrollContainer(VclPtr<ScrollContainerWindow>::Create(mpScrollClipWindow.get()))
@@ -60,6 +95,11 @@ Deck::Deck(const DeckDescriptor& rDeckDescriptor, vcl::Window* pParentWindow,
     mpScrollContainer->Show();
 
     mpVerticalScrollBar->SetScrollHdl(LINK(this, Deck, HandleVerticalScrollBarChange));
+
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        SetLOKNotifier(SfxViewShell::Current());
+    }
 
 #ifdef DEBUG
     SetText(OUString("Deck"));
@@ -76,6 +116,9 @@ Deck::~Deck()
 
 void Deck::dispose()
 {
+    if (comphelper::LibreOfficeKit::isActive())
+        ReleaseLOKNotifier();
+
     SharedPanelContainer aPanels;
     aPanels.swap(maPanels);
 
@@ -146,7 +189,7 @@ void Deck::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& /*r
 
 void Deck::DataChanged (const DataChangedEvent&)
 {
-    RequestLayout();
+    RequestLayoutInternal();
 }
 
 bool Deck::EventNotify(NotifyEvent& rEvent)
@@ -166,6 +209,18 @@ bool Deck::EventNotify(NotifyEvent& rEvent)
     }
 
     return Window::EventNotify(rEvent);
+}
+
+void Deck::Resize()
+{
+    Window::Resize();
+
+    if (comphelper::LibreOfficeKit::isActive() &&
+        comphelper::LibreOfficeKit::isMobile(SfxLokHelper::getView()) &&
+        GetLOKNotifier())
+    {
+        mpIdleNotify->Start();
+    }
 }
 
 bool Deck::ProcessWheelEvent(CommandEvent const * pCommandEvent)
@@ -208,16 +263,48 @@ void Deck::ResetPanels(const SharedPanelContainer& rPanelContainer)
     }
     maPanels = rPanelContainer;
 
-    RequestLayout();
+    RequestLayoutInternal();
+}
+
+void Deck::RequestLayoutInternal()
+{
+    mnMinimalWidth = 0;
+    mnMinimalHeight = 0;
+
+    DeckLayouter::LayoutDeck(GetContentArea(), mnMinimalWidth, mnMinimalHeight, maPanels,
+                             *GetTitleBar(), *mpScrollClipWindow, *mpScrollContainer,
+                             *mpFiller, *mpVerticalScrollBar);
 }
 
 void Deck::RequestLayout()
 {
-    mnMinimalWidth = 0;
+    RequestLayoutInternal();
 
-    DeckLayouter::LayoutDeck(GetContentArea(), mnMinimalWidth, maPanels,
-                             *GetTitleBar(), *mpScrollClipWindow, *mpScrollContainer,
-                             *mpFiller, *mpVerticalScrollBar);
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        bool bChangeNeeded = false;
+        Size aParentSize = GetParent()->GetSizePixel();
+
+        if (mnMinimalHeight > 0 && (mnMinimalHeight != aParentSize.Height() || GetSizePixel().Height() != mnMinimalHeight))
+        {
+            aParentSize.setHeight(mnMinimalHeight);
+            bChangeNeeded = true;
+        }
+        if (mnMinimalWidth > 0 && (mnMinimalWidth != aParentSize.Width() || GetSizePixel().Width() != mnMinimalWidth)
+                && comphelper::LibreOfficeKit::isMobile(SfxLokHelper::getView()))
+        {
+            aParentSize.setWidth(mnMinimalWidth);
+            bChangeNeeded = true;
+        }
+
+        if (bChangeNeeded)
+        {
+            GetParent()->SetSizePixel(aParentSize);
+            setPosSizePixel(0, 0, aParentSize.Width(), aParentSize.Height());
+        }
+        else if (aParentSize != GetSizePixel()) //Sync parent & child sizes
+            setPosSizePixel(0, 0, aParentSize.Width(), aParentSize.Height());
+    }
 }
 
 vcl::Window* Deck::GetPanelParentWindow()
@@ -227,7 +314,7 @@ vcl::Window* Deck::GetPanelParentWindow()
 
 Panel* Deck::GetPanel(const OUString & panelId)
 {
-    for (VclPtr<Panel> & pPanel : maPanels)
+    for (const VclPtr<Panel> & pPanel : maPanels)
     {
         if(pPanel->GetId() == panelId)
         {
@@ -264,9 +351,18 @@ void Deck::ShowPanel(const Panel& rPanel)
         Point(
             mpScrollContainer->GetPosPixel().X(),
             -nNewThumbPos));
+
+    if (const vcl::ILibreOfficeKitNotifier* pNotifier = GetLOKNotifier())
+    {
+        std::vector<vcl::LOKPayloadItem> aItems;
+        aItems.emplace_back("type", "deck");
+        aItems.emplace_back(std::make_pair("position", Point(GetOutOffXPixel(), GetOutOffYPixel()).toString()));
+        aItems.emplace_back(std::make_pair("size", GetSizePixel().toString()));
+        pNotifier->notifyWindow(GetLOKWindowId(), "created", aItems);
+    }
 }
 
-static const OUString GetWindowClassification(const vcl::Window* pWindow)
+static OUString GetWindowClassification(const vcl::Window* pWindow)
 {
     const OUString& rsName (pWindow->GetText());
     if (!rsName.isEmpty())
@@ -275,7 +371,7 @@ static const OUString GetWindowClassification(const vcl::Window* pWindow)
     }
     else
     {
-        return OUString("window");
+        return "window";
     }
 }
 

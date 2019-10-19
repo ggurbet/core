@@ -20,10 +20,7 @@
 #ifndef INCLUDED_TOOLKIT_SOURCE_CONTROLS_TREE_TREECONTROL_HXX
 #define INCLUDED_TOOLKIT_SOURCE_CONTROLS_TREE_TREECONTROL_HXX
 
-#include <toolkit/controls/unocontrols.hxx>
 #include <toolkit/controls/unocontrolmodel.hxx>
-#include <toolkit/helper/servicenames.hxx>
-#include <toolkit/helper/listenermultiplexer.hxx>
 
 namespace toolkit {
 
@@ -49,7 +46,7 @@ public:
 
     // XServiceInfo
     OUString SAL_CALL getImplementationName() override
-    { return OUString("stardiv.Toolkit.TreeControlModel"); }
+    { return "stardiv.Toolkit.TreeControlModel"; }
 
     css::uno::Sequence<OUString> SAL_CALL getSupportedServiceNames() override
     {

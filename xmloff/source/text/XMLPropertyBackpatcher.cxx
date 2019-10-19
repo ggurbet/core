@@ -67,7 +67,7 @@ void XMLPropertyBackpatcher<A>::ResolveId(
         //    (and preserve Property, if appropriate)
         Any aAny;
         aAny <<= aValue;
-        for(auto& rBackpatch : *pList)
+        for(const auto& rBackpatch : *pList)
         {
             rBackpatch->setPropertyValue(sPropertyName, aAny);
         }
@@ -126,7 +126,7 @@ XMLTextImportHelper::MakeBackpatcherImpl()
 
 static OUString GetSequenceNumber()
 {
-    return OUString("SequenceNumber");
+    return "SequenceNumber";
 }
 
 

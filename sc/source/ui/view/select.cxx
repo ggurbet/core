@@ -18,11 +18,9 @@
  */
 
 #include <tools/urlobj.hxx>
-#include <vcl/svapp.hxx>
 #include <sfx2/docfile.hxx>
 
 #include <select.hxx>
-#include <sc.hrc>
 #include <tabvwsh.hxx>
 #include <scmod.hxx>
 #include <document.hxx>
@@ -51,7 +49,7 @@ ScViewFunctionSet::ScViewFunctionSet( ScViewData* pNewViewData ) :
     OSL_ENSURE(pViewData, "ViewData==0 at FunctionSet");
 }
 
-ScSplitPos ScViewFunctionSet::GetWhich()
+ScSplitPos ScViewFunctionSet::GetWhich() const
 {
     if (pEngine)
         return pEngine->GetWhich();
@@ -807,12 +805,12 @@ void ScHeaderFunctionSet::CreateAnchor()
     if (bColumn)
     {
         pView->InitBlockMode( static_cast<SCCOL>(nCursorPos), 0, pViewData->GetTabNo(), true, true );
-        pView->MarkCursor( static_cast<SCCOL>(nCursorPos), MAXROW, pViewData->GetTabNo() );
+        pView->MarkCursor( static_cast<SCCOL>(nCursorPos), pViewData->MaxRow(), pViewData->GetTabNo() );
     }
     else
     {
         pView->InitBlockMode( 0, nCursorPos, pViewData->GetTabNo(), true, false, true );
-        pView->MarkCursor( MAXCOL, nCursorPos, pViewData->GetTabNo() );
+        pView->MarkCursor( pViewData->MaxCol(), nCursorPos, pViewData->GetTabNo() );
     }
     bAnchor = true;
 }

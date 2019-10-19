@@ -20,10 +20,10 @@
 #include <config_features.h>
 #include <vcl/gdimtf.hxx>
 #include <vcl/window.hxx>
-#include <vcl/dialog.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/cursor.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/syswin.hxx>
 
 #include <sal/types.h>
 #include <sal/log.hxx>
@@ -128,7 +128,7 @@ PaintBufferGuard::~PaintBufferGuard()
                 aPaintRectSize = m_pWindow->PixelToLogic(aRectanglePixel.GetSize());
             }
 
-            m_pWindow->DrawOutDev(m_aPaintRect.TopLeft(), aPaintRectSize, m_aPaintRect.TopLeft(), aPaintRectSize, *mpFrameData->mpBuffer.get());
+            m_pWindow->DrawOutDev(m_aPaintRect.TopLeft(), aPaintRectSize, m_aPaintRect.TopLeft(), aPaintRectSize, *mpFrameData->mpBuffer);
         }
     }
 
@@ -287,10 +287,10 @@ void PaintHelper::DoPaint(const vcl::Region* pRegion)
         {
             // double-buffering
             PaintBufferGuard g(pFrameData, m_pWindow);
-            m_pWindow->ApplySettings(*pFrameData->mpBuffer.get());
+            m_pWindow->ApplySettings(*pFrameData->mpBuffer);
 
-            m_pWindow->PushPaintHelper(this, *pFrameData->mpBuffer.get());
-            m_pWindow->Paint(*pFrameData->mpBuffer.get(), m_aPaintRect);
+            m_pWindow->PushPaintHelper(this, *pFrameData->mpBuffer);
+            m_pWindow->Paint(*pFrameData->mpBuffer, m_aPaintRect);
             pFrameData->maBufferedRect.Union(m_aPaintRect);
         }
         else
@@ -298,6 +298,7 @@ void PaintHelper::DoPaint(const vcl::Region* pRegion)
             // direct painting
             Wallpaper aBackground = m_pWindow->GetBackground();
             m_pWindow->ApplySettings(*m_pWindow);
+            // Restore lost bitmap background.
             if (aBackground.IsBitmap())
                 m_pWindow->SetBackground(aBackground);
             m_pWindow->PushPaintHelper(this, *m_pWindow);
@@ -333,7 +334,7 @@ void RenderTools::DrawSelectionBackground(vcl::RenderContext& rRenderContext, vc
     bool bBright = ( rStyles.GetFaceColor() == COL_WHITE );
 
     int c1 = aSelectionBorderColor.GetLuminance();
-    int c2 = rWindow.GetDisplayBackground().GetColor().GetLuminance();
+    int c2 = rWindow.GetBackgroundColor().GetLuminance();
 
     if (!bDark && !bBright && std::abs(c2 - c1) < (pPaintColor ? 40 : 75))
     {
@@ -653,6 +654,9 @@ IMPL_LINK_NOARG(Window, ImplHandlePaintHdl, Timer *, void)
     else if ( mpWindowImpl->mbReallyVisible )
     {
         ImplCallOverlapPaint();
+        if (comphelper::LibreOfficeKit::isActive() &&
+            mpWindowImpl->mpFrameData->maPaintIdle.IsActive())
+            mpWindowImpl->mpFrameData->maPaintIdle.Stop();
     }
 }
 

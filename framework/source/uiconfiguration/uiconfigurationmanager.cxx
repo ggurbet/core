@@ -49,6 +49,7 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/sequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <vcl/svapp.hxx>
 #include <rtl/ref.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -74,7 +75,7 @@ class UIConfigurationManager :   public ::cppu::WeakImplHelper<
 public:
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.framework.UIConfigurationManager");
+        return "com.sun.star.comp.framework.UIConfigurationManager";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -347,7 +348,7 @@ void UIConfigurationManager::impl_requestUIElementData( sal_Int16 nElementType, 
                         {
                             MenuConfiguration aMenuCfg( m_xContext );
                             Reference< XIndexAccess > xContainer( aMenuCfg.CreateMenuBarConfigurationFromXML( xInputStream ));
-                            RootItemContainer* pRootItemContainer = RootItemContainer::GetImplementation( xContainer );
+                            auto pRootItemContainer = comphelper::getUnoTunnelImplementation<RootItemContainer>( xContainer );
                             if ( pRootItemContainer )
                                 aUIElementData.xSettings.set( static_cast< OWeakObject * >( new ConstItemContainer( pRootItemContainer, true ) ), UNO_QUERY );
                             else
@@ -366,7 +367,7 @@ void UIConfigurationManager::impl_requestUIElementData( sal_Int16 nElementType, 
                         {
                             Reference< XIndexContainer > xIndexContainer( static_cast< OWeakObject * >( new RootItemContainer() ), UNO_QUERY );
                             ToolBoxConfiguration::LoadToolBox( m_xContext, xInputStream, xIndexContainer );
-                            RootItemContainer* pRootItemContainer = RootItemContainer::GetImplementation( xIndexContainer );
+                            auto pRootItemContainer = comphelper::getUnoTunnelImplementation<RootItemContainer>( xIndexContainer );
                             aUIElementData.xSettings.set( static_cast< OWeakObject * >( new ConstItemContainer( pRootItemContainer, true ) ), UNO_QUERY );
                             return;
                         }
@@ -383,7 +384,7 @@ void UIConfigurationManager::impl_requestUIElementData( sal_Int16 nElementType, 
                         {
                             Reference< XIndexContainer > xIndexContainer( static_cast< OWeakObject * >( new RootItemContainer() ), UNO_QUERY );
                             StatusBarConfiguration::LoadStatusBar( m_xContext, xInputStream, xIndexContainer );
-                            RootItemContainer* pRootItemContainer = RootItemContainer::GetImplementation( xIndexContainer );
+                            auto pRootItemContainer = comphelper::getUnoTunnelImplementation<RootItemContainer>( xIndexContainer );
                             aUIElementData.xSettings.set( static_cast< OWeakObject * >( new ConstItemContainer( pRootItemContainer, true ) ), UNO_QUERY );
                             return;
                         }
@@ -460,7 +461,7 @@ void UIConfigurationManager::impl_storeElementTypeData( Reference< XStorage > co
             }
             else
             {
-                Reference< XStream > xStream( xStorage->openStreamElement( rElement.aName, ElementModes::WRITE|ElementModes::TRUNCATE ), UNO_QUERY );
+                Reference< XStream > xStream = xStorage->openStreamElement( rElement.aName, ElementModes::WRITE|ElementModes::TRUNCATE );
                 Reference< XOutputStream > xOutputStream( xStream->getOutputStream() );
 
                 if ( xOutputStream.is() )
@@ -766,22 +767,21 @@ void SAL_CALL UIConfigurationManager::reset()
             for ( int i = 1; i < css::ui::UIElementType::COUNT; i++ )
             {
                 UIElementType&        rElementType = m_aUIElements[i];
-                Reference< XStorage > xSubStorage( rElementType.xStorage, UNO_QUERY );
 
-                if ( xSubStorage.is() )
+                if ( rElementType.xStorage.is() )
                 {
                     bool bCommitSubStorage( false );
-                    Sequence< OUString > aUIElementStreamNames = xSubStorage->getElementNames();
+                    Sequence< OUString > aUIElementStreamNames = rElementType.xStorage->getElementNames();
                     for ( sal_Int32 j = 0; j < aUIElementStreamNames.getLength(); j++ )
                     {
-                        xSubStorage->removeElement( aUIElementStreamNames[j] );
+                        rElementType.xStorage->removeElement( aUIElementStreamNames[j] );
                         bCommitSubStorage = true;
                         bCommit = true;
                     }
 
                     if ( bCommitSubStorage )
                     {
-                        Reference< XTransactedObject > xTransactedObject( xSubStorage, UNO_QUERY );
+                        Reference< XTransactedObject > xTransactedObject( rElementType.xStorage, UNO_QUERY );
                         if ( xTransactedObject.is() )
                             xTransactedObject->commit();
                     }
@@ -813,7 +813,7 @@ void SAL_CALL UIConfigurationManager::reset()
             aGuard.clear();
 
             // Notify our listeners
-            for (ConfigurationEvent & k : aRemoveEventNotifyContainer)
+            for (const ConfigurationEvent & k : aRemoveEventNotifyContainer)
                 implts_notifyContainerListener( k, NotifyOp_Remove );
         }
         catch ( const css::lang::IllegalArgumentException& )
@@ -1166,9 +1166,7 @@ void SAL_CALL UIConfigurationManager::setStorage( const Reference< XStorage >& S
         try
         {
             // Dispose old storage to be sure that it will be closed
-            Reference< XComponent > xComponent( m_xDocConfigStorage, UNO_QUERY );
-            if ( xComponent.is() )
-                xComponent->dispose();
+            m_xDocConfigStorage->dispose();
         }
         catch ( const Exception& )
         {
@@ -1179,9 +1177,8 @@ void SAL_CALL UIConfigurationManager::setStorage( const Reference< XStorage >& S
     m_xDocConfigStorage = Storage;
     m_bReadOnly         = true;
 
-    Reference< XUIConfigurationStorage > xAccUpdate(m_xAccConfig, UNO_QUERY);
-    if ( xAccUpdate.is() )
-        xAccUpdate->setStorage( m_xDocConfigStorage );
+    if ( m_xAccConfig.is() )
+        m_xAccConfig->setStorage( m_xDocConfigStorage );
 
     if ( m_xImageManager.is() )
     {
@@ -1257,9 +1254,9 @@ void SAL_CALL UIConfigurationManager::reload()
         aGuard.clear();
 
         // Notify our listeners
-        for (ConfigurationEvent & j : aRemoveNotifyContainer)
+        for (const ConfigurationEvent & j : aRemoveNotifyContainer)
             implts_notifyContainerListener( j, NotifyOp_Remove );
-        for (ConfigurationEvent & k : aReplaceNotifyContainer)
+        for (const ConfigurationEvent & k : aReplaceNotifyContainer)
             implts_notifyContainerListener( k, NotifyOp_Replace );
     }
 }
@@ -1279,10 +1276,9 @@ void SAL_CALL UIConfigurationManager::store()
             try
             {
                 UIElementType& rElementType = m_aUIElements[i];
-                Reference< XStorage > xStorage( rElementType.xStorage, UNO_QUERY );
 
-                if ( rElementType.bModified && xStorage.is() )
-                    impl_storeElementTypeData( xStorage, rElementType );
+                if ( rElementType.bModified && rElementType.xStorage.is() )
+                    impl_storeElementTypeData( rElementType.xStorage, rElementType );
             }
             catch ( const Exception& )
             {

@@ -414,9 +414,8 @@ ErrCode XMLFilter::impl_ImportStream(
 {
     ErrCode nWarning = ERRCODE_SFX_GENERAL;
 
-    Reference< container::XNameAccess > xNameAcc( xStorage, uno::UNO_QUERY );
-    if( ! (xNameAcc.is() &&
-           xNameAcc->hasByName( rStreamName )))
+    if( ! (xStorage.is() &&
+           xStorage->hasByName( rStreamName )))
         return ERRCODE_NONE;
 
     if( xImportInfo.is() )
@@ -553,7 +552,7 @@ ErrCode XMLFilter::impl_Export(
         if( ! xStorage.is())
             return ERRCODE_SFX_GENERAL;
 
-        uno::Reference< xml::sax::XDocumentHandler> xDocHandler( xSaxWriter, uno::UNO_QUERY );
+        uno::Reference< xml::sax::XDocumentHandler> xDocHandler = xSaxWriter;
 
         if ( !m_sDocumentHandler.isEmpty() )
         {
@@ -739,7 +738,7 @@ OUString XMLFilter::getMediaType(bool _bOasis)
 
 OUString SAL_CALL XMLFilter::getImplementationName()
 {
-    return OUString("com.sun.star.comp.chart2.XMLFilter");
+    return "com.sun.star.comp.chart2.XMLFilter";
 }
 
 sal_Bool SAL_CALL XMLFilter::supportsService( const OUString& rServiceName )
@@ -765,7 +764,7 @@ void XMLReportFilterHelper::isOasisFormat(const Sequence< beans::PropertyValue >
 }
 OUString XMLReportFilterHelper::getMediaType(bool )
 {
-    return OUString(MIMETYPE_OASIS_OPENDOCUMENT_REPORT_CHART_ASCII);
+    return MIMETYPE_OASIS_OPENDOCUMENT_REPORT_CHART_ASCII;
 }
 
 } //  namespace chart

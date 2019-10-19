@@ -109,8 +109,7 @@ sal_uInt16 SwHTMLWriter::GetDefListLvl( const OUString& rNm, sal_uInt16 nPoolId 
         return 1 | HTML_DLCOLL_DT;
     }
 
-    OUString sDTDD( OOO_STRING_SVTOOLS_HTML_dt );
-    sDTDD += " ";
+    OUString sDTDD = OOO_STRING_SVTOOLS_HTML_dt " ";
     if( rNm.startsWith(sDTDD) )
         // DefinitionList - term
         return static_cast<sal_uInt16>(rNm.copy( sDTDD.getLength() ).toInt32()) | HTML_DLCOLL_DT;
@@ -799,7 +798,7 @@ static void OutHTML_SwFormat( Writer& rWrt, const SwFormat& rFormat,
         rHWrt.OutNewLine();
     }
 
-    // for BLOCKQUOTE, ADDRESS and DD we output another paragrah token, if
+    // for BLOCKQUOTE, ADDRESS and DD we output another paragraph token, if
     // - no styles are written and
     // - a lower spacing or a paragraph alignment exists
     OString aToken = rInfo.aToken;
@@ -1103,7 +1102,7 @@ class HTMLEndPosLst
     bool ExistsOffTagItem( sal_uInt16 nWhich, sal_Int32 nStartPos,
                                           sal_Int32 nEndPos );
 
-    // adapt the end of a splitted item
+    // adapt the end of a split item
     void FixSplittedItem( HTMLStartEndPos *pPos, sal_Int32 nNewEnd,
                             HTMLStartEndPositions::size_type nStartPos );
 
@@ -1422,13 +1421,13 @@ void HTMLEndPosLst::FixSplittedItem( HTMLStartEndPos *pPos, sal_Int32 nNewEnd,
         if( pTest->GetStart() >= nNewEnd )
         {
             // the Test attribute and all the following ones start, after the
-            // splitted attribute ends
+            // split attribute ends
             break;
         }
         else if( nTestEnd > nNewEnd )
         {
-            // the Test attribute starts before the splitted attribute
-            // ends, and ends afterwards, i.e., it must be splitted, as well
+            // the Test attribute starts before the split attribute
+            // ends, and ends afterwards, i.e., it must be split, as well
 
             // set the new end
             pTest->SetEnd( nNewEnd );
@@ -1467,7 +1466,7 @@ void HTMLEndPosLst::InsertItem( const SfxPoolItem& rItem, sal_Int32 nStart,
             if( pTest->GetStart() < nStart )
             {
                 // the Test attribute ends, before the new one ends. Thus, the
-                // new attribute must be splitted.
+                // new attribute must be split.
                 InsertItem_( new HTMLStartEndPos( rItem, nStart, nTestEnd ), i );
                 nStart = nTestEnd;
             }
@@ -1535,7 +1534,7 @@ void HTMLEndPosLst::SplitItem( const SfxPoolItem& rItem, sal_Int32 nStart,
                         aEndLst.erase( it );
                 }
 
-                // if necessary, insert the second part of the splitted
+                // if necessary, insert the second part of the split
                 // attribute
                 if( nTestEnd > nEnd )
                 {
@@ -2981,7 +2980,7 @@ Writer& OutHTML_INetFormat( Writer& rWrt, const SwFormatINetFormat& rINetFormat,
             pStr = "ctl";
             break;
         }
-        sOut += OString(pStr) + "\"";
+        sOut += pStr + OStringLiteral("\"");
     }
 
     rWrt.Strm().WriteOString( sOut );
@@ -3178,8 +3177,8 @@ static Writer& OutHTML_SvxAdjust( Writer& rWrt, const SfxPoolItem& rHt )
     }
     if( pStr )
     {
-        OString sOut = " " OOO_STRING_SVTOOLS_HTML_O_align "=\"" +
-            OString(pStr) + "\"";
+        OString sOut = OStringLiteral(" " OOO_STRING_SVTOOLS_HTML_O_align "=\"") +
+            pStr + "\"";
         rWrt.Strm().WriteOString( sOut );
     }
 

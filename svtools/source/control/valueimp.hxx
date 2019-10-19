@@ -32,7 +32,6 @@
 #include <com/sun/star/accessibility/XAccessibleComponent.hpp>
 #include <com/sun/star/accessibility/XAccessibleSelection.hpp>
 #include <com/sun/star/accessibility/XAccessibleEventBroadcaster.hpp>
-#include <com/sun/star/lang/DisposedException.hpp>
 
 #include <vector>
 
@@ -165,6 +164,7 @@ public:
     virtual void SAL_CALL deselectAccessibleChild( sal_Int32 nSelectedChildIndex ) override;
 
     // XUnoTunnel
+    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
     virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& rId ) override;
 
 private:
@@ -173,8 +173,6 @@ private:
     VclPtr<ValueSet>                                                    mpParent;
     /// The current FOCUSED state.
     bool mbIsFocused;
-
-    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
 
     /** Tell all listeners that the object is dying.  This callback is
         usually called from the WeakComponentImplHelper class.
@@ -279,6 +277,7 @@ public:
     virtual void SAL_CALL deselectAccessibleChild( sal_Int32 nSelectedChildIndex ) override;
 
     // XUnoTunnel
+    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
     virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& rId ) override;
 
 private:
@@ -287,8 +286,6 @@ private:
     SvtValueSet*                                                    mpParent;
     /// The current FOCUSED state.
     bool mbIsFocused;
-
-    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
 
     /** Tell all listeners that the object is dying.  This callback is
         usually called from the WeakComponentImplHelper class.
@@ -342,8 +339,6 @@ private:
     ValueSetItem*                                                       mpParent;
     bool const                                                          mbIsTransientChildrenDisabled;
 
-    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
-
 public:
 
     ValueItemAcc( ValueSetItem* pParent, bool bIsTransientChildrenDisabled );
@@ -388,6 +383,7 @@ public:
     virtual sal_Int32 SAL_CALL getBackground(  ) override;
 
     // XUnoTunnel
+    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
     virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& rId ) override;
 };
 
@@ -404,8 +400,6 @@ private:
     ::osl::Mutex                                                        maMutex;
     SvtValueSetItem*                                                    mpParent;
     bool const                                                          mbIsTransientChildrenDisabled;
-
-    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
 
 public:
 
@@ -451,6 +445,7 @@ public:
     virtual sal_Int32 SAL_CALL getBackground(  ) override;
 
     // XUnoTunnel
+    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
     virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& rId ) override;
 };
 

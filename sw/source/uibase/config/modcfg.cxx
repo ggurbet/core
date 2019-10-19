@@ -456,7 +456,7 @@ enum InsertConfigProp
     INS_PROP_CAP_OBJECT_OLEMISC_CHARACTERSTYLE,         //92
     INS_PROP_CAP_OBJECT_OLEMISC_APPLYATTRIBUTES        //93
 };
-const Sequence<OUString>& SwInsertConfig::GetPropertyNames()
+const Sequence<OUString>& SwInsertConfig::GetPropertyNames() const
 {
     static Sequence<OUString> aNames
     {
@@ -1291,10 +1291,10 @@ void SwCompareConfig::ImplCommit()
     Sequence<Any> aValues(aNames.getLength());
     Any* pValues = aValues.getArray();
 
-    pValues[0] <<= static_cast<sal_Int32>(m_eCmpMode);
+    pValues[0] <<= static_cast<sal_Int16>(m_eCmpMode);
     pValues[1] <<= m_bUseRsid;
     pValues[2] <<= m_bIgnorePieces;
-    pValues[3] <<= static_cast<sal_Int32>(m_nPieceLen);
+    pValues[3] <<= static_cast<sal_Int16>(m_nPieceLen);
     pValues[4] <<= m_bStoreRsid;
 
     PutProperties(aNames, aValues);

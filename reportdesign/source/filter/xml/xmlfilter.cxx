@@ -268,7 +268,7 @@ uno::Reference< uno::XInterface > ORptImportHelper::create(uno::Reference< uno::
 
 OUString ORptImportHelper::getImplementationName_Static(  )
 {
-    return OUString(SERVICE_SETTINGSIMPORTER);
+    return SERVICE_SETTINGSIMPORTER;
 }
 
 Sequence< OUString > ORptImportHelper::getSupportedServiceNames_Static(  )
@@ -285,7 +285,7 @@ Reference< XInterface > ORptContentImportHelper::create(const Reference< XCompon
 
 OUString ORptContentImportHelper::getImplementationName_Static(  )
 {
-    return OUString(SERVICE_CONTENTIMPORTER);
+    return SERVICE_CONTENTIMPORTER;
 }
 
 Sequence< OUString > ORptContentImportHelper::getSupportedServiceNames_Static(  )
@@ -304,7 +304,7 @@ Reference< XInterface > ORptStylesImportHelper::create(Reference< XComponentCont
 
 OUString ORptStylesImportHelper::getImplementationName_Static(  )
 {
-    return OUString(SERVICE_STYLESIMPORTER);
+    return SERVICE_STYLESIMPORTER;
 }
 
 Sequence< OUString > ORptStylesImportHelper::getSupportedServiceNames_Static(  )
@@ -322,7 +322,7 @@ Reference< XInterface > ORptMetaImportHelper::create(Reference< XComponentContex
 
 OUString ORptMetaImportHelper::getImplementationName_Static(  )
 {
-    return OUString(SERVICE_METAIMPORTER);
+    return SERVICE_METAIMPORTER;
 }
 
 Sequence< OUString > ORptMetaImportHelper::getSupportedServiceNames_Static(  )
@@ -364,7 +364,7 @@ uno::Reference< XInterface > ORptFilter::create(uno::Reference< XComponentContex
 
 OUString ORptFilter::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.report.OReportFilter");
+    return "com.sun.star.comp.report.OReportFilter";
 }
 
 uno::Sequence< OUString > ORptFilter::getSupportedServiceNames_Static(  )
@@ -397,35 +397,31 @@ bool ORptFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
     uno::Reference< embed::XStorage >   xStorage;
     uno::Reference< util::XNumberFormatsSupplier > xNumberFormatsSupplier;
 
-    const PropertyValue* pIter = rDescriptor.getConstArray();
-    const PropertyValue* pEnd   = pIter + rDescriptor.getLength();
-    for(;pIter != pEnd;++pIter)
+    for(const PropertyValue& rProp : rDescriptor)
     {
-        if ( pIter->Name == "FileName" )
-            pIter->Value >>= sFileName;
-        else if ( pIter->Name == "Storage" )
-            pIter->Value >>= xStorage;
-        else if ( pIter->Name == "ComponentData" )
+        if ( rProp.Name == "FileName" )
+            rProp.Value >>= sFileName;
+        else if ( rProp.Name == "Storage" )
+            rProp.Value >>= xStorage;
+        else if ( rProp.Name == "ComponentData" )
         {
             Sequence< PropertyValue > aComponent;
-            pIter->Value >>= aComponent;
+            rProp.Value >>= aComponent;
             const PropertyValue* pComponentIter = aComponent.getConstArray();
             const PropertyValue* pComponentEnd  = pComponentIter + aComponent.getLength();
-            for(;pComponentIter != pComponentEnd;++pComponentIter)
+            pComponentIter = std::find_if(pComponentIter, pComponentEnd,
+                [](const PropertyValue& rComponent) { return rComponent.Name == "ActiveConnection"; });
+            if (pComponentIter != pComponentEnd)
             {
-                if ( pComponentIter->Name == "ActiveConnection" )
-                {
-                    uno::Reference<sdbc::XConnection> xCon(pComponentIter->Value,uno::UNO_QUERY);
-                    xNumberFormatsSupplier = ::dbtools::getNumberFormats(xCon);
-                    break;
-                }
+                uno::Reference<sdbc::XConnection> xCon(pComponentIter->Value, uno::UNO_QUERY);
+                xNumberFormatsSupplier = ::dbtools::getNumberFormats(xCon);
             }
         }
     }
 
     if ( !sFileName.isEmpty() )
     {
-        uno::Reference<XComponent> xCom(GetModel(),UNO_QUERY);
+        uno::Reference<XComponent> xCom = GetModel();
 
         tools::SvRef<SfxMedium> pMedium = new SfxMedium(
                 sFileName, ( StreamMode::READ | StreamMode::NOCREATE ) );
@@ -489,7 +485,7 @@ bool ORptFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
         const OUString sHierarchicalDocumentName( aDescriptor.getUnpackedValueOrDefault("HierarchicalDocumentName",OUString()) );
         xProp->setPropertyValue("StreamRelPath", uno::makeAny(sHierarchicalDocumentName));
 
-        uno::Reference<XComponent> xModel(GetModel(),UNO_QUERY);
+        uno::Reference<XComponent> xModel = GetModel();
         static const char s_sMeta[] = "meta.xml";
         static const char s_sStreamName[] = "StreamName";
         xProp->setPropertyValue(s_sStreamName, uno::makeAny(OUString(s_sMeta)));

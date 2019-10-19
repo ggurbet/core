@@ -20,7 +20,6 @@
 #ifndef INCLUDED_VCL_INC_UNX_I18N_IC_HXX
 #define INCLUDED_VCL_INC_UNX_I18N_IC_HXX
 
-#include <i18nlangtag/lang.h>
 #include "i18n_cb.hxx"
 
 enum class EndExtTextInputFlags;
@@ -57,12 +56,12 @@ private:
 public:
 
     Bool UseContext()       { return mbUseable; }
-    bool IsPreeditMode()    { return maClientData.eState == PreeditStatus::Active; }
+    bool IsPreeditMode() const { return maClientData.eState == PreeditStatus::Active; }
     XIC  GetContext()       { return maContext; }
 
     void ExtendEventMask(  ::Window aFocusWindow );
     void SetICFocus( SalFrame* pFocusFrame );
-    void UnsetICFocus( SalFrame const * pFrame );
+    void UnsetICFocus();
     void HandleDestroyIM();
 
     void EndExtTextInput();
@@ -70,7 +69,7 @@ public:
     int  UpdateSpotLocation();
 
     void Map( SalFrame *pFrame );
-    void Unmap( SalFrame const * pFrame );
+    void Unmap();
 
     SalI18N_InputContext( SalFrame *aFrame );
     ~SalI18N_InputContext();

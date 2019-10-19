@@ -44,7 +44,6 @@
 #include <svl/whiter.hxx>
 #include <svx/dialogs.hrc>
 #include <svl/inethist.hxx>
-#include <vcl/waitobj.hxx>
 #include <vcl/svapp.hxx>
 #include <svx/svxerr.hxx>
 #include <tools/diagnose_ex.h>
@@ -165,8 +164,6 @@ ScModule::~ScModule()
     // InputHandler does not need to be deleted (there's none in the App anymore)
 
     SfxItemPool::Free(m_pMessagePool);
-
-    m_pFormEditData.reset();
 
     m_pDragData.reset();
     m_pErrorHdl.reset();
@@ -652,16 +649,6 @@ ScDocument* ScModule::GetClipDoc()
 void ScModule::SetSelectionTransfer( ScSelectionTransferObj* pNew )
 {
     m_pSelTransfer = pNew;
-}
-
-void ScModule::InitFormEditData()
-{
-    m_pFormEditData.reset( new ScFormEditData );
-}
-
-void ScModule::ClearFormEditData()
-{
-    m_pFormEditData.reset();
 }
 
 void ScModule::SetViewOptions( const ScViewOptions& rOpt )
@@ -1318,7 +1305,7 @@ void ScModule::ModifyOptions( const SfxItemSet& rOptSet )
  */
 ScInputHandler* ScModule::GetInputHdl( ScTabViewShell* pViewSh, bool bUseRef )
 {
-    if ( m_pRefInputHandler && bUseRef )
+    if ( !comphelper::LibreOfficeKit::isActive() && m_pRefInputHandler && bUseRef )
         return m_pRefInputHandler;
 
     ScInputHandler* pHdl = nullptr;
@@ -1443,15 +1430,6 @@ void ScModule::InputTurnOffWinEngine()
         pHdl->InputTurnOffWinEngine();
 }
 
-OUString ScModule::InputGetFormulaStr()
-{
-    ScInputHandler* pHdl = GetInputHdl();
-    OUString aStr;
-    if ( pHdl )
-        aStr = pHdl->GetFormString();
-    return aStr;
-}
-
 void ScModule::ActivateInputWindow( const OUString* pStrFormula, bool bMatrix )
 {
     ScInputHandler* pHdl = GetInputHdl();
@@ -1493,7 +1471,8 @@ void ScModule::SetRefDialog( sal_uInt16 nId, bool bVis, SfxViewFrame* pViewFrm )
 {
     //TODO: Move reference dialog handling to view
     //      Just keep function autopilot here for references to other documents
-    if(m_nCurRefDlgId==0 || (nId==m_nCurRefDlgId && !bVis))
+    if ( m_nCurRefDlgId == 0 || ( nId == m_nCurRefDlgId && !bVis )
+       || ( comphelper::LibreOfficeKit::isActive() ) )
     {
         if ( !pViewFrm )
             pViewFrm = SfxViewFrame::Current();
@@ -1503,7 +1482,16 @@ void ScModule::SetRefDialog( sal_uInt16 nId, bool bVis, SfxViewFrame* pViewFrm )
         //if ( pViewFrm )
         //  pViewFrm->GetBindings().Update();       // to avoid trouble in LockDispatcher
 
-        m_nCurRefDlgId = bVis ? nId : 0 ;             // before SetChildWindow
+        // before SetChildWindow
+        if ( comphelper::LibreOfficeKit::isActive() )
+        {
+            if ( bVis )
+                m_nCurRefDlgId = nId;
+        }
+        else
+        {
+            m_nCurRefDlgId = bVis ? nId : 0;
+        }
 
         if ( pViewFrm )
         {
@@ -1639,15 +1627,15 @@ bool ScModule::IsFormulaMode()
     //      Just keep function autopilot here for references to other documents
     bool bIsFormula = false;
 
-    // formula mode in online is not usable in collaborative mode,
-    // this is a workaround for disabling formula mode in online
-    // when there is more than a single view
-    if (comphelper::LibreOfficeKit::isActive() && SfxViewShell::GetActiveShells() > 1)
-            return false;
-
     if ( m_nCurRefDlgId )
     {
-        SfxChildWindow* pChildWnd = lcl_GetChildWinFromCurrentView( m_nCurRefDlgId );
+        SfxChildWindow* pChildWnd = nullptr;
+
+        if ( comphelper::LibreOfficeKit::isActive() )
+            pChildWnd = lcl_GetChildWinFromCurrentView( m_nCurRefDlgId );
+        else
+            pChildWnd = lcl_GetChildWinFromAnyView( m_nCurRefDlgId );
+
         if ( pChildWnd )
         {
             if (pChildWnd->GetController())
@@ -1773,7 +1761,13 @@ void ScModule::EndReference()
     //FIXME: ShowRefFrame at InputHdl, if the Function AutoPilot is open?
     if ( m_nCurRefDlgId )
     {
-        SfxChildWindow* pChildWnd = lcl_GetChildWinFromAnyView( m_nCurRefDlgId );
+        SfxChildWindow* pChildWnd = nullptr;
+
+        if ( comphelper::LibreOfficeKit::isActive() )
+            pChildWnd = lcl_GetChildWinFromCurrentView( m_nCurRefDlgId );
+        else
+            pChildWnd = lcl_GetChildWinFromAnyView( m_nCurRefDlgId );
+
         OSL_ENSURE( pChildWnd, "NoChildWin" );
         if ( pChildWnd )
         {
@@ -2030,9 +2024,9 @@ void ScModule::ApplyItemSet( sal_uInt16 nId, const SfxItemSet& rSet )
     }
 }
 
-VclPtr<SfxTabPage> ScModule::CreateTabPage( sal_uInt16 nId, TabPageParent pParent, const SfxItemSet& rSet )
+std::unique_ptr<SfxTabPage> ScModule::CreateTabPage( sal_uInt16 nId, weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet )
 {
-    VclPtr<SfxTabPage> pRet;
+    std::unique_ptr<SfxTabPage> xRet;
     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
     switch(nId)
     {
@@ -2040,73 +2034,73 @@ VclPtr<SfxTabPage> ScModule::CreateTabPage( sal_uInt16 nId, TabPageParent pParen
         {
             ::CreateTabPage ScTpLayoutOptionsCreate = pFact->GetTabPageCreatorFunc(SID_SC_TP_LAYOUT);
             if (ScTpLayoutOptionsCreate)
-                pRet = (*ScTpLayoutOptionsCreate)(pParent, &rSet);
+                xRet = (*ScTpLayoutOptionsCreate)(pPage, pController, &rSet);
             break;
         }
         case SID_SC_TP_CONTENT:
         {
             ::CreateTabPage ScTpContentOptionsCreate = pFact->GetTabPageCreatorFunc(SID_SC_TP_CONTENT);
             if (ScTpContentOptionsCreate)
-                pRet = (*ScTpContentOptionsCreate)(pParent, &rSet);
+                xRet = (*ScTpContentOptionsCreate)(pPage, pController, &rSet);
             break;
         }
         case SID_SC_TP_GRID:
-            pRet = SvxGridTabPage::Create(pParent, rSet);
+            xRet = SvxGridTabPage::Create(pPage, pController, rSet);
             break;
         case SID_SC_TP_USERLISTS:
         {
             ::CreateTabPage ScTpUserListsCreate = pFact->GetTabPageCreatorFunc(SID_SC_TP_USERLISTS);
             if (ScTpUserListsCreate)
-                pRet = (*ScTpUserListsCreate)(pParent, &rSet);
+                xRet = (*ScTpUserListsCreate)(pPage, pController, &rSet);
             break;
         }
         case SID_SC_TP_CALC:
         {
             ::CreateTabPage ScTpCalcOptionsCreate = pFact->GetTabPageCreatorFunc(SID_SC_TP_CALC);
             if (ScTpCalcOptionsCreate)
-                pRet = (*ScTpCalcOptionsCreate)(pParent, &rSet);
+                xRet = (*ScTpCalcOptionsCreate)(pPage, pController, &rSet);
             break;
         }
         case SID_SC_TP_FORMULA:
         {
             ::CreateTabPage ScTpFormulaOptionsCreate = pFact->GetTabPageCreatorFunc(SID_SC_TP_FORMULA);
             if (ScTpFormulaOptionsCreate)
-                pRet = (*ScTpFormulaOptionsCreate)(pParent, &rSet);
+                xRet = (*ScTpFormulaOptionsCreate)(pPage, pController, &rSet);
             break;
         }
         case SID_SC_TP_COMPATIBILITY:
         {
             ::CreateTabPage ScTpCompatOptionsCreate = pFact->GetTabPageCreatorFunc(SID_SC_TP_COMPATIBILITY);
             if (ScTpCompatOptionsCreate)
-                pRet = (*ScTpCompatOptionsCreate)(pParent, &rSet);
+                xRet = (*ScTpCompatOptionsCreate)(pPage, pController, &rSet);
             break;
         }
         case SID_SC_TP_CHANGES:
         {
             ::CreateTabPage ScRedlineOptionsTabPageCreate = pFact->GetTabPageCreatorFunc(SID_SC_TP_CHANGES);
             if (ScRedlineOptionsTabPageCreate)
-                pRet =(*ScRedlineOptionsTabPageCreate)(pParent, &rSet);
+                xRet =(*ScRedlineOptionsTabPageCreate)(pPage, pController, &rSet);
             break;
         }
         case RID_SC_TP_PRINT:
         {
             ::CreateTabPage ScTpPrintOptionsCreate = pFact->GetTabPageCreatorFunc(RID_SC_TP_PRINT);
             if (ScTpPrintOptionsCreate)
-                pRet = (*ScTpPrintOptionsCreate)(pParent, &rSet);
+                xRet = (*ScTpPrintOptionsCreate)(pPage, pController, &rSet);
             break;
         }
         case RID_SC_TP_DEFAULTS:
         {
             ::CreateTabPage ScTpDefaultsOptionsCreate = pFact->GetTabPageCreatorFunc(RID_SC_TP_DEFAULTS);
             if (ScTpDefaultsOptionsCreate)
-                pRet = (*ScTpDefaultsOptionsCreate)(pParent, &rSet);
+                xRet = (*ScTpDefaultsOptionsCreate)(pPage, pController, &rSet);
             break;
         }
     }
 
-    OSL_ENSURE( pRet, "ScModule::CreateTabPage(): no valid ID for TabPage!" );
+    OSL_ENSURE( xRet, "ScModule::CreateTabPage(): no valid ID for TabPage!" );
 
-    return pRet;
+    return xRet;
 }
 
 IMPL_LINK( ScModule, CalcFieldValueHdl, EditFieldInfo*, pInfo, void )
@@ -2164,7 +2158,7 @@ void ScModule::RegisterRefController(sal_uInt16 nSlotId, std::shared_ptr<SfxDial
     }
 }
 
-void  ScModule::UnregisterRefController(sal_uInt16 nSlotId, std::shared_ptr<SfxDialogController>& rWnd)
+void  ScModule::UnregisterRefController(sal_uInt16 nSlotId, const std::shared_ptr<SfxDialogController>& rWnd)
 {
     auto iSlot = m_mapRefController.find( nSlotId );
 
@@ -2188,7 +2182,7 @@ void  ScModule::UnregisterRefController(sal_uInt16 nSlotId, std::shared_ptr<SfxD
         m_mapRefController.erase( nSlotId );
 }
 
-std::shared_ptr<SfxDialogController> ScModule::Find1RefWindow(sal_uInt16 nSlotId, weld::Window *pWndAncestor)
+std::shared_ptr<SfxDialogController> ScModule::Find1RefWindow(sal_uInt16 nSlotId, const weld::Window *pWndAncestor)
 {
     if (!pWndAncestor)
         return nullptr;

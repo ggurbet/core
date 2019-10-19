@@ -27,7 +27,6 @@
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/uno/Sequence.hxx>
 
-#include <vcl/vclptr.hxx>
 #include <svl/poolitem.hxx>
 #include <sot/formats.hxx>
 #include <sot/object.hxx>
@@ -249,7 +248,7 @@ public:
     virtual SfxObjectFactory&   GetFactory() const=0;
     SfxMedium *                 GetMedium() const { return pMedium; }
     css::uno::Reference< css::document::XDocumentProperties >
-                                getDocProperties();
+                                getDocProperties() const;
     void                        UpdateDocInfoForSave(  );
     void                        FlushDocInfo();
     bool                        HasName() const { return bHasName; }
@@ -339,7 +338,7 @@ public:
     bool CheckIsReadonly(bool bSignScriptingContent);
     void RecheckSignature(bool bAlsoRecheckScriptingSignature);
     void AfterSigning(bool bSignSuccess, bool bSignScriptingContent);
-    bool HasValidSignatures();
+    bool HasValidSignatures() const;
     SignatureState              GetDocumentSignatureState();
     void                        SignDocumentContent(weld::Window* pDialogParent);
     css::uno::Sequence<css::security::DocumentSignatureInformation> GetDocumentSignatureInformation(
@@ -392,6 +391,8 @@ public:
     */
     bool                        AdjustMacroMode();
 
+    static bool                 UnTrustedScript(const OUString& rScriptURL);
+
     SvKeyValueIterator*         GetHeaderAttributes();
     void                        ClearHeaderAttributesForSourceViewHack();
     void                        SetHeaderAttributesForSourceViewHack();
@@ -412,6 +413,9 @@ public:
     sal_uInt32                  GetModifyPasswordHash() const;
     bool                        SetModifyPasswordHash( sal_uInt32 nHash );
 
+    void                        SetMacroCallsSeenWhileLoading();
+    bool                        GetMacroCallsSeenWhileLoading() const;
+
     const css::uno::Sequence< css::beans::PropertyValue >& GetModifyPasswordInfo() const;
     bool                        SetModifyPasswordInfo( const css::uno::Sequence< css::beans::PropertyValue >& aInfo );
 
@@ -423,7 +427,7 @@ public:
     bool                        IsSecurityOptOpenReadOnly() const;
     void                        SetSecurityOptOpenReadOnly( bool bOpenReadOnly );
 
-    Size                        GetFirstPageSize();
+    Size                        GetFirstPageSize() const;
     bool                        DoClose();
     std::shared_ptr<GDIMetaFile> GetPreviewMetaFile( bool bFullContent = false ) const;
     virtual void                CancelTransfers();
@@ -534,7 +538,7 @@ public:
 
     // Determine the position of the "Automatic" filter in the stylist
     void                        SetAutoStyleFilterIndex(sal_uInt16 nSet);
-    sal_uInt16                  GetAutoStyleFilterIndex();
+    sal_uInt16                  GetAutoStyleFilterIndex() const;
     bool                        HasBasic() const;
     BasicManager*               GetBasicManager() const;
     css::uno::Reference< css::script::XLibraryContainer >
@@ -565,8 +569,8 @@ public:
                                 CreateAndLoadComponent( const SfxItemSet& rSet );
     static SfxObjectShell*      GetShellFromComponent( const css::uno::Reference< css::lang::XComponent >& xComp );
     static OUString             GetServiceNameFromFactory( const OUString& rFact );
-    bool                        IsInPlaceActive();
-    bool                        IsUIActive();
+    bool                        IsInPlaceActive() const;
+    bool                        IsUIActive() const;
 
     static bool                 CopyStoragesOfUnknownMediaType(
                                     const css::uno::Reference< css::embed::XStorage >& xSource,
@@ -577,7 +581,7 @@ public:
     void            EnableSetModified( bool bEnable = true );
     bool            IsEnableSetModified() const;
     virtual void    SetModified( bool bModified = true );
-    bool            IsModified();
+    bool            IsModified() const;
 
     /**
      * @param bChart true if the file is a chart doc and FillClass should not be called
@@ -672,7 +676,7 @@ public:
                 const css::uno::Sequence< css::security::DocumentSignatureInformation >& aInfos );
     SAL_DLLPRIVATE void CheckEncryption_Impl( const css::uno::Reference< css::task::XInteractionHandler >& xHandler );
     SAL_DLLPRIVATE void SetModifyPasswordEntered( bool bEntered = true );
-    SAL_DLLPRIVATE bool IsModifyPasswordEntered();
+    SAL_DLLPRIVATE bool IsModifyPasswordEntered() const;
 
     SAL_DLLPRIVATE void InitBasicManager_Impl();
     SAL_DLLPRIVATE SfxObjectShell_Impl* Get_Impl() { return pImpl.get(); }
@@ -737,7 +741,7 @@ public:
     SAL_DLLPRIVATE void CheckOut( );
     SAL_DLLPRIVATE void CancelCheckOut( );
     SAL_DLLPRIVATE void CheckIn( );
-    SAL_DLLPRIVATE css::uno::Sequence< css::document::CmisVersion > GetCmisVersions();
+    SAL_DLLPRIVATE css::uno::Sequence< css::document::CmisVersion > GetCmisVersions() const;
 
     /** override this if you have a XmlIdRegistry. */
     virtual const sfx2::IXmlIdRegistry* GetXmlIdRegistry() const { return nullptr; }
@@ -774,7 +778,7 @@ protected:
 public:
     SfxObjectShellLock() { pObj = nullptr; }
     inline               SfxObjectShellLock( const SfxObjectShellLock & rObj );
-    inline               SfxObjectShellLock( SfxObjectShellLock && rObj );
+    inline               SfxObjectShellLock( SfxObjectShellLock && rObj ) noexcept;
     inline               SfxObjectShellLock( SfxObjectShell * pObjP );
     inline void          Clear();
     inline               ~SfxObjectShellLock();
@@ -793,7 +797,7 @@ inline SfxObjectShellLock::SfxObjectShellLock( const SfxObjectShellLock & rObj )
     if( pObj )
         pObj->OwnerLock( true );
 }
-inline SfxObjectShellLock::SfxObjectShellLock( SfxObjectShellLock && rObj )
+inline SfxObjectShellLock::SfxObjectShellLock( SfxObjectShellLock && rObj ) noexcept
 {
     pObj = rObj.pObj;
     rObj.pObj = nullptr;

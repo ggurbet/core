@@ -105,7 +105,7 @@ namespace connectivity
             std::vector<sal_Int32> m_aPrecisions; // same as above
             std::vector<sal_Int32> m_aScales;
             std::vector<sal_Int32> m_aRealFieldLengths;
-            DBFHeader       m_aHeader;
+            DBFHeader       m_aHeader = {};
             DBFMemoHeader   m_aMemoHeader;
             std::unique_ptr<SvStream> m_pMemoStream;
             rtl_TextEncoding m_eEncoding;
@@ -167,7 +167,7 @@ namespace connectivity
 
             // css::lang::XUnoTunnel
             virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& aIdentifier ) override;
-            static css::uno::Sequence< sal_Int8 > getUnoTunnelImplementationId();
+            static css::uno::Sequence< sal_Int8 > getUnoTunnelId();
             // XAlterTable
             virtual void SAL_CALL alterColumnByName( const OUString& colName, const css::uno::Reference< css::beans::XPropertySet >& descriptor ) override;
             virtual void SAL_CALL alterColumnByIndex( sal_Int32 index, const css::uno::Reference< css::beans::XPropertySet >& descriptor ) override;

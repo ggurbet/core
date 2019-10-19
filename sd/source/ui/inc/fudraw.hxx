@@ -47,8 +47,8 @@ public:
 
     virtual void DoubleClick(const MouseEvent& rMEvt);
 
-    bool    SetPointer(SdrObject* pObj, const Point& rPos);
-    bool    SetHelpText(SdrObject* pObj, const Point& rPos, const SdrViewEvent& rVEvt);
+    bool    SetPointer(const SdrObject* pObj, const Point& rPos);
+    bool    SetHelpText(const SdrObject* pObj, const Point& rPos, const SdrViewEvent& rVEvt);
 
     void    SetPermanent(bool bSet) { bPermanent = bSet; }
 
@@ -56,7 +56,7 @@ public:
         This is used when a function gets a KEY_ESCAPE but can also
         be called directly.
 
-        @returns true if a active function was aborted
+        @returns true if an active function was aborted
     */
     virtual bool cancel() override;
 

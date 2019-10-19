@@ -360,7 +360,7 @@ private:
 
     XclExpXctList       maXctList;      /// List of XCT records (which contain CRN records).
     OUString            maUrl;          /// URL of the external document or application name for DDE.
-    OUString            maDdeTopic;     /// Topic of an DDE link.
+    OUString            maDdeTopic;     /// Topic of a DDE link.
     XclExpString        maUrlEncoded;   /// Document name encoded for Excel.
     XclSupbookType      meType;         /// Type of this SUPBOOK record.
     sal_uInt16          mnXclTabCount;  /// Number of internal sheets.
@@ -1354,7 +1354,7 @@ bool XclExpXct::BuildCrnList( XclExpCrnList& rCrnRecs )
     /*  Build and collect all CRN records before writing the XCT record. This
         is needed to determine the total number of CRN records which must be
         known when writing the XCT record (possibly encrypted, so seeking the
-        output strem back after writing the CRN records is not an option). */
+        output stream back after writing the CRN records is not an option). */
     SvNumberFormatter& rFormatter = GetFormatter();
     bool bValid = true;
     for( SCROW nScRow = nScRow1; bValid && (nScRow <= nScRow2); ++nScRow )
@@ -1457,7 +1457,7 @@ XclExpExternSheet::XclExpExternSheet( const XclExpRoot& rRoot, const OUString& r
     XclExpExternSheetBase( rRoot, EXC_ID_EXTERNSHEET )
 {
     // reference to own sheet: \03<sheetname>
-    Init(OUStringLiteral1(EXC_EXTSH_TABNAME) + rTabName);
+    Init(OUStringChar(EXC_EXTSH_TABNAME) + rTabName);
 }
 
 void XclExpExternSheet::Save( XclExpStream& rStrm )

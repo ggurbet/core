@@ -21,6 +21,7 @@
 #include <interpre.hxx>
 
 #include <comphelper/string.hxx>
+#include <o3tl/float_int_conversion.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objsh.hxx>
@@ -864,7 +865,7 @@ void ScInterpreter::ScGetDateDif()
             // and 10 months and 19 days.
 
             // Algorithm's roll-over behavior extracted from Excel by try and
-            // error..
+            // error...
             // If day1 <= day2 then simply day2 - day1.
             // If day1 > day2 then set month1 to month2-1 and year1 to
             // year2(-1) and subtract dates, e.g. for 2012-01-28,2012-03-01 set
@@ -2432,7 +2433,7 @@ void ScInterpreter::ScIntersect()
     if (sv1 == svRefList || sv2 == svRefList)
     {
         // Now this is a bit nasty but it simplifies things, and having
-        // intersections with lists isn't too common, if at all..
+        // intersections with lists isn't too common, if at all...
         // Convert a reference to list.
         const formula::FormulaToken* xt[2] = { x1, x2 };
         StackVar sv[2] = { sv1, sv2 };
@@ -2763,7 +2764,7 @@ void ScInterpreter::ScDde()
         }
 
         // Need to reinterpret after loading (build links)
-        rArr.AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
+        pArr->AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
 
             //  while the link is not evaluated, idle must be disabled (to avoid circular references)
 
@@ -2811,7 +2812,7 @@ void ScInterpreter::ScDde()
                 pMyFormulaCell->StartListening( *pLink );
         }
 
-        //  If an new Error from Reschedule appears when the link is executed then reset the errorflag
+        //  If a new Error from Reschedule appears when the link is executed then reset the errorflag
 
 
         if ( pMyFormulaCell && pMyFormulaCell->GetRawError() != FormulaError::NONE && !bWasError )
@@ -2886,7 +2887,7 @@ void ScInterpreter::ScBase()
             }
             sal_Unicode* p = pBuf + nBuf - 1;
             *p = 0;
-            if ( fVal <= sal_uLong(~0) )
+            if ( o3tl::convertsToAtMost(fVal, sal_uLong(~0)) )
             {
                 sal_uLong nVal = static_cast<sal_uLong>(fVal);
                 sal_uLong nBase = static_cast<sal_uLong>(fBase);
@@ -2981,7 +2982,7 @@ void ScInterpreter::ScDecimal()
             while ( *p == ' ' || *p == '\t' )
                 p++;        // strip leading white space
             if ( nBase == 16 )
-            {   // evtl. hex-prefix strippen
+            {   // evtl. hex-prefix stripped
                 if ( *p == 'x' || *p == 'X' )
                     p++;
                 else if ( *p == '0' && (*(p+1) == 'x' || *(p+1) == 'X') )

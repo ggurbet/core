@@ -158,7 +158,7 @@ class SfxClosePreventer_Impl : public ::cppu::WeakImplHelper< css::util::XCloseL
 public:
     SfxClosePreventer_Impl();
 
-    bool HasOwnership() { return m_bGotOwnership; }
+    bool HasOwnership() const { return m_bGotOwnership; }
 
     void SetPreventClose( bool bPrevent ) { m_bPreventClose = bPrevent; }
 
@@ -395,7 +395,7 @@ void SfxObjectShell::CheckIn( )
     }
 }
 
-uno::Sequence< document::CmisVersion > SfxObjectShell::GetCmisVersions( )
+uno::Sequence< document::CmisVersion > SfxObjectShell::GetCmisVersions( ) const
 {
     try
     {
@@ -592,8 +592,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
 
             // Create an empty Draw component.
             uno::Reference<frame::XDesktop2> xDesktop = css::frame::Desktop::create(comphelper::getProcessComponentContext());
-            uno::Reference<frame::XComponentLoader> xComponentLoader(xDesktop, uno::UNO_QUERY);
-            uno::Reference<lang::XComponent> xComponent = xComponentLoader->loadComponentFromURL("private:factory/sdraw", "_default", 0, {});
+            uno::Reference<lang::XComponent> xComponent = xDesktop->loadComponentFromURL("private:factory/sdraw", "_default", 0, {});
 
             // Add the doc pages to the new draw document
             SfxRedactionHelper::addPagesToDraw(xComponent, nPages, aMetaFiles, aPageSizes, aPageMargins, aRedactionTargets, bIsAutoRedact);
@@ -971,7 +970,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
 
             if ( nId == SID_EXPORTDOCASPDF )
             {
-                // This function is used by the SendMail function that needs information if a export
+                // This function is used by the SendMail function that needs information if an export
                 // file was written or not. This could be due to cancellation of the export
                 // or due to an error. So IO abort must be handled like an error!
                 nErrorCode = ( lErr != ERRCODE_IO_ABORT ) && ( nErrorCode == ERRCODE_NONE ) ? nErrorCode : lErr;
@@ -1128,24 +1127,24 @@ void SfxObjectShell::GetState_Impl(SfxItemSet &rSet)
                 {
                     bool bShow = false;
                     Reference< XCmisDocument > xCmisDoc( GetModel(), uno::UNO_QUERY );
-                    uno::Sequence< document::CmisProperty> aCmisProperties = xCmisDoc->getCmisProperties();
+                    const uno::Sequence< document::CmisProperty> aCmisProperties = xCmisDoc->getCmisProperties();
 
                     if ( xCmisDoc->isVersionable( ) && aCmisProperties.hasElements( ) )
                     {
                         // Loop over the CMIS Properties to find cmis:isVersionSeriesCheckedOut
                         bool bIsGoogleFile = false;
                         bool bCheckedOut = false;
-                        for ( sal_Int32 i = 0; i < aCmisProperties.getLength(); ++i )
+                        for ( const auto& rCmisProperty : aCmisProperties )
                         {
-                            if ( aCmisProperties[i].Id == "cmis:isVersionSeriesCheckedOut" )
+                            if ( rCmisProperty.Id == "cmis:isVersionSeriesCheckedOut" )
                             {
                                 uno::Sequence< sal_Bool > bTmp;
-                                aCmisProperties[i].Value >>= bTmp;
+                                rCmisProperty.Value >>= bTmp;
                                 bCheckedOut = bTmp[0];
                             }
                             // using title to know if it's a Google Drive file
                             // maybe there's a safer way.
-                            if ( aCmisProperties[i].Name == "title" )
+                            if ( rCmisProperty.Name == "title" )
                                 bIsGoogleFile = true;
                         }
                         bShow = !bCheckedOut && !bIsGoogleFile;
@@ -1169,17 +1168,14 @@ void SfxObjectShell::GetState_Impl(SfxItemSet &rSet)
                     if ( xCmisDoc->isVersionable( ) && aCmisProperties.hasElements( ) )
                     {
                         // Loop over the CMIS Properties to find cmis:isVersionSeriesCheckedOut
-                        bool bFoundCheckedout = false;
                         bool bCheckedOut = false;
-                        for ( sal_Int32 i = 0; i < aCmisProperties.getLength() && !bFoundCheckedout; ++i )
+                        auto pProp = std::find_if(aCmisProperties.begin(), aCmisProperties.end(),
+                            [](const document::CmisProperty& rProp) { return rProp.Id == "cmis:isVersionSeriesCheckedOut"; });
+                        if (pProp != aCmisProperties.end())
                         {
-                            if ( aCmisProperties[i].Id == "cmis:isVersionSeriesCheckedOut" )
-                            {
-                                bFoundCheckedout = true;
-                                uno::Sequence< sal_Bool > bTmp;
-                                aCmisProperties[i].Value >>= bTmp;
-                                bCheckedOut = bTmp[0];
-                            }
+                            uno::Sequence< sal_Bool > bTmp;
+                            pProp->Value >>= bTmp;
+                            bCheckedOut = bTmp[0];
                         }
                         bShow = bCheckedOut;
                     }
@@ -1517,25 +1513,24 @@ SignatureState SfxObjectShell::ImplCheckSignaturesInformation( const uno::Sequen
 {
     bool bCertValid = true;
     SignatureState nResult = SignatureState::NOSIGNATURES;
-    int nInfos = aInfos.getLength();
     bool bCompleteSignature = true;
-    if( nInfos )
+    if( aInfos.hasElements() )
     {
         nResult = SignatureState::OK;
-        for ( int n = 0; n < nInfos; n++ )
+        for ( const auto& rInfo : aInfos )
         {
             if ( bCertValid )
             {
-                sal_Int32 nCertStat = aInfos[n].CertificateStatus;
+                sal_Int32 nCertStat = rInfo.CertificateStatus;
                 bCertValid = nCertStat == security::CertificateValidity::VALID;
             }
 
-            if ( !aInfos[n].SignatureIsValid )
+            if ( !rInfo.SignatureIsValid )
             {
                 nResult = SignatureState::BROKEN;
                 break; // we know enough
             }
-            bCompleteSignature &= !aInfos[n].PartialDocumentSignature;
+            bCompleteSignature &= !rInfo.PartialDocumentSignature;
         }
     }
 
@@ -1555,23 +1550,21 @@ SignatureState SfxObjectShell::ImplCheckSignaturesInformation( const uno::Sequen
 /// Does this ZIP storage have a signature stream?
 static bool HasSignatureStream(const uno::Reference<embed::XStorage>& xStorage)
 {
-    uno::Reference<container::XNameAccess> xNameAccess(xStorage, uno::UNO_QUERY);
-    if (!xNameAccess.is())
+    if (!xStorage.is())
         return false;
 
-    if (xNameAccess->hasByName("META-INF"))
+    if (xStorage->hasByName("META-INF"))
     {
         // ODF case.
         try
         {
             uno::Reference<embed::XStorage> xMetaInf
                 = xStorage->openStorageElement("META-INF", embed::ElementModes::READ);
-            uno::Reference<container::XNameAccess> xMetaInfNames(xMetaInf, uno::UNO_QUERY);
-            if (xMetaInfNames.is())
+            if (xMetaInf.is())
             {
-                return xMetaInfNames->hasByName("documentsignatures.xml")
-                       || xMetaInfNames->hasByName("macrosignatures.xml")
-                       || xMetaInfNames->hasByName("packagesignatures.xml");
+                return xMetaInf->hasByName("documentsignatures.xml")
+                       || xMetaInf->hasByName("macrosignatures.xml")
+                       || xMetaInf->hasByName("packagesignatures.xml");
             }
         }
         catch (const css::io::IOException& rException)
@@ -1581,7 +1574,7 @@ static bool HasSignatureStream(const uno::Reference<embed::XStorage>& xStorage)
     }
 
     // OOXML case.
-    return xNameAccess->hasByName("_xmlsignatures");
+    return xStorage->hasByName("_xmlsignatures");
 }
 
 uno::Sequence< security::DocumentSignatureInformation > SfxObjectShell::GetDocumentSignatureInformation( bool bScriptingContent, const uno::Reference< security::XDocumentDigitalSignatures >& xSigner )
@@ -1819,7 +1812,7 @@ bool SfxObjectShell::CheckIsReadonly(bool bSignScriptingContent)
     return false;
 }
 
-bool SfxObjectShell::HasValidSignatures()
+bool SfxObjectShell::HasValidSignatures() const
 {
     return pImpl->nDocumentSignatureState == SignatureState::OK
            || pImpl->nDocumentSignatureState == SignatureState::NOTVALIDATED

@@ -17,6 +17,7 @@ REM ----------------------------------------------------------------------------
 
 Private	_Type					As String				&apos;	Must be FORM
 Private _This					As Object				&apos;	Workaround for absence of This builtin function
+Private _Parent					As Object
 Private	_Name					As String
 Private _ParentType				As String
 Private _ParentComponent		As Object
@@ -33,6 +34,7 @@ REM ----------------------------------------------------------------------------
 Private Sub Class_Initialize()
 	_Type = OBJOPTIONGROUP
 	Set _This = Nothing
+	Set _Parent = Nothing
 	_Name = &quot;&quot;
 	_ParentType = &quot;&quot;
 	_ParentComponent = Nothing
@@ -115,13 +117,14 @@ If _ErrorHandler() Then On Local Error Goto Error_Function
 	Utils._SetCalledSub(&quot;OptionGroup.Controls&quot;)
 
 Dim ocControl As Variant, iArgNr As Integer, i As Integer
+Dim oCounter As Object
 
 	Set ocControl = Nothing
 	
 	If IsMissing(pvIndex) Then					&apos;	No argument, return Collection object
 		Set oCounter = New Collect
 		Set oCounter._This = oCounter
-		oCounter._SubType = OBJCONTROL
+		oCounter._CollType = COLLCONTROLS
 		Set oCounter._Parent = _This
 		oCounter._Count = _Count
 		Set Controls = oCounter
@@ -136,6 +139,7 @@ Dim ocControl As Variant, iArgNr As Integer, i As Integer
 	&apos;	Determine exact name
 	Set ocControl = New Control
 	Set ocControl._This = ocControl
+	Set ocControl._Parent = _This
 	ocControl._ParentType = CTLPARENTISGROUP
 	
 	ocControl._Shortcut = &quot;&quot;

@@ -28,12 +28,10 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include <i18nlangtag/mslangid.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/jobdata.hxx>
-#include <printerinfomanager.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/sysdata.hxx>
@@ -45,7 +43,6 @@
 #include <unx/geninst.h>
 #include <unx/genpspgraphics.h>
 #include <unx/printergfx.hxx>
-#include <impfont.hxx>
 #include <langboost.hxx>
 #include <fontinstance.hxx>
 #include <fontattributes.hxx>
@@ -53,7 +50,6 @@
 #include <PhysicalFontCollection.hxx>
 #include <PhysicalFontFace.hxx>
 #include <salbmp.hxx>
-#include <salprn.hxx>
 #include <sallayout.hxx>
 
 using namespace psp;
@@ -79,6 +75,15 @@ public:
     virtual sal_uInt8   GetPixelIdx  (sal_uInt32 nRow, sal_uInt32 nColumn) const override;
     virtual sal_uInt32  GetDepth () const override;
 };
+
+namespace
+{
+    bool Bitmap32IsPreMultipled()
+    {
+        auto pBackendCapabilities = ImplGetSVData()->mpDefInst->GetBackendCapabilities();
+        return pBackendCapabilities->mbSupportsBitmap32;
+    }
+}
 
 SalPrinterBmp::SalPrinterBmp (BitmapBuffer* pBuffer)
     : mpBmpBuffer(pBuffer)
@@ -113,25 +118,36 @@ SalPrinterBmp::SalPrinterBmp (BitmapBuffer* pBuffer)
             mpFncGetPixel = BitmapReadAccess::GetPixelForN8BitPal;      break;
         case ScanlineFormat::N8BitTcMask:
             mpFncGetPixel = BitmapReadAccess::GetPixelForN8BitTcMask;  break;
-        case ScanlineFormat::N16BitTcMsbMask:
-            mpFncGetPixel = BitmapReadAccess::GetPixelForN16BitTcMsbMask; break;
-        case ScanlineFormat::N16BitTcLsbMask:
-            mpFncGetPixel = BitmapReadAccess::GetPixelForN16BitTcLsbMask; break;
         case ScanlineFormat::N24BitTcBgr:
             mpFncGetPixel = BitmapReadAccess::GetPixelForN24BitTcBgr;  break;
         case ScanlineFormat::N24BitTcRgb:
             mpFncGetPixel = BitmapReadAccess::GetPixelForN24BitTcRgb;  break;
         case ScanlineFormat::N32BitTcAbgr:
-            mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcAbgr; break;
+            if (Bitmap32IsPreMultipled())
+                mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcAbgr;
+            else
+                mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcXbgr;
+            break;
         case ScanlineFormat::N32BitTcArgb:
-            mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcArgb; break;
+            if (Bitmap32IsPreMultipled())
+                mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcArgb;
+            else
+                mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcXrgb;
+            break;
         case ScanlineFormat::N32BitTcBgra:
-            mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcBgra; break;
+            if (Bitmap32IsPreMultipled())
+                mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcBgra;
+            else
+                mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcBgrx;
+            break;
         case ScanlineFormat::N32BitTcRgba:
-            mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcRgba; break;
+            if (Bitmap32IsPreMultipled())
+                mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcRgba;
+            else
+                mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcRgbx;
+            break;
         case ScanlineFormat::N32BitTcMask:
             mpFncGetPixel = BitmapReadAccess::GetPixelForN32BitTcMask; break;
-
         default:
             OSL_FAIL("Error: SalPrinterBmp::SalPrinterBmp() unknown bitmap format");
             mpFncGetPixel = nullptr;
@@ -155,7 +171,6 @@ SalPrinterBmp::GetDepth () const
             nDepth = 8;
             break;
 
-        case 16:
         case 24:
         case 32:
             nDepth = 24;
@@ -163,7 +178,7 @@ SalPrinterBmp::GetDepth () const
 
         default:
             nDepth = 1;
-            OSL_FAIL("Error: unsupported bitmap depth in SalPrinterBmp::GetDepth()");
+            assert(false && "Error: unsupported bitmap depth in SalPrinterBmp::GetDepth()");
             break;
     }
 
@@ -578,13 +593,12 @@ void GenPspGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
         m_pPrinterGfx->DrawGlyph(aPos, *pGlyph);
 }
 
-const FontCharMapRef GenPspGraphics::GetFontCharMap() const
+FontCharMapRef GenPspGraphics::GetFontCharMap() const
 {
     if( !m_pFreetypeFont[0] )
         return nullptr;
 
-    const FontCharMapRef xFCMap = m_pFreetypeFont[0]->GetFontCharMap();
-    return xFCMap;
+    return m_pFreetypeFont[0]->GetFontCharMap();
 }
 
 bool GenPspGraphics::GetFontCapabilities(vcl::FontCapabilities &rFontCapabilities) const
@@ -672,12 +686,8 @@ bool GenPspGraphics::AddTempDevFontHelper( PhysicalFontCollection* pFontCollecti
                                            GlyphCache &rGC )
 {
     // inform PSP font manager
-    OUString aUSystemPath;
-    OSL_VERIFY( !osl::FileBase::getSystemPathFromFileURL( rFileURL, aUSystemPath ) );
-    rtl_TextEncoding aEncoding = osl_getThreadTextEncoding();
-    OString aOFileName( OUStringToOString( aUSystemPath, aEncoding ) );
     psp::PrintFontManager& rMgr = psp::PrintFontManager::get();
-    std::vector<psp::fontID> aFontIds = rMgr.addFontFile( aOFileName );
+    std::vector<psp::fontID> aFontIds = rMgr.addFontFile( rFileURL );
     if( aFontIds.empty() )
         return false;
 

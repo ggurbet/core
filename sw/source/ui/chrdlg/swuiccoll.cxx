@@ -43,8 +43,8 @@ const sal_uInt16 SwCondCollPage::m_aPageRg[] = {
     0
 };
 
-SwCondCollPage::SwCondCollPage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/conditionpage.ui", "ConditionPage", &rSet)
+SwCondCollPage::SwCondCollPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/conditionpage.ui", "ConditionPage", &rSet)
     , m_rSh(::GetActiveView()->GetWrtShell())
     , m_pCmds(SwCondCollItem::GetCmds())
     , m_pFormat(nullptr)
@@ -101,7 +101,6 @@ SwCondCollPage::SwCondCollPage(TabPageParent pParent, const SfxItemSet &rSet)
 
 SwCondCollPage::~SwCondCollPage()
 {
-    disposeOnce();
 }
 
 DeactivateRC SwCondCollPage::DeactivatePage(SfxItemSet * _pSet)
@@ -112,9 +111,9 @@ DeactivateRC SwCondCollPage::DeactivatePage(SfxItemSet * _pSet)
     return DeactivateRC::LeavePage;
 }
 
-VclPtr<SfxTabPage> SwCondCollPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
+std::unique_ptr<SfxTabPage> SwCondCollPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet)
 {
-    return VclPtr<SwCondCollPage>::Create(pParent, *rSet);
+    return std::make_unique<SwCondCollPage>(pPage, pController, *rSet);
 }
 
 bool SwCondCollPage::FillItemSet(SfxItemSet *rSet)
@@ -189,9 +188,10 @@ IMPL_LINK(SwCondCollPage, AssignRemoveClickHdl, weld::Button&, rBtn, void)
     AssignRemove(&rBtn);
 }
 
-IMPL_LINK(SwCondCollPage, AssignRemoveTreeListBoxHdl, weld::TreeView&, rBtn, void)
+IMPL_LINK(SwCondCollPage, AssignRemoveTreeListBoxHdl, weld::TreeView&, rBtn, bool)
 {
     AssignRemove(&rBtn);
+    return true;
 }
 
 void SwCondCollPage::AssignRemove(const weld::Widget* pBtn)

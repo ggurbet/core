@@ -104,73 +104,6 @@ bool containsDataNodeType(const oox::drawingml::ShapePtr& pShape, sal_Int32 nTyp
 
     return false;
 }
-
-/**
- * Calculates the offset and scaling for pShape (laid out with the hierChild
- * algorithm) based on the siblings of pParent.
- */
-void calculateHierChildOffsetScale(const oox::drawingml::ShapePtr& pShape,
-                                   const oox::drawingml::LayoutNode* pParent, sal_Int32& rXOffset,
-                                   double& rWidthScale, sal_Int32 nLevel)
-{
-    if (!pParent)
-        return;
-
-    auto pShapes = pParent->getNodeShapes().find(nLevel - 1);
-    if (pShapes == pParent->getNodeShapes().end())
-        return;
-
-    const std::vector<oox::drawingml::ShapePtr>& rParents = pShapes->second;
-    for (size_t nParent = 0; nParent < rParents.size(); ++nParent)
-    {
-        const oox::drawingml::ShapePtr& pParentShape = rParents[nParent];
-        const std::vector<oox::drawingml::ShapePtr>& rChildren = pParentShape->getChildren();
-        if (std::none_of(rChildren.begin(), rChildren.end(),
-                         [pShape](const oox::drawingml::ShapePtr& pChild) { return pChild == pShape; }))
-            // This is not our parent.
-            continue;
-
-        if (nParent > 0)
-        {
-            if (rParents[nParent - 1]->getChildren().size() == 1)
-            {
-                // Previous sibling of our parent has no children: can use that
-                // space, so shift to the left and scale up.
-                rWidthScale += 1.0;
-                rXOffset -= pShape->getSize().Width;
-            }
-        }
-        if (nParent < rParents.size() - 1)
-        {
-            if (rParents[nParent + 1]->getChildren().size() == 1)
-                // Next sibling of our parent has no children: can use that
-                // space, so scale up.
-                rWidthScale += 1.0;
-        }
-    }
-}
-
-/// Sets the position and size of a connector inside a hierChild algorithm.
-void setHierChildConnPosSize(const oox::drawingml::ShapePtr& pShape)
-{
-    // Connect to the top center of the child.
-    awt::Point aShapePoint = pShape->getPosition();
-    awt::Size aShapeSize = pShape->getSize();
-    tools::Rectangle aRectangle(Point(aShapePoint.X, aShapePoint.Y),
-                                Size(aShapeSize.Width, aShapeSize.Height));
-    Point aTo = aRectangle.TopCenter();
-
-    // Connect from the bottom center of the parent.
-    Point aFrom = aTo;
-    aFrom.setY(aFrom.getY() - aRectangle.getHeight() * 0.3);
-
-    tools::Rectangle aRect(aFrom, aTo);
-    aRect.Justify();
-    aShapePoint = awt::Point(aRect.Left(), aRect.Top());
-    aShapeSize = awt::Size(aRect.getWidth(), aRect.getHeight());
-    pShape->setPosition(aShapePoint);
-    pShape->setSize(aShapeSize);
-}
 }
 
 namespace oox { namespace drawingml {
@@ -452,7 +385,7 @@ sal_Int32 AlgAtom::getConnectorType()
         nEndSty = maMap.find(oox::XML_endSty)->second;
 
     if (nConnRout == oox::XML_bend)
-        return oox::XML_bentConnector3;
+        return 0; // was oox::XML_bentConnector3 - connectors are hidden in org chart as they don't work anyway
     if (nBegSty == oox::XML_arr && nEndSty == oox::XML_arr)
         return oox::XML_leftRightArrow;
     if (nBegSty == oox::XML_arr)
@@ -463,9 +396,42 @@ sal_Int32 AlgAtom::getConnectorType()
     return oox::XML_rightArrow;
 }
 
+sal_Int32 AlgAtom::getVerticalShapesCount(const ShapePtr& rShape)
+{
+    if (rShape->getChildren().empty())
+        return (rShape->getSubType() != XML_conn) ? 1 : 0;
+
+    sal_Int32 nDir = XML_fromL;
+    if (mnType == XML_hierRoot)
+        nDir = XML_fromT;
+    else if (maMap.count(XML_linDir))
+        nDir = maMap.find(XML_linDir)->second;
+
+    const sal_Int32 nSecDir = maMap.count(XML_secLinDir) ? maMap.find(XML_secLinDir)->second : 0;
+
+    sal_Int32 nCount = 0;
+    if (nDir == XML_fromT || nDir == XML_fromB)
+    {
+        for (const ShapePtr& pChild : rShape->getChildren())
+            nCount += pChild->getVerticalShapesCount();
+    }
+    else if ((nDir == XML_fromL || nDir == XML_fromR) && nSecDir == XML_fromT)
+    {
+        for (const ShapePtr& pChild : rShape->getChildren())
+            nCount += pChild->getVerticalShapesCount();
+        nCount = (nCount + 1) / 2;
+    }
+    else
+    {
+        for (const ShapePtr& pChild : rShape->getChildren())
+            nCount = std::max(nCount, pChild->getVerticalShapesCount());
+    }
+
+    return nCount;
+}
+
 void AlgAtom::layoutShape( const ShapePtr& rShape,
-                           const std::vector<Constraint>& rConstraints,
-                           sal_Int32 nShapeLevel )
+                           const std::vector<Constraint>& rConstraints )
 {
     switch(mnType)
     {
@@ -583,12 +549,6 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
 
                 rShape->setSubType(nType);
                 rShape->getCustomShapeProperties()->setShapePresetType(nType);
-
-                if (nType == XML_bentConnector3)
-                {
-                    setHierChildConnPosSize(rShape);
-                    break;
-                }
             }
 
             // Parse constraints to adjust the size.
@@ -706,6 +666,9 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
         case XML_hierChild:
         case XML_hierRoot:
         {
+            if (rShape->getChildren().empty() || rShape->getSize().Width == 0 || rShape->getSize().Height == 0)
+                break;
+
             // hierRoot is the manager -> employees vertical linear path,
             // hierChild is the first employee -> last employee horizontal
             // linear path.
@@ -715,31 +678,20 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             else if (maMap.count(XML_linDir))
                 nDir = maMap.find(XML_linDir)->second;
 
-            if (rShape->getChildren().empty() || rShape->getSize().Width == 0
-                || rShape->getSize().Height == 0)
-                break;
+            const sal_Int32 nSecDir = maMap.count(XML_secLinDir) ? maMap.find(XML_secLinDir)->second : 0;
 
             sal_Int32 nCount = rShape->getChildren().size();
 
             if (mnType == XML_hierChild)
             {
-                // Connectors should not influence the size of non-connect
-                // shapes.
+                // Connectors should not influence the size of non-connect shapes.
                 nCount = std::count_if(
                     rShape->getChildren().begin(), rShape->getChildren().end(),
                     [](const ShapePtr& pShape) { return pShape->getSubType() != XML_conn; });
             }
 
-            // A manager node's height should be independent from if it has
-            // assistants and employees, compensate for that.
-            bool bTop = mnType == XML_hierRoot && rShape->getInternalName() == "hierRoot1";
-
-            // Add spacing, so connectors have a chance to be visible.
-            double fSpace = (nCount > 1 || bTop) ? 0.3 : 0;
-
-            double fHeightScale = 1.0;
-            if (mnType == XML_hierRoot && nCount < 3 && bTop)
-                fHeightScale = fHeightScale * nCount / 3;
+            const double fSpaceWidth = 0.1;
+            const double fSpaceHeight = 0.3;
 
             if (mnType == XML_hierRoot && nCount == 3)
             {
@@ -750,24 +702,31 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
                     std::swap(rChildren[1], rChildren[2]);
             }
 
-            sal_Int32 nXOffset = 0;
-            double fWidthScale = 1.0;
-            if (mnType == XML_hierChild)
-                calculateHierChildOffsetScale(rShape, getLayoutNode().getParentLayoutNode(), nXOffset, fWidthScale, nShapeLevel);
+            sal_Int32 nHorizontalShapesCount = 1;
+            if (nSecDir == XML_fromT)
+                nHorizontalShapesCount = 2;
+            else if (nDir == XML_fromL || nDir == XML_fromR)
+                nHorizontalShapesCount = nCount;
 
             awt::Size aChildSize = rShape->getSize();
-            if (nDir == XML_fromT)
-            {
-                aChildSize.Height /= (nCount + nCount * fSpace);
-            }
-            else
-                aChildSize.Width /= nCount;
-            aChildSize.Height *= fHeightScale;
-            aChildSize.Width *= fWidthScale;
+            aChildSize.Height /= (rShape->getVerticalShapesCount() + (rShape->getVerticalShapesCount() - 1) * fSpaceHeight);
+            aChildSize.Width /= (nHorizontalShapesCount + (nHorizontalShapesCount - 1) * fSpaceWidth);
+
             awt::Size aConnectorSize = aChildSize;
             aConnectorSize.Width = 1;
 
-            awt::Point aChildPos(nXOffset, 0);
+            awt::Point aChildPos(0, 0);
+
+            // indent children to show they are descendants, not siblings
+            if (mnType == XML_hierChild && nHorizontalShapesCount == 1)
+            {
+                const double fChildIndent = 0.1;
+                aChildPos.X = aChildSize.Width * fChildIndent;
+                aChildSize.Width *= (1 - 2 * fChildIndent);
+            }
+
+            sal_Int32 nIdx = 0;
+            sal_Int32 nRowHeight = 0;
             for (auto& pChild : rShape->getChildren())
             {
                 pChild->setPosition(aChildPos);
@@ -781,13 +740,27 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
                     continue;
                 }
 
-                pChild->setSize(aChildSize);
-                pChild->setChildSize(aChildSize);
+                awt::Size aCurrSize = aChildSize;
+                aCurrSize.Height *= pChild->getVerticalShapesCount() + (pChild->getVerticalShapesCount() - 1) * fSpaceHeight;
 
-                if (nDir == XML_fromT)
-                    aChildPos.Y += aChildSize.Height + aChildSize.Height * fSpace;
+                pChild->setSize(aCurrSize);
+                pChild->setChildSize(aCurrSize);
+
+                if (nDir == XML_fromT || nDir == XML_fromB)
+                    aChildPos.Y += aCurrSize.Height + aChildSize.Height * fSpaceHeight;
                 else
-                    aChildPos.X += aChildSize.Width;
+                    aChildPos.X += aCurrSize.Width + aCurrSize.Width * fSpaceWidth;
+
+                nRowHeight = std::max(nRowHeight, aCurrSize.Height);
+
+                if (nSecDir == XML_fromT && nIdx % 2 == 1)
+                {
+                    aChildPos.X = 0;
+                    aChildPos.Y += nRowHeight + aChildSize.Height * fSpaceHeight;
+                    nRowHeight = 0;
+                }
+
+                nIdx++;
             }
 
             break;
@@ -855,7 +828,7 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             // See if children requested more than 100% space in total: scale
             // down in that case.
             awt::Size aTotalSize;
-            for (auto & aCurrShape : rShape->getChildren())
+            for (const auto & aCurrShape : rShape->getChildren())
             {
                 oox::OptValue<sal_Int32> oWidth = findProperty(aProperties, aCurrShape->getInternalName(), XML_w);
                 oox::OptValue<sal_Int32> oHeight = findProperty(aProperties, aCurrShape->getInternalName(), XML_h);

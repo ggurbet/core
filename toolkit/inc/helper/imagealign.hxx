@@ -21,18 +21,17 @@
 #define INCLUDED_TOOLKIT_INC_HELPER_IMAGEALIGN_HXX
 
 #include <sal/types.h>
-#include <vcl/button.hxx>
-
+#include <tools/wintypes.hxx>
 
 namespace toolkit
 {
 
 
-    /** translates a VCL ImageAlign value into an css.awt.ImagePosition value
+    /** translates a VCL ImageAlign value into a css.awt.ImagePosition value
     */
     sal_Int16 translateImagePosition( ImageAlign _eVCLAlign );
 
-    /** translates a css.awt.ImagePosition value into an VCL ImageAlign
+    /** translates a css.awt.ImagePosition value into a VCL ImageAlign
     */
     ImageAlign translateImagePosition( sal_Int16 _nImagePosition );
 

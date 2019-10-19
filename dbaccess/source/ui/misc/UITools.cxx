@@ -105,7 +105,6 @@
 #include <svl/numuno.hxx>
 #include <unotools/pathoptions.hxx>
 #include <svl/filenotation.hxx>
-#include <svtools/fileview.hxx>
 #include <connectivity/FValue.hxx>
 
 #include <editeng/justifyitem.hxx>
@@ -187,7 +186,7 @@ SQLExceptionInfo createConnection(  const Reference< css::beans::XPropertySet>& 
             }
             else
             {   // instantiate the default SDB interaction handler
-                Reference< XInteractionHandler > xHandler( InteractionHandler::createWithParent(_rxContext, nullptr), UNO_QUERY);
+                Reference< XInteractionHandler > xHandler = InteractionHandler::createWithParent(_rxContext, nullptr);
                 _rOUTConnection = xConnectionCompletion->connectWithCompletion(xHandler);
             }
         }
@@ -205,15 +204,14 @@ SQLExceptionInfo createConnection(  const Reference< css::beans::XPropertySet>& 
     catch(const SQLWarning& e) { aInfo = SQLExceptionInfo(e); }
     catch(const SQLException& e) { aInfo = SQLExceptionInfo(e); }
     catch(const Exception&) {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("dbaccess.ui", "SbaTableQueryBrowser::OnExpandEntry: could not connect - unknown exception! " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("dbaccess.ui", "SbaTableQueryBrowser::OnExpandEntry: could not connect - unknown exception");
     }
 
     return aInfo;
 }
 
 Reference< XDataSource > getDataSourceByName( const OUString& _rDataSourceName,
-    vcl::Window* _pErrorMessageParent, const Reference< XComponentContext >& _rxContext, ::dbtools::SQLExceptionInfo* _pErrorInfo )
+    weld::Window* _pErrorMessageParent, const Reference< XComponentContext >& _rxContext, ::dbtools::SQLExceptionInfo* _pErrorInfo )
 {
     Reference< XDatabaseContext > xDatabaseContext = DatabaseContext::create(_rxContext);
 
@@ -261,7 +259,7 @@ Reference< XDataSource > getDataSourceByName( const OUString& _rDataSourceName,
         }
         else
         {
-            showError( aSQLError, VCLUnoHelper::GetInterface(_pErrorMessageParent), _rxContext );
+            showError( aSQLError, _pErrorMessageParent ? _pErrorMessageParent->GetXWindow() : nullptr, _rxContext );
         }
     }
 
@@ -908,7 +906,7 @@ bool appendToFilter(const Reference<XConnection>& _xConnection,
             xProp->getPropertyValue(PROPERTY_TABLEFILTER) >>= aFilter;
             // first check if we have something like SCHEMA.%
             bool bHasToInsert = true;
-            for (const OUString& rItem : aFilter)
+            for (const OUString& rItem : std::as_const(aFilter))
             {
                 if(rItem.indexOf('%') != -1)
                 {
@@ -949,25 +947,6 @@ void notifySystemWindow(vcl::Window const * _pWindow, vcl::Window* _pToRegister,
     if ( pSystemWindow )
     {
         _rMemFunc( pSystemWindow->GetTaskPaneList(), _pToRegister );
-    }
-}
-
-void adjustToolBoxSize(ToolBox* _pToolBox)
-{
-    // adjust the toolbox size, otherwise large bitmaps don't fit into
-    Size aOldSize = _pToolBox->GetSizePixel();
-    Size aSize = _pToolBox->CalcWindowSizePixel();
-    if ( !aSize.Width() )
-        aSize.setWidth( aOldSize.Width() );
-    else if ( !aSize.Height() )
-        aSize.setHeight( aOldSize.Height() );
-
-    Size aTbSize = _pToolBox->GetSizePixel();
-    if ( (aSize.Width() && aSize.Width() != aTbSize.Width()) ||
-            (aSize.Height() && aSize.Height() != aTbSize.Height()) )
-    {
-        _pToolBox->SetPosSizePixel( _pToolBox->GetPosPixel(), aSize );
-        _pToolBox->Invalidate();
     }
 }
 
@@ -1081,8 +1060,7 @@ void setEvalDateFormatForFormatter(Reference< css::util::XNumberFormatter > cons
     {
         Reference< css::util::XNumberFormatsSupplier >  xSupplier = _rxFormatter->getNumberFormatsSupplier();
 
-        Reference< XUnoTunnel > xTunnel(xSupplier,UNO_QUERY);
-        SvNumberFormatsSupplierObj* pSupplierImpl = reinterpret_cast<SvNumberFormatsSupplierObj*>(xTunnel->getSomething(SvNumberFormatsSupplierObj::getUnoTunnelId()));
+        auto pSupplierImpl = comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>(xSupplier);
         OSL_ENSURE(pSupplierImpl,"No Supplier!");
 
         if ( pSupplierImpl )

@@ -28,13 +28,8 @@
 #include <vcl/syswin.hxx>
 #include <vcl/dockwin.hxx>
 #include <vcl/floatwin.hxx>
-#include <vcl/bitmap.hxx>
-#include <vcl/gradient.hxx>
-#include <vcl/image.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/help.hxx>
 #include <vcl/edit.hxx>
-#include <vcl/metric.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/toolbox.hxx>
 #include <vcl/ptrstyle.hxx>
@@ -155,7 +150,7 @@ void ImplBorderWindowView::ImplInitTitle(ImplBorderFrameData* pData)
     {
         const StyleSettings& rStyleSettings = pData->mpOutDev->GetSettings().GetStyleSettings();
         if (pData->mnTitleType == BorderWindowTitleType::Tearoff)
-            pData->mnTitleHeight = ToolBox::ImplGetDragWidth(*pData->mpBorderWindow.get(), false) + 2;
+            pData->mnTitleHeight = ToolBox::ImplGetDragWidth(*pData->mpBorderWindow, false) + 2;
         else
         {
             if (pData->mnTitleType == BorderWindowTitleType::Small)
@@ -708,7 +703,7 @@ void ImplSmallBorderWindowView::DrawWindow(vcl::RenderContext& rRenderContext, c
         bNativeOK = rRenderContext.DrawNativeControl(aCtrlType, aCtrlPart, aCtrlRegion, nState, aControlValue, OUString());
 
         // if the native theme draws the spinbuttons in one call, make sure the proper settings
-        // are passed, this might force a redraw though.... (TODO: improve)
+        // are passed, this might force a redraw though... (TODO: improve)
         if ((aCtrlType == ControlType::Spinbox) && !pCtrl->IsNativeControlSupported(ControlType::Spinbox, ControlPart::ButtonUp))
         {
             Edit* pEdit = static_cast<Edit*>(pCtrl)->GetSubEdit();
@@ -2015,11 +2010,14 @@ void ImplBorderWindow::SetMenuBarMode( bool bHide )
     UpdateMenuHeight();
 }
 
-void ImplBorderWindow::SetNotebookBar(const OUString& rUIXMLDescription, const css::uno::Reference<css::frame::XFrame>& rFrame)
+void ImplBorderWindow::SetNotebookBar(const OUString& rUIXMLDescription,
+                                      const css::uno::Reference<css::frame::XFrame>& rFrame,
+                                      const NotebookBarAddonsItem& aNotebookBarAddonsItem)
 {
     if (mpNotebookBar)
         mpNotebookBar.disposeAndClear();
-    mpNotebookBar = VclPtr<NotebookBar>::Create(this, "NotebookBar", rUIXMLDescription, rFrame);
+    mpNotebookBar = VclPtr<NotebookBar>::Create(this, "NotebookBar", rUIXMLDescription, rFrame,
+                                                aNotebookBarAddonsItem);
     Resize();
 }
 

@@ -116,7 +116,7 @@ DocumentTimerManager::IdleJob DocumentTimerManager::GetNextIdleJob() const
         !SfxProgress::GetActiveProgress( m_rDoc.GetDocShell() ) )
     {
         SwViewShell* pShell(m_rDoc.getIDocumentLayoutAccess().GetCurrentViewShell());
-        for(SwViewShell& rSh : pShell->GetRingContainer())
+        for(const SwViewShell& rSh : pShell->GetRingContainer())
             if( rSh.ActionPend() )
                 return IdleJob::Busy;
 
@@ -200,7 +200,8 @@ IMPL_LINK_NOARG( DocumentTimerManager, DoIdleJobs, Timer*, void )
         m_rDoc.getIDocumentFieldsAccess().UpdateRefFields();  // References
 
         // Validate and update the paragraph signatures.
-        m_rDoc.GetEditShell()->ValidateAllParagraphSignatures(true);
+        if (m_rDoc.GetEditShell())
+            m_rDoc.GetEditShell()->ValidateAllParagraphSignatures(true);
 
         pTmpRoot->EndAllAction();
 

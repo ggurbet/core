@@ -47,6 +47,7 @@
 #include <comphelper/namedvaluecollection.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/types.hxx>
 #include <unotools/confignode.hxx>
@@ -109,7 +110,7 @@ namespace connectivity
 
         try
         {
-            for (auto& rConnection : m_aConnections)
+            for (const auto& rConnection : m_aConnections)
             {
                 Reference<XInterface > xTemp = rConnection.first.get();
                 ::comphelper::disposeComponent(xTemp);
@@ -149,7 +150,7 @@ namespace connectivity
                 _rxContext, aConfigPath.makeStringAndClear() ) );
 
             OUStringBuffer aPermittedMethods;
-            Sequence< OUString > aNodeNames( aConfig.getNodeNames() );
+            const Sequence< OUString > aNodeNames( aConfig.getNodeNames() );
             for ( auto const & nodeName : aNodeNames )
             {
                 OUString sPermittedMethod;
@@ -342,13 +343,9 @@ namespace connectivity
                 if ( xOrig.is() )
                 {
                     // now we have to set the URL to get the correct answer for metadata()->getURL()
-                    Reference< XUnoTunnel> xTunnel(xOrig,UNO_QUERY);
-                    if ( xTunnel.is() )
-                    {
-                        OMetaConnection* pMetaConnection = reinterpret_cast<OMetaConnection*>(xTunnel->getSomething( OMetaConnection::getUnoTunnelImplementationId() ));
-                        if ( pMetaConnection )
-                            pMetaConnection->setURL(url);
-                    }
+                    auto pMetaConnection = comphelper::getUnoTunnelImplementation<OMetaConnection>(xOrig);
+                    if ( pMetaConnection )
+                        pMetaConnection->setURL(url);
 
                     Reference<XComponent> xComp(xOrig,UNO_QUERY);
                     if ( xComp.is() )
@@ -456,7 +453,7 @@ namespace connectivity
                 return rConnection.second.second.first.get() == connection.get(); });
         if (i != m_aConnections.end())
         {
-            xTab.set(i->second.second.second.get().get(),UNO_QUERY);
+            xTab.set(i->second.second.second,UNO_QUERY);
             if ( !xTab.is() )
             {
                 xTab = new OHCatalog(connection);
@@ -485,15 +482,12 @@ namespace connectivity
 
     OUString ODriverDelegator::getImplementationName_Static(  )
     {
-        return OUString("com.sun.star.sdbcx.comp.hsqldb.Driver");
+        return "com.sun.star.sdbcx.comp.hsqldb.Driver";
     }
 
     Sequence< OUString > ODriverDelegator::getSupportedServiceNames_Static(  )
     {
-        Sequence< OUString > aSNS( 2 );
-        aSNS[0] = "com.sun.star.sdbc.Driver";
-        aSNS[1] = "com.sun.star.sdbcx.Driver";
-        return aSNS;
+        return { "com.sun.star.sdbc.Driver", "com.sun.star.sdbcx.Driver" };
     }
 
     OUString SAL_CALL ODriverDelegator::getImplementationName(  )
@@ -529,7 +523,7 @@ namespace connectivity
                 Reference<XStatement> xStmt = _xConnection->createStatement();
                 if ( xStmt.is() )
                 {
-                    Reference<XResultSet> xRes(xStmt->executeQuery("SELECT COUNT(*) FROM INFORMATION_SCHEMA.SYSTEM_SESSIONS WHERE USER_NAME ='SA'"), UNO_QUERY);
+                    Reference<XResultSet> xRes = xStmt->executeQuery("SELECT COUNT(*) FROM INFORMATION_SCHEMA.SYSTEM_SESSIONS WHERE USER_NAME ='SA'");
                     Reference<XRow> xRow(xRes,UNO_QUERY);
                     if ( xRow.is() && xRes->next() )
                         bLastOne = xRow->getInt(1) == 1;
@@ -583,7 +577,7 @@ namespace connectivity
     void ODriverDelegator::shutdownConnections()
     {
         m_bInShutDownConnections = true;
-        for (auto& rConnection : m_aConnections)
+        for (const auto& rConnection : m_aConnections)
         {
             try
             {
@@ -600,7 +594,7 @@ namespace connectivity
 
     void ODriverDelegator::flushConnections()
     {
-        for (auto& rConnection : m_aConnections)
+        for (const auto& rConnection : m_aConnections)
         {
             try
             {

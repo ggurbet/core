@@ -417,30 +417,30 @@ static OUString lcl_GetServiceType( const ServicePtr& pService )
     switch( aProtocol )
     {
         case INetProtocol::Ftp:
-            return OUString( "FTP" );
+            return "FTP";
         case INetProtocol::Cmis:
         {
             OUString sHost = pService->GetUrlObject().GetHost( INetURLObject::DecodeMechanism::WithCharset );
 
             if( sHost.startsWith( GDRIVE_BASE_URL ) )
-                return OUString( "Google Drive" );
+                return "Google Drive";
             else if( sHost.startsWith( ALFRESCO_CLOUD_BASE_URL ) )
-                return OUString( "Alfresco Cloud" );
+                return "Alfresco Cloud";
             else if( sHost.startsWith( ONEDRIVE_BASE_URL ) )
-                return OUString( "OneDrive" );
+                return "OneDrive";
 
-            return OUString( "CMIS" );
+            return "CMIS";
         }
         case INetProtocol::Smb:
-            return OUString( "Windows Share" );
+            return "Windows Share";
         case INetProtocol::File:
-            return OUString( "SSH" );
+            return "SSH";
         case INetProtocol::Http:
-            return OUString( "WebDAV" );
+            return "WebDAV";
         case INetProtocol::Https:
-            return OUString( "WebDAV" );
+            return "WebDAV";
         case INetProtocol::Generic:
-            return OUString( "SSH" );
+            return "SSH";
         default:
             return OUString();
     }
@@ -719,9 +719,8 @@ void RemoteFilesDialog::SavePassword( const OUString& rURL, const OUString& rUse
             && m_xMasterPasswd->authorizateWithMasterPassword( Reference< XInteractionHandler>() ) )
         )
         {
-            Reference< XInteractionHandler > xInteractionHandler(
-                InteractionHandler::createWithParent( m_xContext, nullptr ),
-                UNO_QUERY );
+            Reference< XInteractionHandler > xInteractionHandler =
+                InteractionHandler::createWithParent( m_xContext, nullptr );
 
             Sequence<OUString> aPasswd { rPassword };
 
@@ -866,9 +865,8 @@ IMPL_LINK ( RemoteFilesDialog, EditServiceMenuHdl, MenuButton *, pButton, void )
                     {
                         OUString sUrl( m_aServices[nPos]->GetUrl() );
 
-                        Reference< XInteractionHandler > xInteractionHandler(
-                            InteractionHandler::createWithParent( m_xContext, nullptr ),
-                            UNO_QUERY );
+                        Reference< XInteractionHandler > xInteractionHandler =
+                            InteractionHandler::createWithParent( m_xContext, nullptr );
 
                         UrlRecord aURLEntries = m_xMasterPasswd->find( sUrl, xInteractionHandler );
 
@@ -908,9 +906,8 @@ IMPL_LINK ( RemoteFilesDialog, EditServiceMenuHdl, MenuButton *, pButton, void )
                 {
                     OUString sUrl( m_aServices[nPos]->GetUrl() );
 
-                    Reference< XInteractionHandler > xInteractionHandler(
-                        InteractionHandler::createWithParent( m_xContext, nullptr ),
-                        UNO_QUERY );
+                    Reference< XInteractionHandler > xInteractionHandler =
+                        InteractionHandler::createWithParent( m_xContext, nullptr );
 
                     UrlRecord aURLEntries = m_xMasterPasswd->find( sUrl, xInteractionHandler );
 
@@ -991,7 +988,7 @@ IMPL_LINK_NOARG( RemoteFilesDialog, SelectHdl, SvTreeListBox*, void )
 
                 m_sPath = aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE );
 
-                m_pName_ed->SetText( INetURLObject::decode( aURL.GetLastName(), INetURLObject::DecodeMechanism::WithCharset ) );
+                m_pName_ed->SetText( aURL.GetLastName(INetURLObject::DecodeMechanism::WithCharset) );
             }
             else
             {

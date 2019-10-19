@@ -113,7 +113,7 @@ public:
     /**
       New string from OString.
 
-      @param    str         a OString.
+      @param    str         an OString.
     */
     OString( const OString & str )
     {
@@ -126,10 +126,10 @@ public:
     /**
       Move constructor.
 
-      @param    str         a OString.
+      @param    str         an OString.
       @since LibreOffice 5.2
     */
-    OString( OString && str )
+    OString( OString && str ) noexcept
     {
         pData = str.pData;
         str.pData = nullptr;
@@ -141,7 +141,7 @@ public:
     /**
       New string from OString data.
 
-      @param    str         a OString data.
+      @param    str         an OString data.
     */
     OString( rtl_String * str )
     {
@@ -154,7 +154,7 @@ public:
         The SAL_NO_ACQUIRE dummy parameter is only there to distinguish this
         from other constructors.
 
-      @param    str         a OString data.
+      @param    str         an OString data.
     */
     OString( rtl_String * str, __sal_NoAcquire )
     {
@@ -280,6 +280,15 @@ public:
             *end = '\0';
         }
     }
+
+    /**
+     @overload
+     @internal
+    */
+    template< typename T >
+    OString( OStringNumber< T >&& n )
+        : OString( n.buf, n.length )
+    {}
 #endif
 
 #ifdef LIBO_INTERNAL_ONLY
@@ -297,7 +306,7 @@ public:
     /**
       Assign a new string.
 
-      @param    str         a OString.
+      @param    str         an OString.
     */
     OString & operator=( const OString & str )
     {
@@ -310,10 +319,10 @@ public:
     /**
       Move assign a new string.
 
-      @param    str         a OString.
+      @param    str         an OString.
       @since LibreOffice 5.2
     */
-    OString & operator=( OString && str )
+    OString & operator=( OString && str ) noexcept
     {
         rtl_string_release( pData );
         pData = str.pData;
@@ -350,7 +359,7 @@ public:
     /**
       Append a string to this string.
 
-      @param    str         a OString.
+      @param    str         an OString.
     */
     OString & operator+=( const OString & str )
 #if defined LIBO_INTERNAL_ONLY
@@ -383,6 +392,25 @@ public:
     }
     template<typename T1, typename T2> void operator +=(
         OStringConcat<T1, T2> &&) && = delete;
+
+    /**
+     @overload
+     @internal
+    */
+    template< typename T >
+    OString& operator+=( OStringNumber< T >&& n ) & {
+        sal_Int32 l = n.length;
+        if( l == 0 )
+            return *this;
+        l += pData->length;
+        rtl_string_ensureCapacity( &pData, l );
+        char* end = addDataHelper( pData->buffer + pData->length, n.buf, n.length );
+        *end = '\0';
+        pData->length = l;
+        return *this;
+    }
+    template<typename T> void operator +=(
+        OStringNumber<T> &&) && = delete;
 #endif
 
     /**
@@ -546,7 +574,7 @@ public:
     }
 
     /**
-      Perform a ASCII lowercase comparison of two strings.
+      Perform an ASCII lowercase comparison of two strings.
 
       The result is true if and only if second string
       represents the same sequence of characters as the first string,
@@ -570,7 +598,7 @@ public:
     }
 
     /**
-      Perform a ASCII lowercase comparison of two strings.
+      Perform an ASCII lowercase comparison of two strings.
 
       The result is true if and only if second string
       represents the same sequence of characters as the first string,
@@ -625,7 +653,7 @@ public:
     }
 
     /**
-      Perform a ASCII lowercase comparison of two strings.
+      Perform an ASCII lowercase comparison of two strings.
 
       The result is true if and only if second string
       represents the same sequence of characters as the first string,
@@ -1251,9 +1279,7 @@ public:
     */
     SAL_WARN_UNUSED_RESULT OString copy( sal_Int32 beginIndex ) const
     {
-        rtl_String *pNew = NULL;
-        rtl_string_newFromSubString( &pNew, pData, beginIndex, getLength() - beginIndex );
-        return OString( pNew, SAL_NO_ACQUIRE );
+        return copy(beginIndex, getLength() - beginIndex);
     }
 
     /**
@@ -1602,6 +1628,41 @@ public:
         return rtl_str_toDouble( pData->buffer );
     }
 
+#ifdef LIBO_INTERNAL_ONLY // "RTL_FAST_STRING"
+
+    static OStringNumber< int > number( int i, sal_Int16 radix = 10 )
+    {
+        return OStringNumber< int >( i, radix );
+    }
+    static OStringNumber< long long > number( long long ll, sal_Int16 radix = 10 )
+    {
+        return OStringNumber< long long >( ll, radix );
+    }
+    static OStringNumber< unsigned long long > number( unsigned long long ll, sal_Int16 radix = 10 )
+    {
+        return OStringNumber< unsigned long long >( ll, radix );
+    }
+    static OStringNumber< unsigned long long > number( unsigned int i, sal_Int16 radix = 10 )
+    {
+        return number( static_cast< unsigned long long >( i ), radix );
+    }
+    static OStringNumber< long long > number( long i, sal_Int16 radix = 10)
+    {
+        return number( static_cast< long long >( i ), radix );
+    }
+    static OStringNumber< unsigned long long > number( unsigned long i, sal_Int16 radix = 10 )
+    {
+        return number( static_cast< unsigned long long >( i ), radix );
+    }
+    static OStringNumber< float > number( float f )
+    {
+        return OStringNumber< float >( f );
+    }
+    static OStringNumber< double > number( double d )
+    {
+        return OStringNumber< double >( d );
+    }
+#else
     /**
       Returns the string representation of the integer argument.
 
@@ -1614,7 +1675,8 @@ public:
     */
     static OString number( int i, sal_Int16 radix = 10 )
     {
-        return number( static_cast< long long >( i ), radix );
+        sal_Char aBuf[RTL_STR_MAX_VALUEOFINT32];
+        return OString(aBuf, rtl_str_valueOfInt32(aBuf, i, radix));
     }
     /// @overload
     /// @since LibreOffice 4.1
@@ -1639,18 +1701,14 @@ public:
     static OString number( long long ll, sal_Int16 radix = 10 )
     {
         sal_Char aBuf[RTL_STR_MAX_VALUEOFINT64];
-        rtl_String* pNewData = NULL;
-        rtl_string_newFromStr_WithLength( &pNewData, aBuf, rtl_str_valueOfInt64( aBuf, ll, radix ) );
-        return OString( pNewData, SAL_NO_ACQUIRE );
+        return OString(aBuf, rtl_str_valueOfInt64(aBuf, ll, radix));
     }
     /// @overload
     /// @since LibreOffice 4.1
     static OString number( unsigned long long ll, sal_Int16 radix = 10 )
     {
         sal_Char aBuf[RTL_STR_MAX_VALUEOFUINT64];
-        rtl_String* pNewData = NULL;
-        rtl_string_newFromStr_WithLength( &pNewData, aBuf, rtl_str_valueOfUInt64( aBuf, ll, radix ) );
-        return OString( pNewData, SAL_NO_ACQUIRE );
+        return OString(aBuf, rtl_str_valueOfUInt64(aBuf, ll, radix));
     }
 
     /**
@@ -1659,15 +1717,13 @@ public:
       This function can't be used for language specific conversion.
 
       @param    f           a float.
-      @return   a string with the string representation of the argument.
+      @return   a string with the decimal representation of the argument.
       @since LibreOffice 4.1
     */
     static OString number( float f )
     {
         sal_Char aBuf[RTL_STR_MAX_VALUEOFFLOAT];
-        rtl_String* pNewData = NULL;
-        rtl_string_newFromStr_WithLength( &pNewData, aBuf, rtl_str_valueOfFloat( aBuf, f ) );
-        return OString( pNewData, SAL_NO_ACQUIRE );
+        return OString(aBuf, rtl_str_valueOfFloat(aBuf, f));
     }
 
     /**
@@ -1676,16 +1732,15 @@ public:
       This function can't be used for language specific conversion.
 
       @param    d           a double.
-      @return   a string with the string representation of the argument.
+      @return   a string with the decimal representation of the argument.
       @since LibreOffice 4.1
     */
     static OString number( double d )
     {
         sal_Char aBuf[RTL_STR_MAX_VALUEOFDOUBLE];
-        rtl_String* pNewData = NULL;
-        rtl_string_newFromStr_WithLength( &pNewData, aBuf, rtl_str_valueOfDouble( aBuf, d ) );
-        return OString( pNewData, SAL_NO_ACQUIRE );
+        return OString(aBuf, rtl_str_valueOfDouble(aBuf, d));
     }
+#endif
 
     /**
       Returns the string representation of the sal_Bool argument.
@@ -1717,9 +1772,7 @@ public:
     static OString boolean( bool b )
     {
         sal_Char aBuf[RTL_STR_MAX_VALUEOFBOOLEAN];
-        rtl_String* pNewData = NULL;
-        rtl_string_newFromStr_WithLength( &pNewData, aBuf, rtl_str_valueOfBoolean( aBuf, b ) );
-        return OString( pNewData, SAL_NO_ACQUIRE );
+        return OString(aBuf, rtl_str_valueOfBoolean(aBuf, b));
     }
 
     /**
@@ -1826,7 +1879,7 @@ struct SAL_WARN_UNUSED OStringLiteral
 template<>
 struct ToStringHelper< OString >
     {
-    static int length( const OString& s ) { return s.getLength(); }
+    static std::size_t length( const OString& s ) { return s.getLength(); }
     static char* addData( char* buffer, const OString& s ) { return addDataHelper( buffer, s.getStr(), s.getLength()); }
     static const bool allowOStringConcat = true;
     static const bool allowOUStringConcat = false;
@@ -1838,7 +1891,7 @@ struct ToStringHelper< OString >
 template<>
 struct ToStringHelper< OStringLiteral >
     {
-    static int length( const OStringLiteral& str ) { return str.size; }
+    static std::size_t length( const OStringLiteral& str ) { return str.size; }
     static char* addData( char* buffer, const OStringLiteral& str ) { return addDataHelper( buffer, str.data, str.size ); }
     static const bool allowOStringConcat = true;
     static const bool allowOUStringConcat = false;

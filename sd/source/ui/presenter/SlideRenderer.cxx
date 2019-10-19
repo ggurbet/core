@@ -18,10 +18,8 @@
  */
 
 #include "SlideRenderer.hxx"
-#include <facreg.hxx>
 #include <sdpage.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
-#include <com/sun/star/rendering/XBitmapCanvas.hpp>
 #include <vcl/svapp.hxx>
 #include <cppcanvas/vclfactory.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -62,7 +60,7 @@ void SAL_CALL SlideRenderer::initialize (const Sequence<Any>& rArguments)
 
 OUString SlideRenderer::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Draw.SlideRenderer");
+    return "com.sun.star.comp.Draw.SlideRenderer";
 }
 
 sal_Bool SlideRenderer::supportsService(OUString const & ServiceName)

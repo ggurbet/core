@@ -77,7 +77,7 @@ public:
         const AccessibleShapeTreeInfo& rShapeTreeInfo);
     virtual ~AccessibleControlShape( ) override;
 
-    const css::uno::Reference< css::beans::XPropertySet >&  GetControlModel( ) { return m_xControlModel;} ;
+    const css::uno::Reference< css::beans::XPropertySet >&  GetControlModel( ) const { return m_xControlModel;}
     AccessibleControlShape* GetLabeledByControlShape();
 
 private:
@@ -113,9 +113,6 @@ private:
 
     //---  XAccessibleEventListener ----------------------------
     virtual void SAL_CALL notifyEvent( const css::accessibility::AccessibleEventObject& aEvent ) override;
-
-    //---  document::XEventListener ----------------------------
-    using AccessibleShape::notifyEvent;
 
     // XVclContainerListener
     virtual void SAL_CALL elementInserted( const css::container::ContainerEvent& Event ) override;

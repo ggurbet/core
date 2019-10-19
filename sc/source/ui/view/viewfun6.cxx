@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <svx/svdundo.hxx>
+#include <formula/token.hxx>
 #include <svx/svdocapt.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
@@ -28,25 +28,21 @@
 #include <sal/log.hxx>
 
 #include <viewfunc.hxx>
-#include <detfunc.hxx>
-#include <detdata.hxx>
 #include <viewdata.hxx>
 #include <drwlayer.hxx>
 #include <docsh.hxx>
-#include <undocell.hxx>
 #include <futext.hxx>
 #include <docfunc.hxx>
 #include <sc.hrc>
 #include <fusel.hxx>
 #include <reftokenhelper.hxx>
 #include <externalrefmgr.hxx>
-#include <formulacell.hxx>
 #include <markdata.hxx>
 #include <drawview.hxx>
-#include <globalnames.hxx>
 #include <inputhdl.hxx>
 #include <tabvwsh.hxx>
 #include <scmod.hxx>
+#include <postit.hxx>
 
 #include <vector>
 
@@ -184,16 +180,15 @@ void ScViewFunc::DetectiveMarkPred()
         if (pPath && ScRefTokenHelper::getRangeFromToken(aRange, p, aCurPos, true))
         {
             OUString aTabName = p->GetString().getString();
-            OUStringBuffer aBuf;
-            aBuf.append(*pPath);
-            aBuf.append('#');
-            aBuf.append(aTabName);
-            aBuf.append('.');
-
             OUString aRangeStr(aRange.Format(ScRefFlags::VALID));
-            aBuf.append(aRangeStr);
+            OUString sUrl =
+                *pPath +
+                "#" +
+                aTabName +
+                "." +
+                aRangeStr;
 
-            ScGlobal::OpenURL(aBuf.makeStringAndClear(), OUString());
+            ScGlobal::OpenURL(sUrl, OUString());
         }
         return;
     }

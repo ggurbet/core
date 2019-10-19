@@ -20,7 +20,7 @@
 #define INCLUDED_FORMULA_SOURCE_UI_DLG_CONTROLHELPER_HXX
 
 #include <formula/funcutl.hxx>
-#include <svtools/svmedit.hxx>
+
 namespace formula
 {
 
@@ -79,11 +79,11 @@ public:
                              RefButton* prefBtn);
 
     void        SetArgName(const OUString &aArg);
-    OUString    GetArgName();
+    OUString    GetArgName() const;
     void        SetArgNameFont(const vcl::Font&);
 
     void        SetArgVal(const OUString &aVal);
-    OUString    GetArgVal();
+    OUString    GetArgVal() const;
 
     void        SelectAll();
 

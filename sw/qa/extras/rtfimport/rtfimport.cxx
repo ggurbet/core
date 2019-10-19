@@ -10,6 +10,8 @@
 #include <memory>
 #include <swmodeltestbase.hxx>
 
+#include <config_features.h>
+
 #include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/awt/FontUnderline.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
@@ -71,8 +73,7 @@ DECLARE_RTFIMPORT_TEST(testN695479, "n695479.rtf")
                          getProperty<sal_Int32>(xPropertySet, "Height"));
 
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(),
-                                                   uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
     bool bFrameFound = false, bDrawFound = false;
     for (int i = 0; i < xDraws->getCount(); ++i)
     {
@@ -82,8 +83,8 @@ DECLARE_RTFIMPORT_TEST(testN695479, "n695479.rtf")
             // Both frames should be anchored to the first paragraph.
             bFrameFound = true;
             uno::Reference<text::XTextContent> xTextContent(xServiceInfo, uno::UNO_QUERY);
-            uno::Reference<text::XTextRange> xRange(xTextContent->getAnchor(), uno::UNO_QUERY);
-            uno::Reference<text::XText> xText(xRange->getText(), uno::UNO_QUERY);
+            uno::Reference<text::XTextRange> xRange = xTextContent->getAnchor();
+            uno::Reference<text::XText> xText = xRange->getText();
             CPPUNIT_ASSERT_EQUAL(OUString("plain"), xText->getString());
 
             if (i == 0)
@@ -191,8 +192,7 @@ DECLARE_RTFIMPORT_TEST(testTdf108951, "tdf108951.rtf")
 DECLARE_RTFIMPORT_TEST(testFdo47036, "fdo47036.rtf")
 {
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(),
-                                                   uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
     int nAtCharacter = 0;
     for (int i = 0; i < xDraws->getCount(); ++i)
     {
@@ -213,8 +213,7 @@ DECLARE_RTFIMPORT_TEST(testFdo47036, "fdo47036.rtf")
 DECLARE_RTFIMPORT_TEST(testFdo45182, "fdo45182.rtf")
 {
     uno::Reference<text::XFootnotesSupplier> xFootnotesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xFootnotes(xFootnotesSupplier->getFootnotes(),
-                                                       uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xFootnotes = xFootnotesSupplier->getFootnotes();
     uno::Reference<text::XTextRange> xTextRange(xFootnotes->getByIndex(0), uno::UNO_QUERY);
     // Encoding in the footnote was wrong.
     OUString aExpected(u"\u017Eivnost\u00ED" SAL_NEWLINE_STRING);
@@ -316,7 +315,7 @@ DECLARE_RTFIMPORT_TEST(testFdo45190, "fdo45190.rtf")
                          getProperty<sal_Int32>(getParagraph(2), "ParaFirstLineIndent"));
 }
 
-DECLARE_OOXMLIMPORT_TEST(testTdf59699, "tdf59699.rtf")
+DECLARE_RTFIMPORT_TEST(testTdf59699, "tdf59699.rtf")
 {
     // This resulted in a lang.IndexOutOfBoundsException: the referenced graphic data wasn't imported.
     uno::Reference<beans::XPropertySet> xImage(getShape(1), uno::UNO_QUERY);
@@ -331,7 +330,7 @@ DECLARE_RTFIMPORT_TEST(testFdo52066, "fdo52066.rtf")
      *
      * xray ThisComponent.DrawPage(0).Size.Height
      */
-    uno::Reference<drawing::XShape> xShape(getShape(1), uno::UNO_QUERY);
+    uno::Reference<drawing::XShape> xShape = getShape(1);
     CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(19)), xShape->getSize().Height);
 }
 
@@ -354,8 +353,7 @@ DECLARE_RTFIMPORT_TEST(testTdf122430, "tdf122430.rtf")
 DECLARE_RTFIMPORT_TEST(testFdo49892, "fdo49892.rtf")
 {
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(),
-                                                   uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
     for (int i = 0; i < xDraws->getCount(); ++i)
     {
         OUString aDescription = getProperty<OUString>(xDraws->getByIndex(i), "Description");
@@ -422,9 +420,9 @@ DECLARE_RTFIMPORT_TEST(testInk, "ink.rtf")
 DECLARE_RTFIMPORT_TEST(testFdo79319, "fdo79319.rtf")
 {
     // the thin horizontal rule was imported as a big fat rectangle
-    uno::Reference<drawing::XShape> xShape(getShape(1), uno::UNO_QUERY);
+    uno::Reference<drawing::XShape> xShape = getShape(1);
     CPPUNIT_ASSERT_EQUAL(sal_Int16(100), getProperty<sal_Int16>(xShape, "RelativeWidth"));
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(sal_Int32(15238), xShape->getSize().Width, 10);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(sal_Int32(16508), xShape->getSize().Width, 10);
     CPPUNIT_ASSERT_DOUBLES_EQUAL(sal_Int32(53), xShape->getSize().Height, 10);
 #if 0
     CPPUNIT_ASSERT_EQUAL(text::VertOrientation::CENTER, getProperty<sal_Int16>(xShape, "VertOrient"));
@@ -449,7 +447,7 @@ DECLARE_RTFIMPORT_TEST(testFdo55525, "fdo55525.rtf")
     // Negative left margin was ~missing, -191
     CPPUNIT_ASSERT_EQUAL(sal_Int32(-1877), getProperty<sal_Int32>(xTable, "LeftMargin"));
     // Cell width of A1 was 3332 (e.g. not set, 30% percent of total width)
-    uno::Reference<table::XTableRows> xTableRows(xTable->getRows(), uno::UNO_QUERY);
+    uno::Reference<table::XTableRows> xTableRows = xTable->getRows();
     CPPUNIT_ASSERT_EQUAL(sal_Int16(896), getProperty<uno::Sequence<text::TableColumnSeparator>>(
                                              xTableRows->getByIndex(0), "TableColumnSeparators")[0]
                                              .Position);
@@ -460,8 +458,7 @@ DECLARE_RTFIMPORT_TEST(testFdo57708, "fdo57708.rtf")
     // There were two issues: the doc was of 2 pages and the picture was missing.
     CPPUNIT_ASSERT_EQUAL(1, getPages());
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(),
-                                                   uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
     // Two objects: a picture and a textframe.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(2), xDraws->getCount());
 }
@@ -486,7 +483,7 @@ DECLARE_RTFIMPORT_TEST(testFdo59953, "fdo59953.rtf")
                                                     uno::UNO_QUERY);
     uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
     // Cell width of A1 was 4998 (e.g. not set / not wide enough, ~50% of total width)
-    uno::Reference<table::XTableRows> xTableRows(xTable->getRows(), uno::UNO_QUERY);
+    uno::Reference<table::XTableRows> xTableRows = xTable->getRows();
     CPPUNIT_ASSERT_EQUAL(sal_Int16(7649), getProperty<uno::Sequence<text::TableColumnSeparator>>(
                                               xTableRows->getByIndex(0), "TableColumnSeparators")[0]
                                               .Position);
@@ -624,8 +621,7 @@ DECLARE_RTFIMPORT_TEST(testN823675, "n823675.rtf")
 DECLARE_RTFIMPORT_TEST(testGroupshape, "groupshape.rtf")
 {
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(),
-                                                   uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
     // There should be a single groupshape with 2 children.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDraws->getCount());
     uno::Reference<drawing::XShapes> xGroupshape(xDraws->getByIndex(0), uno::UNO_QUERY);
@@ -635,8 +631,7 @@ DECLARE_RTFIMPORT_TEST(testGroupshape, "groupshape.rtf")
 DECLARE_RTFIMPORT_TEST(testGroupshape_notext, "groupshape-notext.rtf")
 {
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(),
-                                                   uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
     // There should be a single groupshape with 2 children.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDraws->getCount());
     uno::Reference<drawing::XShapes> xGroupshape(xDraws->getByIndex(0), uno::UNO_QUERY);
@@ -680,7 +675,7 @@ DECLARE_RTFIMPORT_TEST(testFdo66565, "fdo66565.rtf")
                                                     uno::UNO_QUERY);
     uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
     // Cell width of A2 was 554, should be 453/14846*10000
-    uno::Reference<table::XTableRows> xTableRows(xTable->getRows(), uno::UNO_QUERY);
+    uno::Reference<table::XTableRows> xTableRows = xTable->getRows();
     CPPUNIT_ASSERT_EQUAL(sal_Int16(304), getProperty<uno::Sequence<text::TableColumnSeparator>>(
                                              xTableRows->getByIndex(1), "TableColumnSeparators")[0]
                                              .Position);
@@ -750,7 +745,7 @@ DECLARE_RTFIMPORT_TEST(testTdf115153, "tdf115153.rtf")
 DECLARE_RTFIMPORT_TEST(testFdo68291, "fdo68291.odt")
 {
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XTextRange> xText(xTextDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xText = xTextDocument->getText();
     uno::Reference<text::XTextRange> xEnd = xText->getEnd();
     paste("rtfimport/data/fdo68291-paste.rtf", xEnd);
 
@@ -764,10 +759,7 @@ CPPUNIT_TEST_FIXTURE(Test, testTdf105511)
 {
     struct DefaultLocale : public comphelper::ConfigurationProperty<DefaultLocale, OUString>
     {
-        static OUString path()
-        {
-            return OUString("/org.openoffice.Office.Linguistic/General/DefaultLocale");
-        }
+        static OUString path() { return "/org.openoffice.Office.Linguistic/General/DefaultLocale"; }
         ~DefaultLocale() = delete;
     };
     auto batch = comphelper::ConfigurationChanges::create();
@@ -818,7 +810,7 @@ DECLARE_RTFIMPORT_TEST(testFdo74823, "fdo74823.rtf")
                                                     uno::UNO_QUERY);
     uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
     // Cell width of C2 was too large / column separator being 3749 too small (e.g. not set, around 3/7 of total width)
-    uno::Reference<table::XTableRows> xTableRows(xTable->getRows(), uno::UNO_QUERY);
+    uno::Reference<table::XTableRows> xTableRows = xTable->getRows();
     CPPUNIT_ASSERT_EQUAL(sal_Int16(5391), getProperty<uno::Sequence<text::TableColumnSeparator>>(
                                               xTableRows->getByIndex(1), "TableColumnSeparators")[2]
                                               .Position);
@@ -931,6 +923,13 @@ DECLARE_RTFIMPORT_TEST(testUnbalancedColumns, "unbalanced-columns.rtf")
     // This was false, last section was balanced, but it's unbalanced in Word.
     CPPUNIT_ASSERT_EQUAL(true,
                          getProperty<bool>(xTextSections->getByIndex(0), "DontBalanceTextColumns"));
+}
+
+DECLARE_RTFIMPORT_TEST(testTdf126173, "tdf126173.rtf")
+{
+    // Without the accompanying fix in place, this test would have failed, as the TextFrame was lost
+    // on import.
+    CPPUNIT_ASSERT(getShape(1).is());
 }
 
 DECLARE_RTFIMPORT_TEST(testFdo84685, "fdo84685.rtf")
@@ -1062,8 +1061,7 @@ DECLARE_RTFIMPORT_TEST(testTdf90046, "tdf90046.rtf")
 {
     // this was crashing on importing the footnote
     uno::Reference<text::XFootnotesSupplier> xFootnotesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xFootnotes(xFootnotesSupplier->getFootnotes(),
-                                                       uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xFootnotes = xFootnotesSupplier->getFootnotes();
     uno::Reference<text::XTextRange> xTextRange(xFootnotes->getByIndex(0), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("Ma"), xTextRange->getString());
 }
@@ -1071,7 +1069,7 @@ DECLARE_RTFIMPORT_TEST(testTdf90046, "tdf90046.rtf")
 DECLARE_RTFIMPORT_TEST(testFdo49893, "fdo49893.rtf")
 {
     // Image from shape was not loaded, invalid size of image after load
-    uno::Reference<drawing::XShape> xShape(getShape(2), uno::UNO_QUERY);
+    uno::Reference<drawing::XShape> xShape = getShape(2);
     CPPUNIT_ASSERT(xShape.is());
     CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(432)), xShape->getSize().Height);
     CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(1296)), xShape->getSize().Width);
@@ -1082,7 +1080,7 @@ DECLARE_RTFIMPORT_TEST(testFdo49893_3, "fdo49893-3.rtf")
     // No artifacts (black lines in left top corner) as shape #3 are expected
     try
     {
-        uno::Reference<drawing::XShape> xShape2(getShape(3), uno::UNO_QUERY);
+        uno::Reference<drawing::XShape> xShape2 = getShape(3);
         CPPUNIT_FAIL("exception expected: no shape #3 in document");
     }
     catch (lang::IndexOutOfBoundsException const&)
@@ -1124,7 +1122,7 @@ DECLARE_RTFIMPORT_TEST(testWrapDistance, "wrap-distance.rtf")
 DECLARE_RTFIMPORT_TEST(testTdf90260Par, "hello.rtf")
 {
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XTextRange> xText(xTextDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xText = xTextDocument->getText();
     uno::Reference<text::XTextRange> xEnd = xText->getEnd();
     paste("rtfimport/data/tdf90260-par.rtf", xEnd);
     CPPUNIT_ASSERT_EQUAL(2, getParagraphs());
@@ -1226,7 +1224,7 @@ DECLARE_RTFIMPORT_TEST(testTdf99498, "tdf99498.rtf")
 DECLARE_RTFIMPORT_TEST(testClassificatonPaste, "hello.rtf")
 {
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XTextRange> xText(xTextDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xText = xTextDocument->getText();
     uno::Reference<text::XTextRange> xEnd = xText->getEnd();
 
     // Not classified source, not classified destination: OK.
@@ -1327,18 +1325,15 @@ DECLARE_RTFIMPORT_TEST(testImportHeaderFooter, "tdf108055.rtf")
 
     // Check if any Header or Footer text snuck into the TextBody
     uno::Reference<text::XTextRange> paragraph = getParagraph(1);
-    uno::Reference<text::XTextRange> text(paragraph, uno::UNO_QUERY);
-    OUString value = text->getString();
+    OUString value = paragraph->getString();
     CPPUNIT_ASSERT_EQUAL(OUString("First Page"), value);
 
     paragraph = getParagraph(4);
-    uno::Reference<text::XTextRange> text2(paragraph, uno::UNO_QUERY);
-    value = text2->getString();
+    value = paragraph->getString();
     CPPUNIT_ASSERT_EQUAL(OUString("Second Page"), value);
 
     paragraph = getParagraph(7);
-    uno::Reference<text::XTextRange> text3(paragraph, uno::UNO_QUERY);
-    value = text3->getString();
+    value = paragraph->getString();
     CPPUNIT_ASSERT_EQUAL(OUString("Third Page"), value);
 
     //Check if Headers/Footers only contain what they should in this document
@@ -1383,9 +1378,7 @@ DECLARE_RTFIMPORT_TEST(testTdf108947, "tdf108947.rtf")
 
     //Document is very fragile, hence we need this guard.
 #if HAVE_MORE_FONTS
-    OUString aExpected = SAL_NEWLINE_STRING;
-    aExpected += SAL_NEWLINE_STRING;
-    aExpected += "Header Page 2 ?";
+    OUString aExpected = SAL_NEWLINE_STRING SAL_NEWLINE_STRING "Header Page 2 ?";
     uno::Reference<text::XText> xHeaderTextLeft = getProperty<uno::Reference<text::XText>>(
         getStyles("PageStyles")->getByName("Default Style"), "HeaderTextLeft");
     aActual = xHeaderTextLeft->getString();
@@ -1396,7 +1389,7 @@ DECLARE_RTFIMPORT_TEST(testTdf108947, "tdf108947.rtf")
 DECLARE_RTFIMPORT_TEST(testWatermark, "watermark.rtf")
 {
     Size aExpectedSize(14965, 7482);
-    uno::Reference<drawing::XShape> xShape(getShape(1), uno::UNO_QUERY);
+    uno::Reference<drawing::XShape> xShape = getShape(1);
     awt::Size aActualSize(xShape->getSize());
 
     CPPUNIT_ASSERT_EQUAL(sal_Int32(aExpectedSize.Width()), aActualSize.Width);

@@ -29,9 +29,9 @@
 #include <directsql.hxx>
 #include <stringconstants.hxx>
 #include <datasourceconnector.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
 #include <tools/diagnose_ex.h>
 #include <comphelper/processfactory.hxx>
+#include <vcl/svapp.hxx>
 
 extern "C" void createRegistryInfo_ODirectSQLDialog()
 {
@@ -78,17 +78,17 @@ namespace dbaui
 
     IMPLEMENT_PROPERTYCONTAINER_DEFAULTS( ODirectSQLDialog )
 
-    svt::OGenericUnoDialog::Dialog ODirectSQLDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
+    std::unique_ptr<weld::DialogController> ODirectSQLDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
     {
         // obtain all the objects needed for the dialog
         Reference< XConnection > xConnection = m_xActiveConnection;
-        auto _pParent = VCLUnoHelper::GetWindow(rParent);
+        weld::Window* pParent = Application::GetFrameWeld(rParent);
         if ( !xConnection.is() )
         {
             try
             {
                 // the connection the row set is working with
-                ODatasourceConnector aDSConnector(m_aContext, _pParent);
+                ODatasourceConnector aDSConnector(m_aContext, pParent);
                 xConnection = aDSConnector.connect( m_sInitialSelection, nullptr );
             }
             catch( const Exception& )
@@ -99,10 +99,10 @@ namespace dbaui
         if (!xConnection.is())
         {
             // can't create the dialog if I have improper settings
-            return svt::OGenericUnoDialog::Dialog();
+            return nullptr;
         }
 
-        return svt::OGenericUnoDialog::Dialog(VclPtr<DirectSQLDialog>::Create(_pParent, xConnection));
+        return std::make_unique<DirectSQLDialog>(pParent, xConnection);
     }
 
     void ODirectSQLDialog::implInitialize(const Any& _rValue)

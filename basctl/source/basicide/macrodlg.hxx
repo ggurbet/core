@@ -55,7 +55,7 @@ private:
     Mode                    nMode;
 
     DECL_LINK(MacroSelectHdl, weld::TreeView&, void);
-    DECL_LINK(MacroDoubleClickHdl, weld::TreeView&, void);
+    DECL_LINK(MacroDoubleClickHdl, weld::TreeView&, bool);
     DECL_LINK(BasicSelectHdl, weld::TreeView&, void);
     DECL_LINK(EditModifyHdl, weld::Entry&, void);
     DECL_LINK(ButtonHdl, weld::Button&, void);
@@ -89,7 +89,7 @@ private:
     std::unique_ptr<weld::Button> m_xNewLibButton;
     std::unique_ptr<weld::Button> m_xNewModButton;
 public:
-    MacroChooser(weld::Window *pParent, const ::css::uno::Reference< ::css::frame::XFrame >& xDocFrame, bool bCreateEntries);
+    MacroChooser(weld::Window *pParent, const ::css::uno::Reference< ::css::frame::XFrame >& xDocFrame);
     virtual ~MacroChooser() override;
 
     SbMethod*           GetMacro();

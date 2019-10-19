@@ -87,7 +87,7 @@ public:
 
     css::uno::Sequence<sal_Int8> GetEncryptionKey(Bugs bugs = Bugs::None);
 
-    sal_Int32 GetStartKeyGenID();
+    sal_Int32 GetStartKeyGenID() const;
 
     sal_Int32 GetEncryptionAlgorithm() const;
     sal_Int32 GetBlockSize() const;
@@ -138,7 +138,7 @@ public:
     void setZipEntryOnLoading( const ZipEntry &rInEntry);
     void successfullyWritten( ZipEntry const *pEntry );
 
-    static css::uno::Sequence < sal_Int8 > static_getImplementationId();
+    static css::uno::Sequence < sal_Int8 > getUnoTunnelId();
 
     // XActiveDataSink
     virtual void SAL_CALL setInputStream( const css::uno::Reference< css::io::XInputStream >& aStream ) override;

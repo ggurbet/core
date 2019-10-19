@@ -30,12 +30,10 @@
 #include <tools/diagnose_ex.h>
 #include <unotools/mediadescriptor.hxx>
 #include <xmloff/xmlnmspe.hxx>
-#include <xmloff/xmlement.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/xmlstyle.hxx>
-#include <xmloff/prstylei.hxx>
 #include <xmloff/SchXMLSeriesHelper.hxx>
 
 #include <vector>
@@ -43,12 +41,9 @@
 #include <com/sun/star/chart/XChartDocument.hpp>
 #include <com/sun/star/chart/XDiagram.hpp>
 #include <com/sun/star/xml/sax/XAttributeList.hpp>
-#include <com/sun/star/util/XStringMapping.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
 #include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/chart/ChartDataRowSource.hpp>
-#include <com/sun/star/chart/ChartSeriesAddress.hpp>
-#include <com/sun/star/awt/PosSize.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/XVisualObject.hpp>
 
@@ -436,7 +431,7 @@ void SchXMLChartContext::StartElement( const uno::Reference< xml::sax::XAttribut
     }
 
     // set auto-styles for Area
-    uno::Reference<beans::XPropertySet> xProp(mrImportHelper.GetChartDocument()->getArea(), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xProp = mrImportHelper.GetChartDocument()->getArea();
     mrImportHelper.FillAutoStyle(sAutoStyleName, xProp);
 }
 
@@ -677,10 +672,9 @@ static void lcl_ApplyDataFromRectangularRangeToDiagram(
     //work around wrong writer ranges ( see Issue 58464 )
     {
         OUString aChartOleObjectName;
-        uno::Reference< frame::XModel > xModel(xNewDoc, uno::UNO_QUERY );
-        if( xModel.is() )
+        if( xNewDoc.is() )
         {
-            utl::MediaDescriptor aMediaDescriptor( xModel->getArgs() );
+            utl::MediaDescriptor aMediaDescriptor( xNewDoc->getArgs() );
 
             utl::MediaDescriptor::const_iterator aIt(
                 aMediaDescriptor.find( OUString(  "HierarchicalDocumentName" )));
@@ -823,7 +817,7 @@ void SchXMLChartContext::EndElement()
         if( xNewDoc->hasInternalDataProvider() )
             SchXMLTableHelper::applyTableToInternalDataProvider( maTable, xNewDoc );
 
-        bool bOlderThan2_3 = SchXMLTools::isDocumentGeneratedWithOpenOfficeOlderThan2_3( Reference< frame::XModel >( xNewDoc, uno::UNO_QUERY ));
+        bool bOlderThan2_3 = SchXMLTools::isDocumentGeneratedWithOpenOfficeOlderThan2_3( xNewDoc );
         bool bOldFileWithOwnDataFromRows = (bOlderThan2_3 && bHasOwnData && (meDataRowSource==chart::ChartDataRowSource_ROWS)); // in this case there are range addresses that are simply wrong.
 
         if( mbAllRangeAddressesAvailable && !bSpecialHandlingForDonutChart && !mbIsStockChart &&
@@ -886,7 +880,7 @@ void SchXMLChartContext::EndElement()
                 , SchXMLSeriesHelper::getDataSeriesIndexMapFromDiagram(xNewDiagram) );
         }
 
-        SchXMLSeries2Context::initSeriesPropertySets( maSeriesDefaultsAndStyles, uno::Reference< frame::XModel >(xDoc, uno::UNO_QUERY ) );
+        SchXMLSeries2Context::initSeriesPropertySets( maSeriesDefaultsAndStyles, xDoc );
 
         //set defaults from diagram to the new series:
         //check whether we need to remove lines from symbol only charts
@@ -963,7 +957,7 @@ void SchXMLChartContext::MergeSeriesForStockChart()
         bool bHasJapaneseCandlestick = true;
         uno::Reference< chart2::XDataSeriesContainer > xDSContainer;
         uno::Reference< chart2::XCoordinateSystemContainer > xCooSysCnt( xDiagram, uno::UNO_QUERY_THROW );
-        uno::Sequence< uno::Reference< chart2::XCoordinateSystem > > aCooSysSeq( xCooSysCnt->getCoordinateSystems());
+        const uno::Sequence< uno::Reference< chart2::XCoordinateSystem > > aCooSysSeq( xCooSysCnt->getCoordinateSystems());
         for( const auto& rCooSys : aCooSysSeq )
         {
             uno::Reference< chart2::XChartTypeContainer > xCTCnt( rCooSys, uno::UNO_QUERY_THROW );
@@ -1056,7 +1050,7 @@ SvXMLImportContextRef SchXMLChartContext::CreateChildContext(
                 {
                     xProp->setPropertyValue("HasMainTitle", uno::makeAny(true) );
                 }
-                uno::Reference< drawing::XShape > xTitleShape( xDoc->getTitle(), uno::UNO_QUERY );
+                uno::Reference< drawing::XShape > xTitleShape = xDoc->getTitle();
                 pContext = new SchXMLTitleContext( mrImportHelper, GetImport(),
                                                    rLocalName, maMainTitle, xTitleShape );
             }
@@ -1069,7 +1063,7 @@ SvXMLImportContextRef SchXMLChartContext::CreateChildContext(
                 {
                     xProp->setPropertyValue("HasSubTitle", uno::makeAny(true) );
                 }
-                uno::Reference< drawing::XShape > xTitleShape( xDoc->getSubTitle(), uno::UNO_QUERY );
+                uno::Reference< drawing::XShape > xTitleShape = xDoc->getSubTitle();
                 pContext = new SchXMLTitleContext( mrImportHelper, GetImport(),
                                                    rLocalName, maSubTitle, xTitleShape );
             }
@@ -1117,7 +1111,7 @@ SvXMLImportContextRef SchXMLChartContext::CreateChildContext(
             {
                 uno::Reference< drawing::XDrawPageSupplier  > xSupp( xDoc, uno::UNO_QUERY );
                 if( xSupp.is())
-                    mxDrawPage.set( xSupp->getDrawPage(), uno::UNO_QUERY );
+                    mxDrawPage = xSupp->getDrawPage();
 
                 SAL_WARN_IF( !mxDrawPage.is(), "xmloff.chart", "Invalid Chart Page" );
             }

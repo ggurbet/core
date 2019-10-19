@@ -17,45 +17,18 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/text/HoriOrientation.hpp>
-#include <com/sun/star/text/VertOrientation.hpp>
-#include <com/sun/star/text/RelOrientation.hpp>
-
 #include <tools/mapunit.hxx>
-#include <i18nlangtag/languagetag.hxx>
-#include <i18nlangtag/mslangid.hxx>
+#include <tools/urlobj.hxx>
 #include <editeng/numitem.hxx>
 #include <svl/eitem.hxx>
-#include <vcl/svapp.hxx>
+#include <svl/itempool.hxx>
 #include <svx/colorbox.hxx>
 #include <svx/strarray.hxx>
 #include <svx/gallery.hxx>
-#include <svl/urihelper.hxx>
 #include <editeng/brushitem.hxx>
 #include <svl/intitem.hxx>
-#include <sfx2/objsh.hxx>
 #include <vcl/graph.hxx>
-#include <vcl/settings.hxx>
-#include <editeng/flstitem.hxx>
-#include <svx/dlgutil.hxx>
-#include <svx/xtable.hxx>
-#include <svx/drawitem.hxx>
-#include <svx/numvset.hxx>
-#include <sfx2/htmlmode.hxx>
-#include <unotools/pathoptions.hxx>
-#include <svtools/ctrltool.hxx>
 #include <svtools/unitconv.hxx>
-#include <editeng/unolingu.hxx>
-#include <com/sun/star/style/NumberingType.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/container/XIndexAccess.hpp>
-#include <com/sun/star/text/DefaultNumberingProvider.hpp>
-#include <com/sun/star/text/XDefaultNumberingProvider.hpp>
-#include <com/sun/star/text/XNumberingFormatter.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
-#include <comphelper/processfactory.hxx>
-#include <com/sun/star/text/XNumberingTypeInfo.hpp>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 
 #include <algorithm>
@@ -64,27 +37,15 @@
 #include <sfx2/opengrf.hxx>
 
 #include <strings.hrc>
-#include <sfx2/request.hxx>
 #include <svl/aeitem.hxx>
 #include <svl/stritem.hxx>
-#include <svl/slstitm.hxx>
-#include <sfx2/filedlghelper.hxx>
-#include <svx/gallery1.hxx>
-#include <svx/galtheme.hxx>
-#include <unotools/ucbstreamhelper.hxx>
-#include <com/sun/star/ucb/SimpleFileAccess.hpp>
-#include <rtl/ustring.h>
 #include <sal/log.hxx>
-#include <vcl/cvtgrf.hxx>
-#include <vcl/graphicfilter.hxx>
 #include <vcl/virdev.hxx>
 #include <svx/SvxNumOptionsTabPageHelper.hxx>
 #include <View.hxx>
 #include <drawdoc.hxx>
 #include <cui/cuicharmap.hxx>
 #include <BulletAndPositionDlg.hxx>
-#include <sdmod.hxx>
-#include <sdpage.hxx>
 #include <sdresid.hxx>
 
 #define SHOW_NUMBERING 0
@@ -113,8 +74,9 @@ static const vcl::Font& lcl_GetDefaultBulletFont()
 class SdDrawDocument;
 
 SvxBulletAndPositionDlg::SvxBulletAndPositionDlg(weld::Window* pWindow, const SfxItemSet& rSet,
-                                                 ::sd::View* pView)
+                                                 const ::sd::View* pView)
     : GenericDialogController(pWindow, "cui/ui/bulletandposition.ui", "BulletAndPosition")
+    , rFirstStateSet(rSet)
     , bLastWidthModified(false)
     , bModified(false)
     , bInInitControl(false)
@@ -131,7 +93,7 @@ SvxBulletAndPositionDlg::SvxBulletAndPositionDlg(weld::Window* pWindow, const Sf
     , m_xPrefixED(m_xBuilder->weld_entry("prefix"))
     , m_xSuffixFT(m_xBuilder->weld_label("suffixft"))
     , m_xSuffixED(m_xBuilder->weld_entry("suffix"))
-    , m_xBeforeAfter(m_xBuilder->weld_expander("beforeafter"))
+    , m_xBeforeAfter(m_xBuilder->weld_frame("beforeafter"))
     , m_xBulColorFT(m_xBuilder->weld_label("colorft"))
     , m_xBulColLB(new ColorListBox(m_xBuilder->weld_menu_button("color"), pWindow))
     , m_xBulRelSizeFT(m_xBuilder->weld_label("relsizeft"))
@@ -158,6 +120,7 @@ SvxBulletAndPositionDlg::SvxBulletAndPositionDlg(weld::Window* pWindow, const Sf
     , m_xSlideRB(m_xBuilder->weld_radio_button("sliderb"))
     , m_xSelectionRB(m_xBuilder->weld_radio_button("selectionrb"))
     , m_xApplyToMaster(m_xBuilder->weld_toggle_button("applytomaster"))
+    , m_xReset(m_xBuilder->weld_button("reset"))
 {
     m_xBulColLB->SetSlotId(SID_ATTR_CHAR_COLOR);
     m_xBulRelSizeMF->set_min(SVX_NUM_REL_SIZE_MIN, FieldUnit::PERCENT);
@@ -183,6 +146,7 @@ SvxBulletAndPositionDlg::SvxBulletAndPositionDlg(weld::Window* pWindow, const Sf
         LINK(this, SvxBulletAndPositionDlg, SelectCenterAlignmentHdl_Impl));
     m_xRightTB->connect_toggled(LINK(this, SvxBulletAndPositionDlg, SelectRightAlignmentHdl_Impl));
     m_xApplyToMaster->connect_toggled(LINK(this, SvxBulletAndPositionDlg, ApplyToMasterHdl_Impl));
+    m_xReset->connect_clicked(LINK(this, SvxBulletAndPositionDlg, ResetHdl_Impl));
 
     aInvalidateTimer.SetInvokeHandler(
         LINK(this, SvxBulletAndPositionDlg, PreviewInvalidateHdl_Impl));
@@ -221,11 +185,11 @@ SvxBulletAndPositionDlg::SvxBulletAndPositionDlg(weld::Window* pWindow, const Sf
     // PageCreated
     FieldUnit eMetric = pView->GetDoc().GetUIUnit();
     SfxAllItemSet aSet(*(rSet.GetPool()));
-    aSet.Put(SfxAllEnumItem(SID_METRIC_ITEM, static_cast<sal_uInt16>(eMetric)));
+    aSet.Put(SfxUInt16Item(SID_METRIC_ITEM, static_cast<sal_uInt16>(eMetric)));
 
     const SfxStringItem* pNumCharFmt = aSet.GetItem<SfxStringItem>(SID_NUM_CHAR_FMT, false);
     const SfxStringItem* pBulletCharFmt = aSet.GetItem<SfxStringItem>(SID_BULLET_CHAR_FMT, false);
-    const SfxAllEnumItem* pMetricItem = aSet.GetItem<SfxAllEnumItem>(SID_METRIC_ITEM, false);
+    const SfxUInt16Item* pMetricItem = aSet.GetItem<SfxUInt16Item>(SID_METRIC_ITEM, false);
 
     if (pNumCharFmt && pBulletCharFmt)
         SetCharFmts(pNumCharFmt->GetValue(), pBulletCharFmt->GetValue());
@@ -314,8 +278,8 @@ SfxItemSet* SvxBulletAndPositionDlg::GetOutputItemSet(SfxItemSet* pSet)
     return pSet;
 };
 
-bool SvxBulletAndPositionDlg::IsApplyToMaster() { return bApplyToMaster; }
-bool SvxBulletAndPositionDlg::IsSlideScope() { return m_xSlideRB->get_active(); }
+bool SvxBulletAndPositionDlg::IsApplyToMaster() const { return bApplyToMaster; }
+bool SvxBulletAndPositionDlg::IsSlideScope() const { return m_xSlideRB->get_active(); }
 
 void SvxBulletAndPositionDlg::Reset(const SfxItemSet* rSet)
 {
@@ -444,9 +408,6 @@ void SvxBulletAndPositionDlg::InitControls()
     bool bSameStart = true;
     bool bSamePrefix = true;
     bool bSameSuffix = true;
-    bool bAllLevel = true;
-    bool bSameCharFmt = true;
-    bool bSameVOrient = true;
     bool bSameSize = true;
     bool bSameBulColor = true;
     bool bSameBulRelSize = true;
@@ -456,21 +417,19 @@ void SvxBulletAndPositionDlg::InitControls()
 
     const SvxNumberFormat* aNumFmtArr[SVX_MAX_NUM];
     OUString sFirstCharFmt;
-    sal_Int16 eFirstOrient = text::VertOrientation::NONE;
     SvxAdjust eFirstAdjust = SvxAdjust::Left;
     Size aFirstSize(0, 0);
     sal_uInt16 nMask = 1;
     sal_uInt16 nLvl = SAL_MAX_UINT16;
-    sal_uInt16 nHighestLevel = 0;
-    (void)nHighestLevel;
 
     bool bBullColor = pActNum->IsFeatureSupported(SvxNumRuleFlags::BULLET_COLOR);
     bool bBullRelSize = pActNum->IsFeatureSupported(SvxNumRuleFlags::BULLET_REL_SIZE);
     for (sal_uInt16 i = 0; i < pActNum->GetLevelCount(); i++)
     {
+        aNumFmtArr[i] = &pActNum->GetLevel(i);
+
         if (nActNumLvl & nMask)
         {
-            aNumFmtArr[i] = &pActNum->GetLevel(i);
             bShowBullet &= aNumFmtArr[i]->GetNumberingType() == SVX_NUM_CHAR_SPECIAL;
             bShowBitmap &= (aNumFmtArr[i]->GetNumberingType() & (~LINK_TOKEN)) == SVX_NUM_BITMAP;
             eFirstAdjust = aNumFmtArr[i]->GetNumAdjust();
@@ -478,7 +437,6 @@ void SvxBulletAndPositionDlg::InitControls()
             {
                 nLvl = i;
                 sFirstCharFmt = aNumFmtArr[i]->GetCharFormatName();
-                eFirstOrient = aNumFmtArr[i]->GetVertOrient();
                 if (bShowBitmap)
                     aFirstSize = aNumFmtArr[i]->GetGraphicSize();
             }
@@ -490,10 +448,6 @@ void SvxBulletAndPositionDlg::InitControls()
 
                 bSamePrefix = aNumFmtArr[i]->GetPrefix() == aNumFmtArr[nLvl]->GetPrefix();
                 bSameSuffix = aNumFmtArr[i]->GetSuffix() == aNumFmtArr[nLvl]->GetSuffix();
-                bAllLevel &= aNumFmtArr[i]->GetIncludeUpperLevels()
-                             == aNumFmtArr[nLvl]->GetIncludeUpperLevels();
-                bSameCharFmt &= sFirstCharFmt == aNumFmtArr[i]->GetCharFormatName();
-                bSameVOrient &= eFirstOrient == aNumFmtArr[i]->GetVertOrient();
                 //bSameAdjust &= eFirstAdjust == aNumFmtArr[i]->GetNumAdjust();
                 if (bShowBitmap && bSameSize)
                     bSameSize &= aNumFmtArr[i]->GetGraphicSize() == aFirstSize;
@@ -505,10 +459,7 @@ void SvxBulletAndPositionDlg::InitControls()
                     &= aNumFmtArr[i]->GetFirstLineOffset()
                        == aNumFmtArr[nLvl]->GetFirstLineOffset();
             }
-            nHighestLevel = i;
         }
-        else
-            aNumFmtArr[i] = nullptr;
 
         nMask <<= 1;
     }
@@ -520,7 +471,8 @@ void SvxBulletAndPositionDlg::InitControls()
     else
     {
         nNumberingType = SVX_NUM_NUMBER_NONE;
-        bAllLevel = false;
+        bSameDistBorderNum = false;
+        bSameIndent = false;
         bSameBulRelSize = false;
         bSameBulColor = false;
         bSameStart = false;
@@ -922,7 +874,7 @@ IMPL_LINK_NOARG(SvxBulletAndPositionDlg, PopupActivateHdl_Impl, weld::ToggleButt
             OUString sGrfName;
             ScopedVclPtrInstance<VirtualDevice> pVD;
             size_t i = 0;
-            for (auto& grfName : aGrfNames)
+            for (const auto& grfName : aGrfNames)
             {
                 sGrfName = grfName;
                 OUString sItemId = "gallery" + OUString::number(i);
@@ -943,7 +895,16 @@ IMPL_LINK_NOARG(SvxBulletAndPositionDlg, PopupActivateHdl_Impl, weld::ToggleButt
                     }
                     pVD->SetOutputSizePixel(aBitmap.GetSizePixel(), false);
                     pVD->DrawBitmapEx(Point(), aBitmap);
-                    m_xGalleryMenu->append(sItemId, sGrfName, *pVD);
+
+                    // We want to show only icon names not full path.
+                    // That part finds the last index of the slash and
+                    // gets the part before .gif
+
+                    sal_Int32 last = sGrfName.lastIndexOf("/");
+                    last++;
+                    OUString sIconName = sGrfName.getToken(0, '.', last);
+
+                    m_xGalleryMenu->append(sItemId, sIconName, *pVD);
                 }
                 else
                 {
@@ -1157,6 +1118,11 @@ IMPL_LINK(SvxBulletAndPositionDlg, ApplyToMasterHdl_Impl, weld::ToggleButton&, r
     bApplyToMaster = rButton.get_active();
 }
 
+IMPL_LINK_NOARG(SvxBulletAndPositionDlg, ResetHdl_Impl, weld::Button&, void)
+{
+    Reset(&rFirstStateSet);
+}
+
 IMPL_LINK(SvxBulletAndPositionDlg, EditModifyHdl_Impl, weld::Entry&, rEdit, void)
 {
     EditModifyHdl_Impl(&rEdit);
@@ -1215,6 +1181,10 @@ IMPL_LINK(SvxBulletAndPositionDlg, DistanceHdl_Impl, weld::MetricSpinButton&, rF
     {
         m_xDistBorderMF->set_text("");
     }
+
+    sal_Int32 aLastLevelLSpace
+        = pActNum->GetLevel(pActNum->GetLevelCount() - 1).GetAbsLSpace() / 40;
+    m_aPreviewWIN.set_size_request(aLastLevelLSpace, 300);
 }
 
 IMPL_LINK(SvxBulletAndPositionDlg, RelativeHdl_Impl, weld::ToggleButton&, rBox, void)

@@ -17,19 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <stdio.h>
-
-#include <osl/thread.h>
-
 #include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xlocale.h>
 
-#include <unx/salunx.h>
-#include <unx/XIM.h>
 #include <unx/i18n_ic.hxx>
 #include <unx/i18n_im.hxx>
-#include <unx/i18n_status.hxx>
 
 #include <unx/salframe.h>
 #include <unx/saldisp.hxx>
@@ -125,7 +116,7 @@ static const XIMStyle g_nSupportedStatusStyle(
                                XIMStatusNone
                                );
 
-// Constructor for a InputContext (IC)
+// Constructor for an InputContext (IC)
 
 SalI18N_InputContext::SalI18N_InputContext ( SalFrame *pFrame ) :
         mbUseable( True ),
@@ -361,16 +352,9 @@ SalI18N_InputContext::SalI18N_InputContext ( SalFrame *pFrame ) :
 // unmap it the hard way
 
 void
-SalI18N_InputContext::Unmap( SalFrame const * pFrame )
+SalI18N_InputContext::Unmap()
 {
-    if ( maContext != nullptr )
-    {
-        I18NStatus& rStatus( I18NStatus::get() );
-        if( rStatus.getParent() == pFrame )
-            rStatus.show( false, I18NStatus::contextmap );
-
-    }
-    UnsetICFocus( pFrame );
+    UnsetICFocus();
     maClientData.pFrame = nullptr;
 }
 
@@ -379,11 +363,8 @@ SalI18N_InputContext::Map( SalFrame *pFrame )
 {
     if( mbUseable )
     {
-        I18NStatus& rStatus(I18NStatus::get() );
-        rStatus.setParent( pFrame );
         if( pFrame )
         {
-            rStatus.show( true, I18NStatus::contextmap );
             if ( maContext == nullptr )
             {
                 SalI18N_InputMethod *pInputMethod;
@@ -485,7 +466,7 @@ SalI18N_InputContext::SupportInputMethodStyle( XIMStyles const *pIMStyles )
 
         // check whether the XIM supports one of the desired styles
         // only a single preedit and a single status style must occur
-        // in a input method style. Hideki said so, so i trust him
+        // in an input method style. Hideki said so, so i trust him
         for ( int nStyle = 0; nStyle < pIMStyles->count_styles; nStyle++ )
         {
             XIMStyle nProvidedStyle = pIMStyles->supported_styles[ nStyle ];
@@ -548,8 +529,6 @@ SalI18N_InputContext::UpdateSpotLocation()
     XSetICValues(maContext, XNPreeditAttributes, preedit_attr, nullptr);
     XFree(preedit_attr);
 
-    I18NStatus::get().show( true, I18NStatus::contextmap );
-
     return 0;
 }
 
@@ -560,7 +539,6 @@ SalI18N_InputContext::UpdateSpotLocation()
 void
 SalI18N_InputContext::SetICFocus( SalFrame* pFocusFrame )
 {
-    I18NStatus::get().setParent( pFocusFrame );
     if ( mbUseable && (maContext != nullptr)  )
     {
         maClientData.pFrame = pFocusFrame;
@@ -586,11 +564,8 @@ SalI18N_InputContext::SetICFocus( SalFrame* pFocusFrame )
 }
 
 void
-SalI18N_InputContext::UnsetICFocus( SalFrame const * pFrame )
+SalI18N_InputContext::UnsetICFocus()
 {
-    I18NStatus& rStatus( I18NStatus::get() );
-    if( rStatus.getParent() == pFrame )
-        rStatus.setParent( nullptr );
 
     if ( mbUseable && (maContext != nullptr) )
     {

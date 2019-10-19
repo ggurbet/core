@@ -87,7 +87,7 @@ ScVbaControl::getWindowPeer()
     uno::Reference< view::XControlAccess > xControlAccess( m_xModel->getCurrentController(), uno::UNO_QUERY_THROW );
     try
     {
-        uno::Reference< awt::XControl > xControl( xControlAccess->getControl( xControlModel ), uno::UNO_QUERY );
+        uno::Reference< awt::XControl > xControl = xControlAccess->getControl( xControlModel );
         xWinPeer =  xControl->getPeer();
     }
     catch(const uno::Exception&)
@@ -547,9 +547,9 @@ void SAL_CALL ScVbaControl::fireEvent( const script::ScriptEvent& rEvt )
             if ( xControl.is() ) // normal control ( from dialog/userform )
             {
                 // #FIXME We should probably store a reference to the
-                // parent dialog/userform here ( other wise the name of
+                // parent dialog/userform here (otherwise the name of
                 // dialog could be changed and we won't be aware of it.
-                // ( OTOH this is probably an unlikely scenario )
+                // (OTOH this is probably an unlikely scenario)
                 evt.Source = xThisControl;
                 aEvt.Source = xControl;
                 evt.ScriptCode = m_sLibraryAndCodeName;
@@ -696,7 +696,7 @@ void SAL_CALL ScVbaControl::setTabIndex( sal_Int32 /*nTabIndex*/ )
 OUString
 ScVbaControl::getServiceImplName()
 {
-    return OUString("ScVbaControl");
+    return "ScVbaControl";
 }
 
 uno::Sequence< OUString >
@@ -728,7 +728,7 @@ void ScVbaControl::setBackColor( sal_Int32 nBackColor )
     m_xProps->setPropertyValue( "BackgroundColor" , uno::makeAny( XLRGBToOORGB( nBackColor ) ) );
 }
 
-bool ScVbaControl::getAutoSize()
+bool ScVbaControl::getAutoSize() const
 {
     bool bIsResizeEnabled = false;
     uno::Reference< uno::XInterface > xIf( m_xControl, uno::UNO_SET_THROW );

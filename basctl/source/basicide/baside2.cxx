@@ -51,6 +51,7 @@
 #include <svl/visitem.hxx>
 #include <svl/whiter.hxx>
 #include <svx/svxids.hrc>
+#include <vcl/dialog.hxx>
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
@@ -603,7 +604,7 @@ void ModulWindow::BasicErrorHdl( StarBASIC const * pBasic )
 
     // Return value: BOOL
     //  FALSE:  cancel
-    //  TRUE:   go on....
+    //  TRUE:   go on...
     sal_uInt16 nErrorLine = StarBASIC::GetLine() - 1;
     sal_uInt16 nErrCol1 = StarBASIC::GetCol1();
     sal_uInt16 nErrCol2 = StarBASIC::GetCol2();
@@ -756,11 +757,6 @@ void ModulWindow::StoreData()
     // this window is closed.
     // => interrupts undesired!
     GetEditorWindow().SetSourceInBasic();
-}
-
-bool ModulWindow::CanClose()
-{
-    return true;
 }
 
 bool ModulWindow::AllowUndo()

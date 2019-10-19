@@ -1209,7 +1209,7 @@ namespace svgio
             // This is part of the SVG import of self-written SVGs from
             // Draw/Impress containing multiple Slides/Pages. To be able
             // to later 'break' these to multiple Pages if wanted, embed
-            // each Page-Content in a identifiable Primitive Grouping
+            // each Page-Content in an identifiable Primitive Grouping
             // Object.
             // This is the case when the current Node is a GroupNode, has
             // class="Page" set, has a parent that also is a GroupNode
@@ -1256,10 +1256,6 @@ namespace svgio
             maStopColor(basegfx::BColor(0.0, 0.0, 0.0), true),
             maStrokeWidth(),
             maStopOpacity(),
-            mpSvgGradientNodeFill(nullptr),
-            mpSvgGradientNodeStroke(nullptr),
-            mpSvgPatternNodeFill(nullptr),
-            mpSvgPatternNodeStroke(nullptr),
             maFillOpacity(),
             maStrokeDasharray(),
             maStrokeDashOffset(),
@@ -1336,19 +1332,7 @@ namespace svgio
                     }
                     else if(!aURL.isEmpty())
                     {
-                        const SvgNode* pNode = mrOwner.getDocument().findSvgNodeById(aURL);
-
-                        if(pNode)
-                        {
-                            if(SVGTokenLinearGradient == pNode->getType() || SVGTokenRadialGradient == pNode->getType())
-                            {
-                                mpSvgGradientNodeFill = static_cast< const SvgGradientNode* >(pNode);
-                            }
-                            else if(SVGTokenPattern == pNode->getType())
-                            {
-                                mpSvgPatternNodeFill = static_cast< const SvgPatternNode* >(pNode);
-                            }
-                        }
+                       maNodeFillURL = aURL;
                     }
                     break;
                 }
@@ -1393,19 +1377,7 @@ namespace svgio
                     }
                     else if(!aURL.isEmpty())
                     {
-                        const SvgNode* pNode = mrOwner.getDocument().findSvgNodeById(aURL);
-
-                        if(pNode)
-                        {
-                            if(SVGTokenLinearGradient == pNode->getType() || SVGTokenRadialGradient  == pNode->getType())
-                            {
-                                mpSvgGradientNodeStroke = static_cast< const SvgGradientNode* >(pNode);
-                            }
-                            else if(SVGTokenPattern == pNode->getType())
-                            {
-                                mpSvgPatternNodeStroke = static_cast< const SvgPatternNode* >(pNode);
-                            }
-                        }
+                        maNodeStrokeURL = aURL;
                     }
                     break;
                 }
@@ -2030,8 +2002,21 @@ namespace svgio
                 {
                     return &maFill.getBColor();
                 }
+                else if(mbIsClipPathContent)
+                {
+                    const SvgStyleAttributes* pSvgStyleAttributes = getParentStyle();
+
+                    if (pSvgStyleAttributes && maResolvingParent[0] < nStyleDepthLimit)
+                    {
+                        ++maResolvingParent[0];
+                        const basegfx::BColor* pFill = pSvgStyleAttributes->getFill();
+                        --maResolvingParent[0];
+
+                        return pFill;
+                    }
+                }
             }
-            else if (!mpSvgGradientNodeFill && !mpSvgPatternNodeFill)
+            else if (maNodeFillURL.isEmpty())
             {
                 const SvgStyleAttributes* pSvgStyleAttributes = getParentStyle();
 
@@ -2076,7 +2061,7 @@ namespace svgio
                     return &maStroke.getBColor();
                 }
             }
-            else if (!mpSvgGradientNodeStroke && !mpSvgPatternNodeStroke)
+            else if (maNodeStrokeURL.isEmpty())
             {
                 const SvgStyleAttributes* pSvgStyleAttributes = getParentStyle();
 
@@ -2106,12 +2091,20 @@ namespace svgio
 
         const SvgGradientNode* SvgStyleAttributes::getSvgGradientNodeFill() const
         {
-            if(mpSvgGradientNodeFill)
+            if (!maFill.isSet())
             {
-                return mpSvgGradientNodeFill;
-            }
-            else if (!maFill.isSet() && !mpSvgPatternNodeFill)
-            {
+                if (!maNodeFillURL.isEmpty())
+                {
+                    const SvgNode* pNode = mrOwner.getDocument().findSvgNodeById(maNodeFillURL);
+
+                    if(pNode)
+                    {
+                        if(SVGTokenLinearGradient == pNode->getType() || SVGTokenRadialGradient == pNode->getType())
+                        {
+                            return static_cast< const SvgGradientNode* >(pNode);
+                        }
+                    }
+                }
                 const SvgStyleAttributes* pSvgStyleAttributes = getParentStyle();
 
                 if (pSvgStyleAttributes && maResolvingParent[2] < nStyleDepthLimit)
@@ -2128,12 +2121,21 @@ namespace svgio
 
         const SvgGradientNode* SvgStyleAttributes::getSvgGradientNodeStroke() const
         {
-            if(mpSvgGradientNodeStroke)
+            if (!maStroke.isSet())
             {
-                return mpSvgGradientNodeStroke;
-            }
-            else if (!maStroke.isSet() && !mpSvgPatternNodeStroke)
-            {
+                if(!maNodeStrokeURL.isEmpty())
+                {
+                    const SvgNode* pNode = mrOwner.getDocument().findSvgNodeById(maNodeStrokeURL);
+
+                    if(pNode)
+                    {
+                        if(SVGTokenLinearGradient == pNode->getType() || SVGTokenRadialGradient  == pNode->getType())
+                        {
+                            return static_cast< const SvgGradientNode* >(pNode);
+                        }
+                    }
+                }
+
                 const SvgStyleAttributes* pSvgStyleAttributes = getParentStyle();
 
                 if (pSvgStyleAttributes && maResolvingParent[3] < nStyleDepthLimit)
@@ -2150,12 +2152,21 @@ namespace svgio
 
         const SvgPatternNode* SvgStyleAttributes::getSvgPatternNodeFill() const
         {
-            if(mpSvgPatternNodeFill)
+            if (!maFill.isSet())
             {
-                return mpSvgPatternNodeFill;
-            }
-            else if (!maFill.isSet() && !mpSvgGradientNodeFill)
-            {
+                if (!maNodeFillURL.isEmpty())
+                {
+                    const SvgNode* pNode = mrOwner.getDocument().findSvgNodeById(maNodeFillURL);
+
+                    if(pNode)
+                    {
+                        if(SVGTokenPattern == pNode->getType())
+                        {
+                            return static_cast< const SvgPatternNode* >(pNode);
+                        }
+                    }
+                }
+
                 const SvgStyleAttributes* pSvgStyleAttributes = getParentStyle();
 
                 if (pSvgStyleAttributes && maResolvingParent[4] < nStyleDepthLimit)
@@ -2172,12 +2183,21 @@ namespace svgio
 
         const SvgPatternNode* SvgStyleAttributes::getSvgPatternNodeStroke() const
         {
-            if(mpSvgPatternNodeStroke)
+            if (!maStroke.isSet())
             {
-                return mpSvgPatternNodeStroke;
-            }
-            else if (!maStroke.isSet() && !mpSvgGradientNodeStroke)
-            {
+                if(!maNodeStrokeURL.isEmpty())
+                {
+                    const SvgNode* pNode = mrOwner.getDocument().findSvgNodeById(maNodeStrokeURL);
+
+                    if(pNode)
+                    {
+                        if(SVGTokenPattern == pNode->getType())
+                        {
+                            return static_cast< const SvgPatternNode* >(pNode);
+                        }
+                    }
+                }
+
                 const SvgStyleAttributes* pSvgStyleAttributes = getParentStyle();
 
                 if (pSvgStyleAttributes && maResolvingParent[5] < nStyleDepthLimit)
@@ -2505,7 +2525,7 @@ namespace svgio
                 if(!maFontSizeNumber.isPositive())
                     return aDefaultSize;
 
-                // #122524# Handle Unit_percent realtive to parent FontSize (see SVG1.1
+                // #122524# Handle Unit_percent relative to parent FontSize (see SVG1.1
                 // spec 10.10 Font selection properties \91font-size\92, lastline (click 'normative
                 // definition of the property')
                 if(Unit_percent == maFontSizeNumber.getUnit())
@@ -2969,7 +2989,7 @@ namespace svgio
 
         SvgNumber SvgStyleAttributes::getBaselineShiftNumber() const
         {
-            // #122524# Handle Unit_percent realtive to parent BaselineShift
+            // #122524# Handle Unit_percent relative to parent BaselineShift
             if(Unit_percent == maBaselineShiftNumber.getUnit())
             {
                 const SvgStyleAttributes* pSvgStyleAttributes = getParentStyle();

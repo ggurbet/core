@@ -57,7 +57,7 @@
    http://msdn.microsoft.com/en-us/library/ms776294.aspx
 
  ! Hey, yet another list, maybe this one will not move around? It seems to be
- ! quite complete..
+ ! quite complete...
  ! Language Identifier Constants and Strings (Windows)
  ! http://msdn.microsoft.com/en-us/library/dd318693.aspx
  !
@@ -65,8 +65,8 @@
 
  ! BUT, you can download a PDF document from
  ! http://msdn.microsoft.com/library/cc233965.aspx
- ! that has YET MORE definitions, sigh.. didn't cross-check if any are missing
- ! from that.. however, it also contains a few MS-reserved definitions that use
+ ! that has YET MORE definitions, sigh... didn't cross-check if any are missing
+ ! from that... however, it also contains a few MS-reserved definitions that use
  ! ISO 639-3 codes reserved for local use, such as 'qps-ploc' and 'qps-ploca'
  ! (sic!), or strange things like 'ar-Ploc-SA' and 'ja-Ploc-JP' ('Ploc'??).
  !
@@ -470,7 +470,7 @@ namespace o3tl
 #define LANGUAGE_Neither_defined_nor_reserved_0x1C0C LanguageType(0x1C0C)
 #define LANGUAGE_Neither_defined_nor_reserved_0x2008 LanguageType(0x2008)
 
-/* MS defines these as reserved, whatever that might imply.. */
+/* MS defines these as reserved, whatever that might imply... */
 #define LANGUAGE_reserved_0xEEEE            LanguageType(0xEEEE)  /* primary 0x2ee, sub 0x3b */
 #define LANGUAGE_reserved_0xF2EE            LanguageType(0xF2EE)  /* primary 0x2ee, sub 0x3c */
 
@@ -743,13 +743,15 @@ namespace o3tl
 #define LANGUAGE_USER_ARMENIAN_RUSSIA       LanguageType(0x802B)  /* makeLangID( 0x20, getPrimaryLanguage( LANGUAGE_ARMENIAN)) */
 #define LANGUAGE_USER_ARMENIAN_IRAN         LanguageType(0x842B)  /* makeLangID( 0x21, getPrimaryLanguage( LANGUAGE_ARMENIAN)) */
 #define LANGUAGE_USER_ARMENIAN_WESTERN      LanguageType(0x069F)
-#define LANGUAGE_USER_ARMENIAN_CLASSIC      LanguageType(0x06A0)
+#define LANGUAGE_USER_ARMENIAN_CLASSICAL    LanguageType(0x06A0)
 #define LANGUAGE_USER_MALAY_ARABIC_MALAYSIA LanguageType(0x803E)  /* makeLangID( 0x20, getPrimaryLanguage( LANGUAGE_MALAY_MALAYSIA)) */
 #define LANGUAGE_USER_MALAY_ARABIC_BRUNEI   LanguageType(0x843E)  /* makeLangID( 0x21, getPrimaryLanguage( LANGUAGE_MALAY_BRUNEI_DARUSSALAM)) */
 #define LANGUAGE_USER_JUHOAN                LanguageType(0x06A1)
 #define LANGUAGE_USER_NARO                  LanguageType(0x06A2)
 #define LANGUAGE_USER_ILOKO                 LanguageType(0x06A3)
 #define LANGUAGE_USER_ENGLISH_ZAMBIA        LanguageType(0xA009)  /* makeLangID( 0x28, getPrimaryLanguage( LANGUAGE_ENGLISH_UK)) */
+#define LANGUAGE_USER_ENGLISH_SRI_LANKA     LanguageType(0xA409)  /* makeLangID( 0x29, getPrimaryLanguage( LANGUAGE_ENGLISH_UK)) */
+#define LANGUAGE_USER_ENGLISH_NIGERIA       LanguageType(0xA809)  /* makeLangID( 0x2A, getPrimaryLanguage( LANGUAGE_ENGLISH_UK)) */
 
 
 /* XXX Add new user defined LCIDs ^^^ there.

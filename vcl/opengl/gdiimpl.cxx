@@ -900,7 +900,7 @@ void OpenGLSalGraphicsImpl::DrawPolyPolygon( const basegfx::B2DPolyPolygon& rPol
     basegfx::B2DTrapezoidVector aB2DTrapVector;
     basegfx::utils::trapezoidSubdivide( aB2DTrapVector, aSimplePolyPolygon );
     // draw tessellation result
-    for(basegfx::B2DTrapezoid & i : aB2DTrapVector)
+    for(const basegfx::B2DTrapezoid & i : aB2DTrapVector)
         DrawTrapezoid( i, blockAA );
 }
 
@@ -987,6 +987,9 @@ bool scaleTexture(const rtl::Reference< OpenGLContext > &xContext,
 {
     int nWidth = rTexture.GetWidth();
     int nHeight = rTexture.GetHeight();
+    if (nWidth == 0 || nHeight == 0)
+        return false;
+
     int nNewWidth = nWidth / ixscale;
     int nNewHeight = nHeight / iyscale;
 
@@ -2231,8 +2234,9 @@ void OpenGLSalGraphicsImpl::doFlush()
     mpWindowContext->state().stencil().disable();
 
 #if OSL_DEBUG_LEVEL > 0 // random background glClear
-    glClearColor(static_cast<float>(rand())/RAND_MAX, static_cast<float>(rand())/RAND_MAX,
-                 static_cast<float>(rand())/RAND_MAX, 1.0);
+    glClearColor(static_cast<float>(double(rand())/RAND_MAX),
+                 static_cast<float>(double(rand())/RAND_MAX),
+                 static_cast<float>(double(rand())/RAND_MAX), 1.0);
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT );
     CHECK_GL_ERROR();
 #endif

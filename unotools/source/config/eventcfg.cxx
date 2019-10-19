@@ -26,7 +26,6 @@
 #include <o3tl/enumarray.hxx>
 #include <o3tl/enumrange.hxx>
 #include <rtl/ref.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 
 #include "itemholder1.hxx"
@@ -185,23 +184,16 @@ void GlobalEventConfig_Impl::ImplCommit()
 void GlobalEventConfig_Impl::initBindingInfo()
 {
     // Get ALL names of current existing list items in configuration!
-    Sequence< OUString > lEventNames      = GetNodeNames( SETNODE_BINDINGS, utl::ConfigNameFormat::LocalPath );
+    const Sequence< OUString > lEventNames = GetNodeNames( SETNODE_BINDINGS, utl::ConfigNameFormat::LocalPath );
 
-    OUString aSetNode( SETNODE_BINDINGS );
-    aSetNode += PATHDELIMITER;
-
-    OUString aCommandKey( PATHDELIMITER );
-    aCommandKey += PROPERTYNAME_BINDINGURL;
+    OUString aSetNode = SETNODE_BINDINGS PATHDELIMITER;
+    OUString aCommandKey = PATHDELIMITER PROPERTYNAME_BINDINGURL;
 
     // Expand all keys
     Sequence< OUString > lMacros(1);
     for (const auto& rEventName : lEventNames )
     {
-        OUStringBuffer aBuffer( 32 );
-        aBuffer.append( aSetNode );
-        aBuffer.append( rEventName );
-        aBuffer.append( aCommandKey );
-        lMacros[0] = aBuffer.makeStringAndClear();
+        lMacros[0] = aSetNode + rEventName + aCommandKey;
         SAL_INFO("unotools", "reading binding for: " << lMacros[0]);
         Sequence< Any > lValues = GetProperties( lMacros );
         OUString sMacroURL;
@@ -230,7 +222,7 @@ void GlobalEventConfig_Impl::replaceByName( const OUString& aName, const Any& aE
                 Reference< XInterface > (), 2);
     }
     OUString macroURL;
-    for( const auto& rProp : props )
+    for( const auto& rProp : std::as_const(props) )
     {
         if ( rProp.Name == "Script" )
             rProp.Value >>= macroURL;

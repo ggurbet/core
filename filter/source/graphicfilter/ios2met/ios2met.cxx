@@ -246,7 +246,7 @@ struct OSFont {
 struct OSBitmap {
     OSBitmap * pSucc;
     sal_uInt32 nID;
-    Bitmap     aBitmap;
+    BitmapEx   aBitmapEx;
 
     // required during reading of the bitmap:
     SvStream * pBMP; // pointer to temporary Windows-BMP file or NULL
@@ -378,7 +378,7 @@ private:
     Color GetPaletteColor(sal_uInt32 nIndex);
 
 
-    bool    IsLineInfo();
+    bool        IsLineInfo() const;
     void        DrawPolyLine( const tools::Polygon& rPolygon );
     void        DrawPolygon( const tools::Polygon& rPolygon );
     void        DrawPolyPolygon( const tools::PolyPolygon& rPolygon );
@@ -491,7 +491,7 @@ OS2METReader::~OS2METReader()
     }
 }
 
-bool OS2METReader::IsLineInfo()
+bool OS2METReader::IsLineInfo() const
 {
     return ( ! ( aLineInfo.IsDefault() || ( aLineInfo.GetStyle() == LineStyle::NONE ) || ( pVirDev->GetLineColor() == COL_TRANSPARENT ) ) );
 }
@@ -990,7 +990,7 @@ void OS2METReader::ReadBitBlt()
     while (pB!=nullptr && pB->nID!=nID) pB=pB->pSucc;
     if (pB!=nullptr) {
         SetRasterOp(aAttr.ePatMix);
-        pVirDev->DrawBitmap(aP1,aSize,pB->aBitmap);
+        pVirDev->DrawBitmapEx(aP1,aSize,pB->aBitmapEx);
     }
 }
 
@@ -2486,7 +2486,7 @@ void OS2METReader::ReadField(sal_uInt16 nFieldType, sal_uInt16 nFieldSize)
             }
             pBitmapList->pBMP->Seek(0);
 
-            ReadDIB(pBitmapList->aBitmap, *(pBitmapList->pBMP), false);
+            ReadDIBBitmapEx(pBitmapList->aBitmapEx, *(pBitmapList->pBMP), false);
 
             if (pBitmapList->pBMP->GetError()!=ERRCODE_NONE) {
                 pOS2MET->SetError(SVSTREAM_FILEFORMAT_ERROR);

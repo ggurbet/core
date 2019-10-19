@@ -23,7 +23,6 @@
 
 #include <brdwin.hxx>
 #include <svdata.hxx>
-#include <salframe.hxx>
 #include <window.h>
 
 #include <vcl/event.hxx>
@@ -32,9 +31,6 @@
 #include <vcl/toolbox.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/timer.hxx>
-#include <vcl/idle.hxx>
-#include <vcl/lineinfo.hxx>
-#include <vcl/toolkit/unowrap.hxx>
 #include <vcl/settings.hxx>
 
 #define DOCKWIN_FLOATSTYLES         (WB_SIZEABLE | WB_MOVEABLE | WB_CLOSEABLE | WB_STANDALONE | WB_ROLLABLE )
@@ -277,7 +273,7 @@ DockingManager::~DockingManager()
 
 ImplDockingWindowWrapper* DockingManager::GetDockingWindowWrapper( const vcl::Window *pWindow )
 {
-    for( auto& xWrapper : mvDockingWindows )
+    for( const auto& xWrapper : mvDockingWindows )
     {
         if( xWrapper->mpDockingWindow == pWindow )
             return xWrapper.get();

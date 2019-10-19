@@ -402,7 +402,7 @@ void SwHTMLWrtTable::OutTableCell( SwHTMLWriter& rWrt,
         }
     }
 
-    rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
 
     rWrt.m_bTextAttr = false;
     rWrt.m_bOutOpts = true;
@@ -450,7 +450,7 @@ void SwHTMLWrtTable::OutTableCell( SwHTMLWriter& rWrt,
             &rWrt.m_aNonConvertableCharacters));
     }
     sOut.append('>');
-    rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
     rWrt.m_bLFPossible = true;
 
     rWrt.IncIndentLevel();  // indent the content of <TD>...</TD>
@@ -459,7 +459,7 @@ void SwHTMLWrtTable::OutTableCell( SwHTMLWriter& rWrt,
     {
         HTMLSaveData aSaveData( rWrt, pSttNd->GetIndex()+1,
                                 pSttNd->EndOfSectionIndex() );
-        rWrt.Out_SwDoc( rWrt.m_pCurrentPam );
+        rWrt.Out_SwDoc( rWrt.m_pCurrentPam.get() );
     }
     else
     {
@@ -538,7 +538,7 @@ void SwHTMLWrtTable::OutTableCells( SwHTMLWriter& rWrt,
         sOut.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_valign)
             .append("=\"").append(text::VertOrientation::TOP==eRowVertOri ? OOO_STRING_SVTOOLS_HTML_VA_top : OOO_STRING_SVTOOLS_HTML_VA_bottom)
             .append("\"");
-        rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
     }
 
     rWrt.Strm().WriteChar( '>' );
@@ -612,7 +612,7 @@ void SwHTMLWrtTable::Write( SwHTMLWriter& rWrt, sal_Int16 eAlign,
         rWrt.m_nDirection = rWrt.GetHTMLDirection( pFrameFormat->GetAttrSet() );
     if( rWrt.m_bOutFlyFrame || nOldDirection != rWrt.m_nDirection )
     {
-        rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
         rWrt.OutDirection( rWrt.m_nDirection );
     }
 
@@ -688,7 +688,7 @@ void SwHTMLWrtTable::Write( SwHTMLWriter& rWrt, sal_Int16 eAlign,
     sOut.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_cellspacing).
         append("=\"").append(static_cast<sal_Int32>(SwHTMLWriter::ToPixel(m_nCellSpacing,false))).append("\"");
 
-    rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
 
     // output background
     if( pFrameFormat )
@@ -700,7 +700,7 @@ void SwHTMLWrtTable::Write( SwHTMLWriter& rWrt, sal_Int16 eAlign,
     }
 
     sOut.append('>');
-    rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rWrt.Strm().WriteOString( sOut.makeStringAndClear() );
 
     rWrt.IncIndentLevel(); // indent content of table
 
@@ -1027,7 +1027,7 @@ Writer& OutHTML_SwTableNode( Writer& rWrt, SwTableNode & rNode,
     {
     case text::HoriOrientation::LEFT:
         // If a left-aligned table has no right sided flow, then we don't need
-        // a ALIGN=LEFT in the table.
+        // an ALIGN=LEFT in the table.
         if( eSurround==css::text::WrapTextMode_NONE || eSurround==css::text::WrapTextMode_LEFT )
             eTabHoriOri = text::HoriOrientation::NONE;
         break;
@@ -1063,9 +1063,9 @@ Writer& OutHTML_SwTableNode( Writer& rWrt, SwTableNode & rNode,
             HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_center );
         else
         {
-            OStringBuffer sOut(OOO_STRING_SVTOOLS_HTML_division);
-            sOut.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_align).append("=\"")
-                .append(OOO_STRING_SVTOOLS_HTML_AL_right).append("\"");
+            OString sOut = OOO_STRING_SVTOOLS_HTML_division
+                " " OOO_STRING_SVTOOLS_HTML_O_align "=\""
+                OOO_STRING_SVTOOLS_HTML_AL_right "\"";
             HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + sOut.getStr() );
         }
         rHTMLWrt.IncIndentLevel();  // indent content of <CENTER>

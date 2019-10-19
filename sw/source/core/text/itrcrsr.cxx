@@ -133,11 +133,11 @@ static void lcl_GetCharRectInsideField( SwTextSizeInfo& rInf, SwRect& rOrig,
 
 // #i111284#
 namespace {
-    bool AreListLevelIndentsApplicableAndLabelAlignmentActive( const SwTextNode& rTextNode )
+    bool IsLabelAlignmentActive( const SwTextNode& rTextNode )
     {
         bool bRet( false );
 
-        if ( rTextNode.GetNumRule() && rTextNode.AreListLevelIndentsApplicable() )
+        if ( rTextNode.GetNumRule() )
         {
             int nListLevel = rTextNode.GetActualListLevel();
 
@@ -170,8 +170,10 @@ void SwTextMargin::CtorInitTextMargin( SwTextFrame *pNewFrame, SwTextSizeInfo *p
     const SvxLRSpaceItem &rSpace = pNode->GetSwAttrSet().GetLRSpace();
     // #i95907#
     // #i111284#
-    const bool bListLevelIndentsApplicableAndLabelAlignmentActive(
-        AreListLevelIndentsApplicableAndLabelAlignmentActive( *(m_pFrame->GetTextNodeForParaProps()) ) );
+    const SwTextNode *pTextNode = m_pFrame->GetTextNodeForParaProps();
+    const bool bLabelAlignmentActive = IsLabelAlignmentActive( *pTextNode );
+    const bool bListLevelIndentsApplicable = pTextNode->AreListLevelIndentsApplicable();
+    const bool bListLevelIndentsApplicableAndLabelAlignmentActive = bListLevelIndentsApplicable && bLabelAlignmentActive;
 
     // Carefully adjust the text formatting ranges.
 
@@ -232,7 +234,7 @@ void SwTextMargin::CtorInitTextMargin( SwTextFrame *pNewFrame, SwTextSizeInfo *p
          // paras inside cells inside new documents:
         ( pNode->getIDocumentSettingAccess()->get(DocumentSettingId::IGNORE_FIRST_LINE_INDENT_IN_NUMBERING) ||
           !m_pFrame->IsInTab() ||
-          !nLMWithNum ) )
+          ( !nLMWithNum && !(bLabelAlignmentActive && !bListLevelIndentsApplicable) ) ) )
     {
         nLeft = m_pFrame->getFramePrintArea().Left() + m_pFrame->getFrameArea().Left();
         if( nLeft >= nRight )   // e.g. with large paragraph indentations in slim table columns
@@ -462,7 +464,7 @@ void SwTextCursor::GetEndCharRect(SwRect* pOrig, const TextFrameIndex nOfst,
 
 // internal function, called by SwTextCursor::GetCharRect() to calculate
 // the relative character position in the current line.
-// pOrig referes to x and y coordinates, width and height of the cursor
+// pOrig refers to x and y coordinates, width and height of the cursor
 // pCMS is used for restricting the cursor, if there are different font
 // heights in one line ( first value = offset to y of pOrig, second
 // value = real height of (shortened) cursor
@@ -1254,6 +1256,27 @@ void SwTextCursor::GetCharRect( SwRect* pOrig, TextFrameIndex const nOfst,
     }
 }
 
+/**
+ * Determines if SwTextCursor::GetCursorOfst() should consider the next portion when calculating the
+ * doc model position from a Point.
+ */
+static bool ConsiderNextPortionForCursorOffset(const SwLinePortion* pPor, sal_uInt16 nWidth30, sal_uInt16 nX)
+{
+    if (!pPor->GetNextPortion())
+    {
+        return false;
+    }
+
+    // If we're past the target position, stop the iteration in general.
+    // Exception: don't stop the iteration between as-char fly portions and their comments.
+    if (nWidth30 >= nX && (!pPor->IsFlyCntPortion() || !pPor->GetNextPortion()->IsPostItsPortion()))
+    {
+        return false;
+    }
+
+    return !pPor->IsBreakPortion();
+}
+
 // Return: Offset in String
 TextFrameIndex SwTextCursor::GetCursorOfst( SwPosition *pPos, const Point &rPoint,
                                     bool bChgNode, SwCursorMoveState* pCMS ) const
@@ -1341,7 +1364,7 @@ TextFrameIndex SwTextCursor::GetCursorOfst( SwPosition *pPos, const Point &rPoin
                      30 :
                      nWidth;
 
-    while( pPor->GetNextPortion() && nWidth30 < nX && !pPor->IsBreakPortion() )
+    while (ConsiderNextPortionForCursorOffset(pPor, nWidth30, nX))
     {
         nX = nX - nWidth;
         nCurrStart = nCurrStart + pPor->GetLen();
@@ -1512,7 +1535,14 @@ TextFrameIndex SwTextCursor::GetCursorOfst( SwPosition *pPos, const Point &rPoin
         {
             if ( pPor->IsPostItsPortion() || pPor->IsBreakPortion() ||
                  pPor->InToxRefGrp() )
+            {
+                if (pPor->IsPostItsPortion())
+                {
+                    // Offset would be nCurrStart + nLength below, do the same for post-it portions.
+                    nCurrStart += pPor->GetLen();
+                }
                 return nCurrStart;
+            }
             if ( pPor->InFieldGrp() )
             {
                 if( bRightOver && !static_cast<SwFieldPortion*>(pPor)->HasFollow() )

@@ -18,8 +18,6 @@
  */
 
 #include <rtl/ref.hxx>
-#include <rtl/strbuf.hxx>
-#include <sal/log.hxx>
 #include <cppuhelper/weakref.hxx>
 #include <vcl/window.hxx>
 #include <svx/svdmodel.hxx>
@@ -55,14 +53,13 @@
 #include <IDocumentDrawModelAccess.hxx>
 #include <svx/AccessibleShapeInfo.hxx>
 #include <svx/ShapeTypeHandler.hxx>
-#include <vcl/svapp.hxx>
 #include <svx/SvxShapeTypes.hxx>
 #include <svx/svdpage.hxx>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/document/XEventBroadcaster.hpp>
+#include <com/sun/star/document/XShapeEventBroadcaster.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/interfacecontainer2.hxx>
 #include <pagepreviewlayout.hxx>
@@ -76,6 +73,7 @@
 #include <dflyobj.hxx>
 #include <prevwpage.hxx>
 #include <calbck.hxx>
+#include <undobj.hxx>
 #include <tools/diagnose_ex.h>
 #include <tools/debug.hxx>
 
@@ -125,10 +123,11 @@ public:
 };
 
 class SwDrawModellListener_Impl : public SfxListener,
-    public ::cppu::WeakImplHelper< document::XEventBroadcaster >
+    public ::cppu::WeakImplHelper< document::XShapeEventBroadcaster >
 {
     mutable ::osl::Mutex maListenerMutex;
     ::comphelper::OInterfaceContainerHelper2 maEventListeners;
+    std::unordered_map<css::uno::Reference< css::drawing::XShape >, css::uno::Reference< css::document::XShapeEventListener >> maShapeListeners;
     SdrModel *mpDrawModel;
 protected:
     virtual ~SwDrawModellListener_Impl() override;
@@ -136,8 +135,12 @@ protected:
 public:
     explicit SwDrawModellListener_Impl( SdrModel *pDrawModel );
 
+    // css::document::XEventBroadcaster
     virtual void SAL_CALL addEventListener( const uno::Reference< document::XEventListener >& xListener ) override;
     virtual void SAL_CALL removeEventListener( const uno::Reference< document::XEventListener >& xListener ) override;
+    // css::document::XShapeEventBroadcaster
+    virtual void SAL_CALL addShapeEventListener( const css::uno::Reference< css::drawing::XShape >& xShape, const css::uno::Reference< css::document::XShapeEventListener >& xListener ) override;
+    virtual void SAL_CALL removeShapeEventListener( const css::uno::Reference< css::drawing::XShape >& xShape, const css::uno::Reference< css::document::XShapeEventListener >& xListener ) override;
 
     virtual void        Notify( SfxBroadcaster& rBC, const SfxHint& rHint ) override;
     void Dispose();
@@ -163,6 +166,31 @@ void SAL_CALL SwDrawModellListener_Impl::addEventListener( const uno::Reference<
 void SAL_CALL SwDrawModellListener_Impl::removeEventListener( const uno::Reference< document::XEventListener >& xListener )
 {
     maEventListeners.removeInterface( xListener );
+}
+
+void SAL_CALL SwDrawModellListener_Impl::addShapeEventListener(
+                const css::uno::Reference< css::drawing::XShape >& xShape,
+                const uno::Reference< document::XShapeEventListener >& xListener )
+{
+    assert(xShape.is() && "no shape?");
+    osl::MutexGuard aGuard(maListenerMutex);
+    auto rv = maShapeListeners.emplace(xShape, xListener);
+    assert(rv.second && "duplicate listener?");
+    (void)rv;
+}
+
+void SAL_CALL SwDrawModellListener_Impl::removeShapeEventListener(
+                const css::uno::Reference< css::drawing::XShape >& xShape,
+                const uno::Reference< document::XShapeEventListener >& xListener )
+{
+    osl::MutexGuard aGuard(maListenerMutex);
+    auto it = maShapeListeners.find(xShape);
+    if (it != maShapeListeners.end())
+    {
+        assert(it->second == xListener);
+        (void)xListener;
+        maShapeListeners.erase(it);
+    }
 }
 
 void SwDrawModellListener_Impl::Notify( SfxBroadcaster& /*rBC*/,
@@ -200,9 +228,19 @@ void SwDrawModellListener_Impl::Notify( SfxBroadcaster& /*rBC*/,
         }
         catch( uno::RuntimeException const & )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("sw.a11y", "Runtime exception caught while notifying shape: " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("sw.a11y", "Runtime exception caught while notifying shape");
         }
+    }
+
+    // right now, we're only handling the specific event necessary to fix this performance problem
+    if (pSdrHint->GetKind() == SdrHintKind::ObjectChange)
+    {
+        auto pSdrObject = const_cast<SdrObject*>(pSdrHint->GetObject());
+        uno::Reference<drawing::XShape> xShape(pSdrObject->getUnoShape(), uno::UNO_QUERY);
+        osl::MutexGuard aGuard(maListenerMutex);
+        auto it = maShapeListeners.find(xShape);
+        if (it != maShapeListeners.end())
+            it->second->notifyShapeEvent(aEvent);
     }
 }
 
@@ -247,7 +285,7 @@ public:
         maInfo.SetSdrView( pMap->GetShell()->GetDrawView() );
         maInfo.SetDevice( pMap->GetShell()->GetWin() );
         maInfo.SetViewForwarder( pMap );
-        uno::Reference < document::XEventBroadcaster > xModelBroadcaster =
+        uno::Reference < document::XShapeEventBroadcaster > xModelBroadcaster =
             new SwDrawModellListener_Impl(
                     pMap->GetShell()->getIDocumentDrawModelAccess().GetOrCreateDrawModel() );
         maInfo.SetModelBroadcaster( xModelBroadcaster );
@@ -1203,7 +1241,6 @@ void SwAccessibleMap::InvalidateShapeInParaSelection()
                                 sal_uLong nEndIndex = pEnd->nNode.GetIndex();
                                 if ((nStartIndex <= nLastNode) && (nFirstNode <= nEndIndex))
                                 {
-                                    // FIXME: what about missing FLY_AT_CHAR?
                                     if( rAnchor.GetAnchorId() == RndStdIds::FLY_AS_CHAR )
                                     {
                                         if( ( ((nHere == nStartIndex) && (nIndex >= pStart->nContent.GetIndex())) || (nHere > nStartIndex) )
@@ -1235,6 +1272,21 @@ void SwAccessibleMap::InvalidateShapeInParaSelection()
                                             uno::Reference < XAccessible > xAcc( (*aIter).second );
                                             if(xAcc.is())
                                                 static_cast < ::accessibility::AccessibleShape* >(xAcc.get())->ResetState( AccessibleStateType::SELECTED );
+                                        }
+                                    }
+                                    else if (rAnchor.GetAnchorId() == RndStdIds::FLY_AT_CHAR)
+                                    {
+                                        uno::Reference<XAccessible> const xAcc((*aIter).second);
+                                        if (xAcc.is())
+                                        {
+                                            if (IsDestroyFrameAnchoredAtChar(*pPos, *pStart, *pEnd))
+                                            {
+                                                static_cast<::accessibility::AccessibleShape*>(xAcc.get())->SetState( AccessibleStateType::SELECTED );
+                                            }
+                                            else
+                                            {
+                                                static_cast<::accessibility::AccessibleShape*>(xAcc.get())->ResetState( AccessibleStateType::SELECTED );
+                                            }
                                         }
                                     }
                                 }
@@ -1427,7 +1479,7 @@ void SwAccessibleMap::InvalidateShapeInParaSelection()
     }
 }
 
-//Marge with DoInvalidateShapeFocus
+//Merge with DoInvalidateShapeFocus
 void SwAccessibleMap::DoInvalidateShapeSelection(bool bInvalidateFocusMode /*=false*/)
 {
     std::unique_ptr<SwAccessibleObjShape_Impl[]> pShapes;
@@ -1592,7 +1644,7 @@ void SwAccessibleMap::DoInvalidateShapeSelection(bool bInvalidateFocusMode /*=fa
     }
 }
 
-//Marge with DoInvalidateShapeSelection
+//Merge with DoInvalidateShapeSelection
 /*
 void SwAccessibleMap::DoInvalidateShapeFocus()
 {
@@ -2586,7 +2638,7 @@ void SwAccessibleMap::InvalidateCursorPosition( const SwFrame *pFrame )
                     if( xAcc.is() )
                         xOldAcc = xAcc; // avoid extra invalidation
                     else
-                        xAcc = xOldAcc; // make sure ate least one
+                        xAcc = xOldAcc; // make sure at least one
                 }
                 if( !xAcc.is() )
                     xAcc = GetContext( aFrameOrObj.GetSwFrame() );

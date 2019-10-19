@@ -94,6 +94,8 @@
 #include <IDocumentSettingAccess.hxx>
 #include <IDocumentFieldsAccess.hxx>
 #include <IDocumentStylePoolAccess.hxx>
+#include <IDocumentListsAccess.hxx>
+#include <list.hxx>
 #include <docary.hxx>
 #include <pam.hxx>
 #include <paratr.hxx>
@@ -139,7 +141,6 @@
 #include <i18nlangtag/languagetag.hxx>
 #include <unotools/fltrcfg.hxx>
 #include <o3tl/enumrange.hxx>
-#include <calbck.hxx>
 
 
 using ::editeng::SvxBorderLine;
@@ -720,7 +721,7 @@ void WW8AttributeOutput::OutlineNumbering(sal_uInt8 nLvl)
     m_rWW8Export.pO->push_back( nLvl );
     SwWW8Writer::InsUInt16( *m_rWW8Export.pO, NS_sprm::sprmPIlfo );
     SwWW8Writer::InsUInt16( *m_rWW8Export.pO,
-            1 + m_rWW8Export.GetId( *m_rWW8Export.m_pDoc->GetOutlineNumRule() ) );
+        1 + m_rWW8Export.GetNumberingId(*m_rWW8Export.m_pDoc->GetOutlineNumRule()) );
 }
 
 // #i77805#
@@ -1395,6 +1396,10 @@ void WW8AttributeOutput::CharEscapement( const SvxEscapementItem& rEscapement )
         else if ( DFLT_ESC_SUPER == nEsc || DFLT_ESC_AUTO_SUPER == nEsc )
             b = 1;
     }
+    else if ( DFLT_ESC_AUTO_SUPER == nEsc )
+        nEsc = DFLT_ESC_SUPER;
+    else if ( DFLT_ESC_AUTO_SUB == nEsc )
+        nEsc = DFLT_ESC_SUB;
 
     if ( 0xFF != b )
     {
@@ -2284,7 +2289,7 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                         if( TOX_USER == pTOX->GetType() )
                         {
                             sStr += "\""
-                                + OUString(static_cast<sal_Char>( 'A' + GetExport( ).GetId( *pTOX->GetTOXType() ) ))
+                                + OUStringChar(static_cast<sal_Char>( 'A' + GetExport( ).GetId( *pTOX->GetTOXType() ) ))
                                 + sEntryEnd;
                         }
                     }
@@ -2581,7 +2586,7 @@ OUString FieldString(ww::eField eIndex)
 {
     if (const char *pField = ww::GetEnglishFieldName(eIndex))
         return " " + OUString::createFromAscii(pField) + " ";
-    return OUString("  ");
+    return "  ";
 }
 
 void WW8AttributeOutput::HiddenField( const SwField& rField )
@@ -2794,7 +2799,7 @@ void AttributeOutputBase::TextField( const SwFormatField& rField )
             SwDBData aData = GetExport().m_pDoc->GetDBData();
             const OUString sStr = FieldString(ww::eDATABASE)
                 + aData.sDataSource
-                + OUStringLiteral1(DB_DELIM)
+                + OUStringChar(DB_DELIM)
                 + aData.sCommand;
             GetExport().OutputField(pField, ww::eDATABASE, sStr);
         }
@@ -3526,7 +3531,8 @@ void AttributeOutputBase::ParaNumRule( const SwNumRuleItem& rNumRule )
     {
         const SwNumRule* pRule = GetExport().m_pDoc->FindNumRulePtr(
                                         rNumRule.GetValue() );
-        if ( pRule && USHRT_MAX != ( nNumId = GetExport().GetId( *pRule ) ) )
+        nNumId = pRule ? GetExport().GetNumberingId(*pRule) : USHRT_MAX;
+        if (USHRT_MAX != nNumId)
         {
             ++nNumId;
             if ( GetExport().m_pOutFormatNode )
@@ -3553,6 +3559,37 @@ void AttributeOutputBase::ParaNumRule( const SwNumRuleItem& rNumRule )
                             nNumId = GetExport().DuplicateNumRule( pRule, nLvl, nStartWith );
                             if ( USHRT_MAX != nNumId )
                                 ++nNumId;
+                        }
+                        else if (GetExport().GetExportFormat() == MSWordExportBase::DOCX) // FIXME
+                        {
+                            // tdf#95848 find the abstract list definition
+                            OUString const listId(pTextNd->GetListId());
+                            if (!listId.isEmpty()
+                                // default list id uses the 1:1 mapping
+                                && listId != pRule->GetDefaultListId())
+                            {
+                                SwList const*const pList(
+                                    GetExport().m_pDoc->getIDocumentListsAccess().getListByName(listId));
+                                if (pList)
+                                {
+                                    SwNumRule const*const pAbstractRule(
+                                        GetExport().m_pDoc->FindNumRulePtr(
+                                            pList->GetDefaultListStyleName()));
+                                    assert(pAbstractRule);
+                                    if (pAbstractRule == pRule)
+                                    {
+                                        // different list, but no override
+                                        nNumId = GetExport().DuplicateAbsNum(listId, *pAbstractRule);
+                                    }
+                                    else
+                                    {
+                                        nNumId = GetExport().OverrideNumRule(
+                                                *pRule, listId, *pAbstractRule);
+                                    }
+                                    assert(nNumId != USHRT_MAX);
+                                    ++nNumId;
+                                }
+                            }
                         }
                     }
                     else
@@ -3653,7 +3690,7 @@ void WW8AttributeOutput::FormatFrameSize( const SwFormatFrameSize& rSize )
 // FillOrder is still missing
 
 /**
- * ReplaceCr() is used for Pagebreaks and Pagedescs. A already written CR
+ * ReplaceCr() is used for Pagebreaks and Pagedescs. An already written CR
  * will be replaced by a break character. Replace must be called right after
  * the writing of CR.
  *
@@ -5392,12 +5429,12 @@ void AttributeOutputBase::OutputStyleItemSet( const SfxItemSet& rSet, bool bTest
     const SfxPoolItem* pItem;
     if ( !pSet->GetParent() )
     {
-        OSL_ENSURE( rSet.Count(), "Was already handled or?" );
+        assert(rSet.Count() && "Was already handled or?");
         SfxItemIter aIter( *pSet );
         pItem = aIter.GetCurItem();
         do {
             OutputItem( *pItem );
-        } while ( !aIter.IsAtEnd() && nullptr != ( pItem = aIter.NextItem() ) );
+        } while ((pItem = aIter.NextItem()));
     }
     else
     {

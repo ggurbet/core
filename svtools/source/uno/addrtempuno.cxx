@@ -19,7 +19,6 @@
 
 #include <svtools/addresstemplate.hxx>
 #include <svtools/genericunodialog.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <comphelper/proparrhlp.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <com/sun/star/awt/XWindow.hpp>
@@ -27,7 +26,6 @@
 #include <com/sun/star/util/AliasProgrammaticPair.hpp>
 #include <com/sun/star/sdbc/XDataSource.hpp>
 #include <vcl/svapp.hxx>
-#include <rtl/ref.hxx>
 
 using namespace svt;
 
@@ -73,7 +71,7 @@ namespace {
 
     protected:
     // OGenericUnoDialog overridables
-        virtual svt::OGenericUnoDialog::Dialog createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override;
+        virtual std::unique_ptr<weld::DialogController> createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override;
 
         virtual void implInitialize(const css::uno::Any& _rValue) override;
 
@@ -97,7 +95,7 @@ namespace {
 
     OUString SAL_CALL OAddressBookSourceDialogUno::getImplementationName()
     {
-        return OUString( "com.sun.star.comp.svtools.OAddressBookSourceDialogUno" );
+        return "com.sun.star.comp.svtools.OAddressBookSourceDialogUno";
     }
 
 
@@ -130,8 +128,8 @@ namespace {
     {
         OGenericUnoDialog::executedDialog(_nExecutionResult);
 
-        if ( _nExecutionResult && m_aDialog )
-            static_cast<AddressBookSourceDialog*>(m_aDialog.m_xWeldDialog.get())->getFieldMapping(m_aAliases);
+        if ( _nExecutionResult && m_xDialog )
+            static_cast<AddressBookSourceDialog*>(m_xDialog.get())->getFieldMapping(m_aAliases);
     }
 
     void SAL_CALL OAddressBookSourceDialogUno::initialize(const Sequence< Any >& rArguments)
@@ -196,13 +194,12 @@ namespace {
         OGenericUnoDialog::implInitialize( _rValue );
     }
 
-    svt::OGenericUnoDialog::Dialog OAddressBookSourceDialogUno::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
+    std::unique_ptr<weld::DialogController> OAddressBookSourceDialogUno::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
     {
         weld::Window* pParent = Application::GetFrameWeld(rParent);
         if ( m_xDataSource.is() && !m_sTable.isEmpty() )
-            return svt::OGenericUnoDialog::Dialog(std::make_unique<AddressBookSourceDialog>(pParent, m_aContext, m_xDataSource, m_sDataSourceName, m_sTable, m_aAliases));
-        else
-            return svt::OGenericUnoDialog::Dialog(std::make_unique<AddressBookSourceDialog>(pParent, m_aContext));
+            return std::make_unique<AddressBookSourceDialog>(pParent, m_aContext, m_xDataSource, m_sDataSourceName, m_sTable, m_aAliases);
+        return std::make_unique<AddressBookSourceDialog>(pParent, m_aContext);
     }
 }
 

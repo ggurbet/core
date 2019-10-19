@@ -771,7 +771,8 @@ void SwTextFrame::Init()
     }
 }
 
-SwTextFrame::SwTextFrame(SwTextNode * const pNode, SwFrame* pSib )
+SwTextFrame::SwTextFrame(SwTextNode * const pNode, SwFrame* pSib,
+        sw::FrameMode const eMode)
     : SwContentFrame( pNode, pSib )
     , mnAllLines( 0 )
     , mnThisLines( 0 )
@@ -799,10 +800,16 @@ SwTextFrame::SwTextFrame(SwTextNode * const pNode, SwFrame* pSib )
     mnFrameType = SwFrameType::Txt;
     // note: this may call SwClientNotify if it's in a list so do it last
     // note: this may change this->pRegisteredIn to m_pMergedPara->listeners
-    m_pMergedPara = CheckParaRedlineMerge(*this, *pNode, sw::FrameMode::New);
+    m_pMergedPara = CheckParaRedlineMerge(*this, *pNode, eMode);
 }
 
 namespace sw {
+
+SwTextFrame * MakeTextFrame(SwTextNode & rNode, SwFrame *const pSibling,
+        sw::FrameMode const eMode)
+{
+    return new SwTextFrame(&rNode, pSibling, eMode);
+}
 
 void RemoveFootnotesForNode(
         SwRootFrame const& rLayout, SwTextNode const& rTextNode,
@@ -1007,8 +1014,9 @@ static TextFrameIndex UpdateMergedParaForInsert(MergedPara & rMerged,
         rMerged.extents.emplace(itInsert, const_cast<SwTextNode*>(&rNode), nIndex, nIndex + nLen);
         text.insert(nTFIndex, rNode.GetText().copy(nIndex, nLen));
         nInserted = nLen;
-        if (rNode.GetIndex() < rMerged.pParaPropsNode->GetIndex())
-        {   // text inserted before current para-props node
+        if (rMerged.extents.size() == 1 // also if it was empty!
+            || rMerged.pParaPropsNode->GetIndex() < rNode.GetIndex())
+        {   // text inserted after current para-props node
             rMerged.pParaPropsNode->RemoveFromListRLHidden();
             rMerged.pParaPropsNode = &const_cast<SwTextNode&>(rNode);
             rMerged.pParaPropsNode->AddToListRLHidden();
@@ -1135,12 +1143,12 @@ TextFrameIndex UpdateMergedParaForDelete(MergedPara & rMerged,
     // pFirstNode is never updated
     if (nErased && nErased == nFoundNode)
     {   // all visible text from node was erased
-#if 0
+#if 1
         if (rMerged.pParaPropsNode == &rNode)
         {
             rMerged.pParaPropsNode->RemoveFromListRLHidden();
             rMerged.pParaPropsNode = rMerged.extents.empty()
-                ? rMerged.pFirstNode
+                ? const_cast<SwTextNode*>(rMerged.pLastNode)
                 : rMerged.extents.front().pNode;
             rMerged.pParaPropsNode->AddToListRLHidden();
         }
@@ -1296,7 +1304,7 @@ SwTextNode const* SwTextFrame::GetTextNodeForParaProps() const
     sw::MergedPara const*const pMerged(GetMergedPara());
     if (pMerged)
     {
-        assert(pMerged->pFirstNode == pMerged->pParaPropsNode); // surprising news!
+//        assert(pMerged->pFirstNode == pMerged->pParaPropsNode); // surprising news!
         return pMerged->pParaPropsNode;
     }
     else
@@ -1863,7 +1871,8 @@ static void lcl_ModifyOfst(SwTextFrame & rFrame,
     assert(nLen != TextFrameIndex(COMPLETE_STRING));
     if (rFrame.IsFollow() && nPos < rFrame.GetOfst())
     {
-        rFrame.ManipOfst( std::max(TextFrameIndex(0), op(rFrame.GetOfst(), nLen)) );
+        rFrame.ManipOfst( std::max(nPos, op(rFrame.GetOfst(), nLen)) );
+        assert(sal_Int32(rFrame.GetOfst()) <= rFrame.GetText().getLength());
     }
 }
 
@@ -2892,7 +2901,7 @@ bool SwTextFrame::Prepare( const PrepareHint ePrep, const void* pVoid,
 
                 // If we're flowing back and own a Footnote, the Footnote also flows
                 // with us. So that it doesn't obstruct us, we send ourselves
-                // a ADJUST_FRM.
+                // an ADJUST_FRM.
                 // pVoid != 0 means MoveBwd()
                     const sal_uInt16 nWhich = pHt->Which();
                     if (RES_TXTATR_FIELD == nWhich ||
@@ -3568,9 +3577,9 @@ void SwTextFrame::CalcHeightOfLastLine( const bool _bUseFont )
     // determine height of last line
     if ( _bUseFont || pIDSA->get(DocumentSettingId::OLD_LINE_SPACING ) )
     {
-        // former determination of last line height for proprotional line
+        // former determination of last line height for proportional line
         // spacing - take height of font set at the paragraph
-        // FIXME actually ... must the font match across all nodes?
+        // FIXME actually... must the font match across all nodes?
         SwFont aFont( &GetTextNodeForParaProps()->GetSwAttrSet(), pIDSA );
 
         // we must ensure that the font is restored correctly on the OutputDevice

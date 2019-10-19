@@ -23,13 +23,11 @@
 #include <com/sun/star/frame/TerminationVetoException.hpp>
 #include <com/sun/star/frame/XComponentLoader.hpp>
 #include <com/sun/star/frame/XSynchronousFrameLoader.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
 #include <com/sun/star/util/CloseVetoException.hpp>
 #include <com/sun/star/util/XCloseBroadcaster.hpp>
 #include <com/sun/star/util/XCloseable.hpp>
-#include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
@@ -42,14 +40,10 @@
 #include <com/sun/star/awt/Toolkit.hpp>
 #include <com/sun/star/awt/XTopWindow.hpp>
 #include <com/sun/star/awt/PosSize.hpp>
-#include <com/sun/star/awt/XView.hpp>
 #include <com/sun/star/awt/WindowAttribute.hpp>
 #include <com/sun/star/awt/VclWindowPeerAttribute.hpp>
-#include <com/sun/star/bridge/XBridgeSupplier2.hpp>
-#include <com/sun/star/bridge/ModelDependent.hpp>
 #include <com/sun/star/embed/XHatchWindow.hpp>
 #include <com/sun/star/embed/HatchWindowFactory.hpp>
-#include <com/sun/star/embed/XInplaceClient.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/frame/XMenuBarMergingAcceptor.hpp>
 #include <com/sun/star/frame/ModuleManager.hpp>
@@ -63,11 +57,8 @@
 #include <com/sun/star/embed/EmbedMisc.hpp>
 #include <com/sun/star/embed/EmbedStates.hpp>
 #include <osl/diagnose.h>
-#include <rtl/process.h>
 #include <vcl/svapp.hxx>
-#include <svtools/embedhlp.hxx>
 #include <unotools/resmgr.hxx>
-#include <vcl/settings.hxx>
 #include <sfx2/strings.hrc>
 
 #include <comphelper/processfactory.hxx>
@@ -229,14 +220,12 @@ void DocumentHolder::CloseFrame()
         catch( const uno::Exception& ) {
         }
     else {
-        uno::Reference<lang::XComponent> xComp( m_xFrame,uno::UNO_QUERY );
-        if( xComp.is() )
-            xComp->dispose();
+        if( m_xFrame.is() )
+            m_xFrame->dispose();
     }
 
-    uno::Reference< lang::XComponent > xComp( m_xHatchWindow, uno::UNO_QUERY );
-    if ( xComp.is() )
-        xComp->dispose();
+    if ( m_xHatchWindow.is() )
+        m_xHatchWindow->dispose();
 
     m_xHatchWindow.clear();
     m_xOwnWindow.clear();
@@ -272,8 +261,7 @@ void DocumentHolder::FreeOffice()
 
 void DocumentHolder::CloseDocument( bool bDeliverOwnership, bool bWaitForClose )
 {
-    uno::Reference< util::XCloseBroadcaster > xBroadcaster( m_xComponent, uno::UNO_QUERY );
-    if ( xBroadcaster.is() )
+    if ( m_xComponent.is() )
     {
         uno::Reference< document::XEventBroadcaster > xEventBroadcaster( m_xComponent, uno::UNO_QUERY );
         if ( xEventBroadcaster.is() )
@@ -287,13 +275,9 @@ void DocumentHolder::CloseDocument( bool bDeliverOwnership, bool bWaitForClose )
                 xModifyBroadcaster->removeModifyListener( static_cast<util::XModifyListener*>(this) );
         }
 
-        uno::Reference< util::XCloseable > xCloseable( xBroadcaster, uno::UNO_QUERY );
-        if ( xCloseable.is() )
-        {
-            m_bAllowClosing = true;
-            m_bWaitForClose = bWaitForClose;
-            xCloseable->close( bDeliverOwnership );
-        }
+        m_bAllowClosing = true;
+        m_bWaitForClose = bWaitForClose;
+        m_xComponent->close( bDeliverOwnership );
     }
 
     m_xComponent = nullptr;
@@ -718,7 +702,7 @@ bool DocumentHolder::ShowUI( const uno::Reference< css::frame::XLayoutManager >&
                     // by unlocking the LM each layout change will now resize the containers window; pending layouts will be processed now
                     xOwnLM->setVisible( true );
 
-                    uno::Reference< frame::XFramesSupplier > xSupp( m_xFrame->getCreator(), uno::UNO_QUERY );
+                    uno::Reference< frame::XFramesSupplier > xSupp = m_xFrame->getCreator();
                     if ( xSupp.is() )
                         xSupp->setActiveFrame( m_xFrame );
 
@@ -737,7 +721,7 @@ bool DocumentHolder::ShowUI( const uno::Reference< css::frame::XLayoutManager >&
                 // activation failed; reestablish old state
                 try
                 {
-                    uno::Reference< frame::XFramesSupplier > xSupp( m_xFrame->getCreator(), uno::UNO_QUERY );
+                    uno::Reference< frame::XFramesSupplier > xSupp = m_xFrame->getCreator();
                     if ( xSupp.is() )
                         xSupp->setActiveFrame( nullptr );
 
@@ -787,7 +771,7 @@ bool DocumentHolder::HideUI( const uno::Reference< css::frame::XLayoutManager >&
         if ( xOwnLM.is() )
         {
             try {
-                uno::Reference< frame::XFramesSupplier > xSupp( m_xFrame->getCreator(), uno::UNO_QUERY );
+                uno::Reference< frame::XFramesSupplier > xSupp = m_xFrame->getCreator();
                 if ( xSupp.is() )
                     xSupp->setActiveFrame( nullptr );
 
@@ -932,9 +916,8 @@ void DocumentHolder::SetComponent( const uno::Reference< util::XCloseable >& xDo
     m_bReadOnly = bReadOnly;
     m_bAllowClosing = false;
 
-    uno::Reference< util::XCloseBroadcaster > xBroadcaster( m_xComponent, uno::UNO_QUERY );
-    if ( xBroadcaster.is() )
-        xBroadcaster->addCloseListener( static_cast<util::XCloseListener*>(this) );
+    if ( m_xComponent.is() )
+        m_xComponent->addCloseListener( static_cast<util::XCloseListener*>(this) );
 
     uno::Reference< document::XEventBroadcaster > xEventBroadcaster( m_xComponent, uno::UNO_QUERY );
     if ( xEventBroadcaster.is() )
@@ -1277,7 +1260,7 @@ void SAL_CALL DocumentHolder::activated(  )
         }
         else
         {
-            uno::Reference< frame::XFramesSupplier > xSupp( m_xFrame->getCreator(), uno::UNO_QUERY );
+            uno::Reference< frame::XFramesSupplier > xSupp = m_xFrame->getCreator();
             if ( xSupp.is() )
                 xSupp->setActiveFrame( m_xFrame );
         }

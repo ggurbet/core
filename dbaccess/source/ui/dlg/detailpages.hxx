@@ -23,10 +23,6 @@
 #include "adminpages.hxx"
 #include <charsets.hxx>
 #include <charsetlistbox.hxx>
-#include <vcl/field.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/button.hxx>
 #include "TextConnectionHelper.hxx"
 #include "admincontrols.hxx"
 
@@ -69,11 +65,10 @@ namespace dbaui
     public:
         virtual bool        FillItemSet (SfxItemSet* _rCoreAttrs) override;
 
-        OCommonBehaviourTabPage(TabPageParent pParent, const OUString& rUIXMLDescription, const OString& rId, const SfxItemSet& _rCoreAttrs, OCommonBehaviourTabPageFlags nControlFlags);
+        OCommonBehaviourTabPage(weld::Container* pPage, weld::DialogController* pController, const OUString& rUIXMLDescription, const OString& rId, const SfxItemSet& _rCoreAttrs, OCommonBehaviourTabPageFlags nControlFlags);
     protected:
 
         virtual ~OCommonBehaviourTabPage() override;
-        virtual void dispose() override;
 
         // subclasses must override this, but it isn't pure virtual
         virtual void        implInitControls(const SfxItemSet& _rSet, bool _bSaveValue) override;
@@ -94,7 +89,7 @@ namespace dbaui
     public:
         virtual bool        FillItemSet ( SfxItemSet* _rCoreAttrs ) override;
 
-        ODbaseDetailsPage(TabPageParent pParent, const SfxItemSet& _rCoreAttrs);
+        ODbaseDetailsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs);
         virtual ~ODbaseDetailsPage() override;
     private:
         OUString            m_sDsn;
@@ -114,7 +109,7 @@ namespace dbaui
     class OAdoDetailsPage : public OCommonBehaviourTabPage
     {
     public:
-        OAdoDetailsPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs);
+        OAdoDetailsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs);
     };
 
     // OOdbcDetailsPage
@@ -123,7 +118,7 @@ namespace dbaui
     public:
         virtual bool        FillItemSet ( SfxItemSet* _rCoreAttrs ) override;
 
-        OOdbcDetailsPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs);
+        OOdbcDetailsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs);
         virtual ~OOdbcDetailsPage() override;
     protected:
         virtual void implInitControls(const SfxItemSet& _rSet, bool _bSaveValue) override;
@@ -137,7 +132,7 @@ namespace dbaui
     public:
         virtual bool        FillItemSet ( SfxItemSet* _rCoreAttrs ) override;
 
-        OUserDriverDetailsPage(TabPageParent pParent, const SfxItemSet& _rCoreAttrs);
+        OUserDriverDetailsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs);
         virtual ~OUserDriverDetailsPage() override;
     protected:
         virtual void implInitControls(const SfxItemSet& _rSet, bool _bSaveValue) override;
@@ -155,14 +150,14 @@ namespace dbaui
     class OMySQLODBCDetailsPage : public OCommonBehaviourTabPage
     {
     public:
-        OMySQLODBCDetailsPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs);
+        OMySQLODBCDetailsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs);
     };
 
     // OGeneralSpecialJDBCDetailsPage
     class OGeneralSpecialJDBCDetailsPage final : public OCommonBehaviourTabPage
     {
     public:
-        OGeneralSpecialJDBCDetailsPage(TabPageParent pParent,
+        OGeneralSpecialJDBCDetailsPage(weld::Container* pPage, weld::DialogController* pController,
                                        const SfxItemSet& _rCoreAttrs,
                                        sal_uInt16 _nPortId,
                                        bool bShowSocket = true);
@@ -172,7 +167,7 @@ namespace dbaui
 
         virtual bool FillItemSet( SfxItemSet* _rCoreAttrs ) override;
         virtual void implInitControls(const SfxItemSet& _rSet, bool _bSaveValue) override;
-        virtual void callModifiedHdl(void* pControl = nullptr) override;
+        virtual void callModifiedHdl(weld::Widget* pControl = nullptr) override;
 
         DECL_LINK(OnTestJavaClickHdl, weld::Button&, void);
 
@@ -193,12 +188,12 @@ namespace dbaui
     class MySQLNativePage : public OCommonBehaviourTabPage
     {
     public:
-        MySQLNativePage(TabPageParent pParent, const SfxItemSet& rCoreAttrs);
+        MySQLNativePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs);
         virtual ~MySQLNativePage() override;
 
     private:
         std::unique_ptr<weld::Widget> m_xMySQLSettingsContainer;
-        DBMySQLNativeSettings m_aMySQLSettings;
+        std::unique_ptr<MySQLNativeSettings> m_xMySQLSettings;
         std::unique_ptr<weld::Label> m_xSeparator1;
         std::unique_ptr<weld::Label> m_xSeparator2;
         std::unique_ptr<weld::Label> m_xUserNameLabel;
@@ -218,7 +213,7 @@ namespace dbaui
     public:
         virtual bool        FillItemSet ( SfxItemSet* _rCoreAttrs ) override;
 
-        OLDAPDetailsPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs);
+        OLDAPDetailsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs);
         virtual ~OLDAPDetailsPage() override;
     protected:
         virtual void implInitControls(const SfxItemSet& _rSet, bool _bSaveValue) override;
@@ -240,11 +235,10 @@ namespace dbaui
     public:
         virtual bool        FillItemSet ( SfxItemSet* _rCoreAttrs ) override;
 
-        OTextDetailsPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs);
+        OTextDetailsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs);
+        virtual ~OTextDetailsPage() override;
 
     protected:
-        virtual ~OTextDetailsPage() override;
-        virtual void dispose() override;
         virtual bool prepareLeave() override;
 
         virtual void implInitControls(const SfxItemSet& _rSet, bool _bSaveValue) override;

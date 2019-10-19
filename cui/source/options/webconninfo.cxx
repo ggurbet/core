@@ -18,14 +18,12 @@
  */
 
 #include "webconninfo.hxx"
-#include <sal/macros.h>
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <com/sun/star/task/PasswordContainer.hpp>
 #include <com/sun/star/task/UrlRecord.hpp>
 #include <com/sun/star/task/XPasswordContainer2.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/docpasswordrequest.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
 
 using namespace ::com::sun::star;
 
@@ -85,9 +83,8 @@ void WebConnectionInfoDialog::FillPasswordList()
 
         if ( xMasterPasswd->isPersistentStoringAllowed() )
         {
-            uno::Reference< task::XInteractionHandler > xInteractionHandler(
-                task::InteractionHandler::createWithParent(comphelper::getProcessComponentContext(), nullptr),
-                uno::UNO_QUERY);
+            uno::Reference< task::XInteractionHandler > xInteractionHandler =
+                task::InteractionHandler::createWithParent(comphelper::getProcessComponentContext(), nullptr);
 
             uno::Sequence< task::UrlRecord > aURLEntries = xMasterPasswd->getAllPersistent( xInteractionHandler );
             sal_Int32 nCount = 0;
@@ -185,9 +182,8 @@ IMPL_LINK_NOARG(WebConnectionInfoDialog, ChangePasswordHdl, weld::Button&, void)
                   = new ::comphelper::SimplePasswordRequest;
             uno::Reference< task::XInteractionRequest > rRequest( pPasswordRequest );
 
-            uno::Reference< task::XInteractionHandler > xInteractionHandler(
-                task::InteractionHandler::createWithParent(comphelper::getProcessComponentContext(), m_xDialog->GetXWindow()),
-                uno::UNO_QUERY );
+            uno::Reference< task::XInteractionHandler > xInteractionHandler =
+                task::InteractionHandler::createWithParent(comphelper::getProcessComponentContext(), m_xDialog->GetXWindow());
             xInteractionHandler->handle( rRequest );
 
             if ( pPasswordRequest->isPassword() )

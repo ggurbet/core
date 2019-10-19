@@ -18,7 +18,7 @@
  */
 
 #include <Window.hxx>
-#include <sfx2/dispatch.hxx>
+#include <sfx2/bindings.hxx>
 #include <sfx2/request.hxx>
 
 #include <sfx2/viewfrm.hxx>
@@ -37,7 +37,6 @@
 #include <FrameView.hxx>
 #include <OutlineViewShell.hxx>
 #include <drawdoc.hxx>
-#include <AccessibleDrawDocumentView.hxx>
 #include <WindowUpdater.hxx>
 #include <ViewShellBase.hxx>
 #include <uiobject.hxx>
@@ -45,9 +44,7 @@
 #include <sal/log.hxx>
 #include <tools/debug.hxx>
 #include <vcl/commandevent.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
 #include <sfx2/lokhelper.hxx>
 
@@ -81,7 +78,7 @@ Window::Window(vcl::Window* pParent)
     aMap.SetMapUnit(MapUnit::Map100thMM);
     SetMapMode(aMap);
 
-    // whit it, the vcl::WindowColor is used in the slide mode
+    // with it, the vcl::WindowColor is used in the slide mode
     SetBackground( Wallpaper( GetSettings().GetStyleSettings().GetWindowColor() ) );
 
     // adjust contrast mode initially
@@ -268,7 +265,7 @@ void Window::Command(const CommandEvent& rCEvt)
     //show the text edit outliner view cursor
     else if (!HasFocus() && rCEvt.GetCommand() == CommandEventId::CursorPos)
     {
-        OutlinerView* pOLV = mpViewShell->GetView()->GetTextEditOutlinerView();
+        OutlinerView* pOLV = mpViewShell ? mpViewShell->GetView()->GetTextEditOutlinerView() : nullptr;
         if (pOLV && this == pOLV->GetWindow())
         {
             GrabFocus();
@@ -627,7 +624,7 @@ void Window::UpdateMapMode()
  * @returns X position of the visible area as fraction (< 1) of the whole
  * working area.
  */
-double Window::GetVisibleX()
+double Window::GetVisibleX() const
 {
     return (static_cast<double>(maWinPos.X()) / maViewSize.Width());
 }
@@ -636,7 +633,7 @@ double Window::GetVisibleX()
  * @returns Y position of the visible area as fraction (< 1) of the whole
  * working area.
  */
-double Window::GetVisibleY()
+double Window::GetVisibleY() const
 {
     return (static_cast<double>(maWinPos.Y()) / maViewSize.Height());
 }
@@ -663,7 +660,7 @@ void Window::SetVisibleXY(double fX, double fY)
  * @returns width of the visible area in proportion to the width of the whole
  * working area.
  */
-double Window::GetVisibleWidth()
+double Window::GetVisibleWidth() const
 {
     Size aWinSize = PixelToLogic(GetOutputSizePixel());
     if ( aWinSize.Width() > maViewSize.Width() )
@@ -675,7 +672,7 @@ double Window::GetVisibleWidth()
  * @returns height of the visible area in proportion to the height of the whole
  * working area.
  */
-double Window::GetVisibleHeight()
+double Window::GetVisibleHeight() const
 {
     Size aWinSize = PixelToLogic(GetOutputSizePixel());
     if ( aWinSize.Height() > maViewSize.Height() )
@@ -700,7 +697,7 @@ Point Window::GetVisibleCenter()
  * @returns width of a scroll column in proportion to the width of the whole
  * working area.
  */
-double Window::GetScrlLineWidth()
+double Window::GetScrlLineWidth() const
 {
     return (GetVisibleWidth() * SCROLL_LINE_FACT);
 }
@@ -709,7 +706,7 @@ double Window::GetScrlLineWidth()
  * @returns height of a scroll column in proportion to the height of the whole
  * working area.
  */
-double Window::GetScrlLineHeight()
+double Window::GetScrlLineHeight() const
 {
     return (GetVisibleHeight() * SCROLL_LINE_FACT);
 }
@@ -718,7 +715,7 @@ double Window::GetScrlLineHeight()
  * @returns width of a scroll page in proportion to the width of the whole
  * working area.
  */
-double Window::GetScrlPageWidth()
+double Window::GetScrlPageWidth() const
 {
     return (GetVisibleWidth() * SCROLL_PAGE_FACT);
 }
@@ -727,7 +724,7 @@ double Window::GetScrlPageWidth()
  * @returns height of a scroll page in proportion to the height of the whole
  * working area.
  */
-double Window::GetScrlPageHeight()
+double Window::GetScrlPageHeight() const
 {
     return (GetVisibleHeight() * SCROLL_PAGE_FACT);
 }

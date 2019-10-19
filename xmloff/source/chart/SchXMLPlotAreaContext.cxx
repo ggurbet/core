@@ -17,10 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sax/tools/converter.hxx>
-
 #include "SchXMLPlotAreaContext.hxx"
-#include "SchXMLRegressionCurveObjectContext.hxx"
 #include <SchXMLImport.hxx>
 #include "SchXMLAxisContext.hxx"
 #include "SchXMLSeries2Context.hxx"
@@ -30,33 +27,26 @@
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
 #include <xmloff/xmlnmspe.hxx>
-#include <xmloff/xmlement.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/prstylei.hxx>
 #include <xmloff/xmlstyle.hxx>
-#include <xexptran.hxx>
 
 #include <com/sun/star/awt/Point.hpp>
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/chart/ChartDataRowSource.hpp>
-#include <com/sun/star/chart/ChartErrorCategory.hpp>
-#include <com/sun/star/chart/ChartErrorIndicatorType.hpp>
 #include <com/sun/star/chart/ErrorBarStyle.hpp>
 #include <com/sun/star/chart/X3DDisplay.hpp>
 #include <com/sun/star/chart/XStatisticDisplay.hpp>
 #include <com/sun/star/chart/XDiagramPositioning.hpp>
-#include <com/sun/star/chart2/RelativePosition.hpp>
-#include <com/sun/star/chart2/XChartTypeContainer.hpp>
-#include <com/sun/star/chart2/XDataSeriesContainer.hpp>
+#include <com/sun/star/chart/XChartDocument.hpp>
+#include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart2/data/XDataSink.hpp>
 #include <com/sun/star/chart2/data/XRangeXMLConversion.hpp>
 #include <com/sun/star/chart2/data/LabeledDataSequence.hpp>
 #include <com/sun/star/drawing/CameraGeometry.hpp>
-#include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/util/XStringMapping.hpp>
 #include <com/sun/star/xml/sax/XAttributeList.hpp>
 
 using namespace com::sun::star;
@@ -119,8 +109,7 @@ void SchXML3DSceneAttributesHelper::getCameraDefaultFromDiagram( const uno::Refe
     }
     catch( const uno::Exception & )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_INFO("xmloff.chart", "Exception caught for property NumberOfLines: " << exceptionToString(ex));
+        TOOLS_INFO_EXCEPTION("xmloff.chart", "Exception caught for property NumberOfLines");
     }
 }
 
@@ -170,7 +159,7 @@ SchXMLPlotAreaContext::SchXMLPlotAreaContext(
     m_rbHasRangeAtPlotArea = false;
 
     // get Diagram
-    uno::Reference< chart::XChartDocument > xDoc( rImpHelper.GetChartDocument(), uno::UNO_QUERY );
+    uno::Reference< chart::XChartDocument > xDoc = rImpHelper.GetChartDocument();
     if( xDoc.is())
     {
         mxDiagram = xDoc->getDiagram();
@@ -785,10 +774,9 @@ void SchXMLWallFloorContext::StartElement( const uno::Reference< xml::sax::XAttr
         }
 
         // set properties
-        uno::Reference< beans::XPropertySet > xProp( ( meContextType == CONTEXT_TYPE_WALL )
+        uno::Reference< beans::XPropertySet > xProp = ( meContextType == CONTEXT_TYPE_WALL )
                                                      ? mxWallFloorSupplier->getWall()
-                                                     : mxWallFloorSupplier->getFloor(),
-                                                     uno::UNO_QUERY );
+                                                     : mxWallFloorSupplier->getFloor();
 
         if (!sAutoStyleName.isEmpty())
             mrImportHelper.FillAutoStyle(sAutoStyleName, xProp);
@@ -1106,8 +1094,7 @@ void SchXMLStatisticsObjectContext::StartElement( const uno::Reference< xml::sax
                 {
                     aStyle.meType = DataRowPointStyle::ERROR_INDICATOR;
 
-                    uno::Reference< lang::XMultiServiceFactory > xFact( comphelper::getProcessServiceFactory(),
-                                                                        uno::UNO_QUERY );
+                    uno::Reference< lang::XMultiServiceFactory > xFact = comphelper::getProcessServiceFactory();
 
                     uno::Reference< beans::XPropertySet > xBarProp( xFact->createInstance("com.sun.star.chart2.ErrorBar" ),
                                                                     uno::UNO_QUERY );

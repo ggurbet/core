@@ -398,7 +398,7 @@ public:
      */
     static OUString GetScheme(INetProtocol eTheScheme);
 
-    /** Return the a human-readable name for a given scheme.
+    /** Return the human-readable name for a given scheme.
 
         @param eTheScheme  One of the supported URL schemes.
 
@@ -754,26 +754,6 @@ public:
                         rtl_TextEncoding eCharset = RTL_TEXTENCODING_UTF8);
 
     // File URLs:
-
-    /** Create an INetURLObject from a file system path.
-
-        @param rFSysPath  A file system path.  A URL is not allowed here!
-
-        @param eStyle  The notation of rFSysPath.
-     */
-    inline INetURLObject(OUString const & rFSysPath, FSysStyle eStyle);
-
-    /** Set this INetURLObject to a file URL constructed from a file system
-        path.
-
-        @param rFSysPath  A file system path.  A URL is not allowed here!
-
-        @param eStyle  The notation of rFSysPath.
-
-        @return  True if this INetURLObject has successfully been changed.  If
-        false is returned, this INetURLObject has not been modified.
-     */
-    bool setFSysPath(OUString const & rFSysPath, FSysStyle eStyle);
 
     /** Return the file system path represented by a file URL (ignoring any
         fragment part).
@@ -1307,13 +1287,6 @@ inline bool INetURLObject::SetMark(OUString const & rTheFragment,
     return rTheFragment.isEmpty() ?
                clearFragment() :
                setFragment(rTheFragment, eMechanism, eCharset);
-}
-
-inline INetURLObject::INetURLObject(OUString const & rFSysPath,
-                                    FSysStyle eStyle):
-    m_eScheme(INetProtocol::NotValid), m_eSmartScheme(INetProtocol::Http)
-{
-    setFSysPath(rFSysPath, eStyle);
 }
 
 // static

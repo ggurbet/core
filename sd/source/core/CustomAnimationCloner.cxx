@@ -32,9 +32,6 @@
 
 #include <map>
 
-#include <comphelper/anytostring.hxx>
-#include <cppuhelper/exc_hlp.hxx>
-#include <sal/log.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <animations/animationnodehelper.hxx>
@@ -123,8 +120,7 @@ namespace sd
         }
         catch( Exception& )
         {
-            SAL_WARN( "sd", "sd::CustomAnimationClonerImpl::Clone(), "
-                      "exception caught: " << exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "sd", "sd::CustomAnimationClonerImpl::Clone()" );
             Reference< XAnimationNode > xEmpty;
             return xEmpty;
         }
@@ -199,9 +195,7 @@ namespace sd
         }
         catch( Exception& )
         {
-            SAL_WARN( "sd", "sd::CustomAnimationClonerImpl::transformNode(), "
-                      "exception caught: "
-                      << exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "sd", "sd::CustomAnimationClonerImpl::transformNode()" );
         }
     }
 
@@ -224,12 +218,8 @@ namespace sd
                 Sequence<Any> aSequence;
                 rValue >>= aSequence;
 
-                const sal_Int32 nLength = aSequence.getLength();
-                sal_Int32 nElement;
-                Any* pAny = aSequence.getArray();
-
-                for( nElement = 0; nElement < nLength; nElement++, pAny++ )
-                    *pAny = transformValue( *pAny );
+                for( Any& rAny : aSequence )
+                    rAny = transformValue( rAny );
 
                 return makeAny( aSequence );
             }
@@ -270,9 +260,7 @@ namespace sd
         }
         catch( Exception& )
         {
-            SAL_WARN( "sd", "sd::CustomAnimationClonerImpl::transformValue(), "
-                      "exception caught: "
-                      << exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "sd", "sd::CustomAnimationClonerImpl::transformValue()" );
         }
 
         return rValue;

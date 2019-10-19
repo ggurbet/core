@@ -55,7 +55,6 @@
 #include <salframe.hxx>
 #include <salsys.hxx>
 #include <svdata.hxx>
-#include <salimestatus.hxx>
 #include <displayconnectiondispatch.hxx>
 #include <window.h>
 #include <accmgr.hxx>
@@ -801,7 +800,7 @@ bool Application::HandleKey( VclEventId nEvent, vcl::Window *pWin, KeyEvent* pKe
     bool bProcessed = false;
     // Copy the list, because this can be destroyed when calling a Link...
     std::vector<Link<VclWindowEvent&,bool>> aCopy( pSVData->maAppData.maKeyListeners );
-    for ( Link<VclWindowEvent&,bool>& rLink : aCopy )
+    for ( const Link<VclWindowEvent&,bool>& rLink : aCopy )
     {
         if( rLink.Call( aEvent ) )
         {
@@ -847,13 +846,13 @@ ImplSVEvent* Application::PostGestureEvent(VclEventId nEvent, vcl::Window* pWin,
         aTransformedPosition.AdjustX(pWin->GetOutOffXPixel());
         aTransformedPosition.AdjustY(pWin->GetOutOffYPixel());
 
-        const GestureEvent aGestureEvent{
+        const GestureEvent aGestureEvent(
             sal_Int32(aTransformedPosition.X()),
             sal_Int32(aTransformedPosition.Y()),
             pGestureEvent->meEventType,
             pGestureEvent->mnOffset,
             pGestureEvent->meOrientation
-        };
+        );
 
         std::unique_ptr<ImplPostEventData> pPostEventData(new ImplPostEventData(nEvent, pWin, aGestureEvent));
 
@@ -880,8 +879,12 @@ ImplSVEvent* Application::PostMouseEvent( VclEventId nEvent, vcl::Window *pWin, 
     {
         Point aTransformedPos( pMouseEvent->GetPosPixel() );
 
-        aTransformedPos.AdjustX(pWin->GetOutOffXPixel() );
-        aTransformedPos.AdjustY(pWin->GetOutOffYPixel() );
+        // LOK uses (0, 0) as the origin of all windows; don't offset.
+        if (!comphelper::LibreOfficeKit::isActive())
+        {
+            aTransformedPos.AdjustX(pWin->GetOutOffXPixel());
+            aTransformedPos.AdjustY(pWin->GetOutOffYPixel());
+        }
 
         const MouseEvent aTransformedEvent( aTransformedPos, pMouseEvent->GetClicks(), pMouseEvent->GetMode(),
                                             pMouseEvent->GetButtons(), pMouseEvent->GetModifier() );
@@ -949,8 +952,8 @@ IMPL_STATIC_LINK( Application, PostEventHandler, void*, pCallData, void )
         break;
     };
 
-    if( pData->mpWin && pData->mpWin.get()->mpWindowImpl->mpFrameWindow.get() && pEventData )
-        ImplWindowFrameProc( pData->mpWin.get()->mpWindowImpl->mpFrameWindow.get(), nEvent, pEventData );
+    if( pData->mpWin && pData->mpWin->mpWindowImpl->mpFrameWindow.get() && pEventData )
+        ImplWindowFrameProc( pData->mpWin->mpWindowImpl->mpFrameWindow.get(), nEvent, pEventData );
 
     // remove this event from list of posted events, watch for destruction of internal data
     auto svdata = ImplGetSVData();
@@ -1363,7 +1366,7 @@ vcl::Window* Application::GetDefDialogParent()
         return pWin->mpWindowImpl->mpFrameWindow->ImplGetWindow();
     }
 
-    // first visible top window (may be totally wrong....)
+    // first visible top window (may be totally wrong...)
     pWin = pSVData->maWinData.mpFirstFrame;
     while (pWin)
     {
@@ -1547,34 +1550,6 @@ void Application::ShowNativeErrorBox(const OUString& sTitle  ,
     if (btn != SALSYSTEM_SHOWNATIVEMSGBOX_BTN_OK) {
         SAL_WARN( "vcl", "ShowNativeMessageBox returned " << btn);
     }
-}
-
-bool Application::CanToggleImeStatusWindow()
-{
-    ImplSVData* pSVData = ImplGetSVData();
-    if( ! pSVData->mpImeStatus )
-        pSVData->mpImeStatus  = pSVData->mpDefInst->CreateI18NImeStatus();
-    return pSVData->mpImeStatus->canToggle();
-}
-
-void Application::ShowImeStatusWindow(bool bShow)
-{
-    ImplGetSVData()->maAppData.meShowImeStatusWindow = bShow
-        ? ImplSVAppData::ImeStatusWindowMode_SHOW
-        : ImplSVAppData::ImeStatusWindowMode_HIDE;
-
-    ImplSVData* pSVData = ImplGetSVData();
-    if( ! pSVData->mpImeStatus )
-        pSVData->mpImeStatus  = pSVData->mpDefInst->CreateI18NImeStatus();
-    pSVData->mpImeStatus->toggle();
-}
-
-bool Application::GetShowImeStatusWindowDefault()
-{
-    rtl_TextEncodingInfo aInfo;
-    aInfo.StructSize = sizeof aInfo;
-    return rtl_getTextEncodingInfo(osl_getThreadTextEncoding(), &aInfo)
-        && aInfo.MaximumCharSize > 1;
 }
 
 const OUString& Application::GetDesktopEnvironment()

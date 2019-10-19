@@ -32,7 +32,7 @@
 #define DECLARE_DUMP_TEST(TestName, BaseClass, DumpMode) \
     class TestName : public BaseClass { \
         protected:\
-            virtual OUString getTestName() override { return OUString(#TestName); } \
+            virtual OUString getTestName() override { return #TestName; } \
         public:\
             TestName() : BaseClass(DumpMode) {}; \
             CPPUNIT_TEST_SUITE(TestName); \
@@ -50,7 +50,7 @@
     else \
         { \
             OString sTestFileName = OUStringToOString(getTestFileName(), RTL_TEXTENCODING_UTF8); \
-            CPPUNIT_ASSERT_EQUAL_MESSAGE(OString("Failing test file is: " + sTestFileName).getStr(), readExpected(#aActual), OUString::number(aActual)); \
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(OString("Failing test file is: " + sTestFileName).getStr(), readExpected(#aActual), OUString(OUString::number(aActual))); \
         }
 
 #define CPPUNIT_DUMP_ASSERT_DOUBLES_EQUAL(aActual, EPS_) \
@@ -106,8 +106,8 @@ protected:
     bool isInDumpMode () const {return m_bDumpMode;}
 
     virtual OUString getTestName() { return OUString(); }
-    OUString const & getTestFileName() { return m_sTestFileName; }
-    OUString getTestFileDirName() { return OUString("/chart2/qa/extras/chart2dump/data/"); }
+    OUString const & getTestFileName() const { return m_sTestFileName; }
+    OUString getTestFileDirName() const { return "/chart2/qa/extras/chart2dump/data/"; }
     OUString getReferenceDirName()
     {
         return "/chart2/qa/extras/chart2dump/reference/" + getTestName().toAsciiLowerCase() + "/";
@@ -150,7 +150,7 @@ protected:
         std::string sTemp;
         getline(m_aReferenceFile, sTemp);
         OString sAssertMessage =
-            OString("The reference file does not contain the right content. Maybe it needs an update:")
+            "The reference file does not contain the right content. Maybe it needs an update:"
             + OUStringToOString(m_sTestFileName, RTL_TEXTENCODING_UTF8);
         CPPUNIT_ASSERT_EQUAL_MESSAGE(sAssertMessage.getStr(), OUString("// " + sCheck), OUString(sTemp.data(), sTemp.length(), RTL_TEXTENCODING_UTF8));
         getline(m_aReferenceFile, sTemp);
@@ -172,7 +172,7 @@ protected:
         std::string sTemp;
         getline(m_aReferenceFile, sTemp);
         OString sAssertMessage =
-            OString("The reference file does not contain the right content. Maybe it needs an update:")
+            "The reference file does not contain the right content. Maybe it needs an update:"
             + OUStringToOString(m_sTestFileName, RTL_TEXTENCODING_UTF8);
         CPPUNIT_ASSERT_EQUAL_MESSAGE(sAssertMessage.getStr(), OUString("/// " + sNote), OUString(sTemp.data(), sTemp.length(), RTL_TEXTENCODING_UTF8));
     }
@@ -224,7 +224,7 @@ protected:
             std::abs(aExpectedTransform.Line3.Column3 - rTransform.Line3.Column3) < fEPS);
     }
 
-    OUString sequenceToOneLineString(uno::Sequence<OUString>& rSeq)
+    OUString sequenceToOneLineString(const uno::Sequence<OUString>& rSeq)
     {
         OUStringBuffer aBufer;
         for (const OUString& seqItem : rSeq)
@@ -253,17 +253,16 @@ protected:
 
     uno::Reference<drawing::XShape> getShapeByName(const uno::Reference<drawing::XShapes>& rShapes, const OUString& rName, bool (*pCondition)(const uno::Reference<drawing::XShape>&) = nullptr)
     {
-        uno::Reference<container::XIndexAccess> XIndexAccess(rShapes, uno::UNO_QUERY);
-        for (sal_Int32 i = 0; i < XIndexAccess->getCount(); ++i)
+        for (sal_Int32 i = 0; i < rShapes->getCount(); ++i)
         {
-            uno::Reference<drawing::XShapes> xShapes(XIndexAccess->getByIndex(i), uno::UNO_QUERY);
+            uno::Reference<drawing::XShapes> xShapes(rShapes->getByIndex(i), uno::UNO_QUERY);
             if (xShapes.is())
             {
                 uno::Reference<drawing::XShape> xRet = getShapeByName(xShapes, rName, pCondition);
                 if (xRet.is())
                     return xRet;
             }
-            uno::Reference<container::XNamed> xNamedShape(XIndexAccess->getByIndex(i), uno::UNO_QUERY);
+            uno::Reference<container::XNamed> xNamedShape(rShapes->getByIndex(i), uno::UNO_QUERY);
             if (xNamedShape->getName() == rName)
             {
                 uno::Reference<drawing::XShape> xShape(xNamedShape, uno::UNO_QUERY);

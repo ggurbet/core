@@ -33,7 +33,6 @@
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/drawing/framework/XConfigurationChangeListener.hpp>
 #include <com/sun/star/drawing/framework/XView.hpp>
-#include <cppuhelper/weak.hxx>
 #include <cppuhelper/compbase.hxx>
 #include <sfx2/viewfrm.hxx>
 
@@ -200,9 +199,8 @@ EventMultiplexer::Implementation::Implementation (ViewShellBase& rBase)
 {
     // Connect to the frame to listen for controllers being exchanged.
     // Listen to changes of certain properties.
-    Reference<frame::XFrame> xFrame (
-        mrBase.GetFrame()->GetFrame().GetFrameInterface(),
-        uno::UNO_QUERY);
+    Reference<frame::XFrame> xFrame =
+        mrBase.GetFrame()->GetFrame().GetFrameInterface();
     mxFrameWeak = xFrame;
     if (xFrame.is())
     {
@@ -326,10 +324,9 @@ void EventMultiplexer::Implementation::ConnectToController()
     try
     {
         // Listen for disposing events.
-        Reference<lang::XComponent> xComponent (xController, UNO_QUERY);
-        if (xComponent.is())
+        if (xController.is())
         {
-            xComponent->addEventListener (
+            xController->addEventListener (
                 Reference<lang::XEventListener>(
                     static_cast<XWeak*>(this), UNO_QUERY));
             mbListeningToController = true;
@@ -411,10 +408,9 @@ void EventMultiplexer::Implementation::DisconnectFromController()
     }
 
     // Remove listener for disposing events.
-    Reference<lang::XComponent> xComponent (xController, UNO_QUERY);
-    if (xComponent.is())
+    if (xController.is())
     {
-        xComponent->removeEventListener (
+        xController->removeEventListener (
             Reference<lang::XEventListener>(static_cast<XWeak*>(this), UNO_QUERY));
     }
 }
@@ -639,7 +635,7 @@ void EventMultiplexer::Implementation::CallListeners (
 void EventMultiplexer::Implementation::CallListeners (EventMultiplexerEvent& rEvent)
 {
     ListenerList aCopyListeners( maListeners );
-    for (auto& rListener : aCopyListeners)
+    for (const auto& rListener : aCopyListeners)
     {
         rListener.Call(rEvent);
     }

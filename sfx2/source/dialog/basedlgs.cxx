@@ -49,7 +49,6 @@ class SfxModelessDialog_Impl : public SfxListener
 public:
     OString aWinState;
     SfxChildWindow* pMgr;
-    bool            bConstructed;
     bool            bClosing;
     void            Notify( SfxBroadcaster& rBC, const SfxHint& rHint ) override;
 
@@ -79,65 +78,6 @@ void SfxFloatingWindow_Impl::Notify( SfxBroadcaster&, const SfxHint& rHint )
     if( rHint.GetId() == SfxHintId::Dying) {
         pMgr->Destroy();
     }
-}
-
-
-void SfxModalDialog::SetDialogData_Impl()
-{
-    // save settings (position and user data)
-    OUString sConfigId = OStringToOUString(GetHelpId(),RTL_TEXTENCODING_UTF8);
-    SvtViewOptions aDlgOpt(EViewType::Dialog, sConfigId);
-    aDlgOpt.SetWindowState(OStringToOUString(
-        GetWindowState(WindowStateMask::Pos), RTL_TEXTENCODING_ASCII_US));
-    if ( !aExtraData.isEmpty() )
-        aDlgOpt.SetUserItem( USERITEM_NAME, makeAny( aExtraData ) );
-}
-
-
-void SfxModalDialog::GetDialogData_Impl()
-
-/*  [Description]
-
-    Helper function, reads the dialogue position from the ini file and
-    puts them on the transferred window.
-*/
-
-{
-    OUString sConfigId = OStringToOUString(GetHelpId(),RTL_TEXTENCODING_UTF8);
-    SvtViewOptions aDlgOpt(EViewType::Dialog, sConfigId);
-    if ( aDlgOpt.Exists() )
-    {
-        // load settings
-        SetWindowState( OUStringToOString( aDlgOpt.GetWindowState(), RTL_TEXTENCODING_ASCII_US ) );
-        Any aUserItem = aDlgOpt.GetUserItem( USERITEM_NAME );
-        OUString aTemp;
-        if ( aUserItem >>= aTemp )
-            aExtraData = aTemp;
-    }
-}
-
-SfxModalDialog::SfxModalDialog(vcl::Window *pParent, const OUString& rID, const OUString& rUIXMLDescription )
-:   ModalDialog(pParent, rID, rUIXMLDescription)
-{
-    SetInstallLOKNotifierHdl(LINK(this, SfxModalDialog, InstallLOKNotifierHdl));
-    GetDialogData_Impl();
-}
-
-IMPL_STATIC_LINK_NOARG(SfxModalDialog, InstallLOKNotifierHdl, void*, vcl::ILibreOfficeKitNotifier*)
-{
-    return SfxViewShell::Current();
-}
-
-SfxModalDialog::~SfxModalDialog()
-{
-    disposeOnce();
-}
-
-void SfxModalDialog::dispose()
-{
-    SetDialogData_Impl();
-
-    ModalDialog::dispose();
 }
 
 void SfxModelessDialogController::Initialize(SfxChildWinInfo const *pInfo)
@@ -185,7 +125,6 @@ void SfxModelessDialogController::Init(SfxBindings *pBindinx, SfxChildWindow *pC
     m_pBindings = pBindinx;
     m_xImpl.reset(new SfxModelessDialog_Impl);
     m_xImpl->pMgr = pCW;
-    m_xImpl->bConstructed = true;
     m_xImpl->bClosing = false;
     if (pBindinx)
         m_xImpl->StartListening( *pBindinx );
@@ -505,7 +444,6 @@ SfxSingleTabDialogController::SfxSingleTabDialogController(weld::Widget *pParent
 
 SfxSingleTabDialogController::~SfxSingleTabDialogController()
 {
-    m_xSfxPage.disposeAndClear();
 }
 
 /*  [Description]
@@ -514,11 +452,9 @@ SfxSingleTabDialogController::~SfxSingleTabDialogController()
     The passed on page is initialized with the initially given Itemset
     through calling Reset().
 */
-void SfxSingleTabDialogController::SetTabPage(SfxTabPage* pTabPage)
+void SfxSingleTabDialogController::SetTabPage(std::unique_ptr<SfxTabPage> xTabPage)
 {
-    m_xSfxPage.disposeAndClear();
-    m_xSfxPage = pTabPage;
-
+    m_xSfxPage = std::move(xTabPage);
     if (!m_xSfxPage)
         return;
 
@@ -534,7 +470,7 @@ void SfxSingleTabDialogController::SetTabPage(SfxTabPage* pTabPage)
     m_xHelpBtn->set_visible(Help::IsContextHelpEnabled());
 
     // Set TabPage text in the Dialog if there is any
-    OUString sTitle(m_xSfxPage->GetText());
+    OUString sTitle(m_xSfxPage->GetPageTitle());
     if (!sTitle.isEmpty())
         m_xDialog->set_title(sTitle);
 

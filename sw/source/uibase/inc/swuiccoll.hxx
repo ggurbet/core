@@ -21,6 +21,8 @@
 
 #include <sfx2/tabdlg.hxx>
 
+#include <ccoll.hxx>
+
 class SwWrtShell;
 class SwFormat;
 
@@ -41,27 +43,23 @@ class SwCondCollPage : public SfxTabPage
     std::unique_ptr<weld::Button> m_xRemovePB;
     std::unique_ptr<weld::Button> m_xAssignPB;
 
-    virtual ~SwCondCollPage() override;
-
     virtual DeactivateRC   DeactivatePage(SfxItemSet *pSet) override;
 
     DECL_LINK(OnOffHdl, weld::ToggleButton&, void);
-    DECL_LINK(AssignRemoveTreeListBoxHdl, weld::TreeView&, void);
+    DECL_LINK(AssignRemoveTreeListBoxHdl, weld::TreeView&, bool);
     DECL_LINK(AssignRemoveClickHdl, weld::Button&, void);
     DECL_LINK(SelectTreeListBoxHdl, weld::TreeView&, void);
     DECL_LINK(SelectListBoxHdl, weld::ComboBox&, void);
     void AssignRemove(const weld::Widget*);
     void SelectHdl(const weld::Widget*);
 
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
-
     static const sal_uInt16 m_aPageRg[];
 
 public:
-    SwCondCollPage(TabPageParent pParent, const SfxItemSet &rSet);
+    SwCondCollPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet);
+    virtual ~SwCondCollPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet *rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet);
     static const sal_uInt16* GetRanges() { return m_aPageRg; }
 
     virtual bool FillItemSet(      SfxItemSet *rSet) override;

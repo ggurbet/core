@@ -145,6 +145,7 @@ std::unique_ptr<sdr::contact::ViewContact> SdrGrafObj::CreateObjectSpecificViewC
     return std::make_unique<sdr::contact::ViewContactOfGraphic>(*this);
 }
 
+
 // check if SVG and if try to get ObjectInfoPrimitive2D and extract info
 
 void SdrGrafObj::onGraphicChanged()
@@ -342,7 +343,6 @@ void SdrGrafObj::SetGraphic( const Graphic& rGraphic )
 
 const Graphic& SdrGrafObj::GetGraphic() const
 {
-    ForceSwapIn();
     return mpGraphicObject->GetGraphic();
 }
 
@@ -463,6 +463,7 @@ Size SdrGrafObj::getOriginalSize() const
     return aSize;
 }
 
+// TODO Remove
 void SdrGrafObj::ForceSwapIn() const
 {
     if (pGraphicLink && (mpGraphicObject->GetType() == GraphicType::NONE  ||
@@ -701,18 +702,17 @@ OUString SdrGrafObj::TakeObjNamePlural() const
     return sName.makeStringAndClear();
 }
 
-SdrObject* SdrGrafObj::getFullDragClone() const
+SdrObjectUniquePtr SdrGrafObj::getFullDragClone() const
 {
     // call parent
-    SdrGrafObj* pRetval = static_cast< SdrGrafObj* >(SdrRectObj::getFullDragClone());
+    SdrObjectUniquePtr pRetval = SdrRectObj::getFullDragClone();
 
     // #i103116# the full drag clone leads to problems
     // with linked graphics, so reset the link in this
     // temporary interaction object and load graphic
     if(pRetval && IsLinkedGraphic())
     {
-        pRetval->ForceSwapIn();
-        pRetval->ReleaseGraphicLink();
+        static_cast< SdrGrafObj* >(pRetval.get())->ReleaseGraphicLink();
     }
 
     return pRetval;
@@ -743,6 +743,16 @@ SdrGrafObj& SdrGrafObj::operator=( const SdrGrafObj& rObj )
     mbIsSignatureLineCanAddComment = rObj.mbIsSignatureLineCanAddComment;
     mbSignatureLineIsSigned = false;
     mpSignatureLineUnsignedGraphic = rObj.mpSignatureLineUnsignedGraphic;
+
+    if(rObj.mpQrCode)
+    {
+        mpQrCode = std::make_unique<css::drawing::QRCode>(*rObj.mpQrCode);
+    }
+    else
+    {
+        mpQrCode.reset();
+    }
+
     if (mbIsSignatureLine && rObj.mpSignatureLineUnsignedGraphic)
         mpGraphicObject->SetGraphic(rObj.mpSignatureLineUnsignedGraphic);
     else
@@ -897,7 +907,7 @@ bool SdrGrafObj::isEmbeddedPdfData() const
    return mpGraphicObject->GetGraphic().hasPdfData();
 }
 
-std::shared_ptr<uno::Sequence<sal_Int8>> const & SdrGrafObj::getEmbeddedPdfData() const
+const std::shared_ptr<std::vector<sal_Int8>> & SdrGrafObj::getEmbeddedPdfData() const
 {
    return mpGraphicObject->GetGraphic().getPdfData();
 }
@@ -907,7 +917,7 @@ sal_Int32 SdrGrafObj::getEmbeddedPageNumber() const
    return mpGraphicObject->GetGraphic().getPageNumber();
 }
 
-SdrObject* SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
+SdrObjectUniquePtr SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
 {
     SdrObject* pRetval = nullptr;
     GraphicType aGraphicType(GetGraphicType());
@@ -947,14 +957,14 @@ SdrObject* SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
 
                 if(bAddText)
                 {
-                    pRetval = ImpConvertAddText(pRetval, bBezier);
+                    pRetval = ImpConvertAddText(SdrObjectUniquePtr(pRetval), bBezier).release();
                 }
 
                 // convert all children
                 if( pRetval )
                 {
                     SdrObject* pHalfDone = pRetval;
-                    pRetval = pHalfDone->DoConvertToPolyObj(bBezier, bAddText);
+                    pRetval = pRetval->DoConvertToPolyObj(bBezier, bAddText).release();
                     SdrObject::Free( pHalfDone ); // resulting object is newly created
 
                     if( pRetval )
@@ -977,7 +987,7 @@ SdrObject* SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
             }
 
             // #i118485# convert line and fill
-            SdrObject* pLineFill = SdrRectObj::DoConvertToPolyObj(bBezier, false);
+            SdrObjectUniquePtr pLineFill = SdrRectObj::DoConvertToPolyObj(bBezier, false);
 
             if(pLineFill)
             {
@@ -992,11 +1002,11 @@ SdrObject* SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
                         pGrp->GetSubList()->NbcInsertObject(pRetval);
                     }
 
-                    pGrp->GetSubList()->NbcInsertObject(pLineFill, 0);
+                    pGrp->GetSubList()->NbcInsertObject(pLineFill.release(), 0);
                 }
                 else
                 {
-                    pRetval = pLineFill;
+                    pRetval = pLineFill.release();
                 }
             }
 
@@ -1005,7 +1015,7 @@ SdrObject* SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
         case GraphicType::Bitmap:
         {
             // create basic object and add fill
-            pRetval = SdrRectObj::DoConvertToPolyObj(bBezier, bAddText);
+            pRetval = SdrRectObj::DoConvertToPolyObj(bBezier, bAddText).release();
 
             // save bitmap as an attribute
             if(pRetval)
@@ -1025,12 +1035,12 @@ SdrObject* SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
         case GraphicType::NONE:
         case GraphicType::Default:
         {
-            pRetval = SdrRectObj::DoConvertToPolyObj(bBezier, bAddText);
+            pRetval = SdrRectObj::DoConvertToPolyObj(bBezier, bAddText).release();
             break;
         }
     }
 
-    return pRetval;
+    return SdrObjectUniquePtr(pRetval);
 }
 
 void SdrGrafObj::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
@@ -1126,7 +1136,7 @@ void SdrGrafObj::SetGrafAnimationAllowed(bool bNew)
     }
 }
 
-Reference< XInputStream > SdrGrafObj::getInputStream()
+Reference< XInputStream > SdrGrafObj::getInputStream() const
 {
     Reference< XInputStream > xStream;
 

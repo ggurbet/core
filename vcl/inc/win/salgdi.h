@@ -134,7 +134,7 @@ public:
     /// Obtain the texture; the caller must delete it after use.
     OpenGLTexture* getTexture();
 
-    /// Copy bitmap data to the texture. Texutre must be initialized and the correct size to hold the bitmap.
+    /// Copy bitmap data to the texture. Texture must be initialized and the correct size to hold the bitmap.
     bool copyToTexture(OpenGLTexture& aTexture);
 };
 
@@ -335,7 +335,7 @@ public:
     // get the current font's metrics
     virtual void            GetFontMetric( ImplFontMetricDataRef&, int nFallbackLevel ) override;
     // get the repertoire of the current font
-    virtual const FontCharMapRef GetFontCharMap() const override;
+    virtual FontCharMapRef  GetFontCharMap() const override;
     // get the layout capabilities of the current font
     virtual bool GetFontCapabilities(vcl::FontCapabilities &rGetFontCapabilities) const override;
     // graphics must fill supplied font list
@@ -346,7 +346,7 @@ public:
     // CreateFontSubset: a method to get a subset of glyhps of a font
     // inside a new valid font file
     // returns TRUE if creation of subset was successful
-    // parameters: rToFile: contains a osl file URL to write the subset to
+    // parameters: rToFile: contains an osl file URL to write the subset to
     //             pFont: describes from which font to create a subset
     //             pGlyphIDs: the glyph ids to be extracted
     //             pEncoding: the character code corresponding to each glyph

@@ -24,7 +24,6 @@
 #include <vcl/accel.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/help.hxx>
-#include <vcl/bitmap.hxx>
 #include <vcl/mnemonic.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/layout.hxx>
@@ -32,6 +31,7 @@
 #include <vcl/settings.hxx>
 #include <vcl/vclstatuslistener.hxx>
 #include <vcl/ptrstyle.hxx>
+#include <bitmaps.hlst>
 
 #include <tools/poly.hxx>
 #include <svl/imageitm.hxx>
@@ -41,15 +41,12 @@
 #include <svdata.hxx>
 #include <window.h>
 #include <toolbox.h>
-#include <salframe.hxx>
 #include <spin.hxx>
 #if defined(_WIN32)
 #include <svsys.h>
 #endif
 
 #include <cstdlib>
-#include <limits>
-#include <string.h>
 #include <vector>
 #include <math.h>
 
@@ -2360,72 +2357,15 @@ IMPL_LINK_NOARG(ToolBox, ImplUpdateHdl, Timer *, void)
         ImplFormat();
 }
 
-static void ImplDrawMoreIndicator(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect, bool bRotate )
+static void ImplDrawMoreIndicator(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect)
 {
-    rRenderContext.Push(PushFlags::FILLCOLOR | PushFlags::LINECOLOR);
-    rRenderContext.SetLineColor();
+    const Image pImage(StockImage::Yes, CHEVRON);
+    Size aImageSize = pImage.GetSizePixel();
+    long x = rRect.Left() + (rRect.getWidth() - aImageSize.Width())/2;
+    long y = rRect.Top() + (rRect.getHeight() - aImageSize.Height())/2;
+    DrawImageFlags nImageStyle = DrawImageFlags::NONE;
 
-    if (rRenderContext.GetSettings().GetStyleSettings().GetFaceColor().IsDark())
-        rRenderContext.SetFillColor(COL_WHITE);
-    else
-        rRenderContext.SetFillColor(COL_BLACK);
-    float fScaleFactor = rRenderContext.GetDPIScaleFactor();
-
-    int linewidth = 1 * fScaleFactor;
-    int space = 4 * fScaleFactor;
-
-    if( !bRotate )
-    {
-        long width = 8 * fScaleFactor;
-        long height = 5 * fScaleFactor;
-
-        //Keep odd b/c drawing code works better
-        if ( height % 2 == 0 )
-            height--;
-
-        long heightOrig = height;
-
-        long x = rRect.Left() + (rRect.getWidth() - width)/2 + 1;
-        long y = rRect.Top() + (rRect.getHeight() - height)/2 + 1;
-        while( height >= 1)
-        {
-            rRenderContext.DrawRect( tools::Rectangle( x, y, x + linewidth, y ) );
-            x += space;
-            rRenderContext.DrawRect( tools::Rectangle( x, y, x + linewidth, y ) );
-            x -= space;
-            y++;
-            if( height <= heightOrig / 2 + 1) x--;
-            else            x++;
-            height--;
-        }
-    }
-    else
-    {
-        long width = 5 * fScaleFactor;
-        long height = 8 * fScaleFactor;
-
-        //Keep odd b/c drawing code works better
-        if (width % 2 == 0)
-            width--;
-
-        long widthOrig = width;
-
-        long x = rRect.Left() + (rRect.getWidth() - width)/2 + 1;
-        long y = rRect.Top() + (rRect.getHeight() - height)/2 + 1;
-        while( width >= 1)
-        {
-            rRenderContext.DrawRect( tools::Rectangle( x, y, x, y + linewidth ) );
-            y += space;
-            rRenderContext.DrawRect( tools::Rectangle( x, y, x, y + linewidth ) );
-            y -= space;
-            x++;
-            if( width <= widthOrig / 2 + 1) y--;
-            else           y++;
-            width--;
-        }
-    }
-
-    rRenderContext.Pop();
+    rRenderContext.DrawImage(Point(x,y), pImage, nImageStyle);
 }
 
 static void ImplDrawDropdownArrow(vcl::RenderContext& rRenderContext, const tools::Rectangle& rDropDownRect, bool bSetColor, bool bRotate )
@@ -2500,7 +2440,7 @@ void ToolBox::ImplDrawMenuButton(vcl::RenderContext& rRenderContext, bool bHighl
             ImplDrawButton(rRenderContext, mpData->maMenubuttonItem.maRect, 2, false, true, false );
 
         if (ImplHasClippedItems())
-            ImplDrawMoreIndicator(rRenderContext, mpData->maMenubuttonItem.maRect, !mbHorz);
+            ImplDrawMoreIndicator(rRenderContext, mpData->maMenubuttonItem.maRect);
 
         // store highlight state
         mpData->mbMenubuttonSelected = bHighlight;
@@ -2638,22 +2578,6 @@ void ToolBox::ImplDrawItem(vcl::RenderContext& rRenderContext, ImplToolItems::si
 
     // Compute buttons area.
     Size    aBtnSize    = pItem->maRect.GetSize();
-    if( ImplGetSVData()->maNWFData.mbToolboxDropDownSeparate )
-    {
-        // separate button not for dropdown only where the whole button is painted
-        // exception: when text position is set to bottom then we want to calculate rect for dropdown only button
-        if ( ( pItem->mnBits & ToolBoxItemBits::DROPDOWN &&
-            ((pItem->mnBits & ToolBoxItemBits::DROPDOWNONLY) != ToolBoxItemBits::DROPDOWNONLY) )
-            || ( ( pItem->mnBits & ToolBoxItemBits::DROPDOWN) && ( meTextPosition == ToolBoxTextPosition::Bottom ) ) )
-        {
-            tools::Rectangle aArrowRect = pItem->GetDropDownRect( mbHorz );
-            if( aArrowRect.Top() == pItem->maRect.Top() ) // dropdown arrow on right side
-                aBtnSize.AdjustWidth( -(aArrowRect.GetWidth()) );
-            else if ( !( (meTextPosition == ToolBoxTextPosition::Bottom)
-                        && ((pItem->mnBits & ToolBoxItemBits::DROPDOWNONLY) == ToolBoxItemBits::DROPDOWNONLY) ) )
-                aBtnSize.AdjustHeight( -(aArrowRect.GetHeight()) ); // dropdown arrow on bottom side
-        }
-    }
 
     /* Compute the button/separator rectangle here, we'll need it for
      * both the buttons and the separators. */
@@ -3138,7 +3062,7 @@ void ToolBox::MouseMove( const MouseEvent& rMEvt )
     Point aMousePos = rMEvt.GetPosPixel();
 
     // only highlight when the focus is not inside a child window of a toolbox
-    // eg, in a edit control
+    // eg, in an edit control
     // and do not highlight when focus is in a different toolbox
     bool bDrawHotSpot = true;
     vcl::Window *pWin = Application::GetFocusWindow();
@@ -4172,7 +4096,7 @@ Size ToolBox::GetOptimalSize() const
     // If we have any expandable entries, then force them to their
     // optimal sizes, then reset them afterwards
     std::map<vcl::Window*, Size> aExpandables;
-    for (ImplToolItem & rItem : mpData->m_aItems)
+    for (const ImplToolItem & rItem : mpData->m_aItems)
     {
         if (rItem.mbExpand)
         {

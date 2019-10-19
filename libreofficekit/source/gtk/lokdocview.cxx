@@ -139,6 +139,9 @@ struct LOKDocViewPrivateImpl
     /// see them, can't modify them. Key is the view id.
     std::map<int, ViewRectangle> m_aCellViewCursors;
     gboolean m_bInDragGraphicSelection;
+    /// Position, size and color of the reference marks. The current view can only
+    /// see them, can't modify them. Key is the view id.
+    std::vector<std::pair<ViewRectangle, sal_uInt32>> m_aReferenceMarks;
 
     /// @name Start/middle/end handle.
     ///@{
@@ -320,6 +323,11 @@ SAL_DLLPUBLIC_EXPORT GType lok_doc_view_get_type();
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#endif
+#endif
 #endif
 G_DEFINE_TYPE_WITH_CODE (LOKDocView, lok_doc_view, GTK_TYPE_DRAWING_AREA,
                          G_ADD_PRIVATE (LOKDocView)
@@ -361,101 +369,6 @@ payloadToSize(const char* pPayload, long& rWidth, long& rHeight)
         return;
     rHeight = atoi(*ppCoordinate);
     g_strfreev(ppCoordinates);
-}
-
-/// Returns the string representation of a LibreOfficeKitCallbackType enumeration element.
-static const char*
-callbackTypeToString (int nType)
-{
-    switch (static_cast<LibreOfficeKitCallbackType>(nType))
-    {
-    case LOK_CALLBACK_INVALIDATE_TILES:
-        return "LOK_CALLBACK_INVALIDATE_TILES";
-    case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR:
-        return "LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR";
-    case LOK_CALLBACK_TEXT_SELECTION:
-        return "LOK_CALLBACK_TEXT_SELECTION";
-    case LOK_CALLBACK_TEXT_SELECTION_START:
-        return "LOK_CALLBACK_TEXT_SELECTION_START";
-    case LOK_CALLBACK_TEXT_SELECTION_END:
-        return "LOK_CALLBACK_TEXT_SELECTION_END";
-    case LOK_CALLBACK_CURSOR_VISIBLE:
-        return "LOK_CALLBACK_CURSOR_VISIBLE";
-    case LOK_CALLBACK_VIEW_CURSOR_VISIBLE:
-        return "LOK_CALLBACK_VIEW_CURSOR_VISIBLE";
-    case LOK_CALLBACK_GRAPHIC_SELECTION:
-        return "LOK_CALLBACK_GRAPHIC_SELECTION";
-    case LOK_CALLBACK_GRAPHIC_VIEW_SELECTION:
-        return "LOK_CALLBACK_GRAPHIC_VIEW_SELECTION";
-    case LOK_CALLBACK_CELL_CURSOR:
-        return "LOK_CALLBACK_CELL_CURSOR";
-    case LOK_CALLBACK_HYPERLINK_CLICKED:
-        return "LOK_CALLBACK_HYPERLINK_CLICKED";
-    case LOK_CALLBACK_MOUSE_POINTER:
-        return "LOK_CALLBACK_MOUSE_POINTER";
-    case LOK_CALLBACK_STATE_CHANGED:
-        return "LOK_CALLBACK_STATE_CHANGED";
-    case LOK_CALLBACK_STATUS_INDICATOR_START:
-        return "LOK_CALLBACK_STATUS_INDICATOR_START";
-    case LOK_CALLBACK_STATUS_INDICATOR_SET_VALUE:
-        return "LOK_CALLBACK_STATUS_INDICATOR_SET_VALUE";
-    case LOK_CALLBACK_STATUS_INDICATOR_FINISH:
-        return "LOK_CALLBACK_STATUS_INDICATOR_FINISH";
-    case LOK_CALLBACK_SEARCH_NOT_FOUND:
-        return "LOK_CALLBACK_SEARCH_NOT_FOUND";
-    case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED:
-        return "LOK_CALLBACK_DOCUMENT_SIZE_CHANGED";
-    case LOK_CALLBACK_SET_PART:
-        return "LOK_CALLBACK_SET_PART";
-    case LOK_CALLBACK_SEARCH_RESULT_SELECTION:
-        return "LOK_CALLBACK_SEARCH_RESULT_SELECTION";
-    case LOK_CALLBACK_DOCUMENT_PASSWORD:
-        return "LOK_CALLBACK_DOCUMENT_PASSWORD";
-    case LOK_CALLBACK_DOCUMENT_PASSWORD_TO_MODIFY:
-        return "LOK_CALLBACK_DOCUMENT_PASSWORD_TO_MODIFY";
-    case LOK_CALLBACK_CONTEXT_MENU:
-        return "LOK_CALLBACK_CONTEXT_MENU";
-    case LOK_CALLBACK_INVALIDATE_VIEW_CURSOR:
-        return "LOK_CALLBACK_INVALIDATE_VIEW_CURSOR";
-    case LOK_CALLBACK_TEXT_VIEW_SELECTION:
-        return "LOK_CALLBACK_TEXT_VIEW_SELECTION";
-    case LOK_CALLBACK_CELL_VIEW_CURSOR:
-        return "LOK_CALLBACK_CELL_VIEW_CURSOR";
-    case LOK_CALLBACK_CELL_ADDRESS:
-        return "LOK_CALLBACK_CELL_ADDRESS";
-    case LOK_CALLBACK_CELL_FORMULA:
-        return "LOK_CALLBACK_CELL_FORMULA";
-    case LOK_CALLBACK_UNO_COMMAND_RESULT:
-        return "LOK_CALLBACK_UNO_COMMAND_RESULT";
-    case LOK_CALLBACK_ERROR:
-        return "LOK_CALLBACK_ERROR";
-    case LOK_CALLBACK_VIEW_LOCK:
-        return "LOK_CALLBACK_VIEW_LOCK";
-    case LOK_CALLBACK_REDLINE_TABLE_SIZE_CHANGED:
-        return "LOK_CALLBACK_REDLINE_TABLE_SIZE_CHANGED";
-    case LOK_CALLBACK_REDLINE_TABLE_ENTRY_MODIFIED:
-        return "LOK_CALLBACK_REDLINE_TABLE_ENTRY_MODIFIED";
-    case LOK_CALLBACK_INVALIDATE_HEADER:
-        return "LOK_CALLBACK_INVALIDATE_HEADER";
-    case LOK_CALLBACK_COMMENT:
-        return "LOK_CALLBACK_COMMENT";
-    case LOK_CALLBACK_RULER_UPDATE:
-        return "LOK_CALLBACK_RULER_UPDATE";
-    case LOK_CALLBACK_WINDOW:
-        return "LOK_CALLBACK_WINDOW";
-    case LOK_CALLBACK_VALIDITY_LIST_BUTTON:
-        return "LOK_CALLBACK_VALIDITY_LIST_BUTTON";
-    case LOK_CALLBACK_CLIPBOARD_CHANGED:
-        return "LOK_CALLBACK_CLIPBOARD_CHANGED";
-    case LOK_CALLBACK_CONTEXT_CHANGED:
-        return "LOK_CALLBACK_CONTEXT_CHANGED";
-    case LOK_CALLBACK_SIGNATURE_STATUS:
-        return "LOK_CALLBACK_SIGNATURE_STATUS";
-    case LOK_CALLBACK_PROFILE_FRAME:
-        return "LOK_CALLBACK_PROFILE_FRAME";
-    }
-    g_assert(false);
-    return nullptr;
 }
 
 static void
@@ -940,7 +853,7 @@ static std::string getAuthorRenderingArgument(LOKDocViewPrivate& priv)
     boost::property_tree::ptree aTree;
     boost::property_tree::read_json(aStream, aTree);
     std::string aRet;
-    for (const std::pair<std::string, boost::property_tree::ptree>& rPair : aTree)
+    for (const auto& rPair : aTree)
     {
         if (rPair.first == ".uno:Author")
         {
@@ -1054,7 +967,7 @@ globalCallbackWorker(int nType, const char* pPayload, void* pData)
     LOKDocView* pDocView = LOK_DOC_VIEW (pData);
 
     CallbackData* pCallback = new CallbackData(nType, pPayload ? pPayload : "(nil)", pDocView);
-    g_info("LOKDocView_Impl::globalCallbackWorkerImpl: %s, '%s'", callbackTypeToString(nType), pPayload);
+    g_info("LOKDocView_Impl::globalCallbackWorkerImpl: %s, '%s'", lokCallbackTypeToString(nType), pPayload);
     gdk_threads_add_idle(globalCallback, pCallback);
 }
 
@@ -1105,7 +1018,7 @@ payloadToRectangle (LOKDocView* pDocView, const char* pPayload)
     return aRet;
 }
 
-static const std::vector<GdkRectangle>
+static std::vector<GdkRectangle>
 payloadToRectangles(LOKDocView* pDocView, const char* pPayload)
 {
     std::vector<GdkRectangle> aRet;
@@ -1164,7 +1077,7 @@ callback (gpointer pData)
         return G_SOURCE_REMOVE;
     }
 
-    switch (pCallback->m_nType)
+    switch (static_cast<LibreOfficeKitCallbackType>(pCallback->m_nType))
     {
     case LOK_CALLBACK_INVALIDATE_TILES:
     {
@@ -1353,11 +1266,6 @@ callback (gpointer pData)
         reportError(pDocView, pCallback->m_aPayload);
     }
     break;
-    case LOK_CALLBACK_CONTEXT_MENU:
-    {
-        // TODO: Implement me
-        break;
-    }
     case LOK_CALLBACK_INVALIDATE_VIEW_CURSOR:
     {
         std::stringstream aStream(pCallback->m_aPayload);
@@ -1452,12 +1360,47 @@ callback (gpointer pData)
     case LOK_CALLBACK_INVALIDATE_HEADER:
         g_signal_emit(pCallback->m_pDocView, doc_view_signals[INVALIDATE_HEADER], 0, pCallback->m_aPayload.c_str());
         break;
+    case LOK_CALLBACK_REFERENCE_MARKS:
+    {
+        std::stringstream aStream(pCallback->m_aPayload);
+        boost::property_tree::ptree aTree;
+        boost::property_tree::read_json(aStream, aTree);
+
+        priv->m_aReferenceMarks.clear();
+
+        for(const auto& rMark : aTree.get_child("marks"))
+        {
+            sal_uInt32 nColor = std::stoi(rMark.second.get<std::string>("color"), nullptr, 16);
+            std::string sRect = rMark.second.get<std::string>("rectangle");
+            sal_uInt32 nPart = std::stoi(rMark.second.get<std::string>("part"));
+
+            GdkRectangle aRect = payloadToRectangle(pDocView, sRect.c_str());
+            priv->m_aReferenceMarks.push_back(std::pair<ViewRectangle, sal_uInt32>(ViewRectangle(nPart, aRect), nColor));
+        }
+
+        gtk_widget_queue_draw(GTK_WIDGET(pDocView));
+        break;
+    }
+
+    case LOK_CALLBACK_STATUS_INDICATOR_START:
+    case LOK_CALLBACK_STATUS_INDICATOR_SET_VALUE:
+    case LOK_CALLBACK_STATUS_INDICATOR_FINISH:
+    case LOK_CALLBACK_DOCUMENT_PASSWORD:
+    case LOK_CALLBACK_DOCUMENT_PASSWORD_TO_MODIFY:
+    case LOK_CALLBACK_VALIDITY_LIST_BUTTON:
+    case LOK_CALLBACK_SIGNATURE_STATUS:
+    case LOK_CALLBACK_CONTEXT_MENU:
+    case LOK_CALLBACK_PROFILE_FRAME:
     case LOK_CALLBACK_CLIPBOARD_CHANGED:
     case LOK_CALLBACK_CONTEXT_CHANGED:
-        break; // TODO
-    default:
-        g_assert(false);
+    case LOK_CALLBACK_CELL_SELECTION_AREA:
+    case LOK_CALLBACK_CELL_AUTO_FILL_AREA:
+    case LOK_CALLBACK_TABLE_SELECTED:
+    case LOK_CALLBACK_JSDIALOG:
+    {
+        // TODO: Implement me
         break;
+    }
     }
     delete pCallback;
 
@@ -1471,7 +1414,7 @@ static void callbackWorker (int nType, const char* pPayload, void* pData)
     CallbackData* pCallback = new CallbackData(nType, pPayload ? pPayload : "(nil)", pDocView);
     LOKDocViewPrivate& priv = getPrivate(pDocView);
     std::stringstream ss;
-    ss << "callbackWorker, view #" << priv->m_nViewId << ": " << callbackTypeToString(nType) << ", '" << (pPayload ? pPayload : "(nil)") << "'";
+    ss << "callbackWorker, view #" << priv->m_nViewId << ": " << lokCallbackTypeToString(nType) << ", '" << (pPayload ? pPayload : "(nil)") << "'";
     g_info("%s", ss.str().c_str());
     gdk_threads_add_idle(callback, pCallback);
 }
@@ -1804,7 +1747,7 @@ renderOverlay(LOKDocView* pDocView, cairo_t* pCairo)
 
     if (!priv->m_aTextSelectionRectangles.empty())
     {
-        for (GdkRectangle& rRectangle : priv->m_aTextSelectionRectangles)
+        for (const GdkRectangle& rRectangle : priv->m_aTextSelectionRectangles)
         {
             // Blue with 75% transparency.
             cairo_set_source_rgba(pCairo, (double(0x43))/255, (double(0xac))/255, (double(0xe8))/255, 0.25);
@@ -1844,12 +1787,12 @@ renderOverlay(LOKDocView* pDocView, cairo_t* pCairo)
     }
 
     // Selections of other views.
-    for (auto& rPair : priv->m_aTextViewSelectionRectangles)
+    for (const auto& rPair : priv->m_aTextViewSelectionRectangles)
     {
         if (rPair.second.m_nPart != priv->m_nPartId && priv->m_eDocumentType != LOK_DOCTYPE_TEXT)
             continue;
 
-        for (GdkRectangle& rRectangle : rPair.second.m_aRectangles)
+        for (const GdkRectangle& rRectangle : rPair.second.m_aRectangles)
         {
             const GdkRGBA& rDark = getDarkColor(rPair.first, priv);
             // 75% transparency.
@@ -1870,7 +1813,7 @@ renderOverlay(LOKDocView* pDocView, cairo_t* pCairo)
     }
 
     // Graphic selections of other views.
-    for (auto& rPair : priv->m_aGraphicViewSelections)
+    for (const auto& rPair : priv->m_aGraphicViewSelections)
     {
         const ViewRectangle& rRectangle = rPair.second;
         if (rRectangle.m_nPart != priv->m_nPartId && priv->m_eDocumentType != LOK_DOCTYPE_TEXT)
@@ -1894,7 +1837,7 @@ renderOverlay(LOKDocView* pDocView, cairo_t* pCairo)
     }
 
     // Cell view cursors: they are colored.
-    for (auto& rPair : priv->m_aCellViewCursors)
+    for (const auto& rPair : priv->m_aCellViewCursors)
     {
         const ViewRectangle& rCursor = rPair.second;
         if (rCursor.m_nPart != priv->m_nPartId)
@@ -1911,8 +1854,29 @@ renderOverlay(LOKDocView* pDocView, cairo_t* pCairo)
         cairo_stroke(pCairo);
     }
 
+    // Draw reference marks.
+    for (const auto& rPair : priv->m_aReferenceMarks)
+    {
+        const ViewRectangle& rMark = rPair.first;
+        if (rMark.m_nPart != priv->m_nPartId)
+            continue;
+
+        sal_uInt32 nColor = rPair.second;
+        sal_uInt8 nRed = (nColor >> 16) & 0xff;
+        sal_uInt8 nGreen = (nColor >> 8) & 0xff;
+        sal_uInt8 nBlue = nColor & 0xff;
+        cairo_set_source_rgb(pCairo, nRed, nGreen, nBlue);
+        cairo_rectangle(pCairo,
+                        twipToPixel(rMark.m_aRectangle.x, priv->m_fZoom),
+                        twipToPixel(rMark.m_aRectangle.y, priv->m_fZoom),
+                        twipToPixel(rMark.m_aRectangle.width, priv->m_fZoom),
+                        twipToPixel(rMark.m_aRectangle.height, priv->m_fZoom));
+        cairo_set_line_width(pCairo, 2.0);
+        cairo_stroke(pCairo);
+    }
+
     // View locks: they are colored.
-    for (auto& rPair : priv->m_aViewLockRectangles)
+    for (const auto& rPair : priv->m_aViewLockRectangles)
     {
         const ViewRectangle& rRectangle = rPair.second;
         if (rRectangle.m_nPart != priv->m_nPartId)
@@ -3269,7 +3233,7 @@ static void lok_doc_view_class_init (LOKDocViewClass* pClass)
      * Password must be provided by calling lok_doc_view_set_document_password
      * function with pUrl as provided by the callback.
      *
-     * Upon entering a invalid password, another `password-required` signal is
+     * Upon entering an invalid password, another `password-required` signal is
      * emitted.
      * Upon entering a valid password, document starts to load.
      * Upon entering a NULL password: if bModify is %TRUE, document starts to

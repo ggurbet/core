@@ -121,7 +121,7 @@ void ConstantParam::addToCallSet(const FunctionDecl* functionDecl, int paramInde
     if (isInUnoIncludeFile(functionDecl))
         return;
     SourceLocation expansionLoc = compiler.getSourceManager().getExpansionLoc( functionDecl->getLocation() );
-    StringRef filename = compiler.getSourceManager().getFilename(expansionLoc);
+    StringRef filename = getFilenameOfLocation(expansionLoc);
     if (!loplugin::hasPathnamePrefix(filename, SRCDIR "/"))
         return;
     filename = filename.substr(strlen(SRCDIR)+1);
@@ -168,9 +168,10 @@ std::string ConstantParam::getCallValue(const Expr* arg)
     }
     arg = arg->IgnoreParenCasts();
     // ignore this, it seems to trigger an infinite recursion
-    if (isa<UnaryExprOrTypeTraitExpr>(arg)) {
+    if (isa<UnaryExprOrTypeTraitExpr>(arg))
         return "unknown1";
-    }
+    if (arg->isValueDependent())
+        return "unknown2";
     APSInt x1;
     if (compat::EvaluateAsInt(arg, x1, compiler.getASTContext()))
     {

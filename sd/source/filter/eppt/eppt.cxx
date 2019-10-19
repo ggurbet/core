@@ -27,9 +27,9 @@
 #include <svx/unoapi.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdoole2.hxx>
-#include <svx/xfillit0.hxx>
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
+#include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/office/XAnnotation.hpp>
 #include <com/sun/star/office/XAnnotationAccess.hpp>
 #include <com/sun/star/office/XAnnotationEnumeration.hpp>
@@ -39,6 +39,7 @@
 #include <com/sun/star/geometry/RealPoint2D.hpp>
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/task/XStatusIndicator.hpp>
+#include <comphelper/sequence.hxx>
 #include <tools/zcodec.hxx>
 #include <filter/msfilter/classids.hxx>
 #include <filter/msfilter/msoleexp.hxx>
@@ -48,7 +49,6 @@
 #include <sfx2/docinf.hxx>
 #include <oox/export/utils.hxx>
 #include <oox/ole/olehelper.hxx>
-#include <rtl/math.hxx>
 #include <memory>
 
 class SfxObjectShell;
@@ -508,12 +508,10 @@ void PPTWriter::ImplCreateDocumentSummaryInformation()
     SvMemoryStream  aHyperBlob;
     ImplCreateHyperBlob( aHyperBlob );
 
-    uno::Sequence<sal_Int8> aHyperSeq(aHyperBlob.Tell());
+    auto nHyperLength = static_cast<sal_Int32>(aHyperBlob.Tell());
     const sal_Int8* pBlob(
         static_cast<const sal_Int8*>(aHyperBlob.GetData()));
-    for (sal_Int32 j = 0; j < aHyperSeq.getLength(); ++j) {
-        aHyperSeq[j] = pBlob[j];
-    }
+    auto aHyperSeq = comphelper::arrayToSequence<sal_Int8>(pBlob, nHyperLength);
 
     if ( mnCnvrtFlags & 0x8000 )
     {
@@ -761,8 +759,9 @@ bool PPTWriter::ImplCreateDocument()
                                                     // Bit 3    Use named show
                                                     // Bit 4    Browse mode on
                                                     // Bit 5    Kiosk mode on
+                                                    // Bit 6    Skip narration
                                                     // Bit 7    loop continuously
-                                                    // Bit ?    show scrollbar
+                                                    // Bit 8    show scrollbar
 
                 if ( ImplGetPropertyValue( "CustomShow" ) )
                 {
@@ -798,7 +797,7 @@ bool PPTWriter::ImplCreateDocument()
                         nFlags |= 1;
                 }
 
-                if ( ImplGetPropertyValue( "IsEndless" ) ) // the correct name would be IsNotEndless: WTF?
+                if ( ImplGetPropertyValue( "IsEndless" ) )
                 {
                     bool bBool = false;
                     mAny >>= bBool;
@@ -836,7 +835,7 @@ bool PPTWriter::ImplCreateDocument()
                     css::uno::Reference< css::container::XNameContainer > aXCont( aXCPSup->getCustomPresentations() );
                     if ( aXCont.is() )
                     {
-                        css::uno::Sequence< OUString> aNameSeq( aXCont->getElementNames() );
+                        const css::uno::Sequence< OUString> aNameSeq( aXCont->getElementNames() );
                         if ( aNameSeq.hasElements() )
                         {
                             mpPptEscherEx->OpenContainer( EPP_NamedShows );
@@ -1110,7 +1109,7 @@ void PPTWriter::ImplWriteNotes( sal_uInt32 nPageNum )
     mpPptEscherEx->OpenContainer( EPP_Notes );
     mpPptEscherEx->AddAtom( 8, EPP_NotesAtom, 1 );
     mpStrm->WriteUInt32( nPageNum + 0x100 )
-           .WriteUInt16( 3 )                                        // follow master ....
+           .WriteUInt16( 3 )                                        // follow master...
            .WriteUInt16( 0 );
 
     ImplCreateHeaderFooters( mXPagePropSet );
@@ -1232,7 +1231,7 @@ void PPTWriter::ImplWriteOLE( )
 
     SvxMSExportOLEObjects aOleExport( mnCnvrtFlags );
 
-    for ( auto& rxExOleObjEntry : maExOleObj )
+    for ( const auto& rxExOleObjEntry : maExOleObj )
     {
         PPTExOleObjEntry* pPtr = rxExOleObjEntry.get();
         std::unique_ptr<SvMemoryStream> pStrm;
@@ -1356,7 +1355,7 @@ void PPTWriter::ImplWriteAtomEnding()
         }
     }
     // Ole persists
-    for ( auto& rxExOleObjEntry : maExOleObj )
+    for ( const auto& rxExOleObjEntry : maExOleObj )
     {
         PPTExOleObjEntry* pPtr = rxExOleObjEntry.get();
         nOfs = mpPptEscherEx->PtGetOffsetByID( EPP_Persist_ExObj );

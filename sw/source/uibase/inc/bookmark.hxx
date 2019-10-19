@@ -19,10 +19,8 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_BOOKMARK_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_BOOKMARK_HXX
 
-#include <svtools/simptabl.hxx>
+#include <sfx2/basedlgs.hxx>
 #include <vcl/weld.hxx>
-#include <ndtxt.hxx>
-#include <pam.hxx>
 #include <IMark.hxx>
 #include "condedit.hxx"
 
@@ -38,7 +36,7 @@ public:
     void                InsertBookmark(sw::mark::IMark* pMark);
     void                SelectByName(const OUString& sName);
     sw::mark::IMark*    GetBookmarkByName(const OUString& sName);
-    OUString            GetNameProposal();
+    OUString            GetNameProposal() const;
 
     void                unselect_all() { m_xControl->unselect_all(); }
     bool                has_focus() const { return m_xControl->has_focus(); }
@@ -52,7 +50,7 @@ public:
     void selected_foreach(const std::function<bool(weld::TreeIter&)>& func) { m_xControl->selected_foreach(func); }
 
     void connect_changed(const Link<weld::TreeView&, void>& rLink) { m_xControl->connect_changed(rLink); }
-    void connect_row_activated(const Link<weld::TreeView&, void>& rLink) { m_xControl->connect_row_activated(rLink); }
+    void connect_row_activated(const Link<weld::TreeView&, bool>& rLink) { m_xControl->connect_row_activated(rLink); }
     void connect_column_clicked(const Link<int, void>& rLink) { m_xControl->connect_column_clicked(rLink); }
     void make_sorted() { m_xControl->make_sorted(); }
     bool get_sort_order() const { return m_xControl->get_sort_order(); }
@@ -89,7 +87,7 @@ class SwInsertBookmarkDlg : public SfxDialogController
     DECL_LINK(RenameHdl, weld::Button&, void);
     DECL_LINK(GotoHdl, weld::Button&, void);
     DECL_LINK(SelectionChangedHdl, weld::TreeView&, void);
-    DECL_LINK(DoubleClickHdl, weld::TreeView&, void);
+    DECL_LINK(DoubleClickHdl, weld::TreeView&, bool);
     DECL_LINK(HeaderBarClick, int, void);
     DECL_LINK(ChangeHideHdl, weld::ToggleButton&, void);
 

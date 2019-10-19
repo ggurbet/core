@@ -19,7 +19,6 @@
 
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/EntryInitModes.hpp>
-#include <com/sun/star/document/XTypeDetection.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
@@ -32,22 +31,18 @@
 #include "xfactory.hxx"
 #include <commonembobj.hxx>
 #include <specialobject.hxx>
-#include <oleembobj.hxx>
 
 
 using namespace ::com::sun::star;
 
 uno::Sequence< OUString > OOoEmbeddedObjectFactory::impl_staticGetSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(2);
-    aRet[0] = "com.sun.star.embed.OOoEmbeddedObjectFactory";
-    aRet[1] = "com.sun.star.comp.embed.OOoEmbeddedObjectFactory";
-    return aRet;
+    return { "com.sun.star.embed.OOoEmbeddedObjectFactory", "com.sun.star.comp.embed.OOoEmbeddedObjectFactory" };
 }
 
 OUString OOoEmbeddedObjectFactory::impl_staticGetImplementationName()
 {
-    return OUString("com.sun.star.comp.embed.OOoEmbeddedObjectFactory");
+    return "com.sun.star.comp.embed.OOoEmbeddedObjectFactory";
 }
 
 uno::Reference< uno::XInterface > OOoEmbeddedObjectFactory::impl_staticCreateSelfInstance(
@@ -100,9 +95,8 @@ uno::Reference< uno::XInterface > SAL_CALL OOoEmbeddedObjectFactory::createInsta
     }
 
     try {
-        uno::Reference< lang::XComponent > xComp( xSubStorage, uno::UNO_QUERY );
-        if ( xComp.is() )
-            xComp->dispose();
+        if ( xSubStorage.is() )
+            xSubStorage->dispose();
     }
     catch ( const uno::Exception& )
     {
@@ -388,15 +382,12 @@ uno::Sequence< OUString > SAL_CALL OOoEmbeddedObjectFactory::getSupportedService
 
 uno::Sequence< OUString > OOoSpecialEmbeddedObjectFactory::impl_staticGetSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(2);
-    aRet[0] = "com.sun.star.embed.OOoSpecialEmbeddedObjectFactory";
-    aRet[1] = "com.sun.star.comp.embed.OOoSpecialEmbeddedObjectFactory";
-    return aRet;
+    return { "com.sun.star.embed.OOoSpecialEmbeddedObjectFactory", "com.sun.star.comp.embed.OOoSpecialEmbeddedObjectFactory" };
 }
 
 OUString OOoSpecialEmbeddedObjectFactory::impl_staticGetImplementationName()
 {
-    return OUString("com.sun.star.comp.embed.OOoSpecialEmbeddedObjectFactory");
+    return "com.sun.star.comp.embed.OOoSpecialEmbeddedObjectFactory";
 }
 
 uno::Reference< uno::XInterface > OOoSpecialEmbeddedObjectFactory::impl_staticCreateSelfInstance(

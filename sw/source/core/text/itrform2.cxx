@@ -59,6 +59,7 @@
 #include <IDocumentSettingAccess.hxx>
 #include <IMark.hxx>
 #include <IDocumentMarkAccess.hxx>
+#include <svl/zforlist.hxx>
 
 #include <vector>
 
@@ -138,7 +139,7 @@ sal_uInt16 SwTextFormatter::GetFrameRstHeight() const
 
     // GetFrameRstHeight() is being called with Footnote.
     // Wrong: const SwFrame *pUpper = pFrame->GetUpper();
-    const SwFrame *pPage = static_cast<const SwFrame*>(m_pFrame->FindPageFrame());
+    const SwFrame *pPage = m_pFrame->FindPageFrame();
     const SwTwips nHeight = pPage->getFrameArea().Top()
                           + pPage->getFramePrintArea().Top()
                           + pPage->getFramePrintArea().Height() - Y();
@@ -297,14 +298,16 @@ SwLinePortion *SwTextFormatter::Underflow( SwTextFormatInfo &rInf )
 }
 
 void SwTextFormatter::InsertPortion( SwTextFormatInfo &rInf,
-                                    SwLinePortion *pPor ) const
+                                    SwLinePortion *pPor )
 {
+    SwLinePortion *pLast = nullptr;
     // The new portion is inserted, but everything's different for
     // LineLayout...
     if( pPor == m_pCurr )
     {
         if ( m_pCurr->GetNextPortion() )
         {
+            pLast = pPor;
             pPor = m_pCurr->GetNextPortion();
         }
 
@@ -314,7 +317,7 @@ void SwTextFormatter::InsertPortion( SwTextFormatInfo &rInf,
     }
     else
     {
-        SwLinePortion *pLast = rInf.GetLast();
+        pLast = rInf.GetLast();
         if( pLast->GetNextPortion() )
         {
             while( pLast->GetNextPortion() )
@@ -336,8 +339,12 @@ void SwTextFormatter::InsertPortion( SwTextFormatInfo &rInf,
     rInf.SetLast( pPor );
     while( pPor )
     {
+        if (!pPor->IsDropPortion())
+            MergeCharacterBorder(*pPor, pLast, rInf);
+
         pPor->Move( rInf );
         rInf.SetLast( pPor );
+        pLast = pPor;
         pPor = pPor->GetNextPortion();
     }
 }
@@ -478,7 +485,6 @@ void SwTextFormatter::BuildPortions( SwTextFormatInfo &rInf )
                         new SwKernPortion( *rInf.GetLast(), nLstHeight,
                                            pLast->InFieldGrp() && pPor->InFieldGrp() );
                     rInf.GetLast()->SetNextPortion( nullptr );
-                    MergeCharacterBorder(*pKrn, rInf.GetLast()->FindLastPortion(), rInf);
                     InsertPortion( rInf, pKrn );
                 }
             }
@@ -522,11 +528,7 @@ void SwTextFormatter::BuildPortions( SwTextFormatInfo &rInf )
             }
 
             if ( pGridKernPortion != pPor )
-            {
-                SwLinePortion *pLast = rInf.GetLast()? rInf.GetLast()->FindLastPortion():nullptr ;
-                MergeCharacterBorder(*pGridKernPortion, pLast , rInf);
                 InsertPortion( rInf, pGridKernPortion );
-            }
         }
 
         if( pPor->IsDropPortion() )
@@ -686,17 +688,6 @@ void SwTextFormatter::BuildPortions( SwTextFormatInfo &rInf )
         }
 
         rInf.SetFull( bFull );
-
-        if( !pPor->IsDropPortion() )
-        {
-            SwLinePortion *pPrev = rInf.GetLast() ? rInf.GetLast()->FindLastPortion() : nullptr;
-            for ( SwLinePortion *pNext = pPor ; pNext!= nullptr ; pNext=pNext->GetNextPortion())
-            {
-                if ( !pNext->IsParaPortion() )
-                    MergeCharacterBorder(*pNext, pPrev, rInf);
-                pPrev = pNext ;
-            }
-        }
 
         // Restportions from fields with multiple lines don't yet have the right ascent
         if ( !pPor->GetLen() && !pPor->IsFlyPortion()
@@ -860,7 +851,7 @@ namespace sw { namespace mark {
                 return vListEntries[nCurrentIdx];
         }
 
-        sal_Unicode vEnSpaces[ODF_FORMFIELD_DEFAULT_LENGTH] = {8194, 8194, 8194, 8194, 8194};
+        static const sal_Unicode vEnSpaces[ODF_FORMFIELD_DEFAULT_LENGTH] = {8194, 8194, 8194, 8194, 8194};
         return OUString(vEnSpaces, ODF_FORMFIELD_DEFAULT_LENGTH);
     }
 } }
@@ -889,16 +880,28 @@ SwTextPortion *SwTextFormatter::WhichTextPor( SwTextFormatInfo &rInf ) const
             // Only at the End!
             // If pCurr does not have a width, it can however already have content.
             // E.g. for non-displayable characters
+
             auto const ch(rInf.GetText()[sal_Int32(rInf.GetIdx())]);
-            if (ch == CH_TXT_ATR_FIELDSTART)
+            SwTextFrame const*const pFrame(rInf.GetTextFrame());
+            SwPosition aPosition(pFrame->MapViewToModelPos(rInf.GetIdx()));
+            sw::mark::IFieldmark *pBM = pFrame->GetDoc().getIDocumentMarkAccess()->getFieldmarkFor(aPosition);
+            if(pBM != nullptr && pBM->GetFieldname( ) == ODF_FORMDATE)
+            {
+                if (ch == CH_TXT_ATR_FIELDSTART)
+                    pPor = new SwFieldFormDatePortion(pBM, true);
+                else if (ch == CH_TXT_ATR_FIELDSEP)
+                    pPor = new SwFieldMarkPortion(); // it's added in DateFieldmark?
+                else if (ch == CH_TXT_ATR_FIELDEND)
+                    pPor = new SwFieldFormDatePortion(pBM, false);
+            }
+            else if (ch == CH_TXT_ATR_FIELDSTART)
+                pPor = new SwFieldMarkPortion();
+            else if (ch == CH_TXT_ATR_FIELDSEP)
                 pPor = new SwFieldMarkPortion();
             else if (ch == CH_TXT_ATR_FIELDEND)
                 pPor = new SwFieldMarkPortion();
             else if (ch == CH_TXT_ATR_FORMELEMENT)
             {
-                SwTextFrame const*const pFrame(rInf.GetTextFrame());
-                SwPosition aPosition(pFrame->MapViewToModelPos(rInf.GetIdx()));
-                sw::mark::IFieldmark *pBM = pFrame->GetDoc().getIDocumentMarkAccess()->getFieldmarkFor(aPosition);
                 OSL_ENSURE(pBM != nullptr, "Where is my form field bookmark???");
                 if (pBM != nullptr)
                 {
@@ -1041,7 +1044,7 @@ SwLinePortion *SwTextFormatter::WhichFirstPortion(SwTextFormatInfo &rInf)
         if( !rInf.IsErgoDone() )
         {
             if( m_pFrame->IsInFootnote() && !m_pFrame->GetIndPrev() )
-                pPor = static_cast<SwLinePortion*>(NewErgoSumPortion( rInf ));
+                pPor = NewErgoSumPortion( rInf );
             rInf.SetErgoDone( true );
         }
 
@@ -1086,7 +1089,7 @@ SwLinePortion *SwTextFormatter::WhichFirstPortion(SwTextFormatInfo &rInf)
             const bool bFootnoteNum = m_pFrame->IsFootnoteNumFrame();
             rInf.GetParaPortion()->SetFootnoteNum( bFootnoteNum );
             if( bFootnoteNum )
-                pPor = static_cast<SwLinePortion*>(NewFootnoteNumPortion( rInf ));
+                pPor = NewFootnoteNumPortion( rInf );
             rInf.SetFootnoteDone( true );
         }
 
@@ -1095,7 +1098,7 @@ SwLinePortion *SwTextFormatter::WhichFirstPortion(SwTextFormatInfo &rInf)
         if( !rInf.IsErgoDone() && !pPor && ! rInf.IsMulti() )
         {
             if( m_pFrame->IsInFootnote() && !m_pFrame->GetIndPrev() )
-                pPor = static_cast<SwLinePortion*>(NewErgoSumPortion( rInf ));
+                pPor = NewErgoSumPortion( rInf );
             rInf.SetErgoDone( true );
         }
 
@@ -1107,12 +1110,12 @@ SwLinePortion *SwTextFormatter::WhichFirstPortion(SwTextFormatInfo &rInf)
 
             // If we're in the follow, then of course not
             if (GetTextFrame()->GetTextNodeForParaProps()->GetNumRule())
-                pPor = static_cast<SwLinePortion*>(NewNumberPortion( rInf ));
+                pPor = NewNumberPortion( rInf );
             rInf.SetNumDone( true );
         }
         // 8. The DropCaps
         if( !pPor && GetDropFormat() && ! rInf.IsMulti() )
-            pPor = static_cast<SwLinePortion*>(NewDropPortion( rInf ));
+            pPor = NewDropPortion( rInf );
 
         // 9. Kerning portions at beginning of line in grid mode
         if ( !pPor && !m_pCurr->GetNextPortion() )
@@ -2313,6 +2316,14 @@ void SwTextFormatter::CalcFlyWidth( SwTextFormatInfo &rInf )
     if ( m_pFrame->IsVertical() )
         m_pFrame->SwitchVerticalToHorizontal( aInter );
 
+    if (!aInter.IsEmpty() && aInter.Bottom() < nTop)
+    {
+        // Intersects with the frame area (with upper margin), but not with the print area (without
+        // upper margin). Don't reserve space for the fly portion in this case, text is allowed to
+        // flow there.
+        aInter.Height(0);
+    }
+
     if( !aInter.IsOver( aLine ) )
         return;
 
@@ -2465,7 +2476,7 @@ void SwTextFormatter::CalcFlyWidth( SwTextFormatInfo &rInf )
 SwFlyCntPortion *SwTextFormatter::NewFlyCntPortion( SwTextFormatInfo &rInf,
                                                    SwTextAttr *pHint ) const
 {
-    const SwFrame *pFrame = static_cast<SwFrame*>(m_pFrame);
+    const SwFrame *pFrame = m_pFrame;
 
     SwFlyInContentFrame *pFly;
     SwFrameFormat* pFrameFormat = static_cast<SwTextFlyCnt*>(pHint)->GetFlyCnt().GetFrameFormat();

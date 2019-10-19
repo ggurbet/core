@@ -120,7 +120,7 @@ public:
     virtual void SAL_CALL setHidden( const OUString& FileURL, sal_Bool bHidden ) override;
 
     OUString SAL_CALL getImplementationName() override
-    { return OUString(IMPLEMENTATION_NAME); }
+    { return IMPLEMENTATION_NAME; }
 
     sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
     { return cppu::supportsService(this, ServiceName); }
@@ -354,7 +354,7 @@ void OFileAccess::createFolder( const OUString& NewFolderURL )
 
     ucbhelper::Content aCnt( aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), mxEnvironment.get(), comphelper::getProcessComponentContext() );
 
-    Sequence< ContentInfo > aInfo = aCnt.queryCreatableContentsInfo();
+    const Sequence< ContentInfo > aInfo = aCnt.queryCreatableContentsInfo();
 
     for ( const ContentInfo & rCurr : aInfo )
     {
@@ -586,7 +586,7 @@ bool OFileAccess::createNewFile( const OUString & rParentURL,
 {
     ucbhelper::Content aParentCnt( rParentURL, mxEnvironment.get(), comphelper::getProcessComponentContext() );
 
-    Sequence< ContentInfo > aInfo = aParentCnt.queryCreatableContentsInfo();
+    const Sequence< ContentInfo > aInfo = aParentCnt.queryCreatableContentsInfo();
 
     for ( const ContentInfo & rCurr : aInfo )
     {

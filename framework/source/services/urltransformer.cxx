@@ -39,7 +39,7 @@ public:
 
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.framework.URLTransformer");
+        return "com.sun.star.comp.framework.URLTransformer";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -261,9 +261,7 @@ sal_Bool SAL_CALL URLTransformer::assemble( css::util::URL& aURL )
     else if ( !aURL.Protocol.isEmpty() )
     {
         // Minimal support for unknown protocols
-        OUStringBuffer aBuffer( aURL.Protocol );
-        aBuffer.append( aURL.Path );
-        aURL.Complete   = aBuffer.makeStringAndClear();
+        aURL.Complete   = aURL.Protocol + aURL.Path;
         aURL.Main       = aURL.Complete;
         return true;
     }

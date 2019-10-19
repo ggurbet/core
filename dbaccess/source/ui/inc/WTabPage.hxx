@@ -20,23 +20,22 @@
 #ifndef INCLUDED_DBACCESS_SOURCE_UI_INC_WTABPAGE_HXX
 #define INCLUDED_DBACCESS_SOURCE_UI_INC_WTABPAGE_HXX
 
-#include <vcl/tabpage.hxx>
+#include <vcl/wizardmachine.hxx>
 
 namespace dbaui
 {
     // Wizard Page
     class OCopyTableWizard;
-    class OWizardPage       : public TabPage
+    class OWizardPage : public ::vcl::OWizardPage
     {
     protected:
-        VclPtr<OCopyTableWizard>           m_pParent;
+        OCopyTableWizard*       m_pParent;
         bool                    m_bFirstTime;   // Page is called the first time; should be set in the reset method
 
-        OWizardPage( vcl::Window *pParent, const OString& rID, const OUString& rUIXMLDescription );
+        OWizardPage(weld::Container* pPage, OCopyTableWizard* pWizard, const OUString& rUIXMLDescription, const OString& rID);
 
     public:
         virtual ~OWizardPage() override;
-        virtual void dispose() override;
         virtual void        Reset ( )           = 0;
         virtual bool    LeavePage()         = 0;
         virtual OUString    GetTitle() const    = 0;

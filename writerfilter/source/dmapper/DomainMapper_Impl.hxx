@@ -27,7 +27,6 @@
 #include <com/sun/star/text/XTextFrame.hpp>
 #include <com/sun/star/style/TabStop.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
-#include <unotools/saveopt.hxx>
 #include <queue>
 #include <stack>
 #include <tuple>
@@ -127,7 +126,7 @@ class HeaderFooterContext
     bool const m_bTextInserted;
 public:
     explicit HeaderFooterContext(bool bTextInserted);
-    bool getTextInserted();
+    bool getTextInserted() const;
 };
 
 /// field stack element
@@ -150,7 +149,6 @@ class FieldContext : public virtual SvRefBase
     OUString m_sHyperlinkURL;
     /// A frame for the hyperlink when one exists.
     OUString m_sHyperlinkTarget;
-    OUString m_sHyperlinkStyle;
 
     FFDataHandler::Pointer_t m_pFFDataHandler;
     FormControlHelper::Pointer_t m_pFormControlHelper;
@@ -176,7 +174,7 @@ public:
     bool                    IsCommandCompleted() const { return m_bFieldCommandCompleted;    }
 
     void                    SetFieldLocked() { m_bFieldLocked = true; }
-    bool                    IsFieldLocked() { return m_bFieldLocked; }
+    bool                    IsFieldLocked() const { return m_bFieldLocked; }
 
     const css::uno::Reference<css::beans::XPropertySet>& GetCustomField() const { return m_xCustomField; }
     void SetCustomField(css::uno::Reference<css::beans::XPropertySet> const& xCustomField) { m_xCustomField = xCustomField; }
@@ -186,24 +184,22 @@ public:
     void SetFormField(css::uno::Reference<css::text::XFormField> const& xFormField) { m_xFormField = xFormField;}
 
     void SetTOC(css::uno::Reference<css::beans::XPropertySet> const& xTOC) { m_xTOC = xTOC; }
-    const css::uno::Reference<css::beans::XPropertySet>& GetTOC() { return m_xTOC; }
+    const css::uno::Reference<css::beans::XPropertySet>& GetTOC() const { return m_xTOC; }
 
     void SetTC(css::uno::Reference<css::beans::XPropertySet> const& xTC) { m_xTC = xTC; }
-    const css::uno::Reference<css::beans::XPropertySet>& GetTC() { return m_xTC; }
+    const css::uno::Reference<css::beans::XPropertySet>& GetTC() const { return m_xTC; }
 
     void  SetHyperlinkURL( const OUString& rURL ) { m_sHyperlinkURL = rURL; }
-    const OUString& GetHyperlinkURL() { return m_sHyperlinkURL; }
+    const OUString& GetHyperlinkURL() const { return m_sHyperlinkURL; }
     void SetHyperlinkTarget(const OUString& rTarget) { m_sHyperlinkTarget = rTarget; }
-    const OUString& GetHyperlinkTarget() { return m_sHyperlinkTarget; }
-    void  SetHyperlinkStyle(const OUString& rStyle) { m_sHyperlinkStyle = rStyle; }
-    const OUString& GetHyperlinkStyle() { return m_sHyperlinkStyle; }
+    const OUString& GetHyperlinkTarget() const { return m_sHyperlinkTarget; }
 
     void setFFDataHandler(FFDataHandler::Pointer_t pFFDataHandler) { m_pFFDataHandler = pFFDataHandler; }
     const FFDataHandler::Pointer_t& getFFDataHandler() const { return m_pFFDataHandler; }
 
     void setFormControlHelper(FormControlHelper::Pointer_t pFormControlHelper) { m_pFormControlHelper = pFormControlHelper; }
     const FormControlHelper::Pointer_t& getFormControlHelper() const { return m_pFormControlHelper; }
-    const PropertyMapPtr& getProperties() { return m_pProperties; }
+    const PropertyMapPtr& getProperties() const { return m_pProperties; }
 
     ::std::vector<OUString> GetCommandParts() const;
 };
@@ -225,7 +221,7 @@ struct TextAppendContext
         : xTextAppend(xAppend)
     {
         xCursor.set(xCur, css::uno::UNO_QUERY);
-        xInsertPosition.set(xCursor, css::uno::UNO_QUERY);
+        xInsertPosition = xCursor;
     }
 };
 
@@ -299,17 +295,17 @@ struct PermInsertPosition
 
         if (m_Ed.isEmpty())
         {
-            bookmarkName += "permission-for-group:";
-            bookmarkName += OUString::number(m_Id);
-            bookmarkName += ":";
-            bookmarkName += m_EdGrp;
+            bookmarkName += "permission-for-group:" +
+                OUString::number(m_Id) +
+                ":" +
+                m_EdGrp;
         }
         else
         {
-            bookmarkName += "permission-for-user:";
-            bookmarkName += OUString::number(m_Id);
-            bookmarkName += ":";
-            bookmarkName += m_Ed;
+            bookmarkName += "permission-for-user:" +
+                OUString::number(m_Id) +
+                ":" +
+                m_Ed;
         }
 
         //todo: make sure the name is not used already!
@@ -348,7 +344,7 @@ struct LineNumberSettings
     sal_Int32   nInterval;
     bool        bRestartAtEachPage;
     LineNumberSettings() :
-         nDistance(0)
+         nDistance(-1)
         ,nInterval(0)
         ,bRestartAtEachPage(true)
     {}
@@ -407,13 +403,14 @@ public:
 private:
     SourceDocumentType const                                                        m_eDocumentType;
     DomainMapper&                                                                   m_rDMapper;
-    SvtSaveOptions const                                                            m_aSaveOpt;
     OUString m_aBaseUrl;
     css::uno::Reference<css::text::XTextDocument> m_xTextDocument;
     css::uno::Reference<css::beans::XPropertySet> m_xDocumentSettings;
     css::uno::Reference<css::lang::XMultiServiceFactory> m_xTextFactory;
     css::uno::Reference<css::uno::XComponentContext> m_xComponentContext;
-    css::uno::Reference<css::container::XNameContainer> m_xPageStyles;
+    css::uno::Reference<css::container::XNameContainer> m_xPageStyles1;
+    // cache next available number, expensive to repeatedly compute
+    boost::optional<int> m_xNextUnusedPageStyleNo;
     css::uno::Reference<css::text::XText> m_xBodyText;
     css::uno::Reference<css::text::XTextContent> m_xEmbedded;
 
@@ -503,6 +500,7 @@ private:
     std::stack< std::vector< RedlineParamsPtr > > m_aRedlines;
     // The redline currently read, may be also stored by a context instead of m_aRedlines.
     RedlineParamsPtr                m_currentRedline;
+    RedlineParamsPtr                m_previousRedline;
     RedlineParamsPtr                m_pParaMarkerRedline;
     bool                            m_bIsParaMarkerChange;
     // redline data of the terminating run, if it's a moveFrom deletion
@@ -511,6 +509,7 @@ private:
     /// If the current paragraph has any runs.
     bool                            m_bParaChanged;
     bool                            m_bIsFirstParaInSection;
+    bool                            m_bIsFirstParaInSectionAfterRedline;
     bool                            m_bIsFirstParaInShape = false;
     bool                            m_bDummyParaAddedForTableInSection;
     bool                            m_bTextFrameInserted;
@@ -566,6 +565,7 @@ public:
     }
 
     css::uno::Reference<css::container::XNameContainer> const & GetPageStyles();
+    OUString GetUnusedPageStyleName();
     css::uno::Reference<css::text::XText> const & GetBodyText();
     const css::uno::Reference<css::lang::XMultiServiceFactory>& GetTextFactory() const
     {
@@ -591,7 +591,7 @@ public:
     void AddDummyParaForTableInSection();
     void RemoveLastParagraph( );
     void SetIsLastParagraphInSection( bool bIsLast );
-    bool GetIsLastParagraphInSection() { return m_bIsLastParaInSection;}
+    bool GetIsLastParagraphInSection() const { return m_bIsLastParaInSection;}
     void SetRubySprmId( sal_uInt32 nSprmId) { m_aRubyInfo.nSprmId = nSprmId ; }
     void SetRubyText( OUString const &sText, OUString const &sStyle) {
         m_aRubyInfo.sRubyText = sText;
@@ -601,32 +601,33 @@ public:
     void SetRubyInfo(const RubyInfo & rInfo) { m_aRubyInfo = rInfo;}
 
     void SetIsLastSectionGroup( bool bIsLast );
-    bool GetIsLastSectionGroup() { return m_bIsLastSectionGroup;}
+    bool GetIsLastSectionGroup() const { return m_bIsLastSectionGroup;}
     void SetIsFirstParagraphInSection( bool bIsFirst );
-    bool GetIsFirstParagraphInSection();
+    void SetIsFirstParagraphInSectionAfterRedline( bool bIsFirstAfterRedline );
+    bool GetIsFirstParagraphInSection( bool bAfterRedline = false ) const;
     void SetIsFirstParagraphInShape(bool bIsFirst);
-    bool GetIsFirstParagraphInShape() { return m_bIsFirstParaInShape; }
+    bool GetIsFirstParagraphInShape() const { return m_bIsFirstParaInShape; }
     void SetIsDummyParaAddedForTableInSection( bool bIsAdded );
-    bool GetIsDummyParaAddedForTableInSection() { return m_bDummyParaAddedForTableInSection;}
+    bool GetIsDummyParaAddedForTableInSection() const { return m_bDummyParaAddedForTableInSection;}
 
     /// Track if a textframe has been inserted into this section
     void SetIsTextFrameInserted( bool bIsInserted );
-    bool GetIsTextFrameInserted() { return m_bTextFrameInserted;}
+    bool GetIsTextFrameInserted() const { return m_bTextFrameInserted;}
 
     void SetIsPreviousParagraphFramed( bool bIsFramed ) { m_bIsPreviousParagraphFramed = bIsFramed; }
-    bool GetIsPreviousParagraphFramed() { return m_bIsPreviousParagraphFramed; }
+    bool GetIsPreviousParagraphFramed() const { return m_bIsPreviousParagraphFramed; }
     void SetParaSectpr(bool bParaSectpr);
-    bool GetParaSectpr() { return m_bParaSectpr;}
+    bool GetParaSectpr() const { return m_bParaSectpr;}
 
     void SetSymbolChar( sal_Int32 nSymbol) { m_aSymbolData.cSymbol = sal_Unicode(nSymbol); }
     void SetSymbolFont( OUString const &rName ) { m_aSymbolData.sFont = rName; }
-    const SymbolData & GetSymbolData() { return m_aSymbolData;}
+    const SymbolData & GetSymbolData() const { return m_aSymbolData;}
 
     /// Setter method for m_bSdt.
     void SetSdt(bool bSdt);
     /// Getter method for m_bSdt.
-    bool GetSdt() { return m_bSdt;}
-    bool GetParaChanged() { return m_bParaChanged;}
+    bool GetSdt() const { return m_bSdt;}
+    bool GetParaChanged() const { return m_bParaChanged;}
 
     void deferBreak( BreakType deferredBreakType );
     bool isBreakDeferred( BreakType deferredBreakType );
@@ -634,9 +635,9 @@ public:
     void clearDeferredBreak(BreakType deferredBreakType);
 
     void setSdtEndDeferred(bool bSdtEndDeferred);
-    bool isSdtEndDeferred();
+    bool isSdtEndDeferred() const;
     void setParaSdtEndDeferred(bool bParaSdtEndDeferred);
-    bool isParaSdtEndDeferred();
+    bool isParaSdtEndDeferred() const;
 
     void finishParagraph( const PropertyMapPtr& pPropertyMap, const bool bRemove = false);
     void appendTextPortion( const OUString& rString, const PropertyMapPtr& pPropertyMap );
@@ -660,12 +661,13 @@ public:
     void    PopProperties(ContextType eId);
 
     ContextType GetTopContextType() const { return m_aContextStack.top(); }
-    const PropertyMapPtr& GetTopContext()
+    const PropertyMapPtr& GetTopContext() const
     {
         return m_pTopContext;
     }
     PropertyMapPtr GetTopContextOfType(ContextType eId);
 
+    bool HasTopText() const;
     css::uno::Reference<css::text::XTextAppend> const & GetTopTextAppend();
     FieldContextPtr const & GetTopFieldContext();
 
@@ -706,11 +708,14 @@ public:
     css::uno::Sequence<css::style::TabStop> GetCurrentTabStopAndClear();
 
     void            SetCurrentParaStyleName(const OUString& sStringValue) {m_sCurrentParaStyleName = sStringValue;}
-    const OUString  GetCurrentParaStyleName();
-    const OUString  GetDefaultParaStyleName();
+    OUString  GetCurrentParaStyleName();
+    OUString  GetDefaultParaStyleName();
 
-    css::uno::Any GetPropertyFromStyleSheet(PropertyIds eId);
-    // get property first from the given context, or secondly from its stylesheet
+    // specified style - including inherited properties. Indicate whether paragraph defaults should be checked.
+    css::uno::Any GetPropertyFromStyleSheet(PropertyIds eId, StyleSheetEntryPtr pEntry, const bool bPara);
+    // current paragraph style - including inherited properties
+    css::uno::Any GetPropertyFromParaStyleSheet(PropertyIds eId);
+    // get property first from the given context, or secondly via inheritance from styles/docDefaults
     css::uno::Any GetAnyProperty(PropertyIds eId, const PropertyMapPtr& rContext);
     void        SetStyleSheetImport( bool bSet ) { m_bInStyleSheetImport = bSet;}
     bool        IsStyleSheetImport()const { return m_bInStyleSheetImport;}
@@ -731,7 +736,6 @@ public:
 
     void PopPageHeaderFooter();
     bool IsInHeaderFooter() const { return m_eInHeaderFooterImport != HeaderFooterImportState::none; }
-    bool IsInFooter() const { return m_eInHeaderFooterImport == HeaderFooterImportState::footer; }
 
     bool IsInTOC() const { return m_bStartTOC; }
 
@@ -821,8 +825,7 @@ public:
 
     DomainMapperTableManager& getTableManager()
     {
-        tools::SvRef< DomainMapperTableManager > pMngr = m_aTableManagers.top();
-        return *pMngr.get( );
+        return *m_aTableManagers.top();
     }
 
     void appendTableManager( )
@@ -879,7 +882,7 @@ public:
 
     void AddNewRedline( sal_uInt32 sprmId );
 
-    sal_Int32 GetCurrentRedlineToken( );
+    sal_Int32 GetCurrentRedlineToken( ) const;
     void SetCurrentRedlineAuthor( const OUString& sAuthor );
     void SetCurrentRedlineDate( const OUString& sDate );
     void SetCurrentRedlineId( sal_Int32 nId );
@@ -888,9 +891,9 @@ public:
     void SetCurrentRedlineIsRead();
     void RemoveTopRedline( );
     void SetCurrentRedlineInitials( const OUString& sInitials );
-    bool IsFirstRun() { return m_bIsFirstRun;}
+    bool IsFirstRun() const { return m_bIsFirstRun;}
     void SetIsFirstRun(bool bval) { m_bIsFirstRun = bval;}
-    bool IsOutsideAParagraph() { return m_bIsOutsideAParagraph;}
+    bool IsOutsideAParagraph() const { return m_bIsOutsideAParagraph;}
     void SetIsOutsideAParagraph(bool bval) { m_bIsOutsideAParagraph = bval;}
 
     void ApplySettingsTable();
@@ -917,10 +920,10 @@ public:
     sal_Int32 getCurrentNumberingProperty(const OUString& aProp);
 
     /// If we're importing into a new document, or just pasting to an existing one.
-    bool IsNewDoc() { return m_bIsNewDoc;}
+    bool IsNewDoc() const { return m_bIsNewDoc;}
 
     /// If we're importing autotext.
-    bool IsReadGlossaries() { return m_bIsReadGlossaries;}
+    bool IsReadGlossaries() const { return m_bIsReadGlossaries;}
 
     /// If we're inside <w:rPr>, inside <w:style w:type="table">
     bool m_bInTableStyleRunProps;
@@ -953,7 +956,6 @@ public:
     /// If the next tab should be ignored, used for footnotes.
     bool m_bCheckFirstFootnoteTab;
     bool m_bIgnoreNextTab;
-    bool m_bFrameBtLr; ///< Bottom to top, left to right text frame direction is requested for the current text frame.
     /// Pending floating tables: they may be converted to text frames at the section end.
     std::vector<FloatingTableInfo> m_aPendingFloatingTables;
 
@@ -964,10 +966,10 @@ public:
     void appendGrabBag(std::vector<css::beans::PropertyValue>& rInteropGrabBag, const OUString& aKey, const OUString& aValue);
     void appendGrabBag(std::vector<css::beans::PropertyValue>& rInteropGrabBag, const OUString& aKey, std::vector<css::beans::PropertyValue>& rValue);
 
-    /// Enable, disable an check status of grabbags
+    /// Enable, disable and check status of grabbags
     void enableInteropGrabBag(const OUString& aName);
     void disableInteropGrabBag();
-    bool isInteropGrabBagEnabled();
+    bool isInteropGrabBagEnabled() const;
 
     /// Name of m_aInteropGrabBag.
     OUString m_aInteropGrabBagName;
@@ -984,8 +986,8 @@ public:
     std::pair<OUString, OUString> m_aAligns;
     /// ST_PositivePercentage values we received
     std::queue<OUString> m_aPositivePercentages;
-    bool isInIndexContext() { return m_bStartIndex;}
-    bool isInBibliographyContext() { return m_bStartBibliography;}
+    bool isInIndexContext() const { return m_bStartIndex;}
+    bool isInBibliographyContext() const { return m_bStartBibliography;}
     SmartTagHandler& getSmartTagHandler() { return m_aSmartTagHandler; }
 
     void substream(Id rName, ::writerfilter::Reference<Stream>::Pointer_t const& ref);
@@ -996,13 +998,18 @@ public:
     /// Check if "SdtEndBefore" property is set
     bool IsSdtEndBefore();
 
-    bool IsDiscardHeaderFooter();
+    bool IsDiscardHeaderFooter() const;
 
     void SetParaAutoBefore(bool bParaAutoBefore) { m_bParaAutoBefore = bParaAutoBefore; }
 
     /// Forget about the previous paragraph, as it's not inside the same
     /// start/end node.
     void ClearPreviousParagraph();
+
+    /// Handle redline text portions in frames:
+    /// store their data, and create them after frame creation
+    bool m_bIsActualParagraphFramed;
+    std::vector<css::uno::Any> aFramedRedlines;
 
 private:
     void PushPageHeaderFooter(bool bHeader, SectionPropertyMap::PageType eType);

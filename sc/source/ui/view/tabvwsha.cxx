@@ -24,7 +24,6 @@
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <o3tl/temporary.hxx>
 #include <sfx2/bindings.hxx>
-#include <sfx2/dispatch.hxx>
 #include <sfx2/lokhelper.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/sfxdlg.hxx>
@@ -36,9 +35,7 @@
 #include <svl/srchdefs.hxx>
 #include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
-#include <svl/zformat.hxx>
 #include <svx/numinf.hxx>
-#include <svx/unobrushitemhelper.hxx>
 #include <svx/zoomslideritem.hxx>
 
 #include <global.hxx>
@@ -49,7 +46,6 @@
 #include <compiler.hxx>
 #include <docsh.hxx>
 #include <document.hxx>
-#include <dwfunctr.hxx>
 #include <formulacell.hxx>
 #include <globstr.hrc>
 #include <inputhdl.hxx>
@@ -115,8 +111,7 @@ bool ScTabViewShell::GetFunction( OUString& rFuncStr, FormulaError nErrCode )
             SCROW       nPosY       = rViewData.GetCurY();
             SCTAB       nTab        = rViewData.GetTabNo();
 
-            OUString aStr = ScResId(pGlobStrId);
-            aStr += ": ";
+            OUString aStr = ScResId(pGlobStrId) + ": ";
 
             ScAddress aCursor( nPosX, nPosY, nTab );
             double nVal;
@@ -740,7 +735,7 @@ void ScTabViewShell::ExecuteSave( SfxRequest& rReq )
             // we will save the doc immediately afterwards, the modified state event
             // is clobbered. To avoid that, we notify all views immediately of the
             // modified state, apply the modification, then save the document.
-            ScInputHandler* pHdl = SC_MOD()->GetInputHdl();
+            ScInputHandler* pHdl = GetInputHandler();
             if (pHdl != nullptr && pHdl->GetModified())
                 SfxLokHelper::notifyAllViews(LOK_CALLBACK_STATE_CHANGED, ".uno:ModifiedStatus=true");
         }

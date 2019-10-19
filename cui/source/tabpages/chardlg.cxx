@@ -17,22 +17,13 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <editeng/unolingu.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/idle.hxx>
-#include <unotools/pathoptions.hxx>
 #include <svtools/ctrltool.hxx>
-#include <sfx2/printer.hxx>
 #include <sfx2/objsh.hxx>
-#include <sfx2/viewsh.hxx>
-#include <sfx2/bindings.hxx>
-#include <sfx2/viewfrm.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
-#include <svx/ucsubset.hxx>
 #include <svtools/unitconv.hxx>
 #include <svl/languageoptions.hxx>
-#include <svx/xtable.hxx>
 #include <chardlg.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/postitem.hxx>
@@ -50,10 +41,7 @@
 #include <editeng/blinkitem.hxx>
 #include <editeng/flstitem.hxx>
 #include <editeng/autokernitem.hxx>
-#include <editeng/brushitem.hxx>
 #include <editeng/colritem.hxx>
-#include <svx/drawitem.hxx>
-#include <svx/dlgutil.hxx>
 #include <dialmgr.hxx>
 #include <sfx2/htmlmode.hxx>
 #include <cui/cuicharmap.hxx>
@@ -62,15 +50,12 @@
 #include <editeng/charreliefitem.hxx>
 #include <editeng/twolinesitem.hxx>
 #include <editeng/charhiddenitem.hxx>
-#include <svl/stritem.hxx>
 #include <editeng/charscaleitem.hxx>
 #include <editeng/charrotateitem.hxx>
 #include <officecfg/Office/Common.hxx>
-#include <svx/svxdlg.hxx>
 #include <strings.hrc>
 #include <twolines.hrc>
 #include <svl/intitem.hxx>
-#include <sfx2/request.hxx>
 #include <svx/flagsdef.hxx>
 #include <FontFeaturesDialog.hxx>
 #include <sal/log.hxx>
@@ -172,8 +157,8 @@ inline SvxFont& SvxCharBasePage::GetPreviewCTLFont()
     return m_aPreviewWin.GetCTLFont();
 }
 
-SvxCharBasePage::SvxCharBasePage(TabPageParent pParent, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet& rItemset)
-    : SfxTabPage(pParent, rUIXMLDescription, rID, &rItemset)
+SvxCharBasePage::SvxCharBasePage(weld::Container* pPage, weld::DialogController* pController, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet& rItemset)
+    : SfxTabPage(pPage, pController, rUIXMLDescription, rID, &rItemset)
     , m_bPreviewBackgroundToCharacter( false )
 {
 }
@@ -227,8 +212,8 @@ struct SvxCharNamePage_Impl
 
 // class SvxCharNamePage -------------------------------------------------
 
-SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet)
-    : SvxCharBasePage(pParent, "cui/ui/charnamepage.ui", "CharNamePage", rInSet)
+SvxCharNamePage::SvxCharNamePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInSet)
+    : SvxCharBasePage(pPage, pController, "cui/ui/charnamepage.ui", "CharNamePage", rInSet)
     , m_pImpl(new SvxCharNamePage_Impl)
     , m_xEastFrame(m_xBuilder->weld_widget("asian"))
     , m_xEastFontNameFT(m_xBuilder->weld_label("eastfontnameft"))
@@ -238,7 +223,7 @@ SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet
     , m_xEastFontSizeFT(m_xBuilder->weld_label("eastsizeft"))
     , m_xEastFontSizeLB(new SvtFontSizeBox(m_xBuilder->weld_combo_box("eastsizelb")))
     , m_xEastFontLanguageFT(m_xBuilder->weld_label("eastlangft"))
-    , m_xEastFontLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box("eastlanglb")))
+    , m_xEastFontLanguageLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("eastlanglb")))
     , m_xEastFontTypeFT(m_xBuilder->weld_label("eastfontinfo"))
     , m_xEastFontFeaturesButton(m_xBuilder->weld_button("east_features_button"))
     , m_xCTLFrame(m_xBuilder->weld_widget("ctl"))
@@ -249,7 +234,7 @@ SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet
     , m_xCTLFontSizeFT(m_xBuilder->weld_label("ctlsizeft"))
     , m_xCTLFontSizeLB(new SvtFontSizeBox(m_xBuilder->weld_combo_box("ctlsizelb")))
     , m_xCTLFontLanguageFT(m_xBuilder->weld_label("ctllangft"))
-    , m_xCTLFontLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box("ctllanglb")))
+    , m_xCTLFontLanguageLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("ctllanglb")))
     , m_xCTLFontTypeFT(m_xBuilder->weld_label("ctlfontinfo"))
     , m_xCTLFontFeaturesButton(m_xBuilder->weld_button("ctl_features_button"))
 {
@@ -276,7 +261,7 @@ SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet
         m_xWestFontSizeLB.reset(new SvtFontSizeBox(m_xBuilder->weld_combo_box("westsizelb-cjk")));
 
         m_xWestFontLanguageFT = m_xBuilder->weld_label("westlangft-cjk");
-        m_xWestFontLanguageLB.reset(new LanguageBox(m_xBuilder->weld_combo_box("westlanglb-cjk")));
+        m_xWestFontLanguageLB.reset(new SvxLanguageBox(m_xBuilder->weld_combo_box("westlanglb-cjk")));
         m_xWestFontTypeFT = m_xBuilder->weld_label("westfontinfo-cjk");
 
         m_xWestFontFeaturesButton = m_xBuilder->weld_button("west_features_button-cjk");
@@ -289,7 +274,7 @@ SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet
         m_xWestFontSizeFT = m_xBuilder->weld_label("westsizeft-nocjk");
 
         m_xWestFontLanguageFT = m_xBuilder->weld_label("westlangft-nocjk");
-        m_xWestFontLanguageLB.reset(new LanguageBox(m_xBuilder->weld_combo_box("westlanglb-nocjk")));
+        m_xWestFontLanguageLB.reset(new SvxLanguageBox(m_xBuilder->weld_combo_box("westlanglb-nocjk")));
         m_xWestFontTypeFT = m_xBuilder->weld_label("westfontinfo-nocjk");
 
         m_xWestFontFeaturesButton = m_xBuilder->weld_button("west_features_button-nocjk");
@@ -345,11 +330,6 @@ SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet
 
 SvxCharNamePage::~SvxCharNamePage()
 {
-    disposeOnce();
-}
-
-void SvxCharNamePage::dispose()
-{
     m_pImpl.reset();
     m_xCTLFontStyleLB.reset();
     m_xEastFontLanguageLB.reset();
@@ -361,7 +341,6 @@ void SvxCharNamePage::dispose()
     m_xPreviewWin.reset();
     m_xCTLFontLanguageLB.reset();
     m_xEastFontLanguageLB.reset();
-    SvxCharBasePage::dispose();
 }
 
 void SvxCharNamePage::Initialize()
@@ -426,7 +405,7 @@ namespace
                     const weld::ComboBox* _pFontNameLB,
                     const SvtFontStyleBox* _pFontStyleLB,
                     const SvtFontSizeBox* _pFontSizeLB,
-                    const LanguageBox* _pLanguageLB,
+                    const SvxLanguageBox* _pLanguageLB,
                     const FontList* _pFontList,
                     sal_uInt16 _nFontWhich,
                     sal_uInt16 _nFontHeightWhich)
@@ -630,7 +609,7 @@ void SvxCharNamePage::Reset_Impl( const SfxItemSet& rSet, LanguageGroup eLangGrp
     weld::Label* pSizeLabel = nullptr;
     SvtFontSizeBox* pSizeBox = nullptr;
     weld::Label* pLangFT = nullptr;
-    LanguageBox* pLangBox = nullptr;
+    SvxLanguageBox* pLangBox = nullptr;
     sal_uInt16 nWhich = 0;
 
     switch ( eLangGrp )
@@ -858,7 +837,7 @@ bool SvxCharNamePage::FillItemSet_Impl( SfxItemSet& rSet, LanguageGroup eLangGrp
     weld::ComboBox* pNameBox = nullptr;
     SvtFontStyleBox* pStyleBox = nullptr;
     SvtFontSizeBox* pSizeBox = nullptr;
-    LanguageBox* pLangBox = nullptr;
+    SvxLanguageBox* pLangBox = nullptr;
     sal_uInt16 nWhich = 0;
     sal_uInt16 nSlot = 0;
 
@@ -961,7 +940,7 @@ bool SvxCharNamePage::FillItemSet_Impl( SfxItemSet& rSet, LanguageGroup eLangGrp
 
         if ( m_pImpl->m_bInSearchMode && bChanged &&
              aInfo.GetWeight() == WEIGHT_NORMAL && aInfo.GetItalic() != ITALIC_NONE )
-            bChanged = true;
+            bChanged = false;
     }
 
     if ( !bChanged && pExampleSet &&
@@ -1099,17 +1078,17 @@ bool SvxCharNamePage::FillItemSet_Impl( SfxItemSet& rSet, LanguageGroup eLangGrp
     {
         switch (pLangBox->GetEditedAndValid())
         {
-            case LanguageBox::EditedAndValid::No:
+            case SvxLanguageBox::EditedAndValid::No:
                 ;   // nothing to do
                 break;
-            case LanguageBox::EditedAndValid::Valid:
+            case SvxLanguageBox::EditedAndValid::Valid:
                 {
                     const int nPos = pLangBox->SaveEditedAsEntry();
                     if (nPos != -1)
                         pLangBox->set_active(nPos);
                 }
                 break;
-            case LanguageBox::EditedAndValid::Invalid:
+            case SvxLanguageBox::EditedAndValid::Invalid:
                 pLangBox->set_active_id(pLangBox->get_saved_active_id());
                 break;
         }
@@ -1177,7 +1156,7 @@ IMPL_LINK(SvxCharNamePage, FontFeatureButtonClicked, weld::Button&, rButton, voi
 
     if (!sFontName.isEmpty() && pNameBox)
     {
-        cui::FontFeaturesDialog aDialog(GetDialogFrameWeld(), sFontName);
+        cui::FontFeaturesDialog aDialog(GetFrameWeld(), sFontName);
         if (aDialog.run() == RET_OK)
         {
             pNameBox->set_entry_text(aDialog.getResultFontName());
@@ -1211,9 +1190,9 @@ DeactivateRC SvxCharNamePage::DeactivatePage( SfxItemSet* _pSet )
     return DeactivateRC::LeavePage;
 }
 
-VclPtr<SfxTabPage> SvxCharNamePage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SvxCharNamePage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SvxCharNamePage>::Create(pParent, *rSet );
+    return std::make_unique<SvxCharNamePage>(pPage, pController, *rSet );
 }
 
 void SvxCharNamePage::Reset( const SfxItemSet* rSet )
@@ -1332,14 +1311,14 @@ void SvxCharNamePage::PageCreated(const SfxAllItemSet& aSet)
 }
 // class SvxCharEffectsPage ----------------------------------------------
 
-SvxCharEffectsPage::SvxCharEffectsPage(TabPageParent pParent, const SfxItemSet& rInSet)
-    : SvxCharBasePage(pParent, "cui/ui/effectspage.ui", "EffectsPage", rInSet)
+SvxCharEffectsPage::SvxCharEffectsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInSet)
+    : SvxCharBasePage(pPage, pController, "cui/ui/effectspage.ui", "EffectsPage", rInSet)
     , m_bOrigFontColor(false)
     , m_bNewFontColor(false)
     , m_bEnableNoneFontColor(false)
     , m_bUnderlineColorDisabled(false)
     , m_xFontColorFT(m_xBuilder->weld_label("fontcolorft"))
-    , m_xFontColorLB(new ColorListBox(m_xBuilder->weld_menu_button("fontcolorlb"), pParent.GetFrameWeld()))
+    , m_xFontColorLB(new ColorListBox(m_xBuilder->weld_menu_button("fontcolorlb"), pController->getDialog()))
     , m_xEffectsFT(m_xBuilder->weld_label("effectsft"))
     , m_xEffectsLB(m_xBuilder->weld_combo_box("effectslb"))
     , m_xReliefFT(m_xBuilder->weld_label("reliefft"))
@@ -1350,11 +1329,11 @@ SvxCharEffectsPage::SvxCharEffectsPage(TabPageParent pParent, const SfxItemSet& 
     , m_xHiddenBtn(m_xBuilder->weld_check_button("hiddencb"))
     , m_xOverlineLB(m_xBuilder->weld_combo_box("overlinelb"))
     , m_xOverlineColorFT(m_xBuilder->weld_label("overlinecolorft"))
-    , m_xOverlineColorLB(new ColorListBox(m_xBuilder->weld_menu_button("overlinecolorlb"), pParent.GetFrameWeld()))
+    , m_xOverlineColorLB(new ColorListBox(m_xBuilder->weld_menu_button("overlinecolorlb"), pController->getDialog()))
     , m_xStrikeoutLB(m_xBuilder->weld_combo_box("strikeoutlb"))
     , m_xUnderlineLB(m_xBuilder->weld_combo_box("underlinelb"))
     , m_xUnderlineColorFT(m_xBuilder->weld_label("underlinecolorft"))
-    , m_xUnderlineColorLB(new ColorListBox(m_xBuilder->weld_menu_button("underlinecolorlb"), pParent.GetFrameWeld()))
+    , m_xUnderlineColorLB(new ColorListBox(m_xBuilder->weld_menu_button("underlinecolorlb"), pController->getDialog()))
     , m_xIndividualWordsBtn(m_xBuilder->weld_check_button("individualwordscb"))
     , m_xEmphasisFT(m_xBuilder->weld_label("emphasisft"))
     , m_xEmphasisLB(m_xBuilder->weld_combo_box("emphasislb"))
@@ -1389,15 +1368,9 @@ Color SvxCharEffectsPage::GetPreviewFontColor(const Color& rColor) const
 
 SvxCharEffectsPage::~SvxCharEffectsPage()
 {
-    disposeOnce();
-}
-
-void SvxCharEffectsPage::dispose()
-{
     m_xUnderlineColorLB.reset();
     m_xOverlineColorLB.reset();
     m_xFontColorLB.reset();
-    SvxCharBasePage::dispose();
 }
 
 void SvxCharEffectsPage::Initialize()
@@ -1696,9 +1669,9 @@ DeactivateRC SvxCharEffectsPage::DeactivatePage( SfxItemSet* _pSet )
     return DeactivateRC::LeavePage;
 }
 
-VclPtr<SfxTabPage> SvxCharEffectsPage::Create( TabPageParent pParent, const SfxItemSet* rSet )
+std::unique_ptr<SfxTabPage> SvxCharEffectsPage::Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxCharEffectsPage>::Create( pParent, *rSet );
+    return std::make_unique<SvxCharEffectsPage>( pPage, pController, *rSet );
 }
 
 void SvxCharEffectsPage::Reset( const SfxItemSet* rSet )
@@ -2459,8 +2432,8 @@ void SvxCharEffectsPage::PageCreated(const SfxAllItemSet& aSet)
 
 // class SvxCharPositionPage ---------------------------------------------
 
-SvxCharPositionPage::SvxCharPositionPage(TabPageParent pParent, const SfxItemSet& rInSet)
-    : SvxCharBasePage(pParent, "cui/ui/positionpage.ui", "PositionPage", rInSet)
+SvxCharPositionPage::SvxCharPositionPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInSet)
+    : SvxCharBasePage(pPage, pController, "cui/ui/positionpage.ui", "PositionPage", rInSet)
     , m_nSuperEsc(short(DFLT_ESC_SUPER))
     , m_nSubEsc(short(DFLT_ESC_SUB))
     , m_nScaleWidthItemSetVal(100)
@@ -2638,7 +2611,7 @@ IMPL_LINK_NOARG(SvxCharPositionPage, FitToLineHdl_Impl, weld::ToggleButton&, voi
 IMPL_LINK_NOARG(SvxCharPositionPage, KerningModifyHdl_Impl, weld::MetricSpinButton&, void)
 {
     long nVal = static_cast<long>(m_xKerningMF->get_value(FieldUnit::POINT));
-    nVal = LogicToLogic( nVal, MapUnit::MapPoint, MapUnit::MapTwip );
+    nVal = OutputDevice::LogicToLogic( nVal, MapUnit::MapPoint, MapUnit::MapTwip );
     long nKern = static_cast<short>(m_xKerningMF->denormalize(nVal));
 
     SvxFont& rFont = GetPreviewFont();
@@ -2687,9 +2660,9 @@ DeactivateRC SvxCharPositionPage::DeactivatePage( SfxItemSet* _pSet )
     return DeactivateRC::LeavePage;
 }
 
-VclPtr<SfxTabPage> SvxCharPositionPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SvxCharPositionPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SvxCharPositionPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxCharPositionPage>(pPage, pController, *rSet);
 }
 
 void SvxCharPositionPage::Reset( const SfxItemSet* rSet )
@@ -2817,10 +2790,10 @@ void SvxCharPositionPage::Reset( const SfxItemSet* rSet )
         const SvxKerningItem& rItem = static_cast<const SvxKerningItem&>(rSet->Get( nWhich ));
         MapUnit eUnit = rSet->GetPool()->GetMetric( nWhich );
         long nBig = static_cast<long>(m_xKerningMF->normalize( static_cast<long>(rItem.GetValue()) ));
-        long nKerning = LogicToLogic( nBig, eUnit, MapUnit::MapPoint );
+        long nKerning = OutputDevice::LogicToLogic(nBig, eUnit, MapUnit::MapPoint);
 
         // set Kerning at the Font, convert into Twips before
-        long nKern = LogicToLogic( rItem.GetValue(), eUnit, MapUnit::MapTwip );
+        long nKern = OutputDevice::LogicToLogic(rItem.GetValue(), eUnit, MapUnit::MapTwip);
         rFont.SetFixKerning( static_cast<short>(nKern) );
         rCJKFont.SetFixKerning( static_cast<short>(nKern) );
         rCTLFont.SetFixKerning( static_cast<short>(nKern) );
@@ -2985,7 +2958,7 @@ bool SvxCharPositionPage::FillItemSet( SfxItemSet* rSet )
     MapUnit eUnit = rSet->GetPool()->GetMetric( nWhich );
 
     long nTmp = static_cast<long>(m_xKerningMF->get_value(FieldUnit::POINT));
-    long nVal = LogicToLogic( nTmp, MapUnit::MapPoint, eUnit );
+    long nVal = OutputDevice::LogicToLogic(nTmp, MapUnit::MapPoint, eUnit);
     nKerning = static_cast<short>(m_xKerningMF->denormalize( nVal ));
 
     SfxItemState eOldKernState = rOldSet.GetItemState( nWhich, false );
@@ -3072,8 +3045,8 @@ void SvxCharPositionPage::PageCreated(const SfxAllItemSet& aSet)
 }
 // class SvxCharTwoLinesPage ------------------------------------------------
 
-SvxCharTwoLinesPage::SvxCharTwoLinesPage(TabPageParent pParent, const SfxItemSet& rInSet)
-    : SvxCharBasePage(pParent, "cui/ui/twolinespage.ui", "TwoLinesPage", rInSet)
+SvxCharTwoLinesPage::SvxCharTwoLinesPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInSet)
+    : SvxCharBasePage(pPage, pController, "cui/ui/twolinespage.ui", "TwoLinesPage", rInSet)
     , m_nStartBracketPosition( 0 )
     , m_nEndBracketPosition( 0 )
     , m_xTwoLinesBtn(m_xBuilder->weld_check_button("twolines"))
@@ -3206,9 +3179,9 @@ DeactivateRC SvxCharTwoLinesPage::DeactivatePage( SfxItemSet* _pSet )
     return DeactivateRC::LeavePage;
 }
 
-VclPtr<SfxTabPage> SvxCharTwoLinesPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SvxCharTwoLinesPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SvxCharTwoLinesPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxCharTwoLinesPage>(pPage, pController, *rSet);
 }
 
 void SvxCharTwoLinesPage::Reset( const SfxItemSet* rSet )

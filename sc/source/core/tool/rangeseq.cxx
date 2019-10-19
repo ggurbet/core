@@ -19,6 +19,7 @@
 
 #include <svl/zforlist.hxx>
 #include <rtl/math.hxx>
+#include <o3tl/float_int_conversion.hxx>
 #include <osl/diagnose.h>
 
 #include <com/sun/star/uno/Any.hxx>
@@ -52,7 +53,7 @@ static long lcl_DoubleToLong( double fVal )
 {
     double fInt = (fVal >= 0.0) ? ::rtl::math::approxFloor( fVal ) :
                                   ::rtl::math::approxCeil( fVal );
-    if ( fInt >= LONG_MIN && fInt <= LONG_MAX )
+    if ( o3tl::convertsToAtLeast(fInt, LONG_MIN) && o3tl::convertsToAtMost(fInt, LONG_MAX) )
         return static_cast<long>(fInt);
     else
         return 0;       // out of range
@@ -360,17 +361,17 @@ ScMatrixRef ScSequenceToMatrix::CreateMixedMatrix( const css::uno::Any & rAny )
     if ( rAny >>= aSequence )
     {
         sal_Int32 nRowCount = aSequence.getLength();
-        const uno::Sequence<uno::Any>* pRowArr = aSequence.getConstArray();
         sal_Int32 nMaxColCount = 0;
-        sal_Int32 nCol, nRow;
-        for (nRow=0; nRow<nRowCount; nRow++)
+        if (nRowCount)
         {
-            sal_Int32 nTmp = pRowArr[nRow].getLength();
-            if ( nTmp > nMaxColCount )
-                nMaxColCount = nTmp;
+            auto pRow = std::max_element(aSequence.begin(), aSequence.end(),
+                [](const uno::Sequence<uno::Any>& a, const uno::Sequence<uno::Any>& b) {
+                    return a.getLength() < b.getLength(); });
+            nMaxColCount = pRow->getLength();
         }
         if ( nMaxColCount && nRowCount )
         {
+            const uno::Sequence<uno::Any>* pRowArr = aSequence.getConstArray();
             OUString aUStr;
             xMatrix = new ScMatrix(
                     static_cast<SCSIZE>(nMaxColCount),
@@ -382,11 +383,11 @@ ScMatrixRef ScSequenceToMatrix::CreateMixedMatrix( const css::uno::Any & rAny )
                 OSL_FAIL( "ScSequenceToMatrix::CreateMixedMatrix: matrix exceeded max size, returning NULL matrix");
                 return nullptr;
             }
-            for (nRow=0; nRow<nRowCount; nRow++)
+            for (sal_Int32 nRow=0; nRow<nRowCount; nRow++)
             {
                 sal_Int32 nColCount = pRowArr[nRow].getLength();
                 const uno::Any* pColArr = pRowArr[nRow].getConstArray();
-                for (nCol=0; nCol<nColCount; nCol++)
+                for (sal_Int32 nCol=0; nCol<nColCount; nCol++)
                 {
                     double fVal;
                     uno::TypeClass eClass;
@@ -416,7 +417,7 @@ ScMatrixRef ScSequenceToMatrix::CreateMixedMatrix( const css::uno::Any & rAny )
                                     static_cast<SCSIZE>(nRow) );
                     }
                 }
-                for (nCol=nColCount; nCol<nMaxColCount; nCol++)
+                for (sal_Int32 nCol=nColCount; nCol<nMaxColCount; nCol++)
                 {
                     xMatrix->PutEmpty(
                             static_cast<SCSIZE>(nCol),

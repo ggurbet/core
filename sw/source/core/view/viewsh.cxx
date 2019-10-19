@@ -74,6 +74,7 @@
 #include <wrtsh.hxx>
 #include <DocumentSettingManager.hxx>
 
+#include <unotxdoc.hxx>
 #include <view.hxx>
 #include <PostItMgr.hxx>
 #include <unotools/configmgr.hxx>
@@ -85,6 +86,7 @@
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
 #include <prevwpage.hxx>
+#include <sfx2/lokhelper.hxx>
 
 #if !HAVE_FEATURE_DESKTOP
 #include <vcl/sysdata.hxx>
@@ -291,7 +293,6 @@ void SwViewShell::ImplEndAction( const bool bIdleEnd )
         aAction.SetComplete( false );
         if ( mnLockPaint )
             aAction.SetPaint( false );
-        aAction.SetInputType( VclInputFlags::KEYBOARD );
         aAction.Action(GetWin());
     }
 
@@ -629,7 +630,7 @@ Point SwViewShell::GetPagePos( sal_uInt16 nPageNum ) const
     return GetLayout()->GetPagePos( nPageNum );
 }
 
-sal_uInt16 SwViewShell::GetNumPages()
+sal_uInt16 SwViewShell::GetNumPages() const
 {
     //It is possible that no layout exists when the method from
     //root-Ctor is called.
@@ -697,7 +698,7 @@ void SwViewShell::LayoutIdle()
         return;
 
     //No idle when printing is going on.
-    for(SwViewShell& rSh : GetRingContainer())
+    for(const SwViewShell& rSh : GetRingContainer())
     {
         if ( !rSh.GetWin() )
             return;
@@ -1066,7 +1067,9 @@ void SwViewShell::SizeChgNotify()
                     std::stringstream ss;
                     ss << aDocSize.Width() + 2 * DOCUMENTBORDER << ", " << aDocSize.Height() + 2 * DOCUMENTBORDER;
                     OString sSize = ss.str().c_str();
-                    GetSfxViewShell()->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, sSize.getStr());
+
+                    SwXTextDocument* pModel = comphelper::getUnoTunnelImplementation<SwXTextDocument>(GetSfxViewShell()->GetCurrentDocument());
+                    SfxLokHelper::notifyDocumentSizeChanged(GetSfxViewShell(), sSize, pModel);
                 }
             }
         }
@@ -2023,7 +2026,7 @@ void SwViewShell::InvalidateLayout( bool bSizeChanged )
     OSL_ENSURE( GetLayout(), "Layout not ready" );
 
     // When the Layout doesn't have a height yet, nothing is formatted.
-    // That leads to problems with Invalidate, e.g. when setting up an new View
+    // That leads to problems with Invalidate, e.g. when setting up a new View
     // the content is inserted and formatted (regardless of empty VisArea).
     // Therefore the pages must be roused for formatting.
     if( !GetLayout()->getFrameArea().Height() )
@@ -2465,7 +2468,7 @@ SwAccessibleMap* SwViewShell::GetAccessibleMap()
     return nullptr;
 }
 
-void SwViewShell::ApplyAccessiblityOptions(SvtAccessibilityOptions const & rAccessibilityOptions)
+void SwViewShell::ApplyAccessibilityOptions(SvtAccessibilityOptions const & rAccessibilityOptions)
 {
     if (utl::ConfigManager::IsFuzzing())
         return;
@@ -2502,7 +2505,7 @@ sal_uInt16 SwViewShell::GetPageCount() const
     return GetLayout() ? GetLayout()->GetPageNum() : 1;
 }
 
-const Size SwViewShell::GetPageSize( sal_uInt16 nPageNum, bool bSkipEmptyPages ) const
+Size SwViewShell::GetPageSize( sal_uInt16 nPageNum, bool bSkipEmptyPages ) const
 {
     Size aSize;
     const SwRootFrame* pTmpRoot = GetLayout();

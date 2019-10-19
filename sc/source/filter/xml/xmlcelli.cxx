@@ -321,7 +321,7 @@ void ScXMLTableRowCellContext::PushParagraphField(std::unique_ptr<SvxFieldData> 
 {
     mbHasFormatRuns = true;
     maFields.push_back(std::make_unique<Field>(std::move(pData)));
-    Field& rField = *maFields.back().get();
+    Field& rField = *maFields.back();
 
     sal_Int32 nPos = maParagraph.getLength();
     maParagraph.append('\1'); // Placeholder text for inserted field item.
@@ -366,7 +366,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
 
     mbHasFormatRuns = true;
     maFormats.push_back(std::make_unique<ParaFormat>(*mpEditEngine));
-    ParaFormat& rFmt = *maFormats.back().get();
+    ParaFormat& rFmt = *maFormats.back();
     rFmt.maSelection.nStartPara = rFmt.maSelection.nEndPara = mnCurParagraph;
     rFmt.maSelection.nStartPos = nBegin;
     rFmt.maSelection.nEndPos = nEnd;
@@ -854,8 +854,7 @@ void ScXMLTableRowCellContext::SetAnnotation(const ScAddress& rPos)
     ScPostIt* pNote = nullptr;
 
     uno::Reference< drawing::XShapes > xShapes = rXMLImport.GetTables().GetCurrentXShapes();
-    uno::Reference< container::XIndexAccess > xShapesIA( xShapes, uno::UNO_QUERY );
-    sal_Int32 nOldShapeCount = xShapesIA.is() ? xShapesIA->getCount() : 0;
+    sal_Int32 nOldShapeCount = xShapes.is() ? xShapes->getCount() : 0;
 
     OSL_ENSURE( !mxAnnotationData->mxShape.is() || mxAnnotationData->mxShapes.is(),
         "ScXMLTableRowCellContext::SetAnnotation - shape without drawing page" );
@@ -894,8 +893,8 @@ void ScXMLTableRowCellContext::SetAnnotation(const ScAddress& rPos)
             mxAnnotationData->mxShapes->remove( mxAnnotationData->mxShape );
             pObject = nullptr;
             // update current number of existing objects
-            if( xShapesIA.is() )
-                nOldShapeCount = xShapesIA->getCount();
+            if( xShapes.is() )
+                nOldShapeCount = xShapes->getCount();
 
             // an outliner object is required (empty note captions not allowed)
             if (xOutlinerObj)
@@ -932,10 +931,10 @@ void ScXMLTableRowCellContext::SetAnnotation(const ScAddress& rPos)
     }
 
     // register a shape that has been newly created in the ScNoteUtil functions
-    if( xShapesIA.is() && (nOldShapeCount < xShapesIA->getCount()) )
+    if( xShapes.is() && (nOldShapeCount < xShapes->getCount()) )
     {
         uno::Reference< drawing::XShape > xShape;
-        rXMLImport.GetShapeImport()->shapeWithZIndexAdded( xShape, xShapesIA->getCount() );
+        rXMLImport.GetShapeImport()->shapeWithZIndexAdded( xShape, xShapes->getCount() );
     }
 
     // store the style names for stream copying
@@ -955,7 +954,7 @@ void ScXMLTableRowCellContext::SetDetectiveObj( const ScAddress& rPosition )
     {
         LockSolarMutex();
         ScDetectiveFunc aDetFunc( rXMLImport.GetDocument(), rPosition.Tab() );
-        uno::Reference<container::XIndexAccess> xShapesIndex (rXMLImport.GetTables().GetCurrentXShapes(), uno::UNO_QUERY); // make draw page
+        uno::Reference<container::XIndexAccess> xShapesIndex = rXMLImport.GetTables().GetCurrentXShapes(); // make draw page
         for(const auto& rDetectiveObj : *pDetectiveObjVec)
         {
             aDetFunc.InsertObject( rDetectiveObj.eObjType, rPosition, rDetectiveObj.aSourceRange, rDetectiveObj.bHasError );

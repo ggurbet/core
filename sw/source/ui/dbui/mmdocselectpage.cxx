@@ -42,8 +42,8 @@ using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 using namespace svt;
 
-SwMailMergeDocSelectPage::SwMailMergeDocSelectPage(SwMailMergeWizard* pWizard, TabPageParent pParent)
-    : svt::OWizardPage(pParent, "modules/swriter/ui/mmselectpage.ui", "MMSelectPage")
+SwMailMergeDocSelectPage::SwMailMergeDocSelectPage(weld::Container* pPage, SwMailMergeWizard* pWizard)
+    : vcl::OWizardPage(pPage, pWizard, "modules/swriter/ui/mmselectpage.ui", "MMSelectPage")
     , m_pWizard(pWizard)
     , m_xCurrentDocRB(m_xBuilder->weld_radio_button("currentdoc"))
     , m_xNewDocRB(m_xBuilder->weld_radio_button("newdoc"))
@@ -80,21 +80,10 @@ SwMailMergeDocSelectPage::SwMailMergeDocSelectPage(SwMailMergeWizard* pWizard, T
     {
         m_xRecentDocRB->set_sensitive(false);
     }
-
-    //Temp hack until all pages are converted to .ui and wizard
-    //base class adapted
-    SetSizePixel(LogicToPixel(Size(260 , 250), MapMode(MapUnit::MapAppFont)));
 }
 
 SwMailMergeDocSelectPage::~SwMailMergeDocSelectPage()
 {
-    disposeOnce();
-}
-
-void SwMailMergeDocSelectPage::dispose()
-{
-    m_pWizard.clear();
-    svt::OWizardPage::dispose();
 }
 
 IMPL_LINK_NOARG(SwMailMergeDocSelectPage, DocSelectHdl, weld::ToggleButton&, void)
@@ -112,7 +101,7 @@ IMPL_LINK(SwMailMergeDocSelectPage, FileSelectHdl, weld::Button&, rButton, void)
     if(bTemplate)
     {
         m_xLoadTemplateRB->set_active(true);
-        SfxNewFileDialog aNewFileDlg(GetFrameWeld(), SfxNewFileDialogMode::NONE);
+        SfxNewFileDialog aNewFileDlg(m_pWizard->getDialog(), SfxNewFileDialogMode::NONE);
         sal_uInt16 nRet = aNewFileDlg.run();
         if(RET_TEMPLATE_LOAD == nRet)
             bTemplate = false;
@@ -125,7 +114,7 @@ IMPL_LINK(SwMailMergeDocSelectPage, FileSelectHdl, weld::Button&, rButton, void)
     if(!bTemplate)
     {
         sfx2::FileDialogHelper aDlgHelper(TemplateDescription::FILEOPEN_SIMPLE,
-                                          FileDialogFlags::NONE, GetFrameWeld());
+                                          FileDialogFlags::NONE, m_pWizard->getDialog());
         Reference < XFilePicker3 > xFP = aDlgHelper.GetFilePicker();
 
         xFP->setDisplayDirectory( SvtPathOptions().GetWorkPath() );
@@ -133,18 +122,17 @@ IMPL_LINK(SwMailMergeDocSelectPage, FileSelectHdl, weld::Button&, rButton, void)
         SfxObjectFactory &rFact = m_pWizard->GetSwView()->GetDocShell()->GetFactory();
         SfxFilterMatcher aMatcher( rFact.GetFactoryName() );
         SfxFilterMatcherIter aIter( aMatcher );
-        Reference<XFilterManager> xFltMgr(xFP, UNO_QUERY);
         std::shared_ptr<const SfxFilter> pFlt = aIter.First();
         while( pFlt )
         {
             if( pFlt && pFlt->IsAllowedAsTemplate() )
             {
                 const OUString sWild = pFlt->GetWildcard().getGlob();
-                xFltMgr->appendFilter( pFlt->GetUIName(), sWild );
+                xFP->appendFilter( pFlt->GetUIName(), sWild );
 
                 // #i40125
                 if(pFlt->GetFilterFlags() & SfxFilterFlags::DEFAULT)
-                    xFltMgr->setCurrentFilter( pFlt->GetUIName() ) ;
+                    xFP->setCurrentFilter( pFlt->GetUIName() ) ;
             }
 
             pFlt = aIter.Next();
@@ -159,11 +147,11 @@ IMPL_LINK(SwMailMergeDocSelectPage, FileSelectHdl, weld::Button&, rButton, void)
     m_pWizard->enableButtons(WizardButtonFlags::NEXT, m_pWizard->isStateEnabled(MM_OUTPUTTYPETPAGE));
 }
 
-bool SwMailMergeDocSelectPage::commitPage( ::svt::WizardTypes::CommitPageReason _eReason )
+bool SwMailMergeDocSelectPage::commitPage( ::vcl::WizardTypes::CommitPageReason _eReason )
 {
     bool bReturn = false;
-    bool bNext = _eReason == ::svt::WizardTypes::eTravelForward;
-    if(bNext || _eReason == ::svt::WizardTypes::eValidate )
+    bool bNext = _eReason == ::vcl::WizardTypes::eTravelForward;
+    if(bNext || _eReason == ::vcl::WizardTypes::eValidate )
     {
         OUString sReloadDocument;
         bReturn = m_xCurrentDocRB->get_active() ||
@@ -187,7 +175,7 @@ bool SwMailMergeDocSelectPage::commitPage( ::svt::WizardTypes::CommitPageReason 
                 bReturn = !sReloadDocument.isEmpty();
             }
         }
-        if( _eReason == ::svt::WizardTypes::eValidate )
+        if( _eReason == ::vcl::WizardTypes::eValidate )
             m_pWizard->SetDocumentLoad(!m_xCurrentDocRB->get_active());
 
         if(bNext && !m_xCurrentDocRB->get_active())
@@ -195,7 +183,7 @@ bool SwMailMergeDocSelectPage::commitPage( ::svt::WizardTypes::CommitPageReason 
             if(!sReloadDocument.isEmpty())
                 m_pWizard->SetReloadDocument( sReloadDocument );
             m_pWizard->SetRestartPage(MM_OUTPUTTYPETPAGE);
-            m_pWizard->EndDialog(RET_LOAD_DOC);
+            m_pWizard->response(RET_LOAD_DOC);
         }
     }
     return bReturn;

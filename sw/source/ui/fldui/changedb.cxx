@@ -135,14 +135,17 @@ std::unique_ptr<weld::TreeIter> SwChangeDBDlg::Insert(const OUString& rDBName)
         {
             if (sDBName == m_xUsedDBTLB->get_text(*xIter))
             {
-                if (m_xUsedDBTLB->iter_children(*xIter))
+                if (m_xUsedDBTLB->iter_has_child(*xIter))
                 {
-                    do
+                    std::unique_ptr<weld::TreeIter> xChild(m_xUsedDBTLB->make_iterator(xIter.get()));
+                    if (m_xUsedDBTLB->iter_children(*xChild))
                     {
-                        if (sTableName == m_xUsedDBTLB->get_text(*xIter))
-                            return xIter;
-                    } while (m_xUsedDBTLB->iter_next_sibling(*xIter));
-                    m_xUsedDBTLB->iter_parent(*xIter);
+                        do
+                        {
+                            if (sTableName == m_xUsedDBTLB->get_text(*xChild))
+                                return xChild;
+                        } while (m_xUsedDBTLB->iter_next_sibling(*xChild));
+                    }
                 }
                 m_xUsedDBTLB->insert(xIter.get(), -1, &sTableName, &sUserData, nullptr, nullptr,
                                      &rToInsert, false, xIter.get());
@@ -181,7 +184,7 @@ void SwChangeDBDlg::UpdateFields()
             std::unique_ptr<weld::TreeIter> xIter(m_xUsedDBTLB->make_iterator(&rEntry));
             m_xUsedDBTLB->iter_parent(*xIter);
             OUString sTmp(m_xUsedDBTLB->get_text(*xIter) +
-                          OUStringLiteral1(DB_DELIM) + m_xUsedDBTLB->get_text(rEntry) + OUStringLiteral1(DB_DELIM) +
+                          OUStringChar(DB_DELIM) + m_xUsedDBTLB->get_text(rEntry) + OUStringChar(DB_DELIM) +
                           m_xUsedDBTLB->get_id(rEntry));
             aDBNames.push_back(sTmp);
         }
@@ -194,9 +197,9 @@ void SwChangeDBDlg::UpdateFields()
     sal_Bool bIsTable = false;
     const OUString DBName(m_xAvailDBTLB->GetDBName(sTableName, sColumnName, &bIsTable));
     const OUString sTemp = DBName
-        + OUStringLiteral1(DB_DELIM)
+        + OUStringChar(DB_DELIM)
         + sTableName
-        + OUStringLiteral1(DB_DELIM)
+        + OUStringChar(DB_DELIM)
         + OUString::number(bIsTable
                             ? CommandType::TABLE
                             : CommandType::QUERY);

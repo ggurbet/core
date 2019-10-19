@@ -20,7 +20,7 @@
 #include <AccessibleDocumentViewBase.hxx>
 #include <com/sun/star/drawing/XDrawView.hpp>
 #include <com/sun/star/frame/XController.hpp>
-#include <com/sun/star/document/XEventBroadcaster.hpp>
+#include <com/sun/star/document/XShapeEventBroadcaster.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
@@ -76,8 +76,8 @@ AccessibleDocumentViewBase::AccessibleDocumentViewBase (
 
     // Fill the shape tree info.
     maShapeTreeInfo.SetModelBroadcaster (
-        uno::Reference<document::XEventBroadcaster>(
-            mxModel, uno::UNO_QUERY));
+        uno::Reference<document::XShapeEventBroadcaster>(
+            mxModel, uno::UNO_QUERY_THROW));
     maShapeTreeInfo.SetController (mxController);
     maShapeTreeInfo.SetSdrView (pViewShell->GetView());
     maShapeTreeInfo.SetDevice (pSdWindow);
@@ -111,7 +111,7 @@ void AccessibleDocumentViewBase::Init()
     uno::Reference<drawing::XShapes> xShapeList;
     uno::Reference<drawing::XDrawView> xView (mxController, uno::UNO_QUERY);
     if (xView.is())
-        xShapeList.set( xView->getCurrentPage(), uno::UNO_QUERY);
+        xShapeList = xView->getCurrentPage();
 
     // Register this object as dispose event listener at the model.
     if (mxModel.is())
@@ -165,7 +165,7 @@ IMPL_LINK(AccessibleDocumentViewBase, WindowChildEventListener,
         {
             case VclEventId::ObjectDying:
             {
-                // Window is dying.  Unregister from VCL Window.
+                // Window is dying. Unregister from VCL Window.
                 // This is also attempted in the disposing() method.
                 vcl::Window* pWindow = maShapeTreeInfo.GetWindow();
                 vcl::Window* pDyingWindow = rEvent.GetWindow();
@@ -405,7 +405,7 @@ void SAL_CALL
 OUString SAL_CALL
     AccessibleDocumentViewBase::getImplementationName()
 {
-    return OUString("AccessibleDocumentViewBase");
+    return "AccessibleDocumentViewBase";
 }
 
 css::uno::Sequence< OUString> SAL_CALL
@@ -459,7 +459,7 @@ void AccessibleDocumentViewBase::impl_dispose()
         mxWindow = nullptr;
     }
 
-    // Unregister form the model.
+    // Unregister from the model.
     if (mxModel.is())
         mxModel->removeEventListener (
             static_cast<awt::XWindowListener*>(this));
@@ -581,7 +581,7 @@ void SAL_CALL AccessibleDocumentViewBase::disposing()
 OUString
     AccessibleDocumentViewBase::CreateAccessibleName()
 {
-    return OUString ("AccessibleDocumentViewBase");
+    return "AccessibleDocumentViewBase";
 }
 
 void AccessibleDocumentViewBase::Activated()
@@ -691,8 +691,7 @@ uno::Any SAL_CALL AccessibleDocumentViewBase::getExtendedAttributes()
                     if (!layerAltText.isEmpty())
                     {
                         sName = " ";
-                        sDisplay = sDisplay + sName;
-                        sDisplay += layerAltText;
+                        sDisplay += sName + layerAltText;
                     }
                 }
             }

@@ -18,7 +18,6 @@
  */
 
 #include <vcl/help.hxx>
-#include <vcl/svapp.hxx>
 
 #include <tabview.hxx>
 #include <tabvwsh.hxx>
@@ -30,6 +29,7 @@
 #include <scresid.hxx>
 #include <formulacell.hxx>
 #include <dociter.hxx>
+#include <inputhdl.hxx>
 
 // ---  Referenz-Eingabe / Fill-Cursor
 
@@ -250,6 +250,12 @@ void ScTabView::UpdateRef( SCCOL nCurX, SCROW nCurY, SCTAB nCurZ )
         SCROW nPaintEndY;
         if (aRect.GetDiff( nPaintStartX, nPaintStartY, nPaintEndX, nPaintEndY ))
             PaintArea( nPaintStartX, nPaintStartY, nPaintEndX, nPaintEndY, ScUpdateMode::Marks );
+
+        ScInputHandler* pInputHandler = SC_MOD()->GetInputHdl();
+        if (pInputHandler)
+        {
+            pInputHandler->UpdateLokReferenceMarks();
+        }
     }
 
     //  autocomplete for Auto-Fill
@@ -326,6 +332,12 @@ void ScTabView::InitRefMode( SCCOL nCurX, SCROW nCurY, SCTAB nCurZ, ScRefType eT
             //  SetReference without Merge-Adjustment
             ScRange aRef( nCurX,nCurY,nCurZ, nCurX,nCurY,nCurZ );
             SC_MOD()->SetReference( aRef, pDoc, &rMark );
+        }
+
+        ScInputHandler* pInputHandler = SC_MOD()->GetInputHdl();
+        if (pInputHandler)
+        {
+            pInputHandler->UpdateLokReferenceMarks();
         }
     }
 }
@@ -404,24 +416,24 @@ void ScTabView::UpdateScrollBars( HeaderType eHeaderType )
         nStartY = aViewData.GetFixPosY();
 
     nVisXL = aViewData.VisibleCellsX( SC_SPLIT_LEFT );
-    long nMaxXL = lcl_GetScrollRange( nUsedX, aViewData.GetPosX(SC_SPLIT_LEFT), nVisXL, MAXCOL, 0 );
+    long nMaxXL = lcl_GetScrollRange( nUsedX, aViewData.GetPosX(SC_SPLIT_LEFT), nVisXL, pDoc->MaxCol(), 0 );
     SetScrollBar( *aHScrollLeft, nMaxXL, nVisXL, aViewData.GetPosX( SC_SPLIT_LEFT ), bLayoutRTL );
 
     nVisYB = aViewData.VisibleCellsY( SC_SPLIT_BOTTOM );
-    long nMaxYB = lcl_GetScrollRange( nUsedY, aViewData.GetPosY(SC_SPLIT_BOTTOM), nVisYB, MAXROW, nStartY );
+    long nMaxYB = lcl_GetScrollRange( nUsedY, aViewData.GetPosY(SC_SPLIT_BOTTOM), nVisYB, pDoc->MaxRow(), nStartY );
     SetScrollBar( *aVScrollBottom, nMaxYB, nVisYB, aViewData.GetPosY( SC_SPLIT_BOTTOM ) - nStartY, bLayoutRTL );
 
     if (bRight)
     {
         nVisXR = aViewData.VisibleCellsX( SC_SPLIT_RIGHT );
-        long nMaxXR = lcl_GetScrollRange( nUsedX, aViewData.GetPosX(SC_SPLIT_RIGHT), nVisXR, MAXCOL, nStartX );
+        long nMaxXR = lcl_GetScrollRange( nUsedX, aViewData.GetPosX(SC_SPLIT_RIGHT), nVisXR, pDoc->MaxCol(), nStartX );
         SetScrollBar( *aHScrollRight, nMaxXR, nVisXR, aViewData.GetPosX( SC_SPLIT_RIGHT ) - nStartX, bLayoutRTL );
     }
 
     if (bTop)
     {
         nVisYT = aViewData.VisibleCellsY( SC_SPLIT_TOP );
-        long nMaxYT = lcl_GetScrollRange( nUsedY, aViewData.GetPosY(SC_SPLIT_TOP), nVisYT, MAXROW, 0 );
+        long nMaxYT = lcl_GetScrollRange( nUsedY, aViewData.GetPosY(SC_SPLIT_TOP), nVisYT, pDoc->MaxRow(), 0 );
         SetScrollBar( *aVScrollTop, nMaxYT, nVisYT, aViewData.GetPosY( SC_SPLIT_TOP ), bLayoutRTL );
     }
 

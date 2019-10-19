@@ -18,25 +18,19 @@
  */
 
 #include <hintids.hxx>
-#include <vcl/svapp.hxx>
-#include <editeng/protitem.hxx>
 #include <crsrsh.hxx>
 #include <doc.hxx>
 #include <cntfrm.hxx>
 #include <editsh.hxx>
 #include <pam.hxx>
 #include <swtable.hxx>
-#include <docary.hxx>
-#include <frmatr.hxx>
 #include <frmfmt.hxx>
 #include <viscrs.hxx>
 #include "callnk.hxx"
 #include <tabfrm.hxx>
 #include <ndtxt.hxx>
 #include <shellres.hxx>
-#include <cellatr.hxx>
 #include <cellfrm.hxx>
-#include <rowfrm.hxx>
 #include <IDocumentLayoutAccess.hxx>
 #include <svx/srchdlg.hxx>
 
@@ -381,7 +375,7 @@ static bool lcl_FindNextCell( SwNodeIndex& rIdx, bool bInReadOnly )
         // we are not located inside a 'valid' cell. We have to continue searching...
 
         // skip behind current section. This might be the end of the table cell
-        // or behind a inner section or...
+        // or behind an inner section or...
         aTmp.Assign( *pCNd->EndOfSectionNode(), 1 );
 
         // loop to find a suitable cell...

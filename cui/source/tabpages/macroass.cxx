@@ -20,18 +20,14 @@
 #include <macroass.hxx>
 
 #include <osl/diagnose.h>
-#include <basic/basmgr.hxx>
 #include <comphelper/string.hxx>
 #include <comphelper/processfactory.hxx>
 #include <svl/macitem.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <tools/debug.hxx>
 #include <vcl/idle.hxx>
 #include <cfgutil.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/evntconf.hxx>
-#include <sfx2/objsh.hxx>
 #include <headertablistbox.hxx>
 
 using ::com::sun::star::uno::Reference;
@@ -102,8 +98,8 @@ void SfxMacroTabPage::EnableButtons()
         mpImpl->m_xAssignPB->set_sensitive(false);
 }
 
-SfxMacroTabPage::SfxMacroTabPage(TabPageParent pParent, const Reference< XFrame >& rxDocumentFrame, const SfxItemSet& rAttrSet )
-    : SfxTabPage(pParent, "cui/ui/eventassignpage.ui", "EventAssignPage", &rAttrSet)
+SfxMacroTabPage::SfxMacroTabPage(weld::Container* pPage, weld::DialogController* pController, const Reference< XFrame >& rxDocumentFrame, const SfxItemSet& rAttrSet )
+    : SfxTabPage(pPage, pController, "cui/ui/eventassignpage.ui", "EventAssignPage", &rAttrSet)
 {
     mpImpl.reset(new SfxMacroTabPage_Impl);
 
@@ -129,13 +125,7 @@ SfxMacroTabPage::SfxMacroTabPage(TabPageParent pParent, const Reference< XFrame 
 
 SfxMacroTabPage::~SfxMacroTabPage()
 {
-    disposeOnce();
-}
-
-void SfxMacroTabPage::dispose()
-{
     mpImpl.reset();
-    SfxTabPage::dispose();
 }
 
 void SfxMacroTabPage::AddEvent(const OUString& rEventName, SvMacroItemId nEventId)
@@ -269,9 +259,10 @@ IMPL_LINK(SfxMacroTabPage, AssignDeleteClickHdl_Impl, weld::Button&, rBtn, void)
     AssignDeleteHdl(&rBtn);
 }
 
-IMPL_LINK(SfxMacroTabPage, AssignDeleteHdl_Impl, weld::TreeView&, rBtn, void)
+IMPL_LINK(SfxMacroTabPage, AssignDeleteHdl_Impl, weld::TreeView&, rBtn, bool)
 {
     AssignDeleteHdl(&rBtn);
+    return true;
 }
 
 void SfxMacroTabPage::AssignDeleteHdl(const weld::Widget* pBtn)
@@ -315,7 +306,7 @@ void SfxMacroTabPage::AssignDeleteHdl(const weld::Widget* pBtn)
 IMPL_LINK( SfxMacroTabPage, TimeOut_Impl, Timer*,, void )
 {
     // FillMacroList() can take a long time -> show wait cursor and disable input
-    weld::Window* pDialog = GetDialogFrameWeld();
+    weld::Window* pDialog = GetFrameWeld();
     // perhaps the tabpage is part of a SingleTabDialog then pDialog == nullptr
     std::unique_ptr<weld::WaitObject> xWait(pDialog ? new weld::WaitObject(pDialog) : nullptr);
     // fill macro list
@@ -326,7 +317,7 @@ IMPL_LINK( SfxMacroTabPage, TimeOut_Impl, Timer*,, void )
 void SfxMacroTabPage::InitAndSetHandler()
 {
     weld::TreeView& rListBox = mpImpl->m_xEventLB->GetListBox();
-    Link<weld::TreeView&,void> aLnk(LINK(this, SfxMacroTabPage, AssignDeleteHdl_Impl));
+    Link<weld::TreeView&,bool> aLnk(LINK(this, SfxMacroTabPage, AssignDeleteHdl_Impl));
     mpImpl->m_xMacroLB->connect_row_activated( aLnk);
     mpImpl->m_xDeletePB->connect_clicked(LINK(this, SfxMacroTabPage, AssignDeleteClickHdl_Impl));
     mpImpl->m_xAssignPB->connect_clicked(LINK(this, SfxMacroTabPage, AssignDeleteClickHdl_Impl));
@@ -373,15 +364,15 @@ void SfxMacroTabPage::FillEvents()
 
 namespace
 {
-    VclPtr<SfxMacroTabPage> CreateSfxMacroTabPage(TabPageParent pParent, const SfxItemSet& rAttrSet)
+    std::unique_ptr<SfxMacroTabPage> CreateSfxMacroTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttrSet)
     {
-        return VclPtr<SfxMacroTabPage>::Create( pParent, nullptr, rAttrSet );
+        return std::make_unique<SfxMacroTabPage>( pPage, pController, nullptr, rAttrSet );
     }
 }
 
-VclPtr<SfxTabPage> SfxMacroTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> SfxMacroTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return CreateSfxMacroTabPage(pParent, *rAttrSet);
+    return CreateSfxMacroTabPage(pPage, pController, *rAttrSet);
 }
 
 SfxMacroAssignDlg::SfxMacroAssignDlg(weld::Widget* pParent,
@@ -389,11 +380,10 @@ SfxMacroAssignDlg::SfxMacroAssignDlg(weld::Widget* pParent,
     : SfxSingleTabDialogController(pParent, &rSet,"cui/ui/eventassigndialog.ui",
                                    "EventAssignDialog")
 {
-    TabPageParent pPageParent(get_content_area(), this);
-    VclPtr<SfxMacroTabPage> pPage = CreateSfxMacroTabPage(pPageParent, rSet);
-    pPage->SetFrame(rxDocumentFrame);
-    SetTabPage(pPage);
-    pPage->LaunchFillGroup();
+    std::unique_ptr<SfxMacroTabPage> xPage = CreateSfxMacroTabPage(get_content_area(), this, rSet);
+    xPage->SetFrame(rxDocumentFrame);
+    SetTabPage(std::move(xPage));
+    GetTabPage()->LaunchFillGroup();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

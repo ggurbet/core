@@ -23,6 +23,8 @@
 
 #include <rtl/ref.hxx>
 
+class SfxViewShell;
+
 namespace svt { class AcceleratorExecute; }
 
 namespace sfx2 { namespace sidebar {
@@ -44,11 +46,14 @@ public:
     void SetReadyToDrag( bool bStartDrag ) { mbIsReadyToDrag = bStartDrag; }
     bool IsReadyToDrag() const { return mbIsReadyToDrag; }
 
+    void NotifyResize();
+
     using SfxDockingWindow::Close;
 
 protected:
     // Window overridables
     virtual void GetFocus() override;
+    virtual void Resize() override;
 
     virtual SfxChildAlignment CheckAlignment (
         SfxChildAlignment eCurrentAlignment,
@@ -60,6 +65,8 @@ private:
     std::unique_ptr<svt::AcceleratorExecute> mpAccel;
 
     void DoDispose();
+
+    const bool mbSidebarVisibleInLOK;
 };
 
 } } // end of namespace sfx2::sidebar

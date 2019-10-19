@@ -87,10 +87,17 @@ public:
 
     /** Return whether the specified page is selected.  This convenience
         method is a substitute for
-        SlideSorterModel::GetPageDescriptor(i)->IsSelected() is included
-        here to make this class more self contained.
+        SlideSorterModel::GetPageDescriptor(i)->HasState(ST_Selected) is
+        included here to make this class more self contained.
     */
-    bool IsPageSelected (int nPageIndex);
+    bool IsPageSelected(int nPageIndex);
+
+    /** Return whether the specified page is visible.  This convenience
+        method is a substitute for
+        SlideSorterModel::GetPageDescriptor(i)->HasState(ST_Visible) is
+        included here to make this class more self contained.
+    */
+    bool IsPageVisible(int nPageIndex);
 
     /** Deselect the descriptor that is associated with the given page.
         The current page is updated to the first slide
@@ -192,7 +199,7 @@ private:
         SlideSorterController::SelectionHasChanged() method to do the actual
         work.  When EnableBroadcasting has been called as many times as
         DisableBroadcasting() was called before and the selection has been
-        changed in the mean time, this change will be broadcasted.
+        changed in the meantime, this change will be broadcasted.
     */
     void EnableBroadcasting();
 

@@ -43,8 +43,10 @@
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
 
+#include <comphelper/lok.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <sfx2/lokhelper.hxx>
 #include <com/sun/star/embed/EmbedVerbs.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/chart2/data/XDataReceiver.hpp>
@@ -117,9 +119,8 @@ void lcl_ChartInit(const uno::Reference <embed::XEmbeddedObject>& xObj, ScViewDa
         // connect to Calc data (if no range string, leave chart alone, with its own data)
 
         uno::Reference< css::chart2::data::XDataReceiver > xReceiver;
-        uno::Reference< embed::XComponentSupplier > xCompSupp( xObj, uno::UNO_QUERY );
-        if( xCompSupp.is())
-            xReceiver.set( xCompSupp->getComponent(), uno::UNO_QUERY );
+        if( xObj.is())
+            xReceiver.set( xObj->getComponent(), uno::UNO_QUERY );
         OSL_ASSERT( xReceiver.is());
         if( xReceiver.is() )
         {
@@ -347,9 +348,9 @@ FuInsertOLE::FuInsertOLE(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawView*
                 aName,
                 aRect);
             SdrPageView* pPV = pView->GetSdrPageView();
-            pView->InsertObjectAtView(pObj, *pPV);
+            bool bSuccess = pView->InsertObjectAtView(pObj, *pPV);
 
-            if ( nAspect != embed::Aspects::MSOLE_ICON )
+            if (bSuccess && nAspect != embed::Aspects::MSOLE_ICON)
             {
                 //  Math objects change their object size during InsertObject.
                 //  New size must be set in SdrObject, or a wrong scale will be set at
@@ -380,7 +381,7 @@ FuInsertOLE::FuInsertOLE(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawView*
                     // Object selected, activate Draw-Shell
                     rViewShell.SetDrawShell( true );
                 }
-                else
+                else if (bSuccess)
                 {
                     rViewShell.ActivateObject(pObj, embed::EmbedVerbs::MS_OLEVERB_SHOW);
                 }
@@ -478,9 +479,8 @@ FuInsertChart::FuInsertChart(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawV
         rViewShell.GetObjectShell()->GetEmbeddedObjectContainer().CreateEmbeddedObject( SvGlobalName( SO3_SCH_CLASSID_60 ).GetByteSequence(), aName );
 
     uno::Reference< css::chart2::data::XDataReceiver > xReceiver;
-    uno::Reference< embed::XComponentSupplier > xCompSupp( xObj, uno::UNO_QUERY );
-    if( xCompSupp.is())
-        xReceiver.set( xCompSupp->getComponent(), uno::UNO_QUERY );
+    if( xObj.is())
+        xReceiver.set( xObj->getComponent(), uno::UNO_QUERY );
 
     uno::Reference<chart2::XChartDocument> xChartDoc(xReceiver, uno::UNO_QUERY);
     if (xChartDoc.is())
@@ -608,12 +608,13 @@ FuInsertChart::FuInsertChart(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawV
         if( xChartModel.is() )
             xChartModel->unlockControllers();
     }
-    else
+    else if (!comphelper::LibreOfficeKit::isMobile(SfxLokHelper::getView()))
     {
         //the controller will be unlocked by the dialog when the dialog is told to do so
 
         // only activate object if not called via API (e.g. macro)
-        rViewShell.ActivateObject(pObj, embed::EmbedVerbs::MS_OLEVERB_SHOW);
+        if (!comphelper::LibreOfficeKit::isActive())
+            rViewShell.ActivateObject(pObj, embed::EmbedVerbs::MS_OLEVERB_SHOW);
 
         //open wizard
         //@todo get context from calc if that has one

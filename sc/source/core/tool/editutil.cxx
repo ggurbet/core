@@ -735,7 +735,7 @@ static OUString lcl_GetCharStr( sal_Int32 nNo )
         nCalc = nNo % coDiff;
         if( !nCalc )
             nCalc = coDiff;
-        aStr = OUStringLiteral1( 'a' - 1 + nCalc ) + aStr;
+        aStr = OUStringChar( 'a' - 1 + nCalc ) + aStr;
         nNo = sal::static_int_cast<sal_Int32>( nNo - nCalc );
         if( nNo )
             nNo /= coDiff;
@@ -800,7 +800,7 @@ OUString ScHeaderEditEngine::CalcFieldValue( const SvxFieldItem& rField,
 {
     const SvxFieldData* pFieldData = rField.GetField();
     if (!pFieldData)
-        return OUString("?");
+        return "?";
 
     OUString aRet;
     sal_Int32 nClsId = pFieldData->GetClassId();
@@ -865,7 +865,7 @@ OUString ScFieldEditEngine::CalcFieldValue( const SvxFieldItem& rField,
     const SvxFieldData* pFieldData = rField.GetField();
 
     if (!pFieldData)
-        return OUString(" ");
+        return " ";
 
     return ScEditUtil::GetCellFieldValue(*pFieldData, mpDoc, &rTxtColor);
 }

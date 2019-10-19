@@ -35,7 +35,7 @@ private:
     drawinglayer::primitive2d::Primitive2DReference mxChartContent;
 
 protected:
-    // Create a Object-Specific ViewObjectContact, set ViewContact and
+    // Create an Object-Specific ViewObjectContact, set ViewContact and
     // ObjectContact. Always needs to return something.
     virtual ViewObjectContact& CreateObjectSpecificViewObjectContact(ObjectContact& rObjectContact) override;
 
@@ -53,7 +53,7 @@ public:
     explicit ViewContactOfSdrOle2Obj(SdrOle2Obj& rOle2Obj);
     virtual ~ViewContactOfSdrOle2Obj() override;
 
-    // helper for creating a OLE sequence for this object. It takes care od attributes, needed
+    // helper for creating an OLE sequence for this object. It takes care od attributes, needed
     // scaling (e.g. for EmptyPresObj's), the correct graphic and other stuff. It is used from
     // createViewIndependentPrimitive2DSequence with false, and with evtl. HighContrast true
     // from the VOC which knows that

@@ -94,8 +94,8 @@ public:
     LwpGraphicObject(LwpObjectHeader const &objHdr, LwpSvStream* pStrm);
     virtual ~LwpGraphicObject() override;
 private:
-    unsigned char m_sDataFormat[AFID_MAX_FILE_FORMAT_SIZE];
-    unsigned char m_sServerContextFormat[AFID_MAX_CONTEXT_FORMAT_SIZE];
+    unsigned char m_sDataFormat[AFID_MAX_FILE_FORMAT_SIZE] = {};
+    unsigned char m_sServerContextFormat[AFID_MAX_CONTEXT_FORMAT_SIZE] = {};
     sal_Int32 m_nCachedBaseLine;
     sal_Int16 m_bIsLinked;
     AFID_CACHE m_Cache;
@@ -107,7 +107,7 @@ private:
 
     void XFConvertEquation(XFContentContainer* pCont);
 
-    bool IsGrafFormatValid();
+    bool IsGrafFormatValid() const;
     std::vector< rtl::Reference<XFFrame> > m_vXFDrawObjects;
 
 public:
@@ -123,8 +123,8 @@ public:
     void GetGrafOrgSize(long& rWidth, long& rHeight) { rWidth = m_Cache.Width; rHeight = m_Cache.Height; }
     void GetGrafOrgSize(double& rWidth, double& rHeight) override;
 
-    sal_Int16 IsLinked(){ return m_bIsLinked;}
-    const OUString& GetLinkedFilePath(){ return m_LinkedFilePath;}
+    sal_Int16 IsLinked() const { return m_bIsLinked;}
+    const OUString& GetLinkedFilePath() const { return m_LinkedFilePath;}
 };
 
 #endif

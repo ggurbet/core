@@ -412,7 +412,7 @@ void SwEditShell::SetTableName( SwFrameFormat& rTableFormat, const OUString &rNe
 }
 
 /// request current word
-OUString SwEditShell::GetCurWord()
+OUString SwEditShell::GetCurWord() const
 {
     const SwPaM& rPaM = *GetCursor();
     const SwTextNode* pNd = rPaM.GetNode().GetTextNode();
@@ -714,7 +714,7 @@ void SwEditShell::GetINetAttrs( SwGetINetAttrs& rArr )
                 OUString sText( pTextNd->GetExpandText(GetLayout(),
                         rAttr.GetStart(), *rAttr.GetEnd() - rAttr.GetStart()) );
 
-                sText = sText.replaceAll(OUStringLiteral1(0x0a), "");
+                sText = sText.replaceAll("\x0a", "");
                 sText = comphelper::string::strip(sText, ' ');
 
                 if( !sText.isEmpty() )
@@ -726,7 +726,7 @@ void SwEditShell::GetINetAttrs( SwGetINetAttrs& rArr )
     }
 }
 
-/// If the cursor is in a INetAttribute then it will be deleted completely (incl. hint text, the
+/// If the cursor is in an INetAttribute then it will be deleted completely (incl. hint text, the
 /// latter is needed for drag & drop)
 void SwEditShell::DelINetAttrWithText()
 {
@@ -820,7 +820,7 @@ void SwEditShell::SetNumberingRestart()
                             }
                             if (bIsNodeNum)
                             {
-                                // now set a the start value as attribute
+                                // now set the start value as attribute
                                 SwPosition aCurrentNode(*pNd);
                                 GetDoc()->SetNumRuleStart( aCurrentNode );
                             }
@@ -1029,7 +1029,7 @@ void SwEditShell::TransliterateText( TransliterationFlags nType )
     if( pCursor->GetNext() != pCursor )
     {
         GetDoc()->GetIDocumentUndoRedo().StartUndo(SwUndoId::EMPTY, nullptr);
-        for(SwPaM& rPaM : GetCursor()->GetRingContainer())
+        for(const SwPaM& rPaM : GetCursor()->GetRingContainer())
         {
             if( rPaM.HasMark() )
                 GetDoc()->getIDocumentContentOperations().TransliterateText( rPaM, aTrans );
@@ -1044,7 +1044,7 @@ void SwEditShell::TransliterateText( TransliterationFlags nType )
 
 void SwEditShell::CountWords( SwDocStat& rStat ) const
 {
-    for(SwPaM& rPaM : GetCursor()->GetRingContainer())
+    for(const SwPaM& rPaM : GetCursor()->GetRingContainer())
     {
         if( rPaM.HasMark() )
             SwDoc::CountWords( rPaM, rStat );

@@ -401,7 +401,7 @@ sal_uInt32 SwStyleSheetIterator::SwPoolFormatList::FindName(SfxStyleFamily eFam,
             cStyle = ' ';
             break;
         }
-        const OUString sSrch = OUStringLiteral1(cStyle) + rName;
+        const OUString sSrch = OUStringChar(cStyle) + rName;
 
         UniqueHash::const_iterator it = maUnique.find(sSrch);
         if (it != maUnique.end())
@@ -438,7 +438,7 @@ void SwStyleSheetIterator::SwPoolFormatList::RemoveName(SfxStyleFamily eFam,
 // Add Strings to the list of templates
 void SwStyleSheetIterator::SwPoolFormatList::Append( char cChar, const OUString& rStr )
 {
-    const OUString aStr = OUString(cChar) + rStr;
+    const OUString aStr = OUStringChar(cChar) + rStr;
 
     UniqueHash::const_iterator it = maUnique.find(aStr);
     if (it != maUnique.end())
@@ -451,9 +451,9 @@ void SwStyleSheetIterator::SwPoolFormatList::Append( char cChar, const OUString&
 // UI-sided implementation of StyleSheets
 // uses the Core-Engine
 SwDocStyleSheet::SwDocStyleSheet(   SwDoc&                rDocument,
-                                    SwDocStyleSheetPool*  _rPool) :
+                                    SwDocStyleSheetPool&  rPool) :
 
-    SfxStyleSheetBase( OUString(), _rPool, SfxStyleFamily::Char, SfxStyleSearchBits::Auto ),
+    SfxStyleSheetBase( OUString(), &rPool, SfxStyleFamily::Char, SfxStyleSearchBits::Auto ),
     pCharFormat(nullptr),
     pColl(nullptr),
     pFrameFormat(nullptr),
@@ -832,7 +832,7 @@ OUString  SwDocStyleSheet::GetDescription(MapUnit eUnit)
         SfxItemIter aIter( *pSet );
         OUStringBuffer aDesc;
 
-        for (const SfxPoolItem* pItem = aIter.FirstItem(); pItem; pItem = aIter.NextItem())
+        for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
         {
             if(!IsInvalidItem(pItem))
             {
@@ -883,7 +883,7 @@ OUString  SwDocStyleSheet::GetDescription(MapUnit eUnit)
         const drawing::FillStyle eFillStyle(pSet->Get(XATTR_FILLSTYLE).GetValue());
         const bool bUseFloatTransparence(pSet->Get(XATTR_FILLFLOATTRANSPARENCE).IsEnabled());
 
-        for ( const SfxPoolItem* pItem = aIter.FirstItem(); pItem; pItem = aIter.NextItem() )
+        for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
         {
             if(!IsInvalidItem(pItem))
             {
@@ -1663,7 +1663,7 @@ void SwDocStyleSheet::SetItemSet( const SfxItemSet& rSet,
     {
         SfxItemIter aIter( rSet );
         const SfxPoolItem* pItem = aIter.GetCurItem();
-        while( true )
+        do
         {
             if( IsInvalidItem( pItem ) )            // Clear
             {
@@ -1673,10 +1673,8 @@ void SwDocStyleSheet::SetItemSet( const SfxItemSet& rSet,
                                         *pFormat );
             }
 
-            if( aIter.IsAtEnd() )
-                break;
             pItem = aIter.NextItem();
-        }
+        } while (pItem);
         SfxItemSet aSet(rSet);
         aSet.ClearInvalidItems();
 
@@ -2394,14 +2392,14 @@ void  SwDocStyleSheet::SetHelpId( const OUString& r, sal_uLong nId )
 
 // methods for DocStyleSheetPool
 SwDocStyleSheetPool::SwDocStyleSheetPool( SwDoc& rDocument, bool bOrg )
-: SfxStyleSheetBasePool( rDocument.GetAttrPool() )
-, mxStyleSheet( new SwDocStyleSheet( rDocument, this ) )
-, rDoc( rDocument )
+    : SfxStyleSheetBasePool(rDocument.GetAttrPool())
+    , mxStyleSheet(new SwDocStyleSheet(rDocument, *this))
+    , rDoc(rDocument)
 {
     bOrganizer = bOrg;
 }
 
- SwDocStyleSheetPool::~SwDocStyleSheetPool()
+SwDocStyleSheetPool::~SwDocStyleSheetPool()
 {
 }
 
@@ -2435,7 +2433,7 @@ SfxStyleSheetBase*   SwDocStyleSheetPool::Create( const OUString &,
 
 std::unique_ptr<SfxStyleSheetIterator> SwDocStyleSheetPool::CreateIterator( SfxStyleFamily eFam, SfxStyleSearchBits _nMask )
 {
-    return std::make_unique<SwStyleSheetIterator>( this, eFam, _nMask );
+    return std::make_unique<SwStyleSheetIterator>(*this, eFam, _nMask);
 }
 
 void SwDocStyleSheetPool::dispose()
@@ -2640,15 +2638,15 @@ SfxStyleSheetBase* SwDocStyleSheetPool::Find( const OUString& rName,
     return bFnd ? mxStyleSheet.get() : nullptr;
 }
 
-SwStyleSheetIterator::SwStyleSheetIterator( SwDocStyleSheetPool* pBase,
+SwStyleSheetIterator::SwStyleSheetIterator(SwDocStyleSheetPool& rBase,
                                 SfxStyleFamily eFam, SfxStyleSearchBits n )
-    : SfxStyleSheetIterator( pBase, eFam, n ),
-    mxIterSheet( new SwDocStyleSheet( pBase->GetDoc(), pBase ) ),
-    mxStyleSheet( new SwDocStyleSheet( pBase->GetDoc(), pBase ) )
+    : SfxStyleSheetIterator(&rBase, eFam, n)
+    , mxIterSheet(new SwDocStyleSheet(rBase.GetDoc(), rBase))
+    , mxStyleSheet(new SwDocStyleSheet(rBase.GetDoc(), rBase))
 {
     bFirstCalled = false;
     nLastPos = 0;
-    StartListening( *pBase );
+    StartListening(rBase);
 }
 
 SwStyleSheetIterator::~SwStyleSheetIterator()

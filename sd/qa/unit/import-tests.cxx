@@ -21,20 +21,13 @@
 #include <editeng/fhgtitem.hxx>
 #include <editeng/escapementitem.hxx>
 #include <editeng/colritem.hxx>
-#include <editeng/fontitem.hxx>
-#include <editeng/wghtitem.hxx>
 #include <editeng/numitem.hxx>
-#include <editeng/lrspitem.hxx>
-#include <editeng/postitem.hxx>
 #include <editeng/unoprnms.hxx>
 #include <svl/style.hxx>
 
-#include <sfx2/sfxsids.hrc>
 #include <svx/svdotext.hxx>
 #include <svx/svdoashp.hxx>
-#include <svx/svdograf.hxx>
 #include <svx/svdogrp.hxx>
-#include <svx/svdomedia.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdotable.hxx>
 #include <svx/xfillit0.hxx>
@@ -56,6 +49,7 @@
 #include <com/sun/star/presentation/XPresentationPage.hpp>
 #include <com/sun/star/presentation/XPresentationSupplier.hpp>
 #include <com/sun/star/drawing/BitmapMode.hpp>
+#include <com/sun/star/drawing/ColorMode.hpp>
 #include <com/sun/star/drawing/GraphicExportFilter.hpp>
 #include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
@@ -76,6 +70,7 @@
 #include <com/sun/star/chart2/data/XLabeledDataSequence.hpp>
 #include <com/sun/star/chart2/data/XDataSequence.hpp>
 #include <com/sun/star/chart2/data/XNumericalDataSequence.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/table/BorderLineStyle.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
@@ -92,12 +87,11 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/graphicmimetype.hxx>
+#include <comphelper/lok.hxx>
 #include <vcl/pngread.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/dibtools.hxx>
-#include <sfx2/frame.hxx>
-#include <com/sun/star/frame/XModel2.hpp>
-#include <com/sun/star/frame/XController2.hpp>
+#include <svx/svdograf.hxx>
 
 using namespace ::com::sun::star;
 
@@ -149,14 +143,18 @@ public:
     void testTableBorderLineStyle();
     void testBnc862510_6();
     void testBnc862510_7();
-#if ENABLE_PDFIMPORT && defined(IMPORT_PDF_ELEMENTS)
+#if ENABLE_PDFIMPORT
+    void testPDFImportShared();
+#if defined(IMPORT_PDF_ELEMENTS)
     void testPDFImport();
     void testPDFImportSkipImages();
+#endif
 #endif
     void testBulletSuffix();
     void testBnc910045();
     void testRowHeight();
     void testTdf93830();
+    void testTdf127129();
     void testTdf93097();
     void testTdf62255();
     void testTdf93124();
@@ -171,6 +169,7 @@ public:
     void testTdf103567();
     void testTdf103792();
     void testTdf103876();
+    void testTdf79007();
     void testTdf104015();
     void testTdf104201();
     void testTdf103477();
@@ -209,6 +208,7 @@ public:
     void testTdf122899();
     void testOOXTheme();
     void testCropToShape();
+    void testTdf127964();
 
     CPPUNIT_TEST_SUITE(SdImportTest);
 
@@ -242,14 +242,18 @@ public:
     CPPUNIT_TEST(testTableBorderLineStyle);
     CPPUNIT_TEST(testBnc862510_6);
     CPPUNIT_TEST(testBnc862510_7);
-#if ENABLE_PDFIMPORT && defined(IMPORT_PDF_ELEMENTS)
+#if ENABLE_PDFIMPORT
+    CPPUNIT_TEST(testPDFImportShared);
+#if defined(IMPORT_PDF_ELEMENTS)
     CPPUNIT_TEST(testPDFImport);
     CPPUNIT_TEST(testPDFImportSkipImages);
+#endif
 #endif
     CPPUNIT_TEST(testBulletSuffix);
     CPPUNIT_TEST(testBnc910045);
     CPPUNIT_TEST(testRowHeight);
     CPPUNIT_TEST(testTdf93830);
+    CPPUNIT_TEST(testTdf127129);
     CPPUNIT_TEST(testTdf93097);
     CPPUNIT_TEST(testTdf62255);
     CPPUNIT_TEST(testTdf93124);
@@ -264,6 +268,7 @@ public:
     CPPUNIT_TEST(testTdf103567);
     CPPUNIT_TEST(testTdf103792);
     CPPUNIT_TEST(testTdf103876);
+    CPPUNIT_TEST(testTdf79007);
     CPPUNIT_TEST(testTdf104015);
     CPPUNIT_TEST(testTdf104201);
     CPPUNIT_TEST(testTdf103477);
@@ -300,6 +305,7 @@ public:
     CPPUNIT_TEST(testTdf122899);
     CPPUNIT_TEST(testOOXTheme);
     CPPUNIT_TEST(testCropToShape);
+    CPPUNIT_TEST(testTdf127964);
 
     CPPUNIT_TEST_SUITE_END();
 };
@@ -722,7 +728,7 @@ void SdImportTest::testTdf97808()
 
     uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(
         xDocShRef->GetModel(), uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
     uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("graphics"), uno::UNO_QUERY);
     uno::Reference<beans::XPropertySet> xStyle(xStyleFamily->getByName("objectwithoutfill"), uno::UNO_QUERY);
     OUString lineend;
@@ -1193,7 +1199,66 @@ void SdImportTest::testBnc862510_7()
     xDocShRef->DoClose();
 }
 
-#if ENABLE_PDFIMPORT && defined(IMPORT_PDF_ELEMENTS)
+#if ENABLE_PDFIMPORT
+
+void SdImportTest::testPDFImportShared()
+{
+    comphelper::LibreOfficeKit::setActive();
+    sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pdf/multipage.pdf"), PDF);
+    SdDrawDocument *pDoc = xDocShRef->GetDoc();
+    CPPUNIT_ASSERT_MESSAGE( "no document", pDoc != nullptr );
+
+    // This test is to verify that we share the PDF stream linked to each
+    // Graphic instance in the imported document.
+    // Since we import PDFs as images, we support attaching the original
+    // PDF with each image to allow for advanced editing.
+    // Here we iterate over all Graphic instances embedded in the pages
+    // and verify that they all point to the same object in memory.
+    std::vector<std::shared_ptr<std::vector<sal_Int8>>> aPdfSeqSharedPtrs;
+    std::vector<std::shared_ptr<GfxLink>> aGfxLinkSharedPtrs;
+
+    for (int nPageIndex = 0; nPageIndex < pDoc->GetPageCount(); ++nPageIndex)
+    {
+        const SdrPage* pPage = GetPage(nPageIndex, xDocShRef);
+        if (pPage == nullptr)
+            break;
+
+        for (size_t nObjIndex = 0; nObjIndex < pPage->GetObjCount(); ++nObjIndex)
+        {
+            SdrObject* pObject = pPage->GetObj(nObjIndex);
+            if (pObject == nullptr)
+                continue;
+
+            SdrGrafObj* pSdrGrafObj = dynamic_cast<SdrGrafObj*>(pObject);
+            if (pSdrGrafObj == nullptr)
+                continue;
+
+            const GraphicObject& rGraphicObject = pSdrGrafObj->GetGraphicObject().GetGraphic();
+            const Graphic& rGraphic = rGraphicObject.GetGraphic();
+            aPdfSeqSharedPtrs.push_back(rGraphic.getPdfData());
+            aGfxLinkSharedPtrs.push_back(rGraphic.GetSharedGfxLink());
+        }
+    }
+
+    CPPUNIT_ASSERT_MESSAGE("Expected more than one page.", aPdfSeqSharedPtrs.size() > 1);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Expected as many PDF streams as GfxLinks.",
+                                 aPdfSeqSharedPtrs.size(), aGfxLinkSharedPtrs.size());
+
+    const std::shared_ptr<std::vector<sal_Int8>> pPdfSeq = aPdfSeqSharedPtrs[0];
+    const std::shared_ptr<GfxLink> pGfxLink = aGfxLinkSharedPtrs[0];
+    for (size_t i = 0; i < aPdfSeqSharedPtrs.size(); ++i)
+    {
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Expected all PDF streams to be identical.",
+                                     aPdfSeqSharedPtrs[i].get(), pPdfSeq.get());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Expected all GfxLinks to be identical.",
+                                     aGfxLinkSharedPtrs[i].get(), pGfxLink.get());
+    }
+
+    xDocShRef->DoClose();
+    comphelper::LibreOfficeKit::setActive(false);
+}
+
+#if defined(IMPORT_PDF_ELEMENTS)
 
 void SdImportTest::testPDFImport()
 {
@@ -1230,6 +1295,7 @@ void SdImportTest::testPDFImportSkipImages()
     xDocShRef->DoClose();
 }
 
+#endif
 #endif
 
 void SdImportTest::testBulletSuffix()
@@ -1284,6 +1350,7 @@ void SdImportTest::testRowHeight()
 
     xDocShRef->DoClose();
 }
+
 void SdImportTest::testTdf93830()
 {
     // Text shape offset was ignored
@@ -1302,6 +1369,25 @@ void SdImportTest::testTdf93830()
     xDocShRef->DoClose();
 }
 
+void SdImportTest::testTdf127129()
+{
+    sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf127129.pptx"), PPTX);
+    uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
+    uno::Reference< text::XTextRange > xParagraph( getParagraphFromShape( 0, xShape ) );
+    uno::Reference< text::XTextRange > xRun( getRunFromParagraph( 0, xParagraph ) );
+    uno::Reference< beans::XPropertySet > xPropSet( xRun, uno::UNO_QUERY_THROW );
+
+    sal_Int32 nCharColor;
+    xPropSet->getPropertyValue( "CharColor" ) >>= nCharColor;
+    CPPUNIT_ASSERT_EQUAL( sal_Int32(0x000000), nCharColor );
+
+    // Without the accompanying fix in place, the highlight would be -1
+    sal_Int32 nCharBackColor;
+    xPropSet->getPropertyValue( "CharBackColor" ) >>= nCharBackColor;
+    CPPUNIT_ASSERT_EQUAL( sal_Int32(0xFF00), nCharBackColor );
+
+    xDocShRef->DoClose();
+}
 void SdImportTest::testTdf93097()
 {
     // Throwing metadata import aborted the filter, check that metadata is now imported.
@@ -1682,6 +1768,61 @@ void SdImportTest::testTdf103876()
     sal_Int32 nCharColor;
     xShape->getPropertyValue( "CharColor" ) >>= nCharColor;
     CPPUNIT_ASSERT_EQUAL( sal_Int32(0xFF0000), nCharColor );
+
+    xDocShRef->DoClose();
+}
+
+void SdImportTest::testTdf79007()
+{
+    sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf79007.pptx"), PPTX);
+
+    uno::Reference<beans::XPropertySet> xShape1(getShapeFromPage(0, 0, xDocShRef));
+    CPPUNIT_ASSERT_MESSAGE("Not a shape", xShape1.is());
+
+    // Check we map mso washout to our watermark
+    drawing::ColorMode aColorMode1;
+    xShape1->getPropertyValue("GraphicColorMode") >>= aColorMode1;
+    CPPUNIT_ASSERT_EQUAL(drawing::ColorMode_WATERMARK, aColorMode1);
+
+    sal_Int16 nContrast1;
+    xShape1->getPropertyValue("AdjustContrast") >>= nContrast1;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), nContrast1);
+
+    sal_Int16 nLuminance1;
+    xShape1->getPropertyValue("AdjustLuminance") >>= nLuminance1;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), nLuminance1);
+
+    uno::Reference<beans::XPropertySet> xShape2(getShapeFromPage(1, 0, xDocShRef));
+    CPPUNIT_ASSERT_MESSAGE("Not a shape", xShape2.is());
+
+    // Check we map mso grayscale to our grayscale
+    drawing::ColorMode aColorMode2;
+    xShape2->getPropertyValue("GraphicColorMode") >>= aColorMode2;
+    CPPUNIT_ASSERT_EQUAL(drawing::ColorMode_GREYS, aColorMode2);
+
+    sal_Int16 nContrast2;
+    xShape2->getPropertyValue("AdjustContrast") >>= nContrast2;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), nContrast2);
+
+    sal_Int16 nLuminance2;
+    xShape2->getPropertyValue("AdjustLuminance") >>= nLuminance2;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), nLuminance2);
+
+    uno::Reference<beans::XPropertySet> xShape3(getShapeFromPage(2, 0, xDocShRef));
+    CPPUNIT_ASSERT_MESSAGE("Not a shape", xShape3.is());
+
+    // Check we map mso black/white to our black/white
+    drawing::ColorMode aColorMode3;
+    xShape3->getPropertyValue("GraphicColorMode") >>= aColorMode3;
+    CPPUNIT_ASSERT_EQUAL(drawing::ColorMode_MONO, aColorMode3);
+
+    sal_Int16 nContrast3;
+    xShape3->getPropertyValue("AdjustContrast") >>= nContrast3;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), nContrast3);
+
+    sal_Int16 nLuminance3;
+    xShape3->getPropertyValue("AdjustLuminance") >>= nLuminance3;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), nLuminance3);
 
     xDocShRef->DoClose();
 }
@@ -2792,8 +2933,7 @@ void SdImportTest::testCropToShape()
     uno::Reference<drawing::XDrawPage> xDrawPage(xDrawPages->getByIndex(0), uno::UNO_QUERY_THROW);
     CPPUNIT_ASSERT_MESSAGE("Could not get xDrawPage", xDrawPage.is());
     uno::Reference<drawing::XShape> xShape(xDrawPage->getByIndex(0), uno::UNO_QUERY);
-    uno::Reference<drawing::XShapeDescriptor> xDesc(xShape, uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(OUString{"com.sun.star.drawing.CustomShape"}, xDesc->getShapeType());
+    CPPUNIT_ASSERT_EQUAL(OUString{"com.sun.star.drawing.CustomShape"}, xShape->getShapeType());
     CPPUNIT_ASSERT_MESSAGE("Could not get xShape", xShape.is());
     uno::Reference<beans::XPropertySet> xShapeProps(xShape, uno::UNO_QUERY);
     css::drawing::FillStyle fillStyle;
@@ -2802,6 +2942,27 @@ void SdImportTest::testCropToShape()
     css::drawing::BitmapMode bitmapmode;
     xShapeProps->getPropertyValue("FillBitmapMode") >>= bitmapmode;
     CPPUNIT_ASSERT_EQUAL(css::drawing::BitmapMode_STRETCH, bitmapmode);
+}
+
+void SdImportTest::testTdf127964()
+{
+    sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf127964.pptx"), PPTX);
+    const SdrPage* pPage = GetPage(1, xDocShRef);
+    const SdrObject* pObj = pPage->GetObj(0);
+    auto& rFillStyleItem
+        = dynamic_cast<const XFillStyleItem&>(pObj->GetMergedItem(XATTR_FILLSTYLE));
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, rFillStyleItem.GetValue());
+
+    auto& rFillColorItem
+        = dynamic_cast<const XFillColorItem&>(pObj->GetMergedItem(XATTR_FILLCOLOR));
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 4294967295
+    // - Actual  : 5210557
+    // i.e. instead of transparent (which then got rendered as white), the shape fill color was
+    // blue.
+    CPPUNIT_ASSERT_EQUAL(COL_TRANSPARENT, rFillColorItem.GetColorValue());
+    xDocShRef->DoClose();
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SdImportTest);

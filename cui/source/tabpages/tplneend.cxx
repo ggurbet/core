@@ -22,7 +22,6 @@
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <unotools/pathoptions.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
@@ -31,8 +30,6 @@
 #include <svx/dlgctrl.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdopath.hxx>
-#include <svx/drawitem.hxx>
-#include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
 #include <svx/xlineit0.hxx>
 #include <svx/xlnwtit.hxx>
@@ -45,20 +42,15 @@
 #include <cuitabarea.hxx>
 #include <svx/svxdlg.hxx>
 #include <dialmgr.hxx>
-#include <svx/dlgutil.hxx>
 #include <basegfx/range/b2drange.hxx>
-#include <basegfx/polygon/b2dpolygontools.hxx>
-#include <basegfx/matrix/b2dhommatrix.hxx>
-#include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
 
 #define XOUT_WIDTH    150
 
-SvxLineEndDefTabPage::SvxLineEndDefTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent , "cui/ui/lineendstabpage.ui", "LineEndPage", &rInAttrs)
+SvxLineEndDefTabPage::SvxLineEndDefTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/lineendstabpage.ui", "LineEndPage", &rInAttrs)
     , rOutAttrs(rInAttrs)
     , pPolyObj(nullptr)
     , aXLineAttr(rInAttrs.GetPool())
@@ -99,21 +91,8 @@ SvxLineEndDefTabPage::SvxLineEndDefTabPage(TabPageParent pParent, const SfxItemS
 
 SvxLineEndDefTabPage::~SvxLineEndDefTabPage()
 {
-    disposeOnce();
-}
-
-void SvxLineEndDefTabPage::dispose()
-{
     m_xCtlPreview.reset();
     m_xLbLineEnds.reset();
-    SfxTabPage::dispose();
-}
-
-void SvxLineEndDefTabPage::Resize()
-{
-    rXLSet.Put(XLineStartWidthItem(m_aCtlPreview.GetOutputSize().Height()  / 2));
-    rXLSet.Put(XLineEndWidthItem(m_aCtlPreview.GetOutputSize().Height() / 2));
-    SfxTabPage::Resize();
 }
 
 void SvxLineEndDefTabPage::Construct()
@@ -130,12 +109,11 @@ void SvxLineEndDefTabPage::Construct()
     {
         SdrObjTransformInfoRec aInfoRec;
         pPolyObj->TakeObjInfo( aInfoRec );
-        SdrObject* pNewObj = nullptr;
+        SdrObjectUniquePtr pNewObj;
         if( aInfoRec.bCanConvToPath )
             pNewObj = pPolyObj->ConvertToPolyObj( true, false );
 
-        bCreateArrowPossible = nullptr != dynamic_cast<const SdrPathObj*>( pNewObj);
-        SdrObject::Free( pNewObj );
+        bCreateArrowPossible = nullptr != dynamic_cast<const SdrPathObj*>( pNewObj.get());
     }
 
     if( !bCreateArrowPossible )
@@ -186,7 +164,7 @@ void SvxLineEndDefTabPage::CheckChanges_Impl()
 
         if( aString != m_xLbLineEnds->get_active_text() )
         {
-            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querychangelineenddialog.ui"));
+            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querychangelineenddialog.ui"));
             std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("AskChangeLineEndDialog"));
             if (xQueryBox->run() == RET_YES)
                 ClickModifyHdl_Impl(*m_xBtnModify);
@@ -253,9 +231,9 @@ void SvxLineEndDefTabPage::Reset( const SfxItemSet* )
     }
 }
 
-VclPtr<SfxTabPage> SvxLineEndDefTabPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SvxLineEndDefTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SvxLineEndDefTabPage>::Create(pParent, *rSet );
+    return std::make_unique<SvxLineEndDefTabPage>(pPage, pController, *rSet );
 }
 
 void SvxLineEndDefTabPage::SelectLineEndHdl_Impl()
@@ -304,12 +282,12 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickModifyHdl_Impl, weld::Button&, void)
         // if yes, repeat and demand a new name
         if ( !bDifferent )
         {
-            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
             std::unique_ptr<weld::MessageDialog> xWarningBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
             xWarningBox->run();
 
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc));
+            ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
             bool bLoop = true;
 
             while( !bDifferent && bLoop && pDlg->Execute() == RET_OK )
@@ -363,7 +341,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickAddHdl_Impl, weld::Button&, void)
     if( pPolyObj )
     {
         const SdrObject* pNewObj;
-        SdrObject* pConvPolyObj = nullptr;
+        SdrObjectUniquePtr pConvPolyObj;
 
         if( nullptr != dynamic_cast<const SdrPathObj*>( pPolyObj) )
         {
@@ -376,7 +354,8 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickAddHdl_Impl, weld::Button&, void)
 
             if( aInfoRec.bCanConvToPath )
             {
-                pNewObj = pConvPolyObj = pPolyObj->ConvertToPolyObj( true, false );
+                pConvPolyObj = pPolyObj->ConvertToPolyObj( true, false );
+                pNewObj = pConvPolyObj.get();
 
                 if( !pNewObj || nullptr == dynamic_cast<const SdrPathObj*>( pNewObj) )
                     return; // cancel, additional safety, which
@@ -391,7 +370,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickAddHdl_Impl, weld::Button&, void)
         // normalize
         aNewPolyPolygon.transform(basegfx::utils::createTranslateB2DHomMatrix( -aNewRange.getMinX(), -aNewRange.getMinY()));
 
-        SdrObject::Free( pConvPolyObj );
+        pConvPolyObj.reset();
 
         OUString aNewName(SvxResId(RID_SVXSTR_LINEEND));
         OUString aDesc(CuiResId(RID_SVXSTR_DESC_LINEEND));
@@ -412,7 +391,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickAddHdl_Impl, weld::Button&, void)
         }
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc ));
+        ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc ));
         bool bLoop = true;
 
         while ( bLoop && pDlg->Execute() == RET_OK )
@@ -443,7 +422,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickAddHdl_Impl, weld::Button&, void)
             }
             else
             {
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
                 std::unique_ptr<weld::MessageDialog> xWarningBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
                 xWarningBox->run();
             }
@@ -467,7 +446,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickDeleteHdl_Impl, weld::Button&, void)
 
     if (nPos != -1)
     {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querydeletelineenddialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querydeletelineenddialog.ui"));
         std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("AskDelLineEndDialog"));
 
         if (xQueryBox->run() == RET_YES)
@@ -499,7 +478,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickLoadHdl_Impl, weld::Button&, void)
 
     if ( *pnLineEndListState & ChangeType::MODIFIED )
     {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querysavelistdialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querysavelistdialog.ui"));
         std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("AskSaveList"));
 
         nReturn = xBox->run();
@@ -511,7 +490,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickLoadHdl_Impl, weld::Button&, void)
     if ( nReturn != RET_CANCEL )
     {
         ::sfx2::FileDialogHelper aDlg(css::ui::dialogs::TemplateDescription::FILEOPEN_SIMPLE,
-                                      FileDialogFlags::NONE, GetDialogFrameWeld());
+                                      FileDialogFlags::NONE, GetFrameWeld());
         OUString aStrFilterType( "*.soe" );
         aDlg.AddFilter( aStrFilterType, aStrFilterType );
 
@@ -555,7 +534,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickLoadHdl_Impl, weld::Button&, void)
             }
             else
             {
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querynoloadedfiledialog.ui"));
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querynoloadedfiledialog.ui"));
                 std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("NoLoadedFileDialog"));
                 xBox->run();
             }
@@ -579,7 +558,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickLoadHdl_Impl, weld::Button&, void)
 
 IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickSaveHdl_Impl, weld::Button&, void)
 {
-    ::sfx2::FileDialogHelper aDlg(css::ui::dialogs::TemplateDescription::FILESAVE_SIMPLE, FileDialogFlags::NONE, GetDialogFrameWeld());
+    ::sfx2::FileDialogHelper aDlg(css::ui::dialogs::TemplateDescription::FILESAVE_SIMPLE, FileDialogFlags::NONE, GetFrameWeld());
     OUString aStrFilterType( "*.soe" );
     aDlg.AddFilter( aStrFilterType, aStrFilterType );
 
@@ -621,23 +600,10 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickSaveHdl_Impl, weld::Button&, void)
         }
         else
         {
-            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querynosavefiledialog.ui"));
+            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querynosavefiledialog.ui"));
             std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("NoSaveFileDialog"));
             xBox->run();
         }
-    }
-}
-
-void SvxLineEndDefTabPage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    SfxTabPage::DataChanged( rDCEvt );
-
-    if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
-    {
-        auto nOldSelect = m_xLbLineEnds->get_active();
-        m_xLbLineEnds->clear();
-        m_xLbLineEnds->Fill(pLineEndList);
-        m_xLbLineEnds->set_active(nOldSelect);
     }
 }
 

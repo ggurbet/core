@@ -121,7 +121,7 @@ SmSym *SmSymbolManager::GetSymbolByName(const OUString& rSymbolName)
 }
 
 
-const SymbolPtrVec_t SmSymbolManager::GetSymbols() const
+SymbolPtrVec_t SmSymbolManager::GetSymbols() const
 {
     SymbolPtrVec_t aRes;
     for (const auto& rEntry : m_aSymbols)
@@ -187,7 +187,7 @@ std::set< OUString > SmSymbolManager::GetSymbolSetNames() const
 }
 
 
-const SymbolPtrVec_t SmSymbolManager::GetSymbolSet( const OUString& rSymbolSetName )
+SymbolPtrVec_t SmSymbolManager::GetSymbolSet( const OUString& rSymbolSetName )
 {
     SymbolPtrVec_t aRes;
     if (!rSymbolSetName.isEmpty())
@@ -228,8 +228,7 @@ void SmSymbolManager::Load()
     // now add a %i... symbol to the 'iGreek' set for every symbol found in the 'Greek' set.
     const OUString aGreekSymbolSetName(SmLocalizedSymbolData::GetUiSymbolSetName("Greek"));
     const SymbolPtrVec_t    aGreekSymbols( GetSymbolSet( aGreekSymbolSetName ) );
-    OUString aSymbolSetName('i');
-    aSymbolSetName += aGreekSymbolSetName;
+    OUString aSymbolSetName = "i" + aGreekSymbolSetName;
     size_t nSymbols = aGreekSymbols.size();
     for (size_t i = 0;  i < nSymbols;  ++i)
     {

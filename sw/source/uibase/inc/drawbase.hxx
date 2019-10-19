@@ -20,6 +20,7 @@
 #define INCLUDED_SW_SOURCE_UIBASE_INC_DRAWBASE_HXX
 
 #include <tools/gen.hxx>
+#include <vcl/vclptr.hxx>
 
 class SwView;
 class SwWrtShell;
@@ -39,7 +40,7 @@ protected:
     bool            m_bCreateObj  :1;
     bool            m_bInsForm   :1;
 
-    Point           GetDefaultCenterPos();
+    Point           GetDefaultCenterPos() const;
 public:
     SwDrawBase(SwWrtShell *pSh, SwEditWin* pWin, SwView* pView);
     virtual ~SwDrawBase();
@@ -56,7 +57,7 @@ public:
 
     void         BreakCreate();
     void         SetSlotId(sal_uInt16 nSlot) {m_nSlotId = nSlot;}
-    sal_uInt16       GetSlotId() { return m_nSlotId;}
+    sal_uInt16   GetSlotId() const { return m_nSlotId;}
 
     virtual void Activate(const sal_uInt16 nSlotId);    // activate function
     virtual void Deactivate();                      // deactivate function

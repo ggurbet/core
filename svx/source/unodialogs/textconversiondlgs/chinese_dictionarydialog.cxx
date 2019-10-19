@@ -120,17 +120,15 @@ void DictionaryList::refillFromDictionary( sal_Int32 nTextConversionOptions )
     if(!m_xDictionary.is())
         return;
 
-    Sequence< OUString > aLeftList(  m_xDictionary->getConversionEntries( linguistic2::ConversionDirection_FROM_LEFT ) );
-    sal_Int32 nCount = aLeftList.getLength();
+    const Sequence< OUString > aLeftList(  m_xDictionary->getConversionEntries( linguistic2::ConversionDirection_FROM_LEFT ) );
 
     Reference< linguistic2::XConversionPropertyType > xPropertyType( m_xDictionary, uno::UNO_QUERY );
 
-    OUString aLeft, aRight;
+    OUString aRight;
     sal_Int16 nConversionPropertyType;
 
-    for(sal_Int32 nN=0; nN<nCount; nN++)
+    for(const OUString& aLeft : aLeftList)
     {
-        aLeft  = aLeftList[nN];
         Sequence< OUString > aRightList( m_xDictionary->getConversions(
             aLeft, 0, aLeft.getLength()
             , linguistic2::ConversionDirection_FROM_LEFT, nTextConversionOptions ) );
@@ -352,10 +350,10 @@ ChineseDictionaryDialog::ChineseDictionaryDialog(weld::Window* pParent)
                     else
                     {
                         aLocale.Country = "TW";
-                        xDictionary_To_Simplified.set(
+                        xDictionary_To_Simplified =
                                 xDictionaryList->addNewDictionary( aNameTo_Simplified
                                     , aLocale, linguistic2::ConversionDictionaryType::SCHINESE_TCHINESE
-                                ), UNO_QUERY );
+                                );
                     }
                     if (xDictionary_To_Simplified.is())
                         xDictionary_To_Simplified->setActive( true );
@@ -367,10 +365,9 @@ ChineseDictionaryDialog::ChineseDictionaryDialog(weld::Window* pParent)
                     else
                     {
                         aLocale.Country = "CN";
-                        xDictionary_To_Traditional.set(
+                        xDictionary_To_Traditional =
                                 xDictionaryList->addNewDictionary( aNameTo_Traditional
-                                    ,aLocale, linguistic2::ConversionDictionaryType::SCHINESE_TCHINESE),
-                                UNO_QUERY );
+                                    ,aLocale, linguistic2::ConversionDictionaryType::SCHINESE_TCHINESE);
                     }
                     if (xDictionary_To_Traditional.is())
                         xDictionary_To_Traditional->setActive( true );

@@ -362,7 +362,7 @@ void FormulaFinalizer::appendEmptyParameter( const FunctionInfo& rFuncInfo, size
         default:;
     }
 
-    // if no token has been added, append a OPCODE_MISSING token
+    // if no token has been added, append an OPCODE_MISSING token
     if( nTokenArraySize == maTokens.size() )
         maTokens.append( OPCODE_MISSING );
 }
@@ -619,7 +619,7 @@ ApiTokenSequence FormulaParserImpl::finalizeImport()
     if( aTokens.hasElements() )
     {
         ApiToken* pToken = aTokens.getArray();
-        for( auto& tokenIndex : maTokenIndexes )
+        for( const auto& tokenIndex : maTokenIndexes )
         {
             *pToken = maTokenStorage[ tokenIndex ];
             ++pToken;

@@ -17,12 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 
 #include <svx/svditer.hxx>
 #include <svx/svdograf.hxx>
-#include <svx/svdomedia.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdouno.hxx>
@@ -30,8 +28,6 @@
 #include <svx/svdpagv.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/svdocapt.hxx>
-#include <editeng/outlobj.hxx>
-#include <editeng/writingmodeitem.hxx>
 #include <svx/sdrpaintwindow.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
@@ -51,7 +47,6 @@
 #include <viewdata.hxx>
 #include <document.hxx>
 #include <drawutil.hxx>
-#include <futext.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <tabvwsh.hxx>
@@ -804,7 +799,7 @@ bool ScDrawView::GetObjectIsMarked(  const SdrObject* pObject  )
     return  bisMarked;
 }
 
-void ScDrawView::InsertObjectSafe(SdrObject* pObj, SdrPageView& rPV)
+bool ScDrawView::InsertObjectSafe(SdrObject* pObj, SdrPageView& rPV)
 {
     SdrInsertFlags nOptions=SdrInsertFlags::NONE;
     // Do not change marks when the ole object is active
@@ -817,7 +812,7 @@ void ScDrawView::InsertObjectSafe(SdrObject* pObj, SdrPageView& rPV)
             nOptions |= SdrInsertFlags::DONTMARK;
     }
 
-    InsertObjectAtView( pObj, rPV, nOptions );
+    return InsertObjectAtView(pObj, rPV, nOptions);
 }
 
 SdrObject* ScDrawView::GetMarkedNoteCaption( ScDrawObjData** ppCaptData )
@@ -899,7 +894,7 @@ SdrEndTextEditKind ScDrawView::ScEndTextEdit()
     bool bIsTextEdit = IsTextEdit();
     SdrEndTextEditKind eKind = SdrEndTextEdit();
 
-    if ( bIsTextEdit && pViewData )
+    if (bIsTextEdit)
         pViewData->GetViewShell()->SetDrawTextUndo(nullptr);   // the "normal" undo manager
 
     return eKind;

@@ -57,12 +57,12 @@ namespace sfx2
 
     /**
 
-    Some general words about what's going on here ....
+    Some general words about what's going on here...
 
     <p>In our file open dialog, usually we display every filter we know. That's how it was before: every filter
-    lead to an own line in the filter list box, e.g. "StarWriter 5.0 Dokument" or "Microsoft Word 97".</p>
+    lead to an own line in the filter list box, e.g. "StarWriter 5.0 Document" or "Microsoft Word 97".</p>
 
-    <p>But then the PM came. And everything changed ....</p>
+    <p>But then the PM came. And everything changed...</p>
 
     <p>A basic idea are groups: Why simply listing all the single filters? Couldn't we draw nice separators
     between the filters which logically belong together? I.e. all the filters which open a document in StarWriter:
@@ -76,7 +76,7 @@ namespace sfx2
     is a matter of this implementation. We only do this grouping and suggest it to the FilePicker service ...</p>
 
     <p>Now for the second concept:<br/>
-    Thinking about it (and that's what the PM did), both "StarWriter 5.0 Dokument" and "Microsoft Word 97"
+    Thinking about it (and that's what the PM did), both "StarWriter 5.0 Document" and "Microsoft Word 97"
     describe a text document. It's a text. It's of no interest for the user that one of the texts was saved in
     MS' format, and one in our own format.<br/>
     So in a first step, we want to have a filter entry "Text documents". This would cover both above-mentioned
@@ -209,7 +209,7 @@ namespace sfx2
                 // we do not know this global class
                 OSL_FAIL( "ReadGlobalFilter::operator(): unknown filter name!" );
                 // TODO: perhaps we should be more tolerant - at the moment, the filter is dropped
-                // We could silently push_back it to the container ....
+                // We could silently push_back it to the container...
             }
             else
             {
@@ -225,17 +225,12 @@ namespace sfx2
         _rGlobalClasses.clear();
         _rGlobalClassNames.clear();
 
-
         // get the list describing the order of all global classes
         Sequence< OUString > aGlobalClasses;
         _rFilterClassification.getNodeValue( "GlobalFilters/Order" ) >>= aGlobalClasses;
 
-        const OUString* pNames = aGlobalClasses.getConstArray();
-        const OUString* pNamesEnd = pNames + aGlobalClasses.getLength();
-
         // copy the logical names
-        _rGlobalClassNames.resize( aGlobalClasses.getLength() );
-        ::std::copy( pNames, pNamesEnd, _rGlobalClassNames.begin() );
+        comphelper::sequenceToContainer(_rGlobalClassNames, aGlobalClasses);
 
         // Global classes are presented in an own group, so their order matters (while the order of the
         // "local classes" doesn't).
@@ -243,8 +238,8 @@ namespace sfx2
         // are returned from the configuration - it is completely undefined, and we need a _defined_ order.
         FilterClassReferrer aClassReferrer;
         ::std::for_each(
-            pNames,
-            pNamesEnd,
+            aGlobalClasses.begin(),
+            aGlobalClasses.end(),
             CreateEmptyClassRememberPos( _rGlobalClasses, aClassReferrer )
         );
             // now _rGlobalClasses contains a dummy entry for each global class,
@@ -400,7 +395,7 @@ namespace sfx2
 
     static OUString getSeparatorString()
     {
-        return OUString(";");
+        return ";";
     }
 
 
@@ -492,7 +487,7 @@ namespace sfx2
             }
         }
         if ( pTokenLoop > pTokenStart )
-            // the last one ....
+            // the last one...
             aWildCards.emplace_back( pTokenStart, pTokenLoop - pTokenStart );
     }
 
@@ -1152,9 +1147,7 @@ namespace sfx2
                 // show '*' in extensions only when opening a document
                 sExt = sExt.replaceAll("*", "");
             }
-            sRet += " (";
-            sRet += sExt;
-            sRet += ")";
+            sRet += " (" + sExt + ")";
         }
         _rFileDlgImpl.addFilterPair( _rDisplayText, sRet );
         return sRet;

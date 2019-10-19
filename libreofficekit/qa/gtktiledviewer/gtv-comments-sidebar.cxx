@@ -24,6 +24,11 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#endif
+#endif
 G_DEFINE_TYPE(GtvCommentsSidebar, gtv_comments_sidebar, GTK_TYPE_BOX);
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
@@ -53,7 +58,7 @@ gtv_comments_sidebar_view_annotations(GtvCommentsSidebar* sidebar)
     boost::property_tree::read_json(aStream, aTree);
     try
     {
-        for (boost::property_tree::ptree::value_type& rValue : aTree.get_child("comments"))
+        for (const boost::property_tree::ptree::value_type& rValue : aTree.get_child("comments"))
         {
             GtkWidget* pCommentBox = GtvHelpers::createCommentBox(rValue.second);
             gtk_container_add(GTK_CONTAINER(sidebar->commentsgrid), pCommentBox);

@@ -18,20 +18,15 @@
  */
 
 #include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xatom.h>
 
 #include <unx/desktops.hxx>
 
 #include <rtl/bootstrap.hxx>
 #include <rtl/process.h>
-#include <rtl/ustrbuf.hxx>
-#include <osl/module.h>
 #include <osl/thread.h>
 
 #include <vclpluginapi.h>
 
-#include <unistd.h>
 #include <string.h>
 #include <comphelper/string.hxx>
 
@@ -115,15 +110,11 @@ static bool is_gnome_desktop( Display* pDisplay )
     return ret;
 }
 
-
-static bool is_kde5_desktop()
+static bool is_plasma5_desktop()
 {
-    static const char * pFullVersion = getenv( "KDE_FULL_SESSION" );
-    static const char * pSessionVersion = getenv( "KDE_SESSION_VERSION" );
-    if ( pFullVersion && pSessionVersion && strcmp(pSessionVersion, "5") == 0)
-        return true;
-
-    return false;
+    static const char* pFullVersion = getenv("KDE_FULL_SESSION");
+    static const char* pSessionVersion = getenv("KDE_SESSION_VERSION");
+    return pFullVersion && pSessionVersion && (0 == strcmp(pSessionVersion, "5"));
 }
 
 extern "C"
@@ -139,8 +130,8 @@ DESKTOP_DETECTOR_PUBLIC DesktopType get_desktop_environment()
 
         if ( aOver.equalsIgnoreAsciiCase( "lxqt" ) )
             return DESKTOP_LXQT;
-        if ( aOver.equalsIgnoreAsciiCase( "kde5" ) )
-            return DESKTOP_KDE5;
+        if (aOver.equalsIgnoreAsciiCase("plasma5") || aOver.equalsIgnoreAsciiCase("plasma"))
+            return DESKTOP_PLASMA5;
         if ( aOver.equalsIgnoreAsciiCase( "gnome" ) )
             return DESKTOP_GNOME;
         if ( aOver.equalsIgnoreAsciiCase( "gnome-wayland" ) )
@@ -169,7 +160,7 @@ DESKTOP_DETECTOR_PUBLIC DesktopType get_desktop_environment()
         //it may be separated by colon ( e.g. unity:unity7:ubuntu )
         std::vector<OUString> aSplitCurrentDesktop = comphelper::string::split(
                 OStringToOUString( aCurrentDesktop, RTL_TEXTENCODING_UTF8), ':');
-        for (auto& rCurrentDesktopStr : aSplitCurrentDesktop)
+        for (const auto& rCurrentDesktopStr : aSplitCurrentDesktop)
         {
             if ( rCurrentDesktopStr.equalsIgnoreAsciiCase( "unity" ) )
                 return DESKTOP_UNITY;
@@ -197,9 +188,8 @@ DESKTOP_DETECTOR_PUBLIC DesktopType get_desktop_environment()
     else if ( aDesktopSession.equalsIgnoreAsciiCase( "lxqt" ) )
         return DESKTOP_LXQT;
 
-
-    if ( is_kde5_desktop() )
-        return DESKTOP_KDE5;
+    if (is_plasma5_desktop())
+        return DESKTOP_PLASMA5;
 
     // tdf#121275 if we still can't tell, and WAYLAND_DISPLAY
     // is set, default to gtk3

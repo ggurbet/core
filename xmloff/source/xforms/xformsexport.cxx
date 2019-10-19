@@ -21,7 +21,6 @@
 #include <xmloff/xformsexport.hxx>
 
 #include "XFormsModelExport.hxx"
-#include "xformsapi.hxx"
 
 #include <xmloff/xmlexp.hxx>
 #include <xmloff/xmltoken.hxx>
@@ -33,7 +32,6 @@
 
 #include <comphelper/processfactory.hxx>
 
-#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
 #include <com/sun/star/container/XIndexAccess.hpp>
@@ -42,7 +40,6 @@
 #include <com/sun/star/xml/dom/XDocument.hpp>
 #include <com/sun/star/form/binding/XBindableValue.hpp>
 #include <com/sun/star/form/binding/XListEntrySink.hpp>
-#include <com/sun/star/form/binding/XListEntrySource.hpp>
 #include <com/sun/star/form/submission/XSubmissionSupplier.hpp>
 #include <com/sun/star/xforms/XModel.hpp>
 #include <com/sun/star/xforms/XDataTypeRepository.hpp>
@@ -86,7 +83,7 @@ void exportXForms( SvXMLExport& rExport )
         Reference<XNameContainer> xForms = xSupplier->getXForms();
         if( xForms.is() )
         {
-            Sequence<OUString> aNames = xForms->getElementNames();
+            const Sequence<OUString> aNames = xForms->getElementNames();
 
             for( const auto& rName : aNames )
             {
@@ -272,11 +269,8 @@ void exportXFormsBinding( SvXMLExport& rExport,
         if( sName.isEmpty() )
         {
             // if we don't have a name yet, generate one on the fly
-            OUStringBuffer aBuffer;
-            aBuffer.append( "bind_" );
             sal_Int64 nId = reinterpret_cast<sal_uInt64>( xBinding.get() );
-            aBuffer.append( nId , 16 );
-            sName = aBuffer.makeStringAndClear();
+            sName = "bind_" + OUString::number( nId , 16 );
             xBinding->setPropertyValue( "BindingID", makeAny(sName));
         }
     }
@@ -299,9 +293,8 @@ void exportXFormsBinding( SvXMLExport& rExport,
                 xModel.is() ? xModel->getDataTypeRepository() : Reference<XDataTypeRepository>() );
             if( xRepository.is() )
             {
-                Reference<XPropertySet> xDataType(
-                    xRepository->getDataType( sTypeName ),
-                    UNO_QUERY );
+                Reference<XPropertySet> xDataType =
+                    xRepository->getDataType( sTypeName );
 
                 // if it's a basic data type, write out the XSD name
                 // for the XSD type class
@@ -332,7 +325,7 @@ void exportXFormsBinding( SvXMLExport& rExport,
     if( xNamespaces.is() )
     {
         // iterate over Prefixes for this binding
-        Sequence<OUString> aPrefixes = xNamespaces->getElementNames();
+        const Sequence<OUString> aPrefixes = xNamespaces->getElementNames();
         for( const OUString& rPrefix : aPrefixes )
         {
             OUString sURI;
@@ -555,8 +548,7 @@ void exportXFormsSchemas( SvXMLExport& rExport,
                                         true, true );
 
         // now get data type repository, and export
-        Reference<XEnumerationAccess> xTypes( xModel->getDataTypeRepository(),
-                                              UNO_QUERY );
+        Reference<XEnumerationAccess> xTypes = xModel->getDataTypeRepository();
         if( xTypes.is() )
         {
             Reference<XEnumeration> xEnum = xTypes->createEnumeration();
@@ -765,7 +757,7 @@ void getXFormsSettings( const Reference< XNameAccess >& _rXForms, Sequence< Prop
         // are the names of the XForm models, and which in turn provides named sequences of
         // PropertyValues - which denote the actual property values of the given named model.
 
-        Sequence< OUString > aModelNames( _rXForms->getElementNames() );
+        const Sequence< OUString > aModelNames( _rXForms->getElementNames() );
 
         Reference< XNameContainer > xModelSettings = document::NamedPropertyValues::create( comphelper::getProcessComponentContext() );
 

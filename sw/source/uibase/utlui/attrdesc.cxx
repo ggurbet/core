@@ -73,19 +73,16 @@ void SwAttrSet::GetPresentation(
     if( Count() )
     {
         SfxItemIter aIter( *this );
+        const SfxPoolItem* pItem = aIter.GetCurItem();
         const IntlWrapper aInt(SvtSysLocale().GetUILanguageTag());
-        while( true )
+        do
         {
-            aIter.GetCurItem()->GetPresentation( ePres, eCoreMetric,
-                                                 ePresMetric, aStr,
-                                                 aInt );
+            pItem->GetPresentation(ePres, eCoreMetric, ePresMetric, aStr, aInt);
             if( rText.getLength() && aStr.getLength() )
                 rText += ", ";
             rText += aStr;
-            if( aIter.IsAtEnd() )
-                break;
-            aIter.NextItem();
-        }
+            pItem = aIter.NextItem();
+        } while (pItem);
     }
 }
 
@@ -102,9 +99,8 @@ bool SwFormatCharFormat::GetPresentation
     if ( pCharFormat )
     {
         OUString aStr;
-        rText = SwResId( STR_CHARFMT );
         pCharFormat->GetPresentation( ePres, eCoreUnit, ePresUnit, aStr );
-        rText = rText + "(" + aStr + ")";
+        rText = SwResId( STR_CHARFMT ) + "(" + aStr + ")";
     }
     else
         rText = SwResId( STR_NO_CHARFMT );
@@ -161,8 +157,7 @@ bool SwFormatDrop::GetPresentation
         {
             rText = OUString::number( GetChars() ) + " ";
         }
-        rText = rText +
-                SwResId( STR_DROP_OVER ) +
+        rText += SwResId( STR_DROP_OVER ) +
                 " " +
                 OUString::number( GetLines() ) +
                 " " +
@@ -232,22 +227,22 @@ bool SwFormatFrameSize::GetPresentation
     rText = SwResId( STR_FRM_WIDTH ) + " ";
     if ( GetWidthPercent() )
     {
-        rText = rText + unicode::formatPercent(GetWidthPercent(),
+        rText += unicode::formatPercent(GetWidthPercent(),
             Application::GetSettings().GetUILanguageTag());
     }
     else
     {
-        rText = rText + ::GetMetricText( GetWidth(), eCoreUnit, ePresUnit, &rIntl ) +
+        rText += ::GetMetricText( GetWidth(), eCoreUnit, ePresUnit, &rIntl ) +
             " " + ::EditResId( ::GetMetricId( ePresUnit ) );
     }
     if ( ATT_VAR_SIZE != GetHeightSizeType() )
     {
         const char* pId = ATT_FIX_SIZE == m_eFrameHeightType ?
                                 STR_FRM_FIXEDHEIGHT : STR_FRM_MINHEIGHT;
-        rText = rText + ", " + SwResId(pId) + " ";
+        rText += ", " + SwResId(pId) + " ";
         if ( GetHeightPercent() )
         {
-            rText = rText + unicode::formatPercent(GetHeightPercent(),
+            rText += unicode::formatPercent(GetHeightPercent(),
                 Application::GetSettings().GetUILanguageTag());
         }
         else
@@ -330,7 +325,7 @@ bool SwFormatSurround::GetPresentation
 
     if ( IsAnchorOnly() )
     {
-        rText = rText + " " + SwResId( STR_SURROUND_ANCHORONLY );
+        rText += " " + SwResId( STR_SURROUND_ANCHORONLY );
     }
     return true;
 }
@@ -351,7 +346,7 @@ bool SwFormatVertOrient::GetPresentation
     {
         case text::VertOrientation::NONE:
         {
-            rText = rText + SwResId( STR_POS_Y ) + " " +
+            rText += SwResId( STR_POS_Y ) + " " +
                     ::GetMetricText( GetPos(), eCoreUnit, ePresUnit, &rIntl ) +
                     " " + EditResId( ::GetMetricId( ePresUnit ) );
         }
@@ -397,7 +392,7 @@ bool SwFormatHoriOrient::GetPresentation
     {
         case text::HoriOrientation::NONE:
         {
-            rText = rText + SwResId( STR_POS_X ) + " " +
+            rText += SwResId( STR_POS_X ) + " " +
                     ::GetMetricText( GetPos(), eCoreUnit, ePresUnit, &rIntl ) +
                     " " + EditResId( ::GetMetricId( ePresUnit ) );
         }
@@ -492,7 +487,7 @@ bool SwFormatCol::GetPresentation
         if ( COLADJ_NONE != GetLineAdj() )
         {
             const long nWdth = static_cast<long>(GetLineWidth());
-            rText = rText + " " + SwResId( STR_LINE_WIDTH ) + " " +
+            rText += " " + SwResId( STR_LINE_WIDTH ) + " " +
                     ::GetMetricText( nWdth, eCoreUnit,
                                       MapUnit::MapPoint, &rIntl );
         }
@@ -520,13 +515,13 @@ bool SwFormatURL::GetPresentation
     {
         if ( m_pMap )
             rText += " - ";
-        rText = rText + "URL: " + m_sURL;
+        rText += "URL: " + m_sURL;
         if ( m_bIsServerMap )
             rText += " (Server-Map)";
     }
     if ( !m_sTargetFrameName.isEmpty() )
     {
-        rText = rText + ", Target: " + m_sTargetFrameName;
+        rText += ", Target: " + m_sTargetFrameName;
     }
     return true;
 }
@@ -631,7 +626,7 @@ bool SwFormatLineNumber::GetPresentation
         rText += SwResId(STR_DONTLINECOUNT);
     if ( GetStartValue() )
     {
-        rText = rText + " " + SwResId(STR_LINCOUNT_START) +
+        rText += " " + SwResId(STR_LINCOUNT_START) +
                 OUString::number( GetStartValue() );
     }
     return true;
@@ -695,7 +690,7 @@ bool SwMirrorGrf::GetPresentation(
     if (pId)
     {
         rText = SwResId(pId);
-        if (bGrfToggle)
+        if (m_bGrfToggle)
             rText += SwResId( STR_MIRROR_TOGGLE );
     }
     return true;
@@ -709,7 +704,7 @@ bool SwRotationGrf::GetPresentation(
         rText = SwResId( STR_ROTATION );
     else if( rText.getLength() )
         rText.clear();
-    rText = rText + OUString::number( GetValue() ) + "\xB0";
+    rText += OUString::number( GetValue() ) + "\xB0";
     return true;
 }
 
@@ -721,8 +716,8 @@ bool SwLuminanceGrf::GetPresentation(
         rText = SwResId( STR_LUMINANCE );
     else if( rText.getLength() )
         rText.clear();
-    rText = rText + unicode::formatPercent(GetValue(),
-        Application::GetSettings().GetUILanguageTag());
+    rText += unicode::formatPercent(GetValue(),
+                Application::GetSettings().GetUILanguageTag());
     return true;
 }
 
@@ -734,8 +729,8 @@ bool SwContrastGrf::GetPresentation(
         rText = SwResId( STR_CONTRAST );
     else if( rText.getLength() )
         rText.clear();
-    rText = rText + unicode::formatPercent(GetValue(),
-        Application::GetSettings().GetUILanguageTag());
+    rText += unicode::formatPercent(GetValue(),
+                Application::GetSettings().GetUILanguageTag());
     return true;
 }
 
@@ -760,8 +755,8 @@ bool SwChannelGrf::GetPresentation(
     }
     else if( rText.getLength() )
         rText.clear();
-    rText = rText + unicode::formatPercent(GetValue(),
-        Application::GetSettings().GetUILanguageTag());
+    rText += unicode::formatPercent(GetValue(),
+                Application::GetSettings().GetUILanguageTag());
     return true;
 }
 
@@ -799,7 +794,7 @@ bool SwTransparencyGrf::GetPresentation(
         rText = SwResId( STR_TRANSPARENCY );
     else if( rText.getLength() )
         rText.clear();
-    rText = rText + unicode::formatPercent(GetValue(),
+    rText += unicode::formatPercent(GetValue(),
         Application::GetSettings().GetUILanguageTag());
     return true;
 }

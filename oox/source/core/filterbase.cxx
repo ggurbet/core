@@ -29,6 +29,7 @@
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/documentconstants.hxx>
+#include <comphelper/sequence.hxx>
 #include <unotools/mediadescriptor.hxx>
 #include <osl/mutex.hxx>
 #include <osl/diagnose.h>
@@ -405,10 +406,7 @@ sal_Bool SAL_CALL FilterBase::supportsService( const OUString& rServiceName )
 
 Sequence< OUString > SAL_CALL FilterBase::getSupportedServiceNames()
 {
-    Sequence< OUString > aServiceNames( 2 );
-    aServiceNames[ 0 ] = "com.sun.star.document.ImportFilter";
-    aServiceNames[ 1 ] = "com.sun.star.document.ExportFilter";
-    return aServiceNames;
+    return { "com.sun.star.document.ImportFilter", "com.sun.star.document.ExportFilter" };
 }
 
 // com.sun.star.lang.XInitialization interface
@@ -427,20 +425,14 @@ void SAL_CALL FilterBase::initialize( const Sequence< Any >& rArgs )
     {
         Sequence<css::beans::PropertyValue> aSeq;
         rArgs[0] >>= aSeq;
-        for (const auto& rVal : aSeq)
+        for (const auto& rVal : std::as_const(aSeq))
         {
             if (rVal.Name == "UserData")
             {
                 css::uno::Sequence<OUString> aUserDataSeq;
                 rVal.Value >>= aUserDataSeq;
-                sal_Int32 nUserDataSeqLen = aUserDataSeq.getLength();
-                for (sal_Int32 j = 0; j < nUserDataSeqLen; ++j)
-                {
-                    if (aUserDataSeq[j] == "macro-enabled")
-                    {
-                        mxImpl->mbExportVBA = true;
-                    }
-                }
+                if (comphelper::findValue(aUserDataSeq, "macro-enabled") != -1)
+                    mxImpl->mbExportVBA = true;
             }
             else if (rVal.Name == "Flags")
             {

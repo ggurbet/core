@@ -27,11 +27,6 @@
 #include <sfx2/viewfrm.hxx>
 #include <tools/debug.hxx>
 
-#include <vcl/button.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/layout.hxx>
-
 #include <Outliner.hxx>
 #include <headerfooterdlg.hxx>
 #include <DrawDocShell.hxx>
@@ -40,13 +35,12 @@
 #include <sdmod.hxx>
 
 // preview control for presentation layout
-#include <vcl/ctrl.hxx>
 #include <tools/color.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <svtools/colorcfg.hxx>
 #include <vcl/customweld.hxx>
 #include <vcl/decoview.hxx>
-#include <vcl/builderfactory.hxx>
+#include <vcl/svapp.hxx>
 
 #include <undoheaderfooter.hxx>
 #include <sdundogr.hxx>
@@ -130,7 +124,7 @@ private:
     std::unique_ptr<weld::Entry> mxTBDateTimeFixed;
     std::unique_ptr<weld::ComboBox> mxCBDateTimeFormat;
     std::unique_ptr<weld::Label> mxFTDateTimeLanguage;
-    std::unique_ptr<LanguageBox> mxCBDateTimeLanguage;
+    std::unique_ptr<SvxLanguageBox> mxCBDateTimeLanguage;
     std::unique_ptr<weld::CheckButton> mxCBFooter;
     std::unique_ptr<weld::Widget> mxFooterBox;
     std::unique_ptr<weld::Entry> mxTBFooter;
@@ -166,7 +160,7 @@ HeaderFooterDialog::HeaderFooterDialog(ViewShell* pViewShell, weld::Window* pPar
     , mpDoc( pDoc )
     , mpCurrentPage( pCurrentPage )
     , mpViewShell( pViewShell )
-    , mxTabCtrl(m_xBuilder->weld_notebook("tabs"))
+    , mxTabCtrl(m_xBuilder->weld_notebook("tabcontrol"))
     , mxPBApplyToAll(m_xBuilder->weld_button("apply_all"))
     , mxPBApply(m_xBuilder->weld_button("apply"))
     , mxPBCancel(m_xBuilder->weld_button("cancel"))
@@ -363,7 +357,7 @@ HeaderFooterTabPage::HeaderFooterTabPage(weld::Container* pParent, SdDrawDocumen
     , mxTBDateTimeFixed(mxBuilder->weld_entry("datetime_value"))
     , mxCBDateTimeFormat(mxBuilder->weld_combo_box("datetime_format_list"))
     , mxFTDateTimeLanguage(mxBuilder->weld_label("language_label"))
-    , mxCBDateTimeLanguage(new LanguageBox(mxBuilder->weld_combo_box("language_list")))
+    , mxCBDateTimeLanguage(new SvxLanguageBox(mxBuilder->weld_combo_box("language_list")))
     , mxCBFooter(mxBuilder->weld_check_button("footer_cb"))
     , mxFooterBox(mxBuilder->weld_widget("footer_box" ))
     , mxTBFooter(mxBuilder->weld_entry("footer_text"))

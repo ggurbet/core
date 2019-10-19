@@ -60,7 +60,6 @@ IMapWindow::IMapWindow(const Reference< XFrame >& rxDocumentFrame, weld::Dialog*
     : GraphCtrl(pDialog)
     , mxDocumentFrame(rxDocumentFrame)
 {
-    memset( maItemInfos, 0, sizeof( SfxItemInfo ) );
     pIMapPool = new SfxItemPool( "IMapItemPool",
                                  SID_ATTR_MACROITEM, SID_ATTR_MACROITEM, maItemInfos );
     pIMapPool->FreezeIdRanges();
@@ -193,10 +192,7 @@ SdrObject* IMapWindow::CreateObj( const IMapObject* pIMapObj )
             // clipped on CanvasPane
             aDrawRect.Intersection( aClipRect );
 
-            pSdrObj = static_cast<SdrObject*>(
-                new SdrRectObj(
-                    *pModel,
-                    aDrawRect));
+            pSdrObj = new SdrRectObj(*pModel, aDrawRect);
             pCloneIMapObj.reset(static_cast<IMapObject*>(new IMapRectangleObject( *pIMapRectObj )));
         }
         break;
@@ -212,13 +208,12 @@ SdrObject* IMapWindow::CreateObj( const IMapObject* pIMapObj )
             // limited to CanvasPane
             aCircle.Intersection( aClipRect );
 
-            pSdrObj = static_cast<SdrObject*>(
-                new SdrCircObj(
+            pSdrObj = new SdrCircObj(
                     *pModel,
-                    OBJ_CIRC,
+                    SdrCircKind::Full,
                     aCircle,
                     0,
-                    36000));
+                    36000);
             pCloneIMapObj.reset(static_cast<IMapObject*>(new IMapCircleObject( *pIMapCircleObj )));
         }
         break;
@@ -235,13 +230,12 @@ SdrObject* IMapWindow::CreateObj( const IMapObject* pIMapObj )
                 // clipped on CanvasPane
                 aDrawRect.Intersection( aClipRect );
 
-                pSdrObj = static_cast<SdrObject*>(
-                    new SdrCircObj(
+                pSdrObj = new SdrCircObj(
                         *pModel,
-                        OBJ_CIRC,
+                        SdrCircKind::Full,
                         aDrawRect,
                         0,
-                        36000));
+                        36000);
             }
             else
             {
@@ -253,11 +247,10 @@ SdrObject* IMapWindow::CreateObj( const IMapObject* pIMapObj )
 
                 basegfx::B2DPolygon aPolygon;
                 aPolygon.append(aDrawPoly.getB2DPolygon());
-                pSdrObj = static_cast<SdrObject*>(
-                    new SdrPathObj(
+                pSdrObj = new SdrPathObj(
                         *pModel,
                         OBJ_POLY,
-                        basegfx::B2DPolyPolygon(aPolygon)));
+                        basegfx::B2DPolyPolygon(aPolygon));
             }
 
             pCloneIMapObj.reset(static_cast<IMapObject*>(new IMapPolygonObject( *pIMapPolyObj )));
@@ -323,7 +316,7 @@ void IMapWindow::SdrObjCreated( const SdrObject& rObj )
         case OBJ_CIRC:
         {
             SdrCircObj* pCircObj = const_cast<SdrCircObj*>( static_cast<const SdrCircObj*>(&rObj) );
-            SdrPathObj* pPathObj = static_cast<SdrPathObj*>( pCircObj->ConvertToPolyObj( false, false ) );
+            SdrPathObj* pPathObj = static_cast<SdrPathObj*>( pCircObj->ConvertToPolyObj( false, false ).release() );
             tools::Polygon aPoly(pPathObj->GetPathPoly().getB2DPolygon(0));
 
             // always use SdrObject::Free(...) for SdrObjects (!)
@@ -392,7 +385,7 @@ void IMapWindow::SdrObjChanged( const SdrObject& rObj )
             case OBJ_CIRC:
             {
                 const SdrCircObj& rCircObj = static_cast<const SdrCircObj&>(rObj);
-                SdrPathObj* pPathObj = static_cast<SdrPathObj*>( rCircObj.ConvertToPolyObj( false, false ) );
+                SdrPathObj* pPathObj = static_cast<SdrPathObj*>( rCircObj.ConvertToPolyObj( false, false ).release() );
                 tools::Polygon aPoly(pPathObj->GetPathPoly().getB2DPolygon(0));
 
                 IMapPolygonObject* pObj = new IMapPolygonObject( aPoly, aURL, aAltText, aDesc, aTarget, "", bActive, false );
@@ -488,7 +481,7 @@ IMapObject* IMapWindow::GetIMapObj( const SdrObject* pSdrObj )
     return pIMapObj;
 }
 
-bool IMapWindow::ContextMenu(const CommandEvent& rCEvt)
+bool IMapWindow::Command(const CommandEvent& rCEvt)
 {
     vcl::Region  aRegion;
 
@@ -531,8 +524,7 @@ bool IMapWindow::ContextMenu(const CommandEvent& rCEvt)
 
         return true;
     }
-    else
-        return CustomWidgetController::ContextMenu(rCEvt);
+    return CustomWidgetController::Command(rCEvt);
 }
 
 IMapDropTargetHelper::IMapDropTargetHelper(IMapWindow& rImapWindow)

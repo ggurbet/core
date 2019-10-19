@@ -28,6 +28,7 @@
 #include <editeng/swafopt.hxx>
 #include <editeng/editengdllapi.h>
 
+#include <boost/optional.hpp>
 #include <map>
 #include <memory>
 
@@ -153,13 +154,14 @@ public:
                            // free any objects still in the set
                            ~SvxAutocorrWordList();
     void                   DeleteAndDestroyAll();
-    bool                   Insert(std::unique_ptr<SvxAutocorrWord> pWord) const;
-    std::unique_ptr<SvxAutocorrWord> FindAndRemove(SvxAutocorrWord *pWord);
+    const SvxAutocorrWord* Insert(SvxAutocorrWord aWord) const;
+    boost::optional<SvxAutocorrWord> FindAndRemove(const SvxAutocorrWord *pWord);
     void                   LoadEntry(const OUString& sWrong, const OUString& sRight, bool bOnlyTxt);
     bool                   empty() const;
 
-    typedef std::vector<SvxAutocorrWord *> Content;
-    Content                getSortedContent() const;
+    struct CompareSvxAutocorrWordList;
+    typedef std::vector<SvxAutocorrWord> AutocorrWordSetType;
+    const AutocorrWordSetType & getSortedContent() const;
 
     const SvxAutocorrWord* SearchWordsInList(const OUString& rTxt, sal_Int32& rStt, sal_Int32 nEndPos) const;
 };
@@ -289,8 +291,13 @@ public:
 
     // Return for the autotext expansion the previous word,
     // AutoCorrect - corresponding algorithm
-    bool GetPrevAutoCorrWord( SvxAutoCorrDoc const & rDoc, const OUString& rTxt,
-                                sal_Int32 nPos, OUString& rWord ) const;
+    OUString GetPrevAutoCorrWord(SvxAutoCorrDoc const& rDoc, const OUString& rTxt, sal_Int32 nPos);
+
+    // Returns vector candidates for AutoText name match, starting with the longest string between
+    // 3 and 9 characters long, that is a chunk of text starting with a whitespace or with a word's
+    // first character, and ending at the current cursor position or empty string if no such string
+    // exists
+    static std::vector<OUString> GetChunkForAutoText(const OUString& rTxt, sal_Int32 nPos);
 
     // Search for the words in the replacement table.
     // rText - check in this text the words of the list
@@ -317,7 +324,7 @@ public:
     OUString GetQuote( SvxAutoCorrDoc const & rDoc, sal_Int32 nInsPos,
                     sal_Unicode cInsChar, bool bSttQuote );
     void InsertQuote( SvxAutoCorrDoc& rDoc, sal_Int32 nInsPos,
-                    sal_Unicode cInsChar, bool bSttQuote, bool bIns, bool b_iApostrophe );
+                    sal_Unicode cInsChar, bool bSttQuote, bool bIns, bool b_iApostrophe ) const;
 
     // Query/Set the name of the AutoCorrect file
     // the default is "autocorr.dat"
@@ -329,6 +336,7 @@ public:
     // Query/Set the current settings of AutoCorrect
     ACFlags GetFlags() const                { return nFlags; }
     SvxSwAutoFormatFlags&   GetSwFlags()    { return aSwFlags;}
+    const SvxSwAutoFormatFlags& GetSwFlags() const { return aSwFlags; }
     bool IsAutoCorrFlag( ACFlags nFlag ) const
                                 { return bool(nFlags & nFlag); }
     void SetAutoCorrFlag( ACFlags nFlag, bool bOn = true );

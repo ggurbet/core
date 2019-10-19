@@ -476,7 +476,7 @@ void SvxUnoTextRangeBase::_setPropertyValue( const OUString& PropertyName, const
         }
     }
 
-    throw beans::UnknownPropertyException();
+    throw beans::UnknownPropertyException(PropertyName);
 }
 
 void SvxUnoTextRangeBase::setPropertyValue( const SfxItemPropertySimpleEntry* pMap, const uno::Any& rValue, const ESelection& rSelection, const SfxItemSet& rOldSet, SfxItemSet& rNewSet )
@@ -618,7 +618,7 @@ uno::Any SvxUnoTextRangeBase::_getPropertyValue(const OUString& PropertyName, sa
         }
     }
 
-    throw beans::UnknownPropertyException();
+    throw beans::UnknownPropertyException(PropertyName);
 }
 
 void SvxUnoTextRangeBase::getPropertyValue( const SfxItemPropertySimpleEntry* pMap, uno::Any& rAny, const SfxItemSet& rSet )
@@ -1056,7 +1056,7 @@ uno::Sequence< beans::PropertyState > SvxUnoTextRangeBase::_getPropertyStates(co
             const SfxItemPropertySimpleEntry* pMap = mpPropSet->getPropertyMapEntry( rName );
             if( !_getOnePropertyStates(pSet.get(), pMap, *pState++) )
             {
-                throw beans::UnknownPropertyException();
+                throw beans::UnknownPropertyException(rName);
             }
         }
     }
@@ -1172,7 +1172,7 @@ void SvxUnoTextRangeBase::_setPropertyToDefault(const OUString& PropertyName, sa
         }
     }
 
-    throw beans::UnknownPropertyException();
+    throw beans::UnknownPropertyException(PropertyName);
 }
 
 void SvxUnoTextRangeBase::_setPropertyToDefault(SvxTextForwarder* pForwarder, const SfxItemPropertySimpleEntry* pMap, sal_Int32 nPara )
@@ -1258,7 +1258,7 @@ uno::Any SAL_CALL SvxUnoTextRangeBase::getPropertyDefault( const OUString& aProp
             }
         }
     }
-    throw beans::UnknownPropertyException();
+    throw beans::UnknownPropertyException(aPropertyName);
 }
 
 // beans::XMultiPropertyStates
@@ -1442,11 +1442,9 @@ uno::Sequence< OUString > SAL_CALL SvxUnoTextRangeBase::getSupportedServiceNames
 
 uno::Sequence< OUString > SvxUnoTextRangeBase::getSupportedServiceNames_Static()
 {
-    uno::Sequence< OUString > aSeq(3);
-    aSeq[0] = "com.sun.star.style.CharacterProperties";
-    aSeq[1] = "com.sun.star.style.CharacterPropertiesComplex";
-    aSeq[2] = "com.sun.star.style.CharacterPropertiesAsian";
-    return aSeq;
+    return { "com.sun.star.style.CharacterProperties",
+             "com.sun.star.style.CharacterPropertiesComplex",
+             "com.sun.star.style.CharacterPropertiesAsian" };
 }
 
 // XTextRangeCompare
@@ -1592,7 +1590,7 @@ uno::Reference< text::XText > SAL_CALL SvxUnoTextRange::getText()
 // lang::XServiceInfo
 OUString SAL_CALL SvxUnoTextRange::getImplementationName()
 {
-    return OUString("SvxUnoTextRange");
+    return "SvxUnoTextRange";
 }
 
 
@@ -2155,7 +2153,7 @@ void SvxUnoTextBase::copyText(
 // lang::XServiceInfo
 OUString SAL_CALL SvxUnoTextBase::getImplementationName()
 {
-    return OUString("SvxUnoTextBase");
+    return "SvxUnoTextBase";
 }
 
 uno::Sequence< OUString > SAL_CALL SvxUnoTextBase::getSupportedServiceNames(  )
@@ -2182,8 +2180,7 @@ const uno::Sequence< sal_Int8 > & SvxUnoTextBase::getUnoTunnelId() throw()
 
 sal_Int64 SAL_CALL SvxUnoTextBase::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                                         rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SvxUnoTextBase>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
     }
@@ -2261,8 +2258,7 @@ const uno::Sequence< sal_Int8 > & SvxUnoText::getUnoTunnelId() throw()
 
 sal_Int64 SAL_CALL SvxUnoText::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                                         rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SvxUnoText>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
     }

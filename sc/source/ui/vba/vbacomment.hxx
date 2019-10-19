@@ -20,7 +20,6 @@
 #define INCLUDED_SC_SOURCE_UI_VBA_VBACOMMENT_HXX
 
 #include <ooo/vba/excel/XComment.hpp>
-#include <ooo/vba/excel/XApplication.hpp>
 #include <ooo/vba/msforms/XShape.hpp>
 #include <com/sun/star/sheet/XSheetAnnotations.hpp>
 #include <com/sun/star/sheet/XSheetAnnotation.hpp>
@@ -40,7 +39,7 @@ private:
     /// @throws css::uno::RuntimeException
     css::uno::Reference< css::sheet::XSheetAnnotation > getAnnotation();
     /// @throws css::uno::RuntimeException
-    css::uno::Reference< css::sheet::XSheetAnnotations > getAnnotations();
+    css::uno::Reference< css::sheet::XSheetAnnotations > getAnnotations() const;
     /// @throws css::uno::RuntimeException
     sal_Int32 getAnnotationIndex();
     /// @throws css::uno::RuntimeException

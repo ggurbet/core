@@ -1112,7 +1112,7 @@ bool SwFEShell::CheckHeadline( bool bRepeat ) const
     return bRet;
 }
 
-void SwFEShell::AdjustCellWidth( bool bBalance, const bool bNoShrink, const bool bColumnWidth )
+void SwFEShell::AdjustCellWidth( const bool bBalance, const bool bNoShrink )
 {
     SET_CURR_SHELL( this );
     StartAllAction();
@@ -1122,7 +1122,7 @@ void SwFEShell::AdjustCellWidth( bool bBalance, const bool bNoShrink, const bool
     TableWait aWait(std::numeric_limits<size_t>::max(), nullptr,
                   *GetDoc()->GetDocShell());
 
-    GetDoc()->AdjustCellWidth( *getShellCursor( false ), bBalance, bNoShrink, bColumnWidth );
+    GetDoc()->AdjustCellWidth( *getShellCursor( false ), bBalance, bNoShrink );
     EndAllActionAndCall();
 }
 
@@ -2257,7 +2257,7 @@ void SwFEShell::GetAutoSum( OUString& rFormula ) const
                         GetTabBox()->GetFrameFormat()->GetTableBoxFormula(), aCells ))
                     break;
                 else if( USHRT_MAX != nBoxW )
-                    sFields = OUStringLiteral1(cListDelim) + sFields;
+                    sFields = OUStringChar(cListDelim) + sFields;
                 else
                     break;
             }
@@ -2282,7 +2282,7 @@ void SwFEShell::GetAutoSum( OUString& rFormula ) const
                         }
                     }
                     else
-                        sFields = OUStringLiteral1(cListDelim) + sFields;
+                        sFields = OUStringChar(cListDelim) + sFields;
                 }
                 else if( USHRT_MAX == nBoxW )
                     break;

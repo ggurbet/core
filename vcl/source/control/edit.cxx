@@ -223,7 +223,6 @@ void Edit::dispose()
     }
 
     mpIMEInfos.reset();
-    mpUpdateDataTimer.reset();
 
     if ( mxDnDListener.is() )
     {
@@ -238,8 +237,7 @@ void Edit::dispose()
             GetDropTarget()->removeDropTargetListener( xDTL );
         }
 
-        uno::Reference< lang::XEventListener> xEL( mxDnDListener, uno::UNO_QUERY );
-        xEL->disposing( lang::EventObject() );  // #95154# #96585# Empty Source means it's the Client
+        mxDnDListener->disposing( lang::EventObject() );  // #95154# #96585# Empty Source means it's the Client
         mxDnDListener.clear();
     }
 
@@ -252,7 +250,6 @@ void Edit::dispose()
 void Edit::ImplInitEditData()
 {
     mpSubEdit               = VclPtr<Edit>();
-    mpUpdateDataTimer       = nullptr;
     mpFilterText            = nullptr;
     mnXOffset               = 0;
     mnAlign                 = EDIT_ALIGN_LEFT;
@@ -808,7 +805,7 @@ void Edit::ImplInsertText( const OUString& rStr, const Selection* pNewSel, bool 
 
         // determine if input-sequence-checking should be applied or not
 
-        uno::Reference < i18n::XBreakIterator > xBI( ImplGetBreakIterator(), UNO_QUERY );
+        uno::Reference < i18n::XBreakIterator > xBI = ImplGetBreakIterator();
         bool bIsInputSequenceChecking = rStr.getLength() == 1 &&
                 officecfg::Office::Common::I18N::CTL::CTLFont::get() &&
                 officecfg::Office::Common::I18N::CTL::CTLSequenceChecking::get() &&
@@ -1385,9 +1382,6 @@ void Edit::Tracking( const TrackingEvent& rTEvt )
             ImplSetCursorPos( nCharPos, true );
         }
     }
-
-    if ( mpUpdateDataTimer && !mbIsSubEdit && mpUpdateDataTimer->IsActive() )
-        mpUpdateDataTimer->Start();//do not update while the user is still travelling in the control
 }
 
 bool Edit::ImplHandleKeyEvent( const KeyEvent& rKEvt )
@@ -1702,9 +1696,6 @@ bool Edit::ImplHandleKeyEvent( const KeyEvent& rKEvt )
 
 void Edit::KeyInput( const KeyEvent& rKEvt )
 {
-    if ( mpUpdateDataTimer && !mbIsSubEdit && mpUpdateDataTimer->IsActive() )
-        mpUpdateDataTimer->Start();//do not update while the user is still travelling in the control
-
     if ( mpSubEdit || !ImplHandleKeyEvent( rKEvt ) )
         Control::KeyInput( rKEvt );
 }
@@ -1895,13 +1886,6 @@ void Edit::GetFocus()
 
 void Edit::LoseFocus()
 {
-    if ( mpUpdateDataTimer && !mbIsSubEdit && mpUpdateDataTimer->IsActive() )
-    {
-        //notify an update latest when the focus is lost
-        mpUpdateDataTimer->Stop();
-        mpUpdateDataTimer->Invoke();
-    }
-
     if ( !mpSubEdit )
     {
         // FIXME: this is currently only on macOS
@@ -2295,7 +2279,7 @@ OUString TextFilter::filter(const OUString &rText)
     OUString sTemp(rText);
     for (sal_Int32 i = 0; i < sForbiddenChars.getLength(); ++i)
     {
-        sTemp = sTemp.replaceAll(OUStringLiteral1(sForbiddenChars[i]), "");
+        sTemp = sTemp.replaceAll(OUStringChar(sForbiddenChars[i]), "");
     }
     return sTemp;
 }
@@ -2329,9 +2313,6 @@ void Edit::Modify()
     }
     else
     {
-        if ( mpUpdateDataTimer )
-            mpUpdateDataTimer->Start();
-
         if ( ImplCallEventListenersAndHandler( VclEventId::EditModify, [this] () { maModifyHdl.Call(*this); } ) )
             // have been destroyed while calling into the handlers
             return;
@@ -2347,38 +2328,6 @@ void Edit::Modify()
             ImplInvalidateOutermostBorder( this );
         }
     }
-}
-
-void Edit::UpdateData()
-{
-    maUpdateDataHdl.Call( *this );
-}
-
-IMPL_LINK_NOARG(Edit, ImplUpdateDataHdl, Timer *, void)
-{
-    UpdateData();
-}
-
-void Edit::EnableUpdateData( sal_uLong nTimeout )
-{
-    if ( !nTimeout )
-        DisableUpdateData();
-    else
-    {
-        if ( !mpUpdateDataTimer )
-        {
-            mpUpdateDataTimer.reset(new Timer("UpdateDataTimer"));
-            mpUpdateDataTimer->SetInvokeHandler( LINK( this, Edit, ImplUpdateDataHdl ) );
-            mpUpdateDataTimer->SetDebugName( "vcl::Edit mpUpdateDataTimer" );
-        }
-
-        mpUpdateDataTimer->SetTimeout( nTimeout );
-    }
-}
-
-void Edit::DisableUpdateData()
-{
-    mpUpdateDataTimer.reset();
 }
 
 void Edit::SetEchoChar( sal_Unicode c )
@@ -2946,7 +2895,7 @@ void Edit::dragOver( const css::datatransfer::dnd::DropTargetDragEvent& rDTDE )
     if ( ( aMousePos.X() < 0 ) || ( aMousePos.X() > aOutSize.Width() ) )
     {
         // Scroll?
-        // No, I will not receive events in this case....
+        // No, I will not receive events in this case...
     }
     */
 

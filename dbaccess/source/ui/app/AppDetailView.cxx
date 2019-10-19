@@ -172,7 +172,7 @@ void OCreationList::StartDrag( sal_Int8 /*_nAction*/, const Point& /*_rPosPixel*
     // don't give this to the base class, it does a ReleaseMouse as very first action
     // Though I think this is a bug (it should ReleaseMouse only if it is going to do
     // something with the drag-event), I hesitate to fix it in the current state,
-    // since I don't overlook the consequences, and we're close to 2.0 ...)
+    // since I don't overlook the consequences, and we're close to 2.0...)
 }
 
 void OCreationList::ModelHasCleared()
@@ -262,7 +262,7 @@ void OCreationList::MouseButtonUp( const MouseEvent& rMEvt )
 
     if ( m_pMouseDownEntry )
     {
-        OSL_ENSURE( IsMouseCaptured(), "OCreationList::MouseButtonUp: hmmm .... no mouse captured, but an active entry?" );
+        OSL_ENSURE( IsMouseCaptured(), "OCreationList::MouseButtonUp: hmmm... no mouse captured, but an active entry?" );
         ReleaseMouse();
 
         InvalidateEntry( m_pMouseDownEntry );
@@ -777,7 +777,7 @@ sal_Int32 OApplicationDetailView::getSelectionCount()
     return m_pControlHelper->getSelectionCount();
 }
 
-sal_Int32 OApplicationDetailView::getElementCount()
+sal_Int32 OApplicationDetailView::getElementCount() const
 {
     return m_pControlHelper->getElementCount();
 }
@@ -842,12 +842,12 @@ void OApplicationDetailView::elementReplaced(ElementType _eType
     m_pControlHelper->elementReplaced( _eType, _rOldName, _rNewName );
 }
 
-PreviewMode OApplicationDetailView::getPreviewMode()
+PreviewMode OApplicationDetailView::getPreviewMode() const
 {
     return m_pControlHelper->getPreviewMode();
 }
 
-bool OApplicationDetailView::isPreviewEnabled()
+bool OApplicationDetailView::isPreviewEnabled() const
 {
     return m_pControlHelper->isPreviewEnabled();
 }

@@ -84,16 +84,12 @@ Any SAL_CALL ODataColumn::queryInterface( const Type & _rType )
 // XServiceInfo
 OUString ODataColumn::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.ODataColumn");
+    return "com.sun.star.sdb.ODataColumn";
 }
 
 Sequence< OUString > ODataColumn::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSNS( 3 );
-    aSNS[0] = SERVICE_SDBCX_COLUMN;
-    aSNS[1] = SERVICE_SDB_RESULTCOLUMN;
-    aSNS[2] = SERVICE_SDB_DATACOLUMN;
-    return aSNS;
+    return { SERVICE_SDBCX_COLUMN, SERVICE_SDB_RESULTCOLUMN, SERVICE_SDB_DATACOLUMN };
 }
 
 // OComponentHelper

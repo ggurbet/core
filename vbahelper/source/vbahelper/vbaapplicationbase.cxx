@@ -225,8 +225,18 @@ sal_Bool SAL_CALL VbaApplicationBase::getInteractive()
     uno::Reference< frame::XModel > xModel = getCurrentDocument();
     if (!xModel.is())
         return true;
-    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_SET_THROW );
-    uno::Reference< awt::XWindow2 > xWindow( xFrame->getContainerWindow(), uno::UNO_QUERY_THROW );
+
+    uno::Reference< frame::XController > xController( xModel->getCurrentController() );
+    if (!xController.is())
+        return true;
+
+    uno::Reference< frame::XFrame > xFrame( xController->getFrame() );
+    if (!xFrame.is())
+        return true;
+
+    uno::Reference< awt::XWindow2 > xWindow( xFrame->getContainerWindow(), uno::UNO_QUERY );
+    if (!xWindow.is())
+        return true;
 
     return xWindow->isEnabled();
 }
@@ -316,7 +326,7 @@ VbaApplicationBase::CommandBars( const uno::Any& aIndex )
 OUString SAL_CALL
 VbaApplicationBase::getVersion()
 {
-    return OUString(OFFICEVERSION);
+    return OFFICEVERSION;
 }
 
 uno::Any SAL_CALL VbaApplicationBase::Run( const OUString& MacroName, const uno::Any& varg1, const uno::Any& varg2, const uno::Any& varg3, const uno::Any& varg4, const uno::Any& varg5, const uno::Any& varg6, const uno::Any& varg7, const uno::Any& varg8, const uno::Any& varg9, const uno::Any& varg10, const uno::Any& varg11, const uno::Any& varg12, const uno::Any& varg13, const uno::Any& varg14, const uno::Any& varg15, const uno::Any& varg16, const uno::Any& varg17, const uno::Any& varg18, const uno::Any& varg19, const uno::Any& varg20, const uno::Any& varg21, const uno::Any& varg22, const uno::Any& varg23, const uno::Any& varg24, const uno::Any& varg25, const uno::Any& varg26, const uno::Any& varg27, const uno::Any& varg28, const uno::Any& varg29, const uno::Any& varg30 )
@@ -425,7 +435,7 @@ uno::Any SAL_CALL VbaApplicationBase::getVBE()
 OUString
 VbaApplicationBase::getServiceImplName()
 {
-    return OUString("VbaApplicationBase");
+    return "VbaApplicationBase";
 }
 
 uno::Sequence<OUString>
@@ -462,9 +472,13 @@ void VbaApplicationBase::Quit()
     {
         // This is the case of a call from an (OLE) Automation client.
 
+        // When an Automation client itself asks the process to quit, it should obey it.
+        AsyncQuitHandler::instance().SetForceQuit();
+
         // TODO: Probably we should just close any document windows open by the "application"
         // (Writer or Calc) the call being handled is for. And only then, if no document windows
         // are left open, quit the actual LibreOffice application.
+
         Application::PostUserEvent( LINK( &AsyncQuitHandler::instance(), AsyncQuitHandler, OnAsyncQuit ) );
     }
 }

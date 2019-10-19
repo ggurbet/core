@@ -84,6 +84,8 @@
 #include <markdata.hxx>
 #include <tokenarray.hxx>
 #include <gridwin.hxx>
+#include <output.hxx>
+#include <fillinfo.hxx>
 
 // Maximum Ranges in RangeFinder
 #define RANGEFIND_MAX   128
@@ -260,6 +262,44 @@ ScTypedCaseStrSet::const_iterator findTextAll(
 
 }
 
+void ScInputHandler::SendReferenceMarks( const SfxViewShell* pViewShell,
+                            const std::vector<ReferenceMark>& rReferenceMarks )
+{
+    if ( !pViewShell )
+        return;
+
+    bool bSend = false;
+
+    std::stringstream ss;
+
+    ss << "{ \"marks\": [ ";
+
+    for ( size_t i = 0; i < rReferenceMarks.size(); i++ )
+    {
+        if ( rReferenceMarks[i].Is() )
+        {
+            if ( bSend )
+                ss << ", ";
+
+            ss << "{ \"rectangle\": \""
+               << rReferenceMarks[i].nX << ", "
+               << rReferenceMarks[i].nY << ", "
+               << rReferenceMarks[i].nWidth << ", "
+               << rReferenceMarks[i].nHeight << "\", "
+                  "\"color\": \"" << rReferenceMarks[i].aColor.AsRGBHexString() << "\", "
+                  "\"part\": \"" << rReferenceMarks[i].nTab << "\" } ";
+
+            bSend = true;
+        }
+    }
+
+    ss <<  " ] }";
+
+    OString aPayload = ss.str().c_str();
+    pViewShell->libreOfficeKitViewCallback(
+                LOK_CALLBACK_REFERENCE_MARKS, aPayload.getStr() );
+}
+
 void ScInputHandler::InitRangeFinder( const OUString& rFormula )
 {
     DeleteRangeFinder();
@@ -375,11 +415,116 @@ handle_r1c1:
         // Do not skip last separator; could be a quote (?)
     }
 
+    UpdateLokReferenceMarks();
+
     if (nCount)
     {
         mpEditEngine->SetUpdateMode( true );
 
         pDocSh->Broadcast( SfxHint( SfxHintId::ScShowRangeFinder ) );
+    }
+}
+
+static ReferenceMark lcl_GetReferenceMark( const ScViewData& rViewData, ScDocShell* pDocSh,
+                                           long nX1, long nX2, long nY1, long nY2,
+                                           long nTab, const Color& rColor )
+{
+    ScSplitPos eWhich = rViewData.GetActivePart();
+
+    Point aScrPos = rViewData.GetScrPos( nX1, nY1, eWhich );
+    long nScrX = aScrPos.X();
+    long nScrY = aScrPos.Y();
+
+    double nPPTX = rViewData.GetPPTX();
+    double nPPTY = rViewData.GetPPTY();
+
+    Fraction aZoomX = rViewData.GetZoomX();
+    Fraction aZoomY = rViewData.GetZoomY();
+
+    ScTableInfo aTabInfo;
+    pDocSh->GetDocument().FillInfo( aTabInfo, nX1, nY1, nX2, nY2,
+                                    nTab, nPPTX, nPPTY, false, false );
+
+    ScOutputData aOutputData( nullptr, OUTTYPE_WINDOW, aTabInfo,
+                              &( pDocSh->GetDocument() ), nTab,
+                              nScrX, nScrY,
+                              nX1, nY1, nX2, nY2,
+                              nPPTX, nPPTY,
+                              &aZoomX, &aZoomY );
+
+    return aOutputData.FillReferenceMark( nX1, nY1, nX2, nY2,
+                                          rColor );
+}
+
+void ScInputHandler::UpdateLokReferenceMarks()
+{
+    if ( !comphelper::LibreOfficeKit::isActive() || !pActiveViewSh )
+        return;
+
+    ScViewData& rViewData = pActiveViewSh->GetViewData();
+    ScDocShell* pDocSh = rViewData.GetDocShell();
+    ScRangeFindList* pRangeFinder = GetRangeFindList();
+
+    if ( !pRangeFinder && !rViewData.IsRefMode() )
+        return;
+
+    sal_uInt16 nAdditionalMarks = 0;
+    std::vector<ReferenceMark> aReferenceMarks( 1 );
+
+    if ( rViewData.IsRefMode() )
+    {
+        nAdditionalMarks = 1;
+
+        const svtools::ColorConfig& rColorCfg = SC_MOD()->GetColorConfig();
+        Color aRefColor( rColorCfg.GetColorValue( svtools::CALCREFERENCE ).nColor );
+        long nX1 = rViewData.GetRefStartX();
+        long nX2 = rViewData.GetRefEndX();
+        long nY1 = rViewData.GetRefStartY();
+        long nY2 = rViewData.GetRefEndY();
+        long nTab = rViewData.GetRefTabNo();
+
+        PutInOrder(nX1, nX2);
+        PutInOrder(nY1, nY2);
+
+        aReferenceMarks[0] = lcl_GetReferenceMark( rViewData, pDocSh,
+                                                   nX1, nX2, nY1, nY2,
+                                                   nTab, aRefColor );
+    }
+
+    sal_uInt16 nCount = pRangeFinder ?
+        ( static_cast<sal_uInt16>( pRangeFinder->Count() ) + nAdditionalMarks ) : nAdditionalMarks;
+    aReferenceMarks.resize( nCount );
+
+    if ( nCount && pRangeFinder && !pRangeFinder->IsHidden() &&
+         pRangeFinder->GetDocName() == pDocSh->GetTitle() )
+    {
+        for (sal_uInt16 i = 0; i < nCount - nAdditionalMarks; i++)
+        {
+            ScRangeFindData& rData = pRangeFinder->GetObject( i );
+            ScRange aRef = rData.aRef;
+            aRef.PutInOrder();
+
+            long nX1 = aRef.aStart.Col();
+            long nX2 = aRef.aEnd.Col();
+            long nY1 = aRef.aStart.Row();
+            long nY2 = aRef.aEnd.Row();
+            long nTab = aRef.aStart.Tab();
+
+            aReferenceMarks[i + nAdditionalMarks] = lcl_GetReferenceMark(
+                rViewData, pDocSh, nX1, nX2, nY1, nY2, nTab, rData.nColor );
+
+            ScInputHandler::SendReferenceMarks( pActiveViewSh, aReferenceMarks );
+        }
+    }
+    else if ( nCount )
+    {
+        ScInputHandler::SendReferenceMarks( pActiveViewSh, aReferenceMarks );
+    }
+    else
+    {
+        // Clear
+        aReferenceMarks.clear();
+        ScInputHandler::SendReferenceMarks( pActiveViewSh, aReferenceMarks );
     }
 }
 
@@ -829,13 +974,15 @@ void ScInputHandler::GetFormulaData()
 
 IMPL_LINK( ScInputHandler, ShowHideTipVisibleParentListener, VclWindowEvent&, rEvent, void )
 {
-    if( rEvent.GetId() == VclEventId::ObjectDying || rEvent.GetId() == VclEventId::WindowHide )
+    if (rEvent.GetId() == VclEventId::ObjectDying || rEvent.GetId() == VclEventId::WindowHide
+        || rEvent.GetId() == VclEventId::WindowLoseFocus)
         HideTip();
 }
 
 IMPL_LINK( ScInputHandler, ShowHideTipVisibleSecParentListener, VclWindowEvent&, rEvent, void )
 {
-    if( rEvent.GetId() == VclEventId::ObjectDying || rEvent.GetId() == VclEventId::WindowHide )
+    if (rEvent.GetId() == VclEventId::ObjectDying || rEvent.GetId() == VclEventId::WindowHide
+        || rEvent.GetId() == VclEventId::WindowLoseFocus)
         HideTipBelow();
 }
 
@@ -1121,7 +1268,7 @@ bool ScInputHandler::GetFuncName( OUString& aStart, OUString& aResult )
     ::std::vector<sal_Unicode>::reverse_iterator rIt = aTemp.rbegin();
     aResult = OUString( *rIt++ );
     while ( rIt != aTemp.rend() )
-        aResult += OUStringLiteral1( *rIt++ );
+        aResult += OUStringChar( *rIt++ );
 
     return true;
 }
@@ -1404,11 +1551,8 @@ static OUString lcl_Calculate( const OUString& rFormula, ScDocument* pDoc, const
         if ( pCalc->GetCode()->GetCodeLen() <= 1 )
         {   // ==1: Single one is as a Parameter always a Range
             // ==0: It might be one, if ...
-            OUStringBuffer aBraced;
-            aBraced.append('(');
-            aBraced.append(rFormula);
-            aBraced.append(')');
-            pCalc.reset( new ScSimpleFormulaCalculator( pDoc, rPos, aBraced.makeStringAndClear(), false ) );
+            OUString aBraced = "(" + rFormula + ")";
+            pCalc.reset( new ScSimpleFormulaCalculator( pDoc, rPos, aBraced, false ) );
         }
         else
             bColRowName = false;
@@ -1445,7 +1589,7 @@ static OUString lcl_Calculate( const OUString& rFormula, ScDocument* pDoc, const
 
     ScRange aTestRange;
     if ( bColRowName || (aTestRange.Parse(rFormula) & ScRefFlags::VALID) )
-        aValue = aValue + " ...";
+        aValue += " ...";
 
     return aValue;
 }
@@ -2354,18 +2498,6 @@ void ScInputHandler::UpdateFormulaMode()
             (rText[0] == '=' || rText[0] == '+' || rText[0] == '-');
     }
 
-    // formula mode in online is not usable in collaborative mode,
-    // this is a workaround for disabling formula mode in online
-    // when there is more than a single view
-    if (comphelper::LibreOfficeKit::isActive()
-        && SfxViewShell::GetActiveShells(/*only visible shells*/ false) > 1)
-    {
-        // we look for not visible shells, too, since this method can be
-        // invoked by a TabViewShell ctor and at such a stage the view
-        // is not yet visible,
-        bIsFormula = false;
-    }
-
     if ( bIsFormula )
     {
         if (!bFormulaMode)
@@ -3004,6 +3136,13 @@ void ScInputHandler::CancelHandler()
     aFormText.clear();
 
     bInOwnChange = false;
+
+    if ( comphelper::LibreOfficeKit::isActive() && pExecuteSh )
+    {
+        // Clear
+        std::vector<ReferenceMark> aReferenceMarks;
+        ScInputHandler::SendReferenceMarks( pActiveViewSh, aReferenceMarks );
+    }
 }
 
 bool ScInputHandler::IsModalMode( const SfxObjectShell* pDocSh )
@@ -3628,9 +3767,12 @@ void ScInputHandler::NotifyChange( const ScInputHdlState* pState,
     {
         ScModule* pScMod = SC_MOD();
 
+        ScTabViewShell* pScTabViewShell = dynamic_cast<ScTabViewShell*>(pScMod->GetViewShell());
+
         // Also take foreign reference input into account here (e.g. FunctionsAutoPilot),
         // FormEditData, if we're switching from Help to Calc:
-        if ( !bFormulaMode && !pScMod->IsFormulaMode() && !pScMod->GetFormEditData() )
+        if ( !bFormulaMode && !pScMod->IsFormulaMode() &&
+             ( !pScTabViewShell || !pScTabViewShell->GetFormEditData() ) )
         {
             bool bIgnore = false;
             if ( bModified )
@@ -3686,11 +3828,9 @@ void ScInputHandler::NotifyChange( const ScInputHdlState* pState,
 
                     if ( pInputWin )
                         pInputWin->SetTextString(aString);
-                    else if (comphelper::LibreOfficeKit::isActive())
-                    {
-                        if (pActiveViewSh)
-                            pActiveViewSh->libreOfficeKitViewCallback(LOK_CALLBACK_CELL_FORMULA, aString.toUtf8().getStr());
-                    }
+
+                    if (comphelper::LibreOfficeKit::isActive() && pActiveViewSh)
+                        pActiveViewSh->libreOfficeKitViewCallback(LOK_CALLBACK_CELL_FORMULA, aString.toUtf8().getStr());
                 }
 
                 if ( pInputWin || comphelper::LibreOfficeKit::isActive())                        // Named range input
@@ -3728,10 +3868,9 @@ void ScInputHandler::NotifyChange( const ScInputHdlState* pState,
                         pInputWin->SetAccessibilityEventsSuppressed(bIsSuppressed);
                         pInputWin->SetSumAssignMode();
                     }
-                    else if (pActiveViewSh)
-                    {
+
+                    if (comphelper::LibreOfficeKit::isActive() && pActiveViewSh)
                         pActiveViewSh->libreOfficeKitViewCallback(LOK_CALLBACK_CELL_ADDRESS, aPosStr.toUtf8().getStr());
-                    }
                 }
 
                 if (bStopEditing)

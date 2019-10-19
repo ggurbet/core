@@ -620,19 +620,17 @@ void SwDoc::UpdateSection( size_t const nPos, SwSectionData & rNewData,
         if( pAttr && pAttr->Count() )
         {
             SfxItemIter aIter( *pAttr );
-            sal_uInt16 nWhich = aIter.GetCurItem()->Which();
-            while( true )
+            const SfxPoolItem* pItem = aIter.GetCurItem();
+            do
             {
-                if( pFormat->GetFormatAttr( nWhich ) != *aIter.GetCurItem() )
+                if (pFormat->GetFormatAttr(pItem->Which()) != *pItem)
                 {
                     bOnlyAttrChg = true;
                     break;
                 }
 
-                if( aIter.IsAtEnd() )
-                    break;
-                nWhich = aIter.NextItem()->Which();
-            }
+                pItem = aIter.NextItem();
+            } while (pItem);
         }
 
         if( bOnlyAttrChg )
@@ -681,7 +679,7 @@ void SwDoc::UpdateSection( size_t const nPos, SwSectionData & rNewData,
     ::sw::UndoGuard const undoGuard(GetIDocumentUndoRedo());
 
     // The LinkFileName could only consist of separators
-    OUString sCompareString = OUStringLiteral1(sfx2::cTokenSeparator) + OUStringLiteral1(sfx2::cTokenSeparator);
+    OUString sCompareString = OUStringChar(sfx2::cTokenSeparator) + OUStringChar(sfx2::cTokenSeparator);
     const bool bUpdate =
            (!pSection->IsLinkType() && rNewData.IsLinkType())
             ||  (!rNewData.GetLinkFileName().isEmpty()
@@ -992,7 +990,7 @@ SwSectionNode::SwSectionNode(SwNodeIndex const& rIdx,
                 lcl_initParent(*this, rFormat) ) )
 {
     // Set the connection from Format to Node
-    // Suppress Modify; no one's interessted anyway
+    // Suppress Modify; no one's interested anyway
     rFormat.LockModify();
     rFormat.SetFormatAttr( SwFormatContent( this ) );
     rFormat.UnlockModify();
@@ -1071,7 +1069,7 @@ void SwSectionNode::MakeFramesForAdjacentContentNode(const SwNodeIndex & rIdx)
                 }
 
                 // if the node is in a section, the sectionframe now
-                // has to be created..
+                // has to be created...
                 // boolean to control <Init()> of a new section frame.
                 bool bInitNewSect = false;
                 if( pS )

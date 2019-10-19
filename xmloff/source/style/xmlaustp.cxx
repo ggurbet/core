@@ -25,11 +25,10 @@
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlexp.hxx>
 #include <xmloff/xmlprhdl.hxx>
+#include <xmloff/xmlprmap.hxx>
 #include <xmloff/XMLTextListAutoStylePool.hxx>
 
 #include <xmloff/PageMasterStyleMap.hxx>
-#include "PageMasterExportPropMapper.hxx"
-#include <XMLBackgroundImageExport.hxx>
 #include <osl/diagnose.h>
 
 

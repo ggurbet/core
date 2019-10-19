@@ -19,8 +19,9 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_DSTRIBUT_HXX
 #define INCLUDED_CUI_SOURCE_INC_DSTRIBUT_HXX
 
-#include <svx/dlgctrl.hxx>
+#include <sfx2/tabdlg.hxx>
 #include <svx/dstribut_enum.hxx>
+#include <vcl/weld.hxx>
 
 class SvxDistributePage : public SfxTabPage
 {
@@ -39,7 +40,7 @@ class SvxDistributePage : public SfxTabPage
     std::unique_ptr<weld::RadioButton> m_xBtnVerBottom;
 
 public:
-    SvxDistributePage(TabPageParent pWindow, const SfxItemSet& rInAttrs,
+    SvxDistributePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs,
         SvxDistributeHorizontal eHor,
         SvxDistributeVertical eVer);
     virtual ~SvxDistributePage() override;
@@ -53,7 +54,7 @@ public:
 
 class SvxDistributeDialog : public SfxSingleTabDialogController
 {
-    VclPtr<SvxDistributePage> mpPage;
+    SvxDistributePage* mpPage;
 
 public:
     SvxDistributeDialog(weld::Window* pParent, const SfxItemSet& rAttr,

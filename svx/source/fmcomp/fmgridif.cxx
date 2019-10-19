@@ -376,15 +376,12 @@ sal_Bool SAL_CALL FmXGridControl::supportsService(const OUString& ServiceName)
 
 OUString SAL_CALL FmXGridControl::getImplementationName()
 {
-    return OUString("com.sun.star.form.FmXGridControl");
+    return "com.sun.star.form.FmXGridControl";
 }
 
 css::uno::Sequence<OUString> SAL_CALL FmXGridControl::getSupportedServiceNames()
 {
-    Sequence< OUString > aServiceNames(2);
-    aServiceNames[0] = FM_SUN_CONTROL_GRIDCONTROL;
-    aServiceNames[1] = "com.sun.star.awt.UnoControl";
-    return aServiceNames;
+    return { FM_SUN_CONTROL_GRIDCONTROL, "com.sun.star.awt.UnoControl" };
 }
 
 
@@ -404,7 +401,7 @@ void SAL_CALL FmXGridControl::dispose()
 
 OUString FmXGridControl::GetComponentServiceName()
 {
-    return OUString("DBGrid");
+    return "DBGrid";
 }
 
 
@@ -458,8 +455,8 @@ void SAL_CALL FmXGridControl::createPeer(const Reference< css::awt::XToolkit >& 
     DBG_ASSERT(/*(0 == m_nPeerCreationLevel) && */!mbCreatingPeer, "FmXGridControl::createPeer : recursion!");
         // I think this should never assert, now that we're using the base class' mbCreatingPeer in addition to
         // our own m_nPeerCreationLevel
-        // But I'm not sure as I don't _fully_ understand the underlying toolkit implementations ....
-        // (if this asserts, we still need m_nPeerCreationLevel. If not, we could omit it ....)
+        // But I'm not sure as I don't _fully_ understand the underlying toolkit implementations...
+        // (if this asserts, we still need m_nPeerCreationLevel. If not, we could omit it...)
         // 14.05.2001 - 86836 - frank.schoenheit@germany.sun.com
 
     // TODO: why the hell this whole class does not use any mutex?
@@ -540,7 +537,7 @@ void SAL_CALL FmXGridControl::createPeer(const Reference< css::awt::XToolkit >& 
             // forward the design mode
             bool bForceAlivePeer = m_bInDraw && !maComponentInfos.bVisible;
             // (we force an alive-mode peer if we're in "draw", cause in this case the peer will be used for drawing in
-            // foreign devices. We ensure this with the visibility check as an living peer is assumed to be noncritical
+            // foreign devices. We ensure this with the visibility check as a living peer is assumed to be noncritical
             // only if invisible)
             Any aOldCursorBookmark;
             if (!mbDesignMode || bForceAlivePeer)
@@ -562,8 +559,7 @@ void SAL_CALL FmXGridControl::createPeer(const Reference< css::awt::XToolkit >& 
                                 // as the FmGridControl touches the data source it is connected to we have to remember the current
                                 // cursor position (and restore afterwards)
                                 // OJ: but only when we stand on a valid row
-                                Reference< XResultSet > xResultSet(xForm, UNO_QUERY);
-                                if ( !xResultSet->isBeforeFirst() && !xResultSet->isAfterLast() )
+                                if ( !xForm->isBeforeFirst() && !xForm->isAfterLast() )
                                 {
                                     try
                                     {
@@ -1021,16 +1017,6 @@ void FmXGridPeer::columnChanged()
 }
 
 
-namespace fmgridif
-{
-    static const OUString getDataModeIdentifier()
-    {
-        return OUString("DataMode");
-    }
-}
-using namespace fmgridif;
-
-
 FmXGridPeer::FmXGridPeer(const Reference< XComponentContext >& _rxContext)
             :m_xContext(_rxContext)
             ,m_aModifyListeners(m_aMutex)
@@ -1038,7 +1024,7 @@ FmXGridPeer::FmXGridPeer(const Reference< XComponentContext >& _rxContext)
             ,m_aContainerListeners(m_aMutex)
             ,m_aSelectionListeners(m_aMutex)
             ,m_aGridControlListeners(m_aMutex)
-            ,m_aMode( getDataModeIdentifier() )
+            ,m_aMode("DataMode")
             ,m_nCursorListening(0)
             ,m_bInterceptingDispatch(false)
 {
@@ -1469,8 +1455,8 @@ sal_Bool FmXGridPeer::commit()
 void FmXGridPeer::cursorMoved(const EventObject& _rEvent)
 {
     VclPtr< FmGridControl > pGrid = GetAs< FmGridControl >();
-    // we are not interested in move to insert row only in the resetted event
-    // which is fired after positioning an the insert row
+    // we are not interested in moving to insert row only in the reset event
+    // which is fired after positioning and the insert row
     if (pGrid && pGrid->IsOpen() && !::comphelper::getBOOL(Reference< XPropertySet > (_rEvent.Source, UNO_QUERY_THROW)->getPropertyValue(FM_PROP_ISNEW)))
         pGrid->positioned();
 }
@@ -1572,8 +1558,8 @@ void FmXGridPeer::addColumnListeners(const Reference< XPropertySet >& xCol)
 
 void FmXGridPeer::removeColumnListeners(const Reference< XPropertySet >& xCol)
 {
-    // the same props as in addColumnListeners ... linux has problems with global static UStrings, so
-    // we have to do it this way ....
+    // the same props as in addColumnListeners... linux has problems with global static UStrings, so
+    // we have to do it this way...
     static const OUStringLiteral aPropsListenedTo[] =
     {
         FM_PROP_LABEL, FM_PROP_WIDTH, FM_PROP_HIDDEN, FM_PROP_ALIGN,
@@ -2083,9 +2069,8 @@ void FmXGridPeer::startCursorListening()
 {
     if (!m_nCursorListening)
     {
-        Reference< XRowSet >  xRowSet(m_xCursor, UNO_QUERY);
-        if (xRowSet.is())
-            xRowSet->addRowSetListener(this);
+        if (m_xCursor.is())
+            m_xCursor->addRowSetListener(this);
 
         Reference< XReset >  xReset(m_xCursor, UNO_QUERY);
         if (xReset.is())
@@ -2107,9 +2092,8 @@ void FmXGridPeer::stopCursorListening()
 {
     if (!--m_nCursorListening)
     {
-        Reference< XRowSet >  xRowSet(m_xCursor, UNO_QUERY);
-        if (xRowSet.is())
-            xRowSet->removeRowSetListener(this);
+        if (m_xCursor.is())
+            m_xCursor->removeRowSetListener(this);
 
         Reference< XReset >  xReset(m_xCursor, UNO_QUERY);
         if (xReset.is())
@@ -2348,13 +2332,7 @@ css::uno::Sequence<OUString> FmXGridPeer::getSupportedModes()
 sal_Bool FmXGridPeer::supportsMode(const OUString& Mode)
 {
     css::uno::Sequence<OUString> aModes(getSupportedModes());
-    const OUString* pModes = aModes.getConstArray();
-    for (sal_Int32 i = aModes.getLength(); i > 0; )
-    {
-        if (pModes[--i] == Mode)
-            return true;
-    }
-    return false;
+    return comphelper::findValue(aModes, Mode) != -1;
 }
 
 
@@ -2435,10 +2413,9 @@ void FmXGridPeer::registerDispatchProviderInterceptor(const Reference< css::fram
     {
         if (m_xFirstDispatchInterceptor.is())
         {
-            Reference< css::frame::XDispatchProvider > xFirstProvider(m_xFirstDispatchInterceptor, UNO_QUERY);
             // there is already an interceptor; the new one will become its master
-            _xInterceptor->setSlaveDispatchProvider(xFirstProvider);
-            m_xFirstDispatchInterceptor->setMasterDispatchProvider(xFirstProvider);
+            _xInterceptor->setSlaveDispatchProvider(m_xFirstDispatchInterceptor);
+            m_xFirstDispatchInterceptor->setMasterDispatchProvider(m_xFirstDispatchInterceptor);
         }
         else
         {
@@ -2518,24 +2495,21 @@ void FmXGridPeer::statusChanged(const css::frame::FeatureStateEvent& Event)
     DBG_ASSERT(m_pDispatchers, "FmXGridPeer::statusChanged : invalid call !");
 
     Sequence< css::util::URL>& aUrls = getSupportedURLs();
-    const css::util::URL* pUrls = aUrls.getConstArray();
 
     const std::vector<DbGridControlNavigationBarState>& aSlots = getSupportedGridSlots();
 
-    sal_Int32 i;
-    for (i=0; i<aUrls.getLength(); ++i, ++pUrls)
+    auto pUrl = std::find_if(aUrls.begin(), aUrls.end(),
+        [&Event](const css::util::URL& rUrl) { return rUrl.Main == Event.FeatureURL.Main; });
+    if (pUrl != aUrls.end())
     {
-        if (pUrls->Main == Event.FeatureURL.Main)
-        {
-            DBG_ASSERT(m_pDispatchers[i] == Event.Source, "FmXGridPeer::statusChanged : the event source is a little bit suspect !");
-            m_pStateCache[i] = Event.IsEnabled;
-            VclPtr< FmGridControl > pGrid = GetAs< FmGridControl >();
-            if (aSlots[i] != DbGridControlNavigationBarState::Undo)
-                pGrid->GetNavigationBar().InvalidateState(aSlots[i]);
-            break;
-        }
+        auto i = static_cast<sal_uInt32>(std::distance(aUrls.begin(), pUrl));
+        DBG_ASSERT(m_pDispatchers[i] == Event.Source, "FmXGridPeer::statusChanged : the event source is a little bit suspect !");
+        m_pStateCache[i] = Event.IsEnabled;
+        VclPtr< FmGridControl > pGrid = GetAs< FmGridControl >();
+        if (aSlots[i] != DbGridControlNavigationBarState::Undo)
+            pGrid->GetNavigationBar().InvalidateState(aSlots[i]);
     }
-    DBG_ASSERT(i<aUrls.getLength(), "FmXGridPeer::statusChanged : got a call for an unknown url !");
+    DBG_ASSERT(pUrl != aUrls.end(), "FmXGridPeer::statusChanged : got a call for an unknown url !");
 }
 
 
@@ -2635,7 +2609,7 @@ Sequence< css::util::URL>& FmXGridPeer::getSupportedURLs()
         for ( sal_Int32 i = 0; i < tmp.getLength(); ++i, ++pSupported)
             pSupported->Complete = OUString::createFromAscii(sSupported[i]);
 
-        // let an css::util::URL-transformer normalize the URLs
+        // let a css::util::URL-transformer normalize the URLs
         Reference< css::util::XURLTransformer >  xTransformer(
             util::URLTransformer::create(::comphelper::getProcessComponentContext()) );
         for (css::util::URL & rURL : tmp)

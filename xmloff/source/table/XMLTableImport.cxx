@@ -31,8 +31,6 @@
 #include <tools/diagnose_ex.h>
 
 #include <xmloff/table/XMLTableImport.hxx>
-#include <xmloff/xmltkmap.hxx>
-#include <xmloff/maptype.hxx>
 #include <xmloff/xmlprmap.hxx>
 #include <xmloff/txtimp.hxx>
 #include <xmloff/xmlimp.hxx>
@@ -286,8 +284,7 @@ void XMLTableImport::insertTabletemplate(const OUString& rsStyleName, bool bOver
         }
         catch (Exception const &)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("xmloff.table", "XMLTableImport::insertTabletemplate(), exception caught!" << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("xmloff.table", "XMLTableImport::insertTabletemplate()");
         }
 
         if (xTemplate.is())
@@ -300,8 +297,7 @@ void XMLTableImport::insertTabletemplate(const OUString& rsStyleName, bool bOver
     }
     catch (Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("xmloff.table", "XMLTableImport::insertTabletemplate(), exception caught!" << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("xmloff.table", "XMLTableImport::insertTabletemplate()");
     }
 }
 

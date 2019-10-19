@@ -42,6 +42,7 @@
 #include <unotools/tempfile.hxx>
 
 #include <comphelper/docpasswordrequest.hxx>
+#include <comphelper/documentinfo.hxx>
 #include <comphelper/propertysequence.hxx>
 
 #include <editeng/outlobj.hxx>
@@ -367,7 +368,7 @@ public:
         mxCtx = comphelper::getProcessComponentContext();
     }
     bool import( const uno::Reference< io::XInputStream >& rxIn );
-    OUString getProjectName();
+    OUString getProjectName() const;
 };
 
 bool BasicProjImportHelper::import( const uno::Reference< io::XInputStream >& rxIn )
@@ -390,7 +391,7 @@ bool BasicProjImportHelper::import( const uno::Reference< io::XInputStream >& rx
     return bRet;
 }
 
-OUString BasicProjImportHelper::getProjectName()
+OUString BasicProjImportHelper::getProjectName() const
 {
     OUString sProjName( "Standard" );
     uno::Reference< beans::XPropertySet > xProps( mrDocShell.GetModel(), uno::UNO_QUERY );
@@ -1429,12 +1430,12 @@ void SwWW8FltControlStack::SetAttrInDoc(const SwPosition& rTmpPos,
             break;
 
         case RES_TXTATR_ANNOTATION:
-            OSL_ENSURE(false, "What is a annotation doing in the control stack,"
+            OSL_ENSURE(false, "What is an annotation doing in the control stack,"
                 "probably should have been in the endstack");
             break;
 
         case RES_TXTATR_INPUTFIELD:
-            OSL_ENSURE(false, "What is a input field doing in the control stack,"
+            OSL_ENSURE(false, "What is an input field doing in the control stack,"
                 "probably should have been in the endstack");
             break;
 
@@ -1781,7 +1782,7 @@ void SwWW8ImplReader::Read_Tab(sal_uInt16 , const sal_uInt8* pData, short nLen)
     else
     {
         // Here we have a tab definition which inserts no extra tabs, or deletes
-        // no existing tabs. An older version of writer is probably the creater
+        // no existing tabs. An older version of writer is probably the creator
         // of the document  :-( . So if we are importing a style we can just
         // ignore it. But if we are importing into text we cannot as during
         // text SwWW8ImplReader::Read_Tab is called at the begin and end of
@@ -1866,9 +1867,8 @@ void SwWW8ImplReader::ImportDop()
         uno::Reference< uno::XComponentContext > xComponentContext(comphelper::getProcessComponentContext());
         uno::Reference<container::XIndexContainer> xBox = document::IndexedPropertyValues::create(xComponentContext);
         xBox->insertByIndex(sal_Int32(0), uno::makeAny(aViewProps));
-        uno::Reference<container::XIndexAccess> xIndexAccess(xBox, uno::UNO_QUERY);
         uno::Reference<document::XViewDataSupplier> xViewDataSupplier(m_pDocShell->GetModel(), uno::UNO_QUERY);
-        xViewDataSupplier->setViewData(xIndexAccess);
+        xViewDataSupplier->setViewData(xBox);
     }
 
     m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::USE_VIRTUAL_DEVICE, !m_xWDop->fUsePrinterMetrics);
@@ -1907,6 +1907,7 @@ void SwWW8ImplReader::ImportDop()
     m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::TAB_OVER_MARGIN, true);
     m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::SURROUND_TEXT_WRAP_SMALL, true);
     m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::PROP_LINE_SPACING_SHRINKS_FIRST_LINE, true);
+    m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::CONTINUOUS_ENDNOTES, true);
 
     // COMPATIBILITY FLAGS END
 
@@ -2548,6 +2549,13 @@ bool SwWW8ImplReader::FloatingTableConversion(WW8PLCFx_Cp_FKP* pPap)
     // table that is floating and can span over multiple pages at the same
     // time.
 
+    // If the floating table is in a header or footer, then it won't be a
+    // multi-page one, so can always do the conversion.
+    if (m_bIsHeader || m_bIsFooter)
+    {
+        return true;
+    }
+
     bool bResult = true;
 
     SprmResult aRes = pPap->HasSprm(NS_sprm::sprmTDefTable);
@@ -2634,7 +2642,7 @@ bool SwWW8ImplReader::ProcessSpecial(bool &rbReSync, WW8_CP nStartCp)
 // WW: Table in APO is possible (Both Start-Ends occur at the same time)
 // WW: APO in Table not possible
 
-// This mean that of a Table is the content of a APO, the APO start needs
+// This mean that of a Table is the content of an APO, the APO start needs
 // to be edited first, so that the Table remains in the APO and not the
 // other way around.
 // At the End, however, we need to edit the Table End first as the APO
@@ -2786,7 +2794,7 @@ rtl_TextEncoding SwWW8ImplReader::GetCharSetFromLanguage()
 
      This is a bit tentative, more might be required if the concept is correct.
      When later version of word write older 6/95 documents the charset is
-     correctly set in the character runs involved, so its hard to reproduce
+     correctly set in the character runs involved, so it's hard to reproduce
      documents that require this to be sure of the process involved.
     */
     const SvxLanguageItem *pLang = static_cast<const SvxLanguageItem*>(GetFormatAttr(RES_CHRATR_LANGUAGE));
@@ -2804,7 +2812,7 @@ rtl_TextEncoding SwWW8ImplReader::GetCJKCharSetFromLanguage()
 
      This is a bit tentative, more might be required if the concept is correct.
      When later version of word write older 6/95 documents the charset is
-     correctly set in the character runs involved, so its hard to reproduce
+     correctly set in the character runs involved, so it's hard to reproduce
      documents that require this to be sure of the process involved.
     */
     const SvxLanguageItem *pLang = static_cast<const SvxLanguageItem*>(GetFormatAttr(RES_CHRATR_CJK_LANGUAGE));
@@ -2868,17 +2876,12 @@ void SwWW8ImplReader::PostProcessAttrs()
     {
         SfxItemIter aIter(m_pPostProcessAttrsInfo->mItemSet);
 
-        const SfxPoolItem * pItem = aIter.GetCurItem();
-        if (pItem != nullptr)
+        for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
         {
-            do
-            {
-                m_xCtrlStck->NewAttr(*m_pPostProcessAttrsInfo->mPaM.GetPoint(),
-                                   *pItem);
-                m_xCtrlStck->SetAttr(*m_pPostProcessAttrsInfo->mPaM.GetMark(),
-                                   pItem->Which());
-            }
-            while (!aIter.IsAtEnd() && nullptr != (pItem = aIter.NextItem()));
+            m_xCtrlStck->NewAttr(*m_pPostProcessAttrsInfo->mPaM.GetPoint(),
+                               *pItem);
+            m_xCtrlStck->SetAttr(*m_pPostProcessAttrsInfo->mPaM.GetMark(),
+                               pItem->Which());
         }
 
         m_pPostProcessAttrsInfo.reset();
@@ -2886,14 +2889,14 @@ void SwWW8ImplReader::PostProcessAttrs()
 }
 
 /*
- #i9241#
+ #i9240#
  It appears that some documents that are in a baltic 8 bit encoding which has
  some undefined characters can have use made of those characters, in which
- case they default to CP1252. If not then its perhaps that the font encoding
+ case they default to CP1252. If not then it's perhaps that the font encoding
  is only in use for 6/7 and for 8+ if we are in 8bit mode then the encoding
  is always 1252.
 
- So a encoding converter that on an undefined character attempts to
+ So an encoding converter that on an undefined character attempts to
  convert from 1252 on the undefined character
 */
 static std::size_t Custom8BitToUnicode(rtl_TextToUnicodeConverter hConverter,
@@ -3266,14 +3269,14 @@ namespace
 // categorization is. So we don't do that here yet.
 
 // Additional to the categorization, when word encounters weak text for ambiguous
-// chars it uses idcthint to indicate which way to bias. We don't have a idcthint
+// chars it uses idcthint to indicate which way to bias. We don't have an idcthint
 // feature in writer.
 
 // So what we currently do here then is to split our text into non-weak/weak
 // sections and uses word's idcthint to determine what font it would use and
 // force that on for the segment. Following what we *do* know about word's
 // categorization, we know that the range 0x0020 and 0x007F is sprmCRgFtc0 in
-// word, something we map to LATIN, so we consider all weaks chars in that range
+// word, something we map to LATIN, so we consider all weak chars in that range
 // to auto-bias to LATIN.
 
 // See https://bugs.libreoffice.org/show_bug.cgi?id=34319 for an example
@@ -3947,7 +3950,7 @@ void SwWW8ImplReader::ClearParaEndPosition()
 
 void SwWW8ImplReader::ReadAttrs(WW8_CP& rTextPos, WW8_CP& rNext, long nTextEnd, bool& rbStartLine)
 {
-    // Dow we have attributes?
+    // Do we have attributes?
     if( rTextPos >= rNext )
     {
         do
@@ -4309,6 +4312,7 @@ SwWW8ImplReader::SwWW8ImplReader(sal_uInt8 nVersionPara, SotStorage* pStorage,
     , m_aTOXEndCps()
     , m_aCurrAttrCP(-1)
     , m_bOnLoadingMain(false)
+    , m_bNotifyMacroEventRead(false)
 {
     m_pStrm->SetEndian( SvStreamEndian::LITTLE );
     m_aApos.push_back(false);
@@ -4355,10 +4359,14 @@ void wwSectionManager::SetSegmentToPageDesc(const wwSection &rSection,
             // Only handle shape if it is a background shape
             if (aData.begin()->get()->nFlags & ShapeFlag::Background)
             {
-                SfxItemSet aSet(rFormat.GetAttrSet());
+                SfxItemSet aSet(rFormat.GetDoc()->GetAttrPool(),
+                                svl::Items<RES_BACKGROUND, RES_BACKGROUND,XATTR_START, XATTR_END>{});
                 mrReader.MatchSdrItemsIntoFlySet(pObject, aSet, mso_lineSimple,
                                                  mso_lineSolid, mso_sptRectangle, aRect);
-                rFormat.SetFormatAttr(aSet.Get(RES_BACKGROUND));
+                if ( aSet.HasItem(RES_BACKGROUND) )
+                    rFormat.SetFormatAttr(aSet.Get(RES_BACKGROUND));
+                else
+                    rFormat.SetFormatAttr(aSet);
             }
         }
         SdrObject::Free(pObject);
@@ -4888,17 +4896,16 @@ void SwWW8ImplReader::ReadGlobalTemplateSettings( const OUString& sCreatedFrom, 
     if( xSFA->isFolder( aAddinPath ) )
         sGlobalTemplates = xSFA->getFolderContents( aAddinPath, false );
 
-    sal_Int32 nEntries = sGlobalTemplates.getLength();
-    for ( sal_Int32 i=0; i<nEntries; ++i )
+    for ( const auto& rGlobalTemplate : std::as_const(sGlobalTemplates) )
     {
         INetURLObject aObj;
-        aObj.SetURL( sGlobalTemplates[ i ] );
+        aObj.SetURL( rGlobalTemplate );
         bool bIsURL = aObj.GetProtocol() != INetProtocol::NotValid;
         OUString aURL;
         if ( bIsURL )
-                aURL = sGlobalTemplates[ i ];
+                aURL = rGlobalTemplate;
         else
-                osl::FileBase::getFileURLFromSystemPath( sGlobalTemplates[ i ], aURL );
+                osl::FileBase::getFileURLFromSystemPath( rGlobalTemplate, aURL );
         if ( !aURL.endsWithIgnoreAsciiCase( ".dot" ) || ( !sCreatedFrom.isEmpty() && sCreatedFrom == aURL ) )
             continue; // don't try and read the same document as ourselves
 
@@ -5338,7 +5345,6 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
     m_xRedlineStack->closeall(*m_pPaM->GetPoint());
     while (!m_aFrameRedlines.empty())
         m_aFrameRedlines.pop();
-    m_xRedlineStack.reset();
 
     // For i120928,achieve the graphics from the special bookmark with is for graphic bullet
     {
@@ -5360,10 +5366,10 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
                     for( size_t nHintPos = 0; pHints && nHintPos < pHints->Count(); ++nHintPos)
                     {
                         const SwTextAttr *pHt = pHints->Get(nHintPos);
+                        if (pHt->Which() != RES_TXTATR_FLYCNT)
+                            continue;
                         const sal_Int32 st = pHt->GetStart();
-                        if( pHt
-                            && pHt->Which() == RES_TXTATR_FLYCNT
-                            && (st >= (*ppBkmk)->GetMarkStart().nContent.GetIndex()) )
+                        if (st >= (*ppBkmk)->GetMarkStart().nContent.GetIndex())
                         {
                             SwFrameFormat* pFrameFormat = pHt->GetFlyCnt().GetFrameFormat();
                             vecFrameFormat.push_back(pFrameFormat);
@@ -5423,6 +5429,7 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
     }
 
     m_pPosAfterTOC.reset();
+    m_xRedlineStack.reset();
     mpCursor.reset();
     m_pPaM = nullptr;
 
@@ -5606,8 +5613,7 @@ namespace
 
                 rtl_random_destroyPool( aRandomPool );
 
-                sal_uInt16 pStd97Pass[16];
-                memset( pStd97Pass, 0, sizeof( pStd97Pass ) );
+                sal_uInt16 pStd97Pass[16] = {};
                 for( sal_Int32 nChar = 0; nChar < nLen; ++nChar )
                     pStd97Pass[nChar] = sUniPassword[nChar];
 
@@ -5637,8 +5643,7 @@ namespace
             sal_Int32 nLen = sUniPassword.getLength();
             if ( nLen <= 15 )
             {
-                sal_uInt16 pPassword[16];
-                memset( pPassword, 0, sizeof( pPassword ) );
+                sal_uInt16 pPassword[16] = {};
                 for( sal_Int32 nChar = 0; nChar < nLen; ++nChar )
                     pPassword[nChar] = sUniPassword[nChar];
 
@@ -6555,6 +6560,15 @@ std::unique_ptr<SfxItemSet> SwWW8ImplReader::SetCurrentItemSet(std::unique_ptr<S
     std::unique_ptr<SfxItemSet> xRet(std::move(m_xCurrentItemSet));
     m_xCurrentItemSet = std::move(pItemSet);
     return xRet;
+}
+
+void SwWW8ImplReader::NotifyMacroEventRead()
+{
+    if (m_bNotifyMacroEventRead)
+        return;
+    uno::Reference<frame::XModel> const xModel(m_rDoc.GetDocShell()->GetBaseModel());
+    comphelper::DocumentInfo::notifyMacroEventRead(xModel);
+    m_bNotifyMacroEventRead = true;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -530,7 +530,7 @@ static bool lcl_parseExternalName(
                         {
                             // two consecutive quotes equal a single quote in
                             // the file name.
-                            aTmpFile += OUStringLiteral1(c);
+                            aTmpFile += OUStringChar(c);
                             cPrev = 'a';
                         }
                         else
@@ -551,7 +551,7 @@ static bool lcl_parseExternalName(
                         aTmpName.append(c); // Keep the separator as part of the name.
                         break;
                     }
-                    aTmpFile += OUStringLiteral1(c);
+                    aTmpFile += OUStringChar(c);
                     cPrev = c;
                 }
 
@@ -615,7 +615,7 @@ static bool lcl_parseExternalName(
                     return false;
                 }
                 while (false);
-                aTmpFile += OUStringLiteral1(c);
+                aTmpFile += OUStringChar(c);
             }
         }
     }
@@ -662,7 +662,7 @@ static OUString lcl_makeExternalNameStr(const OUString& rFile, const OUString& r
     OUStringBuffer aBuf(aFile.getLength() + aName.getLength() + 9);
     if (bODF)
         aBuf.append( '[');
-    aBuf.append( "'" ).append( aFile ).append( "'" ).append( OUStringLiteral1(cSep) );
+    aBuf.append( "'" ).append( aFile ).append( "'" ).append( OUStringChar(cSep) );
     if (bODF)
         aBuf.append( "$$'" );
     aBuf.append( aName);
@@ -1501,7 +1501,7 @@ struct ConventionXL_OOX : public ConventionXL_A1
         // Actually Excel writes '[N]Sheet One:Sheet Two'!A1:B2 but reads the
         // simpler to produce and more logical form with independently quoted
         // sheet names as well. The [N] having to be within the quoted sheet
-        // name is ugly enough..
+        // name is ugly enough...
 
         ScRange aAbsRef = rRef.toAbs(rPos);
 
@@ -3532,7 +3532,7 @@ bool ScCompiler::IsColRowName( const OUString& rName )
                     // Don't crash if cell (via CompileNameFormula) encounters
                     // a formula cell without code and
                     // HasStringData/Interpret/Compile is executed and all that
-                    // recursive..
+                    // recursively...
                     // Furthermore, *this* cell won't be touched, since no RPN exists yet.
                     CellType eType = aIter.getType();
                     bool bOk = false;
@@ -3872,7 +3872,7 @@ bool ScCompiler::IsTableRefColumn( const OUString& rName ) const
     sal_Int32 nOffset = pDBData->GetColumnNameOffset( aName);
     if (nOffset >= 0)
     {
-        // This is sneaky.. we always use the top row of the database range,
+        // This is sneaky... we always use the top row of the database range,
         // regardless of whether it is a header row or not. Code evaluating
         // this reference must take that into account and may have to act
         // differently if it is a header-less table. Which are two places,
@@ -3964,7 +3964,7 @@ void ScCompiler::AutoCorrectParsedSymbol()
         }
         else if ( c1 != cQuote && c2 == cQuote )
         {   // ..."
-            aCorrectedSymbol = OUStringLiteral1(cQuote) + aCorrectedSymbol;
+            aCorrectedSymbol = OUStringChar(cQuote) + aCorrectedSymbol;
             bCorrected = true;
         }
         else if ( nPos == 0 && (c1 == cx || c1 == cX) )
@@ -3978,13 +3978,13 @@ void ScCompiler::AutoCorrectParsedSymbol()
             if ( aCorrectedSymbol.indexOf(cx) >= 0 ) // At least two tokens separated by cx
             {   // x => *
                 sal_Unicode c = mxSymbols->getSymbolChar(ocMul);
-                aCorrectedSymbol = aCorrectedSymbol.replaceAll(OUStringLiteral1(cx), OUStringLiteral1(c));
+                aCorrectedSymbol = aCorrectedSymbol.replaceAll(OUStringChar(cx), OUStringChar(c));
                 bCorrected = true;
             }
             if ( aCorrectedSymbol.indexOf(cX) >= 0 ) // At least two tokens separated by cX
             {   // X => *
                 sal_Unicode c = mxSymbols->getSymbolChar(ocMul);
-                aCorrectedSymbol = aCorrectedSymbol.replaceAll(OUStringLiteral1(cX), OUStringLiteral1(c));
+                aCorrectedSymbol = aCorrectedSymbol.replaceAll(OUStringChar(cX), OUStringChar(c));
                 bCorrected = true;
             }
         }

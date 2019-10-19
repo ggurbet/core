@@ -58,7 +58,7 @@ typedef sal_uInt32 Id;
 namespace writerfilter {
 
 /**
-    Reference to an resource that generates events and sends them to a
+    Reference to a resource that generates events and sends them to a
     handler.
 
     The reference can be resolved, i.e. the resource generates its
@@ -168,10 +168,8 @@ public:
 
        @param buf     pointer to buffer containing the data
        @param len     size of buffer
-       @param ref     reference to properties of binary object
      */
-    virtual void data(const sal_uInt8* buf, size_t len,
-                      writerfilter::Reference<Properties>::Pointer_t ref) = 0;
+    virtual void data(const sal_uInt8* buf, size_t len) = 0;
 
 protected:
     ~BinaryObj() {}

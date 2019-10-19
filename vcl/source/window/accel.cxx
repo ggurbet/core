@@ -19,8 +19,7 @@
 
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-#include <vcl/window.hxx>
-#include <vcl/svapp.hxx>
+#include <tools/solar.h>
 #include <accel.h>
 #include <vcl/accel.hxx>
 #include <map>
@@ -157,7 +156,7 @@ void Accelerator::ImplCopyData( ImplAccelData& rAccelData )
 void Accelerator::ImplDeleteData()
 {
     // delete accelerator-entries using the id-table
-    for (std::unique_ptr<ImplAccelEntry>& pEntry : mpData->maIdList) {
+    for (const std::unique_ptr<ImplAccelEntry>& pEntry : mpData->maIdList) {
         delete pEntry->mpAutoAccel;
     }
     mpData->maIdList.clear();

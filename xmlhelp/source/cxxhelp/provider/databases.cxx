@@ -21,8 +21,6 @@
 #include "db.hxx"
 #include <osl/diagnose.h>
 #include <osl/file.hxx>
-#include <osl/thread.h>
-#include <osl/process.h>
 #include <rtl/character.hxx>
 #include <rtl/uri.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -40,12 +38,10 @@
 // Extensible help
 #include <com/sun/star/deployment/ExtensionManager.hpp>
 #include <com/sun/star/deployment/ExtensionRemovedException.hpp>
-#include <com/sun/star/deployment/thePackageManagerFactory.hpp>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/ucb/XCommandEnvironment.hpp>
 #include <com/sun/star/beans/Optional.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
@@ -54,15 +50,10 @@
 #include <com/sun/star/uri/XVndSunStarExpandUrl.hpp>
 #include <i18nlangtag/languagetag.hxx>
 
-#include <com/sun/star/awt/XToolkit.hpp>
-#include <com/sun/star/awt/XExtendedToolkit.hpp>
-#include <com/sun/star/awt/XWindowPeer.hpp>
 #include <com/sun/star/awt/XVclWindowPeer.hpp>
 #include <com/sun/star/awt/XTopWindow.hpp>
 
 #include <comphelper/storagehelper.hxx>
-
-#include <vcl/svapp.hxx>
 
 #include "databases.hxx"
 #include "urlparameter.hxx"
@@ -109,7 +100,7 @@ OUString Databases::expandURL( const OUString& aURL, const Reference< uno::XComp
         Reference< uri::XUriReference > uriRef;
         for (;;)
         {
-            uriRef.set( xFac->parse( aRetURL ), UNO_QUERY );
+            uriRef = xFac->parse( aRetURL );
             if ( uriRef.is() )
             {
                 Reference < uri::XVndSunStarExpandUrl > sxUri( uriRef, UNO_QUERY );
@@ -140,7 +131,7 @@ Databases::Databases( bool showBasic,
       vendVersion( "%VENDORVERSION" ),
       vendShort( "%VENDORSHORT" )
 {
-    m_xSMgr.set( m_xContext->getServiceManager(), UNO_QUERY );
+    m_xSMgr = m_xContext->getServiceManager();
 
     m_vAdd[0] = 12;
     m_vAdd[1] = 15;
@@ -175,7 +166,7 @@ Databases::~Databases()
     m_aKeywordInfo.clear();
 }
 
-OString Databases::getImageTheme()
+OString Databases::getImageTheme() const
 {
     uno::Reference< lang::XMultiServiceFactory > xConfigProvider =
         configuration::theDefaultProvider::get(m_xContext);
@@ -1308,7 +1299,7 @@ void ExtensionIteratorBase::implGetLanguageVectorFromPackage( ::std::vector< OUS
 {
     rv.clear();
     OUString aExtensionPath = xPackage->getURL();
-    Sequence< OUString > aEntrySeq = m_xSFA->getFolderContents( aExtensionPath, true );
+    const Sequence< OUString > aEntrySeq = m_xSFA->getFolderContents( aExtensionPath, true );
 
     for( const OUString& aEntry : aEntrySeq )
     {
@@ -1600,7 +1591,7 @@ Reference< XHierarchicalNameAccess > JarFileIterator::implGetJarFromPackage
         aArg.Value <<= OUString(ZIP_STORAGE_FORMAT_STRING);
         aArguments[ 1 ] <<= aArg;
 
-        Reference< XMultiComponentFactory >xSMgr( m_xContext->getServiceManager(), UNO_QUERY );
+        Reference< XMultiComponentFactory >xSMgr = m_xContext->getServiceManager();
         Reference< XInterface > xIfc
             = xSMgr->createInstanceWithArgumentsAndContext(
                 "com.sun.star.packages.comp.ZipPackage",

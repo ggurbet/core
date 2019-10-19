@@ -491,7 +491,7 @@ SdrObject* SdrObjList::ReplaceObject(SdrObject* pNewObj, size_t nObjNum)
 
         // tdf#121022 InsertedStateChange uses the parent
         // to detect if pObj is inserted or not, so have to call
-        // it *after* changing these settings, else a obviously wrong
+        // it *after* changing these settings, else an obviously wrong
         // 'SdrUserCallType::Inserted' would be sent
         pObj->InsertedStateChange();
 
@@ -612,12 +612,12 @@ void SdrObjList::ReformatAllEdgeObjects()
 
     while(aIter.IsMore())
     {
-        SdrEdgeObj* pSdrEdgeObj = dynamic_cast< SdrEdgeObj* >(aIter.Next());
+        SdrObject* pObj = aIter.Next();
+        if (pObj->GetObjIdentifier() != OBJ_EDGE)
+            continue;
 
-        if(pSdrEdgeObj)
-        {
-            pSdrEdgeObj->Reformat();
-        }
+        SdrEdgeObj* pSdrEdgeObj = static_cast< SdrEdgeObj* >(pObj);
+        pSdrEdgeObj->Reformat();
     }
 }
 

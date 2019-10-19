@@ -145,7 +145,8 @@ bool SwDoc::IsUsed( const SwTableAutoFormat& rTableAutoFormat) const
 bool SwDoc::IsUsed( const SwNumRule& rRule )
 {
     bool bUsed = rRule.GetTextNodeListSize() > 0 ||
-                     rRule.GetParagraphStyleListSize() > 0;
+                     rRule.GetParagraphStyleListSize() > 0 ||
+                     rRule.IsUsedByRedline();
 
     return bUsed;
 }
@@ -158,7 +159,7 @@ const OUString* SwDoc::GetDocPattern(size_t const nPos) const
 }
 
 // Look for the style name's position. If it doesn't exist,
-// insert a anew
+// insert an anew
 size_t SwDoc::SetDocPattern(const OUString& rPatternName)
 {
     OSL_ENSURE( !rPatternName.isEmpty(), "no Document style name" );
@@ -281,14 +282,16 @@ sal_uInt16 GetPoolParent( sal_uInt16 nId )
             case RES_POOLCOLL_REGISTER_BASE:
                     nRet = RES_POOLCOLL_STANDARD;               break;
 
+            case RES_POOLCOLL_TOX_IDXH:
+                    nRet = RES_POOLCOLL_HEADLINE_BASE;          break;
+
             case RES_POOLCOLL_TOX_USERH:
             case RES_POOLCOLL_TOX_CNTNTH:
-            case RES_POOLCOLL_TOX_IDXH:
             case RES_POOLCOLL_TOX_ILLUSH:
             case RES_POOLCOLL_TOX_OBJECTH:
             case RES_POOLCOLL_TOX_TABLESH:
             case RES_POOLCOLL_TOX_AUTHORITIESH:
-                    nRet = RES_POOLCOLL_HEADLINE_BASE;          break;
+                    nRet = RES_POOLCOLL_TOX_IDXH;               break;
 
             default:
                     nRet = RES_POOLCOLL_REGISTER_BASE;          break;

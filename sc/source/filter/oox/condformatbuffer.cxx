@@ -251,7 +251,7 @@ ScColorScaleEntry* ConvertToModel( const ColorScaleRuleModelEntry& rEntry, ScDoc
 
 void ColorScaleRule::AddEntries( ScColorScaleFormat* pFormat, ScDocument* pDoc, const ScAddress& rAddr )
 {
-    for(ColorScaleRuleModelEntry & rEntry : maColorScaleRuleEntries)
+    for(const ColorScaleRuleModelEntry & rEntry : maColorScaleRuleEntries)
     {
         ScColorScaleEntry* pEntry = ConvertToModel( rEntry, pDoc, rAddr );
 
@@ -379,7 +379,7 @@ void IconSetRule::importIcon(const AttributeList& rAttribs)
 
 void IconSetRule::SetData( ScIconSetFormat* pFormat, ScDocument* pDoc, const ScAddress& rPos )
 {
-    for(ColorScaleRuleModelEntry & rEntry : maEntries)
+    for(const ColorScaleRuleModelEntry & rEntry : maEntries)
     {
         ScColorScaleEntry* pModelEntry = ConvertToModel( rEntry, pDoc, rPos );
         mxFormatData->m_Entries.push_back(std::unique_ptr<ScColorScaleEntry>(pModelEntry));
@@ -1166,12 +1166,12 @@ void CondFormatBuffer::finalizeImport()
     for( const auto& rxCondFormat : maCondFormats )
     {
         if ( rxCondFormat.get())
-            rxCondFormat.get()->finalizeImport();
+            rxCondFormat->finalizeImport();
     }
     for ( const auto& rxCfRule : maCfRules )
     {
         if ( rxCfRule.get() )
-            rxCfRule.get()->finalizeImport();
+            rxCfRule->finalizeImport();
     }
 
     nExtCFIndex = 0;
@@ -1371,7 +1371,7 @@ void ExtCfDataBarRule::importCfvo( const AttributeList& rAttribs )
 }
 
 ExtCfCondFormat::ExtCfCondFormat(const ScRangeList& rRange, std::vector< std::unique_ptr<ScFormatEntry> >& rEntries,
-                                 std::vector<sal_Int32>* pPriorities):
+                                 const std::vector<sal_Int32>* pPriorities):
     maRange(rRange)
 {
     maEntries.swap(rEntries);
@@ -1385,12 +1385,12 @@ ExtCfCondFormat::~ExtCfCondFormat()
 {
 }
 
-const ScRangeList& ExtCfCondFormat::getRange()
+const ScRangeList& ExtCfCondFormat::getRange() const
 {
     return maRange;
 }
 
-const std::vector< std::unique_ptr<ScFormatEntry> >& ExtCfCondFormat::getEntries()
+const std::vector< std::unique_ptr<ScFormatEntry> >& ExtCfCondFormat::getEntries() const
 {
     return maEntries;
 }

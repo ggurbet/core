@@ -155,38 +155,34 @@ void CustomAnimationEffect::setNode( const css::uno::Reference< css::animations:
     mxNode = xNode;
     mxAudio.clear();
 
-    Sequence< NamedValue > aUserData( mxNode->getUserData() );
-    sal_Int32 nLength = aUserData.getLength();
-    const NamedValue* p = aUserData.getConstArray();
+    const Sequence< NamedValue > aUserData( mxNode->getUserData() );
 
-    while( nLength-- )
+    for( const NamedValue& rProp : aUserData )
     {
-        if ( p->Name == "node-type" )
+        if ( rProp.Name == "node-type" )
         {
-            p->Value >>= mnNodeType;
+            rProp.Value >>= mnNodeType;
         }
-        else if ( p->Name == "preset-id" )
+        else if ( rProp.Name == "preset-id" )
         {
-            p->Value >>= maPresetId;
+            rProp.Value >>= maPresetId;
         }
-        else if ( p->Name == "preset-sub-type" )
+        else if ( rProp.Name == "preset-sub-type" )
         {
-            p->Value >>= maPresetSubType;
+            rProp.Value >>= maPresetSubType;
         }
-        else if ( p->Name == "preset-class" )
+        else if ( rProp.Name == "preset-class" )
         {
-            p->Value >>= mnPresetClass;
+            rProp.Value >>= mnPresetClass;
         }
-        else if ( p->Name == "preset-property" )
+        else if ( rProp.Name == "preset-property" )
         {
-            p->Value >>= maProperty;
+            rProp.Value >>= maProperty;
         }
-        else if ( p->Name == "group-id" )
+        else if ( rProp.Name == "group-id" )
         {
-            p->Value >>= mnGroupId;
+            rProp.Value >>= mnGroupId;
         }
-
-        p++;
     }
 
     // get effect start time
@@ -217,7 +213,7 @@ void CustomAnimationEffect::setNode( const css::uno::Reference< css::animations:
     Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
     if( xEnumerationAccess.is() )
     {
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+        Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
         if( xEnumeration.is() )
         {
             while( xEnumeration->hasMoreElements() )
@@ -389,19 +385,12 @@ sal_Int32 CustomAnimationEffect::get_node_type( const Reference< XAnimationNode 
     if( xNode.is() )
     {
         Sequence< NamedValue > aUserData( xNode->getUserData() );
-        sal_Int32 nLength = aUserData.getLength();
-        if( nLength )
+        if( aUserData.hasElements() )
         {
-            const NamedValue* p = aUserData.getConstArray();
-            while( nLength-- )
-            {
-                if ( p->Name == "node-type" )
-                {
-                    p->Value >>= nNodeType;
-                    break;
-                }
-                p++;
-            }
+            const NamedValue* pProp = std::find_if(aUserData.begin(), aUserData.end(),
+                [](const NamedValue& rProp) { return rProp.Name == "node-type"; });
+            if (pProp != aUserData.end())
+                pProp->Value >>= nNodeType;
         }
     }
 
@@ -424,23 +413,18 @@ void CustomAnimationEffect::setPresetClass( sal_Int16 nPresetClass )
     bool bFound = false;
     if( nLength )
     {
-        NamedValue* p = aUserData.getArray();
-        while( nLength-- )
+        NamedValue* pProp = std::find_if(aUserData.begin(), aUserData.end(),
+            [](const NamedValue& rProp) { return rProp.Name == "preset-class"; });
+        if (pProp != aUserData.end())
         {
-            if ( p->Name == "preset-class" )
-            {
-                p->Value <<= mnPresetClass;
-                bFound = true;
-                break;
-            }
-            p++;
+            pProp->Value <<= mnPresetClass;
+            bFound = true;
         }
     }
 
-    // no "node-type" entry inside user data, so add it
+    // no "preset-class" entry inside user data, so add it
     if( !bFound )
     {
-        nLength = aUserData.getLength();
         aUserData.realloc( nLength + 1);
         aUserData[nLength].Name = "preset-class";
         aUserData[nLength].Value <<= mnPresetClass;
@@ -465,23 +449,18 @@ void CustomAnimationEffect::setNodeType( sal_Int16 nNodeType )
     bool bFound = false;
     if( nLength )
     {
-        NamedValue* p = aUserData.getArray();
-        while( nLength-- )
+        NamedValue* pProp = std::find_if(aUserData.begin(), aUserData.end(),
+            [](const NamedValue& rProp) { return rProp.Name == "node-type"; });
+        if (pProp != aUserData.end())
         {
-            if ( p->Name == "node-type" )
-            {
-                p->Value <<= mnNodeType;
-                bFound = true;
-                break;
-            }
-            p++;
+            pProp->Value <<= mnNodeType;
+            bFound = true;
         }
     }
 
     // no "node-type" entry inside user data, so add it
     if( !bFound )
     {
-        nLength = aUserData.getLength();
         aUserData.realloc( nLength + 1);
         aUserData[nLength].Name = "node-type";
         aUserData[nLength].Value <<= mnNodeType;
@@ -503,23 +482,18 @@ void CustomAnimationEffect::setGroupId( sal_Int32 nGroupId )
     bool bFound = false;
     if( nLength )
     {
-        NamedValue* p = aUserData.getArray();
-        while( nLength-- )
+        NamedValue* pProp = std::find_if(aUserData.begin(), aUserData.end(),
+            [](const NamedValue& rProp) { return rProp.Name == "group-id"; });
+        if (pProp != aUserData.end())
         {
-            if ( p->Name == "group-id" )
-            {
-                p->Value <<= mnGroupId;
-                bFound = true;
-                break;
-            }
-            p++;
+            pProp->Value <<= mnGroupId;
+            bFound = true;
         }
     }
 
-    // no "node-type" entry inside user data, so add it
+    // no "group-id" entry inside user data, so add it
     if( !bFound )
     {
-        nLength = aUserData.getLength();
         aUserData.realloc( nLength + 1);
         aUserData[nLength].Name = "group-id";
         aUserData[nLength].Value <<= mnGroupId;
@@ -551,7 +525,7 @@ bool CustomAnimationEffect::checkForText()
             Reference< XEnumerationAccess > xEA( xText, UNO_QUERY );
             if( xEA.is() )
             {
-                Reference< XEnumeration > xEnumeration( xEA->createEnumeration(), UNO_QUERY );
+                Reference< XEnumeration > xEnumeration = xEA->createEnumeration();
                 if( xEnumeration.is() )
                 {
                     bool bHasText = xEnumeration->hasMoreElements();
@@ -653,7 +627,7 @@ void CustomAnimationEffect::setTarget( const css::uno::Any& rTarget )
                 Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
                 if( xEnumerationAccess.is() )
                 {
-                    Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+                    Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
                     if( xEnumeration.is() )
                     {
                         while( xEnumeration->hasMoreElements() )
@@ -697,7 +671,7 @@ void CustomAnimationEffect::setTargetSubItem( sal_Int16 nSubItem )
             Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
             if( xEnumerationAccess.is() )
             {
-                Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+                Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
                 if( xEnumeration.is() )
                 {
                     while( xEnumeration->hasMoreElements() )
@@ -733,7 +707,7 @@ void CustomAnimationEffect::setDuration( double fDuration )
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
         if( xEnumerationAccess.is() )
         {
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+            Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
             if( xEnumeration.is() )
             {
                 while( xEnumeration->hasMoreElements() )
@@ -1146,7 +1120,7 @@ Any CustomAnimationEffect::getProperty( sal_Int32 nNodeType, const OUString& rAt
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
         if( xEnumerationAccess.is() )
         {
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+            Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
             if( xEnumeration.is() )
             {
                 while( xEnumeration->hasMoreElements() && !aProperty.hasValue() )
@@ -1186,7 +1160,7 @@ bool CustomAnimationEffect::setProperty( sal_Int32 nNodeType, const OUString& rA
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
         if( xEnumerationAccess.is() )
         {
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+            Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
             if( xEnumeration.is() )
             {
                 while( xEnumeration->hasMoreElements() )
@@ -1243,7 +1217,7 @@ Any CustomAnimationEffect::getColor( sal_Int32 nIndex )
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
         if( xEnumerationAccess.is() )
         {
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+            Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
             if( xEnumeration.is() )
             {
                 while( xEnumeration->hasMoreElements() && !aColor.hasValue() )
@@ -1293,7 +1267,7 @@ void CustomAnimationEffect::setColor( sal_Int32 nIndex, const Any& rColor )
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
         if( xEnumerationAccess.is() )
         {
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+            Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
             if( xEnumeration.is() )
             {
                 while( xEnumeration->hasMoreElements() )
@@ -1346,7 +1320,7 @@ Any CustomAnimationEffect::getTransformationProperty( sal_Int32 nTransformType, 
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
         if( xEnumerationAccess.is() )
         {
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+            Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
             if( xEnumeration.is() )
             {
                 while( xEnumeration->hasMoreElements() && !aProperty.hasValue() )
@@ -1383,7 +1357,7 @@ bool CustomAnimationEffect::setTransformationProperty( sal_Int32 nTransformType,
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
         if( xEnumerationAccess.is() )
         {
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY );
+            Reference< XEnumeration > xEnumeration = xEnumerationAccess->createEnumeration();
             if( xEnumeration.is() )
             {
                 while( xEnumeration->hasMoreElements() )
@@ -1476,12 +1450,12 @@ void CustomAnimationEffect::removeAudio()
 
         if( mxAudio.is() )
         {
-            xChild.set( mxAudio, UNO_QUERY );
+            xChild = mxAudio;
             mxAudio.clear();
         }
         else if( mnCommand == EffectCommands::STOPAUDIO )
         {
-            xChild.set( findCommandNode( mxNode ), UNO_QUERY );
+            xChild = findCommandNode( mxNode );
             mnCommand = 0;
         }
 
@@ -1509,9 +1483,8 @@ void CustomAnimationEffect::setAudio( const Reference< css::animations::XAudio >
         removeAudio();
         mxAudio = xAudio;
         Reference< XTimeContainer > xContainer( mxNode, UNO_QUERY );
-        Reference< XAnimationNode > xChild( mxAudio, UNO_QUERY );
-        if( xContainer.is() && xChild.is() )
-            xContainer->appendChild( xChild );
+        if( xContainer.is() && mxAudio.is() )
+            xContainer->appendChild( mxAudio );
     }
     catch( Exception& )
     {
@@ -1590,7 +1563,7 @@ void CustomAnimationEffect::updatePathFromSdrPathObj( const SdrPathObj& rPathObj
     {
         ::tools::Rectangle aBoundRect(0,0,0,0);
 
-        const drawinglayer::primitive2d::Primitive2DContainer xPrimitives(pObj->GetViewContact().getViewIndependentPrimitive2DContainer());
+        const drawinglayer::primitive2d::Primitive2DContainer& xPrimitives(pObj->GetViewContact().getViewIndependentPrimitive2DContainer());
         const drawinglayer::geometry::ViewInformation2D aViewInformation2D;
         const basegfx::B2DRange aRange(xPrimitives.getB2DRange(aViewInformation2D));
 
@@ -1645,8 +1618,7 @@ void EffectSequenceHelper::reset()
 
 Reference< XAnimationNode > EffectSequenceHelper::getRootNode()
 {
-    Reference< XAnimationNode > xRoot( mxSequenceRoot, UNO_QUERY );
-    return xRoot;
+    return mxSequenceRoot;
 }
 
 void EffectSequenceHelper::append( const CustomAnimationEffectPtr& pEffect )
@@ -1668,21 +1640,11 @@ CustomAnimationEffectPtr EffectSequenceHelper::append( const CustomAnimationPres
             // first, filter all only ui relevant user data
             std::vector< NamedValue > aNewUserData;
             Sequence< NamedValue > aUserData( xNode->getUserData() );
-            sal_Int32 nLength = aUserData.getLength();
-            const NamedValue* p = aUserData.getConstArray();
-            bool bFilter = false;
 
-            while( nLength-- )
-            {
-                if( p->Name != "text-only" && p->Name != "preset-property" )
-                {
-                    aNewUserData.push_back( *p );
-                    bFilter = true;
-                }
-                p++;
-            }
+            std::copy_if(aUserData.begin(), aUserData.end(), std::back_inserter(aNewUserData),
+                [](const NamedValue& rProp) { return rProp.Name != "text-only" && rProp.Name != "preset-property"; });
 
-            if( bFilter )
+            if( !aNewUserData.empty() )
             {
                 aUserData = ::comphelper::containerToSequence( aNewUserData );
                 xNode->setUserData( aUserData );
@@ -2185,7 +2147,7 @@ static bool isParagraphTargetTextEmpty( ParagraphTarget aParaTarget )
         Reference< XEnumerationAccess > xEA( xText, UNO_QUERY );
         if( xEA.is() )
         {
-            Reference< XEnumeration > xEnumeration( xEA->createEnumeration(), UNO_QUERY );
+            Reference< XEnumeration > xEnumeration = xEA->createEnumeration();
             if( xEnumeration.is() )
             {
                 // advance to the Nth paragraph
@@ -2399,7 +2361,7 @@ EffectSequenceHelper::createTextGroup(const CustomAnimationEffectPtr& pEffect,
                                       sal_Int32 nTextGrouping, double fTextGroupingAuto,
                                       bool bAnimateForm, bool bTextReverse)
 {
-    // first finde a free group-id
+    // first find a free group-id
     sal_Int32 nGroupId = 0;
 
     CustomAnimationTextGroupMap::iterator aIter( maGroupMap.begin() );
@@ -2571,7 +2533,7 @@ void EffectSequenceHelper::setTextGrouping( const CustomAnimationTextGroupPtr& p
         EffectSequence aEffects( pTextGroup->maEffects );
         pTextGroup->reset();
 
-        for( CustomAnimationEffectPtr& pEffect : aEffects )
+        for( const CustomAnimationEffectPtr& pEffect : aEffects )
         {
             if( pEffect->getTarget().getValueType() == ::cppu::UnoType<ParagraphTarget>::get() )
                 remove( pEffect );
@@ -2923,18 +2885,11 @@ void EffectSequenceHelper::processAfterEffect( const Reference< XAnimationNode >
         Reference< XAnimationNode > xMaster;
 
         Sequence< NamedValue > aUserData( xNode->getUserData() );
-        sal_Int32 nLength = aUserData.getLength();
-        const NamedValue* p = aUserData.getConstArray();
+        const NamedValue* pProp = std::find_if(aUserData.begin(), aUserData.end(),
+            [](const NamedValue& rProp) { return rProp.Name == "master-element"; });
 
-        while( nLength-- )
-        {
-            if ( p->Name == "master-element" )
-            {
-                p->Value >>= xMaster;
-                break;
-            }
-            p++;
-        }
+        if (pProp != aUserData.end())
+            pProp->Value >>= xMaster;
 
         // only process if this is a valid after effect
         if( xMaster.is() )

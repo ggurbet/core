@@ -23,37 +23,25 @@
 #include "MasterPageDescriptor.hxx"
 #include "MasterPageContainerFiller.hxx"
 #include "MasterPageContainerQueue.hxx"
-#include <TemplateScanner.hxx>
 #include <PreviewRenderer.hxx>
 #include <tools/AsynchronousTask.hxx>
 #include <tools/SdGlobalResourceContainer.hxx>
 #include <strings.hrc>
 #include <algorithm>
-#include <list>
 #include <memory>
-#include <set>
 
 #include <unomodel.hxx>
 #include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/io/XStream.hpp>
-#include <com/sun/star/io/XInputStream.hpp>
-#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/util/XCloseable.hpp>
 #include <com/sun/star/util/CloseVetoException.hpp>
 #include <comphelper/processfactory.hxx>
-#include <sfx2/app.hxx>
-#include <svx/svdpage.hxx>
-#include <DrawDocShell.hxx>
 #include <drawdoc.hxx>
 #include <sdpage.hxx>
-#include <svl/itemset.hxx>
-#include <svl/eitem.hxx>
 #include <sdresid.hxx>
 #include <tools/TimerBasedTaskExecution.hxx>
-#include <pres.hxx>
 #include <osl/mutex.hxx>
 #include <osl/getglobalmutex.hxx>
 #include <xmloff/autolayout.hxx>
@@ -92,8 +80,7 @@ public:
     const Size& GetPreviewSizePixel (PreviewSize eSize) const;
 
     bool HasToken (Token aToken) const;
-    const SharedMasterPageDescriptor GetDescriptor (MasterPageContainer::Token aToken) const;
-    SharedMasterPageDescriptor GetDescriptor (MasterPageContainer::Token aToken);
+    SharedMasterPageDescriptor GetDescriptor (MasterPageContainer::Token aToken) const;
     virtual Token PutMasterPage (const SharedMasterPageDescriptor& rDescriptor) override;
     void InvalidatePreview (Token aToken);
     Image GetPreviewForToken (
@@ -147,13 +134,13 @@ private:
     static const int SMALL_PREVIEW_WIDTH = 72 + 2;
     static const int LARGE_PREVIEW_WIDTH = 2*72 + 2;
 
-    /** This substition of page preview shows "Preparing preview" and is
+    /** This substitution of page preview shows "Preparing preview" and is
         shown as long as the actual previews are not being present.
     */
     Image maLargePreviewBeingCreated;
     Image maSmallPreviewBeingCreated;
 
-    /** This substition of page preview is shown when a preview can not be
+    /** This substitution of page preview is shown when a preview can not be
         created and thus is not available.
     */
     Image maLargePreviewNotAvailable;
@@ -672,7 +659,7 @@ MasterPageContainer::Token MasterPageContainer::Implementation::PutMasterPage (
             // appropriate events to the listeners.
             UpdateDescriptor(*aEntry,false,false, true);
 
-            for (auto& rEventType : *pEventTypes)
+            for (const auto& rEventType : *pEventTypes)
             {
                 FireContainerChange(rEventType, (*aEntry)->maToken);
             }
@@ -689,16 +676,7 @@ bool MasterPageContainer::Implementation::HasToken (Token aToken) const
         && maContainer[aToken].get()!=nullptr;
 }
 
-const SharedMasterPageDescriptor MasterPageContainer::Implementation::GetDescriptor (
-    Token aToken) const
-{
-    if (aToken>=0 && static_cast<unsigned>(aToken)<maContainer.size())
-        return maContainer[aToken];
-    else
-        return SharedMasterPageDescriptor();
-}
-
-SharedMasterPageDescriptor MasterPageContainer::Implementation::GetDescriptor (Token aToken)
+SharedMasterPageDescriptor MasterPageContainer::Implementation::GetDescriptor (Token aToken) const
 {
     if (aToken>=0 && static_cast<unsigned>(aToken)<maContainer.size())
         return maContainer[aToken];
@@ -843,8 +821,8 @@ Reference<frame::XModel> MasterPageContainer::Implementation::GetModel()
         uno::Reference<drawing::XDrawPagesSupplier> xSlideSupplier (mxModel, uno::UNO_QUERY);
         if (xSlideSupplier.is())
         {
-            uno::Reference<drawing::XDrawPages> xSlides (
-                xSlideSupplier->getDrawPages(), uno::UNO_QUERY);
+            uno::Reference<drawing::XDrawPages> xSlides =
+                xSlideSupplier->getDrawPages();
             if (xSlides.is())
             {
                 uno::Reference<drawing::XDrawPage> xNewPage (xSlides->insertNewByIndex(0));
@@ -922,7 +900,7 @@ void MasterPageContainer::Implementation::FireContainerChange (
     MasterPageContainerChangeEvent aEvent;
     aEvent.meEventType = eType;
     aEvent.maChildToken = aToken;
-    for (auto& rListener : aCopy)
+    for (const auto& rListener : aCopy)
         rListener.Call(aEvent);
 }
 

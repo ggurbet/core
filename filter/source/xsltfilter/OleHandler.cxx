@@ -53,7 +53,7 @@ using namespace ::com::sun::star::embed;
 namespace XSLT
 {
     Reference<XStream> OleHandler::createTempFile() {
-        Reference<XStream> tempFile( TempFile::create(m_xContext), UNO_QUERY);
+        Reference<XStream> tempFile = TempFile::create(m_xContext);
         OSL_ASSERT(tempFile.is());
         return tempFile;
     }
@@ -127,7 +127,7 @@ namespace XSLT
             return "invalid oleLength";
         }
         Sequence<sal_Int8> content(oleLength);
-        //Read all bytes. The compressed length should less then the uncompressed length
+        //Read all bytes. The compressed length should be less than the uncompressed length
         readbytes = subStream->readBytes(content, oleLength);
         if (oleLength < readbytes)
         {
@@ -161,7 +161,7 @@ namespace XSLT
         }
     }
 
-    const OString
+    OString
     OleHandler::getByName(const OUString& streamName)
     {
         if ( streamName == "oledata.mso" )

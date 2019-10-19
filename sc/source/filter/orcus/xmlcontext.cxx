@@ -16,6 +16,7 @@
 #include <vcl/weld.hxx>
 #include <ucbhelper/content.hxx>
 #include <sal/log.hxx>
+#include <osl/file.hxx>
 
 #include <orcus/xml_structure_tree.hpp>
 #include <orcus/xml_namespace.hpp>
@@ -38,7 +39,7 @@ using namespace com::sun::star;
 namespace {
 
 ScOrcusXMLTreeParam::EntryData& setUserDataToEntry(weld::TreeView& rControl,
-    weld::TreeIter& rEntry, ScOrcusXMLTreeParam::UserDataStoreType& rStore, ScOrcusXMLTreeParam::EntryType eType)
+    const weld::TreeIter& rEntry, ScOrcusXMLTreeParam::UserDataStoreType& rStore, ScOrcusXMLTreeParam::EntryType eType)
 {
     rStore.push_back(std::make_unique<ScOrcusXMLTreeParam::EntryData>(eType));
     rControl.set_id(rEntry, OUString::number(reinterpret_cast<sal_Int64>(rStore.back().get())));
@@ -69,7 +70,7 @@ OUString toString(const orcus::xml_structure_tree::entity_name& entity, const or
 void populateTree(
    weld::TreeView& rTreeCtrl, orcus::xml_structure_tree::walker& rWalker,
    const orcus::xml_structure_tree::entity_name& rElemName, bool bRepeat,
-   weld::TreeIter* pParent, ScOrcusXMLTreeParam& rParam)
+   const weld::TreeIter* pParent, ScOrcusXMLTreeParam& rParam)
 {
     OUString sEntry(toString(rElemName, rWalker));
     std::unique_ptr<weld::TreeIter> xEntry(rTreeCtrl.make_iterator());
@@ -131,17 +132,6 @@ public:
     ~TreeUpdateSwitch()
     {
         mrTreeCtrl.thaw();
-    }
-};
-
-class InsertFieldPath
-{
-    orcus::orcus_xml& mrFilter;
-public:
-    explicit InsertFieldPath(orcus::orcus_xml& rFilter) : mrFilter(rFilter) {}
-    void operator() (const OString& rPath)
-    {
-        mrFilter.append_field_link(rPath.getStr());
     }
 };
 
@@ -238,8 +228,14 @@ public:
 void ScOrcusXMLContextImpl::importXML(const ScOrcusImportXMLParam& rParam)
 {
     ScOrcusFactory aFactory(mrDoc, true);
-    OString aSysPath = ScOrcusFiltersImpl::toSystemPath(maPath);
-    const char* path = aSysPath.getStr();
+
+    OUString aSysPath;
+    if (osl::FileBase::getSystemPathFromFileURL(maPath, aSysPath) != osl::FileBase::E_None)
+        return;
+
+    OString aOSysPath = OUStringToOString(aSysPath, RTL_TEXTENCODING_UTF8);
+    const char* path = aOSysPath.getStr();
+
     try
     {
         orcus::orcus_xml filter(maNsRepo, &aFactory, nullptr);
@@ -267,12 +263,24 @@ void ScOrcusXMLContextImpl::importXML(const ScOrcusImportXMLParam& rParam)
                 OUStringToOString(aTabName, RTL_TEXTENCODING_UTF8).getStr(),
                 rLink.maPos.Row(), rLink.maPos.Col());
 
-            std::for_each(rLink.maFieldPaths.begin(), rLink.maFieldPaths.end(), InsertFieldPath(filter));
+            std::for_each(rLink.maFieldPaths.begin(), rLink.maFieldPaths.end(),
+                [&filter](const OString& rFieldPath)
+                {
+                    filter.append_field_link(rFieldPath.getStr());
+                }
+            );
+
+            std::for_each(rLink.maRowGroups.begin(), rLink.maRowGroups.end(),
+                [&filter] (const OString& rRowGroup)
+                {
+                    filter.set_range_row_group(rRowGroup.getStr());
+                }
+            );
 
             filter.commit_range();
         }
 
-        std::string content = orcus::load_file_content(path);
+        orcus::file_content content(path);
         filter.read_stream(content.data(), content.size());
 
         aFactory.finalize();

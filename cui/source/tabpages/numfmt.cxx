@@ -22,10 +22,7 @@
 #include <sfx2/objsh.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <unotools/localedatawrapper.hxx>
 #include <i18nlangtag/lang.h>
-#include <i18nlangtag/mslangid.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svtools/colorcfg.hxx>
 
@@ -37,8 +34,6 @@
 #include <numfmt.hxx>
 #include <svx/numfmtsh.hxx>
 #include <dialmgr.hxx>
-#include <sfx2/request.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/basedlgs.hxx>
 #include <svx/flagsdef.hxx>
 #include <vector>
@@ -191,9 +186,9 @@ void SvxNumberPreview::Paint(vcl::RenderContext& rRenderContext, const ::tools::
 
 #define HDL(hdl) LINK( this, SvxNumberFormatTabPage, hdl )
 
-SvxNumberFormatTabPage::SvxNumberFormatTabPage(TabPageParent pParent,
+SvxNumberFormatTabPage::SvxNumberFormatTabPage(weld::Container* pPage, weld::DialogController* pController,
     const SfxItemSet& rCoreAttrs)
-    : SfxTabPage(pParent, "cui/ui/numberingformatpage.ui", "NumberingFormatPage", &rCoreAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/numberingformatpage.ui", "NumberingFormatPage", &rCoreAttrs)
     , nInitFormat(ULONG_MAX)
     , bLegacyAutomaticCurrency(false)
     , sAutomaticLangEntry(CuiResId(RID_SVXSTR_AUTO_ENTRY))
@@ -221,13 +216,13 @@ SvxNumberFormatTabPage::SvxNumberFormatTabPage(TabPageParent pParent,
     , m_xIbRemove(m_xBuilder->weld_button("delete"))
     , m_xFtComment(m_xBuilder->weld_label("commentft"))
     , m_xEdComment(m_xBuilder->weld_entry("commented"))
-    , m_xLbLanguage(new LanguageBox(m_xBuilder->weld_combo_box("languagelb")))
+    , m_xLbLanguage(new SvxLanguageBox(m_xBuilder->weld_combo_box("languagelb")))
     , m_xWndPreview(new weld::CustomWeld(*m_xBuilder, "preview", m_aWndPreview))
 {
     for (size_t i = 0; i < SAL_N_ELEMENTS(NUM_CATEGORIES); ++i)
         m_xLbCategory->append_text(CuiResId(NUM_CATEGORIES[i]));
 
-    auto nWidth = approximate_char_width() * 26;
+    auto nWidth = m_xLbCategory->get_approximate_digit_width() * 22;
     m_xLbCategory->set_size_request(nWidth, m_xLbCategory->get_height_rows(7));
     m_xLbFormat->set_size_request(nWidth, m_xLbFormat->get_height_rows(5));
     m_xLbCurrency->set_size_request(nWidth, -1);  // force using (narrower) width of its LbFormat sibling
@@ -244,16 +239,10 @@ SvxNumberFormatTabPage::SvxNumberFormatTabPage(TabPageParent pParent,
 
 SvxNumberFormatTabPage::~SvxNumberFormatTabPage()
 {
-    disposeOnce();
-}
-
-void SvxNumberFormatTabPage::dispose()
-{
     pNumFmtShell.reset();
     pNumItem.reset();
     m_xWndPreview.reset();
     m_xLbLanguage.reset();
-    SfxTabPage::dispose();
 }
 
 void SvxNumberFormatTabPage::Init_Impl()
@@ -318,10 +307,10 @@ void SvxNumberFormatTabPage::Init_Impl()
     m_xLbLanguage->InsertLanguage( LANGUAGE_SYSTEM );
 }
 
-VclPtr<SfxTabPage> SvxNumberFormatTabPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SvxNumberFormatTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                                    const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxNumberFormatTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SvxNumberFormatTabPage>(pPage, pController, *rAttrSet);
 }
 
 
@@ -1129,8 +1118,7 @@ void SvxNumberFormatTabPage::UpdateDecimalsDenominatorEditBox()
 #*  Output:     ---
 #*
 #************************************************************************/
-
-IMPL_LINK(SvxNumberFormatTabPage, DoubleClickHdl_Impl, weld::TreeView&, rLb, void)
+IMPL_LINK(SvxNumberFormatTabPage, DoubleClickHdl_Impl, weld::TreeView&, rLb, bool)
 {
     SelFormatHdl_Impl(&rLb);
 
@@ -1138,8 +1126,9 @@ IMPL_LINK(SvxNumberFormatTabPage, DoubleClickHdl_Impl, weld::TreeView&, rLb, voi
     assert(pController);
     weld::Button& rOkButton = pController->GetOKButton();
     rOkButton.clicked();
-}
 
+    return true;
+}
 
 /*************************************************************************
 #*  Method:    SelFormatHdl_Impl

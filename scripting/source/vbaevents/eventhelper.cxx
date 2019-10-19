@@ -293,7 +293,7 @@ public:
     explicit ScriptEventHelper( const OUString& sCntrlServiceName );
     ~ScriptEventHelper();
     Sequence< ScriptEventDescriptor > createEvents( const OUString& sCodeName );
-    Sequence< OUString > getEventListeners();
+    Sequence< OUString > getEventListeners() const;
 private:
     Reference< XComponentContext > m_xCtx;
     Reference< XInterface > m_xControl;
@@ -372,7 +372,7 @@ ScriptEventHelper::~ScriptEventHelper()
 }
 
 Sequence< OUString >
-ScriptEventHelper::getEventListeners()
+ScriptEventHelper::getEventListeners() const
 {
     std::list< OUString > eventMethods;
 
@@ -380,23 +380,15 @@ ScriptEventHelper::getEventListeners()
 
     Reference< beans::XIntrospectionAccess > xIntrospectionAccess =
         xIntrospection->inspect( makeAny( m_xControl ) );
-    Sequence< Type > aControlListeners =
+    const Sequence< Type > aControlListeners =
         xIntrospectionAccess->getSupportedListeners();
-    sal_Int32 nLength = aControlListeners.getLength();
-    for ( sal_Int32 i = 0; i< nLength; ++i )
+    for ( const Type& listType : aControlListeners )
     {
-        Type& listType = aControlListeners[ i ];
         OUString sFullTypeName = listType.getTypeName();
         Sequence< OUString > sMeths =
             comphelper::getEventMethodsForType( listType );
-        sal_Int32 sMethLen = sMeths.getLength();
-        for ( sal_Int32 j=0 ; j < sMethLen; ++j )
-        {
-            OUString sEventMethod = sFullTypeName;
-            sEventMethod += DELIM;
-            sEventMethod += sMeths[ j ];
-            eventMethods.push_back( sEventMethod );
-        }
+        std::transform(sMeths.begin(), sMeths.end(), std::back_inserter(eventMethods),
+            [&sFullTypeName](const OUString& rMeth) -> OUString { return sFullTypeName + DELIM + rMeth; });
     }
 
     return comphelper::containerToSequence(eventMethods);
@@ -405,7 +397,7 @@ ScriptEventHelper::getEventListeners()
 Sequence< ScriptEventDescriptor >
 ScriptEventHelper::createEvents( const OUString& sCodeName )
 {
-    Sequence< OUString > aControlListeners = getEventListeners();
+    const Sequence< OUString > aControlListeners = getEventListeners();
     sal_Int32 nLength = aControlListeners.getLength();
 
     Sequence< ScriptEventDescriptor > aDest( nLength );
@@ -476,16 +468,14 @@ typedef std::unordered_map< OUString, Any > EventSupplierHash;
 
 ReadOnlyEventsNameContainer::ReadOnlyEventsNameContainer( const Sequence< OUString >& eventMethods, const OUString& sCodeName )
 {
-    const OUString* pSrc = eventMethods.getConstArray();
-    sal_Int32 nLen = eventMethods.getLength();
-    for ( sal_Int32 index = 0; index < nLen; ++index, ++pSrc )
+    for ( const OUString& rSrc : eventMethods )
     {
         Any aDesc;
         ScriptEventDescriptor evtDesc;
-        if (  eventMethodToDescriptor( *pSrc, evtDesc, sCodeName ) )
+        if (  eventMethodToDescriptor( rSrc, evtDesc, sCodeName ) )
         {
             aDesc <<= evtDesc;
-            m_hEvents[ *pSrc ] = aDesc;
+            m_hEvents[ rSrc ] = aDesc;
         }
     }
 }
@@ -585,7 +575,7 @@ public:
 
     OUString SAL_CALL getImplementationName() override
     {
-        return OUString( "ooo.vba.EventListener"  );
+        return "ooo.vba.EventListener";
     }
 
     sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -595,8 +585,7 @@ public:
 
     css::uno::Sequence<OUString> SAL_CALL getSupportedServiceNames() override
     {
-        const OUString strName( getImplementationName() );
-        return Sequence< OUString >( &strName, 1 );
+        return { getImplementationName() };
     }
 
 protected:
@@ -931,7 +920,7 @@ public:
 
     OUString SAL_CALL getImplementationName() override
     {
-        return OUString( "ooo.vba.VBAToOOEventDesc"  );
+        return "ooo.vba.VBAToOOEventDesc";
     }
 
     sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -941,8 +930,7 @@ public:
 
     css::uno::Sequence<OUString> SAL_CALL getSupportedServiceNames() override
     {
-        const OUString strName( getImplementationName() );
-        return Sequence< OUString >( &strName, 1 );
+        return { getImplementationName() };
     }
 
 };

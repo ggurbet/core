@@ -42,10 +42,12 @@
 #include "dsselect.hxx"
 #include <svl/filenotation.hxx>
 #include <stringconstants.hxx>
+#include <com/sun/star/awt/XSystemDependentWindowPeer.hpp>
+#include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/ui/dialogs/FolderPicker.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
+#include <com/sun/star/lang/SystemDependent.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
-#include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/mozilla/MozillaBootstrap.hpp>
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <com/sun/star/ucb/XProgressHandler.hpp>
@@ -57,6 +59,7 @@
 #include <connectivity/CommonTools.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/diagnose_ex.h>
+#include <rtl/process.h>
 #include <sfx2/docfilt.hxx>
 
 #if defined _WIN32
@@ -82,8 +85,8 @@ namespace dbaui
     using namespace ::dbtools;
     using namespace ::svt;
 
-    OConnectionHelper::OConnectionHelper(TabPageParent pParent, const OUString& _rUIXMLDescription, const OString& _rId, const SfxItemSet& _rCoreAttrs)
-        : OGenericAdministrationPage(pParent, _rUIXMLDescription, _rId, _rCoreAttrs)
+    OConnectionHelper::OConnectionHelper(weld::Container* pPage, weld::DialogController* pController, const OUString& _rUIXMLDescription, const OString& _rId, const SfxItemSet& _rCoreAttrs)
+        : OGenericAdministrationPage(pPage, pController, _rUIXMLDescription, _rId, _rCoreAttrs)
         , m_bUserGrabFocus(false)
         , m_pCollection(nullptr)
         , m_xFT_Connection(m_xBuilder->weld_label("browseurllabel"))
@@ -106,12 +109,7 @@ namespace dbaui
 
     OConnectionHelper::~OConnectionHelper()
     {
-    }
-
-    void OConnectionHelper::dispose()
-    {
         m_xConnectionURL.reset();
-        OGenericAdministrationPage::dispose();
     }
 
     void OConnectionHelper::implInitControls(const SfxItemSet& _rSet, bool _bSaveValue)
@@ -275,7 +273,20 @@ namespace dbaui
             {
                 OUString sOldDataSource=getURLNoPrefix();
                 OUString sNewDataSource;
-                HWND hWnd = GetParent()->GetSystemData()->hWnd;
+                HWND hWnd = nullptr;
+
+                weld::Window* pDialog = GetFrameWeld();
+                css::uno::Reference<css::awt::XSystemDependentWindowPeer> xSysDepWin(pDialog->GetXWindow(), css::uno::UNO_QUERY);
+                if (xSysDepWin.is())
+                {
+                    css::uno::Sequence<sal_Int8> aProcessIdent(16);
+                    rtl_getGlobalProcessId(reinterpret_cast<sal_uInt8*>(aProcessIdent.getArray()));
+                    css::uno::Any aAny = xSysDepWin->getWindowHandle(aProcessIdent, css::lang::SystemDependent::SYSTEM_WIN32);
+                    sal_Int64 tmp(0);
+                    aAny >>= tmp;
+                    hWnd = reinterpret_cast<HWND>(tmp);
+                }
+
                 sNewDataSource = getAdoDatalink(reinterpret_cast<LONG_PTR>(hWnd),sOldDataSource);
                 if ( !sNewDataSource.isEmpty() )
                 {
@@ -283,8 +294,6 @@ namespace dbaui
                     SetRoadmapStateValue(true);
                     callModifiedHdl();
                 }
-                else
-                    return;
             }
             break;
 #endif
@@ -470,8 +479,7 @@ namespace dbaui
             sQuery = sQuery.replaceFirst("$path$", aTransformer.get(OFileNotation::N_SYSTEM));
 
             m_bUserGrabFocus = false;
-            vcl::Window* pWin = GetParent();
-            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            sQuery));
             xQueryBox->set_default_response(RET_YES);
@@ -492,11 +500,11 @@ namespace dbaui
 
                             m_bUserGrabFocus = false;
 
-                            std::unique_ptr<weld::MessageDialog> xWhatToDo(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+                            std::unique_ptr<weld::MessageDialog> xWhatToDo(Application::CreateMessageDialog(GetFrameWeld(),
                                                                            VclMessageType::Question, VclButtonsType::NONE,
                                                                            sQuery));
-                            xWhatToDo->add_button(Button::GetStandardText(StandardButtonType::Retry), RET_RETRY);
-                            xWhatToDo->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+                            xWhatToDo->add_button(GetStandardText(StandardButtonType::Retry), RET_RETRY);
+                            xWhatToDo->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
                             xWhatToDo->set_default_response(RET_RETRY);
                             nQueryResult = xWhatToDo->run();
                             m_bUserGrabFocus = true;
@@ -540,8 +548,8 @@ namespace dbaui
     {
         ::ucbhelper::Content aCheckExistence;
         IS_PATH_EXIST eExists = PATH_NOT_EXIST;
-        Reference< css::task::XInteractionHandler > xInteractionHandler(
-            task::InteractionHandler::createWithParent(m_xORB, nullptr), UNO_QUERY );
+        Reference< css::task::XInteractionHandler > xInteractionHandler =
+            task::InteractionHandler::createWithParent(m_xORB, nullptr);
         OFilePickerInteractionHandler* pHandler = new OFilePickerInteractionHandler(xInteractionHandler);
         xInteractionHandler = pHandler;
 
@@ -668,7 +676,7 @@ namespace dbaui
             if ( ( sURL != sOldPath ) && !sURL.isEmpty() )
             {   // the text changed since entering the control
 
-                // the path may be in system notation ....
+                // the path may be in system notation...
                 OFileNotation aTransformer(sURL);
                 sURL = aTransformer.get(OFileNotation::N_URL);
 

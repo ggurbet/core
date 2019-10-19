@@ -32,6 +32,7 @@
 #include <com/sun/star/sdbc/ColumnValue.hpp>
 #include <ado/Awrapado.hxx>
 #include <TConnection.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/types.hxx>
 
 using namespace ::comphelper;
@@ -123,7 +124,7 @@ void OAdoTable::refreshIndexes()
         m_xIndexes = new OIndexes(*this,m_aMutex,aVector,aIndexes,isCaseSensitive(),m_pCatalog->getConnection());
 }
 
-Sequence< sal_Int8 > OAdoTable::getUnoTunnelImplementationId()
+Sequence< sal_Int8 > OAdoTable::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 
@@ -134,7 +135,7 @@ Sequence< sal_Int8 > OAdoTable::getUnoTunnelImplementationId()
 
 sal_Int64 OAdoTable::getSomething( const Sequence< sal_Int8 > & rId )
 {
-    return (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    return isUnoTunnelId<OAdoTable>(rId)
                 ? reinterpret_cast< sal_Int64 >( this )
                 : OTable_TYPEDEF::getSomething(rId);
 }
@@ -163,7 +164,7 @@ void SAL_CALL OAdoTable::alterColumnByName( const OUString& colName, const Refer
     checkDisposed(OTableDescriptor_BASE_TYPEDEF::rBHelper.bDisposed);
 
     bool bError = true;
-    OAdoColumn* pColumn = ::comphelper::getImplementation<OAdoColumn>(descriptor);
+    OAdoColumn* pColumn = comphelper::getUnoTunnelImplementation<OAdoColumn>(descriptor);
     if(pColumn != nullptr)
     {
         WpADOColumns aColumns = m_aTable.get_Columns();

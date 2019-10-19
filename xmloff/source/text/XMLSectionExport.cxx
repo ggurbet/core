@@ -23,15 +23,12 @@
 #include <rtl/ustrbuf.hxx>
 #include <osl/diagnose.h>
 
-#include <vector>
-
 
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/container/XIndexReplace.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/PropertyValues.hpp>
-#include <com/sun/star/text/XText.hpp>
 #include <com/sun/star/text/XTextSection.hpp>
 #include <com/sun/star/text/SectionFileLink.hpp>
 #include <com/sun/star/container/XNamed.hpp>
@@ -42,7 +39,6 @@
 #include <com/sun/star/text/XChapterNumberingSupplier.hpp>
 #include <com/sun/star/text/ChapterFormat.hpp>
 
-#include <sax/tools/converter.hxx>
 #include <comphelper/base64.hxx>
 
 #include <xmloff/xmltoken.hxx>
@@ -51,7 +47,6 @@
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmlexp.hxx>
-#include <xmloff/xmltkmap.hxx>
 #include <xmloff/xmlement.hxx>
 #include <txtflde.hxx>
 
@@ -975,7 +970,7 @@ bool XMLSectionExport::ExportIndexTemplate(
     SectionTypeEnum eType,
     sal_Int32 nOutlineLevel,
     const Reference<XPropertySet> & rPropertySet,
-    Sequence<Sequence<PropertyValue> > & rValues)
+    const Sequence<Sequence<PropertyValue> > & rValues)
 {
     OSL_ENSURE(eType >= TEXT_SECTION_TYPE_TOC, "illegal index type");
     OSL_ENSURE(eType <= TEXT_SECTION_TYPE_BIBLIOGRAPHY, "illegal index type");
@@ -1143,7 +1138,7 @@ SvXMLEnumMapEntry<sal_Int16> const aBibliographyDataFieldMap[] =
 
 void XMLSectionExport::ExportIndexTemplateElement(
     SectionTypeEnum eType,  //i90246
-    Sequence<PropertyValue> & rValues)
+    const Sequence<PropertyValue> & rValues)
 {
     // variables for template values
 
@@ -1525,7 +1520,7 @@ void XMLSectionExport::ExportLevelParagraphStyles(
                                            true, true);
 
             // iterate over styles in this level
-            for(const auto& rStyleName : aStyleNames)
+            for(const auto& rStyleName : std::as_const(aStyleNames))
             {
                 // stylename attribute
                 GetExport().AddAttribute(XML_NAMESPACE_TEXT,
@@ -1643,9 +1638,9 @@ void XMLSectionExport::ExportBibliographyConfiguration(SvXMLExport& rExport)
             aAny = xPropSet->getPropertyValue(sSortKeys);
             Sequence<Sequence<PropertyValue> > aKeys;
             aAny >>= aKeys;
-            for(Sequence<PropertyValue> & rKey : aKeys)
+            for(const Sequence<PropertyValue> & rKey : std::as_const(aKeys))
             {
-                for(PropertyValue& rValue : rKey)
+                for(const PropertyValue& rValue : rKey)
                 {
                     if (rValue.Name == "SortKey")
                     {
@@ -1816,10 +1811,8 @@ void XMLSectionExport::ExportMasterDocHeadingDummies()
             GetExport().AddAttribute( XML_NAMESPACE_TEXT, XML_STYLE_NAME,
                                       GetExport().EncodeStyleName( sStyle ) );
 
-            OUStringBuffer sTmp;
-            sTmp.append( nLevel + 1 );
             GetExport().AddAttribute( XML_NAMESPACE_TEXT, XML_LEVEL,
-                                        sTmp.makeStringAndClear() );
+                                        OUString::number( nLevel + 1 ) );
             SvXMLElementExport aElem( GetExport(), XML_NAMESPACE_TEXT, XML_H,
                                         true, false );
         }

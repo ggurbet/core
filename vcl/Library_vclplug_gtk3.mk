@@ -46,7 +46,6 @@ $(eval $(call gb_Library_use_sdk_api,vclplug_gtk3))
 
 $(eval $(call gb_Library_add_libs,vclplug_gtk3,\
 	$(GTK3_LIBS) \
-	$(GTHREAD_LIBS) \
 	-lX11 \
 	-lXext \
 	-lSM \
@@ -95,12 +94,14 @@ $(eval $(call gb_Library_add_exception_objects,vclplug_gtk3,\
     vcl/unx/gtk3/a11y/gtk3atktext \
     vcl/unx/gtk3/a11y/gtk3atkutil \
     vcl/unx/gtk3/a11y/gtk3atkvalue \
-    vcl/unx/gtk3/a11y/gtk3atkwindow \
     vcl/unx/gtk3/a11y/gtk3atkwrapper \
+    vcl/unx/gtk3/fpicker/resourceprovider \
+    vcl/unx/gtk3/fpicker/SalGtkFilePicker \
+    vcl/unx/gtk3/fpicker/SalGtkFolderPicker \
+    vcl/unx/gtk3/fpicker/SalGtkPicker \
     vcl/unx/gtk3/gtk3gtkdata \
     vcl/unx/gtk3/gtk3gtkinst \
     vcl/unx/gtk3/gtk3gtksys \
-    vcl/unx/gtk3/gtk3fpicker \
     vcl/unx/gtk3/cairo_gtk3_cairo \
     vcl/unx/gtk3/gtk3gtkprintwrapper \
     vcl/unx/gtk3/gtk3salnativewidgets-gtk \

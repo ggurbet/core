@@ -34,7 +34,6 @@
 #include <vcl/metric.hxx>
 #include <vcl/textrectinfo.hxx>
 #include <vcl/virdev.hxx>
-#include <vcl/bitmapaccess.hxx>
 #include <vcl/sysdata.hxx>
 #include <vcl/unohelp.hxx>
 #include <vcl/controllayout.hxx>
@@ -329,7 +328,7 @@ void OutputDevice::ImplDrawSpecialText( SalLayout& rSalLayout )
         Color   aTextLineColor( aOldTextLineColor );
         Color   aOverlineColor( aOldOverlineColor );
 
-        // we don't have a automatic color, so black is always drawn on white
+        // we don't have an automatic color, so black is always drawn on white
         if ( aTextColor == COL_BLACK )
             aTextColor = COL_WHITE;
         if ( aTextLineColor == COL_BLACK )
@@ -836,7 +835,7 @@ void OutputDevice::DrawText( const Point& rStartPt, const OUString& rStr,
                 {
                     pVector->push_back( *it );
                     if( pDisplayText )
-                        *pDisplayText += OUStringLiteral1(rStr[ nIndex ]);
+                        *pDisplayText += OUStringChar(rStr[ nIndex ]);
                     bInserted = true;
                 }
             }
@@ -1960,7 +1959,7 @@ OUString OutputDevice::ImplGetEllipsisString( const OutputDevice& rTargetDevice,
             }
 
             if ( aStr.isEmpty() && (nStyle & DrawTextFlags::Clip) )
-                aStr += OUStringLiteral1(rOrigStr[ 0 ]);
+                aStr += OUStringChar(rOrigStr[ 0 ]);
         }
         else if ( nStyle & DrawTextFlags::PathEllipsis )
         {
@@ -1985,8 +1984,7 @@ OUString OutputDevice::ImplGetEllipsisString( const OutputDevice& rTargetDevice,
                 nLastContent--;
 
             OUString aLastStr = aStr.copy(nLastContent);
-            OUString aTempLastStr1( "..." );
-            aTempLastStr1 += aLastStr;
+            OUString aTempLastStr1 = "..." + aLastStr;
             if ( _rLayout.GetTextWidth( aTempLastStr1, 0, aTempLastStr1.getLength() ) > nMaxWidth )
                 aStr = OutputDevice::ImplGetEllipsisString( rTargetDevice, aStr, nMaxWidth, nStyle | DrawTextFlags::EndEllipsis, _rLayout );
             else
@@ -2008,8 +2006,7 @@ OUString OutputDevice::ImplGetEllipsisString( const OutputDevice& rTargetDevice,
                 {
                     if ( nFirstContent > 4 )
                         nFirstContent = 4;
-                    OUString aFirstStr = aStr.copy( 0, nFirstContent );
-                    aFirstStr += "...";
+                    OUString aFirstStr = aStr.copy( 0, nFirstContent ) + "...";
                     OUString aTempStr = aFirstStr + aLastStr;
                     if ( _rLayout.GetTextWidth( aTempStr, 0, aTempStr.getLength() ) > nMaxWidth )
                         aStr = OutputDevice::ImplGetEllipsisString( rTargetDevice, aStr, nMaxWidth, nStyle | DrawTextFlags::EndEllipsis, _rLayout );
@@ -2130,7 +2127,6 @@ void OutputDevice::DrawCtrlText( const Point& rPos, const OUString& rStr,
         }
     }
 
-    bool accel = ImplGetSVData()->maNWFData.mbEnableAccel;
     bool autoacc = ImplGetSVData()->maNWFData.mbAutoAccel;
 
     if ( nStyle & DrawTextFlags::Disable && ! pVector )
@@ -2170,7 +2166,7 @@ void OutputDevice::DrawCtrlText( const Point& rPos, const OUString& rStr,
 
         DrawText( rPos, aStr, nIndex, nLen, pVector, pDisplayText );
         if (!(GetSettings().GetStyleSettings().GetOptions() & StyleSettingsOptions::NoMnemonics)
-            && accel && (!autoacc || !(nStyle & DrawTextFlags::HideMnemonic)) )
+            && (!autoacc || !(nStyle & DrawTextFlags::HideMnemonic)) )
         {
             if ( nMnemonicPos != -1 )
                 ImplDrawMnemonicLine( nMnemonicX, nMnemonicY, nMnemonicWidth );
@@ -2183,7 +2179,7 @@ void OutputDevice::DrawCtrlText( const Point& rPos, const OUString& rStr,
     {
         DrawText( rPos, aStr, nIndex, nLen, pVector, pDisplayText, pGlyphs );
         if ( !(GetSettings().GetStyleSettings().GetOptions() & StyleSettingsOptions::NoMnemonics) && !pVector
-            && accel && (!autoacc || !(nStyle & DrawTextFlags::HideMnemonic)) )
+            && (!autoacc || !(nStyle & DrawTextFlags::HideMnemonic)) )
         {
             if ( nMnemonicPos != -1 )
                 ImplDrawMnemonicLine( nMnemonicX, nMnemonicY, nMnemonicWidth );
@@ -2295,7 +2291,7 @@ SystemTextLayoutData OutputDevice::GetSysTextLayoutData(const Point& rStartPt, c
     SystemGlyphData aSystemGlyph;
     while (pLayout->GetNextGlyph(&pGlyph, aPos, nStart, nullptr, &aSystemGlyph.fallbacklevel))
     {
-        aSystemGlyph.index = pGlyph->m_aGlyphId;
+        aSystemGlyph.index = pGlyph->glyphId();
         aSystemGlyph.x = aPos.X();
         aSystemGlyph.y = aPos.Y();
         aSysLayoutData.rGlyphData.push_back(aSystemGlyph);

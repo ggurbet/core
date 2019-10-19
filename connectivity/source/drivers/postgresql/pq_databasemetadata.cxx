@@ -182,7 +182,7 @@ sal_Bool DatabaseMetaData::nullsAreSortedAtEnd(  )
 
 OUString DatabaseMetaData::getDatabaseProductName(  )
 {
-    return OUString("PostgreSQL");
+    return "PostgreSQL";
 }
 
 OUString DatabaseMetaData::getDatabaseProductVersion(  )
@@ -191,12 +191,12 @@ OUString DatabaseMetaData::getDatabaseProductVersion(  )
 }
 OUString DatabaseMetaData::getDriverName(  )
 {
-    return OUString("postgresql-sdbc");
+    return "postgresql-sdbc";
 }
 
 OUString DatabaseMetaData::getDriverVersion(  )
 {
-    return OUString(PQ_SDBC_DRIVER_VERSION);
+    return PQ_SDBC_DRIVER_VERSION;
 }
 
 sal_Int32 DatabaseMetaData::getDriverMajorVersion(  )
@@ -272,7 +272,7 @@ sal_Bool DatabaseMetaData::storesMixedCaseQuotedIdentifiers(  )
 
 OUString DatabaseMetaData::getIdentifierQuoteString(  )
 {
-    return OUString("\"");
+    return "\"";
 }
 
 OUString DatabaseMetaData::getSQLKeywords(  )
@@ -282,7 +282,7 @@ OUString DatabaseMetaData::getSQLKeywords(  )
     // I understand this to mean "reserved keywords" only.
     // See http://www.postgresql.org/docs/current/static/sql-keywords-appendix.html
     // LEM TODO: consider using pg_get_keywords(), filter on catcode
-    return OUString(
+    return
         "ANALYSE,"
         "ANALYZE,"
         "ARRAY," //SQL:1999
@@ -308,7 +308,7 @@ OUString DatabaseMetaData::getSQLKeywords(  )
         "VARIADIC,"
         "VERBOSE,"
         "WINDOW" //SQL:2003
- );
+ ;
 }
 OUString DatabaseMetaData::getNumericFunctions(  )
 {
@@ -318,7 +318,7 @@ OUString DatabaseMetaData::getNumericFunctions(  )
     //           Currently this is just a list of supported functions in PostgreSQL, with PostgreSQL names.
     //           And it is my job to map from Open Group CLI names/syntax to PostgreSQL names/syntax. Where? By parsing the SQL???
     //           Should look at what the JDBC driver is doing.
-    return OUString(
+    return
         "abs,"
         "cbrt,"
         "ceil,"
@@ -348,13 +348,13 @@ OUString DatabaseMetaData::getNumericFunctions(  )
         "cot,"
         "sin,"
         "tan"
- );
+ ;
 }
 
 OUString DatabaseMetaData::getStringFunctions(  )
 {
     // See http://www.postgresql.org/docs/9.1/static/functions-string.html
-    return OUString(
+    return
         "bit_length,"
         "char_length,"
         "character_length,"
@@ -402,14 +402,14 @@ OUString DatabaseMetaData::getStringFunctions(  )
         "to_ascii,"
         "to_hex,"
         "translate"
- );
+ ;
 }
 
 OUString DatabaseMetaData::getSystemFunctions(  )
 {
     // See http://www.postgresql.org/docs/9.1/static/functions-info.html
     // and http://www.postgresql.org/docs/9.1/static/functions-admin.html
-    return OUString(
+    return
         "current_catalog,"
         "current_database,"
         "current_query,"
@@ -532,12 +532,12 @@ OUString DatabaseMetaData::getSystemFunctions(  )
         "pg_try_advisory_xact_lock,"
         "pg_try_advisory_xact_lock_shared,"
         "pg_sleep"
- );
+ ;
 }
 OUString DatabaseMetaData::getTimeDateFunctions(  )
 {
     // TODO
-    return OUString(
+    return
         "age,"
         "age,"
         "clock_timestamp,"
@@ -561,15 +561,15 @@ OUString DatabaseMetaData::getTimeDateFunctions(  )
         "statement_timestamp,"
         "timeofday,"
         "transaction_timestamp,"
- );
+ ;
 }
 OUString DatabaseMetaData::getSearchStringEscape(  )
 {
-    return OUString("\\");
+    return "\\";
 }
 OUString DatabaseMetaData::getExtraNameCharacters(  )
 {
-    return OUString("$");
+    return "$";
 }
 
 sal_Bool DatabaseMetaData::supportsAlterTableWithAddColumn(  )
@@ -724,17 +724,17 @@ sal_Bool DatabaseMetaData::supportsLimitedOuterJoins(  )
 
 OUString DatabaseMetaData::getSchemaTerm(  )
 {
-    return OUString("SCHEMA");
+    return "SCHEMA";
 }
 
 OUString DatabaseMetaData::getProcedureTerm(  )
 {
-    return OUString("function");
+    return "function";
 }
 
 OUString DatabaseMetaData::getCatalogTerm(  )
 {
-    return OUString("DATABASE");
+    return "DATABASE";
 }
 
 sal_Bool DatabaseMetaData::isCatalogAtStart(  )
@@ -744,7 +744,7 @@ sal_Bool DatabaseMetaData::isCatalogAtStart(  )
 
 OUString DatabaseMetaData::getCatalogSeparator(  )
 {
-    return OUString(".");
+    return ".";
 }
 
 sal_Bool DatabaseMetaData::supportsSchemasInDataManipulation(  )
@@ -1119,12 +1119,9 @@ css::uno::Reference< XResultSet > DatabaseMetaData::getTables(
 
     if (isLog(m_pSettings, LogLevel::Info))
     {
-        OUStringBuffer buf( 128 );
-        buf.append( "DatabaseMetaData::getTables got called with " );
-        buf.append( schemaPattern );
-        buf.append( "." );
-        buf.append( tableNamePattern );
-        log(m_pSettings, LogLevel::Info, buf.makeStringAndClear());
+        log(m_pSettings, LogLevel::Info,
+            ("DatabaseMetaData::getTables got called with " + schemaPattern + "."
+             + tableNamePattern));
     }
     // ignore catalog, as a single pq connection does not support multiple catalogs
 
@@ -1453,14 +1450,9 @@ css::uno::Reference< XResultSet > DatabaseMetaData::getColumns(
 
     if (isLog(m_pSettings, LogLevel::Info))
     {
-        OUStringBuffer buf( 128 );
-        buf.append( "DatabaseMetaData::getColumns got called with " );
-        buf.append( schemaPattern );
-        buf.append( "." );
-        buf.append( tableNamePattern );
-        buf.append( "." );
-        buf.append( columnNamePattern );
-        log(m_pSettings, LogLevel::Info, buf.makeStringAndClear());
+        log(m_pSettings, LogLevel::Info,
+            ("DatabaseMetaData::getColumns got called with " + schemaPattern + "."
+             + tableNamePattern + "." + columnNamePattern));
     }
 
     // ignore catalog, as a single pq connection
@@ -1475,7 +1467,7 @@ css::uno::Reference< XResultSet > DatabaseMetaData::getColumns(
     //  3. TABLE_NAME string => table name
     //               => pg_class.relname
     //  4. COLUMN_NAME string => column name
-    //               => pg_attribure.attname
+    //               => pg_attribute.attname
     //  5. DATA_TYPE short => SQL type from java.sql.Types
     //               => pg_type.typname => sdbc.DataType
     //  6. TYPE_NAME string => Data source dependent type name, for a UDT the
@@ -1514,7 +1506,7 @@ css::uno::Reference< XResultSet > DatabaseMetaData::getColumns(
     //                            allow NULL values. An empty string means
     //                            nobody knows.
     //               => pg_attribute.attnotnull
-
+    OUString strDefaultValue = getColExprForDefaultSettingVal(m_pSettings);
     Reference< XPreparedStatement > statement = m_origin->prepareStatement(
             "SELECT pg_namespace.nspname, "  // 1
             "pg_class.relname, "             // 2
@@ -1524,8 +1516,8 @@ css::uno::Reference< XResultSet > DatabaseMetaData::getColumns(
             "pg_attribute.attnotnull, "      // 6
             "pg_type.typdefault, "           // 7
             "pg_type.typtype, "              // 8
-            "pg_attrdef.adsrc, "             // 9
-            "pg_description.description, "   // 10
+            + strDefaultValue +              // 9
+            ",pg_description.description, "   // 10
             "pg_type.typbasetype, "          // 11
             "pg_attribute.attnum "           // 12
             "FROM pg_class, "
@@ -1634,14 +1626,9 @@ css::uno::Reference< XResultSet > DatabaseMetaData::getColumnPrivileges(
 
     if (isLog(m_pSettings, LogLevel::Info))
     {
-        OUStringBuffer buf( 128 );
-        buf.append( "DatabaseMetaData::getColumnPrivileges got called with " );
-        buf.append( schema );
-        buf.append( "." );
-        buf.append( table );
-        buf.append( "." );
-        buf.append( columnNamePattern );
-        log(m_pSettings, LogLevel::Info, buf.makeStringAndClear());
+        log(m_pSettings, LogLevel::Info,
+            ("DatabaseMetaData::getColumnPrivileges got called with " + schema + "." + table + "."
+             + columnNamePattern));
     }
 
     Reference< XParameters > parameters( m_getColumnPrivs_stmt, UNO_QUERY_THROW );
@@ -1663,12 +1650,9 @@ css::uno::Reference< XResultSet > DatabaseMetaData::getTablePrivileges(
 
     if (isLog(m_pSettings, LogLevel::Info))
     {
-        OUStringBuffer buf( 128 );
-        buf.append( "DatabaseMetaData::getTablePrivileges got called with " );
-        buf.append( schemaPattern );
-        buf.append( "." );
-        buf.append( tableNamePattern );
-        log(m_pSettings, LogLevel::Info, buf.makeStringAndClear());
+        log(m_pSettings, LogLevel::Info,
+            ("DatabaseMetaData::getTablePrivileges got called with " + schemaPattern + "."
+             + tableNamePattern));
     }
 
     Reference< XParameters > parameters( m_getTablePrivs_stmt, UNO_QUERY_THROW );
@@ -1721,12 +1705,8 @@ css::uno::Reference< XResultSet > DatabaseMetaData::getPrimaryKeys(
 
     if (isLog(m_pSettings, LogLevel::Info))
     {
-        OUStringBuffer buf( 128 );
-        buf.append( "DatabaseMetaData::getPrimaryKeys got called with " );
-        buf.append( schema );
-        buf.append( "." );
-        buf.append( table );
-        log(m_pSettings, LogLevel::Info, buf.makeStringAndClear());
+        log(m_pSettings, LogLevel::Info,
+            "DatabaseMetaData::getPrimaryKeys got called with " + schema + "." + table);
     }
 
     Reference< XPreparedStatement > statement = m_origin->prepareStatement(

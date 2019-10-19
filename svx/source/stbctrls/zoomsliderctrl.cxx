@@ -67,7 +67,7 @@ const long nSliderXOffset = 20;
 const long nSnappingEpsilon = 5; // snapping epsilon in pixels
 const long nSnappingPointsMinDist = nSnappingEpsilon; // minimum distance of two adjacent snapping points
 
-// nOffset referes to the origin of the control:
+// nOffset refers to the origin of the control:
 // + ----------- -
 sal_uInt16 SvxZoomSliderControl::Offset2Zoom( long nOffset ) const
 {
@@ -196,9 +196,8 @@ void SvxZoomSliderControl::StateChanged( sal_uInt16 /*nSID*/, SfxItemState eStat
 
         // get all snapping points:
         std::set< sal_uInt16 > aTmpSnappingPoints;
-        for ( sal_Int32 j = 0; j < rSnappingPoints.getLength(); ++j )
+        for ( const sal_Int32 nSnappingPoint : rSnappingPoints )
         {
-            const sal_Int32 nSnappingPoint = rSnappingPoints[j];
             aTmpSnappingPoints.insert( static_cast<sal_uInt16>(nSnappingPoint) );
         }
 

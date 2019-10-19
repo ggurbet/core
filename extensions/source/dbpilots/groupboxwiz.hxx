@@ -23,6 +23,8 @@
 #include "controlwizard.hxx"
 #include "commonpagesdbp.hxx"
 
+using vcl::WizardTypes::WizardState;
+using vcl::WizardTypes::CommitPageReason;
 
 namespace dbp
 {
@@ -44,7 +46,7 @@ namespace dbp
 
     public:
         OGroupBoxWizard(
-            vcl::Window* _pParent,
+            weld::Window* _pParent,
             const css::uno::Reference< css::beans::XPropertySet >& _rxObjectModel,
             const css::uno::Reference< css::uno::XComponentContext >& _rxContext
         );
@@ -53,7 +55,7 @@ namespace dbp
 
     private:
         // OWizardMachine overridables
-        virtual VclPtr<TabPage>     createPage( WizardState _nState ) override;
+        virtual std::unique_ptr<BuilderPage> createPage( WizardState _nState ) override;
         virtual WizardState         determineNextState( WizardState _nCurrentState ) const override;
         virtual void                enterState( WizardState _nState ) override;
         virtual bool                onFinish() override;
@@ -64,8 +66,8 @@ namespace dbp
     class OGBWPage : public OControlWizardPage
     {
     public:
-        OGBWPage(OControlWizard* _pParent, const OString& _rID, const OUString& _rUIXMLDescription)
-            : OControlWizardPage(_pParent, _rID, _rUIXMLDescription)
+        OGBWPage(weld::Container* pPage, OControlWizard* pWizard, const OUString& rUIXMLDescription, const OString& rID)
+            : OControlWizardPage(pPage, pWizard, rUIXMLDescription, rID)
     {
     }
 
@@ -75,82 +77,79 @@ namespace dbp
 
     class ORadioSelectionPage final : public OGBWPage
     {
-        VclPtr<Edit>            m_pRadioName;
-        VclPtr<PushButton>      m_pMoveRight;
-        VclPtr<PushButton>      m_pMoveLeft;
-        VclPtr<ListBox>         m_pExistingRadios;
+        std::unique_ptr<weld::Entry> m_xRadioName;
+        std::unique_ptr<weld::Button> m_xMoveRight;
+        std::unique_ptr<weld::Button> m_xMoveLeft;
+        std::unique_ptr<weld::TreeView> m_xExistingRadios;
 
     public:
-        explicit ORadioSelectionPage( OControlWizard* _pParent );
+        explicit ORadioSelectionPage(weld::Container* pPage, OControlWizard* pWizard);
         virtual ~ORadioSelectionPage() override;
-        virtual void dispose() override;
 
     private:
-        // TabPage overridables
-        void ActivatePage() override;
+        // BuilderPage overridables
+        void Activate() override;
 
         // OWizardPage overridables
         virtual void        initializePage() override;
-        virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
         virtual bool        canAdvance() const override;
 
-        DECL_LINK( OnMoveEntry, Button*, void );
-        DECL_LINK( OnEntrySelected, ListBox&, void );
-        DECL_LINK( OnNameModified, Edit&, void );
+        DECL_LINK( OnMoveEntry, weld::Button&, void );
+        DECL_LINK( OnEntrySelected, weld::TreeView&, void );
+        DECL_LINK( OnNameModified, weld::Entry&, void );
 
         void implCheckMoveButtons();
     };
 
     class ODefaultFieldSelectionPage final : public OMaybeListSelectionPage
     {
-        VclPtr<RadioButton>     m_pDefSelYes;
-        VclPtr<RadioButton>     m_pDefSelNo;
-        VclPtr<ListBox>         m_pDefSelection;
+        std::unique_ptr<weld::RadioButton> m_xDefSelYes;
+        std::unique_ptr<weld::RadioButton> m_xDefSelNo;
+        std::unique_ptr<weld::ComboBox> m_xDefSelection;
 
     public:
-        explicit ODefaultFieldSelectionPage( OControlWizard* _pParent );
+        explicit ODefaultFieldSelectionPage(weld::Container* pPage, OControlWizard* pWizard);
         virtual ~ODefaultFieldSelectionPage() override;
-        virtual void dispose() override;
 
     private:
         // OWizardPage overridables
         virtual void        initializePage() override;
-        virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
 
         OOptionGroupSettings& getSettings() { return static_cast<OGroupBoxWizard*>(getDialog())->getSettings(); }
     };
 
     class OOptionValuesPage final : public OGBWPage
     {
-        VclPtr<Edit>            m_pValue;
-        VclPtr<ListBox>         m_pOptions;
+        std::unique_ptr<weld::Entry> m_xValue;
+        std::unique_ptr<weld::TreeView> m_xOptions;
 
         std::vector<OUString>   m_aUncommittedValues;
-        ::svt::WizardTypes::WizardState
+        ::vcl::WizardTypes::WizardState
                         m_nLastSelection;
 
     public:
-        explicit OOptionValuesPage( OControlWizard* _pParent );
+        explicit OOptionValuesPage(weld::Container* pPage, OControlWizard* pWizard);
         virtual ~OOptionValuesPage() override;
-        virtual void dispose() override;
 
     private:
-        // TabPage overridables
-        void ActivatePage() override;
+        // BuilderPage overridables
+        void Activate() override;
 
         // OWizardPage overridables
         virtual void        initializePage() override;
-        virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
 
         void implTraveledOptions();
 
-        DECL_LINK( OnOptionSelected, ListBox&, void );
+        DECL_LINK( OnOptionSelected, weld::TreeView&, void );
     };
 
     class OOptionDBFieldPage : public ODBFieldPage
     {
     public:
-        explicit OOptionDBFieldPage( OControlWizard* _pParent );
+        explicit OOptionDBFieldPage(weld::Container* pPage, OControlWizard* pWizard);
 
     protected:
         // ODBFieldPage overridables
@@ -159,20 +158,19 @@ namespace dbp
 
     class OFinalizeGBWPage final : public OGBWPage
     {
-        VclPtr<Edit>            m_pName;
+        std::unique_ptr<weld::Entry> m_xName;
 
     public:
-        explicit OFinalizeGBWPage( OControlWizard* _pParent );
+        explicit OFinalizeGBWPage(weld::Container* pPage, OControlWizard* pWizard);
         virtual ~OFinalizeGBWPage() override;
-        virtual void dispose() override;
 
     private:
-        // TabPage overridables
-        void ActivatePage() override;
+        // BuilderPage overridables
+        void Activate() override;
 
         // OWizardPage overridables
         virtual void        initializePage() override;
-        virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
         virtual bool        canAdvance() const override;
     };
 

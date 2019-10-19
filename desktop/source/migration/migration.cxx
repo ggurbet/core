@@ -383,38 +383,39 @@ migrations_vr MigrationImpl::readMigrationSteps(const OUString& rMigrationName)
     uno::Reference< XNameAccess > tmpAccess;
     uno::Sequence< OUString > tmpSeq;
     migrations_vr vrMigrations(new migrations_v);
-    for (const OUString& rMigrationStep : theNameAccess->getElementNames()) {
+    const css::uno::Sequence<OUString> aMigrationSteps = theNameAccess->getElementNames();
+    for (const OUString& rMigrationStep : aMigrationSteps) {
         // get current migration step
         theNameAccess->getByName(rMigrationStep) >>= tmpAccess;
         migration_step tmpStep;
 
         // read included files from current step description
         if (tmpAccess->getByName("IncludedFiles") >>= tmpSeq) {
-            for (const OUString& rSeqEntry : tmpSeq)
+            for (const OUString& rSeqEntry : std::as_const(tmpSeq))
                 tmpStep.includeFiles.push_back(rSeqEntry);
         }
 
         // excluded files...
         if (tmpAccess->getByName("ExcludedFiles") >>= tmpSeq) {
-            for (const OUString& rSeqEntry : tmpSeq)
+            for (const OUString& rSeqEntry : std::as_const(tmpSeq))
                 tmpStep.excludeFiles.push_back(rSeqEntry);
         }
 
         // included nodes...
         if (tmpAccess->getByName("IncludedNodes") >>= tmpSeq) {
-            for (const OUString& rSeqEntry : tmpSeq)
+            for (const OUString& rSeqEntry : std::as_const(tmpSeq))
                 tmpStep.includeConfig.push_back(rSeqEntry);
         }
 
         // excluded nodes...
         if (tmpAccess->getByName("ExcludedNodes") >>= tmpSeq) {
-            for (const OUString& rSeqEntry : tmpSeq)
+            for (const OUString& rSeqEntry : std::as_const(tmpSeq))
                 tmpStep.excludeConfig.push_back(rSeqEntry);
         }
 
         // excluded extensions...
         if (tmpAccess->getByName("ExcludedExtensions") >>= tmpSeq) {
-            for (const OUString& rSeqEntry : tmpSeq)
+            for (const OUString& rSeqEntry : std::as_const(tmpSeq))
                 tmpStep.excludeExtensions.push_back(rSeqEntry);
         }
 
@@ -687,8 +688,7 @@ void MigrationImpl::copyConfig()
 
     // check if the shared registrymodifications.xcu file exists
     bool bRegistryModificationsXcuExists = false;
-    OUString regFilePath(m_aInfo.userdata);
-    regFilePath += "/user/registrymodifications.xcu";
+    OUString regFilePath = m_aInfo.userdata + "/user/registrymodifications.xcu";
     File regFile(regFilePath);
     ::osl::FileBase::RC nError = regFile.open(osl_File_OpenFlag_Read);
     if ( nError == ::osl::FileBase::E_None ) {
@@ -862,8 +862,7 @@ std::vector< MigrationModuleInfo > MigrationImpl::dectectUIChangesForAllModules(
     if (!xModules.is())
         return vModulesInfo;
 
-    uno::Reference< container::XNameAccess > xAccess(xModules, uno::UNO_QUERY);
-    uno::Sequence< OUString > lNames = xAccess->getElementNames();
+    uno::Sequence< OUString > lNames = xModules->getElementNames();
     sal_Int32 nLength = lNames.getLength();
     for (sal_Int32 i=0; i<nLength; ++i) {
         OUString sModuleShortName = lNames[i];
@@ -873,8 +872,7 @@ std::vector< MigrationModuleInfo > MigrationImpl::dectectUIChangesForAllModules(
 
             uno::Reference< embed::XStorage > xMenubar = xModule->openStorageElement(MENUBAR, embed::ElementModes::READ);
             if (xMenubar.is()) {
-                uno::Reference< container::XNameAccess > xNameAccess(xMenubar, uno::UNO_QUERY);
-                if (xNameAccess->getElementNames().hasElements()) {
+                if (xMenubar->getElementNames().hasElements()) {
                     aModuleInfo.sModuleShortName = sModuleShortName;
                     aModuleInfo.bHasMenubar = true;
                 }
@@ -885,8 +883,7 @@ std::vector< MigrationModuleInfo > MigrationImpl::dectectUIChangesForAllModules(
                 const OUString RESOURCEURL_CUSTOM_ELEMENT("custom_");
                 sal_Int32 nCustomLen = 7;
 
-                uno::Reference< container::XNameAccess > xNameAccess(xToolbar, uno::UNO_QUERY);
-                ::uno::Sequence< OUString > lToolbars = xNameAccess->getElementNames();
+                ::uno::Sequence< OUString > lToolbars = xToolbar->getElementNames();
                 for (sal_Int32 j=0; j<lToolbars.getLength(); ++j) {
                     OUString sToolbarName = lToolbars[j];
                     if (sToolbarName.getLength()>=nCustomLen &&
@@ -1060,9 +1057,8 @@ void MigrationImpl::mergeOldToNewVersion(const uno::Reference< ui::XUIConfigurat
         }
     }
 
-    uno::Reference< container::XIndexAccess > xIndexAccess(xIndexContainer, uno::UNO_QUERY);
-    if (xIndexAccess.is())
-        xCfgManager->replaceSettings(sResourceURL, xIndexAccess);
+    if (xIndexContainer.is())
+        xCfgManager->replaceSettings(sResourceURL, xIndexContainer);
 
     uno::Reference< ui::XUIConfigurationPersistence > xUIConfigurationPersistence(xCfgManager, uno::UNO_QUERY);
     if (xUIConfigurationPersistence.is())

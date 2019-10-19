@@ -19,8 +19,6 @@
 #ifndef INCLUDED_SW_INC_NDHINTS_HXX
 #define INCLUDED_SW_INC_NDHINTS_HXX
 
-#include <o3tl/sorted_vector.hxx>
-
 #include "swtypes.hxx"
 
 class SwTextNode;
@@ -126,7 +124,7 @@ private:
             const SetAttrMode nMode );
     bool MergePortions( SwTextNode& rNode );
 
-    void Insert( const SwTextAttr *pHt );
+    void Insert(SwTextAttr* pHt);
     SW_DLLPUBLIC void Resort() const;
     SW_DLLPUBLIC void ResortStartMap() const;
     SW_DLLPUBLIC void ResortEndMap() const;

@@ -23,11 +23,8 @@
 #include <toolkit/controls/stdtabcontrollermodel.hxx>
 #include <toolkit/helper/macros.hxx>
 #include <toolkit/helper/servicenames.hxx>
-#include <toolkit/helper/property.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/queryinterface.hxx>
-#include <rtl/uuid.h>
 
 #include <tools/debug.hxx>
 
@@ -419,7 +416,7 @@ void StdTabControllerModel::read( const css::uno::Reference< css::io::XObjectInp
 
 OUString StdTabControllerModel::getImplementationName()
 {
-    return OUString("stardiv.Toolkit.StdTabControllerModel");
+    return "stardiv.Toolkit.StdTabControllerModel";
 }
 
 sal_Bool StdTabControllerModel::supportsService(OUString const & ServiceName)

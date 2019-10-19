@@ -37,11 +37,13 @@
 #include <wrtsh.hxx>
 #include <swmodule.hxx>
 #include <viewopt.hxx>
+#include <fmtsrnd.hxx>
 #include <frmatr.hxx>
 #include <frmmgr.hxx>
 #include <globals.hrc>
 #include <wrap.hxx>
 #include <bitmaps.hlst>
+#include <fmtwrapinfluenceonobjpos.hxx>
 
 using namespace ::com::sun::star;
 
@@ -56,15 +58,15 @@ SwWrapDlg::SwWrapDlg(weld::Window* pParent, SfxItemSet& rSet, SwWrtShell* pWrtSh
     : SfxSingleTabDialogController(pParent, &rSet, "modules/swriter/ui/wrapdialog.ui", "WrapDialog")
 {
     // create TabPage
-    TabPageParent pPageParent(get_content_area(), this);
-    VclPtr<SwWrapTabPage> xNewPage = static_cast<SwWrapTabPage*>(SwWrapTabPage::Create(pPageParent, &rSet).get());
-    xNewPage->SetFormatUsed(false, bDrawMode);
-    xNewPage->SetShell(pWrtShell);
-    SetTabPage(xNewPage);
+    auto xNewPage = SwWrapTabPage::Create(get_content_area(), this, &rSet);
+    SwWrapTabPage* pWrapPage = static_cast<SwWrapTabPage*>(xNewPage.get());
+    pWrapPage->SetFormatUsed(false, bDrawMode);
+    pWrapPage->SetShell(pWrtShell);
+    SetTabPage(std::move(xNewPage));
 }
 
-SwWrapTabPage::SwWrapTabPage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/wrappage.ui", "WrapPage", &rSet)
+SwWrapTabPage::SwWrapTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/wrappage.ui", "WrapPage", &rSet)
     , m_nAnchorId(RndStdIds::FLY_AT_PARA)
     , m_nHtmlMode(0)
     , m_pWrtSh(nullptr)
@@ -87,6 +89,7 @@ SwWrapTabPage::SwWrapTabPage(TabPageParent pParent, const SfxItemSet &rSet)
     , m_xWrapTransparentCB(m_xBuilder->weld_check_button("transparent"))
     , m_xWrapOutlineCB(m_xBuilder->weld_check_button("outline"))
     , m_xWrapOutsideCB(m_xBuilder->weld_check_button("outside"))
+    , m_xAllowOverlapCB(m_xBuilder->weld_check_button("allowoverlap"))
 {
     SetExchangeSupport();
 
@@ -111,9 +114,9 @@ SwWrapTabPage::~SwWrapTabPage()
 {
 }
 
-VclPtr<SfxTabPage> SwWrapTabPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
+std::unique_ptr<SfxTabPage> SwWrapTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet)
 {
-    return VclPtr<SwWrapTabPage>::Create(pParent, *rSet);
+    return std::make_unique<SwWrapTabPage>(pPage, pController, *rSet);
 }
 
 void SwWrapTabPage::Reset(const SfxItemSet *rSet)
@@ -247,6 +250,10 @@ void SwWrapTabPage::Reset(const SfxItemSet *rSet)
     m_xBottomMarginED->save_value();
 
     ContourHdl(*m_xWrapOutlineCB);
+
+    const SwFormatWrapInfluenceOnObjPos& rInfluence = rSet->Get(RES_WRAP_INFLUENCE_ON_OBJPOS);
+    m_xAllowOverlapCB->set_active(rInfluence.GetAllowOverlap());
+
     ActivatePage( *rSet );
 }
 
@@ -346,6 +353,18 @@ bool SwWrapTabPage::FillItemSet(SfxItemSet *rSet)
         bool bChecked = m_xWrapTransparentCB->get_active() && m_xWrapTransparentCB->get_sensitive();
         if ((m_xWrapTransparentCB->get_saved_state() == TRISTATE_TRUE) != bChecked)
             bModified |= nullptr != rSet->Put(SfxInt16Item(FN_DRAW_WRAP_DLG, bChecked ? 0 : 1));
+    }
+
+    const SwFormatWrapInfluenceOnObjPos& rOldInfluence
+        = GetItemSet().Get(RES_WRAP_INFLUENCE_ON_OBJPOS);
+    SwFormatWrapInfluenceOnObjPos aInfluence(rOldInfluence);
+    aInfluence.SetAllowOverlap(m_xAllowOverlapCB->get_active());
+
+    pOldItem = GetOldItem(*rSet, RES_WRAP_INFLUENCE_ON_OBJPOS);
+    if (!pOldItem || aInfluence != *pOldItem)
+    {
+        rSet->Put(aInfluence);
+        bModified = true;
     }
 
     return bModified;

@@ -33,34 +33,27 @@
 #include <vcl/metaact.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/settings.hxx>
 #include <AnnotationEnumeration.hxx>
 #include <createunopageimpl.hxx>
 #include <unomodel.hxx>
 #include <unopage.hxx>
-#include <svx/svxids.hrc>
 #include <svl/itemset.hxx>
 #include <svx/svdmodel.hxx>
 #include <sdresid.hxx>
 #include <strings.hrc>
 #include <sdpage.hxx>
 #include <unoprnms.hxx>
-#include <sdattr.hxx>
 #include <drawdoc.hxx>
 #include <svx/unoshape.hxx>
-#include <com/sun/star/style/XStyle.hpp>
-#include <svx/svdorect.hxx>
 #include <svl/style.hxx>
 #include <comphelper/serviceinfohelper.hxx>
 #include <comphelper/extract.hxx>
-#include <list>
 #include <svx/svditer.hxx>
 #include <vcl/wmf.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdpool.hxx>
 #include <svx/svdview.hxx>
 #include <svx/xfillit0.hxx>
-#include <View.hxx>
 #include <DrawDocShell.hxx>
 #include <ViewShell.hxx>
 #include <DrawViewShell.hxx>
@@ -71,8 +64,6 @@
 #include <unokywds.hxx>
 #include "unopback.hxx"
 #include <vcl/dibtools.hxx>
-#include <svx/svdograf.hxx>
-#include <svx/svdoashp.hxx>
 #include <tools/debug.hxx>
 #include <tools/stream.hxx>
 
@@ -332,8 +323,7 @@ const css::uno::Sequence< sal_Int8 > & SdGenericDrawPage::getUnoTunnelId() throw
 
 sal_Int64 SAL_CALL SdGenericDrawPage::getSomething( const css::uno::Sequence< sal_Int8 >& rId )
 {
-        if( rId.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(),
-            rId.getConstArray(), 16 ) )
+        if( isUnoTunnelId<SdGenericDrawPage>(rId) )
         {
                 return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
         }
@@ -398,7 +388,7 @@ void SdGenericDrawPage::UpdateModel()
     mbIsImpressDocument = mpDocModel && mpDocModel->IsImpressDocument();
 }
 
-// this is called whenever a SdrObject must be created for a empty api shape wrapper
+// this is called whenever a SdrObject must be created for an empty api shape wrapper
 SdrObject * SdGenericDrawPage::CreateSdrObject_( const Reference< drawing::XShape >& xShape )
 {
     if( nullptr == SvxFmDrawPage::mpPage || !xShape.is() )
@@ -1328,24 +1318,22 @@ void SAL_CALL SdGenericDrawPage::setPropertyValues( const Sequence< OUString >& 
 
 Sequence< Any > SAL_CALL SdGenericDrawPage::getPropertyValues( const Sequence< OUString >& aPropertyNames )
 {
-    const OUString* pNames = aPropertyNames.getConstArray();
-    sal_uInt32 nCount = aPropertyNames.getLength();
+    sal_Int32 nCount = aPropertyNames.getLength();
     Sequence< Any > aValues( nCount );
-    Any* pValues = aValues.getArray();
-    while( nCount-- )
-    {
-        Any aValue;
-        try
-        {
-            aValue = getPropertyValue( *pNames++ );
-        }
-        catch( beans::UnknownPropertyException& )
-        {
-            // ignore for multi property set
-            // todo: optimize this!
-        }
-        *pValues++ = aValue;
-    }
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aValues.begin(),
+        [this](const OUString& rName) -> Any {
+            Any aValue;
+            try
+            {
+                aValue = getPropertyValue(rName);
+            }
+            catch( beans::UnknownPropertyException& )
+            {
+                // ignore for multi property set
+                // todo: optimize this!
+            }
+            return aValue;
+        });
     return aValues;
 }
 
@@ -1384,7 +1372,7 @@ Reference< drawing::XShape >  SdGenericDrawPage::CreateShape(SdrObject *pObj) co
                 pShape = new SvxShapeText( pObj );
                 if( GetPage()->GetPageKind() == PageKind::Notes && GetPage()->IsMasterPage() )
                 {
-                    // fake a empty PageShape if it's a title shape on the master page
+                    // fake an empty PageShape if it's a title shape on the master page
                     pShape->SetShapeType("com.sun.star.presentation.PageShape");
                 }
                 else
@@ -1998,7 +1986,7 @@ SdrObject* SdPageLinkTargets::FindObject( const OUString& rName ) const throw()
 // XServiceInfo
 OUString SAL_CALL SdPageLinkTargets::getImplementationName()
 {
-    return OUString( "SdPageLinkTargets" );
+    return "SdPageLinkTargets";
 }
 
 sal_Bool SAL_CALL SdPageLinkTargets::supportsService( const OUString& ServiceName )
@@ -2115,11 +2103,8 @@ OUString getPageApiName( SdPage const * pPage )
 
         if( aPageName.isEmpty() )
         {
-            OUStringBuffer sBuffer;
-            sBuffer.append( sEmptyPageName );
             const sal_Int32 nPageNum = ( ( pPage->GetPageNum() - 1 ) >> 1 ) + 1;
-            sBuffer.append( nPageNum );
-            aPageName = sBuffer.makeStringAndClear();
+            aPageName = sEmptyPageName + OUString::number( nPageNum );
         }
     }
 
@@ -2177,11 +2162,7 @@ OUString getUiNameFromPageApiNameImpl( const OUString& rApiName )
 
         if( nPageNumber != -1)
         {
-            OUStringBuffer sBuffer;
-            sBuffer.append( SdResId(STR_PAGE) );
-            sBuffer.append( ' ' );
-            sBuffer.append( aNumber );
-            return sBuffer.makeStringAndClear();
+            return SdResId(STR_PAGE) + " " + aNumber;
         }
     }
 
@@ -2196,7 +2177,7 @@ OUString SdDrawPage::getUiNameFromPageApiName( const OUString& rApiName )
 // XServiceInfo
 OUString SAL_CALL SdDrawPage::getImplementationName()
 {
-    return OUString( "SdDrawPage" );
+    return "SdDrawPage";
 }
 
 Sequence< OUString > SAL_CALL SdDrawPage::getSupportedServiceNames()
@@ -2461,18 +2442,14 @@ void SdDrawPage::setBackground( const Any& rValue )
         Reference< beans::XPropertySet >  xDestSet( static_cast<beans::XPropertySet*>(pBackground) );
         Reference< beans::XPropertySetInfo >  xDestSetInfo( xDestSet->getPropertySetInfo() );
 
-        Sequence< beans::Property > aProperties( xDestSetInfo->getProperties() );
-        sal_Int32 nCount = aProperties.getLength();
-        beans::Property* pProp = aProperties.getArray();
+        const Sequence< beans::Property > aProperties( xDestSetInfo->getProperties() );
 
-        while( nCount-- )
+        for( const beans::Property& rProp : aProperties )
         {
-            const OUString aPropName( pProp->Name );
+            const OUString aPropName( rProp.Name );
             if( xSetInfo->hasPropertyByName( aPropName ) )
                 xDestSet->setPropertyValue( aPropName,
                         xSet->getPropertyValue( aPropName ) );
-
-            pProp++;
         }
 
         pBackground->fillItemSet( static_cast<SdDrawDocument*>(&GetPage()->getSdrModelFromSdrPage()), aSet );
@@ -2720,7 +2697,7 @@ Sequence< sal_Int8 > SAL_CALL SdMasterPage::getImplementationId()
 // XServiceInfo
 OUString SAL_CALL SdMasterPage::getImplementationName()
 {
-    return OUString( "SdMasterPage" );
+    return "SdMasterPage";
 }
 
 Sequence< OUString > SAL_CALL SdMasterPage::getSupportedServiceNames()
@@ -2783,7 +2760,7 @@ Any SAL_CALL SdMasterPage::getByIndex( sal_Int32 Index )
 // intern
 void SdMasterPage::setBackground( const Any& rValue )
 {
-    // we need at least an beans::XPropertySet
+    // we need at least a beans::XPropertySet
     Reference< beans::XPropertySet > xInputSet( rValue, UNO_QUERY );
     if( !xInputSet.is() )
         throw lang::IllegalArgumentException();
@@ -2833,17 +2810,13 @@ void SdMasterPage::setBackground( const Any& rValue )
                 Reference< beans::XPropertySet > xDestSet( static_cast<beans::XPropertySet*>(pBackground) );
                 Reference< beans::XPropertySetInfo > xDestSetInfo( xDestSet->getPropertySetInfo(), UNO_SET_THROW );
 
-                uno::Sequence< beans::Property> aProperties( xDestSetInfo->getProperties() );
-                sal_Int32 nCount = aProperties.getLength();
-                beans::Property* pProp = aProperties.getArray();
+                const uno::Sequence< beans::Property> aProperties( xDestSetInfo->getProperties() );
 
-                while( nCount-- )
+                for( const beans::Property& rProp : aProperties )
                 {
-                    const OUString aPropName( pProp->Name );
+                    const OUString aPropName( rProp.Name );
                     if( xInputSetInfo->hasPropertyByName( aPropName ) )
                         xDestSet->setPropertyValue( aPropName, xInputSet->getPropertyValue( aPropName ) );
-
-                    pProp++;
                 }
 
                 pBackground->fillItemSet( static_cast<SdDrawDocument*>(&SvxFmDrawPage::mpPage->getSdrModelFromSdrPage()), aSet );
@@ -2855,8 +2828,8 @@ void SdMasterPage::setBackground( const Any& rValue )
             if(pSSPool)
             {
                 OUString aLayoutName( static_cast< SdPage* >( SvxFmDrawPage::mpPage )->GetLayoutName() );
-                aLayoutName = aLayoutName.copy(0, aLayoutName.indexOf(SD_LT_SEPARATOR)+4);
-                aLayoutName += STR_LAYOUT_BACKGROUND;
+                aLayoutName = aLayoutName.copy(0, aLayoutName.indexOf(SD_LT_SEPARATOR)+4) +
+                    STR_LAYOUT_BACKGROUND;
                 SfxStyleSheetBase* pStyleSheet = pSSPool->Find( aLayoutName, SfxStyleFamily::Page );
 
                 if( pStyleSheet )
@@ -2902,8 +2875,8 @@ void SdMasterPage::getBackground( Any& rValue )
             if(pSSPool)
             {
                 OUString aLayoutName( static_cast< SdPage* >(SvxFmDrawPage::mpPage)->GetLayoutName() );
-                aLayoutName = aLayoutName.copy(0, aLayoutName.indexOf(SD_LT_SEPARATOR)+4);
-                aLayoutName += STR_LAYOUT_BACKGROUND;
+                aLayoutName = aLayoutName.copy(0, aLayoutName.indexOf(SD_LT_SEPARATOR)+4) +
+                    STR_LAYOUT_BACKGROUND;
                 SfxStyleSheetBase* pStyleSheet = pSSPool->Find( aLayoutName, SfxStyleFamily::Page );
 
                 if( pStyleSheet )

@@ -205,7 +205,7 @@ void TerminateOfficeThread::PerformOfficeTermination()
 {
     css::uno::Reference< css::frame::XDesktop2 > xDesktop = css::frame::Desktop::create(mxContext);
 
-    css::uno::Reference< css::container::XElementAccess > xList( xDesktop->getFrames(), css::uno::UNO_QUERY );
+    css::uno::Reference< css::container::XElementAccess > xList = xDesktop->getFrames();
     if ( !xList.is() )
     {
         OSL_FAIL( "<TerminateOfficeThread::PerformOfficeTermination()> - no XElementAccess!" );
@@ -274,7 +274,7 @@ FinalThreadManager::~FinalThreadManager()
 // com.sun.star.uno.XServiceInfo:
 OUString SAL_CALL FinalThreadManager::getImplementationName()
 {
-    return OUString("com.sun.star.util.comp.FinalThreadManager");
+    return "com.sun.star.util.comp.FinalThreadManager";
 }
 
 sal_Bool SAL_CALL FinalThreadManager::supportsService(OUString const & serviceName)

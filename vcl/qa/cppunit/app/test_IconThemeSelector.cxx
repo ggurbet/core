@@ -19,42 +19,20 @@
 class IconThemeSelectorTest : public CppUnit::TestFixture
 {
 #ifndef _WIN32 //default theme on Windows is Colibre independently from any desktop environment
-    void
-    BreezeIsReturnedForKde5Desktop();
-
-    void
-    ElementaryIsReturnedForGnomeDesktop();
-
-    void
-    ThemeIsOverriddenByPreferredTheme();
-
-    void
-    ThemeIsOverriddenByHighContrastMode();
-
-    void
-    NotInstalledThemeDoesNotOverride();
-
-    void
-    InstalledThemeIsFound();
-
-    void
-    FirstThemeIsReturnedIfRequestedThemeIsNotFound();
-
-    void
-    FallbackThemeIsReturnedForEmptyInput();
-
-    void
-    DifferentPreferredThemesAreInequal();
-
-    void
-    DifferentHighContrastModesAreInequal();
-
-    static std::vector<vcl::IconThemeInfo>
-    GetFakeInstalledThemes();
+    void BreezeIsReturnedForKde5Desktop();
+    void ElementaryIsReturnedForGnomeDesktop();
+    void ThemeIsOverriddenByPreferredTheme();
+    void ThemeIsOverriddenByHighContrastMode();
+    void NotInstalledThemeDoesNotOverride();
+    void InstalledThemeIsFound();
+    void FirstThemeIsReturnedIfRequestedThemeIsNotFound();
+    void FallbackThemeIsReturnedForEmptyInput();
+    void DifferentPreferredThemesAreInequal();
+    void DifferentHighContrastModesAreInequal();
+    static std::vector<vcl::IconThemeInfo> GetFakeInstalledThemes();
 #endif
 
     // Adds code needed to register the test suite
-
     CPPUNIT_TEST_SUITE(IconThemeSelectorTest);
 
 #ifndef _WIN32
@@ -71,7 +49,6 @@ class IconThemeSelectorTest : public CppUnit::TestFixture
 #endif
 
     // End of test suite definition
-
     CPPUNIT_TEST_SUITE_END();
 };
 
@@ -98,8 +75,8 @@ IconThemeSelectorTest::BreezeIsReturnedForKde5Desktop()
 {
     std::vector<vcl::IconThemeInfo> themes = GetFakeInstalledThemes();
     vcl::IconThemeSelector s;
-    OUString r = s.SelectIconThemeForDesktopEnvironment(themes, "kde5");
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("'breeze' theme is returned for kde5 desktop", OUString("breeze"), r);
+    OUString r = s.SelectIconThemeForDesktopEnvironment(themes, "plasma5");
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("'breeze' theme is returned for Plasma 5 desktop", OUString("breeze"), r);
 }
 
 void

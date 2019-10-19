@@ -180,8 +180,8 @@ short SwEnvDlg::Ok()
     return nRet;
 }
 
-SwEnvPage::SwEnvPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/envaddresspage.ui", "EnvAddressPage", &rSet)
+SwEnvPage::SwEnvPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/envaddresspage.ui", "EnvAddressPage", &rSet)
     , m_pDialog(nullptr)
     , m_pSh(nullptr)
     , m_xAddrEdit(m_xBuilder->weld_text_view("addredit"))
@@ -220,13 +220,12 @@ void SwEnvPage::Init(SwEnvDlg* pDialog)
     m_xSenderBox->connect_clicked(LINK(this, SwEnvPage, SenderHdl));
 
     SwDBData aData = m_pSh->GetDBData();
-    m_sActDBName = aData.sDataSource + OUStringLiteral1(DB_DELIM) + aData.sCommand;
+    m_sActDBName = aData.sDataSource + OUStringChar(DB_DELIM) + aData.sCommand;
     InitDatabaseBox();
 }
 
 SwEnvPage::~SwEnvPage()
 {
-    disposeOnce();
 }
 
 IMPL_LINK( SwEnvPage, DatabaseHdl, weld::ComboBox&, rListBox, void )
@@ -237,7 +236,7 @@ IMPL_LINK( SwEnvPage, DatabaseHdl, weld::ComboBox&, rListBox, void )
     {
         m_sActDBName = rListBox.get_active_text();
         m_pSh->GetDBManager()->GetTableNames(*m_xTableLB, m_sActDBName);
-        m_sActDBName += OUStringLiteral1(DB_DELIM);
+        m_sActDBName += OUStringChar(DB_DELIM);
     }
     else
     {
@@ -279,7 +278,7 @@ void SwEnvPage::InitDatabaseBox()
     if (m_pSh->GetDBManager())
     {
         m_xDatabaseLB->clear();
-        Sequence<OUString> aDataNames = SwDBManager::GetExistingDatabaseNames();
+        const Sequence<OUString> aDataNames = SwDBManager::GetExistingDatabaseNames();
 
         for (const OUString& rDataName : aDataNames)
             m_xDatabaseLB->append_text(rDataName);
@@ -298,9 +297,9 @@ void SwEnvPage::InitDatabaseBox()
     }
 }
 
-VclPtr<SfxTabPage> SwEnvPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SwEnvPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SwEnvPage>::Create(pParent, *rSet);
+    return std::make_unique<SwEnvPage>(pPage, pController, *rSet);
 }
 
 void SwEnvPage::ActivatePage(const SfxItemSet& rSet)

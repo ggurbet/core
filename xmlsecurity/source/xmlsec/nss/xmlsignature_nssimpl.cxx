@@ -105,7 +105,7 @@ SAL_CALL XMLSignature_NssImpl::generate(
     XMLElementWrapper_XmlSecImpl* pElement =
         reinterpret_cast<XMLElementWrapper_XmlSecImpl*>(
             sal::static_int_cast<sal_uIntPtr>(
-                xNodTunnel->getSomething( XMLElementWrapper_XmlSecImpl::getUnoTunnelImplementationId() )));
+                xNodTunnel->getSomething( XMLElementWrapper_XmlSecImpl::getUnoTunnelId() )));
     if( pElement == nullptr ) {
         throw RuntimeException() ;
     }
@@ -193,7 +193,7 @@ SAL_CALL XMLSignature_NssImpl::validate(
     XMLElementWrapper_XmlSecImpl* pElement =
         reinterpret_cast<XMLElementWrapper_XmlSecImpl*>(
             sal::static_int_cast<sal_uIntPtr>(
-                xNodTunnel->getSomething( XMLElementWrapper_XmlSecImpl::getUnoTunnelImplementationId() )));
+                xNodTunnel->getSomething( XMLElementWrapper_XmlSecImpl::getUnoTunnelId() )));
     if( pElement == nullptr )
         throw RuntimeException() ;
 
@@ -282,13 +282,14 @@ SAL_CALL XMLSignature_NssImpl::validate(
 /* XServiceInfo */
 OUString SAL_CALL XMLSignature_NssImpl::getImplementationName()
 {
-    return OUString("com.sun.star.xml.crypto.XMLSignature");
+    return "com.sun.star.xml.crypto.XMLSignature";
 }
 
 /* XServiceInfo */
 sal_Bool SAL_CALL XMLSignature_NssImpl::supportsService(const OUString& rServiceName)
 {
-    for (OUString const & rCurrentServiceName : getSupportedServiceNames())
+    const css::uno::Sequence<OUString> aServiceNames = getSupportedServiceNames();
+    for (OUString const & rCurrentServiceName : aServiceNames)
     {
         if (rCurrentServiceName == rServiceName)
             return true;

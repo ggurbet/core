@@ -63,7 +63,7 @@ static Sequence< OUString > getSupportedServiceNames_LangGuess_Impl()
 
 static OUString getImplementationName_LangGuess_Impl()
 {
-    return OUString( IMPLNAME );
+    return IMPLNAME;
 }
 
 static osl::Mutex &  GetLangGuessMutex()
@@ -191,8 +191,7 @@ void LangGuess_Impl::SetFingerPrintsDB(
 {
     //! text encoding for file name / path needs to be in the same encoding the OS uses
     OString path = OUStringToOString( filePath, osl_getThreadTextEncoding() );
-    OString conf_file_path(path);
-    conf_file_path += DEFAULT_CONF_FILE_NAME;
+    OString conf_file_path = path + DEFAULT_CONF_FILE_NAME;
 
     m_aGuesser.SetDBPath(conf_file_path.getStr(), path.getStr());
 }
@@ -270,15 +269,12 @@ void SAL_CALL LangGuess_Impl::disableLanguages(
 
     EnsureInitialized();
 
-    sal_Int32 nLanguages = rLanguages.getLength();
-    const Locale *pLanguages = rLanguages.getConstArray();
-
-    for (sal_Int32 i = 0;  i < nLanguages;  ++i)
+    for (const Locale& rLanguage : rLanguages)
     {
         string language;
 
-        OString l = OUStringToOString( pLanguages[i].Language, RTL_TEXTENCODING_ASCII_US );
-        OString c = OUStringToOString( pLanguages[i].Country, RTL_TEXTENCODING_ASCII_US );
+        OString l = OUStringToOString( rLanguage.Language, RTL_TEXTENCODING_ASCII_US );
+        OString c = OUStringToOString( rLanguage.Country, RTL_TEXTENCODING_ASCII_US );
 
         language += l.getStr();
         language += "-";
@@ -294,15 +290,12 @@ void SAL_CALL LangGuess_Impl::enableLanguages(
 
     EnsureInitialized();
 
-    sal_Int32 nLanguages = rLanguages.getLength();
-    const Locale *pLanguages = rLanguages.getConstArray();
-
-    for (sal_Int32 i = 0;  i < nLanguages;  ++i)
+    for (const Locale& rLanguage : rLanguages)
     {
         string language;
 
-        OString l = OUStringToOString( pLanguages[i].Language, RTL_TEXTENCODING_ASCII_US );
-        OString c = OUStringToOString( pLanguages[i].Country, RTL_TEXTENCODING_ASCII_US );
+        OString l = OUStringToOString( rLanguage.Language, RTL_TEXTENCODING_ASCII_US );
+        OString c = OUStringToOString( rLanguage.Country, RTL_TEXTENCODING_ASCII_US );
 
         language += l.getStr();
         language += "-";
@@ -313,7 +306,7 @@ void SAL_CALL LangGuess_Impl::enableLanguages(
 
 OUString SAL_CALL LangGuess_Impl::getImplementationName(  )
 {
-    return OUString( IMPLNAME );
+    return IMPLNAME;
 }
 
 sal_Bool SAL_CALL LangGuess_Impl::supportsService( const OUString& ServiceName )

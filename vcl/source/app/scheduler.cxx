@@ -25,7 +25,6 @@
 #include <typeinfo>
 
 #include <com/sun/star/uno/Exception.hpp>
-#include <cppuhelper/exc_hlp.hxx>
 #include <sal/log.hxx>
 #include <sal/types.h>
 #include <svdata.hxx>
@@ -33,6 +32,7 @@
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <unotools/configmgr.hxx>
+#include <vcl/TaskStopwatch.hxx>
 #include <vcl/scheduler.hxx>
 #include <vcl/idle.hxx>
 #include <saltimer.hxx>
@@ -95,6 +95,8 @@ std::basic_ostream<charT, traits> & operator <<(
 }
 
 } // end anonymous namespace
+
+unsigned int TaskStopwatch::m_nTimeSlice = TaskStopwatch::nDefaultTimeSlice;
 
 void Scheduler::ImplDeInitScheduler()
 {
@@ -368,7 +370,6 @@ bool Scheduler::ProcessTaskScheduling()
     if ( nTime < rSchedCtx.mnTimerStart + rSchedCtx.mnTimerPeriod -1)
     {
         int nSleep = rSchedCtx.mnTimerStart + rSchedCtx.mnTimerPeriod - nTime;
-        SAL_WARN("vcl.schedule", "we're too early - restart the timer (" << nSleep << "ms)!");
         UpdateSystemTimer(rSchedCtx, nSleep, true, nTime);
         return false;
     }
@@ -478,8 +479,7 @@ bool Scheduler::ProcessTaskScheduling()
         }
         catch (css::uno::Exception&)
         {
-            auto const ex = cppu::getCaughtException();
-            SAL_WARN("vcl.schedule", "Uncaught " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("vcl.schedule", "Uncaught");
             std::abort();
         }
         catch (std::exception& e)

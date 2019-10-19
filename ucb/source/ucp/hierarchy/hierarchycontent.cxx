@@ -246,7 +246,7 @@ uno::Sequence< uno::Type > SAL_CALL HierarchyContent::getTypes()
 // virtual
 OUString SAL_CALL HierarchyContent::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.ucb.HierarchyContent" );
+    return "com.sun.star.comp.ucb.HierarchyContent";
 }
 
 
@@ -889,10 +889,9 @@ uno::Reference< sdbc::XRow > HierarchyContent::getPropertyValues(
 
                 if ( !bTriedToGetAdditionalPropSet && !xAdditionalPropSet.is() )
                 {
-                    xAdditionalPropSet.set(
+                    xAdditionalPropSet =
                             pProvider->getAdditionalPropertySet( rContentId,
-                                                                 false ),
-                            uno::UNO_QUERY );
+                                                                 false );
                     bTriedToGetAdditionalPropSet = true;
                 }
 
@@ -965,9 +964,8 @@ uno::Reference< sdbc::XRow > HierarchyContent::getPropertyValues(
 
         // Append all Additional Core Properties.
 
-        uno::Reference< beans::XPropertySet > xSet(
-            pProvider->getAdditionalPropertySet( rContentId, false ),
-            uno::UNO_QUERY );
+        uno::Reference< beans::XPropertySet > xSet =
+            pProvider->getAdditionalPropertySet( rContentId, false );
         xRow->appendPropertySet( xSet );
     }
 
@@ -1374,8 +1372,8 @@ void HierarchyContent::insert( sal_Int32 nNameClashResolve,
                 else
                 {
                     OUString aNewTitle( m_aProps.getTitle() );
-                    aNewTitle += "_";
-                    aNewTitle += OUString::number( nTry );
+                    aNewTitle += "_" +
+                        OUString::number( nTry );
                     m_aProps.setTitle( aNewTitle );
                 }
             }

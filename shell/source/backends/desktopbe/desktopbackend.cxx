@@ -58,8 +58,8 @@
 namespace {
 
 OUString getDefaultImplementationName() {
-    return OUString(
-            "com.sun.star.comp.configuration.backend.DesktopBackend");
+    return
+            "com.sun.star.comp.configuration.backend.DesktopBackend";
 }
 
 css::uno::Sequence< OUString > getDefaultSupportedServiceNames() {
@@ -304,11 +304,9 @@ css::uno::Reference< css::uno::XInterface > createInstance(
 
     // Fall back to the default if the specific backend is not available:
     css::uno::Reference< css::uno::XInterface > backend;
-    if ( desktop == "KDE5" ) {
-        backend = createBackend(
-            context,
-            "com.sun.star.configuration.backend.KDE5Backend");
-    }
+    if (desktop == "PLASMA5")
+        backend = createBackend(context,
+            "com.sun.star.configuration.backend.KF5Backend");
     return backend.is()
         ? backend : static_cast< cppu::OWeakObject * >(new Default);
 }

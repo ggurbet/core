@@ -24,19 +24,16 @@
 #include <X11/Xutil.h>
 #include <X11/extensions/Xrender.h>
 
-#include <tools/fract.hxx>
-
 #include <vcl/salgtype.hxx>
 #include <vcl/vclenum.hxx>
-#include <vcl/metric.hxx>
 
+#include <unx/saldisp.hxx>
 #include <salgdi.hxx>
 #include <salgeom.hxx>
 #include <sallayout.hxx>
 #include <vclpluginapi.h>
 #include <ControlCacheKey.hxx>
 
-#include <deque>
 #include <memory>
 
 /* From <X11/Intrinsic.h> */
@@ -72,7 +69,7 @@ class VCLPLUG_GEN_PUBLIC X11SalGraphics : public SalGraphics
 
 public:
                                     X11SalGraphics();
-    virtual                         ~X11SalGraphics() override;
+    virtual                         ~X11SalGraphics() COVERITY_NOEXCEPT_FALSE override;
 
     void                            Init( SalFrame *pFrame, Drawable aDrawable, SalX11Screen nXScreen );
     void                            Init( X11SalVirtualDevice *pVirtualDevice, SalColormap* pColormap = nullptr, bool bDeleteColormap = false );
@@ -117,7 +114,7 @@ public:
     virtual void                    SetTextColor( Color nColor ) override;
     virtual void                    SetFont(LogicalFontInstance*, int nFallbackLevel) override;
     virtual void                    GetFontMetric( ImplFontMetricDataRef&, int nFallbackLevel ) override;
-    virtual const FontCharMapRef    GetFontCharMap() const override;
+    virtual FontCharMapRef          GetFontCharMap() const override;
     virtual bool                    GetFontCapabilities(vcl::FontCapabilities &rFontCapabilities) const override;
     virtual void                    GetDevFontList( PhysicalFontCollection* ) override;
     virtual void                    ClearDevFontCache() override;
@@ -266,19 +263,6 @@ public:
     void clipRegion(cairo_t* cr);
 #endif // ENABLE_CAIRO_CANVAS
 
-    bool TryRenderCachedNativeControl(ControlCacheKey& aControlCacheKey,
-                                      int nX, int nY);
-
-    bool RenderAndCacheNativeControl(X11Pixmap* pPixmap, X11Pixmap* pMask, int nX, int nY,
-                                     ControlCacheKey& aControlCacheKey);
-
-    // fill a pixmap from a screen region
-    void                            FillPixmapFromScreen( X11Pixmap* pPixmap, int nX, int nY );
-
-    // render a pixmap to the screen
-    bool                            RenderPixmapToScreen( X11Pixmap* pPixmap, X11Pixmap* pMask, int nX, int nY );
-
-
     /*  use to handle GraphicsExpose/NoExpose after XCopyArea & friends
      *  if pFrame is not NULL, corresponding Paint events are generated
      *  and dispatched to pFrame
@@ -292,27 +276,12 @@ public:
     static void releaseCairoContext(cairo_t* cr);
 
 
-    // do XCopyArea or XGet/PutImage depending on screen numbers
-    // signature is like XCopyArea with screen numbers added
-    static void                     CopyScreenArea(
-                                        Display* pDisplay,
-                                        Drawable aSrc, SalX11Screen nXScreenSrc, int nSrcDepth,
-                                        Drawable aDest, SalX11Screen nXScreenDest, int nDestDepth,
-                                        GC aDestGC,
-                                        int src_x, int src_y,
-                                        unsigned int w, unsigned int h,
-                                        int dest_x, int dest_y );
-
-    static void                     releaseGlyphPeer();
-
 protected:
     using SalGraphics::SetClipRegion;
     void                            SetClipRegion( GC pGC, Region pXReg = nullptr ) const;
     bool                            GetDitherPixmap ( Color nColor );
 
     using SalGraphics::DrawBitmap;
-
-    GC                              GetFontGC();
 
     void                            freeResources();
 
@@ -334,14 +303,12 @@ protected:
     Color                           mnFillColor;
 #endif // ENABLE_CAIRO_CANVAS
 
-    GC                              pFontGC_;       // Font attributes
     Pixel                           nTextPixel_;
 
     Pixmap                          hBrush_;        // Dither
 
     bool                            bWindow_ : 1;       // is Window
     bool                            bVirDev_ : 1;       // is VirDev
-    bool                            bFontGC_ : 1;       // is Font GC valid
     bool const                      m_bOpenGL : 1;
 
 private:

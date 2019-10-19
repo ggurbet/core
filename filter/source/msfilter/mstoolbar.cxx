@@ -65,7 +65,7 @@ void CustomToolBarImportHelper::applyIcons()
         sal_uInt16 nColor = ui::ImageType::COLOR_NORMAL;
 
         vcl::Window* topwin = Application::GetActiveTopWindow();
-        if ( topwin != nullptr && topwin->GetDisplayBackground().GetColor().IsDark() )
+        if ( topwin != nullptr && topwin->GetBackgroundColor().IsDark() )
                 nColor = css::ui::ImageType::COLOR_HIGHCONTRAST;
 
         ScaleImage( images[ 0 ], 16 );
@@ -128,8 +128,7 @@ CustomToolBarImportHelper::createMenu( const OUString& rName, const uno::Referen
     try
     {
         uno::Reference< ui::XUIConfigurationManager > xCfgManager( getCfgManager() );
-        OUString sMenuBar("private:resource/menubar/");
-        sMenuBar += rName;
+        OUString sMenuBar = "private:resource/menubar/" + rName;
         uno::Reference< container::XIndexContainer > xPopup( xCfgManager->createSettings(), uno::UNO_SET_THROW );
         uno::Reference< beans::XPropertySet > xProps( xPopup, uno::UNO_QUERY_THROW );
         // set name for menubar
@@ -147,7 +146,7 @@ CustomToolBarImportHelper::createMenu( const OUString& rName, const uno::Referen
             aPopupMenu[3].Value <<= sal_Int32( 0 );
 
             xPopup->insertByIndex( xPopup->getCount(), uno::makeAny( aPopupMenu ) );
-            xCfgManager->insertSettings( sMenuBar, uno::Reference< container::XIndexAccess >( xPopup, uno::UNO_QUERY ) );
+            xCfgManager->insertSettings( sMenuBar, xPopup );
             uno::Reference< ui::XUIConfigurationPersistence > xPersistence( xCfgManager, uno::UNO_QUERY_THROW );
             xPersistence->store();
         }
@@ -437,7 +436,7 @@ TBCExtraInfo::Print( FILE* fp )
 #endif
 
 OUString const &
-TBCExtraInfo::getOnAction()
+TBCExtraInfo::getOnAction() const
 {
     return wstrOnAction.getString();
 }
@@ -764,7 +763,7 @@ bool TB::Read(SvStream &rS)
 
 }
 
-bool TB::IsEnabled()
+bool TB::IsEnabled() const
 {
     return ( bFlags & 0x01 ) != 0x01;
 }

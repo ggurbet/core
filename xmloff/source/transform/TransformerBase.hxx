@@ -25,8 +25,6 @@
 #include <vector>
 #include <memory>
 
-#include <com/sun/star/xml/sax/SAXParseException.hpp>
-#include <com/sun/star/xml/sax/SAXException.hpp>
 #include <com/sun/star/xml/sax/XAttributeList.hpp>
 #include <com/sun/star/xml/sax/XLocator.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -106,9 +104,9 @@ public:
     virtual void SAL_CALL initialize( const css::uno::Sequence< css::uno::Any >& aArguments ) override;
 
     // C++
-    const css::uno::Reference< css::xml::sax::XDocumentHandler > & GetDocHandler() { return m_xHandler; }
+    const css::uno::Reference< css::xml::sax::XDocumentHandler > & GetDocHandler() const { return m_xHandler; }
 
-    const css::uno::Reference< css::beans::XPropertySet > & GetPropertySet() { return m_xPropSet; }
+    const css::uno::Reference< css::beans::XPropertySet > & GetPropertySet() const { return m_xPropSet; }
 
 
     SvXMLNamespaceMap& GetNamespaceMap() { return *m_pNamespaceMap; }

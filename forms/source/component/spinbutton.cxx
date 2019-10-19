@@ -62,7 +62,7 @@ namespace frm
 
     OUString SAL_CALL OSpinButtonModel::getImplementationName()
     {
-        return OUString( "com.sun.star.comp.forms.OSpinButtonModel" );
+        return "com.sun.star.comp.forms.OSpinButtonModel";
     }
 
         // note that we're passing OControlModel as "base class". This is because
@@ -71,9 +71,7 @@ namespace frm
         // to benefit from the functionality for binding to spreadsheet cells
     Sequence< OUString > SAL_CALL OSpinButtonModel::getSupportedServiceNames()
     {
-        Sequence< OUString > aOwnNames( 2 );
-        aOwnNames[ 0 ] = FRM_SUN_COMPONENT_SPINBUTTON;
-        aOwnNames[ 1 ] = BINDABLE_INTEGER_VALUE_RANGE;
+        Sequence< OUString > aOwnNames { FRM_SUN_COMPONENT_SPINBUTTON, BINDABLE_INTEGER_VALUE_RANGE };
 
         return ::comphelper::combineSequences(
             getAggregateServiceNames(),
@@ -185,7 +183,7 @@ namespace frm
 
     OUString SAL_CALL OSpinButtonModel::getServiceName()
     {
-        return OUString(FRM_SUN_COMPONENT_SPINBUTTON);
+        return FRM_SUN_COMPONENT_SPINBUTTON;
     }
 
 

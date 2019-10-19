@@ -450,6 +450,19 @@ void SwTextBoxHelper::syncProperty(SwFrameFormat* pShape, sal_uInt16 nWID, sal_u
                         break;
                 }
                 break;
+            case RES_LR_SPACE:
+            {
+                switch (nMemberID)
+                {
+                    case MID_L_MARGIN:
+                        aPropertyName = UNO_NAME_LEFT_MARGIN;
+                        break;
+                    case MID_R_MARGIN:
+                        aPropertyName = UNO_NAME_RIGHT_MARGIN;
+                        break;
+                }
+                break;
+            }
             case RES_VERT_ORIENT:
                 switch (nMemberID)
                 {
@@ -550,6 +563,14 @@ void SwTextBoxHelper::syncProperty(SwFrameFormat* pShape, sal_uInt16 nWID, sal_u
             case RES_FRAMEDIR:
                 aPropertyName = UNO_NAME_WRITING_MODE;
                 break;
+            case RES_WRAP_INFLUENCE_ON_OBJPOS:
+                switch (nMemberID)
+                {
+                    case MID_ALLOW_OVERLAP:
+                        aPropertyName = UNO_NAME_ALLOW_OVERLAP;
+                        break;
+                }
+                break;
         }
 
         if (!aPropertyName.isEmpty())
@@ -640,14 +661,14 @@ void SwTextBoxHelper::syncFlyFrameAttr(SwFrameFormat& rShape, SfxItemSet const& 
         SfxItemSet aTextBoxSet(pFormat->GetDoc()->GetAttrPool(), aFrameFormatSetRange);
 
         SfxItemIter aIter(rSet);
-        sal_uInt16 nWhich = aIter.GetCurItem()->Which();
+        const SfxPoolItem* pItem = aIter.GetCurItem();
         do
         {
-            switch (nWhich)
+            switch (pItem->Which())
             {
                 case RES_VERT_ORIENT:
                 {
-                    auto& rOrient = static_cast<const SwFormatVertOrient&>(*aIter.GetCurItem());
+                    auto& rOrient = static_cast<const SwFormatVertOrient&>(*pItem);
                     SwFormatVertOrient aOrient(rOrient);
 
                     tools::Rectangle aRect = getTextRectangle(&rShape, /*bAbsolute=*/false);
@@ -667,7 +688,7 @@ void SwTextBoxHelper::syncFlyFrameAttr(SwFrameFormat& rShape, SfxItemSet const& 
                 break;
                 case RES_HORI_ORIENT:
                 {
-                    auto& rOrient = static_cast<const SwFormatHoriOrient&>(*aIter.GetCurItem());
+                    auto& rOrient = static_cast<const SwFormatHoriOrient&>(*pItem);
                     SwFormatHoriOrient aOrient(rOrient);
 
                     tools::Rectangle aRect = getTextRectangle(&rShape, /*bAbsolute=*/false);
@@ -703,14 +724,13 @@ void SwTextBoxHelper::syncFlyFrameAttr(SwFrameFormat& rShape, SfxItemSet const& 
                 }
                 break;
                 default:
-                    SAL_WARN("sw.core",
-                             "SwTextBoxHelper::syncFlyFrameAttr: unhandled which-id: " << nWhich);
+                    SAL_WARN("sw.core", "SwTextBoxHelper::syncFlyFrameAttr: unhandled which-id: "
+                                            << pItem->Which());
                     break;
             }
 
-            if (aIter.IsAtEnd())
-                break;
-        } while (0 != (nWhich = aIter.NextItem()->Which()));
+            pItem = aIter.NextItem();
+        } while (pItem && (0 != pItem->Which()));
 
         if (aTextBoxSet.Count())
             pFormat->GetDoc()->SetFlyFrameAttr(*pFormat, aTextBoxSet);

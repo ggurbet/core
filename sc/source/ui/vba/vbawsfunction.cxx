@@ -17,18 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/table/XCell.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
-#include <com/sun/star/table/XColumnRowRange.hpp>
-#include <com/sun/star/beans/XIntrospection.hpp>
 #include <com/sun/star/beans/XIntrospectionAccess.hpp>
 #include <com/sun/star/sheet/XFunctionAccess.hpp>
-#include <com/sun/star/sheet/XCellRangesQuery.hpp>
 #include <com/sun/star/sheet/XCellRangeAddressable.hpp>
-#include <com/sun/star/sheet/CellFlags.hpp>
-#include <com/sun/star/reflection/XIdlMethod.hpp>
-#include <com/sun/star/beans/MethodConcept.hpp>
-#include <cppuhelper/queryinterface.hxx>
+#include <ooo/vba/excel/XRange.hpp>
 
 #include "vbawsfunction.hxx"
 #include <compiler.hxx>
@@ -193,9 +186,9 @@ ScVbaWSFunction::invoke(const OUString& FunctionName, const uno::Sequence< uno::
         if( aRet.has< AnySeqSeq >() )
         {
             AnySeqSeq aAnySeqSeq = aRet.get< AnySeqSeq >();
-            for( sal_Int32 nRow = 0; nRow < aAnySeqSeq.getLength(); ++nRow )
-                for( sal_Int32 nCol = 0; nCol < aAnySeqSeq[ nRow ].getLength(); ++nCol )
-                    lclConvertDoubleToBoolean( aAnySeqSeq[ nRow ][ nCol ] );
+            for( auto& rAnySeq : aAnySeqSeq )
+                for( auto& rAny : rAnySeq )
+                    lclConvertDoubleToBoolean( rAny );
             aRet <<= aAnySeqSeq;
         }
         else
@@ -290,7 +283,7 @@ ScVbaWSFunction::getExactName( const OUString& aApproximateName )
 OUString
 ScVbaWSFunction::getServiceImplName()
 {
-    return OUString("ScVbaWSFunction");
+    return "ScVbaWSFunction";
 }
 
 uno::Sequence< OUString >

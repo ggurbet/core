@@ -98,6 +98,8 @@ ScDocument::ScDocument( ScDocumentMode eMode, SfxObjectShell* pDocShell ) :
         mpPrinter( nullptr ),
         mpVirtualDevice_100th_mm( nullptr ),
         pFormatExchangeList( nullptr ),
+        mnMaxCol(MAXCOL),
+        mnMaxRow(MAXROW),
         pFormulaTree( nullptr ),
         pEOFormulaTree( nullptr ),
         pFormulaTrack( nullptr ),
@@ -1091,7 +1093,7 @@ void ScDocument::SetChangeViewSettings(const ScChangeViewSettings& rNew)
     *pChangeViewSettings=rNew;
 }
 
-std::unique_ptr<ScFieldEditEngine> ScDocument::CreateFieldEditEngine(bool bUpdateMode)
+std::unique_ptr<ScFieldEditEngine> ScDocument::CreateFieldEditEngine()
 {
     std::unique_ptr<ScFieldEditEngine> pNewEditEngine;
     if (!pCacheFieldEditEngine)
@@ -1105,7 +1107,8 @@ std::unique_ptr<ScFieldEditEngine> ScDocument::CreateFieldEditEngine(bool bUpdat
         {
             // #i66209# previous use might not have restored update mode,
             // ensure same state as for a new EditEngine (UpdateMode = true)
-             pCacheFieldEditEngine->SetUpdateMode(bUpdateMode);
+            if ( !pCacheFieldEditEngine->GetUpdateMode() )
+                pCacheFieldEditEngine->SetUpdateMode(true);
         }
 
         pNewEditEngine = std::move(pCacheFieldEditEngine);

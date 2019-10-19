@@ -1532,7 +1532,7 @@ void CompareData::ShowDelete(
     SwNodeIndex aInsPos( *pLineNd, nOffset );
     SwNodeIndex aSavePos( aInsPos, -1 );
 
-    rData.rDoc.GetDocumentContentOperationsManager().CopyWithFlyInFly( aRg, 0, aInsPos );
+    rData.rDoc.GetDocumentContentOperationsManager().CopyWithFlyInFly(aRg, aInsPos);
     rDoc.getIDocumentState().SetModified();
     ++aSavePos;
 
@@ -1856,8 +1856,8 @@ long SwDoc::CompareDoc( const SwDoc& rDoc )
 
     for (auto& a : aComparisons)
     {
-        CompareData& rD0 = *a.first.get();
-        CompareData& rD1 = *a.second.get();
+        CompareData& rD0 = *a.first;
+        CompareData& rD1 = *a.second;
         rD1.CompareLines( rD0 );
         nRet |= rD1.ShowDiffs( rD0 );
     }
@@ -1869,7 +1869,7 @@ long SwDoc::CompareDoc( const SwDoc& rDoc )
 
         for (auto& a : aComparisons)
         {
-            CompareData& rD1 = *a.second.get();
+            CompareData& rD1 = *a.second;
             rD1.SetRedlinesToDoc( !bDocWasModified );
         }
         getIDocumentState().SetModified();
@@ -2451,8 +2451,8 @@ void LgstCommonSubseq::FindL( int *pL, int nStt1, int nEnd1,
         return;
     }
 
-    memset( pBuff1.get(), 0, sizeof( *pBuff1.get() ) * ( nLen2 + 1 ) );
-    memset( pBuff2.get(), 0, sizeof( *pBuff2.get() ) * ( nLen2 + 1 ) );
+    memset( pBuff1.get(), 0, sizeof( pBuff1[0] ) * ( nLen2 + 1 ) );
+    memset( pBuff2.get(), 0, sizeof( pBuff2[0] ) * ( nLen2 + 1 ) );
 
     // Find lcs
     for( int i = 1; i <= nLen1; i++ )

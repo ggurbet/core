@@ -12,7 +12,6 @@
 #include <vcl/font/FeatureParser.hxx>
 #include <vcl/virdev.hxx>
 #include <svtools/colorcfg.hxx>
-#include <svx/dialmgr.hxx>
 #include <unordered_set>
 
 using namespace css;
@@ -173,7 +172,7 @@ OUString FontFeaturesDialog::createFontNameWithFeatures()
     OUStringBuffer sNameSuffix;
     bool bFirst = true;
 
-    for (FontFeatureItem& rItem : m_aFeatureItems)
+    for (const FontFeatureItem& rItem : m_aFeatureItems)
     {
         if (rItem.m_xCheck->get_visible())
         {
@@ -207,7 +206,8 @@ OUString FontFeaturesDialog::createFontNameWithFeatures()
     }
     sResultFontName = vcl::font::trimFontNameFeatures(m_sFontName);
     if (!sNameSuffix.isEmpty())
-        sResultFontName += OUString(vcl::font::FeaturePrefix) + sNameSuffix.makeStringAndClear();
+        sResultFontName
+            += OUStringChar(vcl::font::FeaturePrefix) + sNameSuffix.makeStringAndClear();
     return sResultFontName;
 }
 

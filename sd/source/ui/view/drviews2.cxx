@@ -26,25 +26,26 @@
 
 #include <com/sun/star/drawing/XMasterPagesSupplier.hpp>
 #include <com/sun/star/drawing/XDrawPages.hpp>
+#include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
 #include <com/sun/star/ui/dialogs/XSLTFilterDialog.hpp>
 #include <com/sun/star/frame/XDispatchProvider.hpp>
 #include <com/sun/star/util/URLTransformer.hpp>
 #include <com/sun/star/util/XURLTransformer.hpp>
-#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/scanner/XScannerManager2.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
 
 #include <comphelper/processfactory.hxx>
+#include <comphelper/propertysequence.hxx>
 #include <comphelper/scopeguard.hxx>
 
 #include <editeng/editdata.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/flditem.hxx>
-#include <editeng/editeng.hxx>
 #include <editeng/section.hxx>
 #include <editeng/editobj.hxx>
 #include <editeng/CustomPropertyField.hxx>
+#include <editeng/urlfieldhelper.hxx>
 
 #include <sal/log.hxx>
 
@@ -57,16 +58,10 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/zoomitem.hxx>
 
-#include <svl/aeitem.hxx>
-
-#include <svx/SpellDialogChildWindow.hxx>
 #include <svx/compressgraphicdialog.hxx>
 #include <svx/ClassificationDialog.hxx>
 #include <svx/ClassificationCommon.hxx>
-#include <svx/ClassificationEditView.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/bmpmask.hxx>
-#include <svx/colrctrl.hxx>
 #include <svx/extedit.hxx>
 #include <svx/extrusionbar.hxx>
 #include <svx/f3dchild.hxx>
@@ -76,8 +71,6 @@
 #include <svx/hlnkitem.hxx>
 #include <svx/imapdlg.hxx>
 #include <svx/sdtagitm.hxx>
-#include <svx/sdtmfitm.hxx>
-#include <svx/svdoattr.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdoutl.hxx>
@@ -85,20 +78,17 @@
 #include <svx/svdundo.hxx>
 #include <svx/svxdlg.hxx>
 #include <svx/svxids.hrc>
-#include <svx/xfillit0.hxx>
-#include <svx/xflclit.hxx>
-#include <svx/xlineit0.hxx>
-#include <svx/xlnedwit.hxx>
-#include <svx/xlnstwit.hxx>
-#include <svx/xlnwtit.hxx>
 #include <svx/sdtfsitm.hxx>
+#include <svx/sdmetitm.hxx>
 
 #include <tools/diagnose_ex.h>
 
 #include <unotools/useroptions.hxx>
 
+#include <vcl/abstdlg.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/unohelp2.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/weld.hxx>
 
@@ -109,31 +99,26 @@
 #include <editeng/postitem.hxx>
 #include <editeng/udlnitem.hxx>
 #include <editeng/crossedoutitem.hxx>
-#include <editeng/contouritem.hxx>
 #include <editeng/shdditem.hxx>
 #include <editeng/numitem.hxx>
-#include <svx/xtable.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/SvxColorChildWindow.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/flstitem.hxx>
-#include <editeng/scripttypeitem.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/colritem.hxx>
-#include <editeng/brushitem.hxx>
 
+#include <svl/poolitem.hxx>
+#include <svl/style.hxx>
 #include <svl/whiter.hxx>
 
 #include <app.hrc>
 #include <strings.hrc>
 
-#include <framework/FrameworkHelper.hxx>
-
 #include <AnimationChildWindow.hxx>
 #include <DrawDocShell.hxx>
 #include <DrawViewShell.hxx>
-#include <GraphicViewShell.hxx>
 #include <LayerTabBar.hxx>
 #include <Outliner.hxx>
 #include <ViewShellHint.hxx>
@@ -174,17 +159,14 @@
 #include <fuvect.hxx>
 #include <futext.hxx>
 #include <helpids.h>
-#include <optsitem.hxx>
 #include <sdabstdlg.hxx>
 #include <sdattr.hxx>
-#include <sdgrffilter.hxx>
 #include <sdpage.hxx>
 #include <sdresid.hxx>
 #include <unokywds.hxx>
 #include <slideshow.hxx>
-#include <stlpool.hxx>
+#include <stlsheet.hxx>
 #include <undolayer.hxx>
-#include <unmodpg.hxx>
 #include <sfx2/sidebar/Sidebar.hxx>
 #include <sfx2/classificationhelper.hxx>
 #include <sdmod.hxx>
@@ -315,7 +297,7 @@ public:
         : ClassificationCommon(rDrawViewShell)
     {}
 
-    std::vector<svx::ClassificationResult> const & getResults()
+    std::vector<svx::ClassificationResult> const & getResults() const
     {
         return m_aResults;
     }
@@ -1150,14 +1132,18 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         {
             if (mpDrawView->IsTextEdit())
             {
-                Outliner* pOutl = mpDrawView->GetTextEditOutliner();
-                if (pOutl)
-                {
-                    pOutl->RemoveFields(checkSvxFieldData<SvxURLField>);
-                }
+                // First make sure the field is selected
+                OutlinerView* pOutView = mpDrawView->GetTextEditOutlinerView();
+                if (pOutView)
+                    pOutView->SelectFieldAtCursor();
+                URLFieldHelper::RemoveURLField(mpDrawView->GetTextEditOutliner(),
+                                               mpDrawView->GetTextEditOutlinerView());
             }
         }
+        Cancel();
+        rReq.Done ();
         break;
+
         case SID_SET_DEFAULT:
         {
             std::unique_ptr<SfxItemSet> pSet;
@@ -1729,6 +1715,19 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                     if( aContexts.hasElements() )
                     {
                         css::scanner::ScannerContext aContext( aContexts.getConstArray()[ 0 ] );
+
+                        Reference<lang::XInitialization> xInit(mxScannerManager, UNO_QUERY);
+                        if (xInit.is())
+                        {
+                            //  initialize dialog
+                            weld::Window* pWindow = rReq.GetFrameWeld();
+                            uno::Sequence<uno::Any> aSeq(comphelper::InitAnyPropertySequence(
+                            {
+                                {"ParentWindow", pWindow ? uno::Any(pWindow->GetXWindow()) : uno::Any(Reference<awt::XWindow>())}
+                            }));
+                            xInit->initialize( aSeq );
+                        }
+
                         mxScannerManager->configureScannerAndScan( aContext, mxScannerListener );
                     }
                 }
@@ -2099,6 +2098,11 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
 
         case SID_EDIT_HYPERLINK :
         {
+            // Ensure the field is selected first
+            OutlinerView* pOutView = mpDrawView->GetTextEditOutlinerView();
+            if (pOutView)
+                pOutView->SelectFieldAtCursor();
+
             GetViewFrame()->GetDispatcher()->Execute( SID_HYPERLINK_DIALOG );
 
             Cancel();
@@ -2111,38 +2115,53 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
             OutlinerView* pOutView = mpDrawView->GetTextEditOutlinerView();
             if ( pOutView )
             {
-                const SvxFieldItem* pFieldItem = pOutView->GetFieldAtSelection();
-                if ( pFieldItem )
+                const SvxFieldData* pField = pOutView->GetFieldAtCursor();
+                if( auto pURLField = dynamic_cast< const SvxURLField *>( pField ) )
                 {
-                    const SvxFieldData* pField = pFieldItem->GetField();
-                    if( auto pURLField = dynamic_cast< const SvxURLField *>( pField ) )
+                    SfxStringItem aUrl( SID_FILE_NAME, pURLField->GetURL() );
+                    SfxStringItem aTarget( SID_TARGETNAME, pURLField->GetTargetFrame() );
+
+                    OUString aReferName;
+                    SfxViewFrame* pFrame = GetViewFrame();
+                    SfxMedium* pMed = pFrame->GetObjectShell()->GetMedium();
+                    if (pMed)
+                        aReferName = pMed->GetName();
+
+                    SfxFrameItem aFrm( SID_DOCFRAME, pFrame );
+                    SfxStringItem aReferer( SID_REFERER, aReferName );
+
+                    SfxBoolItem aNewView( SID_OPEN_NEW_VIEW, false );
+                    SfxBoolItem aBrowsing( SID_BROWSE, true );
+
+                    SfxViewFrame* pViewFrm = SfxViewFrame::Current();
+                    if (pViewFrm)
                     {
-                        SfxStringItem aUrl( SID_FILE_NAME, pURLField->GetURL() );
-                        SfxStringItem aTarget( SID_TARGETNAME, pURLField->GetTargetFrame() );
-
-                        OUString aReferName;
-                        SfxViewFrame* pFrame = GetViewFrame();
-                        SfxMedium* pMed = pFrame->GetObjectShell()->GetMedium();
-                        if (pMed)
-                            aReferName = pMed->GetName();
-
-                        SfxFrameItem aFrm( SID_DOCFRAME, pFrame );
-                        SfxStringItem aReferer( SID_REFERER, aReferName );
-
-                        SfxBoolItem aNewView( SID_OPEN_NEW_VIEW, false );
-                        SfxBoolItem aBrowsing( SID_BROWSE, true );
-
-                        SfxViewFrame* pViewFrm = SfxViewFrame::Current();
-                        if (pViewFrm)
-                        {
-                            pViewFrm->GetDispatcher()->ExecuteList(SID_OPENDOC,
-                                SfxCallMode::ASYNCHRON | SfxCallMode::RECORD,
-                                { &aUrl, &aTarget, &aFrm, &aReferer,
-                                  &aNewView, &aBrowsing });
-                        }
+                        pViewFrm->GetDispatcher()->ExecuteList(SID_OPENDOC,
+                            SfxCallMode::ASYNCHRON | SfxCallMode::RECORD,
+                            { &aUrl, &aTarget, &aFrm, &aReferer,
+                                &aNewView, &aBrowsing });
                     }
                 }
             }
+            Cancel();
+            rReq.Done ();
+        }
+        break;
+
+        case SID_COPY_HYPERLINK_LOCATION:
+        {
+            OutlinerView* pOutView = mpDrawView->GetTextEditOutlinerView();
+            if ( pOutView )
+            {
+                const SvxFieldData* pField = pOutView->GetFieldAtCursor();
+                if (const SvxURLField* pURLField = dynamic_cast<const SvxURLField*>(pField))
+                {
+                    uno::Reference<datatransfer::clipboard::XClipboard> xClipboard
+                        = pOutView->GetWindow()->GetClipboard();
+                    vcl::unohelper::TextDataObject::CopyStringTo(pURLField->GetURL(), xClipboard);
+                }
+            }
+
             Cancel();
             rReq.Done ();
         }
@@ -2597,6 +2616,29 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         }
         break;
 
+        case SID_TEXT_COMBINE:  // BASIC
+        {
+            // End text edit to avoid conflicts
+            if(mpDrawView->IsTextEdit())
+                mpDrawView->SdrEndTextEdit();
+
+            if ( mpDrawView->IsPresObjSelected() )
+            {
+                std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(GetFrameWeld(),
+                                                              VclMessageType::Info, VclButtonsType::Ok,
+                                                              SdResId(STR_ACTION_NOTPOSSIBLE)));
+                xInfoBox->run();
+            }
+            else
+            {
+                WaitObject aWait( GetActiveWindow() );
+                mpDrawView->CombineMarkedTextObjects();
+            }
+            Cancel();
+            rReq.Done ();
+        }
+        break;
+
         case SID_COMBINE:  // BASIC
         {
             // End text edit to avoid conflicts
@@ -2857,6 +2899,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         break;
 
         case SID_MOREFRONT:  // BASIC
+        case SID_FRAME_UP:  // BASIC
         {
             mpDrawView->MovMarkedToTop();
             Cancel();
@@ -2865,6 +2908,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         break;
 
         case SID_MOREBACK:  // BASIC
+        case SID_FRAME_DOWN:  // BASIC
         {
             mpDrawView->MovMarkedToBtm();
             Cancel();
@@ -3152,6 +3196,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         break;
 
         case SID_SLIDE_TRANSITIONS_PANEL:
+        case SID_MASTER_SLIDES_PANEL:
         case SID_CUSTOM_ANIMATION_PANEL:
         case SID_GALLERY:
         {
@@ -3165,8 +3210,10 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 panelId = "GalleryPanel";
             else if (nSId == SID_SLIDE_TRANSITIONS_PANEL)
                 panelId = "SdSlideTransitionPanel";
+            else if (nSId == SID_MASTER_SLIDES_PANEL)
+                panelId = "SdAllMasterPagesPanel";
 
-            ::sfx2::sidebar::Sidebar::ShowPanel(
+            ::sfx2::sidebar::Sidebar::TogglePanel(
                 panelId,
                 GetViewFrame()->GetFrame().GetFrameInterface());
 
@@ -3236,7 +3283,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         {
 #ifdef ENABLE_SDREMOTE
              SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-             ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateRemoteDialog(GetActiveWindow()));
+             ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateRemoteDialog(GetFrameWeld()));
              pDlg->Execute();
 #endif
         }
@@ -3331,6 +3378,19 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 pWin ? pWin->GetFrameWeld() : nullptr,
                 GetDoc()));
 
+            pDlg->Execute();
+            Cancel();
+            rReq.Ignore ();
+        }
+        break;
+
+        case SID_INSERT_QRCODE:
+        case SID_EDIT_QRCODE:
+       {
+            VclAbstractDialogFactory* pFact = VclAbstractDialogFactory::Create();
+            const uno::Reference<frame::XModel> xModel = GetViewShellBase().GetController()->getModel();
+            ScopedVclPtr<AbstractQrCodeGenDialog> pDlg(pFact->CreateQrCodeGenDialog(
+                GetFrameWeld(), xModel, rReq.GetSlot() == SID_EDIT_QRCODE));
             pDlg->Execute();
             Cancel();
             rReq.Ignore ();

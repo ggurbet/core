@@ -1561,6 +1561,10 @@ bool SvStream::SetStreamSize(sal_uInt64 const nSize)
     sal_uInt16 nBuf = m_nBufSize;
     SetBufferSize( 0 );
     SetSize( nSize );
+    if (nSize < m_nBufFilePos)
+    {
+        m_nBufFilePos = nSize;
+    }
     SetBufferSize( nBuf );
 #ifdef DBG_UTIL
     DBG_ASSERT(Tell()==nFPos,"SetStreamSize failed");
@@ -1893,7 +1897,7 @@ void SvMemoryStream::SetSize(sal_uInt64 const nNewSize)
     ReAllocateMemory( nDiff );
 }
 
-//Create a OString of nLen bytes from rStream
+//Create an OString of nLen bytes from rStream
 OString read_uInt8s_ToOString(SvStream& rStrm, std::size_t nLen)
 {
     rtl_String *pStr = nullptr;
@@ -1924,7 +1928,7 @@ OString read_uInt8s_ToOString(SvStream& rStrm, std::size_t nLen)
     return pStr ? OString(pStr, SAL_NO_ACQUIRE) : OString();
 }
 
-//Create a OUString of nLen sal_Unicode code units from rStream
+//Create an OUString of nLen sal_Unicode code units from rStream
 OUString read_uInt16s_ToOUString(SvStream& rStrm, std::size_t nLen)
 {
     rtl_uString *pStr = nullptr;

@@ -21,10 +21,8 @@
 
 #include <unotools/ucbstreamhelper.hxx>
 #include <vcl/graphicfilter.hxx>
-#include <svl/itemprop.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
-#include <com/sun/star/beans/PropertyState.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/graphic/GraphicType.hpp>
@@ -194,7 +192,7 @@ void SAL_CALL GraphicDescriptor::release()
 
 OUString SAL_CALL GraphicDescriptor::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.graphic.GraphicDescriptor"  );
+    return "com.sun.star.comp.graphic.GraphicDescriptor";
 }
 
 sal_Bool SAL_CALL GraphicDescriptor::supportsService( const OUString& ServiceName )

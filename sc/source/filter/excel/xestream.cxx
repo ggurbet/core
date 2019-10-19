@@ -698,7 +698,7 @@ OString XclXmlUtils::ToOString( const Color& rColor )
     char buf[9];
     sprintf( buf, "%.2X%.2X%.2X%.2X", 0xFF-rColor.GetTransparency(), rColor.GetRed(), rColor.GetGreen(), rColor.GetBlue() );
     buf[8] = '\0';
-    return OString( buf );
+    return buf;
 }
 
 OStringBuffer& XclXmlUtils::ToOString( OStringBuffer& s, const ScAddress& rAddress )
@@ -811,33 +811,6 @@ OUString XclXmlUtils::ToOUString( const XclExpString& s )
 {
     OSL_ENSURE( !s.IsRich(), "XclXmlUtils::ToOString(XclExpString): rich text string found!" );
     return ToOUString( s.GetUnicodeBuffer() );
-}
-
-sax_fastparser::FSHelperPtr XclXmlUtils::WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, sal_Int32 nValue )
-{
-    pStream->startElement(nElement);
-    pStream->write( nValue );
-    pStream->endElement( nElement );
-
-    return pStream;
-}
-
-sax_fastparser::FSHelperPtr XclXmlUtils::WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, sal_Int64 nValue )
-{
-    pStream->startElement(nElement);
-    pStream->write( nValue );
-    pStream->endElement( nElement );
-
-    return pStream;
-}
-
-sax_fastparser::FSHelperPtr XclXmlUtils::WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, const char* sValue )
-{
-    pStream->startElement(nElement);
-    pStream->write( sValue );
-    pStream->endElement( nElement );
-
-    return pStream;
 }
 
 static void lcl_WriteValue( const sax_fastparser::FSHelperPtr& rStream, sal_Int32 nElement, const char* pValue )
@@ -985,7 +958,7 @@ const oox::drawingml::Theme* XclExpXmlStream::getCurrentTheme() const
     return nullptr;
 }
 
-const oox::drawingml::table::TableStyleListPtr XclExpXmlStream::getTableStyles()
+oox::drawingml::table::TableStyleListPtr XclExpXmlStream::getTableStyles()
 {
     return oox::drawingml::table::TableStyleListPtr();
 }
@@ -1128,7 +1101,7 @@ bool XclExpXmlStream::exportDocument()
 
 OUString XclExpXmlStream::getImplementationName()
 {
-    return OUString( "TODO" );
+    return "TODO";
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

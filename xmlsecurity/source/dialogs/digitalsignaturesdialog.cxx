@@ -59,6 +59,12 @@
 #include <vcl/svapp.hxx>
 #include <unotools/configitem.hxx>
 
+#ifdef _WIN32
+#include <o3tl/char16_t2wchar_t.hxx>
+#include <prewin.h>
+#include <Shlobj.h>
+#endif
+
 using namespace comphelper;
 using namespace css::security;
 using namespace css::uno;
@@ -77,7 +83,7 @@ namespace
     virtual void Notify( const css::uno::Sequence< OUString >& aPropertyNames ) override;
         SaveODFItem();
         //See group ODF in Common.xcs
-        bool isLessODF1_2()
+        bool isLessODF1_2() const
         {
             return m_nODF < 3;
         }
@@ -107,7 +113,7 @@ namespace
 
 DigitalSignaturesDialog::DigitalSignaturesDialog(
     weld::Window* pParent,
-    uno::Reference< uno::XComponentContext >& rxCtx, DocumentSignatureMode eMode,
+    const uno::Reference< uno::XComponentContext >& rxCtx, DocumentSignatureMode eMode,
     bool bReadOnly, const OUString& sODFVersion, bool bHasDocumentSignature)
     : GenericDialogController(pParent, "xmlsec/ui/digitalsignaturesdialog.ui", "DigitalSignaturesDialog")
     , maSignatureManager(rxCtx, eMode)
@@ -227,7 +233,7 @@ bool DigitalSignaturesDialog::canAddRemove()
     //'canAdd' and 'canRemove' case
     bool ret = true;
 
-    uno::Reference<container::XNameAccess> xNameAccess(maSignatureManager.getStore(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xNameAccess = maSignatureManager.getStore();
     if (xNameAccess.is() && xNameAccess->hasByName("[Content_Types].xml"))
         // It's always possible to append an OOXML signature.
         return ret;
@@ -347,9 +353,10 @@ IMPL_LINK_NOARG(DigitalSignaturesDialog, OKButtonHdl, weld::Button&, void)
     m_xDialog->response(RET_OK);
 }
 
-IMPL_LINK_NOARG(DigitalSignaturesDialog, SignatureSelectHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(DigitalSignaturesDialog, SignatureSelectHdl, weld::TreeView&, bool)
 {
     ImplShowSignaturesDetails();
+    return true;
 }
 
 IMPL_LINK_NOARG(DigitalSignaturesDialog, AdESCompliantCheckBoxHdl, weld::ToggleButton&, void)
@@ -448,19 +455,38 @@ IMPL_LINK_NOARG(DigitalSignaturesDialog, CertMgrButtonHdl, weld::Button&, void)
     // FIXME: call GpgME::dirInfo("bindir") somewhere in
     // SecurityEnvironmentGpg or whatnot
     // FIXME: perhaps poke GpgME for uiserver, and hope it returns something useful?
-    const OUString aGUIServers[] = { OUString("Gpg4win\\kleopatra.exe"), OUString("GNU\\GnuPG\\kleopatra.exe"),
-                                     OUString("GNU\\GnuPG\\launch-gpa.exe"), OUString("GNU\\GnuPG\\gpa.exe"),
-                                     OUString("GNU\\GnuPG\\bin\\kleopatra.exe"), OUString("GNU\\GnuPG\\bin\\launch-gpa.exe"),
-                                     OUString("GNU\\GnuPG\\bin\\gpa.exe") };
-    const char* const cPath = "C:\\Program Files (x86)";
+    static const OUStringLiteral aGUIServers[] = { "Gpg4win\\kleopatra.exe",
+                                                   "Gpg4win\\bin\\kleopatra.exe",
+                                                   "GNU\\GnuPG\\kleopatra.exe",
+                                                   "GNU\\GnuPG\\launch-gpa.exe",
+                                                   "GNU\\GnuPG\\gpa.exe",
+                                                   "GnuPG\\bin\\gpa.exe",
+                                                   "GNU\\GnuPG\\bin\\kleopatra.exe",
+                                                   "GNU\\GnuPG\\bin\\launch-gpa.exe",
+                                                   "GNU\\GnuPG\\bin\\gpa.exe",
+                                                 };
+    static const OUString aPath = [] {
+        OUString sRet;
+        PWSTR sPath = nullptr;
+        HRESULT hr
+            = SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DEFAULT, nullptr, &sPath);
+        if (SUCCEEDED(hr))
+        {
+            sRet = o3tl::toU(sPath);
+            CoTaskMemFree(sPath);
+        }
+        return sRet;
+    }();
+    if (aPath.isEmpty())
+        return;
 #else
-    const OUString aGUIServers[] = { OUString("kleopatra"), OUString("seahorse"),  OUString("gpa"), OUString("kgpg") };
+    static const OUStringLiteral aGUIServers[] = { "kleopatra", "seahorse", "gpa", "kgpg" };
     const char* cPath = getenv("PATH");
     if (!cPath)
         return;
+    OUString aPath(cPath, strlen(cPath), osl_getThreadTextEncoding());
 #endif
 
-    OUString aPath(cPath, strlen(cPath), osl_getThreadTextEncoding());
     OUString sFoundGUIServer, sExecutable;
 
     for ( auto const &rServer : aGUIServers )
@@ -596,7 +622,7 @@ void DigitalSignaturesDialog::ImplFillSignaturesBox()
                 sImage = BMP_SIG_NOT_VALIDATED;
             }
             //Check if the signature is a "old" document signature, that is, which was created
-            //by an version of OOo previous to 3.2
+            //by a version of OOo previous to 3.2
             // If there is no storage, then it's pointless to check storage
             // stream references.
             else if (maSignatureManager.getSignatureMode() == DocumentSignatureMode::Content

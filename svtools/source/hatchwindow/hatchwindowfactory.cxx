@@ -23,7 +23,6 @@
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <rtl/ref.hxx>
 #include <vcl/svapp.hxx>
 
 #include <hatchwindow.hxx>
@@ -64,7 +63,7 @@ uno::Reference< embed::XHatchWindow > SAL_CALL OHatchWindowFactory::createHatchW
 
 OUString SAL_CALL OHatchWindowFactory::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.embed.HatchWindowFactory" );
+    return "com.sun.star.comp.embed.HatchWindowFactory";
 }
 
 sal_Bool SAL_CALL OHatchWindowFactory::supportsService( const OUString& ServiceName )
@@ -74,10 +73,7 @@ sal_Bool SAL_CALL OHatchWindowFactory::supportsService( const OUString& ServiceN
 
 uno::Sequence< OUString > SAL_CALL OHatchWindowFactory::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(2);
-    aRet[0] = "com.sun.star.embed.HatchWindowFactory";
-    aRet[1] = "com.sun.star.comp.embed.HatchWindowFactory";
-    return aRet;
+    return { "com.sun.star.embed.HatchWindowFactory", "com.sun.star.comp.embed.HatchWindowFactory" };
 }
 
 }

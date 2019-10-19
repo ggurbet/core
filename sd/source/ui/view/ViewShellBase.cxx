@@ -28,8 +28,6 @@
 #include <unokywds.hxx>
 #include <svx/svxids.hrc>
 #include <DrawDocShell.hxx>
-#include <sfx2/app.hxx>
-#include <PaneChildWindows.hxx>
 #include <ViewShellManager.hxx>
 #include <DrawController.hxx>
 #include <FrameView.hxx>
@@ -41,20 +39,14 @@
 #include <sfx2/request.hxx>
 #include <sfx2/printer.hxx>
 #include <DrawViewShell.hxx>
-#include <GraphicViewShell.hxx>
-#include <OutlineViewShell.hxx>
-#include <SlideSorterViewShell.hxx>
-#include <PresentationViewShell.hxx>
 #include <FormShellManager.hxx>
 #include <ToolBarManager.hxx>
 #include <Window.hxx>
 #include <framework/ConfigurationController.hxx>
 #include <DocumentRenderer.hxx>
-#include <sdattr.hxx>
 #include <optsitem.hxx>
 #include <sdmod.hxx>
 
-#include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/document/XViewDataSupplier.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
@@ -155,7 +147,7 @@ public:
     void ShowViewTabBar (bool bShow);
 
     void SetUserWantsTabBar(bool inValue);
-    bool GetUserWantsTabBar() { return mbUserWantsTabBar; }
+    bool GetUserWantsTabBar() const { return mbUserWantsTabBar; }
 
     /** Common code of ViewShellBase::OuterResizePixel() and
         ViewShellBase::InnerResizePixel().
@@ -859,7 +851,7 @@ void ViewShellBase::ShowUIControls (bool bVisible)
         Rearrange();
 }
 
-OUString ViewShellBase::GetInitialViewShellType()
+OUString ViewShellBase::GetInitialViewShellType() const
 {
     OUString sRequestedView (FrameworkHelper::msImpressViewURL);
 
@@ -883,36 +875,33 @@ OUString ViewShellBase::GetInitialViewShellType()
 
         // Search the properties for the one that tells us what page kind to
         // use.
-        for (sal_Int32 n=0; n<aProperties.getLength(); n++)
+        auto pProperty = std::find_if(aProperties.begin(), aProperties.end(),
+            [](const beans::PropertyValue& rProperty) { return rProperty.Name == sUNO_View_PageKind; });
+        if (pProperty != aProperties.end())
         {
-            const beans::PropertyValue& rProperty (aProperties[n]);
-            if (rProperty.Name == sUNO_View_PageKind)
+            sal_Int16 nPageKind = 0;
+            pProperty->Value >>= nPageKind;
+            switch (static_cast<PageKind>(nPageKind))
             {
-                sal_Int16 nPageKind = 0;
-                rProperty.Value >>= nPageKind;
-                switch (static_cast<PageKind>(nPageKind))
-                {
-                    case PageKind::Standard:
-                        sRequestedView = FrameworkHelper::msImpressViewURL;
-                        break;
+                case PageKind::Standard:
+                    sRequestedView = FrameworkHelper::msImpressViewURL;
+                    break;
 
-                    case PageKind::Handout:
-                        sRequestedView = FrameworkHelper::msHandoutViewURL;
-                        break;
+                case PageKind::Handout:
+                    sRequestedView = FrameworkHelper::msHandoutViewURL;
+                    break;
 
-                    case PageKind::Notes:
-                        sRequestedView = FrameworkHelper::msNotesViewURL;
-                        break;
+                case PageKind::Notes:
+                    sRequestedView = FrameworkHelper::msNotesViewURL;
+                    break;
 
-                    default:
-                        // The page kind is invalid.  This is probably an
-                        // error by the caller.  We use the standard type to
-                        // keep things going.
-                        SAL_WARN( "sd.view", "ViewShellBase::GetInitialViewShellType: invalid page kind");
-                        sRequestedView = FrameworkHelper::msImpressViewURL;
-                        break;
-                }
-                break;
+                default:
+                    // The page kind is invalid.  This is probably an
+                    // error by the caller.  We use the standard type to
+                    // keep things going.
+                    SAL_WARN( "sd.view", "ViewShellBase::GetInitialViewShellType: invalid page kind");
+                    sRequestedView = FrameworkHelper::msImpressViewURL;
+                    break;
             }
         }
     }
@@ -921,7 +910,7 @@ OUString ViewShellBase::GetInitialViewShellType()
     return sRequestedView;
 }
 
-std::shared_ptr<tools::EventMultiplexer> const & ViewShellBase::GetEventMultiplexer()
+std::shared_ptr<tools::EventMultiplexer> const & ViewShellBase::GetEventMultiplexer() const
 {
     OSL_ASSERT(mpImpl != nullptr);
     OSL_ASSERT(mpImpl->mpEventMultiplexer != nullptr);

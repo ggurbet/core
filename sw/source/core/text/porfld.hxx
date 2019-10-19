@@ -199,7 +199,7 @@ public:
 class SwCombinedPortion : public SwFieldPortion
 {
     sal_uInt16 aPos[6];     // up to six X positions
-    o3tl::enumarray<SwFontScript,sal_uInt16> aWidth;   // one width for every scripttype
+    o3tl::enumarray<SwFontScript,sal_uInt16> aWidth = {}; // one width for every scripttype
     SwFontScript aScrType[6];  // scripttype of every character
     sal_uInt16 nUpPos;      // the Y position of the upper baseline
     sal_uInt16 nLowPos;     // the Y position of the lower baseline
@@ -230,6 +230,25 @@ public:
 
 private:
     sw::mark::IFieldmark* m_pFieldMark;
+};
+
+class SwFieldFormDatePortion : public SwFieldPortion
+{
+public:
+    explicit SwFieldFormDatePortion(sw::mark::IFieldmark *pFieldMark, bool bStart)
+        : SwFieldPortion("")
+        , m_pFieldMark(pFieldMark)
+        , m_bStart(bStart)
+    {
+    }
+    // Field cloner for SplitGlue
+    virtual SwFieldPortion *Clone( const OUString &rExpand) const override;
+
+    virtual void Paint( const SwTextPaintInfo &rInf ) const override;
+
+private:
+    sw::mark::IFieldmark* m_pFieldMark;
+    bool m_bStart;
 };
 
 #endif

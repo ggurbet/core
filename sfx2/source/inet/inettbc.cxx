@@ -166,7 +166,7 @@ IMPL_LINK_NOARG(SfxURLToolBoxControl_Impl, OpenHdl, SvtURLBox*, void)
     OpenURL( pURLBox->GetURL() );
 
     Reference< XDesktop2 > xDesktop = Desktop::create( m_xContext );
-    Reference< XFrame > xFrame( xDesktop->getActiveFrame(), UNO_QUERY );
+    Reference< XFrame > xFrame = xDesktop->getActiveFrame();
     if ( xFrame.is() )
     {
         VclPtr<vcl::Window> pWin = VCLUnoHelper::GetWindow( xFrame->getContainerWindow() );
@@ -205,17 +205,16 @@ void SfxURLToolBoxControl_Impl::StateChanged
         SvtURLBox* pURLBox = GetURLBox();
         pURLBox->Clear();
 
-        css::uno::Sequence< css::uno::Sequence< css::beans::PropertyValue > > lList = SvtHistoryOptions().GetList(ePICKLIST);
-        for (sal_Int32 i=0; i<lList.getLength(); ++i)
+        const css::uno::Sequence< css::uno::Sequence< css::beans::PropertyValue > > lList = SvtHistoryOptions().GetList(ePICKLIST);
+        for (const css::uno::Sequence< css::beans::PropertyValue >& lProps : lList)
         {
-            css::uno::Sequence< css::beans::PropertyValue > lProps = lList[i];
-            for (sal_Int32 p=0; p<lProps.getLength(); ++p)
+            for (const auto& rProp : lProps)
             {
-                if (lProps[p].Name != HISTORY_PROPERTYNAME_URL)
+                if (rProp.Name != HISTORY_PROPERTYNAME_URL)
                     continue;
 
                 OUString sURL;
-                if (!(lProps[p].Value>>=sURL) || sURL.isEmpty())
+                if (!(rProp.Value>>=sURL) || sURL.isEmpty())
                     continue;
 
                 INetURLObject aURL    ( sURL );

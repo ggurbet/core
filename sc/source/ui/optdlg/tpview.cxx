@@ -32,145 +32,111 @@
 #include <svx/colorbox.hxx>
 #include <svtools/unitconv.hxx>
 
-ScTpContentOptions::ScTpContentOptions( vcl::Window*         pParent,
-                             const SfxItemSet&  rArgSet ) :
-    SfxTabPage(pParent, "TpViewPage", "modules/scalc/ui/tpviewpage.ui", &rArgSet)
+ScTpContentOptions::ScTpContentOptions(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet&  rArgSet)
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/tpviewpage.ui", "TpViewPage", &rArgSet)
+    , m_xGridLB(m_xBuilder->weld_combo_box("grid"))
+    , m_xColorFT(m_xBuilder->weld_label("color_label"))
+    , m_xColorLB(new ColorListBox(m_xBuilder->weld_menu_button("color"), pController->getDialog()))
+    , m_xBreakCB(m_xBuilder->weld_check_button("break"))
+    , m_xGuideLineCB(m_xBuilder->weld_check_button("guideline"))
+    , m_xFormulaCB(m_xBuilder->weld_check_button("formula"))
+    , m_xNilCB(m_xBuilder->weld_check_button("nil"))
+    , m_xAnnotCB(m_xBuilder->weld_check_button("annot"))
+    , m_xValueCB(m_xBuilder->weld_check_button("value"))
+    , m_xAnchorCB(m_xBuilder->weld_check_button("anchor"))
+    , m_xClipMarkCB(m_xBuilder->weld_check_button("clipmark"))
+    , m_xRangeFindCB(m_xBuilder->weld_check_button("rangefind"))
+    , m_xObjGrfLB(m_xBuilder->weld_combo_box("objgrf"))
+    , m_xDiagramLB(m_xBuilder->weld_combo_box("diagram"))
+    , m_xDrawLB(m_xBuilder->weld_combo_box("draw"))
+    , m_xSyncZoomCB(m_xBuilder->weld_check_button("synczoom"))
+    , m_xRowColHeaderCB(m_xBuilder->weld_check_button("rowcolheader"))
+    , m_xHScrollCB(m_xBuilder->weld_check_button("hscroll"))
+    , m_xVScrollCB(m_xBuilder->weld_check_button("vscroll"))
+    , m_xTblRegCB(m_xBuilder->weld_check_button("tblreg"))
+    , m_xOutlineCB(m_xBuilder->weld_check_button("outline"))
+    , m_xSummaryCB(m_xBuilder->weld_check_button("cbSummary"))
 {
-    get(pGridLB,"grid");
-    get(pColorFT,"color_label");
-    get(pColorLB,"color");
-    get(pBreakCB,"break");
-    get(pGuideLineCB,"guideline");
-
-    get(pFormulaCB,"formula");
-    get(pNilCB,"nil");
-    get(pAnnotCB,"annot");
-    get(pValueCB,"value");
-    get(pAnchorCB,"anchor");
-    get(pClipMarkCB,"clipmark");
-    get(pRangeFindCB,"rangefind");
-
-    get(pObjGrfLB,"objgrf");
-    get(pDiagramLB,"diagram");
-    get(pDrawLB,"draw");
-
-    get(pSyncZoomCB,"synczoom");
-
-    get(pRowColHeaderCB,"rowcolheader");
-    get(pHScrollCB,"hscroll");
-    get(pVScrollCB,"vscroll");
-    get(pTblRegCB,"tblreg");
-    get(pOutlineCB,"outline");
-    get(pSummaryCB,"cbSummary");
-
     SetExchangeSupport();
-    Link<ListBox&,void> aSelObjHdl(LINK( this, ScTpContentOptions, SelLbObjHdl ) );
-    pObjGrfLB->  SetSelectHdl(aSelObjHdl);
-    pDiagramLB-> SetSelectHdl(aSelObjHdl);
-    pDrawLB->    SetSelectHdl(aSelObjHdl);
-    pGridLB->    SetSelectHdl( LINK( this, ScTpContentOptions, GridHdl ) );
+    Link<weld::ComboBox&,void> aSelObjHdl(LINK( this, ScTpContentOptions, SelLbObjHdl ) );
+    m_xObjGrfLB->connect_changed(aSelObjHdl);
+    m_xDiagramLB->connect_changed(aSelObjHdl);
+    m_xDrawLB->connect_changed(aSelObjHdl);
+    m_xGridLB->connect_changed( LINK( this, ScTpContentOptions, GridHdl ) );
 
-    Link<Button*, void> aCBHdl(LINK( this, ScTpContentOptions, CBHdl ) );
-    pFormulaCB  ->SetClickHdl(aCBHdl);
-    pNilCB      ->SetClickHdl(aCBHdl);
-    pAnnotCB    ->SetClickHdl(aCBHdl);
-    pValueCB    ->SetClickHdl(aCBHdl);
-    pAnchorCB   ->SetClickHdl(aCBHdl);
-    pClipMarkCB ->SetClickHdl(aCBHdl);
+    Link<weld::ToggleButton&, void> aCBHdl(LINK( this, ScTpContentOptions, CBHdl ) );
+    m_xFormulaCB->connect_toggled(aCBHdl);
+    m_xNilCB->connect_toggled(aCBHdl);
+    m_xAnnotCB->connect_toggled(aCBHdl);
+    m_xValueCB->connect_toggled(aCBHdl);
+    m_xAnchorCB->connect_toggled(aCBHdl);
+    m_xClipMarkCB->connect_toggled(aCBHdl);
 
-    pVScrollCB  ->SetClickHdl(aCBHdl);
-    pHScrollCB  ->SetClickHdl(aCBHdl);
-    pTblRegCB   ->SetClickHdl(aCBHdl);
-    pOutlineCB  ->SetClickHdl(aCBHdl);
-    pBreakCB    ->SetClickHdl(aCBHdl);
-    pGuideLineCB->SetClickHdl(aCBHdl);
-    pRowColHeaderCB->SetClickHdl(aCBHdl);
-    pSummaryCB->SetClickHdl(aCBHdl);
+    m_xVScrollCB->connect_toggled(aCBHdl);
+    m_xHScrollCB->connect_toggled(aCBHdl);
+    m_xTblRegCB->connect_toggled(aCBHdl);
+    m_xOutlineCB->connect_toggled(aCBHdl);
+    m_xBreakCB->connect_toggled(aCBHdl);
+    m_xGuideLineCB->connect_toggled(aCBHdl);
+    m_xRowColHeaderCB->connect_toggled(aCBHdl);
+    m_xSummaryCB->connect_toggled(aCBHdl);
 
-    pColorLB->SetSlotId(SID_ATTR_CHAR_COLOR);
-    pColorLB->SetAutoDisplayColor(SC_STD_GRIDCOLOR);
+    m_xColorLB->SetSlotId(SID_ATTR_CHAR_COLOR);
+    m_xColorLB->SetAutoDisplayColor(SC_STD_GRIDCOLOR);
 }
 
 ScTpContentOptions::~ScTpContentOptions()
 {
-    disposeOnce();
+    m_xColorLB.reset();
 }
 
-void ScTpContentOptions::dispose()
-{
-    pLocalOptions.reset();
-    pGridLB.clear();
-    pColorFT.clear();
-    pColorLB.clear();
-    pBreakCB.clear();
-    pGuideLineCB.clear();
-    pFormulaCB.clear();
-    pNilCB.clear();
-    pAnnotCB.clear();
-    pValueCB.clear();
-    pAnchorCB.clear();
-    pClipMarkCB.clear();
-    pRangeFindCB.clear();
-    pObjGrfLB.clear();
-    pDiagramLB.clear();
-    pDrawLB.clear();
-    pSyncZoomCB.clear();
-    pRowColHeaderCB.clear();
-    pHScrollCB.clear();
-    pVScrollCB.clear();
-    pTblRegCB.clear();
-    pOutlineCB.clear();
-    pSummaryCB.clear();
-    SfxTabPage::dispose();
-}
-
-VclPtr<SfxTabPage> ScTpContentOptions::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> ScTpContentOptions::Create( weld::Container* pPage, weld::DialogController* pController,
                                                const SfxItemSet*     rCoreSet )
 {
-    return VclPtr<ScTpContentOptions>::Create(pParent.pParent, *rCoreSet);
+    return std::make_unique<ScTpContentOptions>(pPage, pController, *rCoreSet);
 }
 
 bool    ScTpContentOptions::FillItemSet( SfxItemSet* rCoreSet )
 {
     bool bRet = false;
-    if( pFormulaCB ->IsValueChangedFromSaved() ||
-        pNilCB     ->IsValueChangedFromSaved() ||
-        pAnnotCB   ->IsValueChangedFromSaved() ||
-        pValueCB   ->IsValueChangedFromSaved() ||
-        pAnchorCB  ->IsValueChangedFromSaved() ||
-        pClipMarkCB->IsValueChangedFromSaved() ||
-        pObjGrfLB  ->IsValueChangedFromSaved() ||
-        pDiagramLB ->IsValueChangedFromSaved() ||
-        pDrawLB    ->IsValueChangedFromSaved() ||
-        pGridLB        ->IsValueChangedFromSaved() ||
-        pRowColHeaderCB->IsValueChangedFromSaved() ||
-        pHScrollCB     ->IsValueChangedFromSaved() ||
-        pVScrollCB     ->IsValueChangedFromSaved() ||
-        pTblRegCB      ->IsValueChangedFromSaved() ||
-        pOutlineCB     ->IsValueChangedFromSaved() ||
-        pColorLB       ->IsValueChangedFromSaved() ||
-        pBreakCB       ->IsValueChangedFromSaved() ||
-        pSummaryCB     ->IsValueChangedFromSaved() ||
-        pGuideLineCB   ->IsValueChangedFromSaved())
+    if( m_xFormulaCB->get_state_changed_from_saved() ||
+        m_xNilCB->get_state_changed_from_saved() ||
+        m_xAnnotCB->get_state_changed_from_saved() ||
+        m_xValueCB->get_state_changed_from_saved() ||
+        m_xAnchorCB->get_state_changed_from_saved() ||
+        m_xClipMarkCB->get_state_changed_from_saved() ||
+        m_xObjGrfLB->get_value_changed_from_saved() ||
+        m_xDiagramLB->get_value_changed_from_saved() ||
+        m_xDrawLB->get_value_changed_from_saved() ||
+        m_xGridLB->get_value_changed_from_saved() ||
+        m_xRowColHeaderCB->get_state_changed_from_saved() ||
+        m_xHScrollCB->get_state_changed_from_saved() ||
+        m_xVScrollCB->get_state_changed_from_saved() ||
+        m_xTblRegCB->get_state_changed_from_saved() ||
+        m_xOutlineCB->get_state_changed_from_saved() ||
+        m_xColorLB->IsValueChangedFromSaved() ||
+        m_xBreakCB->get_state_changed_from_saved() ||
+        m_xSummaryCB->get_state_changed_from_saved() ||
+        m_xGuideLineCB->get_state_changed_from_saved())
     {
-        NamedColor aNamedColor = pColorLB->GetSelectedEntry();
+        NamedColor aNamedColor = m_xColorLB->GetSelectedEntry();
         if (aNamedColor.first == COL_AUTO)
         {
             aNamedColor.first = SC_STD_GRIDCOLOR;
             aNamedColor.second.clear();
         }
-        pLocalOptions->SetGridColor(aNamedColor.first, aNamedColor.second);
-        rCoreSet->Put(ScTpViewItem(*pLocalOptions));
+        m_xLocalOptions->SetGridColor(aNamedColor.first, aNamedColor.second);
+        rCoreSet->Put(ScTpViewItem(*m_xLocalOptions));
         bRet = true;
     }
-    if(pRangeFindCB->IsValueChangedFromSaved())
+    if(m_xRangeFindCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_RANGEFINDER, pRangeFindCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_RANGEFINDER, m_xRangeFindCB->get_active()));
         bRet = true;
     }
-    if(pSyncZoomCB->IsValueChangedFromSaved())
+    if(m_xSyncZoomCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_OPT_SYNCZOOM, pSyncZoomCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_OPT_SYNCZOOM, m_xSyncZoomCB->get_active()));
         bRet = true;
     }
 
@@ -181,67 +147,67 @@ void    ScTpContentOptions::Reset( const SfxItemSet* rCoreSet )
 {
     const SfxPoolItem* pItem;
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SCVIEWOPTIONS, false , &pItem))
-        pLocalOptions.reset( new ScViewOptions(
+        m_xLocalOptions.reset( new ScViewOptions(
                             static_cast<const ScTpViewItem*>(pItem)->GetViewOptions() ) );
     else
-        pLocalOptions.reset( new ScViewOptions );
-    pFormulaCB ->Check(pLocalOptions->GetOption(VOPT_FORMULAS));
-    pNilCB     ->Check(pLocalOptions->GetOption(VOPT_NULLVALS));
-    pAnnotCB   ->Check(pLocalOptions->GetOption(VOPT_NOTES));
-    pValueCB   ->Check(pLocalOptions->GetOption(VOPT_SYNTAX));
-    pAnchorCB  ->Check(pLocalOptions->GetOption(VOPT_ANCHOR));
-    pClipMarkCB->Check(pLocalOptions->GetOption(VOPT_CLIPMARKS));
+        m_xLocalOptions.reset( new ScViewOptions );
+    m_xFormulaCB ->set_active(m_xLocalOptions->GetOption(VOPT_FORMULAS));
+    m_xNilCB     ->set_active(m_xLocalOptions->GetOption(VOPT_NULLVALS));
+    m_xAnnotCB   ->set_active(m_xLocalOptions->GetOption(VOPT_NOTES));
+    m_xValueCB   ->set_active(m_xLocalOptions->GetOption(VOPT_SYNTAX));
+    m_xAnchorCB  ->set_active(m_xLocalOptions->GetOption(VOPT_ANCHOR));
+    m_xClipMarkCB->set_active(m_xLocalOptions->GetOption(VOPT_CLIPMARKS));
 
-    pObjGrfLB  ->SelectEntryPos( static_cast<sal_uInt16>(pLocalOptions->GetObjMode(VOBJ_TYPE_OLE)) );
-    pDiagramLB ->SelectEntryPos( static_cast<sal_uInt16>(pLocalOptions->GetObjMode(VOBJ_TYPE_CHART)) );
-    pDrawLB    ->SelectEntryPos( static_cast<sal_uInt16>(pLocalOptions->GetObjMode(VOBJ_TYPE_DRAW)) );
+    m_xObjGrfLB  ->set_active( static_cast<sal_uInt16>(m_xLocalOptions->GetObjMode(VOBJ_TYPE_OLE)) );
+    m_xDiagramLB ->set_active( static_cast<sal_uInt16>(m_xLocalOptions->GetObjMode(VOBJ_TYPE_CHART)) );
+    m_xDrawLB    ->set_active( static_cast<sal_uInt16>(m_xLocalOptions->GetObjMode(VOBJ_TYPE_DRAW)) );
 
-    pRowColHeaderCB->Check( pLocalOptions->GetOption(VOPT_HEADER) );
-    pHScrollCB->Check( pLocalOptions->GetOption(VOPT_HSCROLL) );
-    pVScrollCB->Check( pLocalOptions->GetOption(VOPT_VSCROLL) );
-    pTblRegCB ->Check( pLocalOptions->GetOption(VOPT_TABCONTROLS) );
-    pOutlineCB->Check( pLocalOptions->GetOption(VOPT_OUTLINER) );
-    pSummaryCB->Check( pLocalOptions->GetOption(VOPT_SUMMARY) );
+    m_xRowColHeaderCB->set_active( m_xLocalOptions->GetOption(VOPT_HEADER) );
+    m_xHScrollCB->set_active( m_xLocalOptions->GetOption(VOPT_HSCROLL) );
+    m_xVScrollCB->set_active( m_xLocalOptions->GetOption(VOPT_VSCROLL) );
+    m_xTblRegCB ->set_active( m_xLocalOptions->GetOption(VOPT_TABCONTROLS) );
+    m_xOutlineCB->set_active( m_xLocalOptions->GetOption(VOPT_OUTLINER) );
+    m_xSummaryCB->set_active( m_xLocalOptions->GetOption(VOPT_SUMMARY) );
 
     InitGridOpt();
 
-    pBreakCB->Check( pLocalOptions->GetOption(VOPT_PAGEBREAKS) );
-    pGuideLineCB->Check( pLocalOptions->GetOption(VOPT_HELPLINES) );
+    m_xBreakCB->set_active( m_xLocalOptions->GetOption(VOPT_PAGEBREAKS) );
+    m_xGuideLineCB->set_active( m_xLocalOptions->GetOption(VOPT_HELPLINES) );
 
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_INPUT_RANGEFINDER, false, &pItem))
-        pRangeFindCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xRangeFindCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_OPT_SYNCZOOM, false, &pItem))
-        pSyncZoomCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xSyncZoomCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
 
-    pRangeFindCB->SaveValue();
-    pSyncZoomCB->SaveValue();
+    m_xRangeFindCB->save_state();
+    m_xSyncZoomCB->save_state();
 
-    pFormulaCB->SaveValue();
-    pNilCB->SaveValue();
-    pAnnotCB->SaveValue();
-    pValueCB->SaveValue();
-    pAnchorCB->SaveValue();
-    pClipMarkCB->SaveValue();
-    pObjGrfLB->SaveValue();
-    pDiagramLB->SaveValue();
-    pDrawLB->SaveValue();
-    pRowColHeaderCB->SaveValue();
-    pHScrollCB->SaveValue();
-    pVScrollCB->SaveValue();
-    pTblRegCB->SaveValue();
-    pOutlineCB->SaveValue();
-    pGridLB->SaveValue();
-    pColorLB->SaveValue();
-    pBreakCB->SaveValue();
-    pGuideLineCB->SaveValue();
-    pSummaryCB->SaveValue();
+    m_xFormulaCB->save_state();
+    m_xNilCB->save_state();
+    m_xAnnotCB->save_state();
+    m_xValueCB->save_state();
+    m_xAnchorCB->save_state();
+    m_xClipMarkCB->save_state();
+    m_xObjGrfLB->save_value();
+    m_xDiagramLB->save_value();
+    m_xDrawLB->save_value();
+    m_xRowColHeaderCB->save_state();
+    m_xHScrollCB->save_state();
+    m_xVScrollCB->save_state();
+    m_xTblRegCB->save_state();
+    m_xOutlineCB->save_state();
+    m_xGridLB->save_value();
+    m_xColorLB->SaveValue();
+    m_xBreakCB->save_state();
+    m_xGuideLineCB->save_state();
+    m_xSummaryCB->save_state();
 }
 
 void ScTpContentOptions::ActivatePage( const SfxItemSet& rSet)
 {
     const SfxPoolItem* pItem;
     if(SfxItemState::SET == rSet.GetItemState(SID_SCVIEWOPTIONS, false , &pItem))
-        *pLocalOptions = static_cast<const ScTpViewItem*>(pItem)->GetViewOptions();
+        *m_xLocalOptions = static_cast<const ScTpViewItem*>(pItem)->GetViewOptions();
 }
 
 DeactivateRC ScTpContentOptions::DeactivatePage( SfxItemSet* pSetP )
@@ -251,53 +217,53 @@ DeactivateRC ScTpContentOptions::DeactivatePage( SfxItemSet* pSetP )
     return DeactivateRC::LeavePage;
 }
 
-IMPL_LINK( ScTpContentOptions, SelLbObjHdl, ListBox&, rLb, void )
+IMPL_LINK( ScTpContentOptions, SelLbObjHdl, weld::ComboBox&, rLb, void )
 {
-    const sal_Int32 nSelPos = rLb.GetSelectedEntryPos();
+    const sal_Int32 nSelPos = rLb.get_active();
     ScVObjMode  eMode   = ScVObjMode(nSelPos);
     ScVObjType  eType   = VOBJ_TYPE_OLE;
 
-    if ( &rLb == pDiagramLB )
+    if ( &rLb == m_xDiagramLB.get() )
         eType = VOBJ_TYPE_CHART;
-    else if ( &rLb == pDrawLB )
+    else if ( &rLb == m_xDrawLB.get() )
         eType = VOBJ_TYPE_DRAW;
 
-    pLocalOptions->SetObjMode( eType, eMode );
+    m_xLocalOptions->SetObjMode( eType, eMode );
 }
 
-IMPL_LINK( ScTpContentOptions, CBHdl, Button*, pBtn, void )
+IMPL_LINK( ScTpContentOptions, CBHdl, weld::ToggleButton&, rBtn, void )
 {
     ScViewOption eOption = VOPT_FORMULAS;
-    bool         bChecked = static_cast<CheckBox*>(pBtn)->IsChecked();
+    bool         bChecked = rBtn.get_active();
 
-    if (      pFormulaCB   == pBtn )   eOption = VOPT_FORMULAS;
-    else if ( pNilCB       == pBtn )   eOption = VOPT_NULLVALS;
-    else if ( pAnnotCB     == pBtn )   eOption = VOPT_NOTES;
-    else if ( pValueCB     == pBtn )   eOption = VOPT_SYNTAX;
-    else if ( pAnchorCB    == pBtn )   eOption = VOPT_ANCHOR;
-    else if ( pClipMarkCB  == pBtn )   eOption = VOPT_CLIPMARKS;
-    else if ( pVScrollCB       == pBtn )   eOption = VOPT_VSCROLL;
-    else if ( pHScrollCB       == pBtn )   eOption = VOPT_HSCROLL;
-    else if ( pTblRegCB        == pBtn )   eOption = VOPT_TABCONTROLS;
-    else if ( pOutlineCB       == pBtn )   eOption = VOPT_OUTLINER;
-    else if ( pBreakCB         == pBtn )   eOption = VOPT_PAGEBREAKS;
-    else if ( pGuideLineCB     == pBtn )   eOption = VOPT_HELPLINES;
-    else if ( pRowColHeaderCB  == pBtn )   eOption = VOPT_HEADER;
-    else if ( pSummaryCB  == pBtn )   eOption = VOPT_SUMMARY;
+    if (m_xFormulaCB.get() == &rBtn )   eOption = VOPT_FORMULAS;
+    else if ( m_xNilCB.get() == &rBtn )   eOption = VOPT_NULLVALS;
+    else if ( m_xAnnotCB.get() == &rBtn )   eOption = VOPT_NOTES;
+    else if ( m_xValueCB.get() == &rBtn )   eOption = VOPT_SYNTAX;
+    else if ( m_xAnchorCB.get() == &rBtn )   eOption = VOPT_ANCHOR;
+    else if ( m_xClipMarkCB.get() == &rBtn )   eOption = VOPT_CLIPMARKS;
+    else if ( m_xVScrollCB.get()  == &rBtn )   eOption = VOPT_VSCROLL;
+    else if ( m_xHScrollCB.get() == &rBtn )   eOption = VOPT_HSCROLL;
+    else if ( m_xTblRegCB.get() == &rBtn )   eOption = VOPT_TABCONTROLS;
+    else if ( m_xOutlineCB.get() == &rBtn )   eOption = VOPT_OUTLINER;
+    else if ( m_xBreakCB.get() == &rBtn )   eOption = VOPT_PAGEBREAKS;
+    else if ( m_xGuideLineCB.get() == &rBtn )   eOption = VOPT_HELPLINES;
+    else if ( m_xRowColHeaderCB.get() == &rBtn )   eOption = VOPT_HEADER;
+    else if ( m_xSummaryCB.get()  == &rBtn )   eOption = VOPT_SUMMARY;
 
-    pLocalOptions->SetOption( eOption, bChecked );
+    m_xLocalOptions->SetOption( eOption, bChecked );
 }
 
 void ScTpContentOptions::InitGridOpt()
 {
-    bool    bGrid = pLocalOptions->GetOption( VOPT_GRID );
-    bool    bGridOnTop = pLocalOptions->GetOption( VOPT_GRID_ONTOP );
+    bool    bGrid = m_xLocalOptions->GetOption( VOPT_GRID );
+    bool    bGridOnTop = m_xLocalOptions->GetOption( VOPT_GRID_ONTOP );
     sal_Int32   nSelPos = 0;
 
     if ( bGrid || bGridOnTop )
     {
-        pColorFT->Enable();
-        pColorLB->Enable();
+        m_xColorFT->set_sensitive(true);
+        m_xColorLB->set_sensitive(true);
         if ( !bGridOnTop )
             nSelPos = 0;
         else
@@ -305,64 +271,58 @@ void ScTpContentOptions::InitGridOpt()
     }
     else
     {
-        pColorFT->Disable();
-        pColorLB->Disable();
+        m_xColorFT->set_sensitive(false);
+        m_xColorLB->set_sensitive(false);
         nSelPos = 2;
     }
 
-    pGridLB->SelectEntryPos (nSelPos);
+    m_xGridLB->set_active (nSelPos);
 
     //  select grid color entry
     OUString  aName;
-    Color     aCol    = pLocalOptions->GetGridColor( &aName );
+    Color     aCol    = m_xLocalOptions->GetGridColor( &aName );
 
     if (aName.trim().isEmpty() && aCol == SC_STD_GRIDCOLOR)
         aCol = COL_AUTO;
 
-    pColorLB->SelectEntry(std::make_pair(aCol, aName));
+    m_xColorLB->SelectEntry(std::make_pair(aCol, aName));
 }
 
-IMPL_LINK( ScTpContentOptions, GridHdl, ListBox&, rLb, void )
+IMPL_LINK( ScTpContentOptions, GridHdl, weld::ComboBox&, rLb, void )
 {
-    sal_Int32   nSelPos = rLb.GetSelectedEntryPos();
+    sal_Int32   nSelPos = rLb.get_active();
     bool    bGrid = ( nSelPos <= 1 );
     bool    bGridOnTop = ( nSelPos == 1 );
 
-    pColorFT->Enable(bGrid);
-    pColorLB->Enable(bGrid);
-    pLocalOptions->SetOption( VOPT_GRID, bGrid );
-    pLocalOptions->SetOption( VOPT_GRID_ONTOP, bGridOnTop );
+    m_xColorFT->set_sensitive(bGrid);
+    m_xColorLB->set_sensitive(bGrid);
+    m_xLocalOptions->SetOption( VOPT_GRID, bGrid );
+    m_xLocalOptions->SetOption( VOPT_GRID_ONTOP, bGridOnTop );
 }
 
-ScTpLayoutOptions::ScTpLayoutOptions(   vcl::Window* pParent,
-                                        const SfxItemSet&   rArgSet ) :
-    SfxTabPage( pParent, "ScGeneralPage",
-                "modules/scalc/ui/scgeneralpage.ui", &rArgSet),
-    pDoc(nullptr)
+ScTpLayoutOptions::ScTpLayoutOptions(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet)
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/scgeneralpage.ui", "ScGeneralPage", &rArgSet)
+    , pDoc(nullptr)
+    , m_xUnitLB(m_xBuilder->weld_combo_box("unitlb"))
+    , m_xTabMF(m_xBuilder->weld_metric_spin_button("tabmf", FieldUnit::CM))
+    , m_xAlwaysRB(m_xBuilder->weld_radio_button("alwaysrb"))
+    , m_xRequestRB(m_xBuilder->weld_radio_button("requestrb"))
+    , m_xNeverRB(m_xBuilder->weld_radio_button("neverrb"))
+    , m_xAlignCB(m_xBuilder->weld_check_button("aligncb"))
+    , m_xAlignLB(m_xBuilder->weld_combo_box("alignlb"))
+    , m_xEditModeCB(m_xBuilder->weld_check_button("editmodecb"))
+    , m_xFormatCB(m_xBuilder->weld_check_button("formatcb"))
+    , m_xExpRefCB(m_xBuilder->weld_check_button("exprefcb"))
+    , m_xSortRefUpdateCB(m_xBuilder->weld_check_button("sortrefupdatecb"))
+    , m_xMarkHdrCB(m_xBuilder->weld_check_button("markhdrcb"))
+    , m_xTextFmtCB(m_xBuilder->weld_check_button("textfmtcb"))
+    , m_xReplWarnCB(m_xBuilder->weld_check_button("replwarncb"))
+    , m_xLegacyCellSelectionCB(m_xBuilder->weld_check_button("legacy_cell_selection_cb"))
 {
-    get( m_pUnitLB, "unitlb");
-    get( m_pTabMF, "tabmf");
-
-    get( m_pAlwaysRB, "alwaysrb");
-    get( m_pRequestRB, "requestrb");
-    get( m_pNeverRB, "neverrb");
-
-    get( m_pAlignCB, "aligncb");
-    get( m_pAlignLB, "alignlb");
-    get( m_pEditModeCB, "editmodecb");
-    get( m_pFormatCB, "formatcb");
-    get( m_pExpRefCB, "exprefcb");
-    get( m_pSortRefUpdateCB, "sortrefupdatecb");
-    get( m_pMarkHdrCB, "markhdrcb");
-    get( m_pTextFmtCB, "textfmtcb");
-    get( m_pReplWarnCB, "replwarncb");
-    get( m_pLegacyCellSelectionCB, "legacy_cell_selection_cb");
-
     SetExchangeSupport();
 
-    m_pUnitLB->SetSelectHdl( LINK( this, ScTpLayoutOptions, MetricHdl ) );
-
-    m_pAlignCB->SetClickHdl(LINK(this, ScTpLayoutOptions, AlignHdl));
+    m_xUnitLB->connect_changed( LINK( this, ScTpLayoutOptions, MetricHdl ) );
+    m_xAlignCB->connect_toggled(LINK(this, ScTpLayoutOptions, AlignHdl));
 
     for (size_t i = 0; i < SAL_N_ELEMENTS(SCSTR_UNIT); ++i)
     {
@@ -378,8 +338,7 @@ ScTpLayoutOptions::ScTpLayoutOptions(   vcl::Window* pParent,
             case FieldUnit::INCH:
             {
                 // only use these metrics
-                sal_Int32 nPos = m_pUnitLB->InsertEntry( sMetric );
-                m_pUnitLB->SetEntryData( nPos, reinterpret_cast<void*>(static_cast<sal_IntPtr>(eFUnit)) );
+                m_xUnitLB->append(OUString::number(static_cast<sal_uInt32>(eFUnit)), sMetric);
             }
             break;
             default:
@@ -392,72 +351,50 @@ ScTpLayoutOptions::ScTpLayoutOptions(   vcl::Window* pParent,
 
 ScTpLayoutOptions::~ScTpLayoutOptions()
 {
-    disposeOnce();
 }
 
-void ScTpLayoutOptions::dispose()
-{
-    m_pUnitLB.clear();
-    m_pTabMF.clear();
-    m_pAlwaysRB.clear();
-    m_pRequestRB.clear();
-    m_pNeverRB.clear();
-    m_pAlignCB.clear();
-    m_pAlignLB.clear();
-    m_pEditModeCB.clear();
-    m_pFormatCB.clear();
-    m_pExpRefCB.clear();
-    m_pSortRefUpdateCB.clear();
-    m_pMarkHdrCB.clear();
-    m_pTextFmtCB.clear();
-    m_pReplWarnCB.clear();
-    m_pLegacyCellSelectionCB.clear();
-    SfxTabPage::dispose();
-}
-
-
-VclPtr<SfxTabPage> ScTpLayoutOptions::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> ScTpLayoutOptions::Create( weld::Container* pPage, weld::DialogController* pController,
                                               const SfxItemSet*   rCoreSet )
 {
-    VclPtrInstance<ScTpLayoutOptions> pNew( pParent.pParent, *rCoreSet );
-    ScDocShell* pDocSh = dynamic_cast< ScDocShell *>( SfxObjectShell::Current() );
+    auto xNew = std::make_unique<ScTpLayoutOptions>(pPage, pController, *rCoreSet);
 
-    if(pDocSh!=nullptr)
-        pNew->pDoc = &pDocSh->GetDocument();
-    return pNew;
+    ScDocShell* pDocSh = dynamic_cast< ScDocShell *>( SfxObjectShell::Current() );
+    if (pDocSh!=nullptr)
+        xNew->pDoc = &pDocSh->GetDocument();
+    return xNew;
 }
 
 bool    ScTpLayoutOptions::FillItemSet( SfxItemSet* rCoreSet )
 {
     bool bRet = true;
-    const sal_Int32 nMPos = m_pUnitLB->GetSelectedEntryPos();
-    if ( m_pUnitLB->IsValueChangedFromSaved() )
+    if (m_xUnitLB->get_value_changed_from_saved())
     {
-        sal_uInt16 nFieldUnit = static_cast<sal_uInt16>(reinterpret_cast<sal_IntPtr>(m_pUnitLB->GetEntryData( nMPos )));
+        const sal_Int32 nMPos = m_xUnitLB->get_active();
+        sal_uInt16 nFieldUnit = m_xUnitLB->get_id(nMPos).toUInt32();
         rCoreSet->Put( SfxUInt16Item( SID_ATTR_METRIC, nFieldUnit ) );
         bRet = true;
     }
 
-    if(m_pTabMF->IsValueChangedFromSaved())
+    if (m_xTabMF->get_value_changed_from_saved())
     {
         rCoreSet->Put(SfxUInt16Item(SID_ATTR_DEFTABSTOP,
-                    sal::static_int_cast<sal_uInt16>( m_pTabMF->Denormalize(m_pTabMF->GetValue(FieldUnit::TWIP)) )));
+                    sal::static_int_cast<sal_uInt16>( m_xTabMF->denormalize(m_xTabMF->get_value(FieldUnit::TWIP)) )));
         bRet = true;
     }
 
     ScLkUpdMode nSet=LM_ALWAYS;
 
-    if(m_pRequestRB->IsChecked())
+    if (m_xRequestRB->get_active())
     {
         nSet=LM_ON_DEMAND;
     }
-    else if(m_pNeverRB->IsChecked())
+    else if (m_xNeverRB->get_active())
     {
         nSet=LM_NEVER;
     }
 
-    if(m_pRequestRB->IsValueChangedFromSaved() ||
-       m_pNeverRB->IsValueChangedFromSaved() )
+    if (m_xRequestRB->get_state_changed_from_saved() ||
+        m_xNeverRB->get_state_changed_from_saved() )
     {
         if(pDoc)
             pDoc->SetLinkMode(nSet);
@@ -466,63 +403,63 @@ bool    ScTpLayoutOptions::FillItemSet( SfxItemSet* rCoreSet )
         SC_MOD()->SetAppOptions(aAppOptions);
         bRet = true;
     }
-    if(m_pAlignCB->IsValueChangedFromSaved())
+    if (m_xAlignCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_SELECTION, m_pAlignCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_SELECTION, m_xAlignCB->get_active()));
         bRet = true;
     }
 
-    if(m_pAlignLB->IsValueChangedFromSaved())
+    if (m_xAlignLB->get_value_changed_from_saved())
     {
-        rCoreSet->Put(SfxUInt16Item(SID_SC_INPUT_SELECTIONPOS, m_pAlignLB->GetSelectedEntryPos()));
+        rCoreSet->Put(SfxUInt16Item(SID_SC_INPUT_SELECTIONPOS, m_xAlignLB->get_active()));
         bRet = true;
     }
 
-    if(m_pEditModeCB->IsValueChangedFromSaved())
+    if (m_xEditModeCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_EDITMODE, m_pEditModeCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_EDITMODE, m_xEditModeCB->get_active()));
         bRet = true;
     }
 
-    if(m_pFormatCB->IsValueChangedFromSaved())
+    if (m_xFormatCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_FMT_EXPAND, m_pFormatCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_FMT_EXPAND, m_xFormatCB->get_active()));
         bRet = true;
     }
 
-    if(m_pExpRefCB->IsValueChangedFromSaved())
+    if (m_xExpRefCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_REF_EXPAND, m_pExpRefCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_REF_EXPAND, m_xExpRefCB->get_active()));
         bRet = true;
     }
 
-    if (m_pSortRefUpdateCB->IsValueChangedFromSaved())
+    if (m_xSortRefUpdateCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_OPT_SORT_REF_UPDATE, m_pSortRefUpdateCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_OPT_SORT_REF_UPDATE, m_xSortRefUpdateCB->get_active()));
         bRet = true;
     }
 
-    if(m_pMarkHdrCB->IsValueChangedFromSaved())
+    if (m_xMarkHdrCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_MARK_HEADER, m_pMarkHdrCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_MARK_HEADER, m_xMarkHdrCB->get_active()));
         bRet = true;
     }
 
-    if(m_pTextFmtCB->IsValueChangedFromSaved())
+    if (m_xTextFmtCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_TEXTWYSIWYG, m_pTextFmtCB->IsChecked()));
+        rCoreSet->Put(SfxBoolItem(SID_SC_INPUT_TEXTWYSIWYG, m_xTextFmtCB->get_active()));
         bRet = true;
     }
 
-    if( m_pReplWarnCB->IsValueChangedFromSaved() )
+    if (m_xReplWarnCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put( SfxBoolItem( SID_SC_INPUT_REPLCELLSWARN, m_pReplWarnCB->IsChecked() ) );
+        rCoreSet->Put( SfxBoolItem( SID_SC_INPUT_REPLCELLSWARN, m_xReplWarnCB->get_active() ) );
         bRet = true;
     }
 
-    if( m_pLegacyCellSelectionCB->IsValueChangedFromSaved() )
+    if (m_xLegacyCellSelectionCB->get_state_changed_from_saved())
     {
-        rCoreSet->Put( SfxBoolItem( SID_SC_INPUT_LEGACY_CELL_SELECTION, m_pLegacyCellSelectionCB->IsChecked() ) );
+        rCoreSet->Put( SfxBoolItem( SID_SC_INPUT_LEGACY_CELL_SELECTION, m_xLegacyCellSelectionCB->get_active() ) );
         bRet = true;
     }
 
@@ -531,31 +468,31 @@ bool    ScTpLayoutOptions::FillItemSet( SfxItemSet* rCoreSet )
 
 void    ScTpLayoutOptions::Reset( const SfxItemSet* rCoreSet )
 {
-    m_pUnitLB->SetNoSelection();
+    m_xUnitLB->set_active(-1);
     if ( rCoreSet->GetItemState( SID_ATTR_METRIC ) >= SfxItemState::DEFAULT )
     {
         const SfxUInt16Item& rItem = rCoreSet->Get( SID_ATTR_METRIC );
         FieldUnit eFieldUnit = static_cast<FieldUnit>(rItem.GetValue());
 
-        for ( sal_Int32 i = 0; i < m_pUnitLB->GetEntryCount(); ++i )
+        for (sal_Int32 i = 0, nEntryCount = m_xUnitLB->get_count(); i < nEntryCount; ++i)
         {
-            if ( static_cast<FieldUnit>(reinterpret_cast<sal_IntPtr>(m_pUnitLB->GetEntryData( i ))) == eFieldUnit )
+            if (m_xUnitLB->get_id(i).toUInt32() == static_cast<sal_uInt32>(eFieldUnit))
             {
-                m_pUnitLB->SelectEntryPos( i );
+                m_xUnitLB->set_active(i);
                 break;
             }
         }
-        ::SetFieldUnit(*m_pTabMF, eFieldUnit);
+        ::SetFieldUnit(*m_xTabMF, eFieldUnit);
     }
-    m_pUnitLB->SaveValue();
+    m_xUnitLB->save_value();
 
     const SfxPoolItem* pItem;
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_ATTR_DEFTABSTOP, false, &pItem))
-        m_pTabMF->SetValue(m_pTabMF->Normalize(static_cast<const SfxUInt16Item*>(pItem)->GetValue()), FieldUnit::TWIP);
-    m_pTabMF->SaveValue();
+        m_xTabMF->set_value(m_xTabMF->normalize(static_cast<const SfxUInt16Item*>(pItem)->GetValue()), FieldUnit::TWIP);
+    m_xTabMF->save_value();
 
-    m_pUnitLB       ->SaveValue();
-    m_pTabMF        ->SaveValue();
+    m_xUnitLB->save_value();
+    m_xTabMF->save_value();
 
     ScLkUpdMode nSet=LM_UNKNOWN;
 
@@ -572,65 +509,65 @@ void    ScTpLayoutOptions::Reset( const SfxItemSet* rCoreSet )
 
     switch(nSet)
     {
-        case LM_ALWAYS:     m_pAlwaysRB->  Check();    break;
-        case LM_NEVER:      m_pNeverRB->   Check();    break;
-        case LM_ON_DEMAND:  m_pRequestRB-> Check();    break;
+        case LM_ALWAYS:     m_xAlwaysRB->set_active(true);    break;
+        case LM_NEVER:      m_xNeverRB->set_active(true);    break;
+        case LM_ON_DEMAND:  m_xRequestRB->set_active(true);    break;
         default:
         {
             // added to avoid warnings
         }
     }
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_INPUT_SELECTION, false, &pItem))
-        m_pAlignCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xAlignCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
 
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_INPUT_SELECTIONPOS, false, &pItem))
-        m_pAlignLB->SelectEntryPos(static_cast<const SfxUInt16Item*>(pItem)->GetValue());
+        m_xAlignLB->set_active(static_cast<const SfxUInt16Item*>(pItem)->GetValue());
 
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_INPUT_EDITMODE, false, &pItem))
-        m_pEditModeCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xEditModeCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
 
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_INPUT_FMT_EXPAND, false, &pItem))
-        m_pFormatCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xFormatCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
 
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_INPUT_REF_EXPAND, false, &pItem))
-        m_pExpRefCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xExpRefCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
 
     if (rCoreSet->HasItem(SID_SC_OPT_SORT_REF_UPDATE, &pItem))
-        m_pSortRefUpdateCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xSortRefUpdateCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
 
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_INPUT_MARK_HEADER, false, &pItem))
-        m_pMarkHdrCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xMarkHdrCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
 
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SC_INPUT_TEXTWYSIWYG, false, &pItem))
-        m_pTextFmtCB->Check(static_cast<const SfxBoolItem*>(pItem)->GetValue());
+        m_xTextFmtCB->set_active(static_cast<const SfxBoolItem*>(pItem)->GetValue());
 
     if( SfxItemState::SET == rCoreSet->GetItemState( SID_SC_INPUT_REPLCELLSWARN, false, &pItem ) )
-        m_pReplWarnCB->Check( static_cast<const SfxBoolItem*>(pItem)->GetValue() );
+        m_xReplWarnCB->set_active( static_cast<const SfxBoolItem*>(pItem)->GetValue() );
 
     if( SfxItemState::SET == rCoreSet->GetItemState( SID_SC_INPUT_LEGACY_CELL_SELECTION, false, &pItem ) )
-        m_pLegacyCellSelectionCB->Check( static_cast<const SfxBoolItem*>(pItem)->GetValue() );
+        m_xLegacyCellSelectionCB->set_active( static_cast<const SfxBoolItem*>(pItem)->GetValue() );
 
-    m_pAlignCB    ->SaveValue();
-    m_pAlignLB    ->SaveValue();
-    m_pEditModeCB ->SaveValue();
-    m_pFormatCB   ->SaveValue();
+    m_xAlignCB->save_state();
+    m_xAlignLB->save_value();
+    m_xEditModeCB->save_state();
+    m_xFormatCB->save_state();
 
-    m_pExpRefCB   ->SaveValue();
-    m_pSortRefUpdateCB->SaveValue();
-    m_pMarkHdrCB  ->SaveValue();
-    m_pTextFmtCB  ->SaveValue();
-    m_pReplWarnCB ->SaveValue();
+    m_xExpRefCB->save_state();
+    m_xSortRefUpdateCB->save_state();
+    m_xMarkHdrCB->save_state();
+    m_xTextFmtCB->save_state();
+    m_xReplWarnCB->save_state();
 
-    m_pLegacyCellSelectionCB->SaveValue();
+    m_xLegacyCellSelectionCB->save_state();
 
-    AlignHdl(m_pAlignCB);
+    AlignHdl(*m_xAlignCB);
 
-    m_pAlwaysRB->SaveValue();
-    m_pNeverRB->SaveValue();
-    m_pRequestRB->SaveValue();
+    m_xAlwaysRB->save_state();
+    m_xNeverRB->save_state();
+    m_xRequestRB->save_state();
 }
 
-void    ScTpLayoutOptions::ActivatePage( const SfxItemSet& /* rCoreSet */ )
+void ScTpLayoutOptions::ActivatePage( const SfxItemSet& /* rCoreSet */ )
 {
 }
 
@@ -641,22 +578,22 @@ DeactivateRC ScTpLayoutOptions::DeactivatePage( SfxItemSet* pSetP )
     return DeactivateRC::LeavePage;
 }
 
-IMPL_LINK_NOARG(ScTpLayoutOptions, MetricHdl, ListBox&, void)
+IMPL_LINK_NOARG(ScTpLayoutOptions, MetricHdl, weld::ComboBox&, void)
 {
-    const sal_Int32 nMPos = m_pUnitLB->GetSelectedEntryPos();
-    if(nMPos != LISTBOX_ENTRY_NOTFOUND)
+    const sal_Int32 nMPos = m_xUnitLB->get_active();
+    if (nMPos != -1)
     {
-        FieldUnit eFieldUnit = static_cast<FieldUnit>(reinterpret_cast<sal_IntPtr>(m_pUnitLB->GetEntryData( nMPos )));
+        FieldUnit eFieldUnit = static_cast<FieldUnit>(m_xUnitLB->get_id(nMPos).toUInt32());
         sal_Int64 nVal =
-            m_pTabMF->Denormalize( m_pTabMF->GetValue( FieldUnit::TWIP ) );
-        ::SetFieldUnit( *m_pTabMF, eFieldUnit );
-        m_pTabMF->SetValue( m_pTabMF->Normalize( nVal ), FieldUnit::TWIP );
+            m_xTabMF->denormalize( m_xTabMF->get_value( FieldUnit::TWIP ) );
+        ::SetFieldUnit( *m_xTabMF, eFieldUnit );
+        m_xTabMF->set_value( m_xTabMF->normalize( nVal ), FieldUnit::TWIP );
     }
 }
 
-IMPL_LINK( ScTpLayoutOptions, AlignHdl, Button*, pBox, void )
+IMPL_LINK(ScTpLayoutOptions, AlignHdl, weld::ToggleButton&, rBox, void)
 {
-    m_pAlignLB->Enable(static_cast<CheckBox*>(pBox)->IsChecked());
+    m_xAlignLB->set_sensitive(rBox.get_active());
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

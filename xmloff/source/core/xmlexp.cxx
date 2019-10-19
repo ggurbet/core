@@ -22,7 +22,6 @@
 #include <sal/log.hxx>
 
 #include <stack>
-#include <string.h>
 
 #include <officecfg/Office/Common.hxx>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
@@ -51,13 +50,11 @@
 #include <xmloff/xmlnumfe.hxx>
 #include <xmloff/xmlmetae.hxx>
 #include <xmloff/XMLSettingsExportContext.hxx>
-#include <xmloff/families.hxx>
 #include <xmloff/XMLEventExport.hxx>
 #include <xmloff/ProgressBarHelper.hxx>
 #include <XMLStarBasicExportHandler.hxx>
 #include <XMLScriptExportHandler.hxx>
 #include <xmloff/SettingsExportHelper.hxx>
-#include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/document/XViewDataSupplier.hpp>
 #include <com/sun/star/frame/XModel.hpp>
@@ -83,12 +80,7 @@
 #include <comphelper/extract.hxx>
 #include <PropertySetMerger.hxx>
 
-#include <svl/urihelper.hxx>
-#include <xmloff/xformsexport.hxx>
-
 #include <unotools/docinfohelper.hxx>
-#include <unotools/bootstrap.hxx>
-#include <unotools/configmgr.hxx>
 #include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/document/XMLOasisBasicExporter.hpp>
@@ -627,7 +619,7 @@ void SAL_CALL SvXMLExport::setSourceDocument( const uno::Reference< lang::XCompo
                 Reference< XNameAccess > xNamespaceMap( xIfc, UNO_QUERY );
                 if( xNamespaceMap.is() )
                 {
-                    Sequence< OUString > aPrefixes( xNamespaceMap->getElementNames() );
+                    const Sequence< OUString > aPrefixes( xNamespaceMap->getElementNames() );
                     for( OUString const & prefix : aPrefixes )
                     {
                         OUString aURL;
@@ -818,7 +810,7 @@ sal_Bool SAL_CALL SvXMLExport::filter( const uno::Sequence< beans::PropertyValue
         OUString sMessage( ex.getValueTypeName() + ": \"" + e.Message + "\"");
         if (e.Context.is())
         {
-            const char* pContext = typeid(*e.Context.get()).name();
+            const char* pContext = typeid(*e.Context).name();
             sMessage += " (context: " + OUString::createFromAscii(pContext) + " )";
         }
         SetError( XMLERROR_FLAG_ERROR | XMLERROR_FLAG_SEVERE | XMLERROR_API,
@@ -859,10 +851,7 @@ sal_Bool SAL_CALL SvXMLExport::supportsService( const OUString& rServiceName )
 
 uno::Sequence< OUString > SAL_CALL SvXMLExport::getSupportedServiceNames(  )
 {
-    uno::Sequence<OUString> aSeq(2);
-    aSeq[0] = "com.sun.star.document.ExportFilter";
-    aSeq[1] = "com.sun.star.xml.XMLExportFilter";
-    return aSeq;
+    return { "com.sun.star.document.ExportFilter", "com.sun.star.xml.XMLExportFilter" };
 }
 
 OUString
@@ -1375,8 +1364,7 @@ ErrCode SvXMLExport::exportDoc( enum ::xmloff::token::XMLTokenEnum eClass )
             // office:mimetype = ... (only for stream containing the content)
             if( eClass != XML_TOKEN_INVALID )
             {
-                OUString aTmp( "application/vnd.oasis.opendocument." );
-                aTmp += GetXMLToken( eClass );
+                OUString aTmp = "application/vnd.oasis.opendocument." + GetXMLToken( eClass );
                 AddAttribute( XML_NAMESPACE_OFFICE, XML_MIMETYPE, aTmp );
             }
         }
@@ -1499,8 +1487,7 @@ void SvXMLExport::ExportScripts_()
         Reference < XDocumentHandler > xHdl( new XMLBasicExportFilter( mxHandler ) );
         Reference< document::XXMLBasicExporter > xExporter = document::XMLOasisBasicExporter::createWithHandler( m_xContext, xHdl );
 
-        Reference< XComponent > xComp( mxModel, UNO_QUERY );
-        xExporter->setSourceDocument( xComp );
+        xExporter->setSourceDocument( mxModel );
         Sequence< PropertyValue > aMediaDesc( 0 );
         xExporter->filter( aMediaDesc );
     }
@@ -1531,7 +1518,7 @@ void SvXMLExport::ExportStyles_( bool )
 
                 if( xGradient->hasElements() )
                 {
-                    uno::Sequence< OUString > aNamesSeq ( xGradient->getElementNames() );
+                    const uno::Sequence< OUString > aNamesSeq ( xGradient->getElementNames() );
                     for( const OUString& rStrName : aNamesSeq )
                     {
                         try
@@ -1561,7 +1548,7 @@ void SvXMLExport::ExportStyles_( bool )
 
                 if( xHatch->hasElements() )
                 {
-                    uno::Sequence< OUString > aNamesSeq ( xHatch->getElementNames() );
+                    const uno::Sequence< OUString > aNamesSeq ( xHatch->getElementNames() );
                     for( const OUString& rStrName : aNamesSeq )
                     {
                         try
@@ -1588,7 +1575,7 @@ void SvXMLExport::ExportStyles_( bool )
             {
                 if( xBitmap->hasElements() )
                 {
-                    uno::Sequence< OUString > aNamesSeq ( xBitmap->getElementNames() );
+                    const uno::Sequence< OUString > aNamesSeq ( xBitmap->getElementNames() );
                     for( const OUString& rStrName : aNamesSeq )
                     {
                         try
@@ -1618,7 +1605,7 @@ void SvXMLExport::ExportStyles_( bool )
 
                 if( xTransGradient->hasElements() )
                 {
-                    uno::Sequence< OUString > aNamesSeq ( xTransGradient->getElementNames() );
+                    const uno::Sequence< OUString > aNamesSeq ( xTransGradient->getElementNames() );
                     for( const OUString& rStrName : aNamesSeq )
                     {
                         try
@@ -1648,7 +1635,7 @@ void SvXMLExport::ExportStyles_( bool )
 
                 if( xMarker->hasElements() )
                 {
-                    uno::Sequence< OUString > aNamesSeq ( xMarker->getElementNames() );
+                    const uno::Sequence< OUString > aNamesSeq ( xMarker->getElementNames() );
                     for( const OUString& rStrName : aNamesSeq )
                     {
                         try
@@ -1678,7 +1665,7 @@ void SvXMLExport::ExportStyles_( bool )
 
                 if( xDashes->hasElements() )
                 {
-                    uno::Sequence< OUString > aNamesSeq ( xDashes->getElementNames() );
+                    const uno::Sequence< OUString > aNamesSeq ( xDashes->getElementNames() );
                     for( const OUString& rStrName : aNamesSeq )
                     {
                         try
@@ -1702,7 +1689,7 @@ void SvXMLExport::ExportStyles_( bool )
 
 XMLTextParagraphExport* SvXMLExport::CreateTextParagraphExport()
 {
-    return new XMLTextParagraphExport( *this, *(GetAutoStylePool().get()) );
+    return new XMLTextParagraphExport( *this, *GetAutoStylePool() );
 }
 
 XMLShapeExport* SvXMLExport::CreateShapeExport()
@@ -2066,7 +2053,7 @@ void SvXMLExport::ExportEmbeddedOwnObject( Reference< XComponent > const & rComp
 OUString SvXMLExport::GetRelativeReference(const OUString& rValue)
 {
     OUString sValue( rValue );
-    // #i65474# handling of fragment URLs ("#....") is undefined
+    // #i65474# handling of fragment URLs ("#...") is undefined
     // they are stored 'as is'
     uno::Reference< uri::XUriReference > xUriRef;
     if(!sValue.isEmpty() && sValue[0] != '#')
@@ -2266,7 +2253,7 @@ bool SvXMLExport::writeOutlineStyleAsNormalListStyle() const
     return mpImpl->mbOutlineStyleAsNormalListStyle;
 }
 
-uno::Reference< embed::XStorage > const & SvXMLExport::GetTargetStorage()
+uno::Reference< embed::XStorage > const & SvXMLExport::GetTargetStorage() const
 {
     return mpImpl->mxTargetStorage;
 }

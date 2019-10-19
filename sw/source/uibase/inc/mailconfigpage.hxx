@@ -20,9 +20,6 @@
 #define INCLUDED_SW_SOURCE_UIBASE_INC_MAILCONFIGPAGE_HXX
 
 #include <sfx2/tabdlg.hxx>
-#include <vcl/button.hxx>
-#include <vcl/field.hxx>
-#include <vcl/fixed.hxx>
 #include <sfx2/basedlgs.hxx>
 
 class SwTestAccountSettingsDialog;
@@ -51,11 +48,10 @@ class SwMailConfigPage : public SfxTabPage
     DECL_LINK(SecureHdl, weld::ToggleButton&, void);
 
 public:
-    SwMailConfigPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwMailConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwMailConfigPage() override;
-    virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController,
                                      const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;

@@ -19,10 +19,8 @@
 
 #include <toolkit/awt/vclxbitmap.hxx>
 #include <toolkit/helper/macros.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <tools/stream.hxx>
-#include <rtl/uuid.h>
 #include <vcl/dibtools.hxx>
 #include <vcl/BitmapTools.hxx>
 
@@ -30,33 +28,8 @@
 //  class VCLXBitmap
 
 
-// css::uno::XInterface
-css::uno::Any VCLXBitmap::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = ::cppu::queryInterface( rType,
-                                        static_cast< css::awt::XBitmap* >(this),
-                                        static_cast< css::awt::XDisplayBitmap* >(this),
-                                        static_cast< css::lang::XUnoTunnel* >(this),
-                                        static_cast< css::lang::XTypeProvider* >(this) );
-    return (aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType ));
-}
-
 // css::lang::XUnoTunnel
 UNO3_GETIMPLEMENTATION_IMPL( VCLXBitmap );
-
-IMPL_IMPLEMENTATION_ID( VCLXBitmap )
-
-// css::lang::XTypeProvider
-css::uno::Sequence< css::uno::Type > VCLXBitmap::getTypes()
-{
-    static const css::uno::Sequence< css::uno::Type > aTypeList {
-        cppu::UnoType<css::lang::XTypeProvider>::get(),
-        cppu::UnoType<css::awt::XBitmap>::get(),
-        cppu::UnoType<css::awt::XDisplayBitmap>::get()
-    };
-    return aTypeList;
-}
-
 
 // css::awt::XBitmap
 css::awt::Size VCLXBitmap::getSize()

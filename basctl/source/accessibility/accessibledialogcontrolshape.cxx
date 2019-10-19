@@ -73,7 +73,7 @@ AccessibleDialogControlShape::~AccessibleDialogControlShape()
 }
 
 
-bool AccessibleDialogControlShape::IsFocused()
+bool AccessibleDialogControlShape::IsFocused() const
 {
     bool bFocused = false;
     if ( m_pDialogWindow )
@@ -87,7 +87,7 @@ bool AccessibleDialogControlShape::IsFocused()
 }
 
 
-bool AccessibleDialogControlShape::IsSelected()
+bool AccessibleDialogControlShape::IsSelected() const
 {
     if ( m_pDialogWindow )
         return m_pDialogWindow->GetView().IsObjMarked(m_pDlgEdObj);
@@ -125,7 +125,7 @@ void AccessibleDialogControlShape::SetSelected( bool bSelected )
 }
 
 
-awt::Rectangle AccessibleDialogControlShape::GetBounds()
+awt::Rectangle AccessibleDialogControlShape::GetBounds() const
 {
     awt::Rectangle aBounds( 0, 0, 0, 0 );
     if ( m_pDlgEdObj )
@@ -169,7 +169,7 @@ vcl::Window* AccessibleDialogControlShape::GetWindow() const
     vcl::Window* pWindow = nullptr;
     if ( m_pDlgEdObj )
     {
-        Reference< awt::XControl > xControl( m_pDlgEdObj->GetControl(), UNO_QUERY );
+        Reference< awt::XControl > xControl = m_pDlgEdObj->GetControl();
         if ( xControl.is() )
             pWindow = VCLUnoHelper::GetWindow( xControl->getPeer() ).get();
     }
@@ -285,7 +285,7 @@ void AccessibleDialogControlShape::propertyChange( const beans::PropertyChangeEv
 // XServiceInfo
 OUString AccessibleDialogControlShape::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.basctl.AccessibleShape" );
+    return "com.sun.star.comp.basctl.AccessibleShape";
 }
 
 sal_Bool AccessibleDialogControlShape::supportsService( const OUString& rServiceName )

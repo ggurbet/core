@@ -29,14 +29,12 @@
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/uno/Exception.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
-#include <rtl/ustrbuf.hxx>
 #include <osl/diagnose.h>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/XMLEventExport.hxx>
 #include <tools/debug.hxx>
-#include <tools/fldunit.hxx>
 #include <comphelper/processfactory.hxx>
 
 
@@ -78,8 +76,7 @@ void XMLAutoTextEventExport::initialize(
         rArguments[1] >>= xSupplier;
         if (xSupplier.is())
         {
-            Reference<XNameAccess> xAccess(xSupplier->getEvents(), UNO_QUERY);
-            xEvents = xAccess;
+            xEvents = xSupplier->getEvents();
         }
         else
         {
@@ -154,7 +151,7 @@ ErrCode XMLAutoTextEventExport::exportDoc( enum XMLTokenEnum )
     return ERRCODE_NONE;
 }
 
-bool XMLAutoTextEventExport::hasEvents()
+bool XMLAutoTextEventExport::hasEvents() const
 {
     // TODO: provide full implementation that check for presence of events
     return xEvents.is();
@@ -213,7 +210,7 @@ Sequence< OUString > XMLAutoTextEventExport_getSupportedServiceNames()
 
 OUString XMLAutoTextEventExport_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Writer.XMLOasisAutotextEventsExporter"  );
+    return "com.sun.star.comp.Writer.XMLOasisAutotextEventsExporter";
 }
 
 Reference< XInterface > XMLAutoTextEventExport_createInstance(
@@ -233,7 +230,7 @@ Sequence< OUString > XMLAutoTextEventExportOOO_getSupportedServiceNames()
 
 OUString XMLAutoTextEventExportOOO_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Writer.XMLAutotextEventsExporter"  );
+    return "com.sun.star.comp.Writer.XMLAutotextEventsExporter";
 }
 
 Reference< XInterface > XMLAutoTextEventExportOOO_createInstance(

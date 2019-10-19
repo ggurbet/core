@@ -37,19 +37,13 @@ using namespace ::com::sun::star::sdbc;
 OUString SAL_CALL OColumn::getImplementationName(  )
 {
     if(isNew())
-        return OUString("com.sun.star.sdbcx.VColumnDescriptor");
-    return OUString("com.sun.star.sdbcx.VColumn");
+        return "com.sun.star.sdbcx.VColumnDescriptor";
+    return "com.sun.star.sdbcx.VColumn";
 }
 
 css::uno::Sequence< OUString > SAL_CALL OColumn::getSupportedServiceNames(  )
 {
-    css::uno::Sequence< OUString > aSupported(1);
-    if(isNew())
-        aSupported[0] = "com.sun.star.sdbcx.ColumnDescriptor";
-    else
-        aSupported[0] = "com.sun.star.sdbcx.Column";
-
-    return aSupported;
+    return { isNew()?OUString("com.sun.star.sdbcx.ColumnDescriptor"):OUString("com.sun.star.sdbcx.Column") };
 }
 
 sal_Bool SAL_CALL OColumn::supportsService( const OUString& _rServiceName )

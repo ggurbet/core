@@ -21,21 +21,19 @@
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
 
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/text/PositionLayoutDir.hpp>
-#include <com/sun/star/chart/XChartDocument.hpp>
 
 #include <utility>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
 
-#include <list>
-
 #include <xmloff/shapeimport.hxx>
+#include <xmloff/xmlstyle.hxx>
 #include <xmloff/xmltkmap.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/table/XMLTableImport.hxx>
 #include <xmloff/attrlist.hxx>
-#include "ximpstyl.hxx"
 #include "ximpshap.hxx"
 #include "sdpropls.hxx"
 #include <xmloff/xmlprmap.hxx>
@@ -803,7 +801,7 @@ void ShapeSortContext::popGroupAndSort()
     // this is the current index, all shapes before that
     // index are finished
     sal_Int32 nIndex = 0;
-    for (ZOrderHint& rHint : maZOrderList)
+    for (const ZOrderHint& rHint : maZOrderList)
     {
         for (vector<ZOrderHint>::iterator aIt = maUnsortedList.begin(); aIt != maUnsortedList.end() && nIndex < rHint.nShould; )
         {
@@ -932,7 +930,7 @@ void XMLShapeImportHelper::restoreConnections()
             aLine3Delta = xConnector->getPropertyValue(aStr3);
 
             // #86637# simply setting these values WILL force the connector to do
-            // an new layout promptly. So the line delta values have to be rescued
+            // a new layout promptly. So the line delta values have to be rescued
             // and restored around connector changes.
             uno::Reference< drawing::XShape > xShape(
                 mrImporter.getInterfaceToIdentifierMapper().getReference( rHint.aDestShapeId ), uno::UNO_QUERY );
@@ -1041,7 +1039,7 @@ bool XMLShapeImportHelper::IsHandleProgressBarEnabled() const
 }
 
 /** queries the capability of the current model to create presentation shapes */
-bool XMLShapeImportHelper::IsPresentationShapesSupported()
+bool XMLShapeImportHelper::IsPresentationShapesSupported() const
 {
     return mpImpl->mbIsPresentationShapesSupported;
 }

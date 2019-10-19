@@ -131,7 +131,7 @@ const SwNode * WW8TableNodeInfoInner::getNode() const
     return pResult;
 }
 
-TableBoxVectorPtr WW8TableNodeInfoInner::getTableBoxesOfRow()
+TableBoxVectorPtr WW8TableNodeInfoInner::getTableBoxesOfRow() const
 {
     TableBoxVectorPtr pResult(new TableBoxVector);
 
@@ -222,7 +222,7 @@ GridColsPtr WW8TableNodeInfoInner::getGridColsOfRow(AttributeOutputBase & rBase,
     return pResult;
 }
 
-WidthsPtr WW8TableNodeInfoInner::getColumnWidthsBasedOnAllRows()
+WidthsPtr WW8TableNodeInfoInner::getColumnWidthsBasedOnAllRows() const
 {
     WidthsPtr pWidths;
 
@@ -279,7 +279,7 @@ WidthsPtr WW8TableNodeInfoInner::getColumnWidthsBasedOnAllRows()
     return pWidths;
 }
 
-WidthsPtr WW8TableNodeInfoInner::getWidthsOfRow()
+WidthsPtr WW8TableNodeInfoInner::getWidthsOfRow() const
 {
     WidthsPtr pWidths;
 
@@ -312,7 +312,7 @@ WidthsPtr WW8TableNodeInfoInner::getWidthsOfRow()
     return pWidths;
 }
 
-RowSpansPtr WW8TableNodeInfoInner::getRowSpansOfRow()
+RowSpansPtr WW8TableNodeInfoInner::getRowSpansOfRow() const
 {
     RowSpansPtr pResult(new RowSpans);
 
@@ -529,7 +529,7 @@ sal_uInt32 WW8TableNodeInfo::getRow() const
     return getInnerForDepth(mnDepth)->getRow();
 }
 
-const WW8TableNodeInfoInner::Pointer_t WW8TableNodeInfo::getFirstInner() const
+WW8TableNodeInfoInner::Pointer_t WW8TableNodeInfo::getFirstInner() const
 {
     WW8TableNodeInfoInner::Pointer_t pResult;
 
@@ -539,7 +539,7 @@ const WW8TableNodeInfoInner::Pointer_t WW8TableNodeInfo::getFirstInner() const
     return pResult;
 }
 
-const WW8TableNodeInfoInner::Pointer_t WW8TableNodeInfo::getInnerForDepth(sal_uInt32 nDepth) const
+WW8TableNodeInfoInner::Pointer_t WW8TableNodeInfo::getInnerForDepth(sal_uInt32 nDepth) const
 {
     WW8TableNodeInfoInner::Pointer_t pResult;
 

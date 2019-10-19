@@ -19,16 +19,13 @@
 
 
 #include <string.h>
-#include <osl/diagnose.hxx>
 #include <osl/thread.h>
 #include <osl/file.hxx>
 #include <cppuhelper/weak.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <comphelper/processfactory.hxx>
 #include <rtl/uri.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <rtl/character.hxx>
-#include <libxslt/xslt.h>
 #include <libxslt/transform.h>
 #include <libxslt/xsltutils.h>
 #include <libxslt/security.h>
@@ -37,13 +34,7 @@
 #include <com/sun/star/io/XInputStream.hpp>
 #include <com/sun/star/io/XSeekable.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
-#include <com/sun/star/ucb/OpenCommandArgument2.hpp>
-#include <com/sun/star/ucb/OpenMode.hpp>
-#include <com/sun/star/ucb/XCommandProcessor.hpp>
-#include <com/sun/star/ucb/XCommandEnvironment.hpp>
-#include <com/sun/star/ucb/XContentIdentifier.hpp>
-#include <com/sun/star/ucb/XContentProvider.hpp>
-#include <com/sun/star/ucb/XContentIdentifierFactory.hpp>
+#include <com/sun/star/ucb/IllegalIdentifierException.hpp>
 #include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 
 #include "urlparameter.hxx"
@@ -387,12 +378,10 @@ bool URLParameter::scheme()
             m_aExpr.copy(sal::static_int_cast<sal_uInt32>(nLen) - 6);
         if( aLastStr == "DbPAR=" )
         {
-            OUString aNewExpr = m_aExpr.copy( 0, 20 );
-            OUString aSharedStr("shared");
-            aNewExpr += aSharedStr;
-            aNewExpr += m_aExpr.copy( 20 );
-            aNewExpr += aSharedStr;
-            m_aExpr = aNewExpr;
+            m_aExpr = m_aExpr.copy( 0, 20 ) +
+                "shared" +
+                m_aExpr.copy( 20 ) +
+                "shared";
         }
     }
 
@@ -565,7 +554,7 @@ helpMatch(const char * URI) {
 static void *
 fileOpen(const char *URI) {
     osl::File *pRet = new osl::File(OUString(URI, strlen(URI), RTL_TEXTENCODING_UTF8));
-    pRet->open(osl_File_OpenFlag_Read);
+    (void)pRet->open(osl_File_OpenFlag_Read);
     return pRet;
 }
 

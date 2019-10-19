@@ -17,19 +17,14 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <hintids.hxx>
-#include <com/sun/star/i18n/ScriptType.hpp>
 #include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <fmtcntnt.hxx>
 #include <txatbase.hxx>
-#include <frmatr.hxx>
-#include <viscrs.hxx>
 #include "callnk.hxx"
 #include <crsrsh.hxx>
 #include <doc.hxx>
 #include <frmfmt.hxx>
 #include <txtfrm.hxx>
-#include <tabfrm.hxx>
 #include <rowfrm.hxx>
 #include <fmtfsize.hxx>
 #include <ndtxt.hxx>
@@ -80,19 +75,8 @@ static void lcl_notifyRow(const SwContentNode* pNode, SwCursorShell const & rShe
         return;
 
     const SwTableLine* pLine = pRow->GetTabLine( );
-    // Avoid redrawing the complete row if there are no nested tables
-    for (SwFrame *pCell = pRow->GetLower(); pCell; pCell = pCell->GetNext())
-    {
-        for (SwFrame *pContent = pCell->GetLower(); pContent; pContent = pContent->GetNext())
-        {
-            if (pContent->GetType() == SwFrameType::Tab)
-            {
-                SwFormatFrameSize aSize = pLine->GetFrameFormat()->GetFrameSize();
-                pRow->ModifyNotification(nullptr, &aSize);
-                return;
-            }
-        }
-    }
+    SwFormatFrameSize aSize = pLine->GetFrameFormat()->GetFrameSize();
+    pRow->ModifyNotification(nullptr, &aSize);
 }
 
 SwCallLink::~SwCallLink() COVERITY_NOEXCEPT_FALSE
@@ -125,6 +109,8 @@ SwCallLink::~SwCallLink() COVERITY_NOEXCEPT_FALSE
     // attribute changes can be signaled over the link.
     pCNd->Add( &rShell );
 
+    const bool bCurrentHasSelection = (*pCurrentCursor->GetPoint() != *pCurrentCursor->GetMark());
+
     if( nNdTyp != nNdWhich || nNode != nCurrentNode )
     {
         // Every time a switch between nodes occurs, there is a chance that
@@ -133,7 +119,7 @@ SwCallLink::~SwCallLink() COVERITY_NOEXCEPT_FALSE
         // That can be done in one go by the handler.
         rShell.CallChgLnk();
     }
-    else if( !bHasSelection != (*pCurrentCursor->GetPoint() == *pCurrentCursor->GetMark()) )
+    else if (bHasSelection != bCurrentHasSelection)
     {
         // always call change link when selection changes
         rShell.CallChgLnk();

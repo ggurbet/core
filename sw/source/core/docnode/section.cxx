@@ -564,8 +564,8 @@ OUString const & SwSection::GetLinkFileName() const
                     sfx2::LinkManager::GetDisplayNames(
                         m_RefLink.get(), nullptr, &sTmp, &sRange, &sFilter ))
                 {
-                    sTmp += OUStringLiteral1(sfx2::cTokenSeparator) + sFilter
-                        + OUStringLiteral1(sfx2::cTokenSeparator) + sRange;
+                    sTmp += OUStringChar(sfx2::cTokenSeparator) + sFilter
+                        + OUStringChar(sfx2::cTokenSeparator) + sRange;
                 }
                 else if( GetFormat() && !GetFormat()->GetSectionNode() )
                 {
@@ -1352,7 +1352,7 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
 
                     SwTableNumFormatMerge aTNFM( *pSrcDoc, *pDoc );
 
-                    pSrcDoc->GetDocumentContentOperationsManager().CopyWithFlyInFly( *pCpyRg, 0, rInsPos, nullptr, bCreateFrame );
+                    pSrcDoc->GetDocumentContentOperationsManager().CopyWithFlyInFly(*pCpyRg, rInsPos, nullptr, bCreateFrame);
                     ++aSave;
 
                     if( !bCreateFrame )

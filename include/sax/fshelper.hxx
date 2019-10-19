@@ -30,7 +30,7 @@
 namespace com { namespace sun { namespace star { namespace io { class XOutputStream; } } } }
 namespace sax_fastparser { class FastAttributeList; }
 
-#define FSNS(namespc, element) ((namespc << 16) | element)
+constexpr sal_Int32 FSNS(sal_Int32 namespc, sal_Int32 element) { return (namespc << 16) | element; }
 
 namespace sax_fastparser {
 
@@ -131,6 +131,7 @@ public:
         { startElement( FSNS( namespaceTokenId, elementTokenId ), xAttrList ); }
 
     FastSerializerHelper* write(const char* value);
+    FastSerializerHelper* write(const OString& value);
     FastSerializerHelper* write(const OUString& value);
     FastSerializerHelper* write(sal_Int32 value);
     FastSerializerHelper* write(sal_Int64 value);

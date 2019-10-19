@@ -25,7 +25,6 @@
 #ifndef INCLUDED_UCB_SOURCE_UCP_FTP_FTPDIRP_HXX
 #define INCLUDED_UCB_SOURCE_UCP_FTP_FTPDIRP_HXX
 
-#include <osl/time.h>
 #include <rtl/ustring.hxx>
 #include <com/sun/star/util/DateTime.hpp>
 
@@ -53,7 +52,7 @@ namespace ftp {
         void SetSec(sal_uInt16 seconds) { Seconds = seconds; }
         void SetNanoSec(sal_uInt32 nanoSec) { NanoSeconds = nanoSec; }
 
-        sal_uInt16 GetMonth() { return Month; }
+        sal_uInt16 GetMonth() const { return Month; }
     };
 
 

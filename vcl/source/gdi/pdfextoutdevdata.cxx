@@ -22,7 +22,6 @@
 #include <vcl/graph.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/gfxlink.hxx>
-#include <vcl/dllapi.h>
 #include <vcl/metaact.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
@@ -31,7 +30,6 @@
 #include <osl/diagnose.h>
 #include <tools/stream.hxx>
 
-#include <set>
 #include <memory>
 #include <map>
 
@@ -395,7 +393,7 @@ bool PageSyncData::PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAc
             case PDFExtOutDevDataSync::BeginGroup :
             {
                 /* first determining if this BeginGroup is starting a GfxLink,
-                   by searching for a EndGroup or a EndGroupGfxLink */
+                   by searching for an EndGroup or an EndGroupGfxLink */
                 mbGroupIgnoreGDIMtfActions = false;
                 auto isStartingGfxLink = std::any_of(mActions.begin(), mActions.end(),
                     [](const PDFExtOutDevDataSync& rAction) { return rAction.eAct == PDFExtOutDevDataSync::EndGroupGfxLink; });
@@ -525,6 +523,7 @@ PDFExtOutDevData::PDFExtOutDevData( const OutputDevice& rOutDev ) :
     mbExportFormFields      ( false ),
     mbExportBookmarks       ( false ),
     mbExportHiddenSlides    ( false ),
+    mbSinglePageSheets      ( false ),
     mbExportNDests          ( false ),
     mnPage                  ( -1 ),
     mnCompressionQuality    ( 90 ),
@@ -591,6 +590,10 @@ void PDFExtOutDevData::SetIsExportBookmarks( const bool bExportBookmarks )
 void PDFExtOutDevData::SetIsExportHiddenSlides( const bool bExportHiddenSlides )
 {
     mbExportHiddenSlides = bExportHiddenSlides;
+}
+void PDFExtOutDevData::SetIsSinglePageSheets( const bool bSinglePageSheets )
+{
+    mbSinglePageSheets = bSinglePageSheets;
 }
 void PDFExtOutDevData::SetIsExportNamedDestinations( const bool bExportNDests )
 {
@@ -755,7 +758,7 @@ bool PDFExtOutDevData::SetCurrentStructureElement( sal_Int32 nStructId )
     }
     return bSuccess;
 }
-sal_Int32 PDFExtOutDevData::GetCurrentStructureElement()
+sal_Int32 PDFExtOutDevData::GetCurrentStructureElement() const
 {
     return mpGlobalSyncData->mCurrentStructElement;
 }

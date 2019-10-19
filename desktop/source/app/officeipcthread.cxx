@@ -21,6 +21,7 @@
 
 #include <config_dbus.h>
 #include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <app.hxx>
 #include "officeipcthread.hxx"
@@ -317,7 +318,7 @@ oslSignalAction SalMainPipeExchangeSignal_impl(SAL_UNUSED_PARAMETER void* /*pDat
 // XServiceInfo
 OUString SAL_CALL RequestHandlerController::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.RequestHandlerController" );
+    return "com.sun.star.comp.RequestHandlerController";
 }
 
 sal_Bool RequestHandlerController::supportsService(
@@ -328,8 +329,7 @@ sal_Bool RequestHandlerController::supportsService(
 
 Sequence< OUString > SAL_CALL RequestHandlerController::getSupportedServiceNames()
 {
-    Sequence< OUString > aSeq( 0 );
-    return aSeq;
+    return { };
 }
 
 // XEventListener
@@ -1283,8 +1283,7 @@ static void AddConversionsToDispatchList(
 
     if( !rParamOut.trim().isEmpty() )
     {
-        aParam += ";";
-        aParam += aOutDir;
+        aParam += ";" + aOutDir;
     }
     else
     {

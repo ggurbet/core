@@ -52,7 +52,18 @@ struct GtvCalcHeaderBarPrivate
     }
 };
 
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#endif
+#endif
 G_DEFINE_TYPE_WITH_PRIVATE(GtvCalcHeaderBar, gtv_calc_header_bar, GTK_TYPE_DRAWING_AREA);
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic pop
+#endif
+#endif
 
 static const int ROW_HEADER_WIDTH = 50;
 static const int COLUMN_HEADER_HEIGHT = 20;
@@ -177,7 +188,7 @@ void gtv_calc_header_bar_configure(GtvCalcHeaderBar* bar, const boost::property_
         boost::property_tree::ptree val = *values;
         try
         {
-            for (boost::property_tree::ptree::value_type& rValue : val)
+            for (const boost::property_tree::ptree::value_type& rValue : val)
             {
                 int nSize = std::round(lok_doc_view_twip_to_pixel(LOK_DOC_VIEW(window->lokdocview), std::atof(rValue.second.get<std::string>("size").c_str())));
                 if (nSize >= bar->m_nPositionPixel)

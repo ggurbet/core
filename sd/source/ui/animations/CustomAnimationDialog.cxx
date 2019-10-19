@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
+
 #include <com/sun/star/presentation/EffectNodeType.hpp>
 #include <com/sun/star/animations/Timing.hpp>
 #include <com/sun/star/animations/Event.hpp>
@@ -38,6 +40,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/field.hxx>
 #include <vcl/lstbox.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
@@ -138,7 +141,7 @@ void PresetPropertyBox::setValue( const Any& rValue, const OUString& rPresetId )
 
         mpControl->Enable( !aSubTypes.empty() );
 
-        for( auto& aSubType : aSubTypes )
+        for( const auto& aSubType : aSubTypes )
         {
             sal_Int32 nPos = mpControl->InsertEntry( rPresets.getUINameForProperty( aSubType ) );
             if( aSubType == aPropertyValue )
@@ -225,7 +228,7 @@ void SdPresetPropertyBox::setValue( const Any& rValue, const OUString& rPresetId
 
         mxControl->set_sensitive(!aSubTypes.empty());
 
-        for( auto& aSubType : aSubTypes )
+        for( const auto& aSubType : aSubTypes )
         {
             mxControl->append_text(rPresets.getUINameForProperty(aSubType));
             maPropertyValues.push_back(aSubType);
@@ -2213,8 +2216,8 @@ void CustomAnimationEffectTabPage::openSoundFileDialog()
                 std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(nullptr,
                                                            VclMessageType::Warning, VclButtonsType::NONE,
                                                            aStrWarning));
-                xWarn->add_button(Button::GetStandardText(StandardButtonType::Retry), RET_RETRY);
-                xWarn->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+                xWarn->add_button(GetStandardText(StandardButtonType::Retry), RET_RETRY);
+                xWarn->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
                 bQuitLoop = xWarn->run() != RET_RETRY;
 
                 bValidSoundFile=false;
@@ -2235,6 +2238,7 @@ void CustomAnimationEffectTabPage::openSoundFileDialog()
 
 void CustomAnimationEffectTabPage::onSoundPreview()
 {
+#if HAVE_FEATURE_AVMEDIA
     const auto nPos = mxLBSound->get_active();
 
     if( nPos >= 2 ) try
@@ -2247,6 +2251,7 @@ void CustomAnimationEffectTabPage::onSoundPreview()
     {
         OSL_FAIL("CustomAnimationEffectTabPage::onSoundPreview(), exception caught!" );
     }
+#endif
 }
 
 class CustomAnimationDurationTabPage
@@ -2801,7 +2806,7 @@ IMPL_LINK_NOARG(CustomAnimationTextAnimTabPage, implSelectHdl, weld::ComboBox&, 
 CustomAnimationDialog::CustomAnimationDialog(weld::Window* pParent, std::unique_ptr<STLPropertySet> pSet, const OString& rPage)
     : GenericDialogController(pParent, "modules/simpress/ui/customanimationproperties.ui", "CustomAnimationProperties")
     , mxSet(std::move(pSet))
-    , mxTabControl(m_xBuilder->weld_notebook("tabs"))
+    , mxTabControl(m_xBuilder->weld_notebook("tabcontrol"))
     , mxDurationTabPage(new CustomAnimationDurationTabPage(mxTabControl->get_page("timing"), mxSet.get()))
     , mxEffectTabPage(new CustomAnimationEffectTabPage(mxTabControl->get_page("effect"), m_xDialog.get(), mxSet.get()))
 {

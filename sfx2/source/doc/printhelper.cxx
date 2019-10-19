@@ -333,24 +333,18 @@ void SfxPrintHelper::impl_setPrinter(const uno::Sequence< beans::PropertyValue >
     // new Printer-Name available?
     nChangeFlags = SfxPrinterChangeFlags::NONE;
     sal_Int32 lDummy = 0;
-    for ( int n = 0; n < rPrinter.getLength(); ++n )
+    auto pProp = std::find_if(rPrinter.begin(), rPrinter.end(),
+        [](const beans::PropertyValue &rProp) { return rProp.Name == "Name"; });
+    if (pProp != rPrinter.end())
     {
-        // get Property-Value from printer description
-        const beans::PropertyValue &rProp = rPrinter.getConstArray()[n];
+        OUString aPrinterName;
+        if ( ! ( pProp->Value >>= aPrinterName ) )
+            throw css::lang::IllegalArgumentException();
 
-        // Name-Property?
-        if ( rProp.Name == "Name" )
+        if ( aPrinterName != pPrinter->GetName() )
         {
-            OUString aPrinterName;
-            if ( ! ( rProp.Value >>= aPrinterName ) )
-                throw css::lang::IllegalArgumentException();
-
-            if ( aPrinterName != pPrinter->GetName() )
-            {
-                pPrinter = VclPtr<SfxPrinter>::Create( pPrinter->GetOptions().Clone(), aPrinterName );
-                nChangeFlags = SfxPrinterChangeFlags::PRINTER;
-            }
-            break;
+            pPrinter = VclPtr<SfxPrinter>::Create( pPrinter->GetOptions().Clone(), aPrinterName );
+            nChangeFlags = SfxPrinterChangeFlags::PRINTER;
         }
     }
 
@@ -358,11 +352,9 @@ void SfxPrintHelper::impl_setPrinter(const uno::Sequence< beans::PropertyValue >
     view::PaperFormat nPaperFormat = view::PaperFormat_USER;
 
     // other properties
-    for ( int i = 0; i < rPrinter.getLength(); ++i )
+    for ( const beans::PropertyValue &rProp : rPrinter )
     {
         // get Property-Value from printer description
-        const beans::PropertyValue &rProp = rPrinter.getConstArray()[i];
-
         // PaperOrientation-Property?
         if ( rProp.Name == "PaperOrientation" )
         {
@@ -429,7 +421,7 @@ void SfxPrintHelper::impl_setPrinter(const uno::Sequence< beans::PropertyValue >
     }
 
     // The PaperSize may be set only when actually PAPER_USER
-    // applies, otherwise the driver could choose a invalid format.
+    // applies, otherwise the driver could choose an invalid format.
     if(nPaperFormat == view::PaperFormat_USER && aSetPaperSize.Width())
     {
         // Bug 56929 - MapMode of 100mm which recalculated when
@@ -611,11 +603,9 @@ void SAL_CALL SfxPrintHelper::print(const uno::Sequence< beans::PropertyValue >&
     sal_Int32 nProps = 0;
     bool  bWaitUntilEnd = false;
     sal_Int16 nDuplexMode = css::view::DuplexMode::UNKNOWN;
-    for ( int n = 0; n < rOptions.getLength(); ++n )
+    for ( const beans::PropertyValue &rProp : rOptions )
     {
         // get Property-Value from options
-        const beans::PropertyValue &rProp = rOptions.getConstArray()[n];
-
         // FileName-Property?
         if ( rProp.Name == "FileName" )
         {
@@ -636,7 +626,7 @@ void SAL_CALL SfxPrintHelper::print(const uno::Sequence< beans::PropertyValue >&
             {
                 // OK - it's not a valid URL. But may it's a simple
                 // system path directly. It will be supported for historical
-                // reasons. Otherwise we break to much external code ...
+                // reasons. Otherwise we break too much external code...
                 // We try to convert it to a file URL. If its possible
                 // we put the system path to the item set and let vcl work with it.
                 // No ucb or thread will be necessary then. In case it couldn't be
@@ -671,7 +661,7 @@ void SAL_CALL SfxPrintHelper::print(const uno::Sequence< beans::PropertyValue >&
             }
             else
             {
-                // it's an ucb target. So we must use a temp. file for vcl
+                // it's a ucb target. So we must use a temp. file for vcl
                 // and move it after printing by using the ucb.
                 // Create a temp file on the heap (because it must delete the
                 // real file on disk automatically if it die - bt we have to share it with
@@ -760,7 +750,7 @@ void SAL_CALL SfxPrintHelper::print(const uno::Sequence< beans::PropertyValue >&
 
     // Ok - may be execution before has finished (or started!) printing.
     // And may it was a printing to a file.
-    // Now we have to check if we can move the file (if necessary) via ucb to his right location.
+    // Now we have to check if we can move the file (if necessary) via UCB to its right location.
     // Cases:
     //  a) printing finished                        => move the file directly and forget the watcher thread
     //  b) printing is asynchron and runs currently => start watcher thread and exit this method
@@ -776,7 +766,7 @@ void SAL_CALL SfxPrintHelper::print(const uno::Sequence< beans::PropertyValue >&
     else
     {
         // Note: we create(d) some resource on the heap (thread and temp file).
-        // They will be deleted by the thread automatically if he finish his run() method.
+        // They will be deleted by the thread automatically if it finishes its run() method.
         ImplUCBPrintWatcher* pWatcher = new ImplUCBPrintWatcher( pPrinter, pUCBPrintTempFile, sUcbUrl );
         pWatcher->create();
     }

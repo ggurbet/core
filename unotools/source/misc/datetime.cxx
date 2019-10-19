@@ -114,7 +114,7 @@ namespace
                 return true;
             if (c < c0 || c > c9)
                 return false;
-            resInt += OUStringLiteral1(c);
+            resInt += OUStringChar(c);
         }
         if (nPos == i_str.getLength() || i_str[nPos] == sep)
             return true;
@@ -135,7 +135,7 @@ namespace
                     return false;
                 if (c < c0 || c > c9)
                     return false;
-                resFrac += OUStringLiteral1(c);
+                resFrac += OUStringChar(c);
             }
             OSL_ENSURE(nPos == i_str.getLength(), "impl_getISO8601TimeToken internal error; expected to be at end of string");
             return true;
@@ -185,7 +185,7 @@ namespace
                 const sal_Unicode c = i_str[io_index];
                 if ((c < c0 || c > c9) && c != sep)
                     return false;
-                o_strInt += OUStringLiteral1(c);
+                o_strInt += OUStringChar(c);
             }
             return true;
         }
@@ -255,13 +255,6 @@ void typeConvert(const css::util::DateTime& _rDateTime, DateTime& _rOut)
     Date aDate(_rDateTime.Day, _rDateTime.Month, _rDateTime.Year);
     tools::Time aTime(_rDateTime.Hours, _rDateTime.Minutes, _rDateTime.Seconds, _rDateTime.NanoSeconds);
     _rOut = DateTime(aDate, aTime);
-}
-
-void extractDate(const css::util::DateTime& _rDateTime, css::util::Date& _rOut)
-{
-    _rOut.Day = _rDateTime.Day;
-    _rOut.Month = _rDateTime.Month;
-    _rOut.Year = _rDateTime.Year;
 }
 
 OUString toISO8601(const css::util::DateTime& rDateTime)

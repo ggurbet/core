@@ -119,7 +119,6 @@ void ScMyTables::NewSheet(const OUString& sTableName, const OUString& sStyleName
         {
             // We need to set the current cell range here regardless of
             // presence of style name.
-            xCurrentCellRange.set(xCurrentSheet, uno::UNO_QUERY);
             SetTableStyle(sStyleName);
         }
     }
@@ -141,7 +140,6 @@ void ScMyTables::SetTableStyle(const OUString& sStyleName)
 
         if ( xCurrentSheet.is() )
         {
-            xCurrentCellRange.set(xCurrentSheet, uno::UNO_QUERY);
             uno::Reference <beans::XPropertySet> xProperties(xCurrentSheet, uno::UNO_QUERY);
             if ( xProperties.is() )
             {
@@ -234,7 +232,7 @@ uno::Reference< drawing::XShapes > const & ScMyTables::GetCurrentXShapes()
 {
     if( (maCurrentCellPos.Tab() != nCurrentXShapes) || !xShapes.is() )
     {
-        xShapes.set(GetCurrentXDrawPage(), uno::UNO_QUERY);
+        xShapes = GetCurrentXDrawPage();
         rImport.GetShapeImport()->startPage(xShapes);
         rImport.GetShapeImport()->pushGroupForSorting ( xShapes );
         nCurrentXShapes = sal::static_int_cast<sal_Int16>(maCurrentCellPos.Tab());
@@ -242,12 +240,12 @@ uno::Reference< drawing::XShapes > const & ScMyTables::GetCurrentXShapes()
     return xShapes;
 }
 
-bool ScMyTables::HasDrawPage()
+bool ScMyTables::HasDrawPage() const
 {
     return (maCurrentCellPos.Tab() == nCurrentDrawPage) && xDrawPage.is();
 }
 
-bool ScMyTables::HasXShapes()
+bool ScMyTables::HasXShapes() const
 {
     return (maCurrentCellPos.Tab() == nCurrentXShapes) && xShapes.is();
 }

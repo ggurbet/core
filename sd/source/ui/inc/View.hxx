@@ -92,8 +92,6 @@ public:
     virtual sal_Int8 AcceptDrop (
         const AcceptDropEvent& rEvt,
         DropTargetHelper& rTargetHelper,
-        ::sd::Window* pTargetWindow,
-        sal_uInt16 nPage,
         SdrLayerID nLayer);
     virtual sal_Int8 ExecuteDrop (
         const ExecuteDropEvent& rEvt,
@@ -180,7 +178,6 @@ public:
     virtual bool HasMarkablePoints() const override;
     virtual sal_Int32 GetMarkablePointCount() const override;
     virtual bool HasMarkedPoints() const override;
-    virtual bool IsPointMarkable(const SdrHdl& rHdl) const override;
     virtual bool MarkPoint(SdrHdl& rHdl, bool bUnmark=false) override;
     virtual void CheckPossibilities() override;
     virtual bool MarkPoints(const ::tools::Rectangle* pRect, bool bUnmark) override;
@@ -218,7 +215,7 @@ public:
     SdPage* GetPage();
     SdrObject* GetSelectedSingleObject(SdPage const * pPage);
     void SetAuthor(const OUString& rAuthor) { m_sAuthor = rAuthor; }
-    const OUString& GetAuthor() { return m_sAuthor; }
+    const OUString& GetAuthor() const { return m_sAuthor; }
 
 protected:
     DECL_LINK( OnParagraphInsertedHdl, ::Outliner::ParagraphHdlParam, void );

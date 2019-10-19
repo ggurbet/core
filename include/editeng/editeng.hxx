@@ -129,10 +129,6 @@ namespace o3tl
 {
     template<> struct typed_flags<GetAttribsFlags> : is_typed_flags<GetAttribsFlags, 0x07> {};
 }
-template<class T> bool checkSvxFieldData(const SvxFieldData* pData)
-{
-    return dynamic_cast<const T*>(pData) != nullptr;
-}
 
 enum class SetAttribsMode {
     NONE, WholeWord, Edge
@@ -209,7 +205,7 @@ public:
     OutputDevice*   GetRefDevice() const;
 
     void            SetRefMapMode( const MapMode& rMapMode );
-    MapMode const & GetRefMapMode();
+    MapMode const & GetRefMapMode() const;
 
     void            SetUpdateMode( bool bUpdate );
     bool            GetUpdateMode() const;
@@ -303,7 +299,7 @@ public:
     void            SetText( const EditTextObject& rTextObject );
 
     void            RemoveParagraph(sal_Int32 nPara);
-    void            InsertParagraph(sal_Int32 nPara, const EditTextObject& rTxtObj);
+    void            InsertParagraph(sal_Int32 nPara, const EditTextObject& rTxtObj, const bool bAppend = false);
     void            InsertParagraph(sal_Int32 nPara, const OUString& rText);
 
     void            SetText(sal_Int32 nPara, const OUString& rText);
@@ -338,10 +334,10 @@ public:
     void            UndoActionStart( sal_uInt16 nId );
     void            UndoActionStart(sal_uInt16 nId, const ESelection& rSel);
     void            UndoActionEnd();
-    bool            IsInUndo();
+    bool            IsInUndo() const;
 
     void            EnableUndo( bool bEnable );
-    bool            IsUndoEnabled();
+    bool            IsUndoEnabled() const;
 
     /** returns the value last used for bTryMerge while calling ImpEditEngine::InsertUndo
         This is currently used in a bad but needed hack to get undo actions merged in the

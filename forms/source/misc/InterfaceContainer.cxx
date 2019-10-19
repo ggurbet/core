@@ -431,7 +431,7 @@ void SAL_CALL OInterfaceContainer::readEvents(const Reference<XObjectInputStream
         sal_Int32 i=0;
         for (auto const& item : m_aItems)
         {
-            Reference< XInterface > xAsIFace( item, UNO_QUERY );    // important to normalize this ....
+            Reference< XInterface > xAsIFace( item, UNO_QUERY );    // important to normalize this...
             Reference< XPropertySet > xAsSet( xAsIFace, UNO_QUERY );
             m_xEventAttacher->attach( i++, xAsIFace, makeAny( xAsSet ) );
         }
@@ -1087,8 +1087,7 @@ void SAL_CALL OInterfaceContainer::insertByName(const OUString& _rName, const An
     }
     catch( const Exception& )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("forms.misc", "OInterfaceContainer::insertByName: caught an exception! " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION("forms.misc", "OInterfaceContainer::insertByName" );
     }
     implInsert( m_aItems.size(), xElementProps, true, aElementMetaData.get(), true );
 }

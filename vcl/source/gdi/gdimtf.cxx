@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <rtl/crc.h>
 #include <cstdlib>
 #include <memory>
 #include <sal/log.hxx>
@@ -27,6 +26,7 @@
 #include <tools/stream.hxx>
 #include <tools/vcompat.hxx>
 #include <tools/fract.hxx>
+#include <vcl/BitmapPalette.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/window.hxx>
@@ -34,27 +34,18 @@
 #include <vcl/svapp.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/graphictools.hxx>
-#include <comphelper/fileformat.h>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <vcl/canvastools.hxx>
 #include <vcl/mtfxmldump.hxx>
 
 #include <svmconverter.hxx>
-
-#include <salbmp.hxx>
-#include <salinst.hxx>
-#include <svdata.hxx>
+#include <TypeSerializer.hxx>
 
 #include <com/sun/star/beans/XFastPropertySet.hpp>
 #include <com/sun/star/rendering/MtfRenderer.hpp>
 #include <com/sun/star/rendering/XBitmapCanvas.hpp>
 #include <com/sun/star/rendering/XCanvas.hpp>
 #include <comphelper/processfactory.hxx>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/awt/XGraphics.hpp>
-#include <com/sun/star/graphic/XGraphic.hpp>
-#include <com/sun/star/graphic/XGraphicRenderer.hpp>
 
 using namespace com::sun::star;
 
@@ -2656,7 +2647,8 @@ SvStream& ReadGDIMetaFile(SvStream& rIStm, GDIMetaFile& rGDIMetaFile, ImplMetaRe
 
             rIStm.ReadUInt32( nStmCompressMode );
             ReadMapMode( rIStm, rGDIMetaFile.m_aPrefMapMode );
-            ReadPair( rIStm, rGDIMetaFile.m_aPrefSize );
+            TypeSerializer aSerializer(rIStm);
+            aSerializer.readSize(rGDIMetaFile.m_aPrefSize);
             rIStm.ReadUInt32( nCount );
 
             pCompat.reset(); // destructor writes stuff into the header
@@ -2740,7 +2732,8 @@ SvStream& GDIMetaFile::Write( SvStream& rOStm )
 
     rOStm.WriteUInt32( static_cast<sal_uInt32>(nStmCompressMode) );
     WriteMapMode( rOStm, m_aPrefMapMode );
-    WritePair( rOStm, m_aPrefSize );
+    TypeSerializer aSerializer(rOStm);
+    aSerializer.writeSize(m_aPrefSize);
     rOStm.WriteUInt32( GetActionSize() );
 
     delete pCompat;
@@ -2837,8 +2830,9 @@ void GDIMetaFile::UseCanvas( bool _bUseCanvas )
 
 void GDIMetaFile::dumpAsXml(const char* pFileName) const
 {
-    SvFileStream aStream(pFileName ? OUString::fromUtf8(pFileName) : OUString("metafile.xml"),
+    SvFileStream aStream(pFileName ? OUString::fromUtf8(pFileName) : OUString("file:///tmp/metafile.xml"),
             StreamMode::STD_READWRITE | StreamMode::TRUNC);
+    assert(aStream.good());
     MetafileXmlDump aDumper;
     aDumper.dump(*this, aStream);
 }

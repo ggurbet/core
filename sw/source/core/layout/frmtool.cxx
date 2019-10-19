@@ -65,6 +65,7 @@
 #include <objectformatter.hxx>
 #include <calbck.hxx>
 #include <ndtxt.hxx>
+#include <undobj.hxx>
 #include <DocumentSettingManager.hxx>
 #include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentTimerAccess.hxx>
@@ -1041,7 +1042,8 @@ void AppendObj(SwFrame *const pFrame, SwPageFrame *const pPage, SwFrameFormat *c
 static bool IsShown(sal_uLong const nIndex,
     const SwFormatAnchor & rAnch,
     std::vector<sw::Extent>::const_iterator const*const pIter,
-    std::vector<sw::Extent>::const_iterator const*const pEnd)
+    std::vector<sw::Extent>::const_iterator const*const pEnd,
+    SwTextNode const*const pFirstNode, SwTextNode const*const pLastNode)
 {
     assert(!pIter || *pIter == *pEnd || (*pIter)->pNode->GetIndex() == nIndex);
     SwPosition const& rAnchor(*rAnch.GetContentAnchor());
@@ -1049,30 +1051,83 @@ static bool IsShown(sal_uLong const nIndex,
     {
         return false;
     }
-    if (pIter && rAnch.GetAnchorId() != RndStdIds::FLY_AT_PARA
-        // sw_redlinehide: we want to hide AT_CHAR, but currently can't
-        // because Delete and Accept Redline don't delete them!
-              && rAnch.GetAnchorId() != RndStdIds::FLY_AT_CHAR)
+    if (pIter && rAnch.GetAnchorId() != RndStdIds::FLY_AT_PARA)
     {
         // note: frames are not sorted by anchor position.
         assert(pEnd);
+        assert(pFirstNode);
+        assert(pLastNode);
         assert(rAnch.GetAnchorId() != RndStdIds::FLY_AT_FLY);
         for (auto iter = *pIter; iter != *pEnd; ++iter)
         {
+            assert(iter->nStart != iter->nEnd); // TODO possible?
             assert(iter->pNode->GetIndex() == nIndex);
             if (rAnchor.nContent.GetIndex() < iter->nStart)
             {
                 return false;
             }
-            // for AS_CHAR obviously must be <
-            // for AT_CHAR it is questionable whether < or <= should be used
-            // and there is the additional corner case of Len() to consider
-            // prefer < for now for symmetry (and inverted usage with
-            // "hidden") and handle special case explicitly
-            if (rAnchor.nContent.GetIndex() < iter->nEnd
-                || iter->nEnd == iter->pNode->Len())
+            if (rAnch.GetAnchorId() == RndStdIds::FLY_AT_CHAR)
             {
-                return true;
+                // if there is an extent then obviously the node was not
+                // deleted fully...
+                // show if start <= pos <= end
+                // *or* if first-node/0  *and* not StartOfSection
+                // *or* if last-node/Len *and* not EndOfSection
+
+                // first determine the extent to compare to, then
+                // construct start/end positions for the deletion *before* the
+                // extent and compare once.
+                // the interesting corner cases are on the edge of the extent!
+                // no need to check for > the last extent because those
+                // are never visible.
+                if (rAnchor.nContent.GetIndex() <= iter->nEnd)
+                {
+                    if (iter->nStart == 0)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        SwPosition const start(
+                            const_cast<SwTextNode&>(
+                                iter == *pIter
+                                    ? *pFirstNode // simplification
+                                    : *iter->pNode),
+                            iter == *pIter // first extent?
+                                ? iter->pNode == pFirstNode
+                                    ? 0 // at start of 1st node
+                                    : pFirstNode->Len() // previous node; simplification but should get right result
+                                : (iter-1)->nEnd); // previous extent
+                        SwPosition const end(*iter->pNode, iter->nStart);
+                        return !IsDestroyFrameAnchoredAtChar(rAnchor, start, end);
+                    }
+                }
+                else if (iter == *pEnd - 1) // special case: after last extent
+                {
+                    if (iter->nEnd == iter->pNode->Len())
+                    {
+                        return true; // special case: end of node
+                    }
+                    else
+                    {
+                        SwPosition const start(*iter->pNode, iter->nEnd);
+                        SwPosition const end(
+                            const_cast<SwTextNode&>(*pLastNode), // simplification
+                            iter->pNode == pLastNode
+                                ? iter->pNode->Len()
+                                : 0);
+                        return !IsDestroyFrameAnchoredAtChar(rAnchor, start, end);
+                    }
+                }
+            }
+            else
+            {
+                assert(rAnch.GetAnchorId() == RndStdIds::FLY_AS_CHAR);
+                // for AS_CHAR obviously must be <
+                if (rAnchor.nContent.GetIndex() < iter->nEnd)
+                {
+                    return true;
+                }
             }
         }
         return false;
@@ -1085,7 +1140,8 @@ static bool IsShown(sal_uLong const nIndex,
 
 void RemoveHiddenObjsOfNode(SwTextNode const& rNode,
     std::vector<sw::Extent>::const_iterator const*const pIter,
-    std::vector<sw::Extent>::const_iterator const*const pEnd)
+    std::vector<sw::Extent>::const_iterator const*const pEnd,
+    SwTextNode const*const pFirstNode, SwTextNode const*const pLastNode)
 {
     std::vector<SwFrameFormat*> const*const pFlys(rNode.GetAnchoredFlys());
     if (!pFlys)
@@ -1100,7 +1156,7 @@ void RemoveHiddenObjsOfNode(SwTextNode const& rNode,
                 && RES_DRAWFRMFMT == pFrameFormat->Which()))
         {
             assert(rAnchor.GetContentAnchor()->nNode.GetIndex() == rNode.GetIndex());
-            if (!IsShown(rNode.GetIndex(), rAnchor, pIter, pEnd))
+            if (!IsShown(rNode.GetIndex(), rAnchor, pIter, pEnd, pFirstNode, pLastNode))
             {
                 pFrameFormat->DelFrames();
             }
@@ -1111,7 +1167,8 @@ void RemoveHiddenObjsOfNode(SwTextNode const& rNode,
 void AppendObjsOfNode(SwFrameFormats const*const pTable, sal_uLong const nIndex,
     SwFrame *const pFrame, SwPageFrame *const pPage, SwDoc *const pDoc,
     std::vector<sw::Extent>::const_iterator const*const pIter,
-    std::vector<sw::Extent>::const_iterator const*const pEnd)
+    std::vector<sw::Extent>::const_iterator const*const pEnd,
+    SwTextNode const*const pFirstNode, SwTextNode const*const pLastNode)
 {
 #if OSL_DEBUG_LEVEL > 0
     std::vector<SwFrameFormat*> checkFormats;
@@ -1120,7 +1177,7 @@ void AppendObjsOfNode(SwFrameFormats const*const pTable, sal_uLong const nIndex,
         SwFrameFormat *pFormat = (*pTable)[i];
         const SwFormatAnchor &rAnch = pFormat->GetAnchor();
         if ( rAnch.GetContentAnchor() &&
-            IsShown(nIndex, rAnch, pIter, pEnd))
+            IsShown(nIndex, rAnch, pIter, pEnd, pFirstNode, pLastNode))
         {
             checkFormats.push_back( pFormat );
         }
@@ -1136,7 +1193,7 @@ void AppendObjsOfNode(SwFrameFormats const*const pTable, sal_uLong const nIndex,
         SwFrameFormat *const pFormat = (*pFlys)[it];
         const SwFormatAnchor &rAnch = pFormat->GetAnchor();
         if ( rAnch.GetContentAnchor() &&
-            IsShown(nIndex, rAnch, pIter, pEnd))
+            IsShown(nIndex, rAnch, pIter, pEnd, pFirstNode, pLastNode))
         {
 #if OSL_DEBUG_LEVEL > 0
             std::vector<SwFrameFormat*>::iterator checkPos = std::find( checkFormats.begin(), checkFormats.end(), pFormat );
@@ -1170,7 +1227,8 @@ void AppendObjs(const SwFrameFormats *const pTable, sal_uLong const nIndex,
                 if (iter == pMerged->extents.end()
                     || iter->pNode != pNode)
                 {
-                    AppendObjsOfNode(pTable, pNode->GetIndex(), pFrame, pPage, pDoc, &iterFirst, &iter);
+                    AppendObjsOfNode(pTable, pNode->GetIndex(), pFrame, pPage, pDoc,
+                        &iterFirst, &iter, pMerged->pFirstNode, pMerged->pLastNode);
                     sal_uLong const until = iter == pMerged->extents.end()
                         ? pMerged->pLastNode->GetIndex() + 1
                         : iter->pNode->GetIndex();
@@ -1181,7 +1239,7 @@ void AppendObjs(const SwFrameFormats *const pTable, sal_uLong const nIndex,
                         SwNode const*const pTmp(pNode->GetNodes()[i]);
                         if (pTmp->GetRedlineMergeFlag() == SwNode::Merge::NonFirst)
                         {
-                            AppendObjsOfNode(pTable, pTmp->GetIndex(), pFrame, pPage, pDoc, &iter, &iter);
+                            AppendObjsOfNode(pTable, pTmp->GetIndex(), pFrame, pPage, pDoc, &iter, &iter, pMerged->pFirstNode, pMerged->pLastNode);
                         }
                     }
                     if (iter == pMerged->extents.end())
@@ -1195,12 +1253,12 @@ void AppendObjs(const SwFrameFormats *const pTable, sal_uLong const nIndex,
         }
         else
         {
-            return AppendObjsOfNode(pTable, nIndex, pFrame, pPage, pDoc, nullptr, nullptr);
+            return AppendObjsOfNode(pTable, nIndex, pFrame, pPage, pDoc, nullptr, nullptr, nullptr, nullptr);
         }
     }
     else
     {
-        return AppendObjsOfNode(pTable, nIndex, pFrame, pPage, pDoc, nullptr, nullptr);
+        return AppendObjsOfNode(pTable, nIndex, pFrame, pPage, pDoc, nullptr, nullptr, nullptr, nullptr);
     }
 }
 
@@ -1225,7 +1283,8 @@ bool IsAnchoredObjShown(SwTextFrame const& rFrame, SwFormatAnchor const& rAnchor
                 assert(pNode->GetRedlineMergeFlag() != SwNode::Merge::Hidden);
                 if (pNode == &pAnchor->nNode.GetNode())
                 {
-                    ret = IsShown(pNode->GetIndex(), rAnchor, &iterFirst, &iter);
+                    ret = IsShown(pNode->GetIndex(), rAnchor, &iterFirst, &iter,
+                            pMergedPara->pFirstNode, pMergedPara->pLastNode);
                     break;
                 }
                 if (iter == pMergedPara->extents.end())
@@ -1321,7 +1380,7 @@ static void lcl_SetPos( SwFrame&             _rNewFrame,
 
 void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
                              sal_uLong nIndex, bool bPages, sal_uLong nEndIndex,
-                             SwFrame *pPrv )
+                             SwFrame *pPrv, sw::FrameMode const eMode )
 {
     pDoc->getIDocumentTimerAccess().BlockIdling();
     SwRootFrame* pLayout = pLay->getRootFrame();
@@ -1340,7 +1399,7 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
     //We'd like to think that 20 Paragraphs fit on one page.
     //So that it does not become in extreme situations so violent we calculate depending
     //on the node something to it.
-    //If in the DocStatistic an usable given pagenumber
+    //If in the DocStatistic a usable given pagenumber
     //(Will be cared for while writing), so it will be presumed that this will be
     //number of pages.
     const bool bStartPercent = bPages && !nEndIndex;
@@ -1376,7 +1435,7 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
             // for e.g. while inserting a table
     {
         SwSectionFrame* pSct = pLay->FindSctFrame();
-        // If content will be inserted in a footnote, which in an column area,
+        // If content will be inserted in a footnote, which in a column area,
         // the column area it is not allowed to be broken up.
         // Only if in the inner of the footnote lies an area, is this a candidate
         // for pActualSection.
@@ -1415,7 +1474,9 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
                 }
                 continue; // skip it
             }
-            pFrame = pNode->MakeFrame(pLay);
+            pFrame = pNode->IsTextNode()
+                        ? sw::MakeTextFrame(*pNode->GetTextNode(), pLay, eMode)
+                        : pNode->MakeFrame(pLay);
             if( pPageMaker )
                 pPageMaker->CheckInsert( nIndex );
 
@@ -1781,6 +1842,7 @@ void MakeFrames( SwDoc *pDoc, const SwNodeIndex &rSttIdx,
         bool bApres = aTmp < rSttIdx;
         SwNode2Layout aNode2Layout( *pNd, rSttIdx.GetIndex() );
         SwFrame* pFrame;
+        sw::FrameMode eMode = sw::FrameMode::Existing;
         while( nullptr != (pFrame = aNode2Layout.NextFrame()) )
         {
             SwLayoutFrame *pUpper = pFrame->GetUpper();
@@ -1908,7 +1970,7 @@ void MakeFrames( SwDoc *pDoc, const SwNodeIndex &rSttIdx,
                         pTmp->UnlockJoin();
                 }
                 ::InsertCnt_( pUpper, pDoc, rSttIdx.GetIndex(),
-                              pFrame->IsInDocBody(), nEndIdx, pPrev );
+                              pFrame->IsInDocBody(), nEndIdx, pPrev, eMode );
             }
             else
             {
@@ -1928,7 +1990,7 @@ void MakeFrames( SwDoc *pDoc, const SwNodeIndex &rSttIdx,
                     bSplit = false;
 
                 ::InsertCnt_( pUpper, pDoc, rSttIdx.GetIndex(), false,
-                              nEndIdx, pPrv );
+                              nEndIdx, pPrv, eMode );
                 // OD 23.06.2003 #108784# - correction: append objects doesn't
                 // depend on value of <bAllowMove>
                 if( !bDontCreateObjects )
@@ -1964,6 +2026,7 @@ void MakeFrames( SwDoc *pDoc, const SwNodeIndex &rSttIdx,
                     SwFrame::DestroyFrame(pSct);
                 }
             }
+            eMode = sw::FrameMode::New; // use Existing only once!
         }
     }
 
@@ -3246,7 +3309,7 @@ void Notify_Background( const SdrObject* pObj,
 }
 
 /// Provides the Upper of an anchor in paragraph-bound objects. If the latter
-/// is a chained border or a footnote, the "virtual" Upper might be returne.
+/// is a chained border or a footnote, the "virtual" Upper might be returned.
 const SwFrame* GetVirtualUpper( const SwFrame* pFrame, const Point& rPos )
 {
     if( pFrame->IsTextFrame() )
@@ -3432,7 +3495,7 @@ public:
     void SetFrame( SwFrame* pHold );
     SwFrame* GetFrame() { return pFrame; }
     void Reset();
-    bool IsSet() { return bSet; }
+    bool IsSet() const { return bSet; }
 };
 
 void SwFrameHolder::SetFrame( SwFrame* pHold )
@@ -3573,7 +3636,7 @@ bool IsExtraData( const SwDoc *pDoc )
 }
 
 // OD 22.09.2003 #110978#
-const SwRect SwPageFrame::PrtWithoutHeaderAndFooter() const
+SwRect SwPageFrame::PrtWithoutHeaderAndFooter() const
 {
     SwRect aPrtWithoutHeaderFooter( getFramePrintArea() );
     aPrtWithoutHeaderFooter.Pos() += getFrameArea().Pos();
@@ -3647,11 +3710,15 @@ const SwContentFrame* GetCellContent( const SwLayoutFrame& rCell )
         const SwTabFrame* pTmpTab = pContent->FindTabFrame();
         if ( pTmpTab != pTab )
         {
-            pContent = pTmpTab->FindLastContent();
-            if ( pContent )
-
-                pContent = pContent->FindNextCnt();
-
+            SwFrame const*const pTmp = pTmpTab->FindLastContentOrTable();
+            if (pTmp)
+            {
+                pContent = pTmp->FindNextCnt();
+            }
+            else
+            {
+                pContent = nullptr;
+            }
         }
         else
             break;
@@ -3671,7 +3738,7 @@ SwDeletionChecker::SwDeletionChecker(const SwFrame* pFrame)
 }
 
 /// Can be used to check if a frame has been deleted
-bool SwDeletionChecker::HasBeenDeleted()
+bool SwDeletionChecker::HasBeenDeleted() const
 {
     if ( !mpFrame || !mpRegIn )
         return false;

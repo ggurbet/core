@@ -42,13 +42,11 @@
 #include <com/sun/star/util/XModifyListener.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
-#include <com/sun/star/embed/EmbedMisc.hpp>
 #include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/embed/XStateChangeListener.hpp>
 #include <com/sun/star/embed/XLinkageSupport.hpp>
-#include <com/sun/star/datatransfer/XTransferable.hpp>
 #include <com/sun/star/chart2/XDefaultSizeTransmitter.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <vcl/svapp.hxx>
@@ -93,12 +91,12 @@ rtl::Reference<EmbedEventListener_Impl> EmbedEventListener_Impl::Create( Embedde
     {
         p->GetObject()->addStateChangeListener( pRet.get() );
 
-        uno::Reference < util::XCloseable > xClose( p->GetObject(), uno::UNO_QUERY );
+        uno::Reference < util::XCloseable > xClose = p->GetObject();
         DBG_ASSERT( xClose.is(), "Object does not support XCloseable!" );
         if ( xClose.is() )
             xClose->addCloseListener( pRet.get() );
 
-        uno::Reference < document::XEventBroadcaster > xBrd( p->GetObject(), uno::UNO_QUERY );
+        uno::Reference < document::XEventBroadcaster > xBrd = p->GetObject();
         if ( xBrd.is() )
             xBrd->addEventListener( pRet.get() );
 
@@ -235,7 +233,7 @@ struct EmbeddedObjectRef_Impl
 
     // #i104867#
     sal_uInt32                                  mnGraphicVersion;
-    awt::Size                                   aDefaultSizeForChart_In_100TH_MM;//#i103460# charts do not necessaryly have an own size within ODF files, in this case they need to use the size settings from the surrounding frame, which is made available with this member
+    awt::Size                                   aDefaultSizeForChart_In_100TH_MM;//#i103460# charts do not necessarily have an own size within ODF files, in this case they need to use the size settings from the surrounding frame, which is made available with this member
 
     EmbeddedObjectRef_Impl() :
         pContainer(nullptr),
@@ -320,31 +318,23 @@ void EmbeddedObjectRef::Clear()
     {
         mpImpl->mxObj->removeStateChangeListener(mpImpl->mxListener.get());
 
-        uno::Reference<util::XCloseable> xClose(mpImpl->mxObj, uno::UNO_QUERY);
-        if ( xClose.is() )
-            xClose->removeCloseListener( mpImpl->mxListener.get() );
-
-        uno::Reference<document::XEventBroadcaster> xBrd(mpImpl->mxObj, uno::UNO_QUERY);
-        if ( xBrd.is() )
-            xBrd->removeEventListener( mpImpl->mxListener.get() );
+        mpImpl->mxObj->removeCloseListener( mpImpl->mxListener.get() );
+        mpImpl->mxObj->removeEventListener( mpImpl->mxListener.get() );
 
         if ( mpImpl->bIsLocked )
         {
-            if ( xClose.is() )
+            try
             {
-                try
-                {
-                    mpImpl->mxObj->changeState(embed::EmbedStates::LOADED);
-                    xClose->close( true );
-                }
-                catch (const util::CloseVetoException&)
-                {
-                    // there's still someone who needs the object!
-                }
-                catch (const uno::Exception&)
-                {
-                    TOOLS_WARN_EXCEPTION("svtools.misc", "Error on switching of the object to loaded state and closing");
-                }
+                mpImpl->mxObj->changeState(embed::EmbedStates::LOADED);
+                mpImpl->mxObj->close( true );
+            }
+            catch (const util::CloseVetoException&)
+            {
+                // there's still someone who needs the object!
+            }
+            catch (const uno::Exception&)
+            {
+                TOOLS_WARN_EXCEPTION("svtools.misc", "Error on switching of the object to loaded state and closing");
             }
         }
     }
@@ -709,7 +699,7 @@ void EmbeddedObjectRef::DrawPaintReplacement( const tools::Rectangle &rRect, con
             nWidth = nW;
         }
 
-        pOut->DrawBitmap(aP, Size( nWidth, nHeight ), aBmp.GetBitmap());
+        pOut->DrawBitmapEx(aP, Size( nWidth, nHeight ), aBmp);
     }
 
     pOut->IntersectClipRegion( rRect );
@@ -862,21 +852,21 @@ OUString EmbeddedObjectRef::GetChartType()
                     if( ! xDiagram.is())
                         return OUString();
                     uno::Reference< chart2::XCoordinateSystemContainer > xCooSysCnt( xDiagram, uno::UNO_QUERY_THROW );
-                    uno::Sequence< uno::Reference< chart2::XCoordinateSystem > > aCooSysSeq( xCooSysCnt->getCoordinateSystems());
+                    const uno::Sequence< uno::Reference< chart2::XCoordinateSystem > > aCooSysSeq( xCooSysCnt->getCoordinateSystems());
                     // IA2 CWS. Unused: int nCoordinateCount = aCooSysSeq.getLength();
                     bool bGetChartType = false;
-                    for( sal_Int32 nCooSysIdx=0; nCooSysIdx<aCooSysSeq.getLength(); ++nCooSysIdx )
+                    for( const auto& rCooSys : aCooSysSeq )
                     {
-                        uno::Reference< chart2::XChartTypeContainer > xCTCnt( aCooSysSeq[nCooSysIdx], uno::UNO_QUERY_THROW );
-                        uno::Sequence< uno::Reference< chart2::XChartType > > aChartTypes( xCTCnt->getChartTypes());
-                        int nDimesionCount = aCooSysSeq[nCooSysIdx]->getDimension();
+                        uno::Reference< chart2::XChartTypeContainer > xCTCnt( rCooSys, uno::UNO_QUERY_THROW );
+                        const uno::Sequence< uno::Reference< chart2::XChartType > > aChartTypes( xCTCnt->getChartTypes());
+                        int nDimesionCount = rCooSys->getDimension();
                         if( nDimesionCount == 3 )
                             Style += "3D ";
                         else
                             Style += "2D ";
-                        for( sal_Int32 nCTIdx=0; nCTIdx<aChartTypes.getLength(); ++nCTIdx )
+                        for( const auto& rChartType : aChartTypes )
                         {
-                            OUString strChartType = aChartTypes[nCTIdx]->getChartType();
+                            OUString strChartType = rChartType->getChartType();
                             if (strChartType == "com.sun.star.chart2.AreaChartType")
                             {
                                 Style += "Areas";
@@ -889,7 +879,7 @@ OUString EmbeddedObjectRef::GetChartType()
                             }
                             else if (strChartType == "com.sun.star.chart2.ColumnChartType")
                             {
-                                uno::Reference< beans::XPropertySet > xProp( aCooSysSeq[nCooSysIdx], uno::UNO_QUERY );
+                                uno::Reference< beans::XPropertySet > xProp( rCooSys, uno::UNO_QUERY );
                                 if( xProp.is())
                                 {
                                     bool bCurrent = false;
@@ -947,7 +937,7 @@ sal_uInt32 EmbeddedObjectRef::getGraphicVersion() const
 
 void EmbeddedObjectRef::SetDefaultSizeForChart( const Size& rSizeIn_100TH_MM )
 {
-    //#i103460# charts do not necessaryly have an own size within ODF files,
+    //#i103460# charts do not necessarily have an own size within ODF files,
     //for this case they need to use the size settings from the surrounding frame,
     //which is made available with this method
 

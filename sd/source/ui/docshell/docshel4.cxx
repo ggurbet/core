@@ -732,7 +732,7 @@ void DrawDocShell::GotoBookmark(const OUString& rBookmark)
 
         if (nPageNumber == SDRPAGE_NOTFOUND)
         {
-            // Is the bookmark a object?
+            // Is the bookmark an object?
             pObj = mpDoc->GetObj(rBookmark);
 
             if (pObj)
@@ -819,10 +819,13 @@ void DrawDocShell::GotoBookmark(const OUString& rBookmark)
                 pDrawViewShell->SwitchPage(nSdPgNum);
             }
 
-            // show page
-            SvxZoomItem aZoom;
-            aZoom.SetType( SvxZoomType::WHOLEPAGE );
-            pDrawViewShell->GetDispatcher()->ExecuteList(SID_ATTR_ZOOM, SfxCallMode::ASYNCHRON, { &aZoom });
+            if (pDrawViewShell->GetDispatcher())
+            {
+                // show page
+                SvxZoomItem aZoom;
+                aZoom.SetType( SvxZoomType::WHOLEPAGE );
+                pDrawViewShell->GetDispatcher()->ExecuteList(SID_ATTR_ZOOM, SfxCallMode::ASYNCHRON, { &aZoom });
+            }
 
             if (pObj != nullptr)
             {

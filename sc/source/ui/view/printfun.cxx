@@ -22,7 +22,6 @@
 
 #include <printfun.hxx>
 
-#include <svx/svxids.hrc>
 #include <editeng/adjustitem.hxx>
 #include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
@@ -37,14 +36,11 @@
 #include <editeng/shaditem.hxx>
 #include <editeng/sizeitem.hxx>
 #include <editeng/fhgtitem.hxx>
-#include <svx/svdpagv.hxx>
 #include <editeng/ulspitem.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/printer.hxx>
 #include <tools/multisel.hxx>
 #include <sfx2/docfile.hxx>
 #include <tools/urlobj.hxx>
-#include <svx/xoutbmp.hxx>
 
 #include <editutil.hxx>
 #include <docsh.hxx>
@@ -57,11 +53,8 @@
 #include <patattr.hxx>
 #include <docpool.hxx>
 #include <dociter.hxx>
-#include <formulacell.hxx>
-#include <drawutil.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
-#include <sc.hrc>
 #include <pagedata.hxx>
 #include <printopt.hxx>
 #include <prevloc.hxx>
@@ -69,8 +62,6 @@
 #include <drwlayer.hxx>
 #include <fillinfo.hxx>
 #include <postit.hxx>
-
-#include <vcl/lineinfo.hxx>
 
 #include <memory>
 #include <com/sun/star/document/XDocumentProperties.hpp>
@@ -508,10 +499,10 @@ void ScPrintFunc::DrawToDev( ScDocument* pDoc, OutputDevice* pDev, double /* nPr
         if (nY2>nY1) --nY2;
     }
 
-    if (nX1 > MAXCOL) nX1 = MAXCOL;
-    if (nX2 > MAXCOL) nX2 = MAXCOL;
-    if (nY1 > MAXROW) nY1 = MAXROW;
-    if (nY2 > MAXROW) nY2 = MAXROW;
+    if (nX1 > pDoc->MaxCol()) nX1 = pDoc->MaxCol();
+    if (nX2 > pDoc->MaxCol()) nX2 = pDoc->MaxCol();
+    if (nY1 > pDoc->MaxRow()) nY1 = pDoc->MaxRow();
+    if (nY2 > pDoc->MaxRow()) nY2 = pDoc->MaxRow();
 
     long nDevSizeX = aRect.Right()-aRect.Left()+1;
     long nDevSizeY = aRect.Bottom()-aRect.Top()+1;
@@ -704,8 +695,8 @@ bool ScPrintFunc::AdjustPrintArea( bool bNew )
     else
     {
         bool bFound = true;
-        bChangeCol = ( nStartCol == 0 && nEndCol == MAXCOL );
-        bChangeRow = ( nStartRow == 0 && nEndRow == MAXROW );
+        bChangeCol = ( nStartCol == 0 && nEndCol == pDoc->MaxCol() );
+        bChangeRow = ( nStartRow == 0 && nEndRow == pDoc->MaxRow() );
         bool bForcedChangeRow = false;
 
         // #i53558# Crop entire column of old row limit to real print area with
@@ -715,7 +706,7 @@ bool ScPrintFunc::AdjustPrintArea( bool bNew )
             SCROW nPAEndRow;
             bFound = pDoc->GetPrintAreaVer( nPrintTab, nStartCol, nEndCol, nPAEndRow, bNotes );
             // Say we don't want to print more than ~1000 empty rows, which are
-            // about 14 pages intentionally left blank..
+            // about 14 pages intentionally left blank...
             const SCROW nFuzzy = 23*42;
             if (nPAEndRow + nFuzzy < nEndRow)
             {
@@ -756,10 +747,10 @@ bool ScPrintFunc::AdjustPrintArea( bool bNew )
         //  changing nEndCol
     }
 
-    if ( nEndCol < MAXCOL && pDoc->HasAttrib(
+    if ( nEndCol < pDoc->MaxCol() && pDoc->HasAttrib(
                     nEndCol,nStartRow,nPrintTab, nEndCol,nEndRow,nPrintTab, HasAttrFlags::ShadowRight ) )
         ++nEndCol;
-    if ( nEndRow < MAXROW && pDoc->HasAttrib(
+    if ( nEndRow < pDoc->MaxRow() && pDoc->HasAttrib(
                     nStartCol,nEndRow,nPrintTab, nEndCol,nEndRow,nPrintTab, HasAttrFlags::ShadowDown ) )
         ++nEndRow;
 
@@ -2352,7 +2343,7 @@ void ScPrintFunc::PrintPage( long nPageNo, SCCOL nX1, SCROW nY1, SCCOL nX2, SCRO
         pDev->SetLineColor( aGridColor );
         pDev->SetFillColor();
         pDev->DrawRect( tools::Rectangle( nLeftX, nTopY, nRightX, nBottomY ) );
-        //  nEndX/Y without frame-adaption
+        //  nEndX/Y without frame-adaptation
     }
 
     if ( pPrinter && bDoPrint )
@@ -2431,7 +2422,7 @@ bool ScPrintFunc::UpdatePages()
 
             //  set breaks
             ResetBreaks(nTab);
-            pDocShell->PostPaint(0,0,nTab, MAXCOL,MAXROW,nTab, PaintPartFlags::Grid);
+            pDocShell->PostPaint(0,0,nTab,pDoc->MaxCol(),pDoc->MaxRow(),nTab, PaintPartFlags::Grid);
         }
 
     return true;
@@ -2907,6 +2898,24 @@ void ScPrintFunc::CalcZoom( sal_uInt16 nRangeNo )                       // calcu
                 nZoom = (nLastFitZoom + nZoom) / 2;
             }
         }
+        // tdf#103516 remove the almost blank page(s) for better
+        // interoperability by using slightly smaller zoom
+        if (nW > 0 && nH == 0 && m_aRanges.m_nPagesY > 1)
+        {
+            sal_uInt32 nLastPagesY = m_aRanges.m_nPagesY;
+            nLastFitZoom = nZoom;
+            nZoom *= 0.98;
+            if (nZoom < nLastFitZoom)
+            {
+                CalcPages();
+                // same page count with smaller zoom: use the original zoom
+                if (m_aRanges.m_nPagesY == nLastPagesY)
+                {
+                    nZoom = nLastFitZoom;
+                    CalcPages();
+                }
+            }
+        }
     }
     else if (aTableParam.bScaleAll)
     {
@@ -3059,9 +3068,9 @@ void PrintPageRanges::calculate(ScDocument* pDoc,
     pDoc->SetPageSize(nPrintTab, rDocSize);
 
     // #i123672# use dynamic mem to react on size changes
-    if (m_aPageEndX.size() < MAXCOL+1)
+    if (m_aPageEndX.size() < static_cast<size_t>(pDoc->MaxCol()) + 1)
     {
-        m_aPageEndX.resize(MAXCOL+1, SCCOL());
+        m_aPageEndX.resize(pDoc->MaxCol()+1, SCCOL());
     }
 
     if (bPrintArea)

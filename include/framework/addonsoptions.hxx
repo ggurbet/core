@@ -68,6 +68,19 @@ struct FWE_DLLPUBLIC MergeToolbarInstruction
 
 typedef ::std::vector< MergeToolbarInstruction > MergeToolbarInstructionContainer;
 
+struct FWE_DLLPUBLIC MergeNotebookBarInstruction
+{
+    OUString     aMergeNotebookBar;
+    OUString     aMergePoint;
+    OUString     aMergeCommand;
+    OUString     aMergeCommandParameter;
+    OUString     aMergeFallback;
+    OUString     aMergeContext;
+    css::uno::Sequence< css::uno::Sequence< css::beans::PropertyValue > > aMergeNotebookBarItems;
+};
+
+typedef ::std::vector< MergeNotebookBarInstruction >    MergeNotebookBarInstructionContainer;
+
 struct FWE_DLLPUBLIC MergeStatusbarInstruction
 {
     OUString     aMergePoint;
@@ -101,7 +114,7 @@ class FWE_DLLPUBLIC AddonsOptions
 
         /*-****************************************************************************************************
             @short      returns if an addons menu is available
-            @descr      Call to retrieve if a addons menu is available
+            @descr      Call to retrieve if an addons menu is available
 
             @return     true if there is a menu otherwise false
         *//*-*****************************************************************************************************/
@@ -115,6 +128,14 @@ class FWE_DLLPUBLIC AddonsOptions
             @return     number of addons toolbars
         *//*-*****************************************************************************************************/
         sal_Int32   GetAddonsToolBarCount() const ;
+
+        /*-****************************************************************************************************
+            @short      returns number of addons notebookbar
+            @descr      Call to retrieve the number of addons notebookbar
+
+            @return     number of addons notebookar
+        *//*-*****************************************************************************************************/
+        sal_Int32   GetAddonsNotebookBarCount() const ;
 
         /*-****************************************************************************************************
             @short      returns the  complete addons menu
@@ -137,7 +158,7 @@ class FWE_DLLPUBLIC AddonsOptions
         const css::uno::Sequence< css::uno::Sequence< css::beans::PropertyValue > >& GetAddonsMenuBarPart() const;
 
         /*-****************************************************************************************************
-            @short      Gets a toolbar part of an single addon
+            @short      Gets a toolbar part of a single addon
             @return     A complete
 
             @onerror    We return sal_False
@@ -146,13 +167,31 @@ class FWE_DLLPUBLIC AddonsOptions
         const css::uno::Sequence< css::uno::Sequence< css::beans::PropertyValue > >& GetAddonsToolBarPart( sal_uInt32 nIndex ) const;
 
         /*-****************************************************************************************************
-            @short      Gets a unique toolbar resource name of an single addon
+            @short      Gets a unique toolbar resource name of a single addon
             @return     A complete
 
             @onerror    We return sal_False
         *//*-*****************************************************************************************************/
 
-        const OUString GetAddonsToolbarResourceName( sal_uInt32 nIndex ) const;
+        OUString GetAddonsToolbarResourceName( sal_uInt32 nIndex ) const;
+
+        /*-****************************************************************************************************
+            @short      Gets a NotebookBar part of a single addon
+            @return     A complete
+
+            @onerror    We return sal_False
+        *//*-*****************************************************************************************************/
+
+        const css::uno::Sequence< css::uno::Sequence< css::beans::PropertyValue > >& GetAddonsNotebookBarPart( sal_uInt32 nIndex ) const;
+
+        /*-****************************************************************************************************
+            @short      Gets a unique NotebookBar resource name of a single addon
+            @return     A complete
+
+            @onerror    We return sal_False
+        *//*-*****************************************************************************************************/
+
+        OUString GetAddonsNotebookBarResourceName( sal_uInt32    ) const;
 
         /*-****************************************************************************************************
             @short      Retrieves all available merge instructions for the Office menu bar
@@ -170,6 +209,14 @@ class FWE_DLLPUBLIC AddonsOptions
             @onerror    We return sal_False
         *//*-*****************************************************************************************************/
         bool GetMergeToolbarInstructions( const OUString& rToolbarName, MergeToolbarInstructionContainer& rToolbar ) const;
+
+        /*-****************************************************************************************************
+            @short      Retrieves all available merge instructions for Notebookbar
+            @return     The filled
+
+            @onerror    We return sal_False
+        *//*-*****************************************************************************************************/
+        bool GetMergeNotebookBarInstructions( const OUString& rNotebookBarName, MergeNotebookBarInstructionContainer& rNotebookBar ) const;
 
         /*-****************************************************************************************************
             @short      Gets the Add-On help menu part of all addon components registered

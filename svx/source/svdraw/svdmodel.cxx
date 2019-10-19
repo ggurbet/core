@@ -828,8 +828,7 @@ SdrModel::GetDocumentStream( OUString const& rURL,
     }
     catch (uno::Exception const&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("svx", "exception: " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("svx", "");
     }
     return nullptr;
 }
@@ -2005,7 +2004,7 @@ namespace
     class theSdrModelUnoTunnelImplementationId : public rtl::Static< UnoTunnelIdInit, theSdrModelUnoTunnelImplementationId > {};
 }
 
-const css::uno::Sequence< sal_Int8 >& SdrModel::getUnoTunnelImplementationId()
+const css::uno::Sequence< sal_Int8 >& SdrModel::getUnoTunnelId()
 {
     return theSdrModelUnoTunnelImplementationId::get().getSeq();
 }

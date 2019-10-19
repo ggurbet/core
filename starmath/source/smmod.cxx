@@ -45,7 +45,7 @@ OUString SmResId(const char* pId)
     return Translate::get(pId, SM_MOD()->GetResLocale());
 }
 
-const OUString SmLocalizedSymbolData::GetUiSymbolName( const OUString &rExportName )
+OUString SmLocalizedSymbolData::GetUiSymbolName( const OUString &rExportName )
 {
     OUString aRes;
 
@@ -61,7 +61,7 @@ const OUString SmLocalizedSymbolData::GetUiSymbolName( const OUString &rExportNa
     return aRes;
 }
 
-const OUString SmLocalizedSymbolData::GetExportSymbolName( const OUString &rUiName )
+OUString SmLocalizedSymbolData::GetExportSymbolName( const OUString &rUiName )
 {
     OUString aRes;
 
@@ -78,7 +78,7 @@ const OUString SmLocalizedSymbolData::GetExportSymbolName( const OUString &rUiNa
     return aRes;
 }
 
-const OUString SmLocalizedSymbolData::GetUiSymbolSetName( const OUString &rExportName )
+OUString SmLocalizedSymbolData::GetUiSymbolSetName( const OUString &rExportName )
 {
     OUString aRes;
 
@@ -94,7 +94,7 @@ const OUString SmLocalizedSymbolData::GetUiSymbolSetName( const OUString &rExpor
     return aRes;
 }
 
-const OUString SmLocalizedSymbolData::GetExportSymbolSetName( const OUString &rUiName )
+OUString SmLocalizedSymbolData::GetExportSymbolSetName( const OUString &rUiName )
 {
     OUString aRes;
 
@@ -224,13 +224,12 @@ void SmModule::ApplyItemSet( sal_uInt16 nId, const SfxItemSet& rSet )
     }
 }
 
-VclPtr<SfxTabPage> SmModule::CreateTabPage( sal_uInt16 nId, TabPageParent pParent, const SfxItemSet& rSet )
+std::unique_ptr<SfxTabPage> SmModule::CreateTabPage( sal_uInt16 nId, weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet )
 {
-    VclPtr<SfxTabPage> pRet;
+    std::unique_ptr<SfxTabPage> xRet;
     if (nId == SID_SM_TP_PRINTOPTIONS)
-        pRet = SmPrintOptionsTabPage::Create(pParent, rSet);
-    return pRet;
-
+        xRet = SmPrintOptionsTabPage::Create(pPage, pController, rSet);
+    return xRet;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

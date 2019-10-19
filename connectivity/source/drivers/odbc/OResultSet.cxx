@@ -65,15 +65,12 @@ namespace
 //  IMPLEMENT_SERVICE_INFO(OResultSet,"com.sun.star.sdbcx.OResultSet","com.sun.star.sdbc.ResultSet");
 OUString SAL_CALL OResultSet::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdbcx.odbc.ResultSet");
+    return "com.sun.star.sdbcx.odbc.ResultSet";
 }
 
  Sequence< OUString > SAL_CALL OResultSet::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSupported(2);
-    aSupported[0] = "com.sun.star.sdbc.ResultSet";
-    aSupported[1] = "com.sun.star.sdbcx.ResultSet";
-    return aSupported;
+    return { "com.sun.star.sdbc.ResultSet", "com.sun.star.sdbcx.ResultSet" };
 }
 
 sal_Bool SAL_CALL OResultSet::supportsService( const OUString& _rServiceName )

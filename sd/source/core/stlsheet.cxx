@@ -24,7 +24,6 @@
 #include <com/sun/star/table/BorderLine.hpp>
 
 #include <osl/mutex.hxx>
-#include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -306,14 +305,11 @@ bool SdStyleSheet::IsUsed() const
         if( pContainer )
         {
             Sequence< Reference< XInterface > > aModifyListeners( pContainer->getElements() );
-            Reference< XInterface > *p = aModifyListeners.getArray();
-            sal_Int32 nCount = aModifyListeners.getLength();
-            while( nCount-- && !bResult )
-            {
-                Reference< XStyle > xStyle( *p++, UNO_QUERY );
-                if( xStyle.is() )
-                    bResult = xStyle->isInUse();
-            }
+            bResult = std::any_of(aModifyListeners.begin(), aModifyListeners.end(),
+                [](const Reference<XInterface>& rListener) {
+                    Reference< XStyle > xStyle( rListener, UNO_QUERY );
+                    return xStyle.is() && xStyle->isInUse();
+                });
         }
     }
     return bResult;
@@ -468,8 +464,7 @@ SdStyleSheet* SdStyleSheet::GetPseudoStyleSheet() const
         if (nPos != -1)
         {
             OUString aNumStr(aStyleName.copy(aOutlineStr.getLength()));
-            aStyleName = SdResId(STR_PSEUDOSHEET_OUTLINE);
-            aStyleName += aNumStr;
+            aStyleName = SdResId(STR_PSEUDOSHEET_OUTLINE) + aNumStr;
         }
     }
 
@@ -619,7 +614,7 @@ struct ApiNameMap
 OUString GetApiNameForHelpId(sal_uLong nId)
 {
     if ((nId >= HID_PSEUDOSHEET_OUTLINE1) && (nId <= HID_PSEUDOSHEET_OUTLINE9))
-        return "outline" + OUStringLiteral1('1' + (nId - HID_PSEUDOSHEET_OUTLINE1));
+        return "outline" + OUStringChar('1' + (nId - HID_PSEUDOSHEET_OUTLINE1));
 
     for (const auto& i : pApiNameMap)
         if (nId == i.mnHelpId)
@@ -665,12 +660,12 @@ OUString SdStyleSheet::GetFamilyString( SfxStyleFamily eFamily )
     switch( eFamily )
     {
     case SfxStyleFamily::Frame:
-        return OUString( "cell" );
+        return "cell";
     default:
         OSL_FAIL( "SdStyleSheet::GetFamilyString(), illegal family!" );
         [[fallthrough]];
     case SfxStyleFamily::Para:
-        return OUString( "graphics" );
+        return "graphics";
     }
 }
 
@@ -707,9 +702,9 @@ void SAL_CALL SdStyleSheet::release(  ) throw ()
         dispose();
     }
     catch (RuntimeException const&)
-    { // don't break throw ()
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sd", exceptionToString(ex) );
+    {
+        // don't break throw ()
+        TOOLS_WARN_EXCEPTION( "sd", "" );
     }
     OSL_ASSERT( mrBHelper.bDisposed );
     SdStyleSheetBase::release();
@@ -835,7 +830,7 @@ void SdStyleSheet::notifyModifyListener()
 // XServiceInfo
 OUString SAL_CALL SdStyleSheet::getImplementationName()
 {
-    return OUString( "SdStyleSheet" );
+    return "SdStyleSheet";
 }
 
 sal_Bool SAL_CALL SdStyleSheet::supportsService( const OUString& ServiceName )
@@ -845,21 +840,16 @@ sal_Bool SAL_CALL SdStyleSheet::supportsService( const OUString& ServiceName )
 
 Sequence< OUString > SAL_CALL SdStyleSheet::getSupportedServiceNames()
 {
-    Sequence< OUString > aNameSequence( 10 );
-    OUString* pStrings = aNameSequence.getArray();
-
-    *pStrings++ = "com.sun.star.style.Style";
-    *pStrings++ = "com.sun.star.drawing.FillProperties";
-    *pStrings++ = "com.sun.star.drawing.LineProperties";
-    *pStrings++ = "com.sun.star.drawing.ShadowProperties";
-    *pStrings++ = "com.sun.star.drawing.ConnectorProperties";
-    *pStrings++ = "com.sun.star.drawing.MeasureProperties";
-    *pStrings++ = "com.sun.star.style.ParagraphProperties";
-    *pStrings++ = "com.sun.star.style.CharacterProperties";
-    *pStrings++ = "com.sun.star.drawing.TextProperties";
-    *pStrings++ = "com.sun.star.drawing.Text";
-
-    return aNameSequence;
+    return { "com.sun.star.style.Style",
+             "com.sun.star.drawing.FillProperties",
+             "com.sun.star.drawing.LineProperties",
+             "com.sun.star.drawing.ShadowProperties",
+             "com.sun.star.drawing.ConnectorProperties",
+             "com.sun.star.drawing.MeasureProperties",
+             "com.sun.star.style.ParagraphProperties",
+             "com.sun.star.style.CharacterProperties",
+             "com.sun.star.drawing.TextProperties",
+             "com.sun.star.drawing.Text" };
 }
 
 bool SdStyleSheet::SetName(const OUString& rNewName, bool bReindexNow)
@@ -1216,7 +1206,7 @@ PropertyState SAL_CALL SdStyleSheet::getPropertyState( const OUString& PropertyN
             break;
         }
 
-        // if a item is set, this doesn't mean we want it :)
+        // if an item is set, this doesn't mean we want it :)
         if( PropertyState_DIRECT_VALUE == eState )
         {
             switch( pEntry->nWID )
@@ -1247,13 +1237,11 @@ Sequence< PropertyState > SAL_CALL SdStyleSheet::getPropertyStates( const Sequen
     throwIfDisposed();
 
     sal_Int32 nCount = aPropertyName.getLength();
-    const OUString* pNames = aPropertyName.getConstArray();
 
     Sequence< PropertyState > aPropertyStateSequence( nCount );
-    PropertyState* pState = aPropertyStateSequence.getArray();
 
-    while( nCount-- )
-        *pState++ = getPropertyState( *pNames++ );
+    std::transform(aPropertyName.begin(), aPropertyName.end(), aPropertyStateSequence.begin(),
+        [this](const OUString& rName) -> PropertyState { return getPropertyState(rName); });
 
     return aPropertyStateSequence;
 }

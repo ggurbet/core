@@ -24,7 +24,6 @@
 
 #include <hldoctp.hxx>
 #include <hlmarkwn_def.hxx>
-#include <bitmaps.hlst>
 
 sal_Char const sHash[]          = "#";
 sal_Char const sFileScheme[]    = INET_FILE_SCHEME;
@@ -93,7 +92,7 @@ void SvxHyperlinkDocTp::FillDlgFields(const OUString& rStrURL)
 |* retrieve current url-string
 |*
 |************************************************************************/
-OUString SvxHyperlinkDocTp::GetCurrentURL ()
+OUString SvxHyperlinkDocTp::GetCurrentURL () const
 {
     // get data from dialog-controls
     OUString aStrURL;
@@ -115,8 +114,7 @@ OUString SvxHyperlinkDocTp::GetCurrentURL ()
 
     if( !aStrMark.isEmpty() )
     {
-        aStrURL += sHash;
-        aStrURL += aStrMark;
+        aStrURL += sHash + aStrMark;
     }
 
     return aStrURL;

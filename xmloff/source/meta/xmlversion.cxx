@@ -18,8 +18,8 @@
  */
 
 #include <com/sun/star/embed/ElementModes.hpp>
-#include <unotools/streamwrap.hxx>
 #include <xmlversion.hxx>
+#include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmlmetae.hxx>
 #include <osl/diagnose.h>
 
@@ -27,7 +27,6 @@
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/io/IOException.hpp>
-#include <com/sun/star/io/XActiveDataSource.hpp>
 #include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
@@ -347,12 +346,9 @@ void SAL_CALL XMLVersionListPersistence::store( const uno::Reference< embed::XSt
             if ( !xOut.is() )
                 throw uno::RuntimeException(); // the stream was successfully opened for writing already
 
-            Reference< io::XActiveDataSource > xSrc( xWriter, uno::UNO_QUERY );
-            xSrc->setOutputStream(xOut);
+            xWriter->setOutputStream(xOut);
 
-            Reference< XDocumentHandler > xHandler( xWriter, uno::UNO_QUERY );
-
-            rtl::Reference< XMLVersionListExport > xExp( new XMLVersionListExport( xContext, rVersions, sVerName, xHandler ) );
+            rtl::Reference< XMLVersionListExport > xExp( new XMLVersionListExport( xContext, rVersions, sVerName, xWriter ) );
 
             xExp->exportDoc( ::xmloff::token::XML_VERSION );
 
@@ -370,10 +366,9 @@ uno::Sequence< util::RevisionTag > SAL_CALL XMLVersionListPersistence::load( con
     css::uno::Sequence < css::util::RevisionTag > aVersions;
 
     const OUString sDocName( XMLN_VERSIONSLIST  );
-    uno::Reference< container::XNameAccess > xRootNames( xRoot, uno::UNO_QUERY );
 
     try {
-        if ( xRootNames.is() && xRootNames->hasByName( sDocName ) && xRoot->isStreamElement( sDocName ) )
+        if ( xRoot.is() && xRoot->hasByName( sDocName ) && xRoot->isStreamElement( sDocName ) )
         {
             Reference< uno::XComponentContext > xContext = comphelper::getProcessComponentContext();
 
@@ -429,7 +424,7 @@ uno::Sequence< util::RevisionTag > SAL_CALL XMLVersionListPersistence::load( con
 
 OUString XMLVersionListPersistence::getImplementationName()
 {
-    return OUString("XMLVersionListPersistence");
+    return "XMLVersionListPersistence";
 }
 
 sal_Bool XMLVersionListPersistence::supportsService(

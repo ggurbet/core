@@ -226,7 +226,7 @@ void PackageManagerImpl::initActivationLayer(
             }
 
             bool bShared = (m_context == "shared");
-            for (OUString & tempEntry : tempEntries)
+            for (const OUString & tempEntry : tempEntries)
             {
                 const MatchTempDir match( tempEntry );
                 if (std::none_of( id2temp.begin(), id2temp.end(), match ))
@@ -1040,14 +1040,12 @@ PackageManagerImpl::getDeployedPackages_(
                             ignore other platforms than the current one */ ) );
         }
         catch (const lang::IllegalArgumentException &) {
-            css::uno::Any ex( cppu::getCaughtException() );
             // ignore
-            SAL_WARN( "desktop", exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "desktop", "" );
         }
         catch (const deployment::DeploymentException&) {
-            css::uno::Any ex( cppu::getCaughtException() );
             // ignore
-            SAL_WARN( "desktop", exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "desktop", "" );
         }
     }
     return comphelper::containerToSequence(packages);

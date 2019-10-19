@@ -204,12 +204,12 @@ ScUserList::ScUserList()
     sal_Unicode cDelimiter = ScGlobal::cListDelimiter;
     uno::Sequence< i18n::CalendarItem2 > xCal;
 
-    uno::Sequence< i18n::Calendar2 > xCalendars(
+    const uno::Sequence< i18n::Calendar2 > xCalendars(
             ScGlobal::pLocaleData->getAllCalendars() );
 
-    for ( sal_Int32 j = 0; j < xCalendars.getLength(); ++j )
+    for ( const auto& rCalendar : xCalendars )
     {
-        xCal = xCalendars[j].Days;
+        xCal = rCalendar.Days;
         if ( xCal.hasElements() )
         {
             OUStringBuffer aDayShortBuf, aDayLongBuf;
@@ -218,7 +218,7 @@ ScUserList::ScUserList()
             sal_Int16 nStart = sal::static_int_cast<sal_Int16>(nLen);
             while (nStart > 0)
             {
-                if (xCal[--nStart].ID == xCalendars[j].StartOfWeek)
+                if (xCal[--nStart].ID == rCalendar.StartOfWeek)
                     break;
             }
             sal_Int16 nLast = sal::static_int_cast<sal_Int16>( (nStart + nLen - 1) % nLen );
@@ -241,7 +241,7 @@ ScUserList::ScUserList()
                 maData.push_back( std::make_unique<ScUserListData>( aDayLong ));
         }
 
-        xCal = xCalendars[j].Months;
+        xCal = rCalendar.Months;
         if ( xCal.hasElements() )
         {
             OUStringBuffer aMonthShortBuf, aMonthLongBuf;
@@ -296,12 +296,12 @@ const ScUserListData* ScUserList::GetData(const OUString& rSubStr) const
 
 const ScUserListData& ScUserList::operator[](size_t nIndex) const
 {
-    return *maData[nIndex].get();
+    return *maData[nIndex];
 }
 
 ScUserListData& ScUserList::operator[](size_t nIndex)
 {
-    return *maData[nIndex].get();
+    return *maData[nIndex];
 }
 
 ScUserList& ScUserList::operator=( const ScUserList& rOther )

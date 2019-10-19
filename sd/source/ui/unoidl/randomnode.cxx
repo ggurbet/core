@@ -35,7 +35,6 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <osl/mutex.hxx>
 #include <CustomAnimationPreset.hxx>
-#include <facreg.hxx>
 #include <randomnode.hxx>
 
 using ::osl::Mutex;
@@ -476,7 +475,7 @@ Reference< XEnumeration > SAL_CALL RandomAnimationNode::createEnumeration()
 
     if( aEnumAccess.is() )
     {
-        Reference< XEnumeration > xEnumeration( aEnumAccess->createEnumeration(), UNO_QUERY );
+        Reference< XEnumeration > xEnumeration = aEnumAccess->createEnumeration();
         if( xEnumeration.is() )
         {
             while( xEnumeration->hasMoreElements() )
@@ -542,7 +541,7 @@ Reference< XAnimationNode > SAL_CALL RandomAnimationNode::appendChild( const Ref
 // XServiceInfo
 OUString RandomAnimationNode::getImplementationName()
 {
-    return OUString( "sd::RandomAnimationNode" ) ;
+    return "sd::RandomAnimationNode" ;
 }
 
 // XServiceInfo
@@ -554,10 +553,7 @@ sal_Bool RandomAnimationNode::supportsService(const OUString& ServiceName)
 // XServiceInfo
 Sequence< OUString > RandomAnimationNode::getSupportedServiceNames()
 {
-    Sequence< OUString > aSeq( 2 );
-    aSeq[0] = "com.sun.star.animations.ParallelTimeContainer";
-    aSeq[1] = "com.sun.star.comp.sd.RandomAnimationNode";
-    return aSeq;
+    return { "com.sun.star.animations.ParallelTimeContainer", "com.sun.star.comp.sd.RandomAnimationNode" };
 }
 
 }

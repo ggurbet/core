@@ -57,17 +57,14 @@ bool VCLXAccessibleDropDownListBox::IsValid() const
 
 OUString VCLXAccessibleDropDownListBox::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.toolkit.AccessibleDropDownListBox" );
+    return "com.sun.star.comp.toolkit.AccessibleDropDownListBox";
 }
 
 
 Sequence< OUString > VCLXAccessibleDropDownListBox::getSupportedServiceNames()
 {
-    Sequence< OUString > aNames = VCLXAccessibleBox::getSupportedServiceNames();
-    sal_Int32 nLength = aNames.getLength();
-    aNames.realloc( nLength + 1 );
-    aNames[nLength] = "com.sun.star.accessibility.AccessibleDropDownListBox";
-    return aNames;
+    return comphelper::concatSequences(VCLXAccessibleBox::getSupportedServiceNames(),
+                                       Sequence<OUString>{"com.sun.star.accessibility.AccessibleDropDownListBox"});
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -32,13 +32,14 @@
 #include <com/sun/star/uri/XVndSunStarScriptUrlReference.hpp>
 #include <com/sun/star/util/XMacroExpander.hpp>
 #include <cppuhelper/bootstrap.hxx>
-#include "cppunit/TestAssert.h"
-#include "cppunit/TestFixture.h"
-#include "cppunit/extensions/HelperMacros.h"
-#include "cppunit/plugin/TestPlugIn.h"
+#include <cppunit/TestAssert.h>
+#include <cppunit/TestFixture.h>
+#include <cppunit/extensions/HelperMacros.h>
+#include <cppunit/plugin/TestPlugIn.h>
 #include <rtl/string.h>
 #include <rtl/string.hxx>
 #include <rtl/textenc.h>
+#include <rtl/uri.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
@@ -49,11 +50,11 @@
 namespace {
 
 #define TEST_ASSERT_EQUAL(token1, token2, token3, expected, actual) \
-    CPPUNIT_ASSERT_MESSAGE( \
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( \
         createTestAssertEqualMessage( \
             token1, token2, token3, #expected, #actual, expected, actual). \
             getStr(), \
-        (actual) == (expected))
+        (expected), (actual))
 
 template< typename T > void append(
     OUStringBuffer & buffer, T const & value)
@@ -62,7 +63,7 @@ template< typename T > void append(
 }
 
 template<> void append(OUStringBuffer & buffer, bool const & value) {
-    buffer.append(static_cast< sal_Bool >(value));
+    buffer.append(value);
 }
 
 template<> void append(OUStringBuffer & buffer, std::size_t const & value)
@@ -165,37 +166,39 @@ void Test::testParse() {
         char const * fragment;
     };
     Data data[] = {
-        { "", 0, "", true, 0,
-          "", true, 0, "", "", "", "", "", 0, 0 },
-        { "scheme:", 0, 0, false, 0,
-          0, false, 0, 0, 0, 0, 0, 0, 0, 0 },
-        { "scheme:/", "scheme", "/", true, 0,
-          "/", false, 1, "", "", "", "", "", 0, 0 },
+        { "", nullptr, "", true, nullptr,
+          "", true, 0, "", "", "", "", "", nullptr, nullptr },
+        { "scheme:", "scheme", "", false, nullptr,
+          "", true, 0, "", "", "", "", "", nullptr, nullptr },
+        { "scheme:/", "scheme", "/", true, nullptr,
+          "/", false, 1, "", "", "", "", "", nullptr, nullptr },
         { "scheme://", "scheme", "//", true, "",
-          "", false, 0, "", "", "", "", "", 0, 0 },
+          "", false, 0, "", "", "", "", "", nullptr, nullptr },
         { "scheme:///", "scheme", "///", true, "",
-          "/", false, 1, "", "", "", "", "", 0, 0 },
+          "/", false, 1, "", "", "", "", "", nullptr, nullptr },
         { "scheme:////", "scheme", "////", true, "",
-          "//", false, 2, "", "", "", "", "", 0, 0 },
+          "//", false, 2, "", "", "", "", "", nullptr, nullptr },
         { "scheme:////", "scheme", "////", true, "",
-          "//", false, 2, "", "", "", "", "", 0, 0 },
-        { "scheme:#", 0, 0, false, 0,
-          0, false, 0, 0, 0, 0, 0, 0, 0, 0 },
-        { "scheme:?", "scheme", "?", false, 0,
-          "?", false, 0, "", "", "", "", "", 0, 0 },
-        { "/", 0, "/", true, 0,
-          "/", false, 1, "", "", "", "", "", 0, 0 },
-        { "//", 0, "//", true, "",
-          "", false, 0, "", "", "", "", "", 0, 0 },
-        { "///", 0, "///", true, "",
-          "/", false, 1, "", "", "", "", "", 0, 0 },
-        { "////", 0, "////", true, "",
-          "//", false, 2, "", "", "", "", "", 0, 0 } };
+          "//", false, 2, "", "", "", "", "", nullptr, nullptr },
+        { "scheme:#", "scheme", "", false, nullptr,
+          "", true, 0, "", "", "", "", "", nullptr, "" },
+        { "scheme:?", "scheme", "?", false, nullptr,
+          "", true, 0, "", "", "", "", "", "", nullptr },
+        { "/", nullptr, "/", true, nullptr,
+          "/", false, 1, "", "", "", "", "", nullptr, nullptr },
+        { "//", nullptr, "//", true, "",
+          "", false, 0, "", "", "", "", "", nullptr, nullptr },
+        { "///", nullptr, "///", true, "",
+          "/", false, 1, "", "", "", "", "", nullptr, nullptr },
+        { "////", nullptr, "////", true, "",
+          "//", false, 2, "", "", "", "", "", nullptr, nullptr } };
     for (std::size_t i = 0; i < SAL_N_ELEMENTS(data); ++i) {
         css::uno::Reference< css::uri::XUriReference > uriRef(
             m_uriFactory->parse(
                 OUString::createFromAscii(data[i].uriReference)));
-        CPPUNIT_ASSERT(uriRef.is() == (data[i].schemeSpecificPart != 0));
+        TEST_ASSERT_EQUAL(
+            "testParse", i, data[i].uriReference, data[i].schemeSpecificPart != nullptr,
+            uriRef.is());
         if (uriRef.is()) {
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
@@ -203,11 +206,11 @@ void Test::testParse() {
                 uriRef->getUriReference());
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
-                data[i].scheme != 0, uriRef->isAbsolute());
+                data[i].scheme != nullptr, bool(uriRef->isAbsolute()));
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
                 OUString::createFromAscii(
-                    data[i].scheme == 0 ? "" : data[i].scheme),
+                    data[i].scheme == nullptr ? "" : data[i].scheme),
                 uriRef->getScheme());
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
@@ -219,11 +222,11 @@ void Test::testParse() {
                 static_cast< bool >(uriRef->isHierarchical()));
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
-                data[i].authority != 0, uriRef->hasAuthority());
+                data[i].authority != nullptr, bool(uriRef->hasAuthority()));
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
                 OUString::createFromAscii(
-                    data[i].authority == 0 ? "" : data[i].authority),
+                    data[i].authority == nullptr ? "" : data[i].authority),
                 uriRef->getAuthority());
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
@@ -264,19 +267,19 @@ void Test::testParse() {
                 OUString(), uriRef->getPathSegment(5));
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
-                data[i].query != 0, uriRef->hasQuery());
+                data[i].query != nullptr, bool(uriRef->hasQuery()));
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
                 OUString::createFromAscii(
-                    data[i].query == 0 ? "" : data[i].query),
+                    data[i].query == nullptr ? "" : data[i].query),
                 uriRef->getQuery());
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
-                data[i].fragment != 0, uriRef->hasFragment());
+                data[i].fragment != nullptr, bool(uriRef->hasFragment()));
             TEST_ASSERT_EQUAL(
                 "testParse", i, data[i].uriReference,
                 OUString::createFromAscii(
-                    data[i].fragment == 0 ? "" : data[i].fragment),
+                    data[i].fragment == nullptr ? "" : data[i].fragment),
                 uriRef->getFragment());
         }
     }
@@ -291,317 +294,742 @@ void Test::testMakeAbsolute() {
         char const * absolute;
     };
     Data data[] = {
-        // The following tests are taken from RFC 2396, Appendix C:
+        // The following tests are taken from RFC 3986, Section 5.4:
         { "http://a/b/c/d;p?q", "g:h", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "g:h" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "g:h" },
         { "http://a/b/c/d;p?q", "g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/g" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/g" },
         { "http://a/b/c/d;p?q", "./g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/g" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/g" },
         { "http://a/b/c/d;p?q", "g/", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/g/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/g/" },
+        { "http://a/b/c/d;p?q", "/g", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/g" },
         { "http://a/b/c/d;p?q", "//g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://g" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://g" },
         { "http://a/b/c/d;p?q", "?y", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/?y" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/d;p?y" },
         { "http://a/b/c/d;p?q", "g?y", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g?y" },
         { "http://a/b/c/d;p?q", "#s", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/d;p?q#s" },
         { "http://a/b/c/d;p?q", "g#s", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g#s" },
         { "http://a/b/c/d;p?q", "g?y#s", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g?y#s" },
         { "http://a/b/c/d;p?q", ";x", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/;x" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/;x" },
         { "http://a/b/c/d;p?q", "g;x", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g;x" },
         { "http://a/b/c/d;p?q", "g;x?y#s", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g;x?y#s" },
-        { "http://a/b/c/d;p?q", ".", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/" },
-        { "http://a/b/c/d;p?q", "./", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/" },
-        { "http://a/b/c/d;p?q", "..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/" },
-        { "http://a/b/c/d;p?q", "../", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/" },
-        { "http://a/b/c/d;p?q", "../g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/g" },
-        { "http://a/b/c/d;p?q", "../..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/" },
-        { "http://a/b/c/d;p?q", "../../", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/" },
-        { "http://a/b/c/d;p?q", "../../g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/g" },
         { "http://a/b/c/d;p?q", "", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/d;p?q" },
+        { "http://a/b/c/d;p?q", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/" },
+        { "http://a/b/c/d;p?q", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/" },
+        { "http://a/b/c/d;p?q", "..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/" },
+        { "http://a/b/c/d;p?q", "../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/" },
+        { "http://a/b/c/d;p?q", "../g", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/g" },
+        { "http://a/b/c/d;p?q", "../..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/" },
+        { "http://a/b/c/d;p?q", "../../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/" },
+        { "http://a/b/c/d;p?q", "../../g", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/g" },
         { "http://a/b/c/d;p?q", "../../../g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, 0 },
+          css::uri::RelativeUriExcessParentSegments_ERROR, nullptr },
         { "http://a/b/c/d;p?q", "../../../g", true,
           css::uri::RelativeUriExcessParentSegments_RETAIN, "http://a/../g" },
         { "http://a/b/c/d;p?q", "../../../g", true,
           css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/g" },
         { "http://a/b/c/d;p?q", "../../../../g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, 0 },
+          css::uri::RelativeUriExcessParentSegments_ERROR, nullptr },
         { "http://a/b/c/d;p?q", "../../../../g", true,
           css::uri::RelativeUriExcessParentSegments_RETAIN,
           "http://a/../../g" },
         { "http://a/b/c/d;p?q", "../../../../g", true,
           css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/g" },
         { "http://a/b/c/d;p?q", "/./g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/./g" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/g" },
         { "http://a/b/c/d;p?q", "/../g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/../g" },
+          css::uri::RelativeUriExcessParentSegments_ERROR, nullptr },
+        { "http://a/b/c/d;p?q", "/../g", true,
+          css::uri::RelativeUriExcessParentSegments_RETAIN, "http://a/../g" },
+        { "http://a/b/c/d;p?q", "/../g", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/g" },
         { "http://a/b/c/d;p?q", "g.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/g." },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/g." },
         { "http://a/b/c/d;p?q", ".g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/.g" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/.g" },
         { "http://a/b/c/d;p?q", "g..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g.." },
         { "http://a/b/c/d;p?q", "..g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/..g" },
         { "http://a/b/c/d;p?q", "./../g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/g" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/g" },
         { "http://a/b/c/d;p?q", "./g/.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/g/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/g/" },
         { "http://a/b/c/d;p?q", "g/./h", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g/h" },
         { "http://a/b/c/d;p?q", "g/../h", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/h" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/h" },
         { "http://a/b/c/d;p?q", "g;x=1/./y", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g;x=1/y" },
         { "http://a/b/c/d;p?q", "g;x=1/../y", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http://a/b/c/y" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http://a/b/c/y" },
         { "http://a/b/c/d;p?q", "g?y/./x", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g?y/./x" },
         { "http://a/b/c/d;p?q", "g?y/../x", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g?y/../x" },
         { "http://a/b/c/d;p?q", "g#s/./x", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g#s/./x" },
         { "http://a/b/c/d;p?q", "g#s/../x", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR,
+          css::uri::RelativeUriExcessParentSegments_REMOVE,
           "http://a/b/c/g#s/../x" },
-        { "http.://a/b/c/d;p?q", "http.:g", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "http.:g" },
+        { "http://a/b/c/d;p?q", "http:g", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "http:g" },
+
+        { "scheme:", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
 
         { "scheme://a", "", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a" },
         { "scheme://a", ".", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "./", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "./.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "x/../", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "x/../.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "x/.././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "x/.././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "x/../././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "x/../././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "./x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "././x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "./././x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "./x/../.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "./x/.././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "././x/.././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "././x/../././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a", "./././x/../././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
 
         { "scheme://a/", "", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", ".", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "./", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "./.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "x/../", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "x/../.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "x/.././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "x/.././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "x/../././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "x/../././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "./x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "././x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "./././x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "./x/../.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "./x/.././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "././x/.././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "././x/../././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/", "./././x/../././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
 
         { "scheme://a/b", "", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b" },
         { "scheme://a/b", ".", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "./", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "./.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "x/../", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "x/../.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "x/.././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "x/.././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "x/../././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "x/../././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "./x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "././x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "./././x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "./x/../.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "./x/.././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "././x/.././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "././x/../././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
         { "scheme://a/b", "./././x/../././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/" },
 
         { "scheme://a/b/", "", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", ".", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "./", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "./.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "x/../", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "x/../.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "x/.././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "x/.././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "x/../././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "x/../././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "./x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "././x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "./././x/..", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "./x/../.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "./x/.././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "././x/.././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "././x/../././", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
         { "scheme://a/b/", "./././x/../././.", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a/b/" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a/b/" },
+
+        { "scheme:a", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a" },
+        { "scheme:a", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:a", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:a", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:a", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:a", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:" },
+        { "scheme:a", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:a", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+
+        { "scheme:a/", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+
+        { "scheme:a/b", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b" },
+        { "scheme:a/b", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+        { "scheme:a/b", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/" },
+
+        { "scheme:a/b/", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+        { "scheme:a/b/", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:a/b/" },
+
+        { "scheme:/a", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a" },
+        { "scheme:/a", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+        { "scheme:/a", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/" },
+
+        { "scheme:/a/", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+
+        { "scheme:/a/b", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b" },
+        { "scheme:/a/b", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+        { "scheme:/a/b", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/" },
+
+        { "scheme:/a/b/", "", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", ".", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "./", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "./.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "x/../", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "./x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "./././x/..", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "./x/../.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "./x/.././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "././x/.././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "././x/../././", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
+        { "scheme:/a/b/", "./././x/../././.", true,
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme:/a/b/" },
 
         { "scheme://a#s", "", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a" },
         { "scheme://a", "?q", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a?q" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a?q" },
         { "scheme://a#s", "?q", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a?q" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a?q" },
         { "scheme://a", "#s", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a#s" },
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a#s" },
         { "scheme://a#s1", "#s2", true,
-          css::uri::RelativeUriExcessParentSegments_ERROR, "scheme://a#s2" } };
+          css::uri::RelativeUriExcessParentSegments_REMOVE, "scheme://a#s2" },
+
+        { "schema://a", "schema://b/c/../d", true, css::uri::RelativeUriExcessParentSegments_REMOVE,
+          "schema://b/d" },
+
+        // Per RFC 3986 Section 5.2.1 "Pre-parse the Base URI", "Normalization of the base URI
+        // [...; esp. dot-segment removal per Section 6.2.2.3 "Path Segment Normalization"] is
+        // optional" (and not done by our implementation), so if the relative URI has no scheme and
+        // no authority and an empty path, the Base URI's path is used unmodified per Section 5.2.2
+        // "Transform References" and thus still contains dot-segments:
+        { "scheme:/a/../b/c", "", true, css::uri::RelativeUriExcessParentSegments_REMOVE,
+          "scheme:/a/../b/c" },
+        { "scheme:/a/../b/c", "d", true, css::uri::RelativeUriExcessParentSegments_REMOVE,
+          "scheme:/b/d" } };
     for (std::size_t i = 0; i < SAL_N_ELEMENTS(data); ++i) {
         css::uno::Reference< css::uri::XUriReference > baseUriRef(
             m_uriFactory->parse(
                 OUString::createFromAscii(data[i].baseUriReference)));
-        CPPUNIT_ASSERT(baseUriRef.is());
+        TEST_ASSERT_EQUAL("testMakeAbsolute", i, data[i].baseUriReference, true, baseUriRef.is());
         css::uno::Reference< css::uri::XUriReference > uriRef(
             m_uriFactory->parse(
                 OUString::createFromAscii(data[i].uriReference)));
-        CPPUNIT_ASSERT(uriRef.is());
+        TEST_ASSERT_EQUAL("testMakeAbsolute", i, data[i].uriReference, true, uriRef.is());
         css::uno::Reference< css::uri::XUriReference > absolute(
             m_uriFactory->makeAbsolute(
                 baseUriRef, uriRef, data[i].processSpecialBaseSegments,
                 data[i].excessParentSegments));
         TEST_ASSERT_EQUAL(
             "testMakeAbsolute", i, data[i].uriReference,
-            data[i].absolute != 0, absolute.is());
+            data[i].absolute != nullptr, absolute.is());
         if (absolute.is()) {
             TEST_ASSERT_EQUAL(
                 "testMakeAbsolute", i, data[i].uriReference,
                 OUString::createFromAscii(data[i].absolute),
                 absolute->getUriReference());
+        }
+        // For those test cases that conform to RFC 3986, check that the behavior matches
+        // rtl::Uri::convertRelToAbs:
+        if (data[i].processSpecialBaseSegments
+            && data[i].excessParentSegments == css::uri::RelativeUriExcessParentSegments_REMOVE)
+        {
+            try {
+                auto const absolute2 = rtl::Uri::convertRelToAbs(
+                    OUString::createFromAscii(data[i].baseUriReference),
+                    OUString::createFromAscii(data[i].uriReference));
+                TEST_ASSERT_EQUAL(
+                    "testMakeAbsolute", i, data[i].uriReference, true, data[i].absolute != nullptr);
+                TEST_ASSERT_EQUAL(
+                    "testMakeAbsolute", i, data[i].uriReference,
+                    OUString::createFromAscii(data[i].absolute), absolute2);
+            } catch (rtl::MalformedUriException &) {
+                TEST_ASSERT_EQUAL(
+                    "testMakeAbsolute", i, data[i].uriReference, true, data[i].absolute == nullptr);
+            }
         }
     }
 }
@@ -618,9 +1046,9 @@ void Test::testMakeRelative() {
     };
     Data data[] = {
         { "scheme1://a/b/c", "scheme2://a/b/c?q#s", true, true, false,
-          "scheme2://a/b/c?q#s", 0 },
+          "scheme2://a/b/c?q#s", nullptr },
         { "scheme://a/b/c", "scheme:a/b/c?q#s", true, true, false,
-          "scheme:a/b/c?q#s", 0 },
+          "scheme:a/b/c?q#s", nullptr },
         { "scheme://a/b/c", "", true, true, false, "", "scheme://a/b/c" },
         { "scheme://a/b/c", "//d/e/f", true, true, false, "//d/e/f",
           "scheme://d/e/f" },
@@ -628,73 +1056,79 @@ void Test::testMakeRelative() {
           "scheme://a/b/e?q#s" },
         { "scheme://a/b", "scheme://a?q", true, true, false, "/?q",
           "scheme://a/?q" },
-        { "scheme://a/b", "scheme://a?q", true, false, false, "?q",
+        { "scheme://a/b", "scheme://a?q", true, false, false, "/?q",
           "scheme://a/?q" },
-        { "scheme://a", "scheme://a?q", true, true, false, "?q", 0 },
+        { "scheme://a", "scheme://a?q", true, true, false, "?q", nullptr },
         { "scheme://a/", "scheme://a?q", true, true, false, "?q",
           "scheme://a/?q" },
-        { "scheme://a", "scheme://a/?q", true, true, false, "?q",
-          "scheme://a?q" },
+        { "scheme://a", "scheme://a/?q", true, true, false, "/?q",
+          nullptr },
         { "scheme://a/", "scheme://a/?q", true, true, false, "?q",
-          "scheme://a/?q" },
-        { "scheme://a?q", "scheme://a?q", true, true, false, "", 0 },
+          nullptr },
+        { "scheme://a?q", "scheme://a?q", true, true, false, "", nullptr },
         { "scheme://a/?q", "scheme://a?q", true, true, false, "",
           "scheme://a/?q" },
-        { "scheme://a?q", "scheme://a/?q", true, true, false, "",
-          "scheme://a?q" },
-        { "scheme://a/?q", "scheme://a/?q", true, true, false, "", 0 },
-        { "scheme://a/b/c/d", "scheme://a//", true, true, false, "//a//", 0 },
+        { "scheme://a?q", "scheme://a/?q", true, true, false, "/?q",
+          nullptr },
+        { "scheme://a/?q", "scheme://a/?q", true, true, false, "", nullptr },
+        { "scheme://a/b/c/d", "scheme://a//", true, true, false, "//a//", nullptr },
         { "scheme://a/b/c/d", "scheme://a//", false, true, false, "../..//",
-          0 },
+          nullptr },
         { "scheme://a/b/c/d", "scheme://a//", true, false, false, "../..//",
-          0 },
+          nullptr },
         { "scheme://a/b/c/d", "scheme://a//", false, false, false, "../..//",
-          0 },
-        { "scheme://a/b/c/d", "scheme://a/e", true, true, false, "/e", 0 },
+          nullptr },
+        { "scheme://a/b/c/d", "scheme://a/e", true, true, false, "/e", nullptr },
         { "scheme://a/b/c/d", "scheme://a/e", true, false, false, "../../e",
-          0 },
+          nullptr },
         { "scheme://a/b/c/d/e", "scheme://a/b/f", true, true, false, "../../f",
-          0 },
-        { "scheme://a/b/c/d/e", "scheme://a/b", true, true, false, "/b", 0 },
+          nullptr },
+        { "scheme://a/b/c/d/e", "scheme://a/b", true, true, false, "/b", nullptr },
         { "scheme://a/b/c/d/e", "scheme://a/b", true, false, false,
-          "../../../b", 0 },
+          "../../../b", nullptr },
         { "scheme://a/b/c/d/e", "scheme://a/b/", true, true, false, "../..",
-          0 },
+          nullptr },
         { "scheme://a/b/c/d/e", "scheme://a/b/c", true, true, false, "../../c",
-          0 },
-        { "scheme://a/b/c/d/e", "scheme://a/b/c/", true, true, false, "..", 0 },
-        { "scheme://a/b/", "scheme://a/b/c/d", true, true, false, "c/d", 0 },
-        { "scheme://a/b/", "scheme://a/b/c/d/", true, true, false, "c/d/", 0 },
-        { "scheme://a/b/c", "scheme://a/b//", true, true, false, ".//", 0 },
-        { "scheme://a/b/c", "scheme://a/b//d", true, true, false, ".//d", 0 },
+          nullptr },
+        { "scheme://a/b/c/d/e", "scheme://a/b/c/", true, true, false, "..", nullptr },
+        { "scheme://a/b/", "scheme://a/b/c/d", true, true, false, "c/d", nullptr },
+        { "scheme://a/b/", "scheme://a/b/c/d/", true, true, false, "c/d/", nullptr },
+        { "scheme://a/b/c", "scheme://a/b//", true, true, false, ".//", nullptr },
+        { "scheme://a/b/c", "scheme://a/b//d", true, true, false, ".//d", nullptr },
         { "scheme://a/b/c", "scheme://a/b//d//", true, true, false, ".//d//",
-          0 },
-        { "scheme://a/b/c", "scheme://a/b/d+:", true, true, false, "./d+:", 0 },
-        { "scheme://a/b/c", "scheme://a/b/+d:", true, true, false, "+d:", 0 },
+          nullptr },
+        { "scheme://a/b/c", "scheme://a/b/d+:", true, true, false, "./d+:", nullptr },
+        { "scheme://a/b/c", "scheme://a/b/+d:", true, true, false, "+d:", nullptr },
         { "scheme://a/b/c", "scheme://a/b/d#e:f", true, true, false, "d#e:f",
-          0 },
+          nullptr },
         { "scheme://a/b/c/", "scheme://a/b/../d/.e/.", true, true, false,
           "../../d/.e/.",
           "scheme://a/d/.e/" },
         { "scheme://a/b/c/", "scheme://a/b/../d/.e/.", true, true, true,
           "../%2E%2E/d/.e/%2E", "scheme://a/b/%2E%2E/d/.e/%2E" },
         { "scheme://auth/a/b", "scheme://auth//c/d", true, true, false,
-          "//auth//c/d", 0 },
+          "//auth//c/d", nullptr },
         { "scheme://auth/a/b", "scheme://auth//c/d", false, true, false,
-          "..//c/d", 0 },
+          "..//c/d", nullptr },
         { "scheme://auth/a/b", "scheme://auth/c/d", true, true, false, "/c/d",
-          0 },
+          nullptr },
         { "scheme://auth/a/b", "scheme://auth/c/d", true, false, false,
-          "../c/d", 0 } };
+          "../c/d", nullptr },
+        { "scheme:a/b/c", "scheme://d/e/f", true, true, false, "//d/e/f", nullptr },
+        { "scheme:/a/b/c", "scheme://d/e/f", true, true, false, "//d/e/f", nullptr },
+        { "scheme:a/b/c", "scheme:/d/e/f", true, true, false, "/d/e/f", nullptr },
+        { "scheme:/a/b/c", "scheme:/d/e/f", true, true, false, "/d/e/f", nullptr },
+        { "scheme:a/b/c", "scheme:d/e/f", true, true, false, "scheme:d/e/f", nullptr },
+        { "scheme:/a/b/c", "scheme:d/e/f", true, true, false, "scheme:d/e/f", nullptr } };
     for (std::size_t i = 0; i < SAL_N_ELEMENTS(data); ++i) {
         css::uno::Reference< css::uri::XUriReference > baseUriRef(
             m_uriFactory->parse(
                 OUString::createFromAscii(data[i].baseUriReference)));
-        CPPUNIT_ASSERT(baseUriRef.is());
+        TEST_ASSERT_EQUAL("testMakeRelative", i, data[i].baseUriReference, true, baseUriRef.is());
         css::uno::Reference< css::uri::XUriReference > uriRef(
             m_uriFactory->parse(
                 OUString::createFromAscii(data[i].uriReference)));
-        CPPUNIT_ASSERT(uriRef.is());
+        TEST_ASSERT_EQUAL("testMakeRelative", i, data[i].uriReference, true, uriRef.is());
         css::uno::Reference< css::uri::XUriReference > relative(
             m_uriFactory->makeRelative(
                 baseUriRef, uriRef, data[i].preferAuthorityOverRelativePath,
@@ -702,7 +1136,7 @@ void Test::testMakeRelative() {
                 data[i].encodeRetainedSpecialSegments));
         TEST_ASSERT_EQUAL(
             "testMakeRelative", i, data[i].uriReference,
-            data[i].relative != 0, relative.is());
+            data[i].relative != nullptr, relative.is());
         if (relative.is()) {
             TEST_ASSERT_EQUAL(
                 "testMakeRelative", i, data[i].uriReference,
@@ -712,11 +1146,11 @@ void Test::testMakeRelative() {
                 m_uriFactory->makeAbsolute(
                     baseUriRef, relative, true,
                     css::uri::RelativeUriExcessParentSegments_ERROR));
-            CPPUNIT_ASSERT(absolute.is());
+            TEST_ASSERT_EQUAL("testMakeRelative", i, data[i].uriReference, true, absolute.is());
             TEST_ASSERT_EQUAL(
                 "testMakeRelative", i, data[i].uriReference,
                 OUString::createFromAscii(
-                    data[i].absolute == 0
+                    data[i].absolute == nullptr
                     ? data[i].uriReference : data[i].absolute),
                 absolute->getUriReference());
         }
@@ -731,11 +1165,11 @@ void Test::testVndSunStarExpand() {
     Data data[] = {
         { "vnd.sun.star.expand:", "" }, // liberally accepted
         { "vnd.sun.star.expand:/", "/" }, // liberally accepted
-        { "vnd.sun.star.expand:%80", 0 },
+        { "vnd.sun.star.expand:%80", nullptr },
         { "vnd.sun.star.expand:%5C$%5C%24%5C%5C", "$$\\" } };
     css::uno::Reference< css::util::XMacroExpander > expander(
         m_context->getValueByName(
-              OUString( "/singletons/com.sun.star.util.theMacroExpander")),
+              "/singletons/com.sun.star.util.theMacroExpander"),
         css::uno::UNO_QUERY_THROW);
     for (std::size_t i = 0; i < SAL_N_ELEMENTS(data); ++i) {
         css::uno::Reference< css::uri::XUriReference > uriRef(
@@ -743,7 +1177,7 @@ void Test::testVndSunStarExpand() {
                 OUString::createFromAscii(data[i].uriReference)));
         TEST_ASSERT_EQUAL(
             "testVndSunStarExpand", i, data[i].uriReference,
-            data[i].expanded != 0, uriRef.is());
+            data[i].expanded != nullptr, uriRef.is());
         if (uriRef.is()) {
             css::uno::Reference< css::uri::XVndSunStarExpandUrlReference >
                 expandUrl(uriRef, css::uno::UNO_QUERY_THROW);
@@ -768,21 +1202,21 @@ void Test::testVndSunStarScript() {
         Parameter parameters[parameterCount];
     };
     Data data[] = {
-        { "vnd.sun.star.script:", 0, false, {} },
-        { "vnd.sun.star.script:/", 0, false, {} },
-        { "vnd.sun.star.script:/abc/def?ghi=jkl&mno=pqr", 0, false, {} },
+        { "vnd.sun.star.script:", nullptr, false, {} },
+        { "vnd.sun.star.script:/", nullptr, false, {} },
+        { "vnd.sun.star.script:/abc/def?ghi=jkl&mno=pqr", nullptr, false, {} },
         { "vnd.sun.star.script:abc%3fdef/ghi", "abc?def/ghi", false, {} },
-        { "vnd.sun.star.script:name?a", 0, false, {} },
-        { "vnd.sun.star.script:name?a=", "name", true, { { "a", "" }, { "A", 0 } } },
-        { "vnd.sun.star.script:name?a=&", 0, true, {} },
+        { "vnd.sun.star.script:name?a", nullptr, false, {} },
+        { "vnd.sun.star.script:name?a=", "name", true, { { "a", "" }, { "A", nullptr } } },
+        { "vnd.sun.star.script:name?a=&", nullptr, true, {} },
         { "vnd.sun.star.script:name?key1=&%26=%3D&key1=hello", "name", true,
-          { { "key1", "" }, { "key2", 0 }, { "&", "=" } } } };
+          { { "key1", "" }, { "key2", nullptr }, { "&", "=" } } } };
     for (std::size_t i = 0; i < SAL_N_ELEMENTS(data); ++i) {
         css::uno::Reference< css::uri::XUriReference > uriRef(
             m_uriFactory->parse(
                 OUString::createFromAscii(data[i].uriReference)));
         TEST_ASSERT_EQUAL(
-            "testVndSunStarScript", i, data[i].uriReference, data[i].name != 0,
+            "testVndSunStarScript", i, data[i].uriReference, data[i].name != nullptr,
             uriRef.is());
         if (uriRef.is()) {
             css::uno::Reference< css::uri::XVndSunStarScriptUrlReference >
@@ -797,16 +1231,17 @@ void Test::testVndSunStarScript() {
                 scriptUrl->getName());
             OUString originalReference(uriRef->getUriReference());
             for (std::size_t j = 0; j < parameterCount; ++j) {
-                if (data[i].parameters[j].key != 0) {
+                if (data[i].parameters[j].key != nullptr) {
                     TEST_ASSERT_EQUAL(
                         "testVndSunStarScript",
                         static_cast< double >(i)
                         + static_cast< double >(j) / 10.0,
                         data[i].uriReference,
-                        data[i].parameters[j].value != 0,
-                        scriptUrl->hasParameter(
-                            OUString::createFromAscii(
-                                data[i].parameters[j].key)));
+                        data[i].parameters[j].value != nullptr,
+                        bool(
+                            scriptUrl->hasParameter(
+                                OUString::createFromAscii(
+                                    data[i].parameters[j].key))));
                     TEST_ASSERT_EQUAL(
                         "testVndSunStarScript",
                         static_cast< double >(i)
@@ -854,26 +1289,26 @@ void Test::testVndSunStarScript() {
 
     css::uno::Reference< css::uri::XUriReference > uriRef(
         m_uriFactory->parse(
-            OUString( "vnd.sun.star.script:Hello?location=Library.Module")),
+            "vnd.sun.star.script:Hello?location=Library.Module"),
         css::uno::UNO_SET_THROW);
     css::uno::Reference< css::uri::XVndSunStarScriptUrlReference >
         scriptUrl(uriRef, css::uno::UNO_QUERY_THROW);
 
     scriptUrl->setParameter(
-        OUString("location"),
-        OUString("foo"));
+        "location",
+        "foo");
     TEST_ASSERT_EQUAL(
-        "testVndSunStarScript", (sal_Int32)10, (sal_Int32)1,
-        uriRef->getUriReference(),
-        OUString("vnd.sun.star.script:Hello?location=foo"));
+        "testVndSunStarScript", sal_Int32(10), sal_Int32(1),
+        OUString("vnd.sun.star.script:Hello?location=foo"),
+        uriRef->getUriReference());
 
     scriptUrl->setParameter(
-        OUString("language"),
-        OUString("StarBasic"));
+        "language",
+        "StarBasic");
     TEST_ASSERT_EQUAL(
-        "testVndSunStarScript", (sal_Int32)10, (sal_Int32)2,
-        uriRef->getUriReference(),
-        OUString("vnd.sun.star.script:Hello?location=foo&language=StarBasic"));
+        "testVndSunStarScript", sal_Int32(10), sal_Int32(2),
+        OUString("vnd.sun.star.script:Hello?location=foo&language=StarBasic"),
+        uriRef->getUriReference());
 
 
     bool caughtExpected = false;
@@ -887,14 +1322,14 @@ void Test::testVndSunStarScript() {
         "testVndSunStarScript",
         OUString("illegal arguments"),
         OUString("name"),
-        caughtExpected,
-        true);
+        true,
+        caughtExpected);
 
     caughtExpected = false;
     try {
         scriptUrl->setParameter(
             OUString(),
-            OUString("non-empty"));
+            "non-empty");
     }
     catch( const css::lang::IllegalArgumentException& ) {
         caughtExpected = true;
@@ -903,8 +1338,8 @@ void Test::testVndSunStarScript() {
         "testVndSunStarScript",
         OUString("illegal arguments"),
         OUString("parameter"),
-        caughtExpected,
-        true);
+        true,
+        caughtExpected);
 }
 
 void Test::testTranslator() {
@@ -957,8 +1392,8 @@ void Test::testPkgUrlFactory() {
         char const * result;
     };
     Data data[] = {
-        { "a/b/c", 0 },
-        { "file:///#foo", 0 },
+        { "a/b/c", nullptr },
+        { "file:///#foo", nullptr },
         { "file:///a%25b%2fc/d~e&f@g?h",
           "vnd.sun.star.pkg://file:%2F%2F%2Fa%2525b%252fc%2Fd~e&f@g%3Fh" } };
     css::uno::Reference< css::uri::XVndSunStarPkgUrlReferenceFactory > factory(
@@ -970,8 +1405,8 @@ void Test::testPkgUrlFactory() {
                     OUString::createFromAscii(data[i].authority))));
         TEST_ASSERT_EQUAL(
             "testVndSunStarPkgFactory", i, data[i].authority,
-            data[i].result != 0, static_cast< bool >(url.is()));
-        if (data[i].result != 0) {
+            data[i].result != nullptr, url.is());
+        if (data[i].result != nullptr) {
             TEST_ASSERT_EQUAL(
                 "testVndSunStarPkgFactory", i, data[i].authority,
                 OUString::createFromAscii(data[i].result),

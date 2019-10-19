@@ -51,6 +51,7 @@
 #include <navicont.hxx>
 #include <edtwin.hxx>
 #include <uitool.hxx>
+#include <toxmgr.hxx>
 
 #include <cmdid.h>
 #include <helpids.h>
@@ -1223,11 +1224,10 @@ IMPL_STATIC_LINK_NOARG(SwGlobalTree, ShowFrameHdl, void*, void)
 }
 
 void SwGlobalTree::InitEntry(SvTreeListEntry* pEntry,
-        const OUString& rStr ,const Image& rImg1,const Image& rImg2,
-        SvLBoxButtonKind eButtonKind)
+        const OUString& rStr ,const Image& rImg1,const Image& rImg2)
 {
     const size_t nColToHilite = 1; //0==Bitmap;1=="Column1";2=="Column2"
-    SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2, eButtonKind );
+    SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2 );
     SvLBoxString& rCol = static_cast<SvLBoxString&>(pEntry->GetItem( nColToHilite ));
     pEntry->ReplaceItem(std::make_unique<SwLBoxString>(rCol.GetText()), nColToHilite);
 }
@@ -1364,12 +1364,12 @@ IMPL_LINK( SwGlobalTree, DialogClosedHdl, sfx2::FileDialogHelper*, _pFileDlg, vo
         Sequence< OUString >aFileNames( aMedList.size() );
         OUString* pFileNames = aFileNames.getArray();
         sal_Int32 nPos = 0;
-        for (std::unique_ptr<SfxMedium>& pMed : aMedList)
+        for (const std::unique_ptr<SfxMedium>& pMed : aMedList)
         {
             OUString sFileName = pMed->GetURLObject().GetMainURL( INetURLObject::DecodeMechanism::NONE )
-                + OUStringLiteral1(sfx2::cTokenSeparator)
+                + OUStringChar(sfx2::cTokenSeparator)
                 + pMed->GetFilter()->GetFilterName()
-                + OUStringLiteral1(sfx2::cTokenSeparator);
+                + OUStringChar(sfx2::cTokenSeparator);
             pFileNames[nPos++] = sFileName;
         }
         InsertRegion( m_pDocContent.get(), aFileNames );

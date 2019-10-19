@@ -25,6 +25,7 @@
  *************************************************************************/
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
+#include <rtl/ustrbuf.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/interfacecontainer2.hxx>
 #include <comphelper/propertysequence.hxx>
@@ -45,6 +46,7 @@
 #include <com/sun/star/uno/Any.hxx>
 #include <ucbhelper/cancelcommandexecution.hxx>
 #include <ucbhelper/getcomponentcontext.hxx>
+#include <ucbhelper/macros.hxx>
 #include "identify.hxx"
 #include "ucbcmds.hxx"
 
@@ -176,14 +178,12 @@ bool createContentProviderData(
     ContentProviderData & rInfo)
 {
     // Obtain service name.
-    OUStringBuffer aKeyBuffer (rProvider);
-    aKeyBuffer.append( "/ServiceName" );
 
     OUString aValue;
     try
     {
         if ( !( rxHierNameAccess->getByHierarchicalName(
-                    aKeyBuffer.makeStringAndClear() ) >>= aValue ) )
+                    rProvider +  "/ServiceName" ) >>= aValue ) )
         {
             OSL_FAIL( "UniversalContentBroker::getContentProviderData - "
                         "Error getting item value!" );
@@ -197,11 +197,9 @@ bool createContentProviderData(
     rInfo.ServiceName = aValue;
 
     // Obtain URL Template.
-    aKeyBuffer.append(rProvider);
-    aKeyBuffer.append( "/URLTemplate" );
 
     if ( !( rxHierNameAccess->getByHierarchicalName(
-                aKeyBuffer.makeStringAndClear() ) >>= aValue ) )
+                rProvider + "/URLTemplate" ) >>= aValue ) )
     {
         OSL_FAIL( "UniversalContentBroker::getContentProviderData - "
                     "Error getting item value!" );
@@ -210,11 +208,9 @@ bool createContentProviderData(
     rInfo.URLTemplate = aValue;
 
     // Obtain Arguments.
-    aKeyBuffer.append(rProvider);
-    aKeyBuffer.append( "/Arguments" );
 
     if ( !( rxHierNameAccess->getByHierarchicalName(
-                aKeyBuffer.makeStringAndClear() ) >>= aValue ) )
+                rProvider + "/Arguments" ) >>= aValue ) )
     {
         OSL_FAIL( "UniversalContentBroker::getContentProviderData - "
                     "Error getting item value!" );
@@ -244,50 +240,6 @@ UniversalContentBroker::UniversalContentBroker(
 UniversalContentBroker::~UniversalContentBroker()
 {
 }
-
-
-// XInterface methods.
-void SAL_CALL UniversalContentBroker::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL UniversalContentBroker::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL UniversalContentBroker::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< XUniversalContentBroker* >(this),
-                                               static_cast< XTypeProvider* >(this),
-                                               static_cast< XComponent* >(this),
-                                               static_cast< XServiceInfo* >(this),
-                                               static_cast< XInitialization* >(this),
-                                               static_cast< XContentProviderManager* >(this),
-                                               static_cast< XContentProvider* >(this),
-                                               static_cast< XContentIdentifierFactory* >(this),
-                                               static_cast< XCommandProcessor* >(this)
-                                               );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-// XTypeProvider methods.
-
-
-XTYPEPROVIDER_IMPL_9( UniversalContentBroker,
-                      XUniversalContentBroker,
-                      XTypeProvider,
-                      XComponent,
-                      XServiceInfo,
-                      XInitialization,
-                      XContentProviderManager,
-                      XContentProvider,
-                      XContentIdentifierFactory,
-                      XCommandProcessor );
 
 
 // XComponent methods.
@@ -333,13 +285,12 @@ void SAL_CALL UniversalContentBroker::removeEventListener(
 // XServiceInfo methods.
 
 XSERVICEINFO_COMMOM_IMPL( UniversalContentBroker,
-                          OUString( "com.sun.star.comp.ucb.UniversalContentBroker" ) )
+                          "com.sun.star.comp.ucb.UniversalContentBroker" )
 /// @throws css::uno::Exception
 static css::uno::Reference< css::uno::XInterface >
 UniversalContentBroker_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new UniversalContentBroker( ucbhelper::getComponentContext(rSMgr) ));
+    css::lang::XServiceInfo* pX = new UniversalContentBroker( ucbhelper::getComponentContext(rSMgr) );
     return css::uno::Reference< css::uno::XInterface >::query( pX );
 }
 
@@ -864,7 +815,7 @@ bool UniversalContentBroker::getContentProviderData(
         uno::Reference< container::XNameAccess > xNameAccess(
                                             xInterface, uno::UNO_QUERY_THROW );
 
-        uno::Sequence< OUString > aElems = xNameAccess->getElementNames();
+        const uno::Sequence< OUString > aElems = xNameAccess->getElementNames();
 
         if ( aElems.hasElements() )
         {

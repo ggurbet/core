@@ -397,7 +397,7 @@ SdrObject* SwWW8ImplReader::ReadElipse(WW8_DPHEAD const * pHd, SfxAllItemSet &rS
 
     SdrObject* pObj = new SdrCircObj(
         *m_pDrawModel,
-        OBJ_CIRC,
+        SdrCircKind::Full,
         tools::Rectangle(aP0, aP1));
 
     SetStdAttr( rSet, aElipse.aLnt, aElipse.aShd );
@@ -432,7 +432,7 @@ SdrObject* SwWW8ImplReader::ReadArc(WW8_DPHEAD const * pHd, SfxAllItemSet &rSet)
 
     SdrObject* pObj = new SdrCircObj(
         *m_pDrawModel,
-        OBJ_SECT,
+        SdrCircKind::Section,
         tools::Rectangle(aP0, aP1),
         nW * 9000,
         ( ( nW + 1 ) & 3 ) * 9000);
@@ -798,7 +798,7 @@ void SwWW8ImplReader::InsertAttrsAsDrawingAttrs(WW8_CP nStartCp, WW8_CP nEndCp,
     }
 
     /*
-     Don't worry about the new pPlcxMan, the restorer removes it when
+     Don't worry about the new pPlcxMan, the restore removes it when
      replacing the current one with the old one.
     */
     aSave.Restore(this);
@@ -857,7 +857,7 @@ bool SwWW8ImplReader::GetTxbxTextSttEndCp(WW8_CP& rStartCp, WW8_CP& rEndCp,
         {
             long nMinStartCp = rStartCp;
             long nMaxEndCp   = rEndCp;
-            // quickly grab the TextBox-Break-Deskriptor-PLCF
+            // quickly grab the TextBox-Break-Descriptor-PLCF
             pT = m_xPlcxMan->GetTxbxBkd();
             if (!pT) // It can occur on occasion, Caolan
                 return false;
@@ -2089,6 +2089,14 @@ void SwWW8ImplReader::MapWrapIntoFlyFormat(SvxMSDffImportRec const * pRecord,
             pNd->SetContour(&aPoly);
         }
     }
+    else if (pFlyFormat->GetSurround().IsContour())
+    {
+        // Contour is enabled, but no polygon is set: disable contour, because Word does not
+        // Writer-style auto-contour in that case.
+        SwFormatSurround aSurround(pFlyFormat->GetSurround());
+        aSurround.SetContour(false);
+        pFlyFormat->SetFormatAttr(aSurround);
+    }
 }
 
 static sal_Int32 lcl_ConvertCrop(sal_uInt32 const nCrop, sal_Int32 const nSize)
@@ -2458,7 +2466,17 @@ bool SwWW8ImplReader::IsObjectLayoutInTableCell( const sal_uInt32 nLayoutInTable
 
     if ( m_bVer8 )
     {
-        const sal_uInt16 nWWVersion = m_xWwFib->m_nProduct & 0xE000;
+        sal_uInt16 nWWVersion = m_xWwFib->m_nProduct & 0xE000;
+        if (nWWVersion == 0)
+        {
+            // 0 nProduct can happen for Word >97 as well, check cswNew in this case instead.
+            if (m_xWwFib->m_cswNew > 0)
+            {
+                // This is Word >=2000.
+                nWWVersion = 0x2000;
+            }
+        }
+
         switch ( nWWVersion )
         {
             case 0x0000: // version 8 aka Microsoft Word 97
@@ -2486,7 +2504,10 @@ bool SwWW8ImplReader::IsObjectLayoutInTableCell( const sal_uInt32 nLayoutInTable
                 }
                 else
                 {
-                    bIsObjectLayoutInTableCell = false;
+                    // Documented in [MS-ODRAW], 2.3.4.44 "Group Shape Boolean Properties".
+                    bool fUsefLayoutInCell = (nLayoutInTableCell & 0x80000000) >> 31;
+                    bool fLayoutInCell = (nLayoutInTableCell & 0x8000) >> 15;
+                    bIsObjectLayoutInTableCell = fUsefLayoutInCell && fLayoutInCell;
                 }
             }
             break;
@@ -2687,8 +2708,8 @@ SwFrameFormat* SwWW8ImplReader::Read_GrafLayer( long nGrafAnchorCp )
         m_nInTable && IsObjectLayoutInTableCell( pRecord->nLayoutInTableCell );
 
     // #i18732# - Switch on 'follow text flow', if object is laid out
-    // inside table cell and its wrapping isn't 'SURROUND_THROUGH'
-    if (bLayoutInTableCell && eSurround != css::text::WrapTextMode_THROUGH)
+    // inside table cell
+    if (bLayoutInTableCell)
     {
         SwFormatFollowTextFlow aFollowTextFlow( true );
         aFlySet.Put( aFollowTextFlow );

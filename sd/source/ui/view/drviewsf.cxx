@@ -22,7 +22,6 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <comphelper/string.hxx>
 #include <svx/svxids.hrc>
-#include <svx/globl3d.hxx>
 #include <svx/hlnkitem.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/flditem.hxx>
@@ -33,17 +32,12 @@
 #include <svl/itempool.hxx>
 #include <sfx2/tplpitem.hxx>
 #include <sfx2/bindings.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/templdlg.hxx>
 #include <svx/xdef.hxx>
-#include <svx/svddef.hxx>
-#include <svx/fmglob.hxx>
+#include <svx/svdoutl.hxx>
 #include <svx/svdouno.hxx>
 #include <svx/fmshell.hxx>
 #include <svl/cjkoptions.hxx>
 
-#include <FrameView.hxx>
-#include <Outliner.hxx>
 #include <app.hrc>
 
 #include <sdmod.hxx>
@@ -61,6 +55,7 @@
 #include <editeng/escapementitem.hxx>
 #include <editeng/numitem.hxx>
 #include <editeng/adjustitem.hxx>
+#include <editeng/urlfieldhelper.hxx>
 #include <svx/nbdtmgfact.hxx>
 #include <svx/nbdtmg.hxx>
 #include <memory>
@@ -89,24 +84,14 @@ void DrawViewShell::GetCtrlState(SfxItemSet &rSet)
 
         if (pOLV)
         {
-            bool bField = false;
-            const SvxFieldItem* pFieldItem = pOLV->GetFieldAtSelection();
-            if (pFieldItem)
+            const SvxFieldData* pField = pOLV->GetFieldAtCursor();
+            if( auto pUrlField = dynamic_cast< const SvxURLField *>( pField ) )
             {
-                ESelection aSel = pOLV->GetSelection();
-                if ( abs( aSel.nEndPos - aSel.nStartPos ) == 1 )
-                {
-                    const SvxFieldData* pField = pFieldItem->GetField();
-                    if( auto pUrlField = dynamic_cast< const SvxURLField *>( pField ) )
-                    {
-                        aHLinkItem.SetName(pUrlField->GetRepresentation());
-                        aHLinkItem.SetURL(pUrlField->GetURL());
-                        aHLinkItem.SetTargetFrame(pUrlField->GetTargetFrame());
-                        bField = true;
-                    }
-                }
+                aHLinkItem.SetName(pUrlField->GetRepresentation());
+                aHLinkItem.SetURL(pUrlField->GetURL());
+                aHLinkItem.SetTargetFrame(pUrlField->GetTargetFrame());
             }
-            if (!bField)
+            else
             {
                 // use selected text as name for urls
                 OUString sReturn = pOLV->GetSelected();
@@ -484,22 +469,8 @@ void DrawViewShell::GetAttrState( SfxItemSet& rSet )
 
             case SID_REMOVE_HYPERLINK:
             {
-                OutlinerView* pOLV = mpDrawView->GetTextEditOutlinerView();
-                if (pOLV)
-                {
-                    bool bField = false;
-                    const SvxFieldItem* pFieldItem = pOLV->GetFieldUnderMousePointer();
-                    if (!pFieldItem)
-                        pFieldItem = pOLV->GetFieldAtSelection();
-                    if (pFieldItem)
-                    {
-                        const SvxFieldData* pField = pFieldItem->GetField();
-                        if (dynamic_cast<const SvxURLField*>(pField))
-                            bField = true;
-                    }
-                    if (!bField)
-                        rSet.DisableItem(nWhich);
-                }
+                if (!URLFieldHelper::IsCursorAtURLField(mpDrawView->GetTextEditOutlinerView()))
+                    rSet.DisableItem(nWhich);
             }
             break;
 

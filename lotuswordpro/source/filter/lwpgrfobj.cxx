@@ -93,8 +93,6 @@ LwpGraphicObject::LwpGraphicObject(LwpObjectHeader const &objHdr, LwpSvStream* p
     , m_bIsLinked(0)
     , m_bCompressed(0)
 {
-    memset(m_sDataFormat, 0, sizeof(m_sDataFormat));
-    memset(m_sServerContextFormat, 0, sizeof(m_sServerContextFormat));
 }
 
 LwpGraphicObject::~LwpGraphicObject()
@@ -237,7 +235,7 @@ void LwpGraphicObject::XFConvert (XFContentContainer* pCont)
  *  these formats by Word Pro.
  * @return  sal_True if yes sal_False if not.
  */
-bool LwpGraphicObject::IsGrafFormatValid()
+bool LwpGraphicObject::IsGrafFormatValid() const
 {
     return (m_sServerContextFormat[1]=='b'&& m_sServerContextFormat[2]=='m' && m_sServerContextFormat[3]=='p')
     || (m_sServerContextFormat[1]=='j' && m_sServerContextFormat[2]=='p' && m_sServerContextFormat[3]=='g')

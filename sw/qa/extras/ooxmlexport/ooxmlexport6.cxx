@@ -450,6 +450,15 @@ DECLARE_OOXMLEXPORT_TEST(testTableFloatingMargins, "table-floating-margins.docx"
     assertXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tr[1]/w:tc[1]/w:p/w:pPr/w:spacing", "after", "0");
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf127814, "tdf127814.docx")
+{
+    // Paragraph top margin was 0 in a table started on a new page
+    xmlDocPtr pXmlDoc = parseExport();
+    if (!pXmlDoc)
+        return;
+    assertXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tr[1]/w:tc[1]/w:p/w:pPr/w:spacing", "before", "0");
+}
+
 DECLARE_OOXMLEXPORT_TEST(testFdo69636, "fdo69636.docx")
 {
     /*
@@ -840,7 +849,7 @@ DECLARE_OOXMLEXPORT_TEST(testAlignForShape,"Shape.docx")
 DECLARE_OOXMLEXPORT_TEST(testLineStyle_DashType, "LineStyle_DashType.docx")
 {
     /* DOCX contatining Shape with LineStyle as Dash Type should get preserved inside
-     * an XMl tag <a:prstDash> with value "dash", "sysDot", "lgDot", etc.
+     * an XML tag <a:prstDash> with value "dash", "sysDot", "lgDot", etc.
      */
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
     if (!pXmlDoc)
@@ -942,7 +951,7 @@ DECLARE_OOXMLEXPORT_TEST(testExtentValue, "fdo74605.docx")
 }
 
 // part of tdf#93676, word gives the frame in the exported .docx a huge height,
-// because its exported with 255% height percentage from a 255 HeightPercent
+// because it's exported with 255% height percentage from a 255 HeightPercent
 // settings, but 255 is a special flag that the value is synced to the
 // other dimension.
 DECLARE_OOXMLEXPORT_TEST(testSyncedRelativePercent, "tdf93676-1.odt")

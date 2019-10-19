@@ -18,27 +18,19 @@
  */
 
 #include <scitems.hxx>
-#include <svx/svdetc.hxx>
-#include <svx/svditer.hxx>
-#include <svx/svdoole2.hxx>
 #include <svx/svdpage.hxx>
-#include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
-#include <svl/stritem.hxx>
-#include <svl/ptitem.hxx>
-#include <svl/urlbmk.hxx>
 #include <comphelper/classids.hxx>
 #include <sot/formats.hxx>
 #include <sot/storage.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 #include <tools/urlobj.hxx>
 #include <sot/exchange.hxx>
 #include <memory>
-
-#include <sfx2/lokhelper.hxx>
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
 
 #include <attrib.hxx>
 #include <patattr.hxx>
@@ -54,13 +46,9 @@
 #include <global.hxx>
 #include <transobj.hxx>
 #include <drwtrans.hxx>
-#include <rangenam.hxx>
-#include <dbdata.hxx>
-#include <impex.hxx>
 #include <chgtrack.hxx>
 #include <waitoff.hxx>
 #include <scmod.hxx>
-#include <sc.hrc>
 #include <inputopt.hxx>
 #include <warnbox.hxx>
 #include <drwlayer.hxx>
@@ -75,6 +63,22 @@
 #include <com/sun/star/util/XCloneable.hpp>
 
 using namespace com::sun::star;
+
+namespace {
+
+void collectUIInformation(const std::map<OUString, OUString>& aParameters, const OUString& action)
+{
+    EventDescription aDescription;
+    aDescription.aID = "grid_window";
+    aDescription.aAction = action;
+    aDescription.aParameters = aParameters;
+    aDescription.aParent = "MainWindow";
+    aDescription.aKeyWord = "ScGridWinUIObject";
+
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
+}
 
 //  GlobalName of writer-DocShell from comphelper/classids.hxx
 
@@ -146,6 +150,11 @@ void ScViewFunc::CutToClip()
         pDocSh->UpdateOle(&GetViewData());
 
         CellContentChanged();
+
+        OUString aStartAddress =  aRange.aStart.GetColRowString();
+        OUString aEndAddress = aRange.aEnd.GetColRowString();
+
+        collectUIInformation({{"RANGE", aStartAddress + ":" + aEndAddress}}, "CUT");
     }
     else
         ErrorMessage( STR_NOMULTISELECT );
@@ -177,7 +186,11 @@ bool ScViewFunc::CopyToClip( ScDocument* pClipDoc, bool bCut, bool bApi, bool bI
         if (!bApi)
             ErrorMessage(STR_NOMULTISELECT);
     }
-
+    if( !bCut ){
+        OUString aStartAddress =  aRange.aStart.GetColRowString();
+        OUString aEndAddress = aRange.aEnd.GetColRowString();
+        collectUIInformation({{"RANGE", aStartAddress + ":" + aEndAddress}}, "COPY");
+    }
     return bDone;
 }
 
@@ -194,6 +207,7 @@ bool ScViewFunc::CopyToClip( ScDocument* pClipDoc, const ScRangeList& rRanges, b
         bDone = CopyToClipMultiRange(pClipDoc, rRanges, bCut, bApi, bIncludeObjects);
     else
         bDone = CopyToClipSingleRange(pClipDoc, rRanges, bCut, bIncludeObjects);
+
     return bDone;
 }
 
@@ -1450,7 +1464,9 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
                 rProtectedChartRangesVector, aExcludedChartNames, bSameDoc );
         }
     }
-
+    OUString aStartAddress =  aMarkRange.aStart.GetColRowString();
+    OUString aEndAddress = aMarkRange.aEnd.GetColRowString();
+    collectUIInformation({{"RANGE", aStartAddress + ":" + aEndAddress}}, "PASTE");
     return true;
 }
 
@@ -1784,7 +1800,7 @@ void ScViewFunc::PostPasteFromClip(const ScRangeList& rPasteRanges, const ScMark
     ScDocShell* pDocSh = rViewData.GetDocShell();
     pDocSh->UpdateOle(&rViewData);
 
-    SelectionChanged();
+    SelectionChanged(true);
 
     ScModelObj* pModelObj = HelperNotifyChanges::getMustPropagateChangesModel(*pDocSh);
     if (!pModelObj)

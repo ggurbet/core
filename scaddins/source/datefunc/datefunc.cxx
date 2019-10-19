@@ -172,23 +172,19 @@ OUString ScaDateAddIn::GetFuncDescrStr(const char** pResId, sal_uInt16 nStrIndex
 
 OUString ScaDateAddIn::getImplementationName_Static()
 {
-    return OUString( MY_IMPLNAME );
+    return MY_IMPLNAME;
 }
 
 uno::Sequence< OUString > ScaDateAddIn::getSupportedServiceNames_Static()
 {
-    uno::Sequence< OUString > aRet( 2 );
-    OUString* pArray = aRet.getArray();
-    pArray[0] = ADDIN_SERVICE;
-    pArray[1] = MY_SERVICE;
-    return aRet;
+    return { ADDIN_SERVICE, MY_SERVICE };
 }
 
 // XServiceName
 OUString SAL_CALL ScaDateAddIn::getServiceName()
 {
     // name of specific AddIn service
-    return OUString( MY_SERVICE );
+    return MY_SERVICE;
 }
 
 // XServiceInfo
@@ -240,8 +236,7 @@ OUString SAL_CALL ScaDateAddIn::getDisplayFunctionName( const OUString& aProgram
     }
     else
     {
-        aRet = "UNKNOWNFUNC_";
-        aRet += aProgrammaticName;
+        aRet = "UNKNOWNFUNC_" + aProgrammaticName;
     }
 
     return aRet;
@@ -513,7 +508,7 @@ sal_Int32 GetNullDate( const uno::Reference< beans::XPropertySet >& xOptions )
  * where 0 means that this week belonged to the year before.
  *
  * If a day in the same or another year is used in this formula this calculates
- * an calendar week offset from a given 4. January
+ * a calendar week offset from a given 4. January
  *
  *  nWeek2 = ( nDays2 - nJan4 + ( (nJan4-1) % 7 ) ) / 7 + 1;
  *
@@ -704,7 +699,7 @@ sal_Int32 SAL_CALL ScaDateAddIn::getDaysInYear(
  * shall be the first day of the week.
  *
  * A WeekDay can be calculated by subtracting 1 and calculating the rest of
- * a division by 7 from the internal date represention
+ * a division by 7 from the internal date representation
  * which gives a 0 - 6 value for Monday - Sunday
  *
  * @see #IsLeapYear #WeekNumber

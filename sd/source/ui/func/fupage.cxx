@@ -193,7 +193,7 @@ void MergePageBackgroundFilling(SdPage *pPage, SdStyleSheet *pStyleSheet, bool b
     }
 }
 
-const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent, SfxRequest& rReq)
+const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent, const SfxRequest& rReq)
 {
     if (!mpDrawViewShell)
         return nullptr;
@@ -370,10 +370,20 @@ const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent, SfxRequest& rReq)
             }
 
             // if the background for this page was set to invisible, the background-object has to be deleted, too.
-            if( ( pTempSet->GetItem<XFillStyleItem>( XATTR_FILLSTYLE )->GetValue() == drawing::FillStyle_NONE ) ||
-                ( ( pTempSet->GetItemState( XATTR_FILLSTYLE ) == SfxItemState::DEFAULT ) &&
-                    ( aMergedAttr.GetItem<XFillStyleItem>( XATTR_FILLSTYLE )->GetValue() == drawing::FillStyle_NONE ) ) )
+            const XFillStyleItem* pTempFillStyleItem = pTempSet->GetItem<XFillStyleItem>(XATTR_FILLSTYLE);
+            assert(pTempFillStyleItem);
+            if (pTempFillStyleItem->GetValue() == drawing::FillStyle_NONE)
                 mbPageBckgrdDeleted = true;
+            else
+            {
+                if (pTempSet->GetItemState(XATTR_FILLSTYLE) == SfxItemState::DEFAULT)
+                {
+                    const XFillStyleItem* pMergedFillStyleItem = aMergedAttr.GetItem<XFillStyleItem>(XATTR_FILLSTYLE);
+                    assert(pMergedFillStyleItem);
+                    if (pMergedFillStyleItem->GetValue() == drawing::FillStyle_NONE)
+                        mbPageBckgrdDeleted = true;
+                }
+            }
 
             if( !mbMasterPage && bChanges && mbPageBckgrdDeleted )
             {

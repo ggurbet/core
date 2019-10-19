@@ -63,7 +63,7 @@ public:
     OUString sBaseStyleIdentifier;
     OUString sNextStyleIdentifier;
     OUString sStyleName;
-    PropertyMapPtr  pProperties;
+    const PropertyMapPtr pProperties; ///< always StyleSheetPropertyMap
     OUString sConvertedStyleName;
     std::vector<css::beans::PropertyValue> aLatentStyles; ///< Attributes of latentStyles
     std::vector<css::beans::PropertyValue> aLsdExceptions; ///< List of lsdException attribute lists
@@ -71,7 +71,7 @@ public:
 
     void AppendInteropGrabBag(const css::beans::PropertyValue& rValue);
     css::beans::PropertyValue GetInteropGrabBag(); ///< Used for table styles, has a name.
-    css::beans::PropertyValues GetInteropGrabBagSeq(); ///< Used for existing styles, just a list of properties.
+    css::beans::PropertyValues GetInteropGrabBagSeq() const; ///< Used for existing styles, just a list of properties.
 
     // Get all properties, merged with the all of the parent's properties
     PropertyMapPtr GetMergedInheritedProperties(const StyleSheetTablePtr& pStyleSheetTable);
@@ -94,19 +94,19 @@ public:
     virtual ~StyleSheetTable() override;
 
     void ApplyStyleSheets( const FontTablePtr& rFontTable );
-    const StyleSheetEntryPtr FindStyleSheetByISTD(const OUString& sIndex);
-    const StyleSheetEntryPtr FindStyleSheetByConvertedStyleName(const OUString& rIndex);
-    const StyleSheetEntryPtr FindDefaultParaStyle();
+    StyleSheetEntryPtr FindStyleSheetByISTD(const OUString& sIndex);
+    StyleSheetEntryPtr FindStyleSheetByConvertedStyleName(const OUString& rIndex);
+    StyleSheetEntryPtr FindDefaultParaStyle();
 
     OUString ConvertStyleName( const OUString& rWWName, bool bExtendedSearch = false );
 
     OUString getOrCreateCharStyle( PropertyValueVector_t& rCharProperties, bool bAlwaysCreate );
 
-    PropertyMapPtr const & GetDefaultParaProps();
+    PropertyMapPtr const & GetDefaultParaProps() const;
     /// Returns the default character properties.
-    PropertyMapPtr const & GetDefaultCharProps();
+    PropertyMapPtr const & GetDefaultCharProps() const;
 
-    const StyleSheetEntryPtr & GetCurrentEntry();
+    const StyleSheetEntryPtr & GetCurrentEntry() const;
 
 private:
     // Properties
@@ -114,7 +114,7 @@ private:
     virtual void lcl_sprm(Sprm & sprm) override;
 
     // Table
-    virtual void lcl_entry(int pos, writerfilter::Reference<Properties>::Pointer_t ref) override;
+    virtual void lcl_entry(writerfilter::Reference<Properties>::Pointer_t ref) override;
 
     void applyDefaults(bool bParaProperties);
 };

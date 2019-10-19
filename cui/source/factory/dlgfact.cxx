@@ -23,16 +23,12 @@
 #include <sfx2/app.hxx>
 #include <sfx2/basedlgs.hxx>
 #include <sfx2/pageids.hxx>
-#include <sfx2/request.hxx>
-#include <sal/log.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
-#include <svx/ucsubset.hxx>
 #include <numfmt.hxx>
 #include <splitcelldlg.hxx>
 #include <dstribut.hxx>
 #include <cuiimapwnd.hxx>
-#include <hlmarkwn.hxx>
 #include <cui/cuicharmap.hxx>
 #include <srchxtra.hxx>
 #include <textanim.hxx>
@@ -65,6 +61,7 @@
 #include <linkdlg.hxx>
 #include <SignatureLineDialog.hxx>
 #include <SignSignatureLineDialog.hxx>
+#include <QrCodeGenDialog.hxx>
 #include <SpellDialog.hxx>
 #include <cfg.hxx>
 #include <numpages.hxx>
@@ -83,7 +80,6 @@
 #include <sdrcelldlg.hxx>
 #include <newtabledlg.hxx>
 #include <macroass.hxx>
-#include <acccfg.hxx>
 #include <insrc.hxx>
 #include <passwdomdlg.hxx>
 #include <screenshotannotationdlg.hxx>
@@ -91,6 +87,7 @@
 #include <thesdlg.hxx>
 #include <about.hxx>
 #include <tipofthedaydlg.hxx>
+#include <DiagramDialog.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::frame;
@@ -110,8 +107,6 @@ short CuiAbstractSingleTabController_Impl::Execute()
 {
     return m_xDlg->run();
 }
-
-IMPL_ABSTDLG_BASE(CuiVclAbstractDialog_Impl)
 
 short AbstractSvxDistributeDialog_Impl::Execute()
 {
@@ -264,6 +259,11 @@ short AbstractPasteDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
+bool AbstractPasteDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
+{
+    return SfxDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
+}
+
 short AbstractInsertObjectDialog_Impl::Execute()
 {
     return m_xDlg->run();
@@ -319,7 +319,15 @@ short AbstractSignSignatureLineDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
-IMPL_ABSTDLG_BASE(AbstractScreenshotAnnotationDlg_Impl);
+short AbstractQrCodeGenDialog_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
+short AbstractScreenshotAnnotationDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
 
 short CuiAbstractTabController_Impl::Execute()
 {
@@ -355,6 +363,26 @@ void CuiAbstractTabController_Impl::SetInputSet( const SfxItemSet* pInSet )
 void CuiAbstractTabController_Impl::SetText( const OUString& rStr )
 {
     m_xDlg->set_title(rStr);
+}
+
+std::vector<OString> CuiAbstractTabController_Impl::getAllPageUIXMLDescriptions() const
+{
+    return m_xDlg->getAllPageUIXMLDescriptions();
+}
+
+bool CuiAbstractTabController_Impl::selectPageByUIXMLDescription(const OString& rUIXMLDescription)
+{
+    return m_xDlg->selectPageByUIXMLDescription(rUIXMLDescription);
+}
+
+BitmapEx CuiAbstractTabController_Impl::createScreenshot() const
+{
+    return m_xDlg->createScreenshot();
+}
+
+OString CuiAbstractTabController_Impl::GetScreenshotId() const
+{
+    return m_xDlg->GetScreenshotId();
 }
 
 const SfxItemSet* CuiAbstractSingleTabController_Impl::GetOutputItemSet() const
@@ -508,6 +536,16 @@ void AbstractPasteDialog_Impl::Insert(SotClipboardFormatId nFormat, const OUStri
 void AbstractPasteDialog_Impl::SetObjName(const SvGlobalName & rClass, const OUString& rObjName)
 {
     m_xDlg->SetObjName(rClass, rObjName);
+}
+
+void AbstractPasteDialog_Impl::PreGetFormat( const TransferableDataHelper& aHelper )
+{
+    m_xDlg->PreGetFormat(aHelper);
+}
+
+SotClipboardFormatId AbstractPasteDialog_Impl::GetFormatOnly()
+{
+    return m_xDlg->GetFormatOnly();
 }
 
 SotClipboardFormatId AbstractPasteDialog_Impl::GetFormat( const TransferableDataHelper& aHelper )
@@ -931,9 +969,9 @@ bool AbstractPasswordToOpenModifyDialog_Impl::IsRecommendToOpenReadonly() const
 }
 
 // Create dialogs with simplest interface
-VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateVclDialog( vcl::Window* pParent, sal_uInt32 nResId )
+VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateVclDialog(weld::Window* pParent, sal_uInt32 nResId)
 {
-    VclPtr<Dialog> pDlg;
+    std::unique_ptr<OfaTreeOptionsDialog> xDlg;
     switch ( nResId )
     {
         case SID_OPTIONS_TREEDIALOG :
@@ -944,25 +982,24 @@ VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateVclDialog( vcl::Wind
             if (nResId == SID_OPTIONS_TREEDIALOG)
                 bActivateLastSelection = true;
             Reference< frame::XFrame > xFrame;
-            VclPtrInstance<OfaTreeOptionsDialog> pOptDlg( pParent, xFrame, bActivateLastSelection );
+            xDlg = std::make_unique<OfaTreeOptionsDialog>(pParent, xFrame, bActivateLastSelection);
             if (nResId == SID_OPTIONS_DATABASES)
             {
-                pOptDlg->ActivatePage(SID_SB_DBREGISTEROPTIONS);
+                xDlg->ActivatePage(SID_SB_DBREGISTEROPTIONS);
             }
             else if (nResId == SID_LANGUAGE_OPTIONS)
             {
                 //open the tab page "tools/options/languages"
-                pOptDlg->ActivatePage(OFA_TP_LANGUAGES_FOR_SET_DOCUMENT_LANGUAGE);
+                xDlg->ActivatePage(OFA_TP_LANGUAGES_FOR_SET_DOCUMENT_LANGUAGE);
             }
-            pDlg.reset(pOptDlg);
         }
         break;
         default:
             break;
     }
 
-    if ( pDlg )
-        return VclPtr<CuiVclAbstractDialog_Impl>::Create( pDlg );
+    if (xDlg)
+        return VclPtr<CuiAbstractController_Impl>::Create(std::move(xDlg));
     return nullptr;
 }
 
@@ -971,26 +1008,24 @@ VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateAboutDialog(weld::Wi
     return VclPtr<CuiAbstractController_Impl>::Create(std::make_unique<AboutDialog>(pParent));
 }
 
-VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateFrameDialog(vcl::Window* pParent, const Reference< frame::XFrame >& rxFrame,
+VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateFrameDialog(weld::Window* pParent, const Reference< frame::XFrame >& rxFrame,
     sal_uInt32 nResId, const OUString& rParameter )
 {
-    VclPtr<Dialog> pDlg;
-    if ( SID_OPTIONS_TREEDIALOG == nResId || SID_OPTIONS_DATABASES == nResId )
+    std::unique_ptr<OfaTreeOptionsDialog> xDlg;
+    if (SID_OPTIONS_TREEDIALOG == nResId || SID_OPTIONS_DATABASES == nResId)
     {
         // only activate last page if we don't want to activate a special page
         bool bActivateLastSelection = ( nResId != SID_OPTIONS_DATABASES && rParameter.isEmpty() );
-        VclPtrInstance<OfaTreeOptionsDialog> pOptDlg(pParent, rxFrame, bActivateLastSelection);
+        xDlg = std::make_unique<OfaTreeOptionsDialog>(pParent, rxFrame, bActivateLastSelection);
         if ( nResId == SID_OPTIONS_DATABASES )
-            pOptDlg->ActivatePage(SID_SB_DBREGISTEROPTIONS);
+            xDlg->ActivatePage(SID_SB_DBREGISTEROPTIONS);
         else if ( !rParameter.isEmpty() )
-            pOptDlg->ActivatePage( rParameter );
-        pDlg.reset(pOptDlg);
+            xDlg->ActivatePage( rParameter );
     }
 
-    if ( pDlg )
-        return VclPtr<CuiVclAbstractDialog_Impl>::Create( pDlg );
-    else
-        return nullptr;
+    if (xDlg)
+        return VclPtr<CuiAbstractController_Impl>::Create(std::move(xDlg));
+    return nullptr;
 }
 
 // TabDialog outside the drawing layer
@@ -1368,6 +1403,11 @@ short AbstractTipOfTheDayDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
+short AbstractDiagramDialog_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
 VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateSvxMacroAssignDlg(
     weld::Window* _pParent, const Reference< XFrame >& _rxDocumentFrame, const bool _bUnoDialogMode,
     const Reference< XNameReplace >& _rxEvents, const sal_uInt16 _nInitiallySelectedEvent )
@@ -1572,10 +1612,9 @@ VclPtr<SvxAbstractNewTableDialog> AbstractDialogFactory_Impl::CreateSvxNewTableD
     return VclPtr<SvxNewTableDialog>::Create(pParent);
 }
 
-VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateOptionsDialog(
-    weld::Window* /*pParent*/, const OUString& rExtensionId )
+VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateOptionsDialog(weld::Window* pParent, const OUString& rExtensionId)
 {
-    return VclPtr<CuiVclAbstractDialog_Impl>::Create( VclPtr<OfaTreeOptionsDialog>::Create(nullptr /* TODO: pParent*/, rExtensionId ) );
+    return VclPtr<CuiAbstractController_Impl>::Create(std::make_unique<OfaTreeOptionsDialog>(pParent, rExtensionId));
 }
 
 VclPtr<SvxAbstractInsRowColDlg> AbstractDialogFactory_Impl::CreateSvxInsRowColDlg(weld::Window* pParent, bool bCol, const OString& rHelpId)
@@ -1589,12 +1628,9 @@ VclPtr<AbstractPasswordToOpenModifyDialog> AbstractDialogFactory_Impl::CreatePas
     return VclPtr<AbstractPasswordToOpenModifyDialog_Impl>::Create(std::make_unique<PasswordToOpenModifyDialog>(pParent, nMaxPasswdLen, bIsPasswordToModify));
 }
 
-VclPtr<AbstractScreenshotAnnotationDlg> AbstractDialogFactory_Impl::CreateScreenshotAnnotationDlg(
-    vcl::Window * pParent,
-    Dialog& rParentDialog)
+VclPtr<AbstractScreenshotAnnotationDlg> AbstractDialogFactory_Impl::CreateScreenshotAnnotationDlg(weld::Dialog& rParentDialog)
 {
-    VclPtrInstance<ScreenshotAnnotationDlg> pDlg(pParent, rParentDialog);
-    return VclPtr<AbstractScreenshotAnnotationDlg_Impl>::Create(pDlg);
+    return VclPtr<AbstractScreenshotAnnotationDlg_Impl>::Create(std::make_unique<ScreenshotAnnotationDlg>(rParentDialog));
 }
 
 VclPtr<AbstractSignatureLineDialog> AbstractDialogFactory_Impl::CreateSignatureLineDialog(
@@ -1612,10 +1648,24 @@ AbstractDialogFactory_Impl::CreateSignSignatureLineDialog(weld::Window* pParent,
         std::make_unique<SignSignatureLineDialog>(pParent, xModel));
 }
 
+VclPtr<AbstractQrCodeGenDialog> AbstractDialogFactory_Impl::CreateQrCodeGenDialog(
+    weld::Window* pParent, const Reference<XModel> xModel, bool bEditExisting)
+{
+    return VclPtr<AbstractQrCodeGenDialog_Impl>::Create(
+        std::make_unique<QrCodeGenDialog>(pParent, xModel, bEditExisting));
+}
+
 VclPtr<AbstractTipOfTheDayDialog>
 AbstractDialogFactory_Impl::CreateTipOfTheDayDialog(weld::Window* pParent)
 {
     return VclPtr<AbstractTipOfTheDayDialog_Impl>::Create(std::make_unique<TipOfTheDayDialog>(pParent));
+}
+
+VclPtr<AbstractDiagramDialog>
+AbstractDialogFactory_Impl::CreateDiagramDialog(weld::Window* pParent, std::shared_ptr<DiagramDataInterface> pDiagramData)
+{
+    return VclPtr<AbstractDiagramDialog_Impl>::Create(
+        std::make_unique<DiagramDialog>(pParent, pDiagramData));
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

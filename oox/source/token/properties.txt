@@ -50,6 +50,7 @@ CellStyle
 CenterHorizontally
 CenterVertically
 Change
+CharBackColor
 CharCaseMap
 CharColor
 CharContoured
@@ -289,6 +290,7 @@ LeftMargin
 LeftPageFooterContent
 LeftPageHeaderContent
 LegacyFragment
+LineCap
 LineColor
 LineCount
 LineDash
@@ -508,6 +510,7 @@ Text
 TextAutoGrowHeight
 TextBox
 TextBreak
+TextCameraZRotateAngle
 TextColor
 TextFitToSize
 TextFrames

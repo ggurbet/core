@@ -53,7 +53,7 @@ using namespace com::sun::star::util;
 //  IMPLEMENT_SERVICE_INFO(OResultSet,"com.sun.star.sdbcx.OResultSet","com.sun.star.sdbc.ResultSet");
 OUString SAL_CALL OResultSet::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdbcx.mork.ResultSet");
+    return "com.sun.star.sdbcx.mork.ResultSet";
 }
 
  Sequence< OUString > SAL_CALL OResultSet::getSupportedServiceNames(  )
@@ -884,7 +884,7 @@ void OResultSet::analyseWhereClause( const OSQLParseNode*                 parseT
             }
             else
             {
-                // Most Complex, need to use an RE
+                // Most Complex, need to use a RE
                 sal_Int32 pos;
                 while ( (pos = matchString.indexOf ( WILDCARD )) != -1 )
                 {

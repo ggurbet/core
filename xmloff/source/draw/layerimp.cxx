@@ -27,7 +27,6 @@
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlimp.hxx>
 #include <xmloff/xmlnmspe.hxx>
-#include <xmloff/xmluconv.hxx>
 #include <xmloff/nmspmap.hxx>
 #include "layerimp.hxx"
 
@@ -125,7 +124,7 @@ void SdXMLLayerContext::EndElement()
         {
             Reference< XLayerManager > xLayerManager( mxLayerManager, UNO_QUERY );
             if( xLayerManager.is() )
-                xLayer.set( xLayerManager->insertNewByIndex( xLayerManager->getCount() ), UNO_QUERY );
+                xLayer = xLayerManager->insertNewByIndex( xLayerManager->getCount() );
             SAL_WARN_IF( !xLayer.is(), "xmloff", "xmloff::SdXMLLayerContext::EndElement(), failed to create new XLayer!" );
 
             if( xLayer.is() )

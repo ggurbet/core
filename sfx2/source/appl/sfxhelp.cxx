@@ -65,9 +65,13 @@
 #include <osl/file.hxx>
 #include <unotools/bootstrap.hxx>
 #include <unotools/tempfile.hxx>
+#include <unotools/localedatawrapper.hxx>
+#include <unotools/securityoptions.hxx>
 #include <rtl/uri.hxx>
 #include <vcl/commandinfoprovider.hxx>
-#include <vcl/layout.hxx>
+#include <vcl/dialog.hxx>
+#include <vcl/keycod.hxx>
+#include <vcl/settings.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/ehdl.hxx>
@@ -407,8 +411,7 @@ static OUString getCurrentModuleIdentifier_Impl()
         }
         catch (const Exception&)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "sfx.appl", "SfxHelp::getCurrentModuleIdentifier_Impl(): exception of XModuleManager::identify() " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "sfx.appl", "SfxHelp::getCurrentModuleIdentifier_Impl(): exception of XModuleManager::identify()" );
         }
     }
 
@@ -478,19 +481,14 @@ OUString SfxHelp::GetHelpModuleName_Impl(const OUString& rHelpID)
                     ModuleManager::create(::comphelper::getProcessComponentContext()) );
                 Sequence< PropertyValue > lProps;
                 xModuleManager->getByName( aModuleIdentifier ) >>= lProps;
-                for ( sal_Int32 i = 0; i < lProps.getLength(); ++i )
-                {
-                    if ( lProps[i].Name == "ooSetupFactoryShortName" )
-                    {
-                        lProps[i].Value >>= aFactoryShortName;
-                        break;
-                    }
-                }
+                auto pProp = std::find_if(lProps.begin(), lProps.end(),
+                    [](const PropertyValue& rProp) { return rProp.Name == "ooSetupFactoryShortName"; });
+                if (pProp != lProps.end())
+                    pProp->Value >>= aFactoryShortName;
             }
             catch (const Exception&)
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN( "sfx.appl", "SfxHelp::GetHelpModuleName_Impl(): " << exceptionToString(ex) );
+                TOOLS_WARN_EXCEPTION( "sfx.appl", "SfxHelp::GetHelpModuleName_Impl()" );
             }
         }
     }
@@ -623,14 +621,12 @@ OUString SfxHelp::GetHelpText( const OUString& aCommandURL, const vcl::Window* p
     // add some debug information?
     if ( bIsDebug )
     {
-        sHelpText += "\n-------------\n";
-        sHelpText += sModuleName;
-        sHelpText += ": ";
-        sHelpText += aCommandURL;
+        sHelpText += "\n-------------\n" +
+            sModuleName + ": " + aCommandURL;
         if ( !aNewHelpId.isEmpty() )
         {
-            sHelpText += " - ";
-            sHelpText += OStringToOUString(aNewHelpId, RTL_TEXTENCODING_UTF8);
+            sHelpText += " - " +
+                OStringToOUString(aNewHelpId, RTL_TEXTENCODING_UTF8);
         }
     }
 
@@ -666,18 +662,35 @@ OUString SfxHelp::GetHelpText(const OUString& aCommandURL, const weld::Widget* p
     // add some debug information?
     if ( bIsDebug )
     {
-        sHelpText += "\n-------------\n";
-        sHelpText += sModuleName;
-        sHelpText += ": ";
-        sHelpText += aCommandURL;
+        sHelpText += "\n-------------\n" +
+            sModuleName + ": " + aCommandURL;
         if ( !aNewHelpId.isEmpty() )
         {
-            sHelpText += " - ";
-            sHelpText += OStringToOUString(aNewHelpId, RTL_TEXTENCODING_UTF8);
+            sHelpText += " - " +
+                OStringToOUString(aNewHelpId, RTL_TEXTENCODING_UTF8);
         }
     }
 
     return sHelpText;
+}
+
+OUString SfxHelp::GetURLHelpText(const OUString& aURL)
+{
+    SvtSecurityOptions aSecOpt;
+    bool bCtrlClickHlink = aSecOpt.IsOptionSet(SvtSecurityOptions::EOption::CtrlClickHyperlink);
+
+    // "ctrl-click to follow link:" for not MacOS
+    // "⌘-click to follow link:" for MacOs
+    vcl::KeyCode aCode(KEY_SPACE);
+    vcl::KeyCode aModifiedCode(KEY_SPACE, KEY_MOD1);
+    OUString aModStr(aModifiedCode.GetName());
+    aModStr = aModStr.replaceFirst(aCode.GetName(), "");
+    aModStr = aModStr.replaceAll("+", "");
+    OUString aHelpStr
+        = bCtrlClickHlink ? SfxResId(STR_CTRLCLICKHYPERLINK) : SfxResId(STR_CLICKHYPERLINK);
+    aHelpStr = aHelpStr.replaceFirst("%{key}", aModStr);
+    aHelpStr = aHelpStr.replaceFirst("%{link}", aURL);
+    return aHelpStr;
 }
 
 void SfxHelp::SearchKeyword( const OUString& rKeyword )
@@ -939,9 +952,9 @@ static bool impl_showOfflineHelp( const OUString& rURL )
     SvStream* pStream = aTempFile.GetStream(StreamMode::WRITE);
     pStream->SetStreamCharSet(RTL_TEXTENCODING_UTF8);
 
-    OUString aTempStr(SHTML1 SHTML2);
-    aTempStr += aHelpLink + SHTML3;
-    aTempStr += aHelpLink + SHTML4;
+    OUString aTempStr = SHTML1 SHTML2 +
+        aHelpLink + SHTML3 +
+        aHelpLink + SHTML4;
 
     pStream->WriteUnicodeOrByteText(aTempStr);
 
@@ -981,6 +994,25 @@ namespace
         return pWindow;
     }
 }
+
+class HelpManualMessage : public weld::MessageDialogController
+{
+private:
+    std::unique_ptr<weld::CheckButton> m_xHideOfflineHelpCB;
+
+public:
+    HelpManualMessage(weld::Widget* pParent)
+        : MessageDialogController(pParent, "sfx/ui/helpmanual.ui", "onlinehelpmanual", "hidedialog")
+        , m_xHideOfflineHelpCB(m_xBuilder->weld_check_button("hidedialog"))
+    {
+        LanguageTag aLangTag = Application::GetSettings().GetUILanguageTag();
+        OUString sLocaleString = SvtLanguageTable::GetLanguageString(aLangTag.getLanguageType());
+        OUString sPrimText = get_primary_text();
+        set_primary_text(sPrimText.replaceAll("$UILOCALE", sLocaleString));
+    }
+
+    bool GetOfflineHelpPopUp() const { return !m_xHideOfflineHelpCB->get_active(); }
+};
 
 bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const OUString& rKeyword)
 {
@@ -1110,16 +1142,10 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
             {
                 weld::Window* pWeldWindow = pWindow ? pWindow->GetFrameWeld() : nullptr;
                 aBusy.incBusy(pWeldWindow);
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWeldWindow, "sfx/ui/helpmanual.ui"));
-                std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("onlinehelpmanual"));
-                std::unique_ptr<weld::CheckButton> m_xHideOfflineHelpCB(xBuilder->weld_check_button("hidedialog"));
-                LanguageTag aLangTag = Application::GetSettings().GetUILanguageTag();
-                OUString sLocaleString = SvtLanguageTable::GetLanguageString( aLangTag.getLanguageType() );
-                OUString sPrimText = xQueryBox->get_primary_text();
-                xQueryBox->set_primary_text(sPrimText.replaceAll("$UILOCALE", sLocaleString));
-                short OnlineHelpBox = xQueryBox->run();
+                HelpManualMessage aQueryBox(pWeldWindow);
+                short OnlineHelpBox = aQueryBox.run();
                 bShowOfflineHelpPopUp = OnlineHelpBox != RET_OK;
-                aHelpOptions.SetOfflineHelpPopUp(!m_xHideOfflineHelpCB->get_state());
+                aHelpOptions.SetOfflineHelpPopUp(aQueryBox.GetOfflineHelpPopUp());
                 aBusy.decBusy();
             }
             if(!bShowOfflineHelpPopUp)
@@ -1263,18 +1289,16 @@ bool SfxHelp::Start_Impl(const OUString& rURL, weld::Widget* pWidget, const OUSt
             SvtHelpOptions aHelpOptions;
             bool bShowOfflineHelpPopUp = aHelpOptions.IsOfflineHelpPopUp();
 
+            TopLevelWindowLocker aBusy;
+
             if(bShowOfflineHelpPopUp)
             {
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWidget, "sfx/ui/helpmanual.ui"));
-                std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("onlinehelpmanual"));
-                std::unique_ptr<weld::CheckButton> m_xHideOfflineHelpCB(xBuilder->weld_check_button("hidedialog"));
-                LanguageTag aLangTag = Application::GetSettings().GetUILanguageTag();
-                OUString sLocaleString = SvtLanguageTable::GetLanguageString( aLangTag.getLanguageType() );
-                OUString sPrimText = xQueryBox->get_primary_text();
-                xQueryBox->set_primary_text(sPrimText.replaceAll("$UILOCALE", sLocaleString));
-                short OnlineHelpBox = xQueryBox->run();
+                aBusy.incBusy(pWidget);
+                HelpManualMessage aQueryBox(pWidget);
+                short OnlineHelpBox = aQueryBox.run();
                 bShowOfflineHelpPopUp = OnlineHelpBox != RET_OK;
-                aHelpOptions.SetOfflineHelpPopUp(!m_xHideOfflineHelpCB->get_state());
+                aHelpOptions.SetOfflineHelpPopUp(aQueryBox.GetOfflineHelpPopUp());
+                aBusy.decBusy();
             }
             if(!bShowOfflineHelpPopUp)
             {
@@ -1282,8 +1306,10 @@ bool SfxHelp::Start_Impl(const OUString& rURL, weld::Widget* pWidget, const OUSt
                     return true;
                 else
                 {
+                    aBusy.incBusy(pWidget);
                     NoHelpErrorBox aErrBox(pWidget);
                     aErrBox.run();
+                    aBusy.decBusy();
                     return false;
                 }
             }

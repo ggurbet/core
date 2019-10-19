@@ -47,11 +47,10 @@ namespace
 {
     css::uno::Sequence< OUString > VistaFilePicker_getSupportedServiceNames()
     {
-        css::uno::Sequence< OUString > aRet(3);
-        aRet[0] = "com.sun.star.ui.dialogs.FilePicker";
-        aRet[1] = "com.sun.star.ui.dialogs.SystemFilePicker";
-        aRet[2] = "com.sun.star.ui.dialogs.SystemFolderPicker";
-        return aRet;
+        return {
+            "com.sun.star.ui.dialogs.FilePicker",
+            "com.sun.star.ui.dialogs.SystemFilePicker",
+            "com.sun.star.ui.dialogs.SystemFolderPicker" };
     }
 }
 
@@ -543,9 +542,9 @@ void SAL_CALL VistaFilePicker::setDescription( const OUString& aDescription )
 OUString SAL_CALL VistaFilePicker::getImplementationName()
 {
     if (m_bFolderPicker)
-        return OUString(FOLDER_PICKER_IMPL_NAME);
+        return FOLDER_PICKER_IMPL_NAME;
     else
-        return OUString(FILE_PICKER_IMPL_NAME);
+        return FILE_PICKER_IMPL_NAME;
 }
 
 sal_Bool SAL_CALL VistaFilePicker::supportsService(const OUString& sServiceName)

@@ -428,12 +428,12 @@ PDFObjectRef::~PDFObjectRef()
 
 bool PDFObjectRef::emit( EmitContext& rWriteContext ) const
 {
-    OStringBuffer aBuf( 16 );
-    aBuf.append( ' ' );
-    aBuf.append( sal_Int32( m_nNumber ) );
-    aBuf.append( ' ' );
-    aBuf.append( sal_Int32( m_nGeneration ) );
-    aBuf.append( " R" );
+    OString aBuf =
+        " " +
+        OString::number( sal_Int32( m_nNumber ) ) +
+        " " +
+        OString::number( sal_Int32( m_nGeneration ) ) +
+        " R";
     return rWriteContext.write( aBuf.getStr(), aBuf.getLength() );
 }
 
@@ -527,13 +527,14 @@ void PDFDict::insertValue( const OString& rName, std::unique_ptr<PDFEntry> pValu
     if( ! pValue )
         eraseValue( rName );
 
-    auto pValueTmp = pValue.get();
+    PDFEntry* pValueTmp = nullptr;
     std::unordered_map<OString,PDFEntry*>::iterator it = m_aMap.find( rName );
     if( it == m_aMap.end() )
     {
         // new name/value, pair, append it
         m_aSubElements.emplace_back(std::make_unique<PDFName>(rName));
         m_aSubElements.emplace_back( std::move(pValue) );
+        pValueTmp = m_aSubElements.back().get();
     }
     else
     {
@@ -543,10 +544,12 @@ void PDFDict::insertValue( const OString& rName, std::unique_ptr<PDFEntry> pValu
             if( m_aSubElements[i].get() == it->second )
             {
                 m_aSubElements[i] = std::move(pValue);
+                pValueTmp = m_aSubElements[i].get();
                 bFound = true;
                 break;
             }
     }
+    assert(pValueTmp);
     m_aMap[ rName ] = pValueTmp;
 }
 
@@ -806,11 +809,11 @@ bool PDFObject::emit( EmitContext& rWriteContext ) const
     if( pEData )
         pEData->insertXref( m_nNumber, m_nGeneration, rWriteContext.getCurPos() );
 
-    OStringBuffer aBuf( 32 );
-    aBuf.append( sal_Int32( m_nNumber ) );
-    aBuf.append( ' ' );
-    aBuf.append( sal_Int32( m_nGeneration ) );
-    aBuf.append( " obj\n" );
+    OString aBuf =
+        OString::number( sal_Int32( m_nNumber ) ) +
+        " " +
+        OString::number( sal_Int32( m_nGeneration ) ) +
+        " obj\n";
     if( ! rWriteContext.write( aBuf.getStr(), aBuf.getLength() ) )
         return false;
 
@@ -1018,13 +1021,13 @@ struct PDFFileImplData
     sal_uInt32  m_nAlgoVersion;
     sal_uInt32  m_nStandardRevision;
     sal_uInt32  m_nKeyLength;
-    sal_uInt8   m_aOEntry[32];
-    sal_uInt8   m_aUEntry[32];
+    sal_uInt8   m_aOEntry[32] = {};
+    sal_uInt8   m_aUEntry[32] = {};
     sal_uInt32  m_nPEntry;
     OString     m_aDocID;
     rtlCipher   m_aCipher;
 
-    sal_uInt8   m_aDecryptionKey[ENCRYPTION_KEY_LEN+5]; // maximum handled key length
+    sal_uInt8   m_aDecryptionKey[ENCRYPTION_KEY_LEN+5] = {}; // maximum handled key length
 
     PDFFileImplData() :
         m_bIsEncrypted( false ),
@@ -1035,9 +1038,6 @@ struct PDFFileImplData
         m_nPEntry( 0 ),
         m_aCipher( nullptr )
     {
-        memset( m_aOEntry, 0, sizeof( m_aOEntry ) );
-        memset( m_aUEntry, 0, sizeof( m_aUEntry ) );
-        memset( m_aDecryptionKey, 0, sizeof( m_aDecryptionKey ) );
     }
 
     ~PDFFileImplData()
@@ -1160,8 +1160,7 @@ static bool check_user_password( const OString& rPwd, PDFFileImplData* pData )
     memcpy( pData->m_aDecryptionKey, aKey, nKeyLen );
     if( pData->m_nStandardRevision == 2 )
     {
-        sal_uInt8 nEncryptedEntry[ENCRYPTION_BUF_LEN];
-        memset( nEncryptedEntry, 0, sizeof(nEncryptedEntry) );
+        sal_uInt8 nEncryptedEntry[ENCRYPTION_BUF_LEN] = {};
         // see PDF reference 1.4 Algorithm 3.4
         // encrypt pad string
         if (rtl_cipher_initARCFOUR( pData->m_aCipher, rtl_Cipher_DirectionEncode,
@@ -1241,8 +1240,7 @@ bool PDFFile::setupDecryptionData( const OString& rPwd ) const
         // try owner password
         // see PDF reference 1.4 Algorithm 3.7
         sal_uInt8 aKey[ENCRYPTION_KEY_LEN];
-        sal_uInt8 nPwd[ENCRYPTION_BUF_LEN];
-        memset( nPwd, 0, sizeof(nPwd) );
+        sal_uInt8 nPwd[ENCRYPTION_BUF_LEN] = {};
         sal_uInt32 nKeyLen = password_to_key( rPwd, aKey, m_pData.get(), true );
         if( m_pData->m_nStandardRevision == 2 )
         {
@@ -1426,12 +1424,12 @@ bool PDFFile::emit( EmitContext& rWriteContext ) const
 {
     setEmitData(  rWriteContext, new EmitImplData( this ) );
 
-    OStringBuffer aBuf( 32 );
-    aBuf.append( "%PDF-" );
-    aBuf.append( sal_Int32( m_nMajor ) );
-    aBuf.append( '.' );
-    aBuf.append( sal_Int32( m_nMinor ) );
-    aBuf.append( "\n" );
+    OString aBuf =
+        "%PDF-" +
+        OString::number( sal_Int32( m_nMajor ) ) +
+        "." +
+        OString::number( sal_Int32( m_nMinor ) ) +
+        "\n";
     if( ! rWriteContext.write( aBuf.getStr(), aBuf.getLength() ) )
         return false;
     return emitSubElements( rWriteContext );

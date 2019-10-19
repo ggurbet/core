@@ -32,6 +32,7 @@
 #include <com/sun/star/sdbcx/XRowLocate.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
 #include <unotools/ucbhelper.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/types.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <connectivity/dbexception.hxx>
@@ -63,7 +64,6 @@ ODbaseIndex::ODbaseIndex(ODbaseTable* _pTable)
     , m_pTable(_pTable)
     , m_bUseCollector(false)
 {
-    memset(&m_aHeader, 0, sizeof(m_aHeader));
     construct();
 }
 
@@ -104,7 +104,7 @@ void ODbaseIndex::refreshColumns()
         m_pColumns.reset(new ODbaseIndexColumns(this,m_aMutex,aVector));
 }
 
-Sequence< sal_Int8 > ODbaseIndex::getUnoTunnelImplementationId()
+Sequence< sal_Int8 > ODbaseIndex::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 
@@ -115,7 +115,7 @@ Sequence< sal_Int8 > ODbaseIndex::getUnoTunnelImplementationId()
 
 sal_Int64 ODbaseIndex::getSomething( const Sequence< sal_Int8 > & rId )
 {
-    return (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    return (isUnoTunnelId<ODbaseIndex>(rId))
                 ? reinterpret_cast< sal_Int64 >( this )
                 : ODbaseIndex_BASE::getSomething(rId);
 }
@@ -379,7 +379,7 @@ SvStream& connectivity::dbase::WriteODbaseIndex(SvStream &rStream, ODbaseIndex& 
     return rStream;
 }
 
-OUString ODbaseIndex::getCompletePath()
+OUString ODbaseIndex::getCompletePath() const
 {
     OUString sDir = m_pTable->getConnection()->getURL() +
         OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_DELIMITER) +
@@ -573,7 +573,7 @@ void ODbaseIndex::CreateImpl()
     if(xSet->last())
     {
         Reference< XUnoTunnel> xTunnel(xSet, UNO_QUERY_THROW);
-        ODbaseResultSet* pDbaseRes = reinterpret_cast< ODbaseResultSet* >( xTunnel->getSomething(ODbaseResultSet::getUnoTunnelImplementationId()) );
+        ODbaseResultSet* pDbaseRes = reinterpret_cast< ODbaseResultSet* >( xTunnel->getSomething(ODbaseResultSet::getUnoTunnelId()) );
         assert(pDbaseRes); //"No dbase resultset found? What's going on here!
         nRowsLeft = xSet->getRow();
 

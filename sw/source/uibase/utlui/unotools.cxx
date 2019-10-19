@@ -25,6 +25,7 @@
 #include <unoprnms.hxx>
 #include <i18nutil/unicode.hxx>
 #include <svtools/colorcfg.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/jobset.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
@@ -45,6 +46,7 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <sfx2/dispatch.hxx>
 #include <svl/stritem.hxx>
 #include <shellio.hxx>
@@ -125,7 +127,7 @@ void SwOneExampleFrame::SetDrawingArea(weld::DrawingArea* pDrawingArea)
     CreateControl();
 }
 
-bool SwOneExampleFrame::ContextMenu(const CommandEvent& rCEvt)
+bool SwOneExampleFrame::Command(const CommandEvent& rCEvt)
 {
     switch (rCEvt.GetCommand())
     {
@@ -139,7 +141,7 @@ bool SwOneExampleFrame::ContextMenu(const CommandEvent& rCEvt)
         default:;
         break;
     }
-    return false;
+    return CustomWidgetController::Command(rCEvt);
 }
 
 void SwOneExampleFrame::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
@@ -152,14 +154,7 @@ void SwOneExampleFrame::Paint(vcl::RenderContext& rRenderContext, const tools::R
     Color aBgColor = SW_MOD()->GetColorConfig().GetColorValue(::svtools::DOCCOLOR).nColor;
     m_xVirDev->DrawWallpaper(tools::Rectangle(Point(), aSize), aBgColor);
 
-    OTextCursorHelper* pCursor = nullptr;
-    uno::Reference<lang::XUnoTunnel> xTunnel(m_xCursor, uno::UNO_QUERY);
-    if (xTunnel.is())
-    {
-        pCursor = reinterpret_cast<OTextCursorHelper*>(xTunnel->getSomething(
-                                    OTextCursorHelper::getUnoTunnelId()));
-    }
-
+    auto pCursor = comphelper::getUnoTunnelImplementation<OTextCursorHelper>(m_xCursor);
     if (pCursor)
     {
         uno::Reference<view::XViewSettingsSupplier> xSettings(m_xController, uno::UNO_QUERY);
@@ -197,7 +192,6 @@ void SwOneExampleFrame::CreateControl()
         sTempURL = m_sArgumentURL;
 
     uno::Reference<frame::XDesktop2> xDesktop = frame::Desktop::create(::comphelper::getProcessComponentContext());
-    uno::Reference<frame::XComponentLoader> xLoader(xDesktop, uno::UNO_QUERY);
     uno::Sequence<beans::PropertyValue> args( comphelper::InitPropertySequence({
             { "DocumentService", uno::Any(OUString("com.sun.star.text.TextDocument")) },
             { "OpenFlags", uno::Any(OUString("-RB")) },
@@ -206,7 +200,7 @@ void SwOneExampleFrame::CreateControl()
             { "Hidden", uno::Any(true) }
         }));
 
-    m_xModel.set(xLoader->loadComponentFromURL(sTempURL, "_blank", 0, args), uno::UNO_QUERY);
+    m_xModel.set(xDesktop->loadComponentFromURL(sTempURL, "_blank", 0, args), uno::UNO_QUERY);
 
     m_aLoadedIdle.Start();
 }
@@ -232,7 +226,7 @@ IMPL_LINK( SwOneExampleFrame, TimeoutHdl, Timer*, pTimer, void )
 
     if (m_xController.is())
     {
-        uno::Reference<frame::XFrame> xFrame(m_xController->getFrame(), uno::UNO_QUERY);
+        uno::Reference<frame::XFrame> xFrame = m_xController->getFrame();
         uno::Reference< beans::XPropertySet > xPropSet( xFrame, uno::UNO_QUERY );
         if ( xPropSet.is() )
         {
@@ -307,13 +301,7 @@ IMPL_LINK( SwOneExampleFrame, TimeoutHdl, Timer*, pTimer, void )
         //From here, a cursor is defined, which goes through the template,
         //and overwrites the template words where it is necessary.
 
-        OTextCursorHelper* pCursor = nullptr;
-        uno::Reference< lang::XUnoTunnel> xTunnel( m_xCursor, uno::UNO_QUERY);
-        if (xTunnel.is())
-        {
-            pCursor = reinterpret_cast<OTextCursorHelper*>(xTunnel->getSomething(
-                                        OTextCursorHelper::getUnoTunnelId()));
-        }
+        auto pCursor = comphelper::getUnoTunnelImplementation<OTextCursorHelper>(m_xCursor);
 
         SwDoc *pDoc = pCursor ? pCursor->GetDoc() : nullptr;
         if (pDoc)

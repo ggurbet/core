@@ -83,6 +83,7 @@
 #include "ww8scan.hxx"
 #include <oox/token/properties.hxx>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequence.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
@@ -160,6 +161,9 @@ void DocxExport::AppendBookmarks( const SwTextNode& rNode, sal_Int32 nCurrentPos
         {
             const sal_Int32 nStart = pMark->GetMarkStart().nContent.GetIndex();
             const sal_Int32 nEnd = pMark->GetMarkEnd().nContent.GetIndex();
+
+            if (dynamic_cast<sw::mark::IDateFieldmark*>(pMark))
+                continue;
 
             if ( nStart == nCurrentPos )
                 aStarts.push_back( pMark->GetName() );
@@ -333,7 +337,7 @@ void DocxExport::DoComboBox(const OUString& rName,
                              const OUString& rHelp,
                              const OUString& rToolTip,
                              const OUString& rSelected,
-                             uno::Sequence<OUString>& rListItems)
+                             const uno::Sequence<OUString>& rListItems)
 {
     m_pDocumentFS->startElementNS(XML_w, XML_ffData);
 
@@ -351,24 +355,18 @@ void DocxExport::DoComboBox(const OUString& rName,
     m_pDocumentFS->startElementNS(XML_w, XML_ddList);
 
     // Output the 0-based index of the selected value
-    sal_uInt32 nListItems = rListItems.getLength();
-    sal_Int32 nId = 0;
-    sal_uInt32 nI = 0;
-    while ( ( nI < nListItems ) && ( nId == 0 ) )
-    {
-        if ( rListItems[nI] == rSelected )
-            nId = nI;
-        nI++;
-    }
+    sal_Int32 nId = comphelper::findValue(rListItems, rSelected);
+    if (nId == -1)
+        nId = 0;
 
     m_pDocumentFS->singleElementNS(XML_w, XML_result, FSNS(XML_w, XML_val), OString::number(nId));
 
     // Loop over the entries
 
-    for (sal_uInt32 i = 0; i < nListItems; i++)
+    for (const auto& rItem : rListItems)
     {
         m_pDocumentFS->singleElementNS( XML_w, XML_listEntry,
-                FSNS( XML_w, XML_val ), rListItems[i].toUtf8() );
+                FSNS( XML_w, XML_val ), rItem.toUtf8() );
     }
 
     m_pDocumentFS->endElementNS( XML_w, XML_ddList );
@@ -994,13 +992,12 @@ void DocxExport::WriteSettings()
     SwDBData aData = m_pDoc->GetDBData();
     if ( !aData.sDataSource.isEmpty() && aData.nCommandType == css::sdb::CommandType::TABLE && !aData.sCommand.isEmpty() )
     {
-        OUStringBuffer aDataSource;
-        aDataSource.append("SELECT * FROM ");
-        aDataSource.append(aData.sDataSource); // current database
-        aDataSource.append(".dbo."); // default database owner
-        aDataSource.append(aData.sCommand); // sheet name
-        aDataSource.append("$"); // sheet identifier
-        const OUString sDataSource = aDataSource.makeStringAndClear();
+        OUString sDataSource =
+            "SELECT * FROM " +
+            aData.sDataSource + // current database
+            ".dbo." + // default database owner
+            aData.sCommand + // sheet name
+            "$"; // sheet identifier
         pFS->startElementNS( XML_w, XML_mailMerge );
         pFS->singleElementNS(XML_w, XML_mainDocumentType,
             FSNS( XML_w, XML_val ), "formLetters" );
@@ -1037,57 +1034,66 @@ void DocxExport::WriteSettings()
     uno::Reference< beans::XPropertySet > xPropSet( m_pDoc->GetDocShell()->GetBaseModel(), uno::UNO_QUERY_THROW );
 
     bool hasProtectionProperties = false;
+    bool bHasRedlineProtectionKey = false;
+    bool bHasDummyRedlineProtectionKey = false;
     uno::Reference< beans::XPropertySetInfo > xPropSetInfo = xPropSet->getPropertySetInfo();
+    if ( xPropSetInfo->hasPropertyByName( "RedlineProtectionKey" ) )
+    {
+        uno::Sequence<sal_Int8> aKey;
+        xPropSet->getPropertyValue( "RedlineProtectionKey" ) >>= aKey;
+        bHasRedlineProtectionKey = aKey.hasElements();
+        bHasDummyRedlineProtectionKey = aKey.getLength() == 1 && aKey[0] == 1;
+    }
     const OUString aGrabBagName = UNO_NAME_MISC_OBJ_INTEROPGRABBAG;
     if ( xPropSetInfo->hasPropertyByName( aGrabBagName ) )
     {
         uno::Sequence< beans::PropertyValue > propList;
         xPropSet->getPropertyValue( aGrabBagName ) >>= propList;
 
-        for( sal_Int32 i=0; i < propList.getLength(); ++i )
+        for( const auto& rProp : std::as_const(propList) )
         {
-            if ( propList[i].Name == "ThemeFontLangProps" )
+            if ( rProp.Name == "ThemeFontLangProps" )
             {
                 uno::Sequence< beans::PropertyValue > themeFontLangProps;
-                propList[i].Value >>= themeFontLangProps;
+                rProp.Value >>= themeFontLangProps;
                 OUString aValues[3];
-                for( sal_Int32 j=0; j < themeFontLangProps.getLength(); ++j )
+                for( const auto& rThemeFontLangProp : std::as_const(themeFontLangProps) )
                 {
-                    if( themeFontLangProps[j].Name == "val" )
-                        themeFontLangProps[j].Value >>= aValues[0];
-                    else if( themeFontLangProps[j].Name == "eastAsia" )
-                        themeFontLangProps[j].Value >>= aValues[1];
-                    else if( themeFontLangProps[j].Name == "bidi" )
-                        themeFontLangProps[j].Value >>= aValues[2];
+                    if( rThemeFontLangProp.Name == "val" )
+                        rThemeFontLangProp.Value >>= aValues[0];
+                    else if( rThemeFontLangProp.Name == "eastAsia" )
+                        rThemeFontLangProp.Value >>= aValues[1];
+                    else if( rThemeFontLangProp.Name == "bidi" )
+                        rThemeFontLangProp.Value >>= aValues[2];
                 }
                 pFS->singleElementNS( XML_w, XML_themeFontLang,
                                       FSNS( XML_w, XML_val ), aValues[0].toUtf8(),
                                       FSNS( XML_w, XML_eastAsia ), aValues[1].toUtf8(),
                                       FSNS( XML_w, XML_bidi ), aValues[2].toUtf8() );
             }
-            else if ( propList[i].Name == "CompatSettings" )
+            else if ( rProp.Name == "CompatSettings" )
             {
                 pFS->startElementNS(XML_w, XML_compat);
 
                 uno::Sequence< beans::PropertyValue > aCompatSettingsSequence;
-                propList[i].Value >>= aCompatSettingsSequence;
+                rProp.Value >>= aCompatSettingsSequence;
 
-                for(sal_Int32 j=0; j < aCompatSettingsSequence.getLength(); ++j)
+                for(const auto& rCompatSetting : std::as_const(aCompatSettingsSequence))
                 {
                     uno::Sequence< beans::PropertyValue > aCompatSetting;
-                    aCompatSettingsSequence[j].Value >>= aCompatSetting;
+                    rCompatSetting.Value >>= aCompatSetting;
                     OUString aName;
                     OUString aUri;
                     OUString aValue;
 
-                    for(sal_Int32 k=0; k < aCompatSetting.getLength(); ++k)
+                    for(const auto& rPropVal : std::as_const(aCompatSetting))
                     {
-                        if( aCompatSetting[k].Name == "name" )
-                            aCompatSetting[k].Value >>= aName;
-                        else if( aCompatSetting[k].Name == "uri" )
-                            aCompatSetting[k].Value >>= aUri;
-                        else if( aCompatSetting[k].Name == "val" )
-                            aCompatSetting[k].Value >>= aValue;
+                        if( rPropVal.Name == "name" )
+                            rPropVal.Value >>= aName;
+                        else if( rPropVal.Name == "uri" )
+                            rPropVal.Value >>= aUri;
+                        else if( rPropVal.Name == "val" )
+                            rPropVal.Value >>= aValue;
                     }
                     pFS->singleElementNS( XML_w, XML_compatSetting,
                         FSNS( XML_w, XML_name ), aName.toUtf8(),
@@ -1097,16 +1103,17 @@ void DocxExport::WriteSettings()
 
                 pFS->endElementNS( XML_w, XML_compat );
             }
-            else if (propList[i].Name == "DocumentProtection")
+            else if (rProp.Name == "DocumentProtection")
             {
 
                 uno::Sequence< beans::PropertyValue > rAttributeList;
-                propList[i].Value >>= rAttributeList;
+                rProp.Value >>= rAttributeList;
 
                 if (rAttributeList.hasElements())
                 {
                     sax_fastparser::FastAttributeList* pAttributeList = sax_fastparser::FastSerializerHelper::createAttrList();
-                    for (sal_Int32 j = 0; j < rAttributeList.getLength(); ++j)
+                    bool bIsProtectionTrackChanges = false;
+                    for (const auto& rAttribute : std::as_const(rAttributeList))
                     {
                         static DocxStringTokenMap const aTokens[] =
                         {
@@ -1123,14 +1130,21 @@ void DocxExport::WriteSettings()
                             { nullptr, 0 }
                         };
 
-                        if (sal_Int32 nToken = DocxStringGetToken(aTokens, rAttributeList[j].Name))
-                            pAttributeList->add(FSNS(XML_w, nToken), rAttributeList[j].Value.get<OUString>().toUtf8());
+                        if (sal_Int32 nToken = DocxStringGetToken(aTokens, rAttribute.Name))
+                        {
+                            OUString sValue = rAttribute.Value.get<OUString>();
+                            pAttributeList->add(FSNS(XML_w, nToken), sValue.toUtf8());
+                            if ( nToken == XML_edit && sValue == "trackedChanges" )
+                                bIsProtectionTrackChanges = true;
+                        }
                     }
 
                     // we have document protection from input DOCX file
+                    // and in the case of change tracking protection, we didn't modify it
 
                     sax_fastparser::XFastAttributeListRef xAttributeList(pAttributeList);
-                    pFS->singleElementNS(XML_w, XML_documentProtection, xAttributeList);
+                    if (!bIsProtectionTrackChanges || bHasDummyRedlineProtectionKey)
+                        pFS->singleElementNS(XML_w, XML_documentProtection, xAttributeList);
 
                     hasProtectionProperties = true;
                 }
@@ -1153,6 +1167,16 @@ void DocxExport::WriteSettings()
         }
     }
 
+    // Protect Change Tracking
+    if ( bHasRedlineProtectionKey && !bHasDummyRedlineProtectionKey )
+    {
+        // we have change tracking protection from Writer or from input ODT file
+
+        pFS->singleElementNS(XML_w, XML_documentProtection,
+            FSNS(XML_w, XML_edit), "trackedChanges",
+            FSNS(XML_w, XML_enforcement), "1");
+    }
+
     // finish settings.xml
     pFS->endElementNS( XML_w, XML_settings );
 }
@@ -1169,15 +1193,10 @@ void DocxExport::WriteTheme()
     uno::Reference<xml::dom::XDocument> themeDom;
     uno::Sequence< beans::PropertyValue > propList;
     xPropSet->getPropertyValue( aName ) >>= propList;
-    for ( sal_Int32 nProp=0; nProp < propList.getLength(); ++nProp )
-    {
-        OUString propName = propList[nProp].Name;
-        if ( propName == "OOXTheme" )
-        {
-             propList[nProp].Value >>= themeDom;
-             break;
-        }
-    }
+    auto pProp = std::find_if(propList.begin(), propList.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "OOXTheme"; });
+    if (pProp != propList.end())
+        pProp->Value >>= themeDom;
 
     // no theme dom to write
     if ( !themeDom.is() )
@@ -1209,17 +1228,17 @@ void DocxExport::WriteGlossary()
     uno::Sequence< beans::PropertyValue > propList;
     xPropSet->getPropertyValue( aName ) >>= propList;
     sal_Int32 collectedProperties = 0;
-    for ( sal_Int32 nProp=0; nProp < propList.getLength(); ++nProp )
+    for ( const auto& rProp : std::as_const(propList) )
     {
-        OUString propName = propList[nProp].Name;
+        OUString propName = rProp.Name;
         if ( propName == "OOXGlossary" )
         {
-             propList[nProp].Value >>= glossaryDocDom;
+             rProp.Value >>= glossaryDocDom;
              collectedProperties++;
         }
         if (propName == "OOXGlossaryDom")
         {
-            propList[nProp].Value >>= glossaryDomList;
+            rProp.Value >>= glossaryDomList;
             collectedProperties++;
         }
         if (collectedProperties == 2)
@@ -1243,10 +1262,8 @@ void DocxExport::WriteGlossary()
     serializer->serialize( uno::Reference< xml::sax::XDocumentHandler >( writer, uno::UNO_QUERY_THROW ),
         uno::Sequence< beans::StringPair >() );
 
-    sal_Int32 length = glossaryDomList.getLength();
-    for ( int i =0; i < length; i++)
+    for ( const uno::Sequence< uno::Any>& glossaryElement : std::as_const(glossaryDomList))
     {
-        uno::Sequence< uno::Any> glossaryElement = glossaryDomList[i];
         OUString gTarget, gType, gId, contentType;
         uno::Reference<xml::dom::XDocument> xDom;
         glossaryElement[0] >>= xDom;
@@ -1279,25 +1296,15 @@ void DocxExport::WriteCustomXml()
     uno::Sequence<uno::Reference<xml::dom::XDocument> > customXmlDomPropslist;
     uno::Sequence< beans::PropertyValue > propList;
     xPropSet->getPropertyValue( aName ) >>= propList;
-    for ( sal_Int32 nProp=0; nProp < propList.getLength(); ++nProp )
-    {
-        const OUString propName = propList[nProp].Name;
-        if ( propName == "OOXCustomXml" )
-        {
-             propList[nProp].Value >>= customXmlDomlist;
-             break;
-        }
-    }
+    auto pProp = std::find_if(propList.begin(), propList.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "OOXCustomXml"; });
+    if (pProp != propList.end())
+        pProp->Value >>= customXmlDomlist;
 
-    for ( sal_Int32 nProp=0; nProp < propList.getLength(); ++nProp )
-    {
-        OUString propName = propList[nProp].Name;
-        if ( propName == "OOXCustomXmlProps" )
-        {
-             propList[nProp].Value >>= customXmlDomPropslist;
-             break;
-        }
-    }
+    pProp = std::find_if(propList.begin(), propList.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "OOXCustomXmlProps"; });
+    if (pProp != propList.end())
+        pProp->Value >>= customXmlDomPropslist;
 
     for (sal_Int32 j = 0; j < customXmlDomlist.getLength(); j++)
     {
@@ -1341,13 +1348,13 @@ void DocxExport::WriteVBA()
     if (!xStorageBasedDocument.is())
         return;
 
-    uno::Reference<embed::XStorage> xDocumentStorage(xStorageBasedDocument->getDocumentStorage(), uno::UNO_QUERY);
+    uno::Reference<embed::XStorage> xDocumentStorage = xStorageBasedDocument->getDocumentStorage();
     OUString aMacrosName("_MS_VBA_Macros");
     if (!xDocumentStorage.is() || !xDocumentStorage->hasByName(aMacrosName))
         return;
 
     const sal_Int32 nOpenMode = embed::ElementModes::READ;
-    uno::Reference<io::XStream> xMacrosStream(xDocumentStorage->openStreamElement(aMacrosName, nOpenMode), uno::UNO_QUERY);
+    uno::Reference<io::XStream> xMacrosStream = xDocumentStorage->openStreamElement(aMacrosName, nOpenMode);
     uno::Reference<io::XOutputStream> xProjectStream;
     if (xMacrosStream.is())
     {
@@ -1371,7 +1378,7 @@ void DocxExport::WriteVBA()
     if (!xDocumentStorage.is() || !xDocumentStorage->hasByName(aDataName))
         return;
 
-    uno::Reference<io::XStream> xDataStream(xDocumentStorage->openStreamElement(aDataName, nOpenMode), uno::UNO_QUERY);
+    uno::Reference<io::XStream> xDataStream = xDocumentStorage->openStreamElement(aDataName, nOpenMode);
     if (xDataStream.is())
     {
         // Then the data stream, which wants to work with an already set
@@ -1406,20 +1413,15 @@ void DocxExport::WriteEmbeddings()
     uno::Sequence< beans::PropertyValue > embeddingsList;
     uno::Sequence< beans::PropertyValue > propList;
     xPropSet->getPropertyValue( aName ) >>= propList;
-    for ( sal_Int32 nProp=0; nProp < propList.getLength(); ++nProp )
+    auto pProp = std::find_if(propList.begin(), propList.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "OOXEmbeddings"; });
+    if (pProp != propList.end())
+        pProp->Value >>= embeddingsList;
+    for (const auto& rEmbedding : std::as_const(embeddingsList))
     {
-        OUString propName = propList[nProp].Name;
-        if ( propName == "OOXEmbeddings" )
-        {
-             propList[nProp].Value >>= embeddingsList;
-             break;
-        }
-    }
-    for (sal_Int32 j = 0; j < embeddingsList.getLength(); j++)
-    {
-        OUString embeddingPath = embeddingsList[j].Name;
+        OUString embeddingPath = rEmbedding.Name;
         uno::Reference<io::XInputStream> embeddingsStream;
-        embeddingsList[j].Value >>= embeddingsStream;
+        rEmbedding.Value >>= embeddingsStream;
 
         OUString contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         // FIXME: this .xlsm hack is silly - if anything the mime-type for an existing embedded object should be read from [Content_Types].xml
@@ -1455,8 +1457,7 @@ void DocxExport::WriteEmbeddings()
             }
             catch(const uno::Exception&)
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN("sw.ww8", "WriteEmbeddings() ::Failed to copy Inputstream to outputstream exception caught! " << exceptionToString(ex));
+                TOOLS_WARN_EXCEPTION("sw.ww8", "WriteEmbeddings() ::Failed to copy Inputstream to outputstream exception caught");
             }
             xOutStream->closeOutput();
         }
@@ -1599,7 +1600,8 @@ void DocxExport::SetFS( ::sax_fastparser::FSHelperPtr const & pFS )
     mpFS = pFS;
 }
 
-DocxExport::DocxExport(DocxExportFilter* pFilter, SwDoc* pDocument, SwPaM* pCurrentPam,
+DocxExport::DocxExport(DocxExportFilter* pFilter, SwDoc* pDocument,
+        std::shared_ptr<SwUnoCursor> & pCurrentPam,
                        SwPaM* pOriginalPam, bool bDocm, bool bTemplate)
     : MSWordExportBase( pDocument, pCurrentPam, pOriginalPam ),
       m_pFilter( pFilter ),

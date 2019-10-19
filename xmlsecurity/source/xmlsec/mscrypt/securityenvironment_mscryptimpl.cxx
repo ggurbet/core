@@ -155,7 +155,7 @@ SecurityEnvironment_MSCryptImpl::~SecurityEnvironment_MSCryptImpl() {
 
 /* XServiceInfo */
 OUString SAL_CALL SecurityEnvironment_MSCryptImpl::getImplementationName() {
-    return OUString("com.sun.star.xml.crypto.SecurityEnvironment");
+    return "com.sun.star.xml.crypto.SecurityEnvironment";
 }
 
 /* XServiceInfo */
@@ -773,8 +773,7 @@ sal_Int32 SecurityEnvironment_MSCryptImpl::verifyCertificate(
 
     CERT_ENHKEY_USAGE   enhKeyUsage ;
     CERT_USAGE_MATCH    certUsage ;
-    CERT_CHAIN_PARA     chainPara ;
-    memset(&chainPara, 0, sizeof(CERT_CHAIN_PARA));
+    CERT_CHAIN_PARA     chainPara = {};
 
     //Prepare parameter for CertGetCertificateChain
     enhKeyUsage.cUsageIdentifier = 0 ;
@@ -990,7 +989,7 @@ static X509Certificate_MSCryptImpl* MswcryCertContextToXCert( PCCERT_CONTEXT cer
 
 OUString SecurityEnvironment_MSCryptImpl::getSecurityEnvironmentInformation()
 {
-    return OUString("Microsoft Crypto API");
+    return "Microsoft Crypto API";
 }
 
 xmlSecKeysMngrPtr SecurityEnvironment_MSCryptImpl::createKeysManager() {

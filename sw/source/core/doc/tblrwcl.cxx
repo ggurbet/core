@@ -1692,7 +1692,7 @@ static void lcl_CalcNewWidths(const FndLines_t& rFndLines, CpyPara& rPara)
         // selected cells
         for( size_t nLine = 0; nLine < nLineCount; ++nLine )
         {
-            std::vector< sal_uLong > &rWidth = (*rPara.pWidths.get())[ nLine ];
+            std::vector< sal_uLong > &rWidth = (*rPara.pWidths)[ nLine ];
             const FndLine_ *pFndLine = rFndLines[ nLine ].get();
             if( pFndLine && !pFndLine->GetBoxes().empty() )
             {
@@ -1743,7 +1743,7 @@ static void lcl_CalcNewWidths(const FndLines_t& rFndLines, CpyPara& rPara)
     {
         for( size_t nLine = 0; nLine < nLineCount; ++nLine )
         {
-            std::vector< sal_uLong > &rWidth = (*rPara.pWidths.get())[ nLine ];
+            std::vector< sal_uLong > &rWidth = (*rPara.pWidths)[ nLine ];
             const size_t nCount = rWidth.size();
             if( nCount > 2 )
             {
@@ -1775,10 +1775,10 @@ static void lcl_CopyBoxToDoc(FndBox_ const& rFndBox, CpyPara *const pCpyPara)
     if( pCpyPara->pTableNd->GetTable().IsNewModel() )
     {
         if( pCpyPara->nBoxIdx == 1 )
-            nDummy1 = (*pCpyPara->pWidths.get())[pCpyPara->nLnIdx][0];
-        nRealSize = (*pCpyPara->pWidths.get())[pCpyPara->nLnIdx][pCpyPara->nBoxIdx++];
-        if( pCpyPara->nBoxIdx == (*pCpyPara->pWidths.get())[pCpyPara->nLnIdx].size()-1 )
-            nDummy2 = (*pCpyPara->pWidths.get())[pCpyPara->nLnIdx][pCpyPara->nBoxIdx];
+            nDummy1 = (*pCpyPara->pWidths)[pCpyPara->nLnIdx][0];
+        nRealSize = (*pCpyPara->pWidths)[pCpyPara->nLnIdx][pCpyPara->nBoxIdx++];
+        if( pCpyPara->nBoxIdx == (*pCpyPara->pWidths)[pCpyPara->nLnIdx].size()-1 )
+            nDummy2 = (*pCpyPara->pWidths)[pCpyPara->nLnIdx][pCpyPara->nBoxIdx];
     }
     else
     {
@@ -1896,7 +1896,7 @@ static void lcl_CopyBoxToDoc(FndBox_ const& rFndBox, CpyPara *const pCpyPara)
                         *rFndBox.GetBox()->GetSttNd()->EndOfSectionNode() );
                 SwNodeIndex aInsIdx( *pBox->GetSttNd(), 1 );
 
-                pFromDoc->GetDocumentContentOperationsManager().CopyWithFlyInFly( aCpyRg, 0, aInsIdx, nullptr, false );
+                pFromDoc->GetDocumentContentOperationsManager().CopyWithFlyInFly(aCpyRg, aInsIdx, nullptr, false);
                 // Delete the initial TextNode
                 pCpyPara->pDoc->GetNodes().Delete( aInsIdx );
             }
@@ -2011,7 +2011,7 @@ void SwTable::CopyHeadlineIntoTable( SwTableNode& rTableNd )
     // Copy
     if( IsNewModel() )
         lcl_CalcNewWidths( aFndBox.GetLines(), aPara );
-    for (auto & rpFndLine : aFndBox.GetLines())
+    for (const auto & rpFndLine : aFndBox.GetLines())
     {
          lcl_CopyLineToDoc( *rpFndLine, &aPara );
     }
@@ -2086,7 +2086,7 @@ bool SwTable::MakeCopy( SwDoc* pInsDoc, const SwPosition& rPos,
     pTableNd->DelFrames();
 
     {
-        // Conver the Table formulas to their relative representation
+        // Convert the Table formulas to their relative representation
         SwTableFormulaUpdate aMsgHint( this );
         aMsgHint.m_eFlags = TBL_RELBOXNAME;
         pSrcDoc->getIDocumentFieldsAccess().UpdateTableFields( &aMsgHint );
@@ -2105,7 +2105,7 @@ bool SwTable::MakeCopy( SwDoc* pInsDoc, const SwPosition& rPos,
     if( IsNewModel() )
         lcl_CalcNewWidths( aFndBox.GetLines(), aPara );
     // Copy
-    for (auto & rpFndLine : aFndBox.GetLines())
+    for (const auto & rpFndLine : aFndBox.GetLines())
     {
          lcl_CopyLineToDoc( *rpFndLine, &aPara );
     }

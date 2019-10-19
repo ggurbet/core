@@ -23,8 +23,6 @@
 #include <xmloff/dllapi.h>
 
 #include <string.h>
-#include <com/sun/star/container/XSet.hpp>
-#include <com/sun/star/registry/XRegistryKey.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 
 #include <cppuhelper/factory.hxx>
@@ -56,33 +54,13 @@ XMLOFF_DLLPUBLIC void * xo_component_getFactory( const sal_Char * pImplName, voi
 
         const sal_Int32 nImplNameLen = strlen( pImplName );
 
-        // impress oasis import
-        SINGLEFACTORY( XMLImpressStylesImportOasis )
-        else SINGLEFACTORY( XMLImpressContentImportOasis )
-        else SINGLEFACTORY( XMLImpressMetaImportOasis )
-
-        else SINGLEFACTORY( AnimationsImport )
-
-        // impress OOo export
-        else SINGLEFACTORY( XMLImpressExportOOO )
-        else SINGLEFACTORY( XMLImpressStylesExportOOO )
-        else SINGLEFACTORY( XMLImpressContentExportOOO )
-        else SINGLEFACTORY( XMLImpressMetaExportOOO )
-        else SINGLEFACTORY( XMLImpressSettingsExportOOO )
+        SINGLEFACTORY( AnimationsImport )
 
         // draw oasis export
         else SINGLEFACTORY( XMLDrawExportOasis )
         else SINGLEFACTORY( XMLDrawStylesExportOasis )
         else SINGLEFACTORY( XMLDrawContentExportOasis )
         else SINGLEFACTORY( XMLDrawMetaExportOasis )
-        else SINGLEFACTORY( XMLDrawSettingsExportOasis )
-
-        // draw OOo export
-        else SINGLEFACTORY( XMLDrawExportOOO )
-        else SINGLEFACTORY( XMLDrawStylesExportOOO )
-        else SINGLEFACTORY( XMLDrawContentExportOOO )
-        else SINGLEFACTORY( XMLDrawMetaExportOOO )
-        else SINGLEFACTORY( XMLDrawSettingsExportOOO )
 
         // drawing layer export
         else SINGLEFACTORY( XMLDrawingLayerExport )

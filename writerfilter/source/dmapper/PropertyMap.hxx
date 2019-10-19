@@ -296,7 +296,7 @@ private:
                                    sal_uInt32 nLineWidth );
 
     // Determines if conversion of a given floating table is wanted or not.
-    bool FloatingTableConversion( DomainMapper_Impl& rDM_Impl, FloatingTableInfo& rInfo );
+    bool FloatingTableConversion( const DomainMapper_Impl& rDM_Impl, FloatingTableInfo& rInfo );
 
     /// Increases paragraph spacing according to Word 2013+ needs if necessary.
     void HandleIncreasedAnchoredObjectSpacing(DomainMapper_Impl& rDM_Impl);
@@ -311,15 +311,13 @@ public:
 
     explicit SectionPropertyMap( bool bIsFirstSection );
 
-    bool IsFirstSection() { return m_bIsFirstSection; }
+    bool IsFirstSection() const { return m_bIsFirstSection; }
 
     void SetStart( const css::uno::Reference< css::text::XTextRange >& xRange ) { m_xStartingRange = xRange; }
 
     const css::uno::Reference< css::text::XTextRange >& GetStartingRange() const { return m_xStartingRange; }
 
-    css::uno::Reference< css::beans::XPropertySet > GetPageStyle( const css::uno::Reference< css::container::XNameContainer >& xStyles,
-                                                                  const css::uno::Reference< css::lang::XMultiServiceFactory >& xTextFactory,
-                                                                  bool bFirst );
+    css::uno::Reference< css::beans::XPropertySet > GetPageStyle( DomainMapper_Impl& rDM_Impl, bool bFirst );
 
     const OUString& GetPageStyleName( bool bFirstPage = false )
     {
@@ -351,17 +349,17 @@ public:
     void SetPageNumberType( sal_Int32 nSet ) { m_nPageNumberType = nSet; }
     void SetBreakType( sal_Int32 nSet )      { m_nBreakType = nSet; }
     // GetBreakType returns -1 if the breakType has not yet been identified for the section
-    sal_Int32 GetBreakType()                 { return m_nBreakType; }
+    sal_Int32 GetBreakType() const           { return m_nBreakType; }
 
     void SetLeftMargin( sal_Int32 nSet )   { m_nLeftMargin = nSet; }
-    sal_Int32 GetLeftMargin()              { return m_nLeftMargin; }
+    sal_Int32 GetLeftMargin() const        { return m_nLeftMargin; }
     void SetRightMargin( sal_Int32 nSet )  { m_nRightMargin = nSet; }
-    sal_Int32 GetRightMargin()             { return m_nRightMargin; }
+    sal_Int32 GetRightMargin() const       { return m_nRightMargin; }
     void SetTopMargin( sal_Int32 nSet )    { m_nTopMargin = nSet; }
     void SetBottomMargin( sal_Int32 nSet ) { m_nBottomMargin = nSet; }
     void SetHeaderTop( sal_Int32 nSet )    { m_nHeaderTop = nSet; }
     void SetHeaderBottom( sal_Int32 nSet ) { m_nHeaderBottom = nSet; }
-    sal_Int32 GetPageWidth();
+    sal_Int32 GetPageWidth() const;
 
     void SetGridType( sal_Int32 nSet )      { m_nGridType = nSet; }
     void SetGridLinePitch( sal_Int32 nSet ) { m_nGridLinePitch = nSet; }
@@ -376,8 +374,7 @@ public:
     void addRelativeWidthShape( css::uno::Reference<css::drawing::XShape> xShape ) { m_xRelativeWidthShapes.push_back( xShape ); }
 
     // determine which style gets the borders
-    void ApplyBorderToPageStyles( const css::uno::Reference< css::container::XNameContainer >& xStyles,
-                                  const css::uno::Reference< css::lang::XMultiServiceFactory >& xTextFactory,
+    void ApplyBorderToPageStyles( DomainMapper_Impl &rDM_Impl,
                                   BorderApply eBorderApply, BorderOffsetFrom eOffsetFrom );
 
     void CloseSectionGroup( DomainMapper_Impl& rDM_Impl );
@@ -411,6 +408,7 @@ private:
 
     css::uno::Reference< css::text::XTextRange > m_xStartingRange; // start of a frame
     css::uno::Reference< css::text::XTextRange > m_xEndingRange;   // end of the frame
+    sal_Int32 m_nListId = -1;
 
 public:
     ParagraphProperties();
@@ -422,6 +420,9 @@ public:
 
     // Does not compare the starting/ending range, m_sParaStyleName and m_nDropCapLength
     bool operator==( const ParagraphProperties& );
+
+    sal_Int32 GetListId() const          { return m_nListId; }
+    void      SetListId( sal_Int32 nId ) { m_nListId = nId; }
 
     bool IsFrameMode() const             { return m_bFrameMode; }
     void SetFrameMode( bool set = true ) { m_bFrameMode = set; }
@@ -499,16 +500,12 @@ class StyleSheetPropertyMap
     , public ParagraphProperties
 {
 private:
-    sal_Int32 mnListId;
     sal_Int16 mnListLevel;
     sal_Int16 mnOutlineLevel;
     sal_Int32 mnNumId;
 
 public:
     explicit StyleSheetPropertyMap();
-
-    sal_Int32 GetListId() const          { return mnListId; }
-    void      SetListId( sal_Int32 nId ) { mnListId = nId; }
 
     sal_Int16 GetListLevel() const             { return mnListLevel; }
     void      SetListLevel( sal_Int16 nLevel ) { mnListLevel = nLevel; }

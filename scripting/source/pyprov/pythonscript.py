@@ -176,6 +176,7 @@ def toIniName( str ):
 class MyUriHelper:
 
     def __init__( self, ctx, location ):
+        self.ctx = ctx
         self.s_UriMap = \
         { "share" : "vnd.sun.star.expand:$BRAND_BASE_DIR/$BRAND_SHARE_SUBDIR/Scripts/python" , \
           "share:uno_packages" : "vnd.sun.star.expand:$UNO_SHARED_PACKAGES_CACHE/uno_packages", \
@@ -203,7 +204,7 @@ class MyUriHelper:
         if not storageURI.startswith( self.m_baseUri ):
             message = "pythonscript: storage uri '" + storageURI + "' not in base uri '" + self.m_baseUri + "'"
             log.debug( message )
-            raise RuntimeException( message )
+            raise RuntimeException( message, self.ctx )
 
         ret = "vnd.sun.star.script:" + \
               storageURI[len(self.m_baseUri)+1:].replace("/","|") + \
@@ -219,15 +220,28 @@ class MyUriHelper:
 
             # path to the .py file + "$functionname, arguments, etc
             xStorageUri = self.m_uriRefFac.parse(scriptURI)
-            sStorageUri = xStorageUri.getName().replace( "|", "/" );
+            # getName will apply url-decoding to the name, so encode back
+            sStorageUri = xStorageUri.getName().replace("%", "%25")
+            sStorageUri = sStorageUri.replace( "|", "/" )
 
             # path to the .py file, relative to the base
-            sFileUri = sStorageUri[0:sStorageUri.find("$")]
+            funcNameStart = sStorageUri.find("$")
+            if funcNameStart != -1:
+                sFileUri = sStorageUri[0:funcNameStart]
+                sFuncName = sStorageUri[funcNameStart+1:]
+            else:
+                sFileUri = sStorageUri
+
             xFileUri = self.m_uriRefFac.parse(sFileUri)
             if not xFileUri:
                 message = "pythonscript: invalid relative uri '" + sFileUri+ "'"
                 log.debug( message )
-                raise RuntimeException( message )
+                raise RuntimeException( message, self.ctx )
+
+            if not xFileUri.hasRelativePath():
+                message = "pythonscript: an absolute uri is invalid '" + sFileUri+ "'"
+                log.debug( message )
+                raise RuntimeException( message, self.ctx )
 
             # absolute path to the .py file
             xAbsScriptUri = self.m_uriRefFac.makeAbsolute(xBaseUri, xFileUri, True, RETAIN)
@@ -237,17 +251,19 @@ class MyUriHelper:
             if not sAbsScriptUri.startswith(sBaseUri):
                 message = "pythonscript: storage uri '" + sAbsScriptUri + "' not in base uri '" + self.m_baseUri + "'"
                 log.debug( message )
-                raise RuntimeException( message )
+                raise RuntimeException( message, self.ctx )
 
-            ret = sBaseUri + sStorageUri
+            ret = sAbsScriptUri
+            if funcNameStart != -1:
+                ret = ret + "$" + sFuncName
             log.debug( "converting scriptURI="+scriptURI + " to storageURI=" + ret )
             return ret
         except UnoException as e:
             log.error( "error during converting scriptURI="+scriptURI + ": " + e.Message)
-            raise RuntimeException( "pythonscript:scriptURI2StorageUri: " +e.getMessage(), None )
+            raise RuntimeException( "pythonscript:scriptURI2StorageUri: " + e.Message, self.ctx )
         except Exception as e:
             log.error( "error during converting scriptURI="+scriptURI + ": " + str(e))
-            raise RuntimeException( "pythonscript:scriptURI2StorageUri: " + str(e), None )
+            raise RuntimeException( "pythonscript:scriptURI2StorageUri: " + str(e), self.ctx )
 
 
 class ModuleEntry:

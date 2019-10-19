@@ -380,7 +380,7 @@ void XMLRedlineExport::ExportChangedRegion(
     if (aSuccessorData.hasElements())
     {
         // The only change that can be "undone" is an insertion -
-        // after all, you can't re-insert an deletion, but you can
+        // after all, you can't re-insert a deletion, but you can
         // delete an insertion. This assumption is asserted in
         // ExportChangeInfo(Sequence<PropertyValue>&).
         SvXMLElementExport aSecondChangeElem(
@@ -539,7 +539,7 @@ void XMLRedlineExport::ExportStartOrEndRedline(
     bool bIsStart = true;
     OUString sId;
     bool bIdOK = false; // have we seen an ID?
-    for(const auto& rValue : aValues)
+    for(const auto& rValue : std::as_const(aValues))
     {
         if (rValue.Name == "RedlineIdentifier")
         {

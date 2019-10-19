@@ -307,11 +307,9 @@ void ChartTypeDialogController::commitToModel( const ChartTypeParameter& rParame
     uno::Reference< XChartTypeTemplate > xTemplate( getCurrentTemplate( rParameter, xTemplateManager ) );
     if(xTemplate.is())
     {
-        uno::Reference< frame::XModel > xModel( xChartModel, uno::UNO_QUERY);
-
         // locked controllers
-        ControllerLockGuardUNO aCtrlLockGuard( xModel );
-        uno::Reference< XDiagram > xDiagram = ChartModelHelper::findDiagram( xModel );
+        ControllerLockGuardUNO aCtrlLockGuard( xChartModel );
+        uno::Reference< XDiagram > xDiagram = ChartModelHelper::findDiagram( xChartModel );
         DiagramHelper::tTemplateWithServiceName aTemplateWithService(
             DiagramHelper::getTemplateForDiagram( xDiagram, xTemplateManager ));
         if( aTemplateWithService.first.is())
@@ -338,10 +336,6 @@ bool ChartTypeDialogController::shouldShow_3DLookControl() const
     return false;
 }
 bool ChartTypeDialogController::shouldShow_StackingControl() const
-{
-    return false;
-}
-bool ChartTypeDialogController::shouldShow_DeepStackingControl() const
 {
     return false;
 }
@@ -715,10 +709,6 @@ void LineChartDialogController::fillSubTypeList( SvtValueSet& rSubTypeList, cons
 bool LineChartDialogController::shouldShow_StackingControl() const
 {
     return true;
-}
-bool LineChartDialogController::shouldShow_DeepStackingControl() const
-{
-    return false;
 }
 bool LineChartDialogController::shouldShow_SplineControl() const
 {
@@ -1164,7 +1154,7 @@ void CombiColumnLineChartDialogController::fillExtraControls( const ChartTypePar
     if (!m_xMF_NumberOfLines)
         return;
 
-    uno::Reference< frame::XModel > xModel( xChartModel, uno::UNO_QUERY );
+    uno::Reference< frame::XModel > xModel = xChartModel;
 
     uno::Reference< XDiagram > xDiagram = ChartModelHelper::findDiagram( xModel );
     if(!xDiagram.is())

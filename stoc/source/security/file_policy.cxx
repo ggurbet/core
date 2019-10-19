@@ -172,11 +172,8 @@ void PolicyReader::assureToken( sal_Unicode token )
     sal_Unicode c = get();
     if (c == token)
         return;
-    OUStringBuffer buf( 16 );
-    buf.append( "expected >" );
-    buf.append( c );
-    buf.append( "<!" );
-    error( buf.makeStringAndClear() );
+    OUString msg = "expected >" + OUStringChar(c) + "<!";
+    error( msg );
 }
 
 OUString PolicyReader::assureQuotedToken()
@@ -472,7 +469,7 @@ void FilePolicy::refresh()
 
 OUString FilePolicy::getImplementationName()
 {
-    return OUString(IMPL_NAME);
+    return IMPL_NAME;
 }
 
 sal_Bool FilePolicy::supportsService( OUString const & serviceName )

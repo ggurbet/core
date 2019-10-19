@@ -71,12 +71,12 @@ void SfxFrameHTMLWriter::OutMeta( SvStream& rStrm,
     OStringBuffer sOut;
     sOut.append('<').append(OOO_STRING_SVTOOLS_HTML_meta).append(' ')
         .append(bHTTPEquiv ? OOO_STRING_SVTOOLS_HTML_O_httpequiv : OOO_STRING_SVTOOLS_HTML_O_name).append("=\"");
-    rStrm.WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rStrm.WriteOString( sOut.makeStringAndClear() );
 
     HTMLOutFuncs::Out_String( rStrm, rName, eDestEnc, pNonConvertableChars );
 
     sOut.append("\" ").append(OOO_STRING_SVTOOLS_HTML_O_content).append("=\"");
-    rStrm.WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rStrm.WriteOString( sOut.makeStringAndClear() );
 
     HTMLOutFuncs::Out_String( rStrm, rContent, eDestEnc, pNonConvertableChars ).WriteCharPtr( "\"/>" );
 }
@@ -120,10 +120,9 @@ void SfxFrameHTMLWriter::Out_DocInfo( SvStream& rStrm, const OUString& rBaseURL,
             if( pIndent )
                 rStrm.WriteCharPtr( pIndent );
 
-            OStringBuffer sOut;
-            sOut.append('<').append(OOO_STRING_SVTOOLS_HTML_base).append(' ')
-                .append(OOO_STRING_SVTOOLS_HTML_O_target).append("=\"");
-            rStrm.WriteCharPtr( sOut.makeStringAndClear().getStr() );
+            OString sOut = "<" OOO_STRING_SVTOOLS_HTML_base " "
+                OOO_STRING_SVTOOLS_HTML_O_target "=\"";
+            rStrm.WriteOString( sOut );
             HTMLOutFuncs::Out_String( rStrm, rTarget, eDestEnc, pNonConvertableChars )
                .WriteCharPtr( "\">" );
         }
@@ -211,12 +210,12 @@ void SfxFrameHTMLWriter::Out_DocInfo( SvStream& rStrm, const OUString& rBaseURL,
     uno::Reference<beans::XPropertySetInfo> xPropInfo =
         xUserDefinedProps->getPropertySetInfo();
     DBG_ASSERT(xPropInfo.is(), "UserDefinedProperties Info is null");
-    uno::Sequence<beans::Property> props = xPropInfo->getProperties();
-    for (sal_Int32 i = 0; i < props.getLength(); ++i)
+    const uno::Sequence<beans::Property> props = xPropInfo->getProperties();
+    for (const auto& rProp : props)
     {
         try
         {
-            OUString name = props[i].Name;
+            OUString name = rProp.Name;
             uno::Any aStr = xConverter->convertToSimpleType(
                     xUserDefinedProps->getPropertyValue(name),
                     uno::TypeClass_STRING);
@@ -252,7 +251,7 @@ void SfxFrameHTMLWriter::Out_FrameDescriptor(
                     rBaseURL, aURL );
                 sOut.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_src)
                     .append("=\"");
-                rOut.WriteCharPtr( sOut.makeStringAndClear().getStr() );
+                rOut.WriteOString( sOut.makeStringAndClear() );
                 HTMLOutFuncs::Out_String( rOut, aURL, eDestEnc, pNonConvertableChars );
                 sOut.append('\"');
             }
@@ -263,7 +262,7 @@ void SfxFrameHTMLWriter::Out_FrameDescriptor(
         {
             sOut.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_name)
                 .append("=\"");
-            rOut.WriteCharPtr( sOut.makeStringAndClear().getStr() );
+            rOut.WriteOString( sOut.makeStringAndClear() );
             HTMLOutFuncs::Out_String( rOut, aStr, eDestEnc, pNonConvertableChars );
             sOut.append('\"');
         }
@@ -307,7 +306,7 @@ void SfxFrameHTMLWriter::Out_FrameDescriptor(
                     .append('=').append(pStr);
             }
         }
-        rOut.WriteCharPtr( sOut.getStr() );
+        rOut.WriteOString( sOut.makeStringAndClear() );
     }
     catch (const uno::Exception&)
     {

@@ -317,7 +317,7 @@ void DrawXmlEmitter::visit( PolyPolyElement& elem, const std::list< std::unique_
     PropertyMap aProps;
     // PDFIProcessor transforms geometrical objects, not images and text
     // so we need to tell fillFrameProps here that the transformation for
-    // a PolyPolyElement was already applied (aside form translation)
+    // a PolyPolyElement was already applied (aside from translation)
     fillFrameProps( elem, aProps, m_rEmitContext, true );
     OUStringBuffer aBuf( 64 );
     aBuf.append( "0 0 " );
@@ -490,7 +490,7 @@ void DrawXmlOptimizer::visit( PageElement& elem, const std::list< std::unique_pt
             // adjust line height and text items
             fCurLineHeight = 0.0;
             nCurLineElements = 0;
-            for( auto& rxChild : pCurPara->Children )
+            for( const auto& rxChild : pCurPara->Children )
             {
                 TextElement* pTestText = dynamic_cast<TextElement*>(rxChild.get());
                 if( pTestText )
@@ -813,10 +813,7 @@ void DrawXmlFinalizer::visit( HyperlinkElement&, const std::list< std::unique_pt
 
 static void SetFontsizeProperties(PropertyMap& props, double fontSize)
 {
-    OUStringBuffer aBuf(32);
-    aBuf.append(fontSize * 72 / PDFI_OUTDEV_RESOLUTION);
-    aBuf.append("pt");
-    OUString aFSize = aBuf.makeStringAndClear();
+    OUString aFSize = OUString::number(fontSize * 72 / PDFI_OUTDEV_RESOLUTION) + "pt";
     props["fo:font-size"] = aFSize;
     props["style:font-size-asian"] = aFSize;
     props["style:font-size-complex"] = aFSize;

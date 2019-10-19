@@ -69,7 +69,7 @@ class SbiInputDialog : public weld::GenericDialogController
     DECL_LINK(Cancel, weld::Button&, void);
 public:
     SbiInputDialog(weld::Window*, const OUString&);
-    const OUString& GetInput() { return m_aText; }
+    const OUString& GetInput() const { return m_aText; }
 };
 
 SbiInputDialog::SbiInputDialog(weld::Window* pParent, const OUString& rPrompt)
@@ -247,7 +247,8 @@ sal_uInt64 OslStream::SeekPos( sal_uInt64 nPos )
     }
     OSL_VERIFY(rc == ::osl::FileBase::E_None);
     sal_uInt64 nRealPos(0);
-    maFile.getPos( nRealPos );
+    rc = maFile.getPos( nRealPos );
+    OSL_VERIFY(rc == ::osl::FileBase::E_None);
     return nRealPos;
 }
 
@@ -534,7 +535,7 @@ ErrCode const & SbiStream::Read( char& ch )
     if (aLine.isEmpty())
     {
         Read( aLine );
-        aLine = aLine + OString('\n');
+        aLine += OString('\n');
     }
     ch = aLine[0];
     aLine = aLine.copy(1);
@@ -581,7 +582,7 @@ ErrCode SbiStream::Write( const OString& rBuf )
     }
     if( IsText() )
     {
-        aLine = aLine + rBuf;
+        aLine += rBuf;
         // Get it out, if the end is an LF, but strip CRLF before,
         // because the SvStream adds a CRLF!
         sal_Int32 nLineLen = aLine.getLength();
@@ -728,7 +729,7 @@ char SbiIoSystem::Read()
         if( aIn.isEmpty() )
         {
             ReadCon( aIn );
-            aIn = aIn + OString('\n');
+            aIn += OString('\n');
         }
         ch = aIn[0];
         aIn = aIn.copy(1);

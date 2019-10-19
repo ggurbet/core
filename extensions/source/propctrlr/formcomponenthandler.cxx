@@ -164,7 +164,7 @@ namespace pcr
 
     OUString FormComponentPropertyHandler::getImplementationName_static(  )
     {
-        return OUString(  "com.sun.star.comp.extensions.FormComponentPropertyHandler"  );
+        return "com.sun.star.comp.extensions.FormComponentPropertyHandler";
     }
 
 
@@ -277,7 +277,7 @@ namespace pcr
                 aResolvedStrings.reserve( aStrings.getLength() );
                 try
                 {
-                    for ( const OUString& rIdStr : aStrings )
+                    for ( const OUString& rIdStr : std::as_const(aStrings) )
                     {
                         OUString aPureIdStr = rIdStr.copy( 1 );
                         if( xStringResourceResolver->hasEntryForId( aPureIdStr ) )
@@ -330,7 +330,7 @@ namespace pcr
             if( ! (_rValue >>= aFontPropertyValues) )
                 SAL_WARN("extensions.propctrlr", "setPropertyValue: unable to get property " << PROPERTY_ID_FONT);
 
-            for ( const NamedValue& fontPropertyValue : aFontPropertyValues )
+            for ( const NamedValue& fontPropertyValue : std::as_const(aFontPropertyValues) )
                 m_xComponent->setPropertyValue( fontPropertyValue.Name, fontPropertyValue.Value );
         }
         else
@@ -384,15 +384,14 @@ namespace pcr
                         for ( i = 0; i < nNewCount; ++i )
                         {
                             sal_Int32 nUniqueId = xStringResourceManager->getUniqueNumericId();
-                            OUString aPureIdStr = OUString::number( nUniqueId );
-                            aPureIdStr += aIdStrBase;
+                            OUString aPureIdStr = OUString::number( nUniqueId ) + aIdStrBase;
                             pNewPureIds[i] = aPureIdStr;
                             // Force usage of next Unique Id
                             xStringResourceManager->setString( aPureIdStr, OUString() );
                         }
 
                         // Move strings to new Ids for all locales
-                        Sequence< Locale > aLocaleSeq = xStringResourceManager->getLocales();
+                        const Sequence< Locale > aLocaleSeq = xStringResourceManager->getLocales();
                         Sequence< OUString > aOldIdStrings;
                         aPropertyValue >>= aOldIdStrings;
                         try
@@ -445,7 +444,7 @@ namespace pcr
                         aValue <<= aNewIdStrings;
 
                         // Remove old ids from resource for all locales
-                        for( const OUString& rIdStr : aOldIdStrings )
+                        for( const OUString& rIdStr : std::as_const(aOldIdStrings) )
                         {
                             OUString aPureIdStr = rIdStr.copy( 1 );
                             for ( const Locale& rLocale : aLocaleSeq )
@@ -669,14 +668,10 @@ namespace pcr
                 xPSI = xSet->getPropertySetInfo();
             if ( xPSI.is() && xPSI->hasPropertyByName( PROPERTY_LABEL ) )
             {
-                OUStringBuffer aValue;
-                aValue.append( '<' );
                 OUString sLabel;
                 if( ! (xSet->getPropertyValue( PROPERTY_LABEL) >>= sLabel) )
                     SAL_WARN("extensions.propctrlr", "convertToPropertyValue: unable to get property " PROPERTY_LABEL);
-                aValue.append( sLabel );
-                aValue.append( '>' );
-                sControlValue = aValue.makeStringAndClear();
+                sControlValue = "<" + sLabel + ">";
             }
 
             aControlValue <<= sControlValue;
@@ -1695,7 +1690,7 @@ namespace pcr
 
             // propagate the changes to the min/max/default fields
             OUString aAffectedProps[] = { OUString(PROPERTY_VALUE), OUString(PROPERTY_DEFAULT_VALUE), OUString(PROPERTY_VALUEMIN), OUString(PROPERTY_VALUEMAX) };
-            for (OUString & aAffectedProp : aAffectedProps)
+            for (const OUString & aAffectedProp : aAffectedProps)
             {
                 Reference< XPropertyControl > xControl;
                 try
@@ -1743,7 +1738,7 @@ namespace pcr
                 OUString aFormattedPropertyControls[] = {
                     OUString(PROPERTY_EFFECTIVE_MIN), OUString(PROPERTY_EFFECTIVE_MAX), OUString(PROPERTY_EFFECTIVE_DEFAULT), OUString(PROPERTY_EFFECTIVE_VALUE)
                 };
-                for (OUString & aFormattedPropertyControl : aFormattedPropertyControls)
+                for (const OUString & aFormattedPropertyControl : aFormattedPropertyControls)
                 {
                     Reference< XPropertyControl > xControl;
                     try
@@ -2153,8 +2148,8 @@ namespace pcr
 
                 for ( sal_Int32 i = 0; i < nKnownControlTypes; ++i )
                 {
-                    OUString sServiceName(  "com.sun.star.awt."  );
-                    sServiceName += OUString::createFromAscii( aControlModelServiceNames[ i ] );
+                    OUString sServiceName = "com.sun.star.awt."  +
+                        OUString::createFromAscii( aControlModelServiceNames[ i ] );
 
                     if ( xServiceInfo->supportsService( sServiceName ) )
                     {
@@ -2365,7 +2360,8 @@ namespace pcr
                 if( ! (xFormSet->getPropertyValue( PROPERTY_COMMANDTYPE ) >>= nObjectType) )
                     SAL_WARN("extensions.propctrlr", "impl_initFieldList_nothrow: unable to get property " PROPERTY_COMMANDTYPE);
 
-                for ( const OUString& rField : ::dbtools::getFieldNamesByCommandDescriptor( m_xRowSetConnection, nObjectType, sObjectName ) )
+                const Sequence<OUString> aNames = ::dbtools::getFieldNamesByCommandDescriptor( m_xRowSetConnection, nObjectType, sObjectName );
+                for ( const OUString& rField : aNames )
                     _rFieldNames.push_back( rField );
             }
         }
@@ -2405,7 +2401,7 @@ namespace pcr
             if ( xRowSetProps.is() )
             {
                 weld::WaitObject aWaitCursor(impl_getDefaultDialogFrame_nothrow());
-                m_xRowSetConnection = ::dbtools::ensureRowSetConnection( xRowSet, m_xContext );
+                m_xRowSetConnection = ::dbtools::ensureRowSetConnection( xRowSet, m_xContext, nullptr );
             }
         }
         catch ( const SQLException& ) { aError = SQLExceptionInfo( ::cppu::getCaughtException() ); }
@@ -2500,7 +2496,8 @@ namespace pcr
         if ( !xTableNames.is() )
             return;
 
-        for ( const OUString& rTableName : xTableNames->getElementNames() )
+        const Sequence<OUString> aNames = xTableNames->getElementNames();
+        for ( const OUString& rTableName : aNames )
             _out_rNames.push_back( rTableName );
     }
 
@@ -2527,7 +2524,8 @@ namespace pcr
 
         bool bAdd = !_sName.isEmpty();
 
-        for ( const OUString& rQueryName : _xQueryNames->getElementNames() )
+        const Sequence<OUString> aQueryNames =_xQueryNames->getElementNames();
+        for ( const OUString& rQueryName : aQueryNames )
         {
             OUStringBuffer sTemp;
             if ( bAdd )
@@ -2617,7 +2615,7 @@ namespace pcr
                 return false;
 
             // get a composer for the statement which the form is currently based on
-            Reference< XSingleSelectQueryComposer > xComposer( ::dbtools::getCurrentSettingsComposer( m_xComponent, m_xContext ) );
+            Reference< XSingleSelectQueryComposer > xComposer( ::dbtools::getCurrentSettingsComposer( m_xComponent, m_xContext, nullptr ) );
             OSL_ENSURE( xComposer.is(), "FormComponentPropertyHandler::impl_dialogFilterOrSort_nothrow: could not obtain a composer!" );
             if ( !xComposer.is() )
                 return false;
@@ -2717,9 +2715,7 @@ namespace pcr
             if ( !fnCreatePage )
                 throw RuntimeException();   // caught below
 
-            TabPageParent aParent(aDialog.get_content_area(), &aDialog);
-            VclPtr<SfxTabPage> xPage = (*fnCreatePage)(aParent, &aCoreSet);
-            aDialog.SetTabPage(xPage);
+            aDialog.SetTabPage((*fnCreatePage)(aDialog.get_content_area(), &aDialog, &aCoreSet));
 
             _rClearBeforeDialog.clear();
             if ( RET_OK == aDialog.run() )

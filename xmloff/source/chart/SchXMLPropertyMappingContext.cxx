@@ -8,17 +8,16 @@
  */
 
 #include "SchXMLPropertyMappingContext.hxx"
-#include "PropertyMap.hxx"
 #include "SchXMLTools.hxx"
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmlimp.hxx>
 #include <xmloff/nmspmap.hxx>
-#include <xmloff/SchXMLSeriesHelper.hxx>
 #include <SchXMLImport.hxx>
 
 #include <com/sun/star/chart2/data/XLabeledDataSequence2.hpp>
 #include <com/sun/star/chart2/data/XDataSource.hpp>
 #include <com/sun/star/chart2/data/XDataSink.hpp>
+#include <com/sun/star/chart2/XChartDocument.hpp>
 
 using namespace com::sun::star;
 using namespace com::sun::star::uno;
@@ -111,7 +110,7 @@ void SchXMLPropertyMappingContext::StartElement(const uno::Reference< xml::sax::
             createAndAddSequenceToSeries(aRole, aRange, xChartDoc, mxDataSeries);
         mrLSequencesPerIndex.emplace(
                     tSchXMLIndexWithPart( 0, SCH_XML_PART_VALUES),
-                    Reference< chart2::data::XLabeledDataSequence >( xSeq, UNO_QUERY ));
+                    xSeq);
     }
 }
 

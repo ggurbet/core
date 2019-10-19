@@ -34,7 +34,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
-#include <vcl/throbber.hxx>
+#include <vcl/toolkit/throbber.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 
@@ -133,12 +133,12 @@ namespace toolkit
                 {
                     // try (to find) the high-contrast version of the graphic first
                     aMediaProperties.put( "URL", lcl_getHighContrastURL( i_cachedImage.sImageURL ) );
-                    i_cachedImage.xGraphic.set( i_graphicProvider->queryGraphic( aMediaProperties.getPropertyValues() ), UNO_QUERY );
+                    i_cachedImage.xGraphic = i_graphicProvider->queryGraphic( aMediaProperties.getPropertyValues() );
                 }
                 if ( !i_cachedImage.xGraphic.is() )
                 {
                     aMediaProperties.put( "URL", i_cachedImage.sImageURL );
-                    i_cachedImage.xGraphic.set( i_graphicProvider->queryGraphic( aMediaProperties.getPropertyValues() ), UNO_QUERY );
+                    i_cachedImage.xGraphic = i_graphicProvider->queryGraphic( aMediaProperties.getPropertyValues() );
                 }
             }
             return i_cachedImage.xGraphic.is();

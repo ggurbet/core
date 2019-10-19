@@ -19,15 +19,14 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_CUISRCHDLG_HXX
 #define INCLUDED_CUI_SOURCE_INC_CUISRCHDLG_HXX
 
-#include <sfx2/childwin.hxx>
+#include <i18nutil/transliteration.hxx>
 #include <sfx2/basedlgs.hxx>
-#include <svl/srchdefs.hxx>
 
 class SvxJSearchOptionsPage;
 
 class SvxJSearchOptionsDialog : public SfxSingleTabDialogController
 {
-    VclPtr<SvxJSearchOptionsPage> m_xPage;
+    SvxJSearchOptionsPage* m_pPage;
 
     SvxJSearchOptionsDialog( const SvxJSearchOptionsDialog & ) = delete;
     SvxJSearchOptionsDialog & operator == ( const SvxJSearchOptionsDialog & ) = delete;

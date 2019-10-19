@@ -72,7 +72,7 @@ public:
     explicit Region(const tools::PolyPolygon& rPolyPoly);
     explicit Region(const basegfx::B2DPolyPolygon&);
     Region(const vcl::Region& rRegion);
-    Region(vcl::Region&& rRegion);
+    Region(vcl::Region&& rRegion) noexcept;
     ~Region();
 
     // direct access to contents
@@ -82,8 +82,8 @@ public:
 
     // access with converters, the asked data will be created from the most
     // valuable data, buffered and returned
-    const tools::PolyPolygon GetAsPolyPolygon() const;
-    const basegfx::B2DPolyPolygon GetAsB2DPolyPolygon() const;
+    tools::PolyPolygon GetAsPolyPolygon() const;
+    basegfx::B2DPolyPolygon GetAsB2DPolyPolygon() const;
     const RegionBand* GetAsRegionBand() const;
 
     // manipulators
@@ -114,7 +114,7 @@ public:
     bool IsOver( const tools::Rectangle& rRect ) const;
 
     vcl::Region& operator=( const vcl::Region& rRegion );
-    vcl::Region& operator=( vcl::Region&& rRegion );
+    vcl::Region& operator=( vcl::Region&& rRegion ) noexcept;
     vcl::Region& operator=( const tools::Rectangle& rRect );
 
     bool operator==( const vcl::Region& rRegion ) const;

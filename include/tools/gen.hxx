@@ -48,8 +48,6 @@ public:
     long&               B() { return nB; }
 
     TOOLS_DLLPUBLIC rtl::OString        toString() const;
-    TOOLS_DLLPUBLIC friend SvStream&    ReadPair( SvStream& rIStream, Pair& rPair );
-    TOOLS_DLLPUBLIC friend SvStream&    WritePair( SvStream& rOStream, const Pair& rPair );
 
 protected:
     long                nA;
@@ -386,9 +384,9 @@ public:
                         Rectangle( const Point& rLT, const Size& rSize );
 
     long                Left() const    { return nLeft;   }
-    long                Right() const   { return nRight;  }
+    long                Right() const;
     long                Top() const     { return nTop;    }
-    long                Bottom() const  { return nBottom; }
+    long                Bottom() const;
 
     void                SetLeft(long v)    { nLeft = v;   }
     void                SetRight(long v)   { nRight = v;  }
@@ -409,9 +407,9 @@ public:
     inline void         Move( long nHorzMoveDelta, long nVertMoveDelta );
     void                Move( Size const & s ) { Move(s.Width(), s.Height()); }
     long                AdjustLeft( long nHorzMoveDelta ) { nLeft += nHorzMoveDelta; return nLeft; }
-    long                AdjustRight( long nHorzMoveDelta ) { nRight += nHorzMoveDelta; return nRight; }
+    long                AdjustRight( long nHorzMoveDelta );
     long                AdjustTop( long nVertMoveDelta ) { nTop += nVertMoveDelta; return nTop; }
-    long                AdjustBottom( long nVertMoveDelta ) { nBottom += nVertMoveDelta; return nBottom; }
+    long                AdjustBottom( long nVertMoveDelta );
     inline void         SetPos( const Point& rPoint );
     void                SetSize( const Size& rSize );
     inline Size         GetSize() const;
@@ -448,20 +446,17 @@ public:
     friend inline tools::Rectangle operator + ( const tools::Rectangle& rRect, const Point& rPt );
     friend inline tools::Rectangle operator - ( const tools::Rectangle& rRect, const Point& rPt );
 
-    TOOLS_DLLPUBLIC friend SvStream&    ReadRectangle( SvStream& rIStream, tools::Rectangle& rRect );
-    TOOLS_DLLPUBLIC friend SvStream&    WriteRectangle( SvStream& rOStream, const tools::Rectangle& rRect );
-
     // ONE
     long                getX() const { return nLeft; }
     long                getY() const { return nTop; }
     /// Returns the difference between right and left, assuming the range includes one end, but not the other.
-    long                getWidth() const { return nRight - nLeft; }
+    long                getWidth() const;
     /// Returns the difference between bottom and top, assuming the range includes one end, but not the other.
-    long                getHeight() const { return nBottom - nTop; }
+    long                getHeight() const;
     /// Set the left edge of the rectangle to x, preserving the width
-    void                setX( long x ) { nRight  += x - nLeft; nLeft = x; }
+    void                setX( long x );
     /// Set the top edge of the rectangle to y, preserving the height
-    void                setY( long y ) { nBottom += y - nTop;  nTop  = y; }
+    void                setY( long y );
     void                setWidth( long n ) { nRight = nLeft + n; }
     void                setHeight( long n ) { nBottom = nTop + n; }
     /// Returns the string representation of the rectangle, format is "x, y, width, height".
@@ -470,8 +465,8 @@ public:
     /**
      * Expands the rectangle in all directions by the input value.
      */
-    inline void expand(long nExpandBy);
-    inline void shrink(long nShrinkBy);
+    void expand(long nExpandBy);
+    void shrink(long nShrinkBy);
 
     /**
      * Sanitizing variants for handling data from the outside
@@ -722,22 +717,6 @@ inline Rectangle operator - ( const Rectangle& rRect, const Point& rPt )
 }
 }
 
-inline void tools::Rectangle::expand(long nExpandBy)
-{
-    nLeft   -= nExpandBy;
-    nTop    -= nExpandBy;
-    nRight  += nExpandBy;
-    nBottom += nExpandBy;
-}
-
-inline void tools::Rectangle::shrink(long nShrinkBy)
-{
-    nLeft   += nShrinkBy;
-    nTop    += nShrinkBy;
-    nRight  -= nShrinkBy;
-    nBottom -= nShrinkBy;
-}
-
 template< typename charT, typename traits >
 inline std::basic_ostream<charT, traits> & operator <<(
     std::basic_ostream<charT, traits> & stream, const tools::Rectangle& rectangle )
@@ -748,11 +727,6 @@ inline std::basic_ostream<charT, traits> & operator <<(
         return stream << rectangle.getWidth() << 'x' << rectangle.getHeight()
                       << "@(" << rectangle.getX() << ',' << rectangle.getY() << ")";
 }
-
-inline SvStream& ReadPair( SvStream& rIStream, Point& v ) { return ReadPair(rIStream, v.toPair()); }
-inline SvStream& WritePair( SvStream& rOStream, const Point& v ) { return WritePair(rOStream, v.toPair()); }
-inline SvStream& ReadPair( SvStream& rIStream, Size& v ) { return ReadPair(rIStream, v.toPair()); }
-inline SvStream& WritePair( SvStream& rOStream, const Size& v ) { return WritePair(rOStream, v.toPair()); }
 
 #endif
 

@@ -35,6 +35,8 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/random.hxx>
+#include <comphelper/lok.hxx>
+#include <unotools/syslocaleoptions.hxx>
 #include <tools/stream.hxx>
 
 #include <tools/debug.hxx>
@@ -89,23 +91,19 @@ void implImportLabels( const Reference< XMultiServiceFactory >& xConfigProvider,
         if( xConfigAccess.is() )
         {
             Reference< XNameAccess > xNameAccess;
-            Sequence< OUString > aNames( xConfigAccess->getElementNames() );
-            const OUString* p = aNames.getConstArray();
-            sal_Int32 n = aNames.getLength();
-            while(n--)
+            const Sequence< OUString > aNames( xConfigAccess->getElementNames() );
+            for(const OUString& rName : aNames)
             {
-                xConfigAccess->getByName( *p ) >>= xNameAccess;
+                xConfigAccess->getByName( rName ) >>= xNameAccess;
                 if( xNameAccess.is() )
                 {
                     OUString aUIName;
                     xNameAccess->getByName( "Label" ) >>= aUIName;
                     if( !aUIName.isEmpty() )
                     {
-                        rStringMap[ *p ] = aUIName;
+                        rStringMap[ rName ] = aUIName;
                     }
                 }
-
-                p++;
             }
         }
     }
@@ -129,22 +127,10 @@ CustomAnimationPreset::CustomAnimationPreset( const CustomAnimationEffectPtr& pE
     mfDuration = pEffect->getDuration();
     maDefaultSubTyp = pEffect->getPresetSubType();
 
-    mbIsTextOnly = false;
-
     Sequence< NamedValue > aUserData( pEffect->getNode()->getUserData() );
-    sal_Int32 nLength = aUserData.getLength();
-    const NamedValue* p = aUserData.getConstArray();
 
-    while( nLength-- )
-    {
-        if ( p->Name == "text-only" )
-        {
-            mbIsTextOnly = true;
-            break;
-        }
-        p++;
-    }
-
+    mbIsTextOnly = std::any_of(aUserData.begin(), aUserData.end(),
+        [](const NamedValue& rProp) { return rProp.Name == "text-only"; });
 }
 
 void CustomAnimationPreset::add( const CustomAnimationEffectPtr& pEffect )
@@ -308,9 +294,9 @@ void CustomAnimationPresets::importEffects()
         uno::Sequence< OUString > aFiles;
         xNameAccess->getByName( "EffectFiles" ) >>= aFiles;
 
-        for( sal_Int32 i=0; i<aFiles.getLength(); ++i )
+        for( const auto& rFile : std::as_const(aFiles) )
         {
-            OUString aURL = comphelper::getExpandedUri(xContext, aFiles[i]);
+            OUString aURL = comphelper::getExpandedUri(xContext, rFile);
 
             mxRootNode = implImportEffects( xServiceFactory, aURL );
 
@@ -416,12 +402,10 @@ void CustomAnimationPresets::importPresets( const Reference< XMultiServiceFactor
         {
             Reference< XNameAccess > xCategoryAccess;
 
-            Sequence< OUString > aNames( xTypeAccess->getElementNames() );
-            const OUString* p = aNames.getConstArray();
-            sal_Int32 n = aNames.getLength();
-            while(n--)
+            const Sequence< OUString > aNames( xTypeAccess->getElementNames() );
+            for(const OUString& rName : aNames)
             {
-                xTypeAccess->getByName( *p ) >>= xCategoryAccess;
+                xTypeAccess->getByName( rName ) >>= xCategoryAccess;
 
                 if( xCategoryAccess.is() && xCategoryAccess->hasByName( "Label" ) && xCategoryAccess->hasByName( "Effects" ) )
                 {
@@ -433,11 +417,9 @@ void CustomAnimationPresets::importPresets( const Reference< XMultiServiceFactor
 
                     EffectDescriptorList aEffectsList;
 
-                    const OUString* pEffectNames = aEffects.getConstArray();
-                    sal_Int32 nEffectCount = aEffects.getLength();
-                    while( nEffectCount-- )
+                    for( const OUString& rEffectName : std::as_const(aEffects) )
                     {
-                        CustomAnimationPresetPtr pEffect = getEffectDescriptor( *pEffectNames );
+                        CustomAnimationPresetPtr pEffect = getEffectDescriptor( rEffectName );
                         if( pEffect.get() )
                         {
                             aEffectsList.push_back( pEffect );
@@ -445,16 +427,13 @@ void CustomAnimationPresets::importPresets( const Reference< XMultiServiceFactor
 #ifdef DEBUG
                         else
                         {
-                            aMissedPresetIds += OUString(*pEffectNames);
+                            aMissedPresetIds += OUString(rEffectName);
                             aMissedPresetIds += "\n";
                         }
 #endif
-                        pEffectNames++;
                     }
                     rPresetMap.push_back( std::make_shared<PresetCategory>( aLabel, aEffectsList ) );
                 }
-
-                p++;
             }
         }
     }
@@ -521,22 +500,24 @@ void CustomAnimationPresets::changePresetSubType( const CustomAnimationEffectPtr
     }
 }
 
-CustomAnimationPresets* CustomAnimationPresets::mpCustomAnimationPresets = nullptr;
+std::map<OUString, CustomAnimationPresets>  CustomAnimationPresets::mPresetsMap;
 
 const CustomAnimationPresets& CustomAnimationPresets::getCustomAnimationPresets()
 {
-    if( !mpCustomAnimationPresets )
-    {
-        SolarMutexGuard aGuard;
+    // Support localization per-view. Currently not useful for Desktop
+    // but very much critical for LOK. The cache now is per-language.
+    const OUString aLang = comphelper::LibreOfficeKit::isActive()
+                               ? comphelper::LibreOfficeKit::getLanguageTag().getLanguage()
+                               : SvtSysLocaleOptions().GetLanguageTag().getLanguage();
 
-        if( !mpCustomAnimationPresets )
-        {
-            mpCustomAnimationPresets = new sd::CustomAnimationPresets();
-            mpCustomAnimationPresets->importResources();
-        }
-    }
+    SolarMutexGuard aGuard;
+    const auto it = mPresetsMap.find(aLang);
+    if (it != mPresetsMap.end())
+        return it->second;
 
-    return *mpCustomAnimationPresets;
+    CustomAnimationPresets& rPresets = mPresetsMap[aLang];
+    rPresets.importResources();
+    return rPresets;
 }
 
 Reference< XAnimationNode > CustomAnimationPresets::getRandomPreset( sal_Int16 nPresetClass ) const

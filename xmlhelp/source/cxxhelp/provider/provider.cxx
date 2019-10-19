@@ -19,14 +19,10 @@
 
 #include <config_folders.h>
 
-#include <stdio.h>
 #include <officecfg/Office/Common.hxx>
 #include <officecfg/Setup.hxx>
-#include <osl/file.hxx>
-#include <ucbhelper/contentidentifier.hxx>
-#include <com/sun/star/beans/PropertyAttribute.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/container/XContainer.hpp>
+#include <com/sun/star/ucb/IllegalIdentifierException.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -112,7 +108,7 @@ OUString SAL_CALL ContentProvider::getImplementationName()
 
 OUString ContentProvider::getImplementationName_Static()
 {
-    return OUString("CHelpContentProvider" );
+    return "CHelpContentProvider";
 }
 
 sal_Bool SAL_CALL
@@ -132,19 +128,14 @@ static uno::Reference< uno::XInterface >
 ContentProvider_CreateInstance(
          const uno::Reference< lang::XMultiServiceFactory> & rSMgr )
 {
-    lang::XServiceInfo * pX = static_cast< lang::XServiceInfo * >(
-        new ContentProvider( comphelper::getComponentContext(rSMgr) ) );
+    lang::XServiceInfo * pX = new ContentProvider( comphelper::getComponentContext(rSMgr) );
     return uno::Reference< uno::XInterface >::query( pX );
 }
 
 uno::Sequence< OUString >
 ContentProvider::getSupportedServiceNames_Static()
 {
-    uno::Sequence< OUString > aSNS( 2 );
-    aSNS.getArray()[ 0 ] = MYUCP_CONTENT_PROVIDER_SERVICE_NAME1;
-    aSNS.getArray()[ 1 ] = MYUCP_CONTENT_PROVIDER_SERVICE_NAME2;
-
-    return aSNS;
+    return { MYUCP_CONTENT_PROVIDER_SERVICE_NAME1, MYUCP_CONTENT_PROVIDER_SERVICE_NAME2 };
 }
 
 // Service factory implementation.

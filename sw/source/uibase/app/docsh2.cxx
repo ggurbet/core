@@ -444,7 +444,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 aSet.Put( *static_cast<const SfxBoolItem*>(pOpenSmartTagOptionsItem) );
 
             SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-            VclPtr<SfxAbstractTabDialog> pDlg = pFact->CreateAutoCorrTabDialog(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(), &aSet);
+            VclPtr<SfxAbstractTabDialog> pDlg = pFact->CreateAutoCorrTabDialog(GetView()->GetFrameWeld(), &aSet);
             pDlg->Execute();
             pDlg.disposeAndClear();
 
@@ -567,14 +567,14 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 if ( aFileName.isEmpty() )
                 {
                     SvtPathOptions aPathOpt;
-                    SfxNewFileDialog aNewFileDlg(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(), SfxNewFileDialogMode::LoadTemplate);
+                    SfxNewFileDialog aNewFileDlg(GetView()->GetFrameWeld(), SfxNewFileDialogMode::LoadTemplate);
                     aNewFileDlg.SetTemplateFlags(nFlags);
 
                     nRet = aNewFileDlg.run();
                     if(RET_TEMPLATE_LOAD == nRet)
                     {
                         FileDialogHelper aDlgHelper(TemplateDescription::FILEOPEN_SIMPLE,
-                                                    FileDialogFlags::NONE, GetView()->GetViewFrame()->GetWindow().GetFrameWeld());
+                                                    FileDialogFlags::NONE, GetView()->GetFrameWeld());
                         uno::Reference < XFilePicker3 > xFP = aDlgHelper.GetFilePicker();
 
                         xFP->setDisplayDirectory( aPathOpt.GetWorkPath() );
@@ -582,7 +582,6 @@ void SwDocShell::Execute(SfxRequest& rReq)
                         SfxObjectFactory &rFact = GetFactory();
                         SfxFilterMatcher aMatcher( rFact.GetFactoryName() );
                         SfxFilterMatcherIter aIter( aMatcher );
-                        uno::Reference<XFilterManager> xFltMgr(xFP, UNO_QUERY);
                         std::shared_ptr<const SfxFilter> pFlt = aIter.First();
                         while( pFlt )
                         {
@@ -592,7 +591,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                                   pFlt->GetUserData() == "CXMLV" ) )
                             {
                                 const OUString sWild = pFlt->GetWildcard().getGlob();
-                                xFltMgr->appendFilter( pFlt->GetUIName(), sWild );
+                                xFP->appendFilter( pFlt->GetUIName(), sWild );
                             }
                             pFlt = aIter.Next();
                         }
@@ -605,14 +604,14 @@ void SwDocShell::Execute(SfxRequest& rReq)
                         if(bWeb)
                         {
                             const OUString sWild = pOwnFlt->GetWildcard().getGlob();
-                            xFltMgr->appendFilter( pOwnFlt->GetUIName(), sWild );
+                            xFP->appendFilter( pOwnFlt->GetUIName(), sWild );
                         }
 
                         bool bError = false;
                         // catch exception if wrong filter is selected - should not happen anymore
                         try
                         {
-                            xFltMgr->setCurrentFilter( pOwnFlt->GetUIName() );
+                            xFP->setCurrentFilter( pOwnFlt->GetUIName() );
                         }
                         catch (const uno::Exception&)
                         {
@@ -691,7 +690,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                     {
                         FileDialogHelper aDlgHelper(TemplateDescription::FILESAVE_AUTOEXTENSION,
                                                     FileDialogFlags::NONE,
-                                                    GetView()->GetViewFrame()->GetWindow().GetFrameWeld());
+                                                    GetView()->GetFrameWeld());
                         aDlgHelper.AddFilter( pHtmlFlt->GetFilterName(), pHtmlFlt->GetDefaultExtension() );
                         aDlgHelper.SetCurrentFilter( pHtmlFlt->GetFilterName() );
                         if( ERRCODE_NONE != aDlgHelper.Execute())
@@ -768,7 +767,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
         case FN_ABSTRACT_NEWDOC:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            ScopedVclPtr<AbstractSwInsertAbstractDlg> pDlg(pFact->CreateSwInsertAbstractDlg(GetView()->GetViewFrame()->GetWindow().GetFrameWeld()));
+            ScopedVclPtr<AbstractSwInsertAbstractDlg> pDlg(pFact->CreateSwInsertAbstractDlg(GetView()->GetFrameWeld()));
             if(RET_OK == pDlg->Execute())
             {
                 sal_uInt8 nLevel = pDlg->GetLevel();
@@ -947,7 +946,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                     bool bError = false;
 
                     FileDialogHelper aDlgHelper(TemplateDescription::FILESAVE_AUTOEXTENSION_TEMPLATE, FileDialogFlags::NONE,
-                                                GetView()->GetViewFrame()->GetWindow().GetFrameWeld());
+                                                GetView()->GetFrameWeld());
 
                     const sal_Int16 nControlIds[] = {
                         CommonFilePickerElementIds::PUSHBUTTON_OK,
@@ -1013,12 +1012,11 @@ void SwDocShell::Execute(SfxRequest& rReq)
 
                     if( pFlt )
                     {
-                        uno::Reference<XFilterManager> xFltMgr(xFP, UNO_QUERY);
                         const OUString sWild = pFlt->GetWildcard().getGlob();
-                        xFltMgr->appendFilter( pFlt->GetUIName(), sWild );
+                        xFP->appendFilter( pFlt->GetUIName(), sWild );
                         try
                         {
-                            xFltMgr->setCurrentFilter( pFlt->GetUIName() ) ;
+                            xFP->setCurrentFilter( pFlt->GetUIName() ) ;
                         }
                         catch (const uno::Exception&)
                         {
@@ -1235,7 +1233,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
         break;
         case SID_CLASSIFICATION_DIALOG:
         {
-            std::shared_ptr<svx::ClassificationDialog> xDialog(new svx::ClassificationDialog(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(), false));
+            std::shared_ptr<svx::ClassificationDialog> xDialog(new svx::ClassificationDialog(GetView()->GetFrameWeld(), false));
 
             SwWrtShell* pShell = GetWrtShell();
             std::vector<svx::ClassificationResult> aInput = pShell->CollectAdvancedClassification();
@@ -1250,7 +1248,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
         case SID_PARAGRAPH_SIGN_CLASSIFY_DLG:
         {
             SwWrtShell* pShell = GetWrtShell();
-            std::shared_ptr<svx::ClassificationDialog> xDialog(new svx::ClassificationDialog(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(), true, [pShell]()
+            std::shared_ptr<svx::ClassificationDialog> xDialog(new svx::ClassificationDialog(GetView()->GetFrameWeld(), true, [pShell]()
             {
                 pShell->SignParagraph();
             }));
@@ -1349,10 +1347,10 @@ bool SwDocShell::DdeGetData( const OUString& rItem, const OUString& rMimeType,
     return m_xDoc->getIDocumentLinksAdministration().GetData( rItem, rMimeType, rValue );
 }
 
-bool SwDocShell::DdeSetData( const OUString& rItem, const OUString& rMimeType,
-                             const uno::Any & rValue )
+bool SwDocShell::DdeSetData( const OUString& rItem, const OUString& /*rMimeType*/,
+                             const uno::Any & /*rValue*/ )
 {
-    return m_xDoc->getIDocumentLinksAdministration().SetData( rItem, rMimeType, rValue );
+    return m_xDoc->getIDocumentLinksAdministration().SetData( rItem );
 }
 
 #endif

@@ -205,7 +205,7 @@ static css::beans::Optional<css::uno::Any> ImplGetLocale(char const * category)
         return {false, {}};
     }
 
-    // This is a tad awkward.. but the easiest way to obtain what we're
+    // This is a tad awkward... but the easiest way to obtain what we're
     // actually interested in. For example this also converts
     // "ca_ES.UTF-8@valencia" to "ca-ES-valencia".
     const OString aLocaleStr(locale);
@@ -316,7 +316,7 @@ css::uno::Any LocaleBackend::getPropertyValue(
 
 
 OUString LocaleBackend::getBackendName() {
-    return OUString("com.sun.star.comp.configuration.backend.LocaleBackend") ;
+    return "com.sun.star.comp.configuration.backend.LocaleBackend" ;
 }
 
 OUString SAL_CALL LocaleBackend::getImplementationName()

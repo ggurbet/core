@@ -357,11 +357,10 @@ DECLARE_HTMLEXPORT_TEST(testReqIfParagraph, "reqif-p.xhtml")
     CPPUNIT_ASSERT(pStream);
     sal_uInt64 nLength = pStream->TellEnd();
 
-    OString aExpected("<reqif-xhtml:div><reqif-xhtml:p>aaa<reqif-xhtml:br/>\nbbb"
-                      "</reqif-xhtml:p>" SAL_NEWLINE_STRING);
-
+    OString aExpected = "<reqif-xhtml:div><reqif-xhtml:p>aaa<reqif-xhtml:br/>\nbbb"
+                      "</reqif-xhtml:p>" SAL_NEWLINE_STRING
     // This was '<table' instead.
-    aExpected += "<reqif-xhtml:table";
+        "<reqif-xhtml:table";
 
     OString aStream(read_uInt8s_ToOString(*pStream, nLength));
     pStream->Seek(0);
@@ -681,6 +680,20 @@ DECLARE_HTMLEXPORT_TEST(testFieldShade, "field-shade.odt")
     // Without the accompanying fix in place, this test would have failed with 'Expected: 0; Actual:
     // 1', i.e there was an inner span hiding the wanted background color.
     assertXPath(pDoc, "/html/body/p[2]/span/span", 0);
+}
+
+DECLARE_HTMLEXPORT_TEST(testFieldShadeReqIf, "field-shade-reqif.odt")
+{
+    htmlDocPtr pDoc = parseHtml(maTempFile);
+    CPPUNIT_ASSERT(pDoc);
+
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 0
+    // - Actual  : 2
+    // i.e. the ReqIF subset of xhtml had a background color and a page number field, resulting in
+    // an invalid ReqIF-XHTML.
+    assertXPath(pDoc, "/html/body/div/p[1]/span", 0);
+    assertXPath(pDoc, "/html/body/div/p[1]/sdfield", 0);
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

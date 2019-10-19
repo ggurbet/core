@@ -21,6 +21,7 @@
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/drawing/LineStyle.hpp>
 #include <com/sun/star/chart/XAxisXSupplier.hpp>
+#include <com/sun/star/chart/XAxisYSupplier.hpp>
 #include <com/sun/star/chart/MissingValueTreatment.hpp>
 #include <com/sun/star/chart2/TickmarkStyle.hpp>
 #include <com/sun/star/chart2/SymbolStyle.hpp>
@@ -46,6 +47,7 @@ public:
     void testODTChartSeries();
     void testDOCChartSeries();
     void testDOCXChartSeries();
+    void testDOCXChartEmptySeries();
     void testDOCXChartValuesSize();
     void testPPTXChartSeries();
     void testPPTXSparseChartSeries();
@@ -107,6 +109,7 @@ public:
     void testAxisTitleDefaultRotationXLSX();
     void testSecondaryAxisTitleDefaultRotationXLSX();
     void testAxisTitleRotationXLSX();
+    void testAxisTitlePositionDOCX();
     void testCombinedChartAttachedAxisXLSX();
 
     void testTdf90510(); // Pie chart label placement settings(XLS)
@@ -127,10 +130,15 @@ public:
     void testTdf121205();
 
     void testTdf114179();
+    void testTdf124243();
+    void testTdf127393();
     void testDeletedDataLabel();
     void testDataPointInheritedColorDOCX();
     void testExternalStrRefsXLSX();
     void testSourceNumberFormatComplexCategoriesXLS();
+    void testSimpleCategoryAxis();
+    void testMultilevelCategoryAxis();
+    void testXaxisValues();
     void testTdf123504();
     void testTdf122765();
 
@@ -145,6 +153,7 @@ public:
     CPPUNIT_TEST(testODTChartSeries);
     CPPUNIT_TEST(testDOCChartSeries);
     CPPUNIT_TEST(testDOCXChartSeries);
+    CPPUNIT_TEST(testDOCXChartEmptySeries);
     CPPUNIT_TEST(testDOCXChartValuesSize);
     CPPUNIT_TEST(testPPTChartSeries);
     CPPUNIT_TEST(testPPTXChartSeries);
@@ -194,6 +203,7 @@ public:
     CPPUNIT_TEST(testAxisTitleDefaultRotationXLSX);
     CPPUNIT_TEST(testSecondaryAxisTitleDefaultRotationXLSX);
     CPPUNIT_TEST(testAxisTitleRotationXLSX);
+    CPPUNIT_TEST(testAxisTitlePositionDOCX);
     CPPUNIT_TEST(testCombinedChartAttachedAxisXLSX);
     CPPUNIT_TEST(testTdf90510);
     CPPUNIT_TEST(testTdf109858);
@@ -212,10 +222,15 @@ public:
     CPPUNIT_TEST(testTdf121205);
 
     CPPUNIT_TEST(testTdf114179);
+    CPPUNIT_TEST(testTdf124243);
+    CPPUNIT_TEST(testTdf127393);
     CPPUNIT_TEST(testDeletedDataLabel);
     CPPUNIT_TEST(testDataPointInheritedColorDOCX);
     CPPUNIT_TEST(testExternalStrRefsXLSX);
     CPPUNIT_TEST(testSourceNumberFormatComplexCategoriesXLS);
+    CPPUNIT_TEST(testSimpleCategoryAxis);
+    CPPUNIT_TEST(testMultilevelCategoryAxis);
+    CPPUNIT_TEST(testXaxisValues);
     CPPUNIT_TEST(testTdf123504);
     CPPUNIT_TEST(testTdf122765);
 
@@ -230,17 +245,16 @@ getShapeByName(const uno::Reference<drawing::XShapes>& rShapes, const OUString& 
                const std::function<bool(const uno::Reference<drawing::XShape>&)>& pCondition
                = nullptr)
 {
-    uno::Reference<container::XIndexAccess> XIndexAccess(rShapes, uno::UNO_QUERY);
-    for (sal_Int32 i = 0; i < XIndexAccess->getCount(); ++i)
+    for (sal_Int32 i = 0; i < rShapes->getCount(); ++i)
     {
-        uno::Reference<drawing::XShapes> xShapes(XIndexAccess->getByIndex(i), uno::UNO_QUERY);
+        uno::Reference<drawing::XShapes> xShapes(rShapes->getByIndex(i), uno::UNO_QUERY);
         if (xShapes.is())
         {
             uno::Reference<drawing::XShape> xRet = getShapeByName(xShapes, rName, pCondition);
             if (xRet.is())
                 return xRet;
         }
-        uno::Reference<container::XNamed> xNamedShape(XIndexAccess->getByIndex(i), uno::UNO_QUERY);
+        uno::Reference<container::XNamed> xNamedShape(rShapes->getByIndex(i), uno::UNO_QUERY);
         if (xNamedShape->getName() == rName)
         {
             uno::Reference<drawing::XShape> xShape(xNamedShape, uno::UNO_QUERY);
@@ -466,6 +480,32 @@ void Chart2ImportTest::testDOCXChartSeries()
     CPPUNIT_ASSERT_EQUAL(OUString("Series 1"), aLabels[0][0].get<OUString>());
     CPPUNIT_ASSERT_EQUAL(OUString("Series 2"), aLabels[1][0].get<OUString>());
     CPPUNIT_ASSERT_EQUAL(OUString("Series 3"), aLabels[2][0].get<OUString>());
+}
+
+void Chart2ImportTest::testDOCXChartEmptySeries()
+{
+    load("/chart2/qa/extras/data/docx/", "tdf125337.docx");
+    Reference<chart2::XChartDocument> xChartDoc(getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xChartDoc.is());
+
+    Reference<chart2::XChartType> xCT = getChartTypeFromDoc(xChartDoc, 0);
+    CPPUNIT_ASSERT(xCT.is());
+
+    std::vector<uno::Sequence<uno::Any> > aLabels = getDataSeriesLabelsFromChartType(xCT);
+    CPPUNIT_ASSERT_EQUAL(size_t(3), aLabels.size());
+    CPPUNIT_ASSERT_EQUAL(OUString("1. dataseries"), aLabels[0][0].get<OUString>());
+    CPPUNIT_ASSERT_EQUAL(OUString("2. dataseries"), aLabels[1][0].get<OUString>());
+    CPPUNIT_ASSERT_EQUAL(OUString("Column 3"), aLabels[2][0].get<OUString>());
+
+    //test chart series sparse data for docx
+    std::vector<std::vector<double> > aValues = getDataSeriesYValuesFromChartType(xCT);
+    CPPUNIT_ASSERT_EQUAL(size_t(3), aValues.size());
+    //test the second series values
+    CPPUNIT_ASSERT_EQUAL(2.4, aValues[1][0]);
+    CPPUNIT_ASSERT_EQUAL(4.4, aValues[1][1]);
+    //test the third series (empty) values
+    CPPUNIT_ASSERT(rtl::math::isNan(aValues[2][0]));
+    CPPUNIT_ASSERT(rtl::math::isNan(aValues[2][1]));
 }
 
 void Chart2ImportTest::testDOCXChartValuesSize()
@@ -961,7 +1001,7 @@ void Chart2ImportTest::testTransparentBackground(OUString const & filename)
     uno::Reference< chart::XChartDocument > xChart2Doc (xChartDoc, uno::UNO_QUERY);
     CPPUNIT_ASSERT_MESSAGE("failed to load chart", xChart2Doc.is());
 
-    Reference< beans::XPropertySet > xPropSet( xChart2Doc->getArea(), uno::UNO_QUERY);
+    Reference< beans::XPropertySet > xPropSet = xChart2Doc->getArea();
     CPPUNIT_ASSERT_MESSAGE("failed to get Area", xPropSet.is());
 
     css::drawing::FillStyle aStyle;
@@ -1470,6 +1510,39 @@ void Chart2ImportTest::testAxisTitleRotationXLSX()
 
 }
 
+void Chart2ImportTest::testAxisTitlePositionDOCX()
+{
+    load("/chart2/qa/extras/data/docx/", "testAxisTitlePosition.docx");
+    uno::Reference< chart::XDiagram > mxDiagram;
+    uno::Reference< drawing::XShape > xAxisTitle;
+    uno::Reference< chart::XChartDocument > xChartDoc = getChartDocFromWriter(0);
+    CPPUNIT_ASSERT_MESSAGE("failed to load chart", xChartDoc.is());
+    mxDiagram.set(xChartDoc->getDiagram());
+    CPPUNIT_ASSERT(mxDiagram.is());
+    // test X Axis title position
+    uno::Reference< chart::XAxisXSupplier > xAxisXSupp(mxDiagram, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xAxisXSupp.is());
+
+    xAxisTitle = xAxisXSupp->getXAxisTitle();
+    CPPUNIT_ASSERT(xAxisTitle.is());
+
+    awt::Point aPos = xAxisTitle->getPosition();
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(10640), static_cast<sal_Int32>(aPos.X));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(7157), static_cast<sal_Int32>(aPos.Y));
+
+    // test Y Axis title position
+    uno::Reference< chart::XAxisYSupplier > xAxisYSupp(mxDiagram, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xAxisYSupp.is());
+
+    xAxisTitle = xAxisYSupp->getYAxisTitle();
+    CPPUNIT_ASSERT(xAxisTitle.is());
+
+    aPos = xAxisTitle->getPosition();
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(387), static_cast<sal_Int32>(aPos.X));
+    // y coordinate is still wrong because of another older bug!
+    /*CPPUNIT_ASSERT_EQUAL(sal_Int32(1535), static_cast<sal_Int32>(aPos.Y));*/
+}
+
 void Chart2ImportTest::testCombinedChartAttachedAxisXLSX()
 {
     load("/chart2/qa/extras/data/xlsx/", "testCombinedChartAxis.xlsx");
@@ -1535,10 +1608,10 @@ void Chart2ImportTest::testInternalDataProvider() {
     // Parse mixed types, mixed role
     xDataSeq = rxDataProvider->createDataSequenceByValueArray("categories", "{42;\"hello\";0;\"world\"}");
     xSequence = xDataSeq->getData();
-    CPPUNIT_ASSERT_EQUAL(uno::Any(OUString("42")),    xSequence[0]);
-    CPPUNIT_ASSERT_EQUAL(uno::Any(OUString("hello")), xSequence[1]);
-    CPPUNIT_ASSERT_EQUAL(uno::Any(OUString("0")),     xSequence[2]);
-    CPPUNIT_ASSERT_EQUAL(uno::Any(OUString("world")), xSequence[3]);
+    CPPUNIT_ASSERT_EQUAL(uno::Any(OUString("Row 1 42")), xSequence[0]);
+    CPPUNIT_ASSERT_EQUAL(uno::Any(OUString("Row 2 hello")), xSequence[1]);
+    CPPUNIT_ASSERT_EQUAL(uno::Any(OUString("Row 3 0")), xSequence[2]);
+    CPPUNIT_ASSERT_EQUAL(uno::Any(OUString("Row 4 world")), xSequence[3]);
 }
 
 void Chart2ImportTest::testTdf90510()
@@ -1879,6 +1952,50 @@ void Chart2ImportTest::testTdf114179()
     CPPUNIT_ASSERT( aSize.Height > 0);
 }
 
+void Chart2ImportTest::testTdf124243()
+{
+    load("/chart2/qa/extras/data/docx/", "tdf124243.docx");
+    uno::Reference< chart2::XChartDocument > xChartDoc(getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("failed to load chart", xChartDoc.is());
+
+    Reference<chart2::XAxis> xAxis = getAxisFromDoc(xChartDoc, 0, 0, 0);
+    CPPUNIT_ASSERT(xAxis.is());
+
+    Reference<beans::XPropertySet> xPS(xAxis, uno::UNO_QUERY_THROW);
+    bool bShow = true;
+    // test X Axis is not visible.
+    bool bSuccess = xPS->getPropertyValue("Show") >>= bShow;
+    CPPUNIT_ASSERT(bSuccess);
+    CPPUNIT_ASSERT(!bShow);
+}
+
+void Chart2ImportTest::testTdf127393()
+{
+    load("/chart2/qa/extras/data/pptx/", "tdf127393.pptx");
+
+    // 1st chart
+    Reference<chart2::XChartDocument> xChartDoc(getChartDocFromDrawImpress(0, 0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xChartDoc.is());
+
+    Reference<chart2::XAxis> xAxis = getAxisFromDoc(xChartDoc, 0, 0, 0);
+    CPPUNIT_ASSERT(xAxis.is());
+
+    chart2::ScaleData aScaleData1 = xAxis->getScaleData();
+    CPPUNIT_ASSERT(aScaleData1.Categories.is());
+    CPPUNIT_ASSERT(aScaleData1.ShiftedCategoryPosition);
+
+    // 2nd chart
+    xChartDoc.set(getChartDocFromDrawImpress(1, 0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xChartDoc.is());
+
+    xAxis.set(getAxisFromDoc(xChartDoc, 0, 0, 0));
+    CPPUNIT_ASSERT(xAxis.is());
+
+    chart2::ScaleData aScaleData2 = xAxis->getScaleData();
+    CPPUNIT_ASSERT(aScaleData2.Categories.is());
+    CPPUNIT_ASSERT(!aScaleData2.ShiftedCategoryPosition);
+}
+
 namespace {
 
 void checkDataLabelProperties(const Reference<chart2::XDataSeries>& xDataSeries, sal_Int32 nDataPointIndex, bool bValueVisible)
@@ -1947,6 +2064,77 @@ void Chart2ImportTest::testSourceNumberFormatComplexCategoriesXLS()
     CPPUNIT_ASSERT(nNumberFormat != 0);
 }
 
+void Chart2ImportTest::testSimpleCategoryAxis()
+{
+    load("/chart2/qa/extras/data/docx/", "testSimpleCategoryAxis.docx");
+    uno::Reference< chart2::XChartDocument > xChartDoc(getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xChartDoc.is());
+
+    // Test the internal data.
+    CPPUNIT_ASSERT(xChartDoc->hasInternalDataProvider());
+
+    Reference<chart2::XInternalDataProvider> xInternalProvider(xChartDoc->getDataProvider(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xInternalProvider.is());
+
+    Reference<chart::XComplexDescriptionAccess> xDescAccess(xInternalProvider, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xDescAccess.is());
+
+    // Get the category labels.
+    Sequence<Sequence<OUString> > aCategories = xDescAccess->getComplexRowDescriptions();
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), aCategories[0].getLength());
+    CPPUNIT_ASSERT(aCategories[0][0].endsWith("ria 1"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), aCategories[1].getLength());
+    CPPUNIT_ASSERT(aCategories[1][0].endsWith("ria 2"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), aCategories[2].getLength());
+    CPPUNIT_ASSERT(aCategories[2][0].endsWith("ria 3"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), aCategories[3].getLength());
+    CPPUNIT_ASSERT(aCategories[3][0].endsWith("ria 4"));
+}
+
+void Chart2ImportTest::testMultilevelCategoryAxis()
+{
+    load("/chart2/qa/extras/data/docx/", "testMultilevelCategoryAxis.docx");
+    uno::Reference< chart2::XChartDocument > xChartDoc(getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xChartDoc.is());
+
+    // Test the internal data.
+    CPPUNIT_ASSERT(xChartDoc->hasInternalDataProvider());
+
+    Reference<chart2::XInternalDataProvider> xInternalProvider(xChartDoc->getDataProvider(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xInternalProvider.is());
+
+    Reference<chart::XComplexDescriptionAccess> xDescAccess(xInternalProvider, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xDescAccess.is());
+
+    // Get the complex category labels.
+    Sequence<Sequence<OUString> > aCategories = xDescAccess->getComplexRowDescriptions();
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(4), aCategories.getLength());
+    CPPUNIT_ASSERT_EQUAL(OUString("2011"), aCategories[0][0]);
+    CPPUNIT_ASSERT_EQUAL(OUString(""), aCategories[1][0]);
+    CPPUNIT_ASSERT_EQUAL(OUString("2012"), aCategories[2][0]);
+    CPPUNIT_ASSERT_EQUAL(OUString(""), aCategories[3][0]);
+    CPPUNIT_ASSERT_EQUAL(OUString("Categoria 1"), aCategories[0][1]);
+    CPPUNIT_ASSERT_EQUAL(OUString("Categoria 2"), aCategories[1][1]);
+    CPPUNIT_ASSERT_EQUAL(OUString("Categoria 3"), aCategories[2][1]);
+    CPPUNIT_ASSERT_EQUAL(OUString("Categoria 4"), aCategories[3][1]);
+}
+
+void Chart2ImportTest::testXaxisValues()
+{
+    load("/chart2/qa/extras/data/docx/", "tdf124083.docx");
+    uno::Reference< chart2::XChartDocument > xChartDoc(getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xChartDoc.is());
+
+    const uno::Reference< chart2::data::XDataSequence > xDataSeq = getDataSequenceFromDocByRole(xChartDoc, "values-x");
+    Sequence<uno::Any> xSequence = xDataSeq->getData();
+    // test X values
+    CPPUNIT_ASSERT_EQUAL(uno::Any(0.04), xSequence[0]);
+    CPPUNIT_ASSERT(rtl::math::isNan(*static_cast<const double*>(xSequence[1].getValue())));
+    CPPUNIT_ASSERT_EQUAL(uno::Any(0.16), xSequence[2]);
+    CPPUNIT_ASSERT_EQUAL(uno::Any(0.11), xSequence[3]);
+    CPPUNIT_ASSERT(rtl::math::isNan(*static_cast<const double*>(xSequence[4].getValue())));
+}
+
 void Chart2ImportTest::testTdf123504()
 {
     load("/chart2/qa/extras/data/ods/", "pie_chart_100_and_0.ods");
@@ -1982,7 +2170,7 @@ void Chart2ImportTest::testTdf122765()
 {
     // The horizontal position of the slices was wrong.
     load("/chart2/qa/extras/data/pptx/", "tdf122765.pptx");
-    Reference<chart::XChartDocument> xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_QUERY);
+    Reference<chart::XChartDocument> xChartDoc = getChartDocFromDrawImpress(0, 0);
     Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(xChartDoc, UNO_QUERY_THROW);
     Reference<drawing::XDrawPage> xDrawPage(xDrawPageSupplier->getDrawPage(), UNO_SET_THROW);
     Reference<drawing::XShapes> xShapes(xDrawPage->getByIndex(0), UNO_QUERY_THROW);

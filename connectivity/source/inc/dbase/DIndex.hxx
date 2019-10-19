@@ -69,7 +69,7 @@ namespace connectivity
 
         private:
             std::unique_ptr<SvStream> m_pFileStream;        // Stream to read/write the index
-            NDXHeader       m_aHeader;
+            NDXHeader       m_aHeader = {};
             std::vector<ONDXPage*>
                             m_aCollector;                   // Pool of obsolete pages
             ONDXPagePtr     m_aRoot,                        // Root of the B+ tree
@@ -82,7 +82,7 @@ namespace connectivity
             ODbaseTable*    m_pTable;
             bool        m_bUseCollector : 1;            // Use the Garbage Collector
 
-            OUString getCompletePath();
+            OUString getCompletePath() const;
             void closeImpl();
             // Closes and kills the index file and throws an error
             void impl_killFileAndthrowError_throw(const char* pErrorId, const OUString& _sFile);
@@ -97,7 +97,7 @@ namespace connectivity
 
             // css::lang::XUnoTunnel
             virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& aIdentifier ) override;
-            static css::uno::Sequence< sal_Int8 > getUnoTunnelImplementationId();
+            static css::uno::Sequence< sal_Int8 > getUnoTunnelId();
 
             const ODbaseTable* getTable() const { return m_pTable; }
             const NDXHeader& getHeader() const { return m_aHeader; }
@@ -106,7 +106,7 @@ namespace connectivity
             void SetRootPos(sal_uInt32 nPos)        {m_nRootPage = nPos;}
             void SetPageCount(sal_uInt32 nCount)    {m_nPageCount = nCount;}
 
-            sal_uInt32 GetPageCount()               {return m_nPageCount;}
+            sal_uInt32 GetPageCount() const         {return m_nPageCount;}
 
             sal_uInt16 GetMaxNodes() const          {return m_aHeader.db_maxkeys;}
 

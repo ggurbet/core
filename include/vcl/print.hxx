@@ -289,6 +289,9 @@ public:
                                       PrinterSetupMode eMode = PrinterSetupMode::DocumentGlobal);
     bool                        SetPrinterProps( const Printer* pPrinter );
 
+    Color                       GetBackgroundColor() const override { return COL_WHITE; }
+    Color                       GetReadableFontColor(const Color&, const Color&) const override { return COL_BLACK; }
+
     /** SetPrinterOptions is used internally only now
 
         in earlier times it was used only to set the options loaded directly from the configuration
@@ -391,7 +394,7 @@ class VCL_DLLPUBLIC PrinterController
     std::unique_ptr<ImplPrinterControllerData>
                                         mpImplData;
 protected:
-                                        PrinterController( const VclPtr<Printer>&, const VclPtr<vcl::Window>& );
+    PrinterController(const VclPtr<Printer>&, weld::Window*);
 public:
     struct MultiPageSetup
     {
@@ -433,7 +436,7 @@ public:
     virtual ~PrinterController();
 
     const VclPtr<Printer>&              getPrinter() const;
-    const VclPtr<vcl::Window>&          getWindow() const;
+    weld::Window*                       getWindow() const;
 
     /** For implementations: get current job properties as changed by e.g. print dialog
 
@@ -524,7 +527,7 @@ public:
     // don't use outside vcl. Some of these are exported for
     // the benefit of vcl's plugins.
     // Still: DO NOT USE OUTSIDE VCL
-                      int               getFilteredPageCount();
+                      int               getFilteredPageCount() const;
     VCL_DLLPRIVATE    PageSize          getPageFile( int i_inUnfilteredPage, GDIMetaFile& rMtf,
                                             bool i_bMayUseCache = false );
                       PageSize          getFilteredPageFile( int i_nFilteredPage, GDIMetaFile& o_rMtf,

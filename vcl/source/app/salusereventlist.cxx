@@ -26,7 +26,6 @@
 #include <typeinfo>
 
 #include <com/sun/star/uno/Exception.hpp>
-#include <cppuhelper/exc_hlp.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
@@ -39,7 +38,7 @@ SalUserEventList::SalUserEventList()
 {
 }
 
-SalUserEventList::~SalUserEventList()
+SalUserEventList::~SalUserEventList() COVERITY_NOEXCEPT_FALSE
 {
 }
 
@@ -110,8 +109,7 @@ bool SalUserEventList::DispatchUserEvents( bool bHandleAllCurrentEvents )
             }
             catch (css::uno::Exception&)
             {
-                auto const e2 = cppu::getCaughtException();
-                SAL_WARN("vcl", "Uncaught " << exceptionToString(e2));
+                TOOLS_WARN_EXCEPTION("vcl", "Uncaught");
                 std::abort();
             }
             catch (std::exception& e)

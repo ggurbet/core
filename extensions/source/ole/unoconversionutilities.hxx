@@ -433,6 +433,8 @@ void UnoConversionUtilities<T>::variantToAny( const VARIANTARG* pArg, Any& rAny,
                     bFail = true;
                 break;
             case TypeClass_STRING:      // UString
+                if(var.vt == VT_NULL)
+                    var = CComBSTR("");
                 if(SUCCEEDED(hr = VariantChangeType( & var, &var, 0, VT_BSTR)))
                     variantToAny( & var, rAny);
                 else if (hr == DISP_E_TYPEMISMATCH)
@@ -1054,7 +1056,7 @@ SAFEARRAY*  UnoConversionUtilities<T>::createUnoSequenceWrapper(const Any& rSeq,
                 // E.g. Sequence<Sequence<sal_Int32>> , the index would refer to Sequence<sal_Int32>
                 // In this case arDimSeqIndices would have the size 1. That is the elements are not counted
                 // but the Sequences that contain those elements.
-                // The indices ar 0 based
+                // The indices are 0 based
                 std::unique_ptr<sal_Int32[]> sarDimsSeqIndices;
                 sal_Int32* arDimsSeqIndices= nullptr;
                 if( dimsSeq > 0)
@@ -1109,7 +1111,7 @@ SAFEARRAY*  UnoConversionUtilities<T>::createUnoSequenceWrapper(const Any& rSeq,
                     for( sal_Int32 i= 0; i < pCurrentSeq->nElements; i++)
                     {
                         Any unoElement( pCurrentSeq->elements + i * elementSize, rawTypeDesc );
-                        // The any is being converted into an VARIANT which value is then copied
+                        // The any is being converted into a VARIANT which value is then copied
                         // to the SAFEARRAY's data block. When copying one has to follow the rules for
                         // copying certain types, as are VT_DISPATCH, VT_UNKNOWN, VT_VARIANT, VT_BSTR.
                         // To increase performance, we just do a memcpy of VARIANT::byref. This is possible
@@ -1246,7 +1248,7 @@ void  UnoConversionUtilities<T>::getElementCountAndTypeOfSequence( const Any& rS
     rSeq.getValueTypeDescription( &pSeqDesc);
     typelib_TypeDescriptionReference* pElementDescRef= reinterpret_cast<typelib_IndirectTypeDescription*>(pSeqDesc)->pType;
 
-    // if the elements are Sequences than do recursion
+    // if the elements are Sequences then do recursion
     if( dim < seqElementCounts.getLength() )
     {
         uno_Sequence* pSeq = *static_cast<uno_Sequence* const*>(rSeq.getValue());
@@ -1659,7 +1661,7 @@ Any UnoConversionUtilities<T>::createOleObjectWrapper(VARIANT* pVar, const Type&
             spDispatch2.QueryInterface( & spUnknown.p);
     }
 
-    static Type VOID_TYPE= Type();
+    static Type VOID_TYPE;
     Any ret;
     //If no Type is provided and pVar contains IUnknown then we return a XInterface.
     //If pVar contains an IDispatch then we return a XInvocation.
@@ -1821,7 +1823,7 @@ Reference<XInterface> UnoConversionUtilities<T>::createAdapter(const Sequence<Ty
     Reference< XInterface> xIntAdapterFac;
     xIntAdapterFac= m_smgr->createInstance(INTERFACE_ADAPTER_FACTORY);
     // We create an adapter object that does not only implement the required type but also
-    // all types that the COM object pretends to implement. An COM object must therefore
+    // all types that the COM object pretends to implement. A COM object must therefore
     // support the property "_implementedInterfaces".
     Reference<XInterface> xIntAdapted;
     Reference<XInvocation> xInv(receiver, UNO_QUERY);
@@ -2199,11 +2201,11 @@ Sequence<Any> UnoConversionUtilities<T>::createOleArrayWrapper(SAFEARRAY* pArray
     return ret;
 }
 
-// If an VARIANT has the type VT_DISPATCH it can either be an JScript Array
+// If a VARIANT has the type VT_DISPATCH it can either be a JScript Array
 // or some other object. This function finds out if it is such an array or
 // not. Currently there's no way to make sure it's an array
 // so we assume that when the object has a property "0" then it is an Array.
-// An JScript has property like "0", "1", "2" etc. which represent the
+// A JScript has property like "0", "1", "2" etc. which represent the
 // value at the corresponding index of the array
 template<class T>
 bool UnoConversionUtilities<T>::isJScriptArray(const VARIANT* rvar)
@@ -2283,7 +2285,7 @@ Sequence<Type> UnoConversionUtilities<T>::getImplementedInterfaces(IUnknown* pUn
         }
         if (SUCCEEDED( hr))
         {
-            // we exspect an array( SafeArray or IDispatch) of Strings.
+            // we expect an array( SafeArray or IDispatch) of Strings.
             Any anyNames;
             variantToAny( &var, anyNames, cppu::UnoType<Sequence<Any>>::get());
             Sequence<Any> seqAny;

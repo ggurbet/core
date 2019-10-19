@@ -27,37 +27,33 @@
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/uno/Any.hxx>
 
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
-#include <undo/undomanager.hxx>
 #include <vcl/waitobj.hxx>
-#include <svl/aeitem.hxx>
 #include <editeng/editstat.hxx>
 #include <editeng/outlobj.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svl/urlbmk.hxx>
 #include <svx/svdpagv.hxx>
-#include <svx/fmshell.hxx>
-#include <vcl/scrbar.hxx>
 #include <svx/svdopath.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/svdorect.hxx>
-#include <svx/svdograf.hxx>
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
+#include <svl/poolitem.hxx>
+#include <svl/stritem.hxx>
 #include <editeng/eeitem.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/request.hxx>
 #include <svx/svxids.hrc>
 #include <editeng/flditem.hxx>
-#include <svx/ruler.hxx>
 #include <svx/obj3d.hxx>
 #include <svx/fmglob.hxx>
 #include <svx/svdouno.hxx>
 #include <svx/dataaccessdescriptor.hxx>
 #include <tools/urlobj.hxx>
-#include <svl/slstitm.hxx>
 #include <sfx2/ipclient.hxx>
 #include <avmedia/mediawindow.hxx>
 #include <svl/urihelper.hxx>
@@ -66,7 +62,6 @@
 
 #include <DrawViewShell.hxx>
 #include <slideshow.hxx>
-#include <ViewShellImplementation.hxx>
 #include <ViewShellHint.hxx>
 #include <framework/FrameworkHelper.hxx>
 #include <app.hrc>
@@ -85,13 +80,11 @@
 #include <sdresid.hxx>
 #include <unokywds.hxx>
 #include <Outliner.hxx>
-#include <PresentationViewShell.hxx>
 #include <sdpage.hxx>
 #include <FrameView.hxx>
 #include <zoomlist.hxx>
 #include <drawview.hxx>
 #include <DrawDocShell.hxx>
-#include <sdattr.hxx>
 #include <ViewShellBase.hxx>
 #include <ToolBarManager.hxx>
 #include <anminfo.hxx>
@@ -824,6 +817,10 @@ void DrawViewShell::FuSupport(SfxRequest& rReq)
             }
             else
             {
+                //tdf#126197: EndTextEdit in all views if current one is not in TextEdit
+                if ( !mpDrawView->IsTextEdit() )
+                    mpDrawView->EndTextEditAllViews();
+
                 if(HasCurrentFunction())
                 {
                     GetCurrentFunction()->DoCut();
@@ -998,6 +995,7 @@ void DrawViewShell::FuSupport(SfxRequest& rReq)
             }
             else
             {
+                mpDrawView->EndTextEditAllViews();
                 FuDeleteSelectedObjects();
             }
             rReq.Ignore ();
@@ -1025,6 +1023,10 @@ void DrawViewShell::FuSupport(SfxRequest& rReq)
 
         case SID_MASTERPAGE:          // BASIC
         {
+            if (comphelper::LibreOfficeKit::isActive())
+                GetViewShell()->libreOfficeKitViewCallback(LOK_CALLBACK_STATE_CHANGED,
+                                                           ".uno:SlideMasterPage=true");
+
             // AutoLayouts needs to be finished
             GetDoc()->StopWorkStartupDelay();
 
@@ -1059,6 +1061,11 @@ void DrawViewShell::FuSupport(SfxRequest& rReq)
 
         case SID_CLOSE_MASTER_VIEW:
         {
+            // Notify of disabling master view, which is enabled in DrawViewShell::ChangeEditMode.
+            if (comphelper::LibreOfficeKit::isActive())
+                GetViewShell()->libreOfficeKitViewCallback(LOK_CALLBACK_STATE_CHANGED,
+                                                           ".uno:SlideMasterPage=false");
+
             Broadcast (
                 ViewShellHint(ViewShellHint::HINT_CHANGE_EDIT_MODE_START));
 

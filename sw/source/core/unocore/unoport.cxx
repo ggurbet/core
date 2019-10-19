@@ -72,7 +72,6 @@ SwXTextPortion::SwXTextPortion(
             ?  PROPERTY_MAP_REDLINE_PORTION
             :  PROPERTY_MAP_TEXTPORTION_EXTENSIONS))
     , m_xParentText(rParent)
-    , m_aDepends(*this)
     , m_pFrameFormat(nullptr)
     , m_ePortionType(eType)
     , m_bIsCollapsed(false)
@@ -87,12 +86,11 @@ SwXTextPortion::SwXTextPortion(
     : m_pPropSet(aSwMapProvider.GetPropertySet(
                     PROPERTY_MAP_TEXTPORTION_EXTENSIONS))
     , m_xParentText(rParent)
-    , m_aDepends(*this)
     , m_pFrameFormat(&rFormat)
     , m_ePortionType(PORTION_FRAME)
     , m_bIsCollapsed(false)
 {
-    m_aDepends.StartListening(&rFormat);
+    StartListening(rFormat.GetNotifier());
     init( pPortionCursor);
 }
 
@@ -109,7 +107,6 @@ SwXTextPortion::SwXTextPortion(
     , m_pRubyAdjust ( bIsEnd ? nullptr : new uno::Any )
     , m_pRubyIsAbove( bIsEnd ? nullptr : new uno::Any )
     , m_pRubyPosition( bIsEnd ? nullptr : new uno::Any )
-    , m_aDepends(*this)
     , m_pFrameFormat(nullptr)
     , m_ePortionType( bIsEnd ? PORTION_RUBY_END : PORTION_RUBY_START )
     , m_bIsCollapsed(false)
@@ -131,7 +128,7 @@ SwXTextPortion::~SwXTextPortion()
 {
     SolarMutexGuard aGuard;
     m_pUnoCursor.reset(nullptr);
-    m_aDepends.EndListeningAll();
+    EndListeningAll();
 }
 
 uno::Reference< text::XText >  SwXTextPortion::getText()
@@ -247,6 +244,7 @@ void SwXTextPortion::GetPropertyValue(
             case PORTION_SOFT_PAGEBREAK:pRet = "SoftPageBreak";break;
             case PORTION_META:          pRet = UNO_NAME_META; break;
             case PORTION_FIELD_START:pRet = "TextFieldStart";break;
+            case PORTION_FIELD_SEP:     pRet = "TextFieldSeparator";break;
             case PORTION_FIELD_END:pRet = "TextFieldEnd";break;
             case PORTION_FIELD_START_END:pRet = "TextFieldStartEnd";break;
             case PORTION_ANNOTATION:
@@ -300,6 +298,7 @@ void SwXTextPortion::GetPropertyValue(
                 case PORTION_RUBY_START:
                 case PORTION_RUBY_END:
                 case PORTION_FIELD_START:
+                case PORTION_FIELD_SEP:
                 case PORTION_FIELD_END:
                     rVal <<= m_bIsCollapsed;
                 break;
@@ -326,6 +325,7 @@ void SwXTextPortion::GetPropertyValue(
                 case PORTION_BOOKMARK_END:
                 case PORTION_REDLINE_END:
                 case PORTION_RUBY_END:
+                case PORTION_FIELD_SEP:
                 case PORTION_FIELD_END:
                     bStart = false;
                 break;
@@ -377,7 +377,7 @@ uno::Sequence< uno::Any > SwXTextPortion::GetPropertyValues_Impl(
 {
     sal_Int32 nLength = rPropertyNames.getLength();
     const OUString *pPropertyNames = rPropertyNames.getConstArray();
-    uno::Sequence< uno::Any > aValues(rPropertyNames.getLength());
+    uno::Sequence< uno::Any > aValues(nLength);
     uno::Any *pValues = aValues.getArray();
     SwUnoCursor& rUnoCursor = GetCursor();
 
@@ -555,14 +555,11 @@ uno::Sequence< beans::GetPropertyTolerantResult > SAL_CALL SwXTextPortion::getPr
 
     uno::Sequence< beans::GetDirectPropertyTolerantResult > aTmpRes(
             GetPropertyValuesTolerant_Impl( rPropertyNames, false ) );
-    const beans::GetDirectPropertyTolerantResult *pTmpRes = aTmpRes.getConstArray();
 
     // copy temporary result to final result type
     sal_Int32 nLen = aTmpRes.getLength();
     uno::Sequence< beans::GetPropertyTolerantResult > aRes( nLen );
-    beans::GetPropertyTolerantResult *pRes = aRes.getArray();
-    for (sal_Int32 i = 0;  i < nLen;  i++)
-        *pRes++ = *pTmpRes++;
+    std::copy(aTmpRes.begin(), aTmpRes.end(), aRes.begin());
     return aRes;
 }
 
@@ -790,9 +787,7 @@ const uno::Sequence< sal_Int8 > & SwXTextPortion::getUnoTunnelId()
 
 sal_Int64 SwXTextPortion::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXTextPortion>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >(this) );
     }
@@ -825,14 +820,10 @@ uno::Sequence< OUString > SwXTextPortion::getSupportedServiceNames()
             "com.sun.star.style.ParagraphPropertiesComplex" };
 }
 
-void SwXTextPortion::SwClientNotify(const SwModify&, const SfxHint& rHint)
+void SwXTextPortion::Notify(const SfxHint& rHint)
 {
-    if (auto pLegacyHint = dynamic_cast<const sw::LegacyModifyHint*>(&rHint))
-    {
-        ClientModify(this, pLegacyHint->m_pOld, pLegacyHint->m_pNew);
-        if(!m_aDepends.IsListeningTo(m_pFrameFormat))
-            m_pFrameFormat = nullptr;
-    }
+    if(rHint.GetId() == SfxHintId::Dying)
+        m_pFrameFormat = nullptr;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

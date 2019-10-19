@@ -148,7 +148,7 @@ SortedResultSet::~SortedResultSet()
 
 OUString SAL_CALL SortedResultSet::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.ucb.SortedResultSet" );
+    return "com.sun.star.comp.ucb.SortedResultSet";
 }
 
 sal_Bool SAL_CALL SortedResultSet::supportsService( const OUString& ServiceName )
@@ -771,7 +771,7 @@ void SAL_CALL SortedResultSet::setPropertyValue(
     if ( PropertyName == "RowCount" || PropertyName == "IsRowCountFinal" )
         throw IllegalArgumentException();
     else
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(PropertyName);
 }
 
 
@@ -807,7 +807,7 @@ Any SAL_CALL SortedResultSet::getPropertyValue( const OUString& PropertyName )
         }
     }
     else
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(PropertyName);
 
     return aRet;
 }
@@ -1796,7 +1796,7 @@ SRSPropertySetInfo::getPropertyByName( const OUString& Name )
     else if ( Name == "IsRowCountFinal" )
         return maProps[1];
     else
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(Name);
 }
 
 

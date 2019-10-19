@@ -31,7 +31,6 @@
 #include <ViewShellBase.hxx>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/drawing/XDrawPages.hpp>
-#include <com/sun/star/container/XIndexAccess.hpp>
 #include <stlpool.hxx>
 #include <svx/xfillit0.hxx>
 #include <svx/svdundo.hxx>
@@ -110,8 +109,8 @@ SdPage* DocumentHelper::CopyMasterPageToLocalDocument (
             rTargetDocument.getUnoModel(), uno::UNO_QUERY);
         if ( ! xSlideSupplier.is())
             break;
-        uno::Reference<drawing::XDrawPages> xSlides (
-            xSlideSupplier->getDrawPages(), uno::UNO_QUERY);
+        uno::Reference<drawing::XDrawPages> xSlides =
+            xSlideSupplier->getDrawPages();
         if ( ! xSlides.is())
             break;
         xSlides->insertNewByIndex (xSlides->getCount());
@@ -288,7 +287,7 @@ void DocumentHelper::AssignMasterPageToPageList (
     if (pMasterPage == nullptr || !pMasterPage->IsMasterPage())
         return;
 
-    // Make the layout name by stripping ouf the layout postfix from the
+    // Make the layout name by stripping out the layout postfix from the
     // layout name of the given master page.
     OUString sFullLayoutName(pMasterPage->GetLayoutName());
     OUString sBaseLayoutName (sFullLayoutName);

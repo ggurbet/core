@@ -10,7 +10,6 @@
 
 #include <utility>
 #include <vcl/font/Feature.hxx>
-#include <strings.hrc>
 #include <svdata.hxx>
 
 #include <hb.h>
@@ -94,6 +93,7 @@ uint32_t FeatureParameter::getCode() const { return m_nCode; }
 FeatureDefinition::FeatureDefinition()
     : m_pDescriptionID(nullptr)
     , m_nCode(0)
+    , m_nDefault(0)
     , m_eType(FeatureParameterType::BOOL)
 {
 }

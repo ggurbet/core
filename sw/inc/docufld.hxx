@@ -295,7 +295,7 @@ class SW_DLLPUBLIC SwHiddenTextField : public SwField
     OUString m_aContent; ///< Evaluated DB-text.
 
     OUString m_aCond; ///< Condition.
-    sal_uInt16 m_nSubType;
+    SwFieldTypesEnum m_nSubType;
 
     bool m_bCanToggle : 1; ///< Can field be toggled alone?
     bool m_bIsHidden : 1; ///< Is it not visible?
@@ -310,13 +310,13 @@ public:
                      const OUString& rCond,
                      const OUString& rText,
                      bool   bHidden,
-                     sal_uInt16 nSubType = TYP_HIDDENTXTFLD);
+                     SwFieldTypesEnum nSubType = SwFieldTypesEnum::HiddenText);
 
     SwHiddenTextField( SwHiddenTextFieldType*,
                       const OUString& rCond,
                       const OUString& rTrue,
                       const OUString& rFalse,
-                      sal_uInt16 nSubType = TYP_HIDDENTXTFLD);
+                      SwFieldTypesEnum nSubType = SwFieldTypesEnum::HiddenText);
 
     virtual OUString    GetFieldName() const override;
 
@@ -445,6 +445,7 @@ class SW_DLLPUBLIC SwPostItField : public SwField
     OUString m_sInitials; ///< Initials of the author.
     OUString m_sName;     ///< Name of the comment.
     DateTime    m_aDateTime;
+    bool     m_bResolved;
     std::unique_ptr<OutlinerParaObject> mpText;
     rtl::Reference<SwTextAPIObject> m_xTextObject;
     sal_uInt32 m_nPostItId;
@@ -458,6 +459,7 @@ public:
                    const OUString& rInitials,
                    const OUString& rName,
                    const DateTime& rDate,
+                   const bool bResolved = false,
                    const sal_uInt32 nPostItId = 0);
 
     SwPostItField(const SwPostItField&) = delete;
@@ -469,8 +471,8 @@ public:
     virtual std::unique_ptr<SwField> Copy() const override;
 
     const DateTime&         GetDateTime() const             { return m_aDateTime; }
-    const Date       GetDate() const                 { return Date(m_aDateTime.GetDate()); }
-    const tools::Time GetTime() const                 { return tools::Time(m_aDateTime.GetTime()); }
+    Date       GetDate() const                 { return Date(m_aDateTime.GetDate()); }
+    tools::Time GetTime() const                 { return tools::Time(m_aDateTime.GetTime()); }
     sal_uInt32 GetPostItId() const             { return m_nPostItId; }
 
     /// Author
@@ -487,6 +489,10 @@ public:
 
     const OutlinerParaObject* GetTextObject() const { return mpText.get();}
     void SetTextObject( std::unique_ptr<OutlinerParaObject> pText );
+
+    void SetResolved(bool bNewState);
+    void ToggleResolved();
+    bool GetResolved() const;
 
     sal_Int32 GetNumberOfParagraphs() const;
 

@@ -30,7 +30,9 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <unotools/confignode.hxx>
 #include <comphelper/types.hxx>
-
+#include <framework/addonsoptions.hxx>
+#include <vcl/NotebookBarAddonsMerger.hxx>
+#include <vector>
 using namespace sfx2;
 using namespace css::uno;
 using namespace css::ui;
@@ -38,8 +40,53 @@ using namespace css;
 
 #define MENUBAR_STR "private:resource/menubar/menubar"
 
+static const char MERGE_NOTEBOOKBAR_URL[] = "URL";
+static const char MERGE_NOTEBOOKBAR_IMAGEID[] = "ImageIdentifier";
+
 bool SfxNotebookBar::m_bLock = false;
 bool SfxNotebookBar::m_bHide = false;
+
+static void NotebookbarAddonValues(
+    std::vector<Image>& aImageValues,
+    std::vector<css::uno::Sequence<css::uno::Sequence<css::beans::PropertyValue>>>&
+        aExtensionValues)
+{
+    framework::AddonsOptions aAddonsItems;
+
+    for (int nIdx = 0; nIdx < aAddonsItems.GetAddonsNotebookBarCount(); nIdx++)
+    {
+        const css::uno::Sequence<css::uno::Sequence<css::beans::PropertyValue>> aExtension
+            = aAddonsItems.GetAddonsNotebookBarPart(nIdx);
+        for (const css::uno::Sequence<css::beans::PropertyValue>& rExtensionVal : aExtension)
+        {
+            Image aImage;
+            bool isBigImage = true;
+            for (const auto& rProp : rExtensionVal)
+            {
+                OUString sImage;
+                if (rProp.Name == MERGE_NOTEBOOKBAR_IMAGEID)
+                {
+                    rProp.Value >>= sImage;
+                    aImage = framework::AddonsOptions().GetImageFromURL(sImage, isBigImage);
+                }
+            }
+            if(!aImage)
+            {
+                for (const auto& rProp : rExtensionVal)
+                {
+                    OUString sImage;
+                    if (rProp.Name == MERGE_NOTEBOOKBAR_URL)
+                    {
+                        rProp.Value >>= sImage;
+                        aImage = framework::AddonsOptions().GetImageFromURL(sImage, isBigImage);
+                    }
+                }
+            }
+            aImageValues.push_back(aImage);
+        }
+        aExtensionValues.push_back(aExtension);
+    }
+}
 
 static Reference<frame::XLayoutManager> lcl_getLayoutManager( const Reference<frame::XFrame>& xFrame )
 {
@@ -64,19 +111,19 @@ static OUString lcl_getAppName( vcl::EnumContext::Application eApp )
     switch ( eApp )
     {
         case vcl::EnumContext::Application::Writer:
-            return OUString( "Writer" );
+            return "Writer";
             break;
         case vcl::EnumContext::Application::Calc:
-            return OUString( "Calc" );
+            return "Calc";
             break;
         case vcl::EnumContext::Application::Impress:
-            return OUString( "Impress" );
+            return "Impress";
             break;
         case vcl::EnumContext::Application::Draw:
-            return OUString( "Draw" );
+            return "Draw";
             break;
         case vcl::EnumContext::Application::Formula:
-            return OUString( "Formula" );
+            return "Formula";
             break;
         default:
             return OUString();
@@ -138,7 +185,7 @@ static utl::OConfigurationTreeRoot lcl_getCurrentImplConfigRoot()
                                        true);
 }
 
-static const utl::OConfigurationNode lcl_getCurrentImplConfigNode(const Reference<css::frame::XFrame>& xFrame,
+static utl::OConfigurationNode lcl_getCurrentImplConfigNode(const Reference<css::frame::XFrame>& xFrame,
                                                                   utl::OConfigurationTreeRoot const & rNotebookbarNode )
 {
     if (!rNotebookbarNode.isValid())
@@ -151,11 +198,10 @@ static const utl::OConfigurationNode lcl_getCurrentImplConfigNode(const Referenc
 
     const utl::OConfigurationNode aImplsNode = rNotebookbarNode.openNode("Applications/" + lcl_getAppName( eApp) + "/Modes");
     const Sequence<OUString> aModeNodeNames( aImplsNode.getNodeNames() );
-    const sal_Int32 nCount( aModeNodeNames.getLength() );
 
-    for ( sal_Int32 nReadIndex = 0; nReadIndex < nCount; ++nReadIndex )
+    for ( const auto& rModeNodeName : aModeNodeNames )
     {
-        const utl::OConfigurationNode aImplNode( aImplsNode.openNode( aModeNodeNames[nReadIndex] ) );
+        const utl::OConfigurationNode aImplNode( aImplsNode.openNode( rModeNodeName ) );
         if ( !aImplNode.isValid() )
             continue;
 
@@ -233,12 +279,11 @@ bool SfxNotebookBar::IsActive()
         return false;
 
 
-    OUStringBuffer aPath("org.openoffice.Office.UI.ToolbarMode/Applications/");
-    aPath.append( appName );
+    OUString aPath = "org.openoffice.Office.UI.ToolbarMode/Applications/" + appName;
 
     const utl::OConfigurationTreeRoot aAppNode(
                                         ::comphelper::getProcessComponentContext(),
-                                        aPath.makeStringAndClear(),
+                                        aPath,
                                         false);
     if ( !aAppNode.isValid() )
         return false;
@@ -247,11 +292,10 @@ bool SfxNotebookBar::IsActive()
 
     const utl::OConfigurationNode aModesNode = aAppNode.openNode("Modes");
     const Sequence<OUString> aModeNodeNames( aModesNode.getNodeNames() );
-    const sal_Int32 nCount( aModeNodeNames.getLength() );
 
-    for ( sal_Int32 nReadIndex = 0; nReadIndex < nCount; ++nReadIndex )
+    for ( const auto& rModeNodeName : aModeNodeNames )
     {
-        const utl::OConfigurationNode aModeNode( aModesNode.openNode( aModeNodeNames[nReadIndex] ) );
+        const utl::OConfigurationNode aModeNode( aModesNode.openNode( rModeNodeName ) );
         if ( !aModeNode.isValid() )
             continue;
 
@@ -333,11 +377,18 @@ bool SfxNotebookBar::StateMethod(SystemWindow* pSysWindow,
         {
             RemoveListeners(pSysWindow);
 
-            OUStringBuffer aBuf(rUIFile);
-            aBuf.append( sFile );
+            OUString aBuf = rUIFile + sFile;
+
+            //Addons For Notebookbar
+            std::vector<Image> aImageValues;
+            std::vector<css::uno::Sequence< css::uno::Sequence< css::beans::PropertyValue > > > aExtensionValues;
+            NotebookBarAddonsItem aNotebookBarAddonsItem;
+            NotebookbarAddonValues(aImageValues , aExtensionValues);
+            aNotebookBarAddonsItem.aAddonValues = aExtensionValues;
+            aNotebookBarAddonsItem.aImageValues = aImageValues;
 
             // setup if necessary
-            pSysWindow->SetNotebookBar(aBuf.makeStringAndClear(), xFrame, bReloadNotebookbar);
+            pSysWindow->SetNotebookBar(aBuf, xFrame, aNotebookBarAddonsItem , bReloadNotebookbar);
             pNotebookBar = pSysWindow->GetNotebookBar();
             pNotebookBar->Show();
             pNotebookBar->GetParent()->Resize();
@@ -507,7 +558,7 @@ void SfxNotebookBar::ToggleMenubar()
     }
 }
 
-void SfxNotebookBar::ReloadNotebookBar(OUString& sUIPath)
+void SfxNotebookBar::ReloadNotebookBar(const OUString& sUIPath)
 {
     if (SfxNotebookBar::IsActive())
     {

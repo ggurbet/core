@@ -75,13 +75,13 @@ private:
     DECL_LINK( ClickDirectionHdl_Impl, weld::Button&, void );
 
     void SelectDirection( SdrTextAniDirection nValue );
-    sal_uInt16 GetSelectedDirection();
+    sal_uInt16 GetSelectedDirection() const;
 
 public:
-    SvxTextAnimationPage(TabPageParent pPage, const SfxItemSet& rInAttrs);
+    SvxTextAnimationPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxTextAnimationPage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     static const sal_uInt16* GetRanges() { return pRanges; }
 
     virtual bool        FillItemSet( SfxItemSet* ) override;

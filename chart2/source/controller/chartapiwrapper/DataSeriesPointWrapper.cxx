@@ -543,7 +543,7 @@ Reference< beans::XPropertySet > DataSeriesPointWrapper::getDataPointProperties(
 //ReferenceSizePropertyProvider
 void DataSeriesPointWrapper::updateReferenceSize()
 {
-    Reference< beans::XPropertySet > xProp( getInnerPropertySet(), uno::UNO_QUERY );
+    Reference< beans::XPropertySet > xProp = getInnerPropertySet();
     if( xProp.is() )
     {
         if( xProp->getPropertyValue("ReferencePageSize").hasValue() )
@@ -554,7 +554,7 @@ void DataSeriesPointWrapper::updateReferenceSize()
 Any DataSeriesPointWrapper::getReferenceSize()
 {
     Any aRet;
-    Reference< beans::XPropertySet > xProp( getInnerPropertySet(), uno::UNO_QUERY );
+    Reference< beans::XPropertySet > xProp = getInnerPropertySet();
     if( xProp.is() )
         aRet = xProp->getPropertyValue("ReferencePageSize");
     return aRet;
@@ -831,7 +831,7 @@ Any SAL_CALL DataSeriesPointWrapper::getPropertyValue( const OUString& rProperty
 
 OUString SAL_CALL DataSeriesPointWrapper::getImplementationName()
 {
-    return OUString("com.sun.star.comp.chart.DataSeries");
+    return "com.sun.star.comp.chart.DataSeries";
 }
 
 sal_Bool SAL_CALL DataSeriesPointWrapper::supportsService( const OUString& rServiceName )

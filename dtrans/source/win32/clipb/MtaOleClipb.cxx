@@ -150,7 +150,7 @@ static HRESULT MarshalIDataObjectInStream( IDataObject* pIDataObject, LPSTREAM* 
 
     *ppStream = nullptr;
     return CoMarshalInterThreadInterfaceInStream(
-        __uuidof(IDataObject),  //The IID of interface to be marshaled
+        __uuidof(IDataObject),  //The IID of interface to be marshalled
         pIDataObject,           //The interface pointer
         ppStream                //IStream pointer
         );
@@ -389,7 +389,7 @@ HRESULT CMtaOleClipboard::setClipboard( IDataObject* pIDataObject )
     // destroyed before the ole clipboard
     // can acquire it
     // remember: pIDataObject may be NULL
-    // which is an request to clear the
+    // which is a request to clear the
     // current clipboard content
     if ( pIDataObject )
         pIDataObject->AddRef( );

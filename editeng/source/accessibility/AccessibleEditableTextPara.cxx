@@ -2043,7 +2043,7 @@ namespace accessibility
                 if( nIndex <= aBoundary.endPos )
                 {
                     nextWord =  aBoundary.endPos;
-                    if( sText[nextWord] == u' ' ) nextWord++;
+                    if (nextWord < sText.getLength() && sText[nextWord] == u' ') nextWord++;
                     bWord = implGetWordBoundary( sText, aBoundary, nextWord );
                 }
 
@@ -2424,7 +2424,7 @@ namespace accessibility
         uno::Sequence< beans::PropertyValue > aOutSequence( aProperties.getLength() );
         beans::PropertyValue* pOutSequence = aOutSequence.getArray();
         sal_Int32 nOutLen = 0;
-        for (const beans::Property& rProperty : aProperties)
+        for (const beans::Property& rProperty : std::as_const(aProperties))
         {
             // calling implementation functions:
             // _getPropertyState and _getPropertyValue (see below) to provide
@@ -2510,7 +2510,7 @@ namespace accessibility
         uno::Sequence< beans::PropertyValue > aOutSequence( aProperties.getLength() );
         beans::PropertyValue* pOutSequence = aOutSequence.getArray();
         sal_Int32 nOutLen = 0;
-        for (const beans::Property& rProperty : aProperties)
+        for (const beans::Property& rProperty : std::as_const(aProperties))
         {
             // calling 'regular' functions that will operate on the selection
             PropertyState eState = xPropSet->getPropertyState( rProperty.Name );
@@ -2694,7 +2694,7 @@ namespace accessibility
     OUString SAL_CALL AccessibleEditableTextPara::getImplementationName()
     {
 
-        return OUString("AccessibleEditableTextPara");
+        return "AccessibleEditableTextPara";
     }
 
     sal_Bool SAL_CALL AccessibleEditableTextPara::supportsService (const OUString& sServiceName)

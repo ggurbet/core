@@ -89,8 +89,7 @@ public:
             {
                 for (sal_Int32 nIndex=0; nIndex<nCount; ++nIndex)
                 {
-                    if (rxSlide == Reference<drawing::XDrawPage>(
-                        xSlideShowController->getSlideByIndex(nIndex), UNO_QUERY))
+                    if (rxSlide == xSlideShowController->getSlideByIndex(nIndex))
                     {
                         nNextSlideIndex = nIndex + 1;
                     }
@@ -100,9 +99,7 @@ public:
             {
                 if (nNextSlideIndex < nCount)
                 {
-                    xSlide.set(
-                        xSlideShowController->getSlideByIndex(nNextSlideIndex),
-                         UNO_QUERY);
+                    xSlide = xSlideShowController->getSlideByIndex(nNextSlideIndex);
                 }
             }
         }
@@ -260,7 +257,7 @@ void SAL_CALL PresenterViewFactory::releaseResource (const Reference<XResource>&
     }
     else
     {
-        // Put cachable views in the cache.
+        // Put cacheable views in the cache.
         Reference<XResourceId> xViewId (rxView->getResourceId());
         if (xViewId.is())
         {

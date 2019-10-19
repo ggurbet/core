@@ -7,38 +7,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <config_features.h>
-#include <osl/process.h>
-#include <sal/log.hxx>
-#include <osl/diagnose.h>
-#include <rtl/character.hxx>
-#include <vcl/aboutdialog.hxx>
 #include <vcl/layout.hxx>
-#include <vcl/weld.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-
-#include <tools/stream.hxx>
-#include <rtl/bootstrap.hxx>
-#include <unotools/configmgr.hxx>
-#include <unotools/bootstrap.hxx>
-#include <com/sun/star/uno/Any.h>
-#include <vcl/graph.hxx>
-#include <vcl/graphicfilter.hxx>
-#include <i18nlangtag/languagetag.hxx>
-
-#include <com/sun/star/system/SystemShellExecuteFlags.hpp>
-#include <com/sun/star/system/SystemShellExecute.hpp>
-#include <comphelper/processfactory.hxx>
-#include <comphelper/anytostring.hxx>
-#include <cppuhelper/exc_hlp.hxx>
-#include <cppuhelper/bootstrap.hxx>
-#include <basegfx/numeric/ftools.hxx>
-#include <com/sun/star/geometry/RealRectangle2D.hpp>
-
-#include <config_buildid.h>
-#include <rtl/ustrbuf.hxx>
-#include <vcl/bitmap.hxx>
+#include <aboutdialog.hxx>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::beans;
@@ -56,6 +28,10 @@ AboutDialog::AboutDialog(vcl::Window* pParent, WinBits nStyle, Dialog::InitFlag 
     m_xBuilder->get(m_xDescriptionText, "description");
     m_xBuilder->get(m_xCopyrightText, "copyright");
     m_xBuilder->get(m_xBuildIdLink, "buildIdLink");
+
+#ifndef MACOSX
+    m_xVersion->RequestDoubleBuffering(true);
+#endif
 }
 
 void AboutDialog::set_content_area(VclBox* pBox)
@@ -127,10 +103,8 @@ void AboutDialog::SetBackground(const Image& rBackgroundBitmap)
     Invalidate();
 }
 
-void AboutDialog::Paint(vcl::RenderContext& rRenderContext, const ::tools::Rectangle& rRect)
+void AboutDialog::Paint(vcl::RenderContext& rRenderContext, const ::tools::Rectangle& /*rRect*/)
 {
-    rRenderContext.SetClipRegion(vcl::Region(rRect));
-
     Size aSize(GetOutputSizePixel());
     Point aPos(aSize.Width() - m_aBackgroundBitmap.GetSizePixel().Width(),
                aSize.Height() - m_aBackgroundBitmap.GetSizePixel().Height());

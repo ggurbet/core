@@ -18,8 +18,10 @@
  */
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_FLDEDT_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_FLDEDT_HXX
+
+#include <fldbas.hxx>
+
 #include <sfx2/basedlgs.hxx>
-#include <vcl/button.hxx>
 
 class SwView;
 class SwWrtShell;
@@ -36,7 +38,7 @@ class SwFieldEditDlg : public SfxSingleTabDialogController
     DECL_LINK(NextPrevHdl, weld::Button&, void);
 
     void            Init();
-    VclPtr<SfxTabPage> CreatePage(sal_uInt16 nGroup);
+    SfxTabPage* CreatePage(sal_uInt16 nGroup);
 
     void EnsureSelection(SwField *pCurField, SwFieldMgr &rMgr);
 public:

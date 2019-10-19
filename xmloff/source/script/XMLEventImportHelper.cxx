@@ -36,7 +36,6 @@ XMLEventImportHelper::XMLEventImportHelper() :
 {
 }
 
-
 XMLEventImportHelper::~XMLEventImportHelper()
 {
     // delete factories
@@ -107,9 +106,11 @@ SvXMLImportContext* XMLEventImportHelper::CreateContext(
     const OUString& rXmlEventName,
     const OUString& rLanguage)
 {
+    rImport.NotifyMacroEventRead();
+
     SvXMLImportContext* pContext = nullptr;
 
-    // translate event name form xml to api
+    // translate event name from xml to api
     OUString sMacroName;
     sal_uInt16 nMacroPrefix =
         rImport.GetNamespaceMap().GetKeyByAttrName( rXmlEventName,

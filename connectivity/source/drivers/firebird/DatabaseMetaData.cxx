@@ -598,12 +598,17 @@ OUString SAL_CALL ODatabaseMetaData::getDriverVersion()
 
 OUString SAL_CALL ODatabaseMetaData::getDatabaseProductVersion(  )
 {
-    return OUString();
+    uno::Reference< XStatement > xSelect = m_pConnection->createStatement();
+
+    uno::Reference< XResultSet > xRs = xSelect->executeQuery("SELECT rdb$get_context('SYSTEM', 'ENGINE_VERSION') as version from rdb$database");
+    (void)xRs->next(); // first and only row
+    uno::Reference< XRow > xRow( xRs, UNO_QUERY_THROW );
+    return xRow->getString(1);
 }
 
 OUString SAL_CALL ODatabaseMetaData::getDatabaseProductName(  )
 {
-    return OUString();
+    return "Firebird (engine12)";
 }
 
 OUString SAL_CALL ODatabaseMetaData::getProcedureTerm(  )
@@ -633,12 +638,15 @@ OUString SAL_CALL ODatabaseMetaData::getSearchStringEscape(  )
 
 OUString SAL_CALL ODatabaseMetaData::getStringFunctions(  )
 {
-    return OUString();
+    return "ASCII_CHAR,ASCII_VAL,BIT_LENGTH,CHAR_LENGTH,CHAR_TO_UUID,CHARACTER_LENGTH,"
+           "GEN_UUID,HASH,LEFT,LOWER,LPAD,OCTET_LENGTH,OVERLAY,POSITION,REPLACE,REVERSE,"
+           "RIGHT,RPAD,SUBSTRING,TRIM,UPPER,UUID_TO_CHAR";
 }
 
 OUString SAL_CALL ODatabaseMetaData::getTimeDateFunctions(  )
 {
-    return OUString();
+    return "CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,DATEADD, DATEDIFF,"
+           "EXTRACT,'NOW','TODAY','TOMORROW','YESTERDAY'";
 }
 
 OUString SAL_CALL ODatabaseMetaData::getSystemFunctions(  )
@@ -648,7 +656,9 @@ OUString SAL_CALL ODatabaseMetaData::getSystemFunctions(  )
 
 OUString SAL_CALL ODatabaseMetaData::getNumericFunctions(  )
 {
-    return OUString();
+    return "ABS,ACOS,ASIN,ATAN,ATAN2,BIN_AND,BIN_NOT,BIN_OR,BIN_SHL,"
+           "BIN_SHR,BIN_XOR,CEIL,CEILING,COS,COSH,COT,EXP,FLOOR,LN,"
+           "LOG,LOG10,MOD,PI,POWER,RAND,ROUND,SIGN,SIN,SINH,SQRT,TAN,TANH,TRUNC";
 }
 
 sal_Bool SAL_CALL ODatabaseMetaData::supportsExtendedSQLGrammar(  )
@@ -1117,7 +1127,7 @@ uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getColumns(
         "fields.RDB$FIELD_SCALE, "      // 10
         // Specifically use relfields null flag -- the one in fields is used
         // for domains, whether a specific field is nullable is set in relfields,
-        // this is also the one we manually fiddle when changin NULL/NOT NULL
+        // this is also the one we manually fiddle when changing NULL/NOT NULL
         // (see Table.cxx)
         "relfields.RDB$NULL_FLAG, "      // 11
         "fields.RDB$CHARACTER_LENGTH, "   // 12
@@ -1450,19 +1460,18 @@ uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getVersionColumns(
 }
 
 uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getExportedKeys(
-    const Any&, const OUString&, const OUString& )
+    const Any&, const OUString&, const OUString& table )
 {
-    // List the columns in a table which are foreign keys. This is actually
-    // never used anywhere in the LO codebase currently. Retrieval from firebird
-    // requires using a 5-table join.
-    SAL_WARN("connectivity.firebird", "Not yet implemented");
-    OSL_FAIL("Not implemented yet!");
-    // TODO implement
-    return new ODatabaseMetaDataResultSet(ODatabaseMetaDataResultSet::eExportedKeys);
+    return ODatabaseMetaData::lcl_getKeys(false, table);
 }
 
 uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getImportedKeys(
     const Any&, const OUString&, const OUString& table )
+{
+    return ODatabaseMetaData::lcl_getKeys(true, table);
+}
+
+uno::Reference< XResultSet > ODatabaseMetaData::lcl_getKeys(const bool& bIsImport, const OUString& table )
 {
     ODatabaseMetaDataResultSet* pResultSet = new
         ODatabaseMetaDataResultSet(ODatabaseMetaDataResultSet::eImportedKeys);
@@ -1491,8 +1500,11 @@ uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getImportedKeys(
            "ON PRIM.RDB$INDEX_NAME = PRIMARY_INDEX.RDB$INDEX_NAME "
            "INNER JOIN RDB$INDEX_SEGMENTS AS FOREIGN_INDEX "
            "ON FOREI.RDB$INDEX_NAME = FOREIGN_INDEX.RDB$INDEX_NAME "
-           "WHERE FOREI.RDB$CONSTRAINT_TYPE = 'FOREIGN KEY' "
-           "AND FOREI.RDB$RELATION_NAME = '"+ table +"'";
+           "WHERE FOREI.RDB$CONSTRAINT_TYPE = 'FOREIGN KEY' ";
+    if (bIsImport)
+        sSQL += "AND FOREI.RDB$RELATION_NAME = '"+ table +"'";
+    else
+        sSQL += "AND PRIM.RDB$RELATION_NAME = '"+ table +"'";
 
     uno::Reference< XResultSet > rs = statement->executeQuery(sSQL);
     uno::Reference< XRow > xRow( rs, UNO_QUERY_THROW );
@@ -1554,22 +1566,18 @@ uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getPrimaryKeys(
     SAL_INFO("connectivity.firebird", "getPrimaryKeys() with "
              "Table: " << sTable);
 
-    OUStringBuffer aQueryBuf("SELECT "
+    OUString sAppend = "WHERE constr.RDB$RELATION_NAME = '%' ";
+    OUString sQuery = "SELECT "
         "constr.RDB$RELATION_NAME, "    // 1. Table Name
         "inds.RDB$FIELD_NAME, "         // 2. Column Name
         "inds.RDB$FIELD_POSITION, "     // 3. Sequence Number
         "constr.RDB$CONSTRAINT_NAME "   // 4 Constraint name
         "FROM RDB$RELATION_CONSTRAINTS constr "
         "JOIN RDB$INDEX_SEGMENTS inds "
-        "on (constr.RDB$INDEX_NAME = inds.RDB$INDEX_NAME) ");
-
-    OUString sAppend = "WHERE constr.RDB$RELATION_NAME = '%' ";
-    aQueryBuf.append(sAppend.replaceAll("%", sTable));
-
-    aQueryBuf.append("AND constr.RDB$CONSTRAINT_TYPE = 'PRIMARY KEY' "
-                    "ORDER BY inds.RDB$FIELD_NAME");
-
-    OUString sQuery = aQueryBuf.makeStringAndClear();
+        "on (constr.RDB$INDEX_NAME = inds.RDB$INDEX_NAME) " +
+        sAppend.replaceAll("%", sTable) +
+        "AND constr.RDB$CONSTRAINT_TYPE = 'PRIMARY KEY' "
+                    "ORDER BY inds.RDB$FIELD_NAME";
 
     uno::Reference< XStatement > xStatement = m_pConnection->createStatement();
     uno::Reference< XResultSet > xRs = xStatement->executeQuery(sQuery);

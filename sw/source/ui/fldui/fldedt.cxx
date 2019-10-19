@@ -135,9 +135,8 @@ SwFieldEditDlg::SwFieldEditDlg(SwView const & rVw)
 // initialise controls
 void SwFieldEditDlg::Init()
 {
-    VclPtr<SwFieldPage> pTabPage = static_cast<SwFieldPage*>(GetTabPage());
-
-    if( pTabPage )
+    SwFieldPage* pTabPage = static_cast<SwFieldPage*>(GetTabPage());
+    if (pTabPage)
     {
         SwFieldMgr& rMgr = pTabPage->GetFieldMgr();
 
@@ -161,7 +160,7 @@ void SwFieldEditDlg::Init()
             rMgr.GoNext();
         m_xPrevBT->set_sensitive( bMove );
 
-        if (pCurField->GetTypeId() == TYP_EXTUSERFLD)
+        if (pCurField->GetTypeId() == SwFieldTypesEnum::ExtendedUser)
             m_xAddressBT->set_sensitive(true);
         else
             m_xAddressBT->set_sensitive(false);
@@ -174,23 +173,21 @@ void SwFieldEditDlg::Init()
                                 !pSh->HasReadonlySel());
 }
 
-VclPtr<SfxTabPage> SwFieldEditDlg::CreatePage(sal_uInt16 nGroup)
+SfxTabPage* SwFieldEditDlg::CreatePage(sal_uInt16 nGroup)
 {
-    TabPageParent pPageParent(get_content_area(), this);
-
     // create TabPage
-    VclPtr<SfxTabPage> pTabPage;
+    std::unique_ptr<SfxTabPage> xTabPage;
 
     switch (nGroup)
     {
         case GRP_DOC:
-            pTabPage = SwFieldDokPage::Create(pPageParent, nullptr);
+            xTabPage = SwFieldDokPage::Create(get_content_area(), this, nullptr);
             break;
         case GRP_FKT:
-            pTabPage = SwFieldFuncPage::Create(pPageParent, nullptr);
+            xTabPage = SwFieldFuncPage::Create(get_content_area(), this, nullptr);
             break;
         case GRP_REF:
-            pTabPage = SwFieldRefPage::Create(pPageParent, nullptr);
+            xTabPage = SwFieldRefPage::Create(get_content_area(), this, nullptr);
             break;
         case GRP_REG:
             {
@@ -205,30 +202,27 @@ VclPtr<SfxTabPage> SwFieldEditDlg::CreatePage(sal_uInt16 nGroup)
                     xDocProps->getUserDefinedProperties(),
                     uno::UNO_QUERY_THROW);
                 pSet->Put( SfxUnoAnyItem( SID_DOCINFO, uno::makeAny(xUDProps) ) );
-                pTabPage = SwFieldDokInfPage::Create(pPageParent, pSet);
+                xTabPage = SwFieldDokInfPage::Create(get_content_area(), this, pSet);
                 break;
             }
 #if HAVE_FEATURE_DBCONNECTIVITY
         case GRP_DB:
-            pTabPage = SwFieldDBPage::Create(pPageParent, nullptr);
-            static_cast<SwFieldDBPage*>(pTabPage.get())->SetWrtShell(*pSh);
+            xTabPage = SwFieldDBPage::Create(get_content_area(), this, nullptr);
+            static_cast<SwFieldDBPage*>(xTabPage.get())->SetWrtShell(*pSh);
             break;
 #endif
         case GRP_VAR:
-            pTabPage = SwFieldVarPage::Create(pPageParent, nullptr);
+            xTabPage = SwFieldVarPage::Create(get_content_area(), this, nullptr);
             break;
 
     }
 
-    assert(pTabPage);
+    assert(xTabPage);
 
-    if (pTabPage)
-    {
-        static_cast<SwFieldPage*>(pTabPage.get())->SetWrtShell(pSh);
-        SetTabPage(pTabPage);
-    }
+    static_cast<SwFieldPage*>(xTabPage.get())->SetWrtShell(pSh);
+    SetTabPage(std::move(xTabPage));
 
-    return pTabPage;
+    return GetTabPage();
 }
 
 SwFieldEditDlg::~SwFieldEditDlg()
@@ -254,7 +248,7 @@ IMPL_LINK_NOARG(SwFieldEditDlg, OKHdl, weld::Button&, void)
 {
     if (GetOKButton().get_sensitive())
     {
-        VclPtr<SfxTabPage> pTabPage = GetTabPage();
+        SfxTabPage* pTabPage = GetTabPage();
         if (pTabPage)
             pTabPage->FillItemSet(nullptr);
         m_xDialog->response(RET_OK);
@@ -275,7 +269,7 @@ IMPL_LINK(SwFieldEditDlg, NextPrevHdl, weld::Button&, rButton, void)
     pSh->EnterStdMode();
 
     SwFieldType *pOldTyp = nullptr;
-    VclPtr<SwFieldPage> pTabPage = static_cast<SwFieldPage*>(GetTabPage());
+    SwFieldPage* pTabPage = static_cast<SwFieldPage*>(GetTabPage());
 
     //#112462# FillItemSet may delete the current field
     //that's why it has to be called before accessing the current field
@@ -284,8 +278,8 @@ IMPL_LINK(SwFieldEditDlg, NextPrevHdl, weld::Button&, rButton, void)
 
     SwFieldMgr& rMgr = pTabPage->GetFieldMgr();
     SwField *pCurField = rMgr.GetCurField();
-    if (pCurField->GetTypeId() == TYP_DBFLD)
-        pOldTyp = static_cast<SwDBFieldType*>(pCurField->GetTyp());
+    if (pCurField->GetTypeId() == SwFieldTypesEnum::Database)
+        pOldTyp = pCurField->GetTyp();
 
     rMgr.GoNextPrev( bNext, pOldTyp );
     pCurField = rMgr.GetCurField();
@@ -295,7 +289,7 @@ IMPL_LINK(SwFieldEditDlg, NextPrevHdl, weld::Button&, rButton, void)
     sal_uInt16 nGroup = SwFieldMgr::GetGroup(pCurField->GetTypeId(), pCurField->GetSubType());
 
     if (nGroup != pTabPage->GetGroup())
-        pTabPage = static_cast<SwFieldPage*>(CreatePage(nGroup).get());
+        pTabPage = static_cast<SwFieldPage*>(CreatePage(nGroup));
 
     pTabPage->EditNewField();
 

@@ -245,6 +245,7 @@ void ThumbnailView::CalculateItemPositions (bool bScrollBarUsed)
     size_t      nItemCount = mFilteredItemList.size();
     WinBits     nStyle = GetStyle();
     VclPtr<ScrollBar>  pDelScrBar;
+    long        nScrBarWidth = 0;
 
     // consider the scrolling
     if ( nStyle & WB_VSCROLL )
@@ -254,12 +255,9 @@ void ThumbnailView::CalculateItemPositions (bool bScrollBarUsed)
             mpScrBar = VclPtr<ScrollBar>::Create( this, WB_VSCROLL | WB_DRAG );
             mpScrBar->SetScrollHdl( LINK( this, ThumbnailView, ImplScrollHdl ) );
         }
-        else
-        {
-            // adapt the width because of the changed settings
-            long nScrBarWidth = GetSettings().GetStyleSettings().GetScrollBarSize();
-            mpScrBar->setPosSizePixel( 0, 0, nScrBarWidth, 0, PosSizeFlags::Width );
-        }
+
+        // adapt the width because of the changed settings
+        nScrBarWidth = GetSettings().GetStyleSettings().GetScrollBarSize();
     }
     else
     {
@@ -278,11 +276,6 @@ void ThumbnailView::CalculateItemPositions (bool bScrollBarUsed)
                         static_cast<float>(mpScrBar->GetRangeMax()-2);
     else
         nScrollRatio = 0;
-
-    // calculate ScrollBar width
-    long nScrBarWidth = 0;
-    if ( mpScrBar )
-        nScrBarWidth = mpScrBar->GetSizePixel().Width();
 
     // calculate maximum number of visible columns
     mnCols = static_cast<sal_uInt16>((aWinSize.Width()-nScrBarWidth) / mnItemWidth);
@@ -338,8 +331,7 @@ void ThumbnailView::CalculateItemPositions (bool bScrollBarUsed)
     size_t nLastItem = nFirstItem + (mnVisLines + 1) * mnCols;
 
     // If want also draw parts of items in the last line,
-    // then we add one more line if parts of these line are
-    // visible
+    // then we add one more line if parts of this line are visible
 
     size_t nCurCount = 0;
     for ( size_t i = 0; i < nItemCount; i++ )
@@ -1216,10 +1208,9 @@ BitmapEx ThumbnailView::readThumbnail(const OUString &msURL)
     }
     catch (const uno::Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("sfx",
+        TOOLS_WARN_EXCEPTION("sfx",
             "caught exception while trying to access thumbnail of "
-            << msURL << ": " << exceptionToString(ex));
+            << msURL);
     }
 
     // Extract the image from the stream.
@@ -1239,7 +1230,9 @@ BitmapEx ThumbnailView::readThumbnail(const OUString &msURL)
 }
 
 SfxThumbnailView::SfxThumbnailView(std::unique_ptr<weld::ScrolledWindow> xWindow, std::unique_ptr<weld::Menu> xMenu)
-    : mpItemAttrs(new ThumbnailItemAttributes)
+    : mnThumbnailHeight(0)
+    , mnDisplayHeight(0)
+    , mpItemAttrs(new ThumbnailItemAttributes)
     , mxScrolledWindow(std::move(xWindow))
     , mxContextMenu(std::move(xMenu))
 {
@@ -1492,8 +1485,7 @@ void SfxThumbnailView::CalculateItemPositions(bool bScrollBarUsed)
     size_t nLastItem = nFirstItem + (mnVisLines + 1) * mnCols;
 
     // If want also draw parts of items in the last line,
-    // then we add one more line if parts of these line are
-    // visible
+    // then we add one more line if parts of this line are visible
 
     size_t nCurCount = 0;
     for ( size_t i = 0; i < nItemCount; i++ )

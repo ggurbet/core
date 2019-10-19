@@ -19,6 +19,9 @@
 
 #include <sal/config.h>
 
+#include <cassert>
+
+#include <rtl/character.hxx>
 #include <rtl/textcvt.h>
 #include <sal/types.h>
 
@@ -124,6 +127,7 @@ sal_Size ImplConvertIso2022CnToUnicode(void const * pData,
     sal_Size nConverted = 0;
     sal_Unicode * pDestBufPtr = pDestBuf;
     sal_Unicode * pDestBufEnd = pDestBuf + nDestChars;
+    sal_Size startOfCurrentChar = 0;
 
     if (pContext)
     {
@@ -149,9 +153,10 @@ sal_Size ImplConvertIso2022CnToUnicode(void const * pData,
             else if (nChar == 0x1B) // ESC
                 eState = IMPL_ISO_2022_CN_TO_UNICODE_STATE_ESC;
             else if (nChar < 0x80)
-                if (pDestBufPtr != pDestBufEnd)
+                if (pDestBufPtr != pDestBufEnd) {
                     *pDestBufPtr++ = static_cast<sal_Unicode>(nChar);
-                else
+                    startOfCurrentChar = nConverted + 1;
+                } else
                     goto no_output;
             else
             {
@@ -203,6 +208,7 @@ sal_Size ImplConvertIso2022CnToUnicode(void const * pData,
                         {
                             *pDestBufPtr++ = static_cast<sal_Unicode>(nUnicode);
                             eState = IMPL_ISO_2022_CN_TO_UNICODE_STATE_SO;
+                            startOfCurrentChar = nConverted + 1;
                         }
                         else
                             goto no_output;
@@ -332,13 +338,15 @@ sal_Size ImplConvertIso2022CnToUnicode(void const * pData,
                                 *pDestBufPtr++
                                     = static_cast<sal_Unicode>(pCns116431992Data[
                                               nOffset + (nChar - nFirst)]);
+                                startOfCurrentChar = nConverted + 1;
                             }
                             else
                                 goto no_output;
                         else
-                            if (pDestBufPtr != pDestBufEnd)
+                            if (pDestBufPtr != pDestBufEnd) {
                                 *pDestBufPtr++ = static_cast<sal_Unicode>(nUnicode);
-                            else
+                                startOfCurrentChar = nConverted + 1;
+                            } else
                                 goto no_output;
                     }
                     else
@@ -358,11 +366,17 @@ sal_Size ImplConvertIso2022CnToUnicode(void const * pData,
         case sal::detail::textenc::BAD_INPUT_STOP:
             eState = IMPL_ISO_2022_CN_TO_UNICODE_STATE_ASCII;
             b116431 = false;
+            if ((nFlags & RTL_TEXTTOUNICODE_FLAGS_FLUSH) == 0) {
+                ++nConverted;
+            } else {
+                nConverted = startOfCurrentChar;
+            }
             break;
 
         case sal::detail::textenc::BAD_INPUT_CONTINUE:
             eState = IMPL_ISO_2022_CN_TO_UNICODE_STATE_ASCII;
             b116431 = false;
+            startOfCurrentChar = nConverted + 1;
             continue;
 
         case sal::detail::textenc::BAD_INPUT_NO_OUTPUT:
@@ -389,6 +403,10 @@ sal_Size ImplConvertIso2022CnToUnicode(void const * pData,
                         &nInfo))
             {
             case sal::detail::textenc::BAD_INPUT_STOP:
+                if ((nFlags & RTL_TEXTTOUNICODE_FLAGS_FLUSH) != 0) {
+                    nConverted = startOfCurrentChar;
+                }
+                [[fallthrough]];
             case sal::detail::textenc::BAD_INPUT_CONTINUE:
                 eState = IMPL_ISO_2022_CN_TO_UNICODE_STATE_ASCII;
                 b116431 = false;
@@ -543,6 +561,11 @@ sal_Size ImplConvertUnicodeToIso2022Cn(void const * pData,
                 nHighSurrogate = static_cast<sal_Unicode>(nChar);
                 continue;
             }
+            else if (ImplIsLowSurrogate(nChar))
+            {
+                bUndefined = false;
+                goto bad_input;
+            }
         }
         else if (ImplIsLowSurrogate(nChar))
             nChar = ImplCombineSurrogates(nHighSurrogate, nChar);
@@ -552,11 +575,7 @@ sal_Size ImplConvertUnicodeToIso2022Cn(void const * pData,
             goto bad_input;
         }
 
-        if (ImplIsLowSurrogate(nChar) || ImplIsNoncharacter(nChar))
-        {
-            bUndefined = false;
-            goto bad_input;
-        }
+        assert(rtl::isUnicodeScalarValue(nChar));
 
         if (nChar == 0x0A || nChar == 0x0D) // LF, CR
         {

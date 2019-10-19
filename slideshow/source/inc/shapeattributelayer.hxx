@@ -63,7 +63,7 @@ namespace slideshow
 
             This class holds all modifiable attributes of a shape, and
             at the same time provides means to layer attributes on top
-            of each other..
+            of each other...
 
             And yes, there's a reason why we even pass bools and ints
             by const reference. Namely, that makes the set* methods
@@ -442,7 +442,7 @@ namespace slideshow
                 the shape.
 
                 The char scaling changes the scale of the whole shape
-                text (uniformely, i.e. both in x and in y direction).
+                text (uniformly, i.e. both in x and in y direction).
              */
             double getCharScale() const;
             /** Set the new char scale globally for the shape

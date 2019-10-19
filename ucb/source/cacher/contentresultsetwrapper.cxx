@@ -27,6 +27,7 @@
 #include <rtl/ustring.hxx>
 #include <osl/diagnose.h>
 #include <cppuhelper/queryinterface.hxx>
+#include <cppuhelper/interfacecontainer.hxx>
 
 using namespace com::sun::star::beans;
 using namespace com::sun::star::lang;
@@ -685,7 +686,7 @@ void SAL_CALL ContentResultSetWrapper::removeVetoableChangeListener( const OUStr
         if( !rPropertyName.isEmpty() )
         {
             if( !getPropertySetInfo().is() )
-                throw UnknownPropertyException();
+                throw UnknownPropertyException(rPropertyName);
 
             m_xPropertySetInfo->getPropertyByName( rPropertyName );
             //throws UnknownPropertyException, if so

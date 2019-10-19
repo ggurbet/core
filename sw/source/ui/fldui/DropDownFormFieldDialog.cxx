@@ -11,6 +11,9 @@
 #include <vcl/event.hxx>
 #include <IMark.hxx>
 #include <xmloff/odffields.hxx>
+#include <vcl/svapp.hxx>
+#include <strings.hrc>
+#include <swtypes.hxx>
 
 namespace sw
 {
@@ -107,7 +110,7 @@ void DropDownFormFieldDialog::InitControls()
         {
             css::uno::Sequence<OUString> vListEntries;
             pListEntries->second >>= vListEntries;
-            for (const OUString& rItem : vListEntries)
+            for (const OUString& rItem : std::as_const(vListEntries))
                 m_xListItemsTreeView->append_text(rItem);
 
             // Select the current one
@@ -128,6 +131,15 @@ void DropDownFormFieldDialog::AppendItemToList()
 {
     if (m_xListAddButton->get_sensitive())
     {
+        if (m_xListItemsTreeView->n_children() >= ODF_FORMDROPDOWN_ENTRY_COUNT_LIMIT)
+        {
+            std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(
+                m_xDialog.get(), VclMessageType::Info, VclButtonsType::Ok,
+                SwResId(STR_DROP_DOWN_FIELD_ITEM_LIMIT)));
+            xInfoBox->run();
+            return;
+        }
+
         const OUString sEntry(m_xListItemEntry->get_text());
         if (!sEntry.isEmpty())
         {

@@ -23,7 +23,6 @@
 #include <outdev.h>
 #include <PhysicalFontCollection.hxx>
 #include <svdata.hxx>
-#include <vcl/ITiledRenderable.hxx>
 #include <vcl/virdev.hxx>
 #include <sal/log.hxx>
 #include <tools/debug.hxx>
@@ -211,7 +210,7 @@ VirtualDevice::VirtualDevice(const OutputDevice* pCompDev, DeviceFormat eFormat,
     ImplInitVirDev(pCompDev ? pCompDev : Application::GetDefaultDevice(), 0, 0);
 }
 
-VirtualDevice::VirtualDevice(const SystemGraphicsData *pData, const Size &rSize,
+VirtualDevice::VirtualDevice(const SystemGraphicsData& rData, const Size &rSize,
                              DeviceFormat eFormat)
     : OutputDevice(OUTDEV_VIRDEV)
     , meFormat(eFormat)
@@ -219,7 +218,7 @@ VirtualDevice::VirtualDevice(const SystemGraphicsData *pData, const Size &rSize,
 {
     SAL_INFO( "vcl.virdev", "VirtualDevice::VirtualDevice( " << static_cast<int>(eFormat) << " )" );
 
-    ImplInitVirDev(Application::GetDefaultDevice(), rSize.Width(), rSize.Height(), pData);
+    ImplInitVirDev(Application::GetDefaultDevice(), rSize.Width(), rSize.Height(), &rData);
 }
 
 VirtualDevice::~VirtualDevice()
@@ -479,7 +478,7 @@ void VirtualDevice::ImplSetReferenceDevice( RefDevMode i_eRefDevMode, sal_Int32 
     mxFontCache.reset();
 
     // get font list with scalable fonts only
-    AcquireGraphics();
+    (void)AcquireGraphics();
     mxFontCollection = pSVData->maGDIData.mxScreenFontList->Clone();
 
     // prepare to use new font lists

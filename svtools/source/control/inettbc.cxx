@@ -19,7 +19,6 @@
 
 #ifdef UNX
 #include <pwd.h>
-#include <sys/types.h>
 #endif
 
 #include <svtools/inettbc.hxx>
@@ -28,7 +27,6 @@
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/beans/Property.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/sdbc/XResultSet.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
 #include <com/sun/star/task/XInteractionHandler.hpp>
@@ -42,26 +40,20 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <rtl/instance.hxx>
-#include <sal/log.hxx>
 #include <salhelper/thread.hxx>
 #include <tools/debug.hxx>
 #include <osl/file.hxx>
 #include <osl/mutex.hxx>
-#include <vcl/builderfactory.hxx>
+#include <vcl/builder.hxx>
 #include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/toolbox.hxx>
 #include <unotools/historyoptions.hxx>
-#include <svl/eitem.hxx>
-#include <svl/stritem.hxx>
-#include <svl/itemset.hxx>
-#include <svl/urihelper.hxx>
 #include <unotools/pathoptions.hxx>
 #include <ucbhelper/commandenvironment.hxx>
 #include <ucbhelper/content.hxx>
 #include <unotools/ucbhelper.hxx>
 #include <svtools/asynclink.hxx>
-#include <svl/urlfilter.hxx>
+#include <svtools/urlfilter.hxx>
 
 #include <vector>
 #include <algorithm>
@@ -193,20 +185,16 @@ void SvtMatchContext_Impl::FillPicklist(std::vector<OUString>& rPickList)
     {
         Sequence< PropertyValue > seqPropertySet = seqPicklist[ nItem ];
 
-        OUString sTitle;
-        INetURLObject aURL;
-
-        sal_uInt32 nPropertyCount = seqPropertySet.getLength();
-
-        for( sal_uInt32 nProperty=0; nProperty < nPropertyCount; nProperty++ )
+        auto pProperty = std::find_if(seqPropertySet.begin(), seqPropertySet.end(),
+            [](const PropertyValue& rProperty) { return rProperty.Name == HISTORY_PROPERTYNAME_TITLE; });
+        if (pProperty != seqPropertySet.end())
         {
-            if( seqPropertySet[nProperty].Name == HISTORY_PROPERTYNAME_TITLE )
-            {
-                seqPropertySet[nProperty].Value >>= sTitle;
-                aURL.SetURL( sTitle );
-                rPickList.insert(rPickList.begin() + nItem, aURL.GetMainURL(INetURLObject::DecodeMechanism::WithCharset));
-                break;
-            }
+            OUString sTitle;
+            INetURLObject aURL;
+
+            pProperty->Value >>= sTitle;
+            aURL.SetURL( sTitle );
+            rPickList.insert(rPickList.begin() + nItem, aURL.GetMainURL(INetURLObject::DecodeMechanism::WithCharset));
         }
     }
 }
@@ -350,8 +338,7 @@ void SvtMatchContext_Impl::ReadFolder( const OUString& rURL,
     {
         // a home that refers to /
 
-        OUString aNewText( aText );
-        aNewText += "/";
+        OUString aNewText = aText + "/";
         Insert( aNewText, rURL, true );
 
         return;
@@ -474,7 +461,7 @@ void SvtMatchContext_Impl::ReadFolder( const OUString& rURL,
 
                         // folders should get a final slash automatically
                         if ( bIsFolder )
-                            aInput += OUStringLiteral1(aDelimiter);
+                            aInput += OUStringChar(aDelimiter);
 
                         Insert( aInput, aObj.GetMainURL( INetURLObject::DecodeMechanism::NONE ), true );
                     }
@@ -518,20 +505,16 @@ void MatchContext_Impl::FillPicklist(std::vector<OUString>& rPickList)
     {
         Sequence< PropertyValue > seqPropertySet = seqPicklist[ nItem ];
 
-        OUString sTitle;
-        INetURLObject aURL;
-
-        sal_uInt32 nPropertyCount = seqPropertySet.getLength();
-
-        for( sal_uInt32 nProperty=0; nProperty < nPropertyCount; nProperty++ )
+        auto pProperty = std::find_if(seqPropertySet.begin(), seqPropertySet.end(),
+            [](const PropertyValue& rProperty) { return rProperty.Name == HISTORY_PROPERTYNAME_TITLE; });
+        if (pProperty != seqPropertySet.end())
         {
-            if( seqPropertySet[nProperty].Name == HISTORY_PROPERTYNAME_TITLE )
-            {
-                seqPropertySet[nProperty].Value >>= sTitle;
-                aURL.SetURL( sTitle );
-                rPickList.insert(rPickList.begin() + nItem, aURL.GetMainURL(INetURLObject::DecodeMechanism::WithCharset));
-                break;
-            }
+            OUString sTitle;
+            INetURLObject aURL;
+
+            pProperty->Value >>= sTitle;
+            aURL.SetURL( sTitle );
+            rPickList.insert(rPickList.begin() + nItem, aURL.GetMainURL(INetURLObject::DecodeMechanism::WithCharset));
         }
     }
 }
@@ -658,8 +641,7 @@ void MatchContext_Impl::ReadFolder( const OUString& rURL,
     {
         // a home that refers to /
 
-        OUString aNewText( aText );
-        aNewText += "/";
+        OUString aNewText = aText + "/";
         Insert( aNewText, rURL, true );
 
         return;
@@ -777,7 +759,7 @@ void MatchContext_Impl::ReadFolder( const OUString& rURL,
 
                         // folders should get a final slash automatically
                         if ( bIsFolder )
-                            aInput += OUStringLiteral1(aDelimiter);
+                            aInput += OUStringChar(aDelimiter);
 
                         Insert( aInput, aObj.GetMainURL( INetURLObject::DecodeMechanism::NONE ), true );
                     }
@@ -1420,8 +1402,10 @@ SvtURLBox::SvtURLBox( vcl::Window* pParent, WinBits _nStyle, INetProtocol eSmart
     Init(bSetDefaultHelpID);
 }
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeSvtURLBox(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap &)
+extern "C" SAL_DLLPUBLIC_EXPORT void makeSvtURLBox(VclPtr<vcl::Window> & rRet, const VclPtr<vcl::Window> & pParent, VclBuilder::stringmap &)
 {
+    static_assert(std::is_same_v<std::remove_pointer_t<VclBuilder::customMakeWidget>,
+                                 decltype(makeSvtURLBox)>);
     WinBits nWinBits = WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_TABSTOP|
                        WB_DROPDOWN|WB_AUTOHSCROLL;
     VclPtrInstance<SvtURLBox> pListBox(pParent, nWinBits, INetProtocol::NotValid, false);
@@ -1480,15 +1464,6 @@ void SvtURLBox::UpdatePickList( )
     }
 }
 
-void SvtURLBox::SetSmartProtocol( INetProtocol eProt )
-{
-    if ( eSmartProtocol != eProt )
-    {
-        eSmartProtocol = eProt;
-        UpdatePicklistForSmartProtocol_Impl();
-    }
-}
-
 void SvtURLBox::UpdatePicklistForSmartProtocol_Impl()
 {
     Clear();
@@ -1496,54 +1471,47 @@ void SvtURLBox::UpdatePicklistForSmartProtocol_Impl()
         return;
 
     // read history pick list
-    Sequence< Sequence< PropertyValue > > seqPicklist = SvtHistoryOptions().GetList( ePICKLIST );
-    sal_uInt32 nCount = seqPicklist.getLength();
+    const Sequence< Sequence< PropertyValue > > seqPicklist = SvtHistoryOptions().GetList( ePICKLIST );
     INetURLObject aCurObj;
 
-    for( sal_uInt32 nItem=0; nItem < nCount; nItem++ )
+    for( const Sequence< PropertyValue >& rPropertySet : seqPicklist )
     {
-        Sequence< PropertyValue > seqPropertySet = seqPicklist[ nItem ];
-
-        OUString sURL;
-
-        sal_uInt32 nPropertyCount = seqPropertySet.getLength();
-
-        for( sal_uInt32 nProperty=0; nProperty < nPropertyCount; nProperty++ )
+        auto pProperty = std::find_if(rPropertySet.begin(), rPropertySet.end(),
+            [](const PropertyValue& rProperty) { return rProperty.Name == HISTORY_PROPERTYNAME_URL; });
+        if (pProperty != rPropertySet.end())
         {
-            if( seqPropertySet[nProperty].Name == HISTORY_PROPERTYNAME_URL )
+            OUString sURL;
+
+            pProperty->Value >>= sURL;
+            aCurObj.SetURL( sURL );
+
+            if ( !sURL.isEmpty() && ( eSmartProtocol != INetProtocol::NotValid ) )
             {
-                seqPropertySet[nProperty].Value >>= sURL;
-                aCurObj.SetURL( sURL );
+                if( aCurObj.GetProtocol() != eSmartProtocol )
+                    continue;
+            }
 
-                if ( !sURL.isEmpty() && ( eSmartProtocol != INetProtocol::NotValid ) )
+            OUString aURL( aCurObj.GetMainURL( INetURLObject::DecodeMechanism::WithCharset ) );
+
+            if ( !aURL.isEmpty() )
+            {
+                bool bFound = aURL.endsWith("/");
+                if ( !bFound )
                 {
-                    if( aCurObj.GetProtocol() != eSmartProtocol )
-                        break;
+                    OUString aUpperURL = aURL.toAsciiUpperCase();
+
+                    bFound = ::std::any_of(pImpl->m_aFilters.begin(),
+                                           pImpl->m_aFilters.end(),
+                                           FilterMatch( aUpperURL ) );
                 }
-
-                OUString aURL( aCurObj.GetMainURL( INetURLObject::DecodeMechanism::WithCharset ) );
-
-                if ( !aURL.isEmpty() )
+                if ( bFound )
                 {
-                    bool bFound = aURL.endsWith("/");
-                    if ( !bFound )
-                    {
-                        OUString aUpperURL = aURL.toAsciiUpperCase();
-
-                        bFound = ::std::any_of(pImpl->m_aFilters.begin(),
-                                               pImpl->m_aFilters.end(),
-                                               FilterMatch( aUpperURL ) );
-                    }
-                    if ( bFound )
-                    {
-                        OUString aFile;
-                        if (osl::FileBase::getSystemPathFromFileURL(aURL, aFile) == osl::FileBase::E_None)
-                            InsertEntry(aFile);
-                        else
-                            InsertEntry(aURL);
-                    }
+                    OUString aFile;
+                    if (osl::FileBase::getSystemPathFromFileURL(aURL, aFile) == osl::FileBase::E_None)
+                        InsertEntry(aFile);
+                    else
+                        InsertEntry(aURL);
                 }
-                break;
             }
         }
     }
@@ -1728,7 +1696,7 @@ OUString SvtURLBox::GetURL()
     }
 
 #ifdef _WIN32
-    // erase trailing spaces on Windows since thay are invalid on this OS and
+    // erase trailing spaces on Windows since they are invalid on this OS and
     // most of the time they are inserted by accident via copy / paste
     aText = comphelper::string::stripEnd(aText, ' ');
     if ( aText.isEmpty() )
@@ -1902,12 +1870,6 @@ bool SvtURLBox_Impl::TildeParsing(
     return true;
 }
 
-void SvtURLBox::SetFilter(const OUString& _sFilter)
-{
-    pImpl->m_aFilters.clear();
-    FilterMatch::createWildCardFilterList(_sFilter,pImpl->m_aFilters);
-}
-
 //--
 
 OUString URLBox::ParseSmart( const OUString& _aText, const OUString& _aBaseURL )
@@ -2069,54 +2031,47 @@ void URLBox::UpdatePicklistForSmartProtocol_Impl()
         return;
 
     // read history pick list
-    Sequence< Sequence< PropertyValue > > seqPicklist = SvtHistoryOptions().GetList( ePICKLIST );
-    sal_uInt32 nCount = seqPicklist.getLength();
+    const Sequence< Sequence< PropertyValue > > seqPicklist = SvtHistoryOptions().GetList( ePICKLIST );
     INetURLObject aCurObj;
 
-    for( sal_uInt32 nItem=0; nItem < nCount; nItem++ )
+    for( const Sequence< PropertyValue >& rPropertySet : seqPicklist )
     {
-        Sequence< PropertyValue > seqPropertySet = seqPicklist[ nItem ];
-
-        OUString sURL;
-
-        sal_uInt32 nPropertyCount = seqPropertySet.getLength();
-
-        for( sal_uInt32 nProperty=0; nProperty < nPropertyCount; nProperty++ )
+        auto pProperty = std::find_if(rPropertySet.begin(), rPropertySet.end(),
+            [](const PropertyValue& rProperty) { return rProperty.Name == HISTORY_PROPERTYNAME_URL; });
+        if (pProperty != rPropertySet.end())
         {
-            if( seqPropertySet[nProperty].Name == HISTORY_PROPERTYNAME_URL )
+            OUString sURL;
+
+            pProperty->Value >>= sURL;
+            aCurObj.SetURL( sURL );
+
+            if ( !sURL.isEmpty() && ( eSmartProtocol != INetProtocol::NotValid ) )
             {
-                seqPropertySet[nProperty].Value >>= sURL;
-                aCurObj.SetURL( sURL );
+                if( aCurObj.GetProtocol() != eSmartProtocol )
+                    continue;
+            }
 
-                if ( !sURL.isEmpty() && ( eSmartProtocol != INetProtocol::NotValid ) )
+            OUString aURL( aCurObj.GetMainURL( INetURLObject::DecodeMechanism::WithCharset ) );
+
+            if ( !aURL.isEmpty() )
+            {
+                bool bFound = aURL.endsWith("/");
+                if ( !bFound )
                 {
-                    if( aCurObj.GetProtocol() != eSmartProtocol )
-                        break;
+                    OUString aUpperURL = aURL.toAsciiUpperCase();
+
+                    bFound = ::std::any_of(pImpl->m_aFilters.begin(),
+                                           pImpl->m_aFilters.end(),
+                                           FilterMatch( aUpperURL ) );
                 }
-
-                OUString aURL( aCurObj.GetMainURL( INetURLObject::DecodeMechanism::WithCharset ) );
-
-                if ( !aURL.isEmpty() )
+                if ( bFound )
                 {
-                    bool bFound = aURL.endsWith("/");
-                    if ( !bFound )
-                    {
-                        OUString aUpperURL = aURL.toAsciiUpperCase();
-
-                        bFound = ::std::any_of(pImpl->m_aFilters.begin(),
-                                               pImpl->m_aFilters.end(),
-                                               FilterMatch( aUpperURL ) );
-                    }
-                    if ( bFound )
-                    {
-                        OUString aFile;
-                        if (osl::FileBase::getSystemPathFromFileURL(aURL, aFile) == osl::FileBase::E_None)
-                            m_xWidget->append_text(aFile);
-                        else
-                            m_xWidget->append_text(aURL);
-                    }
+                    OUString aFile;
+                    if (osl::FileBase::getSystemPathFromFileURL(aURL, aFile) == osl::FileBase::E_None)
+                        m_xWidget->append_text(aFile);
+                    else
+                        m_xWidget->append_text(aURL);
                 }
-                break;
             }
         }
     }
@@ -2163,7 +2118,7 @@ OUString URLBox::GetURL()
     }
 
 #ifdef _WIN32
-    // erase trailing spaces on Windows since thay are invalid on this OS and
+    // erase trailing spaces on Windows since they are invalid on this OS and
     // most of the time they are inserted by accident via copy / paste
     aText = comphelper::string::stripEnd(aText, ' ');
     if ( aText.isEmpty() )
@@ -2245,6 +2200,30 @@ void URLBox::SetFilter(const OUString& _sFilter)
 {
     pImpl->m_aFilters.clear();
     FilterMatch::createWildCardFilterList(_sFilter,pImpl->m_aFilters);
+}
+
+void FilterMatch::createWildCardFilterList(const OUString& _rFilterList,::std::vector< WildCard >& _rFilters)
+{
+    if( _rFilterList.getLength() )
+    {
+        // filter is given
+        sal_Int32 nIndex = 0;
+        OUString sToken;
+        do
+        {
+            sToken = _rFilterList.getToken( 0, ';', nIndex );
+            if ( !sToken.isEmpty() )
+            {
+                _rFilters.emplace_back( sToken.toAsciiUpperCase() );
+            }
+        }
+        while ( nIndex >= 0 );
+    }
+    else
+    {
+        // no filter is given -> match all
+        _rFilters.emplace_back("*" );
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

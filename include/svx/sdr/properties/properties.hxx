@@ -28,6 +28,8 @@
 #include <svx/svxdllapi.h>
 #include <svl/typedwhich.hxx>
 
+struct _xmlTextWriter;
+typedef struct _xmlTextWriter* xmlTextWriterPtr;
 class SdrObject;
 class SfxItemSet;
 class SfxPoolItem;
@@ -93,7 +95,7 @@ namespace sdr
 
             SdrObject& GetSdrObject();
 
-            // Test changeability for a single item. If a implementation wants to prevent
+            // Test changeability for a single item. If an implementation wants to prevent
             // changing an item it should override this method.
             virtual bool AllowItemChange(const sal_uInt16 nWhich, const SfxPoolItem* pNewItem = nullptr) const = 0;
 
@@ -196,6 +198,8 @@ namespace sdr
             // allow detection of e.g. style sheet or single text attribute changes. The
             // default implementation returns 0 (zero)
             virtual sal_uInt32 getVersion() const;
+
+            virtual void dumpAsXml(xmlTextWriterPtr pWriter) const;
         };
 
         // checks the FillStyle item and removes unneeded Gradient, FillBitmap and Hatch items

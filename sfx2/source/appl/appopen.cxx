@@ -44,12 +44,12 @@
 #include <rtl/ustring.hxx>
 
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequence.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/synchronousdispatch.hxx>
 
 #include <vcl/wrkwin.hxx>
 #include <svl/intitem.hxx>
-#include <vcl/layout.hxx>
 #include <svl/stritem.hxx>
 #include <svl/eitem.hxx>
 #include <sfx2/doctempl.hxx>
@@ -177,7 +177,7 @@ private:
 ErrCode CheckPasswd_Impl
 (
     SfxObjectShell*  pDoc,
-    SfxMedium*       pFile      // the Medium and its Password shold be obtained
+    SfxMedium*       pFile      // the Medium and its Password should be obtained
 )
 
 /*  [Description]
@@ -250,7 +250,7 @@ ErrCode CheckPasswd_Impl
                             pSet->ClearItem( SID_PASSWORD );
                             pSet->ClearItem( SID_ENCRYPTIONDATA );
 
-                            if ( aEncryptionData.getLength() > 0 )
+                            if ( aEncryptionData.hasElements() )
                             {
                                 pSet->Put( SfxUnoAnyItem( SID_ENCRYPTIONDATA, uno::makeAny( aEncryptionData ) ) );
 
@@ -381,7 +381,7 @@ ErrCode SfxApplication::LoadTemplate( SfxObjectShellLock& xDoc, const OUString &
     xDoc->SetModified(false);
     xDoc->ResetError();
 
-    css::uno::Reference< css::frame::XModel >  xModel ( xDoc->GetModel(), css::uno::UNO_QUERY );
+    css::uno::Reference< css::frame::XModel >  xModel = xDoc->GetModel();
     if ( xModel.is() )
     {
         std::unique_ptr<SfxItemSet> pNew = xDoc->GetMedium()->GetItemSet()->Clone();
@@ -703,7 +703,7 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
 
                 // Run synchronous, so that not the next document is loaded
                 // when rescheduling
-                // TODO/LATER: use URLList argument and always remove one document after another, each step in asychronous execution, until finished
+                // TODO/LATER: use URLList argument and always remove one document after another, each step in asynchronous execution, until finished
                 // but only if reschedule is a problem
                 GetDispatcher_Impl()->Execute( SID_OPENDOC, SfxCallMode::SYNCHRON, *rReq.GetArgs() );
 
@@ -865,11 +865,11 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
 
                     // get registered protocol handlers from configuration
                     Reference < XNameAccess > xAccess(officecfg::Office::ProtocolHandler::HandlerSet::get());
-                    Sequence < OUString > aNames = xAccess->getElementNames();
-                    for ( sal_Int32 nName = 0; nName < aNames.getLength(); nName ++)
+                    const Sequence < OUString > aNames = xAccess->getElementNames();
+                    for ( const auto& rName : aNames )
                     {
                         Reference < XPropertySet > xSet;
-                        Any aRet = xAccess->getByName( aNames[nName] );
+                        Any aRet = xAccess->getByName( rName );
                         aRet >>= xSet;
                         if ( xSet.is() )
                         {
@@ -1010,7 +1010,7 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
         }
         else
         {
-            xTargetFrame.set( Desktop::create(::comphelper::getProcessComponentContext()), UNO_QUERY );
+            xTargetFrame = Desktop::create(::comphelper::getProcessComponentContext());
         }
     }
 
@@ -1033,15 +1033,12 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
     // Any Referer (that was relevant in the above call to
     // SvtSecurityOptions::isSecureMacroUri) is no longer relevant, assuming
     // this "open" request is initiated directly by the user:
-    for (sal_Int32 i = 0; i != aArgs.getLength(); ++i) {
-        if (aArgs[i].Name == "Referer") {
-            ++i;
-            for (; i != aArgs.getLength(); ++i) {
-                aArgs[i - 1] = aArgs[i];
-            }
-            aArgs.realloc(aArgs.getLength()-1);
-            break;
-        }
+    auto pArg = std::find_if(aArgs.begin(), aArgs.end(),
+        [](const PropertyValue& rArg) { return rArg.Name == "Referer"; });
+    if (pArg != aArgs.end())
+    {
+        auto nIndex = static_cast<sal_Int32>(std::distance(aArgs.begin(), pArg));
+        comphelper::removeElementAt(aArgs, nIndex);
     }
 
     // TODO/LATER: either remove LinkItem or create an asynchronous process for it

@@ -54,13 +54,13 @@ OUString getDigestURI(sal_Int32 nID)
     switch( nID )
     {
         case cssxc::DigestID::SHA1:
-            return OUString(ALGO_XMLDSIGSHA1);
+            return ALGO_XMLDSIGSHA1;
         case cssxc::DigestID::SHA256:
-            return OUString(ALGO_XMLDSIGSHA256);
+            return ALGO_XMLDSIGSHA256;
         case cssxc::DigestID::SHA512:
-            return OUString(ALGO_XMLDSIGSHA512);
+            return ALGO_XMLDSIGSHA512;
         default:
-            return OUString(ALGO_XMLDSIGSHA1);
+            return ALGO_XMLDSIGSHA1;
     }
 }
 OUString getSignatureURI(svl::crypto::SignatureMethodAlgorithm eAlgorithm, sal_Int32 nDigestID)
@@ -91,13 +91,13 @@ OUString getSignatureURI(svl::crypto::SignatureMethodAlgorithm eAlgorithm, sal_I
     switch (nDigestID)
     {
         case cssxc::DigestID::SHA1:
-            return OUString(ALGO_RSASHA1);
+            return ALGO_RSASHA1;
         case cssxc::DigestID::SHA256:
-            return OUString(ALGO_RSASHA256);
+            return ALGO_RSASHA256;
         case cssxc::DigestID::SHA512:
-            return OUString(ALGO_RSASHA512);
+            return ALGO_RSASHA512;
         default:
-            return OUString(ALGO_RSASHA1);
+            return ALGO_RSASHA1;
     }
 }
 }
@@ -232,7 +232,7 @@ bool XSecController::chainOn()
  *  creates xml security components, and chains the SAXEventKeeper into
  *  the SAX chain.
  *  Before being chained in, the SAXEventKeeper needs to receive all
- *  missed key SAX events, which can promise the DOM tree bufferred by the
+ *  missed key SAX events, which can promise the DOM tree buffered by the
  *  SAXEventKeeper has the same structure with the original document.
  *
  *   RESULT
@@ -242,7 +242,7 @@ bool XSecController::chainOn()
  *   NOTES
  *  Sometimes, the last key SAX event can't be transferred to the
  *  SAXEventKeeper together.
- *  For instance, at the time an referenced element is detected, the
+ *  For instance, at the time a referenced element is detected, the
  *  startElement event has already been reserved by the ElementStackKeeper.
  *  Meanwhile, an ElementCollector needs to be created before the
  *  SAXEventKeeper receives that startElement event.

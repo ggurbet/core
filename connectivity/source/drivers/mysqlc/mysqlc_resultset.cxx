@@ -98,15 +98,12 @@ bool OResultSet::checkNull(sal_Int32 column)
 
 OUString SAL_CALL OResultSet::getImplementationName()
 {
-    return OUString("com.sun.star.sdbcx.mysqlc.ResultSet");
+    return "com.sun.star.sdbcx.mysqlc.ResultSet";
 }
 
 uno::Sequence<OUString> SAL_CALL OResultSet::getSupportedServiceNames()
 {
-    uno::Sequence<OUString> aSupported(2);
-    aSupported[0] = "com.sun.star.sdbc.ResultSet";
-    aSupported[1] = "com.sun.star.sdbcx.ResultSet";
-    return aSupported;
+    return { "com.sun.star.sdbc.ResultSet", "com.sun.star.sdbcx.ResultSet" };
 }
 
 sal_Bool SAL_CALL OResultSet::supportsService(const OUString& _rServiceName)

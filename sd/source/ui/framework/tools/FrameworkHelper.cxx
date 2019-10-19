@@ -29,6 +29,7 @@
 #include <ViewShellHint.hxx>
 #include <app.hrc>
 #include <com/sun/star/drawing/framework/XControllerManager.hpp>
+#include <com/sun/star/frame/XController.hpp>
 #include <cppuhelper/compbase.hxx>
 #include <svl/lstner.hxx>
 
@@ -390,7 +391,7 @@ void FrameworkHelper::Dispose()
     mxConfigurationController = nullptr;
 }
 
-bool FrameworkHelper::IsValid()
+bool FrameworkHelper::IsValid() const
 {
     return mxConfigurationController.is();
 }
@@ -752,11 +753,11 @@ OUString FrameworkHelper::ResourceIdToString (const Reference<XResourceId>& rxRe
         sString.append(rxResourceId->getResourceURL());
         if (rxResourceId->hasAnchor())
         {
-            Sequence<OUString> aAnchorURLs (rxResourceId->getAnchorURLs());
-            for (sal_Int32 nIndex=0; nIndex < aAnchorURLs.getLength(); ++nIndex)
+            const Sequence<OUString> aAnchorURLs (rxResourceId->getAnchorURLs());
+            for (const auto& rAnchorURL : aAnchorURLs)
             {
                 sString.append(" | ");
-                sString.append(aAnchorURLs[nIndex]);
+                sString.append(rAnchorURL);
             }
         }
     }
@@ -930,7 +931,7 @@ LifetimeController::LifetimeController (::sd::ViewShellBase& rBase)
     acquire();
     mbListeningToViewShellBase = true;
 
-    Reference<XComponent> xComponent (rBase.GetController(), UNO_QUERY);
+    Reference<XComponent> xComponent = rBase.GetController();
     if (xComponent.is())
     {
         xComponent->addEventListener(this);

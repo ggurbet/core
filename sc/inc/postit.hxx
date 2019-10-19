@@ -45,11 +45,11 @@ public:
     ScCaptionPtr();
     explicit ScCaptionPtr( SdrCaptionObj* p );
     ScCaptionPtr( const ScCaptionPtr& r );
-    ScCaptionPtr( ScCaptionPtr&& r );
+    ScCaptionPtr(ScCaptionPtr&& r) noexcept;
     ~ScCaptionPtr();
 
     ScCaptionPtr& operator=( const ScCaptionPtr& r );
-    ScCaptionPtr& operator=( ScCaptionPtr&& r );
+    ScCaptionPtr& operator=(ScCaptionPtr&& r) noexcept;
     explicit operator bool() const    { return mpCaption != nullptr; }
     const SdrCaptionObj* get() const        { return mpCaption; }
     SdrCaptionObj* get()        { return mpCaption; }
@@ -82,7 +82,7 @@ public:
 
     /** Forget the SdrCaptionObj pointer in this one instance.
         Decrements a use count but does not destroy the object, it's up to the
-        caller to manage this mess..
+        caller to manage this mess...
      */
     void forget();
 
@@ -131,7 +131,7 @@ private:
 
         Used by move-ctor and move assignment operator.
      */
-    void replaceInList( ScCaptionPtr* pNew );
+    void replaceInList(ScCaptionPtr* pNew) noexcept;
 
     /** Dissolve list when the caption object is released or gone. */
     void dissolve();

@@ -18,20 +18,9 @@
  */
 
 #include <toolkit/helper/property.hxx>
-#include <toolkit/helper/macros.hxx>
-#include <osl/mutex.hxx>
 
-#include <stdlib.h>
 #include <tools/debug.hxx>
-#include <com/sun/star/awt/FontWeight.hpp>
-#include <com/sun/star/awt/FontSlant.hpp>
-#include <com/sun/star/awt/CharSet.hpp>
 #include <com/sun/star/awt/FontDescriptor.hpp>
-#include <com/sun/star/awt/FontWidth.hpp>
-#include <com/sun/star/awt/FontType.hpp>
-#include <com/sun/star/awt/FontUnderline.hpp>
-#include <com/sun/star/awt/FontStrikeout.hpp>
-#include <com/sun/star/awt/FontPitch.hpp>
 #include <com/sun/star/awt/XDevice.hpp>
 #include <com/sun/star/awt/tree/XTreeDataModel.hpp>
 #include <com/sun/star/awt/grid/XGridDataModel.hpp>
@@ -161,7 +150,7 @@ static ImplPropertyInfo* ImplGetPropertyInfos( sal_uInt16& rElementCount )
         DECL_PROP_2     ( "HardLineBreaks",         HARDLINEBREAKS,     bool,               BOUND, MAYBEDEFAULT ),
         DECL_PROP_2     ( "ImageAlign",             IMAGEALIGN,         sal_Int16,          BOUND, MAYBEDEFAULT),
         DECL_PROP_2     ( "ImagePosition",          IMAGEPOSITION,      sal_Int16,          BOUND, MAYBEDEFAULT),
-        DECL_PROP_2     ( "ImageURL",               IMAGEURL,           OUString,           BOUND, MAYBEDEFAULT ),
+        DECL_PROP_2     ( "ImageURL",               IMAGEURL,           css::uno::Any,      BOUND, MAYBEDEFAULT ),
         DECL_PROP_3     ( "ItemSeparatorPos",       ITEM_SEPARATOR_POS, sal_Int16,          BOUND, MAYBEDEFAULT, MAYBEVOID ),
         DECL_PROP_2     ( "Label",                  LABEL,              OUString,           BOUND, MAYBEDEFAULT ),
         DECL_PROP_3     ( "LineColor",              LINECOLOR,          sal_Int32,          BOUND, MAYBEDEFAULT, MAYBEVOID ),

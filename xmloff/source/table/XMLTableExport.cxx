@@ -19,22 +19,16 @@
 
 #include <xmloff/table/XMLTableExport.hxx>
 
-#include <xmloff/dllapi.h>
-
 #include <sal/config.h>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 
 #include <rtl/ustring.hxx>
-#include <rtl/ustrbuf.hxx>
 
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/text/XText.hpp>
-#include <com/sun/star/container/XNamed.hpp>
-#include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
 #include <com/sun/star/table/XColumnRowRange.hpp>
-#include <com/sun/star/table/CellContentType.hpp>
 #include <com/sun/star/table/XMergeableCell.hpp>
 #include <com/sun/star/style/XStyle.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -85,8 +79,8 @@ const XMLPropertyMapEntry* getRowPropertiesMap()
     static const XMLPropertyMapEntry aXMLRowProperties[] =
     {
         RMAP( "Height",         XML_NAMESPACE_STYLE, XML_ROW_HEIGHT,                    XML_TYPE_MEASURE,   0 ),
-        RMAP( "OptimalHeight",  XML_NAMESPACE_STYLE, XML_MIN_ROW_HEIGHT,                XML_TYPE_MEASURE,   0 ),
-        RMAP( "OptimalWidth",   XML_NAMESPACE_STYLE, XML_USE_OPTIMAL_ROW_HEIGHT,        XML_TYPE_BOOL, 0 ),
+        RMAP( "MinHeight",      XML_NAMESPACE_STYLE, XML_MIN_ROW_HEIGHT,                XML_TYPE_MEASURE,   0 ),
+        RMAP( "OptimalHeight",  XML_NAMESPACE_STYLE, XML_USE_OPTIMAL_ROW_HEIGHT,        XML_TYPE_BOOL, 0 ),
         MAP_END
     };
 
@@ -394,7 +388,7 @@ static bool has_states( const std::vector< XMLPropertyState >& xPropStates )
                     mrExport.AddAttribute(XML_NAMESPACE_TABLE, XML_STYLE_NAME, sStyleName );
             }
 
-            // TODO: All columns first have to be checked if some ones
+            // TODO: all columns first have to be checked if someone
             // have identical properties. If yes, attr table:number-columns-repeated
             // has to be written.
             SvXMLElementExport tableColumnElement( mrExport, XML_NAMESPACE_TABLE, XML_TABLE_COLUMN, true, true );
@@ -455,7 +449,7 @@ static bool has_states( const std::vector< XMLPropertyState >& xPropStates )
 
 // ODF export of the text contents of a table cell.
 // Remarks: Up to now we only export text contents!
-// TODO: Check against nested tables ....
+// TODO: Check against nested tables...
 
  void XMLTableExport::ImpExportText( const Reference< XCell >& xCell )
  {
@@ -579,7 +573,7 @@ void XMLTableExport::exportTableTemplates()
             if (mbWriter)
             {
                 mrExport.AddAttribute(XML_NAMESPACE_TABLE, XML_NAME, xTableStyle->getName());
-                Reference<XPropertySet> xTableStylePropSet(xTableStyle.get(), UNO_QUERY_THROW);
+                Reference<XPropertySet> xTableStylePropSet(xTableStyle, UNO_QUERY_THROW);
                 pElements = getWriterSpecificTableStyleAttributes();
                 while(pElements->meElement != XML_TOKEN_END)
                 {
@@ -591,8 +585,7 @@ void XMLTableExport::exportTableTemplates()
                     }
                     catch(const Exception&)
                     {
-                        css::uno::Any ex( cppu::getCaughtException() );
-                        SAL_WARN("xmloff", "XMLTableExport::exportTableTemplates(), export Writer specific attributes, exception caught! " << exceptionToString(ex));
+                        TOOLS_WARN_EXCEPTION("xmloff", "XMLTableExport::exportTableTemplates(), export Writer specific attributes, exception caught!");
                     }
                     pElements++;
                 }
@@ -649,8 +642,7 @@ void XMLTableExport::exportTableTemplates()
                     }
                     catch(const Exception&)
                     {
-                        css::uno::Any ex( cppu::getCaughtException() );
-                        SAL_WARN("xmloff", "XMLTableExport::exportTableTemplates(), export Writer specific styles, exception caught!" << exceptionToString(ex));
+                        TOOLS_WARN_EXCEPTION("xmloff", "XMLTableExport::exportTableTemplates(), export Writer specific styles, exception caught!");
                     }
                     pElements++;
                 }
@@ -658,14 +650,12 @@ void XMLTableExport::exportTableTemplates()
         }
         catch(const Exception&)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("xmloff", "XMLTableExport::exportTableDesigns(), exception caught while exporting a table design! " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("xmloff", "XMLTableExport::exportTableDesigns(), exception caught while exporting a table design!");
         }
     }
     catch(const Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("xmloff", "XMLTableExport::exportTableDesigns(), exception caught! " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("xmloff", "XMLTableExport::exportTableDesigns()");
     }
 }
 

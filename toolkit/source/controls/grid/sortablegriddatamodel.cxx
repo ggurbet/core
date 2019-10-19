@@ -36,7 +36,6 @@
 #include <comphelper/anycompare.hxx>
 #include <comphelper/componentguard.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <tools/diagnose_ex.h>
 #include <i18nlangtag/languagetag.hxx>
 #include <vcl/svapp.hxx>
@@ -869,7 +868,7 @@ void lcl_clear( STLCONTAINER& i_container )
 
     OUString SAL_CALL SortableGridDataModel::getImplementationName(  )
     {
-        return OUString( "org.openoffice.comp.toolkit.SortableGridDataModel" );
+        return "org.openoffice.comp.toolkit.SortableGridDataModel";
     }
 
     sal_Bool SAL_CALL SortableGridDataModel::supportsService( const OUString& i_serviceName )

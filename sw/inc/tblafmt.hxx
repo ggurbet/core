@@ -30,28 +30,11 @@
 
 #include <memory>
 
-#include <svx/algitem.hxx>
-#include <editeng/fontitem.hxx>
-#include <editeng/fhgtitem.hxx>
-#include <editeng/wghtitem.hxx>
-#include <editeng/postitem.hxx>
-#include <editeng/udlnitem.hxx>
-#include <editeng/crossedoutitem.hxx>
-#include <editeng/contouritem.hxx>
-#include <editeng/shdditem.hxx>
-#include <editeng/colritem.hxx>
-#include <editeng/boxitem.hxx>
-#include <editeng/brushitem.hxx>
-#include <editeng/adjustitem.hxx>
-#include <editeng/justifyitem.hxx>
 #include <editeng/formatbreakitem.hxx>
 #include <editeng/keepitem.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <editeng/shaditem.hxx>
-#include <svx/rotmodit.hxx>
 #include <svx/autoformathelper.hxx>
-#include <svl/intitem.hxx>
-#include <editeng/lineitem.hxx>
 #include "fmtpdsc.hxx"
 #include "fmtornt.hxx"
 #include "swdllapi.h"
@@ -187,7 +170,7 @@ class SW_DLLPUBLIC SwTableAutoFormat
     // Calc specific flags.
     bool m_bInclWidthHeight : 1;
 
-    SwBoxAutoFormat* m_aBoxAutoFormat[ 16 ];
+    SwBoxAutoFormat* m_aBoxAutoFormat[ 16 ] = {};
 
     // Writer-specific options
     std::shared_ptr<SvxFormatBreakItem> m_aBreak;
@@ -320,7 +303,7 @@ class SwCellStyleDescriptor
 public:
     SwCellStyleDescriptor(const std::pair<OUString, std::unique_ptr<SwBoxAutoFormat>>& rCellStyleDesc) : m_rCellStyleDesc(rCellStyleDesc) { }
 
-    const OUString&  GetName()   { return m_rCellStyleDesc.first; }
+    const OUString&  GetName() const   { return m_rCellStyleDesc.first; }
 };
 
 class SwCellStyleTable

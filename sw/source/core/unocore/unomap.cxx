@@ -311,6 +311,7 @@ const SfxItemPropertyMapEntry* SwUnoPropertyMapProvider::GetPropertyMapEntries(s
                     { OUString(UNO_NAME_IS_LAYOUT_IN_CELL), RES_FOLLOW_TEXT_FLOW,     cppu::UnoType<bool>::get(), PROPERTY_NONE, MID_FTF_LAYOUT_IN_CELL},
                     // #i28701#
                     { OUString(UNO_NAME_WRAP_INFLUENCE_ON_POSITION), RES_WRAP_INFLUENCE_ON_OBJPOS, cppu::UnoType<sal_Int8>::get(), PROPERTY_NONE, MID_WRAP_INFLUENCE},
+                    { OUString(UNO_NAME_ALLOW_OVERLAP), RES_WRAP_INFLUENCE_ON_OBJPOS, cppu::UnoType<bool>::get(), PROPERTY_NONE, MID_ALLOW_OVERLAP},
                     // #i28749#
                     { OUString(UNO_NAME_TRANSFORMATION_IN_HORI_L2R),
                                     FN_SHAPE_TRANSFORMATION_IN_HORI_L2R,
@@ -933,6 +934,7 @@ const SfxItemPropertyMapEntry* SwUnoPropertyMapProvider::GetPropertyMapEntries(s
                     {OUString(UNO_NAME_CONTENT),    FIELD_PROP_PAR2,    cppu::UnoType<OUString>::get(),   PROPERTY_NONE, 0},
                     {OUString(UNO_NAME_INITIALS),   FIELD_PROP_PAR3,    cppu::UnoType<OUString>::get(),   PROPERTY_NONE, 0},
                     {OUString(UNO_NAME_NAME),       FIELD_PROP_PAR4,    cppu::UnoType<OUString>::get(),   PROPERTY_NONE, 0},
+                    {OUString(UNO_NAME_RESOLVED),       FIELD_PROP_BOOL1,    cppu::UnoType<bool>::get(),   PROPERTY_NONE, 0},
                     {OUString(UNO_NAME_DATE_TIME_VALUE),    FIELD_PROP_DATE_TIME,   cppu::UnoType<css::util::DateTime>::get(),    PROPERTY_NONE, 0},
                     {OUString(UNO_NAME_DATE),    FIELD_PROP_DATE,   cppu::UnoType<css::util::Date>::get(),    PROPERTY_NONE, 0},
                     {OUString(UNO_NAME_TEXT_RANGE), FIELD_PROP_TEXT, cppu::UnoType<css::uno::XInterface>::get(),  PropertyAttribute::READONLY,    0},

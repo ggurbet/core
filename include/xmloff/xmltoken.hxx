@@ -105,6 +105,8 @@ namespace xmloff { namespace token {
         XML_N_FORM,
         XML_NP_SCRIPT,
         XML_N_SCRIPT,
+        XML_NP_TCD,
+        XML_N_TCD,
         XML_NP_XFORMS_1_0,
         XML_N_XFORMS_1_0,
         XML_NP_XSD,
@@ -486,6 +488,7 @@ namespace xmloff { namespace token {
         XML_CONTRAST,
         XML_CONTROL,
         XML_CONVERSION_MODE,
+        XML_CONVERSION_TYPE,
         XML_COPY_BACK,
         XML_COPY_FORMULAS,
         XML_COPY_OUTLINE_LEVELS,
@@ -716,6 +719,7 @@ namespace xmloff { namespace token {
         XML_ENDNOTE_REF,
         XML_ENDNOTES_CONFIGURATION,
         XML_ENGRAVED,
+        XML_ENTRY,
         XML_EQ,
         XML_EQUAL_AUTHOR,
         XML_EQUAL_COMMENT,
@@ -1095,6 +1099,7 @@ namespace xmloff { namespace token {
         XML_LABEL_STROKE_WIDTH,
         XML_LAMBDA,
         XML_LANDSCAPE,
+        XML_LANG,
         XML_LANGUAGE,
         XML_LANGUAGE_ASIAN,
         XML_LANGUAGE_COMPLEX,
@@ -1107,6 +1112,7 @@ namespace xmloff { namespace token {
         XML_LEADER_CHAR,
         XML_LEFT,
         XML_LEFT_OUTSIDE,
+        XML_LEFT_TEXT,
         XML_LEFT_TOP_POSITION,
         XML_LEFTARC,
         XML_LEFTCIRCLE,
@@ -1501,6 +1507,9 @@ namespace xmloff { namespace token {
         XML_PUNCTUATION_WRAP,
         XML_PURPLE,
         XML_PYRAMID,
+        XML_QRCODE,
+        XML_QRCODE_BORDER,
+        XML_QRCODE_ERROR_CORRECTION,
         XML_QUARTER,
         XML_QUERY_NAME,
         XML_QUO_VADIS,
@@ -1554,6 +1563,7 @@ namespace xmloff { namespace token {
         XML_RIDGE,
         XML_RIGHT,
         XML_RIGHT_OUTSIDE,
+        XML_RIGHT_TEXT,
         XML_RIGHTARC,
         XML_RIGHTCIRCLE,
         XML_RING,
@@ -1866,6 +1876,7 @@ namespace xmloff { namespace token {
         XML_TEXT_COMBINE_END_CHAR,
         XML_TEXT_COMBINE_START_CHAR,
         XML_TEXT_CONTENT,
+        XML_TEXT_CONVERSION_DICTIONARY,
         XML_TEXT_CROSSING_OUT,
         XML_TEXT_EMPHASIZE,
         XML_TEXT_GLOBAL,
@@ -2491,6 +2502,7 @@ namespace xmloff { namespace token {
         // Tokens have been renamed and <XML_ITERATIVE> has been added (#i35017#)
         XML_ONCE_SUCCESSIVE,
         XML_ONCE_CONCURRENT,
+        XML_ALLOW_OVERLAP,
 
         // Names for OOo format only
         XML_N_OFFICE_OOO,
@@ -3349,6 +3361,8 @@ namespace xmloff { namespace token {
 
         // tdf#115007
         XML_TRANSLITERATION_SPELLOUT,
+
+        XML_RESOLVED,
 
         XML_TOKEN_END
     };

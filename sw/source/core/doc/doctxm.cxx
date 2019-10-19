@@ -361,6 +361,7 @@ SwTOXBaseSection* SwDoc::InsertTableOf( const SwPaM& aPam,
                                         bool bExpand,
                                         SwRootFrame const*const pLayout )
 {
+    assert(!bExpand || pLayout != nullptr);
     GetIDocumentUndoRedo().StartUndo( SwUndoId::INSTOX, nullptr );
 
     OUString sSectNm = GetUniqueTOXBaseName( *rTOX.GetTOXType(), rTOX.GetTOXName() );
@@ -906,10 +907,10 @@ void SwTOXBaseSection::Update(const SfxItemSet* pAttr,
     if(TOX_AUTHORITIES == SwTOXBase::GetType())
         UpdateAuthorities( aIntl, pLayout );
 
-    // Insert AlphaDelimitters if needed (just for keywords)
+    // Insert AlphaDelimiters if needed (just for keywords)
     if( TOX_INDEX == SwTOXBase::GetType() &&
         ( GetOptions() & SwTOIOptions::AlphaDelimiter ) )
-        InsertAlphaDelimitter( aIntl );
+        InsertAlphaDelimiter( aIntl );
 
     // remove old content an insert one empty textnode (to hold the layout!)
     SwTextNode* pFirstEmptyNd;
@@ -1079,7 +1080,7 @@ void SwTOXBaseSection::Update(const SfxItemSet* pAttr,
     SetProtect( SwTOXBase::IsProtected() );
 }
 
-void SwTOXBaseSection::InsertAlphaDelimitter( const SwTOXInternational& rIntl )
+void SwTOXBaseSection::InsertAlphaDelimiter( const SwTOXInternational& rIntl )
 {
     SwDoc* pDoc = GetFormat()->GetDoc();
     OUString sLastDeli;
@@ -1090,14 +1091,14 @@ void SwTOXBaseSection::InsertAlphaDelimitter( const SwTOXInternational& rIntl )
 
         sal_uInt16 nLevel = m_aSortArr[i]->GetLevel();
 
-        // Skip AlphaDelimitter
-        if( nLevel == FORM_ALPHA_DELIMITTER )
+        // Skip AlphaDelimiter
+        if( nLevel == FORM_ALPHA_DELIMITER )
             continue;
 
         const OUString sDeli = rIntl.GetIndexKey( m_aSortArr[i]->GetText(),
                                    m_aSortArr[i]->GetLocale() );
 
-        // Do we already have a Delimitter?
+        // Do we already have a Delimiter?
         if( !sDeli.isEmpty() && sLastDeli != sDeli )
         {
             // We skip all that are less than a small Blank (these are special characters)
@@ -1106,7 +1107,7 @@ void SwTOXBaseSection::InsertAlphaDelimitter( const SwTOXInternational& rIntl )
                 std::unique_ptr<SwTOXCustom> pCst(
                         MakeSwTOXSortTabBase<SwTOXCustom>(nullptr,
                                 TextAndReading(sDeli, OUString()),
-                                                     FORM_ALPHA_DELIMITTER,
+                                                     FORM_ALPHA_DELIMITER,
                                                      rIntl, m_aSortArr[i]->GetLocale() ));
                 m_aSortArr.insert( m_aSortArr.begin() + i, std::move(pCst));
                 i++;
@@ -1336,7 +1337,7 @@ void SwTOXBaseSection::UpdateSequence(const SwTextNode* pOwnChapterNode,
         {
             const SwSetExpField& rSeqField = dynamic_cast<const SwSetExpField&>(*(pFormatField->GetField()));
             const OUString sName = GetSequenceName()
-                + OUStringLiteral1(cSequenceMarkSeparator)
+                + OUStringChar(cSequenceMarkSeparator)
                 + OUString::number( rSeqField.GetSeqNumber() );
             std::unique_ptr<SwTOXPara> pNew(new SwTOXPara( rTextNode, SwTOXElement::Sequence, 1, sName ));
             // set indexes if the number or the reference text are to be displayed
@@ -1533,7 +1534,7 @@ void SwTOXBaseSection::UpdateContent( SwTOXElement eMyType,
                         pLayout, *pCNd, eMyType,
                             ( USHRT_MAX != nSetLevel )
                             ? static_cast<sal_uInt16>(nSetLevel)
-                            : FORM_ALPHA_DELIMITTER ) );
+                            : FORM_ALPHA_DELIMITER ) );
                 InsertSorted( std::move(pNew) );
             }
         }
@@ -1727,9 +1728,9 @@ void SwTOXBaseSection::UpdatePageNum_( SwTextNode* pNd,
     // collect starts end ends of main entry character style
     std::unique_ptr< std::vector<sal_uInt16> > xCharStyleIdx(pMainEntryNums ? new std::vector<sal_uInt16> : nullptr);
 
-    OUString sSrchStr = OUStringLiteral1(C_NUM_REPL) + S_PAGE_DELI + OUStringLiteral1(C_NUM_REPL);
+    OUString sSrchStr = OUStringChar(C_NUM_REPL) + S_PAGE_DELI + OUStringChar(C_NUM_REPL);
     sal_Int32 nStartPos = pNd->GetText().indexOf(sSrchStr);
-    sSrchStr = OUStringLiteral1(C_NUM_REPL) + OUStringLiteral1(C_END_PAGE_NUM);
+    sSrchStr = OUStringChar(C_NUM_REPL) + OUStringChar(C_END_PAGE_NUM);
     sal_Int32 nEndPos = pNd->GetText().indexOf(sSrchStr);
 
     if (-1 == nEndPos || rNums.empty())

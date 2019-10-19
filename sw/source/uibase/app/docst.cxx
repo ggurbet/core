@@ -88,6 +88,7 @@
 #include <paratr.hxx>
 #include <tblafmt.hxx>
 #include <sfx2/watermarkitem.hxx>
+#include <SwUndoFmt.hxx>
 
 using namespace ::com::sun::star;
 
@@ -384,7 +385,7 @@ void SwDocShell::ExecStyleSheet( SfxRequest& rReq )
                 {
                     case SID_STYLE_NEW_BY_EXAMPLE:
                     {
-                        SfxNewStyleDlg aDlg(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(), *GetStyleSheetPool());
+                        SfxNewStyleDlg aDlg(GetView()->GetFrameWeld(), *GetStyleSheetPool());
                         if (aDlg.run() == RET_OK)
                         {
                             aParam = aDlg.GetName();
@@ -678,7 +679,17 @@ void SwDocShell::Edit(
         else
             nMask = SfxStyleSearchBits::UserDefined;
 
-        pStyle = &m_xBasePool->Make( rName, nFamily, nMask );
+        if ( nFamily == SfxStyleFamily::Para || nFamily == SfxStyleFamily::Char || nFamily == SfxStyleFamily::Frame )
+        {
+            // Prevent undo append from being done during paragraph, character, and frame style Make
+            // Do it after ok return from style dialog when derived from style is known
+            ::sw::UndoGuard const undoGuard(GetDoc()->GetIDocumentUndoRedo());
+            pStyle = &m_xBasePool->Make( rName, nFamily, nMask );
+        }
+        else
+        {
+            pStyle = &m_xBasePool->Make( rName, nFamily, nMask );
+        }
 
         // set the current one as Parent
         SwDocStyleSheet* pDStyle = static_cast<SwDocStyleSheet*>(pStyle);
@@ -822,7 +833,7 @@ void SwDocShell::Edit(
         FieldUnit eMetric = ::GetDfltMetric(0 != (HTMLMODE_ON&nHtmlMode));
         SW_MOD()->PutItem(SfxUInt16Item(SID_ATTR_METRIC, static_cast< sal_uInt16 >(eMetric)));
         SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-        VclPtr<SfxAbstractApplyTabDialog> pDlg(pFact->CreateTemplateDialog(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(),
+        VclPtr<SfxAbstractApplyTabDialog> pDlg(pFact->CreateTemplateDialog(GetView()->GetFrameWeld(),
                                                     *xTmp, nFamily, sPage, pCurrShell, bNew));
         std::shared_ptr<ApplyStyle> pApplyStyleHelper(new ApplyStyle(*this, bNew, xTmp, nFamily, pDlg.get(), m_xBasePool, bModified));
         pDlg->SetApplyHdl(LINK(pApplyStyleHelper.get(), ApplyStyle, ApplyHdl));
@@ -840,6 +851,50 @@ void SwDocShell::Edit(
 
             if (bNew)
             {
+                switch( nFamily )
+                {
+                    case SfxStyleFamily::Para:
+                    {
+                        if(!xTmp->GetParent().isEmpty())
+                        {
+                            SwTextFormatColl* pColl = m_pWrtShell->FindTextFormatCollByName(xTmp->GetParent());
+                            if (GetDoc()->GetIDocumentUndoRedo().DoesUndo())
+                            {
+                                GetDoc()->GetIDocumentUndoRedo().AppendUndo(
+                                    std::make_unique<SwUndoTextFormatCollCreate>(xTmp->GetCollection(), pColl, GetDoc()));
+                            }
+                        }
+                    }
+                    break;
+                    case SfxStyleFamily::Char:
+                    {
+                        if(!xTmp->GetParent().isEmpty())
+                        {
+                            SwCharFormat* pCFormat = m_pWrtShell->FindCharFormatByName(xTmp->GetParent());
+                            if (GetDoc()->GetIDocumentUndoRedo().DoesUndo())
+                            {
+                                GetDoc()->GetIDocumentUndoRedo().AppendUndo(
+                                    std::make_unique<SwUndoCharFormatCreate>(xTmp->GetCharFormat(), pCFormat, GetDoc()));
+                            }
+                        }
+                    }
+                    break;
+                    case SfxStyleFamily::Frame:
+                    {
+                        if(!xTmp->GetParent().isEmpty())
+                        {
+                            SwFrameFormat* pFFormat = m_pWrtShell->GetDoc()->FindFrameFormatByName(xTmp->GetParent());
+                            if (GetDoc()->GetIDocumentUndoRedo().DoesUndo())
+                            {
+                                GetDoc()->GetIDocumentUndoRedo().AppendUndo(
+                                    std::make_unique<SwUndoFrameFormatCreate>(xTmp->GetFrameFormat(), pFFormat, GetDoc()));
+                            }
+                        }
+                    }
+                    break;
+                    default: break;
+                }
+
                 SwRewriter aRewriter;
                 aRewriter.AddRule(UndoArg1, xTmp->GetName());
                 //Group the create style and change style operations together under the
@@ -1164,8 +1219,16 @@ void SwDocShell::MakeByExample( const OUString &rName, SfxStyleFamily nFamily,
         else
             nMask |= SfxStyleSearchBits::UserDefined;
 
-        pStyle = static_cast<SwDocStyleSheet*>( &m_xBasePool->Make(rName,
-                                nFamily, nMask ) );
+        if (nFamily == SfxStyleFamily::Para || nFamily == SfxStyleFamily::Char || nFamily == SfxStyleFamily::Frame)
+        {
+            // Prevent undo append from being done during paragraph, character, and frame style Make. Do it later
+            ::sw::UndoGuard const undoGuard(GetDoc()->GetIDocumentUndoRedo());
+            pStyle = static_cast<SwDocStyleSheet*>(&m_xBasePool->Make(rName, nFamily, nMask));
+        }
+        else
+        {
+            pStyle = static_cast<SwDocStyleSheet*>(&m_xBasePool->Make(rName, nFamily, nMask));
+        }
     }
 
     switch(nFamily)
@@ -1178,7 +1241,8 @@ void SwDocShell::MakeByExample( const OUString &rName, SfxStyleFamily nFamily,
                 pCurrWrtShell->StartAllAction();
                 pCurrWrtShell->FillByEx(pColl);
                     // also apply template to remove hard set attributes
-                pColl->SetDerivedFrom(pCurrWrtShell->GetCurTextFormatColl());
+                SwTextFormatColl * pDerivedFrom = pCurrWrtShell->GetCurTextFormatColl();
+                pColl->SetDerivedFrom(pDerivedFrom);
 
                     // set the mask at the Collection:
                 sal_uInt16 nId = pColl->GetPoolFormatId() & 0x87ff;
@@ -1206,6 +1270,11 @@ void SwDocShell::MakeByExample( const OUString &rName, SfxStyleFamily nFamily,
                 }
                 pColl->SetPoolFormatId(nId);
 
+                if (GetDoc()->GetIDocumentUndoRedo().DoesUndo())
+                {
+                    GetDoc()->GetIDocumentUndoRedo().AppendUndo(
+                        std::make_unique<SwUndoTextFormatCollCreate>(pColl, pDerivedFrom, GetDoc()));
+                }
                 pCurrWrtShell->SetTextFormatColl(pColl);
                 pCurrWrtShell->EndAllAction();
             }
@@ -1224,10 +1293,14 @@ void SwDocShell::MakeByExample( const OUString &rName, SfxStyleFamily nFamily,
 
                 SwFrameFormat* pFFormat = pCurrWrtShell->GetSelectedFrameFormat();
                 pFrame->SetDerivedFrom( pFFormat );
-
                 pFrame->SetFormatAttr( aSet );
-                    // also apply template to remove hard set attributes
-                pCurrWrtShell->SetFrameFormat( pFrame );
+                if (GetDoc()->GetIDocumentUndoRedo().DoesUndo())
+                {
+                    GetDoc()->GetIDocumentUndoRedo().AppendUndo(
+                        std::make_unique<SwUndoFrameFormatCreate>(pFrame, pFFormat, GetDoc()));
+                }
+                // also apply template to remove hard set attributes
+                pCurrWrtShell->SetFrameFormat(pFrame);
                 pCurrWrtShell->EndAllAction();
             }
         }
@@ -1239,9 +1312,20 @@ void SwDocShell::MakeByExample( const OUString &rName, SfxStyleFamily nFamily,
             {
                 pCurrWrtShell->StartAllAction();
                 pCurrWrtShell->FillByEx( pChar );
-                pChar->SetDerivedFrom( pCurrWrtShell->GetCurCharFormat() );
+                SwCharFormat * pDerivedFrom = pCurrWrtShell->GetCurCharFormat();
+                pChar->SetDerivedFrom( pDerivedFrom );
                 SwFormatCharFormat aFormat( pChar );
-                pCurrWrtShell->SetAttrItem( aFormat );
+
+                if (GetDoc()->GetIDocumentUndoRedo().DoesUndo())
+                {
+                    // Looks like sometimes pDerivedFrom can be null and this is not supported by redo code
+                    // So use default format as a derived from in such situations
+                    GetDoc()->GetIDocumentUndoRedo().AppendUndo(
+                        std::make_unique<SwUndoCharFormatCreate>(
+                            pChar, pDerivedFrom ? pDerivedFrom : GetDoc()->GetDfltCharFormat(),
+                            GetDoc()));
+                }
+                pCurrWrtShell->SetAttrItem(aFormat);
                 pCurrWrtShell->EndAllAction();
             }
         }

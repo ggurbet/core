@@ -28,20 +28,17 @@
 #include <pivot.hxx>
 #include <uiitems.hxx>
 #include <scresid.hxx>
-#include <sc.hrc>
 #include <globstr.hrc>
 #include <strings.hrc>
 #include <pagedata.hxx>
 #include <dpobject.hxx>
 #include <dpsave.hxx>
-#include <dpoutput.hxx>
 #include <dpshttab.hxx>
 #include <dbdocfun.hxx>
 #include <checklistmenu.hxx>
 #include <dpcontrol.hxx>
 #include <userlist.hxx>
 #include <scabstdlg.hxx>
-#include <spellcheckcontext.hxx>
 
 #include <com/sun/star/sheet/DataPilotFieldOrientation.hpp>
 
@@ -469,6 +466,12 @@ void ScGridWindow::DPLaunchFieldPopupMenu(const Point& rScrPos, const Size& rScr
 
     mpDPFieldPopup.disposeAndClear();
     mpDPFieldPopup.reset(VclPtr<ScCheckListMenuWindow>::Create(this, pViewData->GetDocument()));
+
+    // Avoid flicker when hovering over the menu items.
+    if (!IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Focus))
+        // If NWF renders the focus rects itself, that breaks double-buffering.
+        mpDPFieldPopup->RequestDoubleBuffering(true);
+
     mpDPFieldPopup->setName("DataPilot field member popup");
     mpDPFieldPopup->setExtendedData(std::move(pDPData));
     mpDPFieldPopup->setOKAction(new DPFieldPopupOKAction(this));
@@ -985,7 +988,7 @@ void ScGridWindow::PagebreakMove( const MouseEvent& rMEvt, bool bUp )
                     }
                     if ( bGrow )
                     {
-                        // change last break to hard, and change scaleing
+                        // change last break to hard, and change scaling
                         bool bManualBreak(rDoc.HasColBreak(static_cast<SCCOL>(nPagebreakPrev), nTab) & ScBreakType::Manual);
                         if ( static_cast<SCCOL>(nPagebreakPrev) > aPagebreakSource.aStart.Col() && !bManualBreak )
                         {
@@ -1012,7 +1015,7 @@ void ScGridWindow::PagebreakMove( const MouseEvent& rMEvt, bool bUp )
                     }
                     if ( bGrow )
                     {
-                        // change last break to hard, and change scaleing
+                        // change last break to hard, and change scaling
                         bool bManualBreak(rDoc.HasRowBreak(nPagebreakPrev, nTab) & ScBreakType::Manual);
                         if ( nPagebreakPrev > aPagebreakSource.aStart.Row() && !bManualBreak )
                         {

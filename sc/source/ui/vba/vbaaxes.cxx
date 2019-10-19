@@ -23,10 +23,10 @@
 #include <basic/sberrors.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/implbase.hxx>
+#include <com/sun/star/script/BasicErrorException.hpp>
 #include <ooo/vba/excel/XlAxisType.hpp>
 #include <ooo/vba/excel/XlAxisGroup.hpp>
 #include <ooo/vba/excel/XAxis.hpp>
-#include <map>
 
 using namespace ::com::sun::star;
 using namespace ::ooo::vba;
@@ -195,7 +195,7 @@ ScVbaAxes::createCollectionObject(const css::uno::Any& aSource)
 OUString
 ScVbaAxes::getServiceImplName()
 {
-    return OUString("ScVbaAxes");
+    return "ScVbaAxes";
 }
 
 uno::Sequence< OUString >

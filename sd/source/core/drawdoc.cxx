@@ -549,7 +549,7 @@ namespace
 {
 
 /// Copies all user-defined properties from pSource to pDestination.
-void lcl_copyUserDefinedProperties(SfxObjectShell* pSource, SfxObjectShell* pDestination)
+void lcl_copyUserDefinedProperties(const SfxObjectShell* pSource, const SfxObjectShell* pDestination)
 {
     if (!pSource || !pDestination)
         return;
@@ -559,7 +559,7 @@ void lcl_copyUserDefinedProperties(SfxObjectShell* pSource, SfxObjectShell* pDes
     uno::Reference<beans::XPropertyContainer> xSourcePropertyContainer = xSource->getUserDefinedProperties();
     uno::Reference<beans::XPropertyContainer> xDestinationPropertyContainer = xDestination->getUserDefinedProperties();
     uno::Reference<beans::XPropertySet> xSourcePropertySet(xSourcePropertyContainer, uno::UNO_QUERY);
-    uno::Sequence<beans::Property> aProperties = xSourcePropertySet->getPropertySetInfo()->getProperties();
+    const uno::Sequence<beans::Property> aProperties = xSourcePropertySet->getPropertySetInfo()->getProperties();
 
     for (const beans::Property& rProperty : aProperties)
     {
@@ -1106,13 +1106,13 @@ void SdDrawDocument::InitLayoutVector()
         ::comphelper::getProcessComponentContext() );
 
     // get file list from configuration
-    Sequence< OUString > aFiles(
+    const Sequence< OUString > aFiles(
         officecfg::Office::Impress::Misc::LayoutListFiles::get(xContext) );
 
     OUString sFilename;
-    for( sal_Int32 i=0; i < aFiles.getLength(); ++i )
+    for( const auto& rFile : aFiles )
     {
-        sFilename = comphelper::getExpandedUri(xContext, aFiles[i]);
+        sFilename = comphelper::getExpandedUri(xContext, rFile);
 
         // load layout file into DOM
         Reference< XMultiServiceFactory > xServiceFactory(
@@ -1145,13 +1145,13 @@ void SdDrawDocument::InitObjectVector()
         ::comphelper::getProcessComponentContext() );
 
     // get file list from configuration
-    Sequence< OUString > aFiles(
+    const Sequence< OUString > aFiles(
        officecfg::Office::Impress::Misc::PresObjListFiles::get(xContext) );
 
     OUString sFilename;
-    for( sal_Int32 i=0; i < aFiles.getLength(); ++i )
+    for( const auto& rFile : aFiles )
     {
-        sFilename = comphelper::getExpandedUri(xContext, aFiles[i]);
+        sFilename = comphelper::getExpandedUri(xContext, rFile);
 
         // load presentation object file into DOM
         Reference< XMultiServiceFactory > xServiceFactory(

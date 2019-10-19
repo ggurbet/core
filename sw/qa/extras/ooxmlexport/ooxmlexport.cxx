@@ -71,17 +71,6 @@ DECLARE_OOXMLEXPORT_TEST(testSdtAlias, "sdt-alias.docx")
     assertXPath(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtPr/w:alias", "val", "Subtitle");
 }
 
-DECLARE_OOXMLEXPORT_TEST(testSdtDateCharformat, "sdt-date-charformat.docx")
-{
-    if (xmlDocPtr pXmlDoc = parseExport())
-    {
-        // character formatting (bold) was missing, this was 0
-        assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:sdt/w:sdtContent/w:r/w:rPr/w:b", 1);
-        // alias was also missing.
-        assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:sdt/w:sdtPr/w:alias", 1);
-    }
-}
-
 DECLARE_OOXMLEXPORT_TEST(testFooterBodyDistance, "footer-body-distance.docx")
 {
     if (xmlDocPtr pXmlDoc = parseExport())
@@ -707,6 +696,12 @@ DECLARE_OOXMLEXPORT_TEST(testOoxmlTextOrdinalList, "text_ordinal_list.docx")
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::TEXT_ORDINAL, numFormat);
 }
 
+DECLARE_OOXMLEXPORT_TEST(testOoxmlSymbolChicagoList, "symbol_chicago_list.docx")
+{
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(style::NumberingType::SYMBOL_CHICAGO, numFormat);
+}
+
 DECLARE_OOXMLEXPORT_TEST(testOoxmlNumListZHTW, "numlist-zhtw.odt")
 {
     xmlDocPtr pXmlDoc = parseExport("word/numbering.xml");
@@ -922,7 +917,7 @@ DECLARE_OOXMLEXPORT_TEST(testTdf44986, "tdf44986.docx")
 {
     // Check that the table at the second paragraph.
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(2), uno::UNO_QUERY);
-    uno::Reference<table::XTableRows> xTableRows(xTable->getRows(), uno::UNO_QUERY);
+    uno::Reference<table::XTableRows> xTableRows = xTable->getRows();
     // Check the first row of the table, it should have two cells (one separator).
     // This was 0: the first row had no separators, so it had only one cell, which was too wide.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), getProperty< uno::Sequence<text::TableColumnSeparator> >(xTableRows->getByIndex(0), "TableColumnSeparators").getLength());

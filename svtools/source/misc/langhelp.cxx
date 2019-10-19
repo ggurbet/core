@@ -18,12 +18,10 @@
 #include <officecfg/System.hxx>
 #include <org/freedesktop/PackageKit/SyncDbusSessionHelper.hpp>
 #include <rtl/ustring.hxx>
-#include <sal/log.hxx>
 #include <svtools/langhelp.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/idle.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/sysdata.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/window.hxx>
 #include <config_langs.h>
@@ -53,19 +51,14 @@ OUString getInstalledLocaleForLanguage(css::uno::Sequence<OUString> const & inst
     if (locale.isEmpty())
         return OUString();  // do not attempt to resolve anything
 
-    for (sal_Int32 i = 0; i != installed.getLength(); ++i) {
-        if (installed[i] == locale) {
-            return installed[i];
-        }
-    }
+    if (comphelper::findValue(installed, locale) != -1)
+        return locale;
+
     std::vector<OUString> fallbacks(LanguageTag(locale).getFallbackStrings(false));
-    for (OUString & rf : fallbacks) {
-        for (sal_Int32 i = 0; i != installed.getLength(); ++i) {
-            if (installed[i] == rf) {
-                return installed[i];
-            }
-        }
-    }
+    auto pf = std::find_if(fallbacks.begin(), fallbacks.end(),
+        [&installed](const OUString& rf) { return comphelper::findValue(installed, rf) != -1; });
+    if (pf != fallbacks.end())
+        return *pf;
     return OUString();
 }
 

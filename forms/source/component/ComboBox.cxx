@@ -326,7 +326,7 @@ void OComboBoxModel::describeAggregateProperties( Sequence< Property >& _rAggreg
 
 OUString SAL_CALL OComboBoxModel::getServiceName()
 {
-    return OUString(FRM_COMPONENT_COMBOBOX);  // old (non-sun) name for compatibility !
+    return FRM_COMPONENT_COMBOBOX;  // old (non-sun) name for compatibility !
 }
 
 
@@ -415,7 +415,7 @@ void SAL_CALL OComboBoxModel::read(const Reference<css::io::XObjectInputStream>&
         m_aListSource.clear();
         css::uno::Sequence<OUString> aListSource;
         _rxInStream >> aListSource;
-        for (const OUString& rToken : aListSource)
+        for (const OUString& rToken : std::as_const(aListSource))
             m_aListSource += rToken;
     }
 
@@ -474,10 +474,9 @@ void OComboBoxModel::loadData( bool _bForce )
         return;
 
     // Get Connection
-    Reference<XRowSet> xForm(m_xCursor, UNO_QUERY);
-    if (!xForm.is())
+    if (!m_xCursor.is())
         return;
-    Reference<XConnection> xConnection = getConnection(xForm);
+    Reference<XConnection> xConnection = getConnection(m_xCursor);
     if (!xConnection.is())
         return;
 
@@ -518,7 +517,7 @@ void OComboBoxModel::loadData( bool _bForce )
                 else
                 {
                     // otherwise look for the alias
-                    Reference<XPropertySet> xFormProp(xForm,UNO_QUERY);
+                    Reference<XPropertySet> xFormProp(m_xCursor,UNO_QUERY);
                     Reference< XColumnsSupplier > xSupplyFields;
                     xFormProp->getPropertyValue("SingleSelectQueryComposer") >>= xSupplyFields;
 
@@ -627,7 +626,7 @@ void OComboBoxModel::loadData( bool _bForce )
                 if ( !xDataField.is() )
                     return;
 
-                ::dbtools::FormattedColumnValue aValueFormatter( getContext(), xForm, xDataField );
+                ::dbtools::FormattedColumnValue aValueFormatter( getContext(), m_xCursor, xDataField );
 
                 // Fill Lists
                 sal_Int16 i = 0;
@@ -643,7 +642,8 @@ void OComboBoxModel::loadData( bool _bForce )
                 Reference<XNameAccess> xFieldNames = getTableFields(xConnection, m_aListSource);
                 if (xFieldNames.is())
                 {
-                    for (const OUString& rustrNames : xFieldNames->getElementNames())
+                    const Sequence<OUString> aFieldNames = xFieldNames->getElementNames();
+                    for (const OUString& rustrNames : aFieldNames)
                         aStringList.push_back(rustrNames);
                 }
             }
@@ -764,7 +764,7 @@ bool OComboBoxModel::commitControlValueToDbColumn( bool _bPostReset )
         if ( getPropertyValue( PROPERTY_STRINGITEMLIST ) >>= aStringItemList )
         {
             bool bFound = false;
-            for (const OUString& rStringItem : aStringItemList)
+            for (const OUString& rStringItem : std::as_const(aStringItemList))
             {
                 if ( (bFound = rStringItem == sNewValue) )
                     break;

@@ -26,16 +26,12 @@
 #include <vcl/svapp.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/sfxmodelfactory.hxx>
-#include <afmtuno.hxx>
-#include <funcuno.hxx>
-#include <filtuno.hxx>
 #include <miscuno.hxx>
 #include <scmod.hxx>
 #include <appoptio.hxx>
 #include <inputopt.hxx>
 #include <printopt.hxx>
 #include <userlist.hxx>
-#include <sc.hrc>
 #include <scdll.hxx>
 #include <unonames.hxx>
 #include <funcdesc.hxx>
@@ -194,7 +190,7 @@ uno::Reference<uno::XInterface> ScSpreadsheetSettings_CreateInstance(
 
 OUString ScSpreadsheetSettings::getImplementationName_Static()
 {
-    return OUString( "stardiv.StarCalc.ScSpreadsheetSettings" );
+    return "stardiv.StarCalc.ScSpreadsheetSettings";
 }
 
 uno::Sequence<OUString> ScSpreadsheetSettings::getSupportedServiceNames_Static()
@@ -353,11 +349,8 @@ void SAL_CALL ScSpreadsheetSettings::setPropertyValue(
             //  ScGlobal::SetUseTabCol does not do much else
 
             pUserList->clear();
-            sal_uInt16 nCount = static_cast<sal_uInt16>(aSeq.getLength());
-            const OUString* pAry = aSeq.getConstArray();
-            for (sal_uInt16 i=0; i<nCount; i++)
+            for (const OUString& aEntry : std::as_const(aSeq))
             {
-                OUString aEntry = pAry[i];
                 ScUserListData* pData = new ScUserListData(aEntry);
                 pUserList->push_back(pData);
             }
@@ -613,7 +606,7 @@ uno::Any SAL_CALL ScFunctionListObj::getByName( const OUString& aName )
     for (sal_uInt16 nIndex=0; nIndex<nCount; nIndex++)
     {
         const ScFuncDesc* pDesc = pFuncList->GetFunction(nIndex);
-        //! Case-insensitiv ???
+        //! Case-insensitive???
         if ( pDesc && pDesc->mxFuncName && aName == *pDesc->mxFuncName )
         {
             uno::Sequence<beans::PropertyValue> aSeq( SC_FUNCDESC_PROPCOUNT );
@@ -710,7 +703,7 @@ sal_Bool SAL_CALL ScFunctionListObj::hasByName( const OUString& aName )
         for (sal_uInt32 nIndex=0; nIndex<nCount; ++nIndex)
         {
             const ScFuncDesc* pDesc = pFuncList->GetFunction(nIndex);
-            //! Case-insensitiv ???
+            //! Case-insensitive???
             if ( pDesc && pDesc->mxFuncName && aName == *pDesc->mxFuncName )
                 return true;
         }

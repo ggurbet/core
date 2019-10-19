@@ -63,7 +63,7 @@ UNO3_GETIMPLEMENTATION_IMPL( SdXCustomPresentation );
 // XServiceInfo
 OUString SAL_CALL SdXCustomPresentation::getImplementationName()
 {
-    return OUString( "SdXCustomPresentation" ) ;
+    return "SdXCustomPresentation" ;
 }
 
 sal_Bool SAL_CALL SdXCustomPresentation::supportsService( const OUString& ServiceName )
@@ -73,9 +73,7 @@ sal_Bool SAL_CALL SdXCustomPresentation::supportsService( const OUString& Servic
 
 uno::Sequence< OUString > SAL_CALL SdXCustomPresentation::getSupportedServiceNames()
 {
-    OUString aSN( "com.sun.star.presentation.CustomPresentation" );
-    uno::Sequence< OUString > aSeq( &aSN, 1 );
-    return aSeq;
+    return { "com.sun.star.presentation.CustomPresentation" };
 }
 
 // XIndexContainer
@@ -188,7 +186,7 @@ uno::Any SAL_CALL SdXCustomPresentation::getByIndex( sal_Int32 Index )
         throw lang::IndexOutOfBoundsException();
 
     uno::Any aAny;
-    SdrPage * pPage = static_cast<SdrPage*>(const_cast<SdPage *>(mpSdCustomShow->PagesVector()[Index]));
+    SdrPage * pPage = const_cast<SdPage *>(mpSdCustomShow->PagesVector()[Index]);
 
     if( pPage )
     {
@@ -274,7 +272,7 @@ SdXCustomPresentationAccess::~SdXCustomPresentationAccess() throw()
 // XServiceInfo
 OUString SAL_CALL SdXCustomPresentationAccess::getImplementationName()
 {
-    return OUString( "SdXCustomPresentationAccess" );
+    return "SdXCustomPresentationAccess";
 }
 
 sal_Bool SAL_CALL SdXCustomPresentationAccess::supportsService( const OUString& ServiceName )
@@ -284,9 +282,7 @@ sal_Bool SAL_CALL SdXCustomPresentationAccess::supportsService( const OUString& 
 
 uno::Sequence< OUString > SAL_CALL SdXCustomPresentationAccess::getSupportedServiceNames()
 {
-    const OUString aNS( "com.sun.star.presentation.CustomPresentationAccess" );
-    uno::Sequence< OUString > aSeq( &aNS, 1 );
-    return aSeq;
+    return { "com.sun.star.presentation.CustomPresentationAccess" };
 }
 
 // XSingleServiceFactory
@@ -315,7 +311,7 @@ void SAL_CALL SdXCustomPresentationAccess::insertByName( const OUString& aName, 
     if( nullptr == pList)
         throw uno::RuntimeException();
 
-    // do we have an container::XIndexContainer?
+    // do we have a container::XIndexContainer?
     SdXCustomPresentation* pXShow = nullptr;
 
     uno::Reference< container::XIndexContainer > xContainer;

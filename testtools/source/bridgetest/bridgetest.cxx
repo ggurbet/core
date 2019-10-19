@@ -76,8 +76,7 @@ static Sequence<T> cloneSequence(const Sequence<T>& val);
 
 static Sequence< OUString > getSupportedServiceNames()
 {
-    OUString aName( SERVICENAME );
-    return Sequence< OUString >( &aName, 1 );
+    return { SERVICENAME };
 }
 
 static bool check( bool b , char const * message )
@@ -1184,7 +1183,7 @@ sal_Int32 TestBridgeImpl::run( const Sequence< OUString > & rArgs )
 
 OUString TestBridgeImpl::getImplementationName()
 {
-    return OUString( IMPLNAME );
+    return IMPLNAME;
 }
 
 sal_Bool TestBridgeImpl::supportsService( const OUString & rServiceName )

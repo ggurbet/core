@@ -32,6 +32,7 @@ class Button;
 class ComboBox;
 class FormattedField;
 class ListBox;
+class Menu;
 class MessageDialog;
 class NumericFormatter;
 class PopupMenu;
@@ -44,6 +45,7 @@ class DateField;
 class TimeField;
 class VclExpander;
 class VclMultiLineEdit;
+struct NotebookBarAddonsItem;
 namespace xmlreader { class XmlReader; }
 namespace com { namespace sun { namespace star { namespace frame { class XFrame; } } } }
 
@@ -64,21 +66,18 @@ public:
     typedef std::map<OString, OUString> stringmap;
     typedef std::map<OString, std::pair<OString, OString>> accelmap;
     /// These functions create a new widget with parent pParent and return it in rRet
-    typedef void (*customMakeWidget)(VclPtr<vcl::Window> &rRet, VclPtr<vcl::Window> &pParent, stringmap &rVec);
+    typedef void (*customMakeWidget)(VclPtr<vcl::Window> &rRet, const VclPtr<vcl::Window> &pParent, stringmap &rVec);
 
 public:
-    VclBuilder(
-            vcl::Window *pParent,
-            const OUString& sUIRootDir,
-            const OUString& sUIFile,
-            const OString& sID = OString(),
-            const css::uno::Reference<css::frame::XFrame> &rFrame = css::uno::Reference<css::frame::XFrame>(),
-            bool bLegacy = true);
+    VclBuilder(vcl::Window* pParent, const OUString& sUIRootDir, const OUString& sUIFile,
+               const OString& sID = OString(),
+               const css::uno::Reference<css::frame::XFrame>& rFrame
+               = css::uno::Reference<css::frame::XFrame>(),
+               bool bLegacy = true,
+               const NotebookBarAddonsItem* pNotebookBarAddonsItem = nullptr);
     ~VclBuilder();
-
     ///releases references and disposes all children.
     void disposeBuilder();
-
     //sID must exist and be of type T
     template <typename T> T* get(VclPtr<T>& ret, const OString& sID);
 
@@ -122,6 +121,8 @@ private:
     //Show or Execute
     stringmap      m_aDeferredProperties;
 
+    std::unique_ptr<NotebookBarAddonsItem> m_pNotebookBarAddonsItem;
+
     struct PackingData
     {
         bool m_bVerticalOrient;
@@ -150,8 +151,8 @@ private:
     struct MenuAndId
     {
         OString const m_sID;
-        VclPtr<PopupMenu> m_pMenu;
-        MenuAndId(const OString &rId, PopupMenu *pMenu);
+        VclPtr<Menu> m_pMenu;
+        MenuAndId(const OString &rId, Menu *pMenu);
         ~MenuAndId();
     };
     std::vector<MenuAndId> m_aMenus;
@@ -365,15 +366,15 @@ private:
     static void collectAccelerator(xmlreader::XmlReader &reader, accelmap &rMap);
 
     void        insertMenuObject(
-                   PopupMenu *pParent,
+                   Menu *pParent,
                    PopupMenu *pSubMenu,
                    const OString &rClass,
                    const OString &rID,
                    stringmap &rProps,
                    accelmap &rAccels);
 
-    void        handleMenuChild(PopupMenu *pParent, xmlreader::XmlReader &reader);
-    void        handleMenuObject(PopupMenu *pParent, xmlreader::XmlReader &reader);
+    void        handleMenuChild(Menu *pParent, xmlreader::XmlReader &reader);
+    void        handleMenuObject(Menu *pParent, xmlreader::XmlReader &reader);
 
     void        handleListStore(xmlreader::XmlReader &reader, const OString &rID, const OString &rClass);
     void        handleRow(xmlreader::XmlReader &reader, const OString &rID);

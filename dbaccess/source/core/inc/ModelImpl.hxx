@@ -207,6 +207,7 @@ public:
     bool                                            m_bSuppressVersionColumns : 1;
     bool                                            m_bModified : 1;
     bool                                            m_bDocumentReadOnly : 1;
+    bool                                            m_bMacroCallsSeenWhileLoading : 1;
     css::uno::Reference< css::beans::XPropertyBag >
                                                         m_xSettings;
     css::uno::Sequence< OUString >                      m_aTableFilter;
@@ -214,6 +215,8 @@ public:
     OSharedConnectionManager*                           m_pSharedConnectionManager;
     css::uno::Reference< css::lang::XEventListener >
                                                         m_xSharedConnectionManager;
+    css::uno::Reference<css::awt::XWindow>
+                                                        m_xDialogParent;
     sal_uInt16                                          m_nControllerLockCount;
 
     void reset();
@@ -435,6 +438,7 @@ public:
     virtual void setCurrentMacroExecMode( sal_uInt16 ) override;
     virtual OUString getDocumentLocation() const override;
     virtual bool documentStorageHasMacros() const override;
+    virtual bool macroCallsSeenWhileLoading() const override;
     virtual css::uno::Reference< css::document::XEmbeddedScripts > getEmbeddedDocumentScripts() const override;
     virtual SignatureState getScriptingSignatureState() override;
     virtual bool hasTrustedScriptingSignature( bool bAllowUIToAddAuthor ) override;
@@ -446,6 +450,8 @@ public:
     void    lockModify()              { m_bModificationLock = true; }
     void    unlockModify()            { m_bModificationLock = false; }
     bool    isModifyLocked() const    { return m_bModificationLock; }
+
+    weld::Window* GetFrameWeld();
 
 private:
     void    impl_construct_nothrow();

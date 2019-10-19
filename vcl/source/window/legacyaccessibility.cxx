@@ -18,20 +18,9 @@
  */
 
 
-#include <svdata.hxx>
+#include <window.h>
 
 #include "dlgctrl.hxx"
-#include <vcl/event.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/layout.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/tabpage.hxx>
-#include <vcl/tabctrl.hxx>
-#include <vcl/button.hxx>
-#include <vcl/settings.hxx>
-#include <vcl/unohelp.hxx>
-
-#include <com/sun/star/i18n/XCharacterClassification.hpp>
 
 using namespace ::com::sun::star;
 
@@ -101,7 +90,6 @@ namespace vcl {
 
 Window* Window::getLegacyNonLayoutAccessibleRelationLabelFor() const
 {
-    Window* pWindow = nullptr;
     Window* pFrameWindow = ImplGetFrameWindow();
 
     WinBits nFrameStyle = pFrameWindow->GetStyle();
@@ -110,15 +98,9 @@ Window* Window::getLegacyNonLayoutAccessibleRelationLabelFor() const
         )
         return nullptr;
 
-    if ( mpWindowImpl->mpRealParent )
-        pWindow = mpWindowImpl->mpRealParent->GetParentLabelFor( this );
-
-    if( pWindow )
-        return pWindow;
-
     sal_Unicode nAccel = getAccel( GetText() );
 
-    pWindow = ImplGetLabelFor( pFrameWindow, GetType(), const_cast<Window*>(this), nAccel );
+    Window* pWindow = ImplGetLabelFor( pFrameWindow, GetType(), const_cast<Window*>(this), nAccel );
     if( ! pWindow && mpWindowImpl->mpRealParent )
         pWindow = ImplGetLabelFor( mpWindowImpl->mpRealParent, GetType(), const_cast<Window*>(this), nAccel );
     return pWindow;
@@ -181,16 +163,7 @@ static Window* ImplGetLabeledBy( Window* pFrameWindow, WindowType nMyType, Windo
 
 Window* Window::getLegacyNonLayoutAccessibleRelationLabeledBy() const
 {
-    Window* pWindow = nullptr;
     Window* pFrameWindow = ImplGetFrameWindow();
-
-    if ( mpWindowImpl->mpRealParent )
-    {
-        pWindow = mpWindowImpl->mpRealParent->GetParentLabeledBy( this );
-
-        if( pWindow )
-            return pWindow;
-    }
 
     // #i62723#, #104191# checkboxes and radiobuttons are not supposed to have labels
     if( GetType() == WindowType::CHECKBOX || GetType() == WindowType::RADIOBUTTON )
@@ -202,7 +175,7 @@ Window* Window::getLegacyNonLayoutAccessibleRelationLabeledBy() const
     // #i100833# MT 2010/02: Group box and fixed lines can also label a fixed text.
     // See tools/options/print for example.
 
-    pWindow = ImplGetLabeledBy( pFrameWindow, GetType(), const_cast<Window*>(this) );
+    Window* pWindow = ImplGetLabeledBy( pFrameWindow, GetType(), const_cast<Window*>(this) );
     if( ! pWindow && mpWindowImpl->mpRealParent )
         pWindow = ImplGetLabeledBy( mpWindowImpl->mpRealParent, GetType(), const_cast<Window*>(this) );
 

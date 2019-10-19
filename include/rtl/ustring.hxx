@@ -142,7 +142,7 @@ public:
     /**
       New string from OUString.
 
-      @param    str         a OUString.
+      @param    str         an OUString.
     */
     OUString( const OUString & str )
     {
@@ -155,10 +155,10 @@ public:
     /**
       Move constructor.
 
-      @param    str         a OUString.
+      @param    str         an OUString.
       @since LibreOffice 5.2
     */
-    OUString( OUString && str )
+    OUString( OUString && str ) noexcept
     {
         pData = str.pData;
         str.pData = nullptr;
@@ -170,7 +170,7 @@ public:
     /**
       New string from OUString data.
 
-      @param    str         a OUString data.
+      @param    str         an OUString data.
     */
     OUString( rtl_uString * str )
     {
@@ -409,6 +409,15 @@ public:
             // TODO realloc in case pData->length is noticeably smaller than l?
         }
     }
+
+    /**
+     @overload
+     @internal
+    */
+    template< typename T >
+    OUString( OUStringNumber< T >&& n )
+        : OUString( n.buf, n.length )
+    {}
 #endif
 
 #if defined LIBO_INTERNAL_ONLY
@@ -446,7 +455,7 @@ public:
     /**
       Assign a new string.
 
-      @param    str         a OUString.
+      @param    str         an OUString.
     */
     OUString & operator=( const OUString & str )
     {
@@ -462,7 +471,7 @@ public:
       @param    str         an OUString.
       @since LibreOffice 5.2
     */
-    OUString & operator=( OUString && str )
+    OUString & operator=( OUString && str ) noexcept
     {
         rtl_uString_release( pData );
         pData = str.pData;
@@ -546,7 +555,7 @@ public:
     /**
       Append a string to this string.
 
-      @param    str         a OUString.
+      @param    str         an OUString.
 
       @exception std::bad_alloc is thrown if an out-of-memory condition occurs
     */
@@ -632,6 +641,25 @@ public:
     }
     template<typename T1, typename T2> void operator +=(
         OUStringConcat<T1, T2> &&) && = delete;
+
+    /**
+     @overload
+     @internal
+    */
+    template< typename T >
+    OUString& operator+=( OUStringNumber< T >&& n ) & {
+        sal_Int32 l = n.length;
+        if( l == 0 )
+            return *this;
+        l += pData->length;
+        rtl_uString_ensureCapacity( &pData, l );
+        sal_Unicode* end = addDataHelper( pData->buffer + pData->length, n.buf, n.length );
+        *end = '\0';
+        pData->length = l;
+        return *this;
+    }
+    template<typename T> void operator +=(
+        OUStringNumber<T> &&) && = delete;
 #endif
 
     /**
@@ -804,7 +832,7 @@ public:
     }
 
     /**
-      Perform a ASCII lowercase comparison of two strings.
+      Perform an ASCII lowercase comparison of two strings.
 
       The result is true if and only if second string
       represents the same sequence of characters as the first string,
@@ -828,7 +856,7 @@ public:
     }
 
     /**
-      Perform a ASCII lowercase comparison of two strings.
+      Perform an ASCII lowercase comparison of two strings.
 
       Compare the two strings with uppercase ASCII
       character values between 65 and 90 (ASCII A-Z) interpreted as
@@ -1154,7 +1182,7 @@ public:
     }
 
     /**
-      Perform a ASCII lowercase comparison of two strings.
+      Perform an ASCII lowercase comparison of two strings.
 
       The result is true if and only if second string
       represents the same sequence of characters as the first string,
@@ -2211,9 +2239,7 @@ public:
     */
     SAL_WARN_UNUSED_RESULT OUString copy( sal_Int32 beginIndex ) const
     {
-        rtl_uString *pNew = NULL;
-        rtl_uString_newFromSubString( &pNew, pData, beginIndex, getLength() - beginIndex );
-        return OUString( pNew, SAL_NO_ACQUIRE );
+        return copy(beginIndex, getLength() - beginIndex);
     }
 
     /**
@@ -3345,6 +3371,41 @@ public:
         return aTarget;
     }
 
+#ifdef LIBO_INTERNAL_ONLY // "RTL_FAST_STRING"
+
+    static OUStringNumber< int > number( int i, sal_Int16 radix = 10 )
+    {
+        return OUStringNumber< int >( i, radix );
+    }
+    static OUStringNumber< long long > number( long long ll, sal_Int16 radix = 10 )
+    {
+        return OUStringNumber< long long >( ll, radix );
+    }
+    static OUStringNumber< unsigned long long > number( unsigned long long ll, sal_Int16 radix = 10 )
+    {
+        return OUStringNumber< unsigned long long >( ll, radix );
+    }
+    static OUStringNumber< unsigned long long > number( unsigned int i, sal_Int16 radix = 10 )
+    {
+        return number( static_cast< unsigned long long >( i ), radix );
+    }
+    static OUStringNumber< long long > number( long i, sal_Int16 radix = 10)
+    {
+        return number( static_cast< long long >( i ), radix );
+    }
+    static OUStringNumber< unsigned long long > number( unsigned long i, sal_Int16 radix = 10 )
+    {
+        return number( static_cast< unsigned long long >( i ), radix );
+    }
+    static OUStringNumber< float > number( float f )
+    {
+        return OUStringNumber< float >( f );
+    }
+    static OUStringNumber< double > number( double d )
+    {
+        return OUStringNumber< double >( d );
+    }
+#else
     /**
       Returns the string representation of the integer argument.
 
@@ -3358,9 +3419,7 @@ public:
     static OUString number( int i, sal_Int16 radix = 10 )
     {
         sal_Unicode aBuf[RTL_USTR_MAX_VALUEOFINT32];
-        rtl_uString* pNewData = NULL;
-        rtl_uString_newFromStr_WithLength( &pNewData, aBuf, rtl_ustr_valueOfInt32( aBuf, i, radix ) );
-        return OUString( pNewData, SAL_NO_ACQUIRE );
+        return OUString(aBuf, rtl_ustr_valueOfInt32(aBuf, i, radix));
     }
     /// @overload
     /// @since LibreOffice 4.1
@@ -3384,19 +3443,15 @@ public:
     /// @since LibreOffice 4.1
     static OUString number( long long ll, sal_Int16 radix = 10 )
     {
-        sal_Unicode aBuf[RTL_STR_MAX_VALUEOFINT64];
-        rtl_uString* pNewData = NULL;
-        rtl_uString_newFromStr_WithLength( &pNewData, aBuf, rtl_ustr_valueOfInt64( aBuf, ll, radix ) );
-        return OUString( pNewData, SAL_NO_ACQUIRE );
+        sal_Unicode aBuf[RTL_USTR_MAX_VALUEOFINT64];
+        return OUString(aBuf, rtl_ustr_valueOfInt64(aBuf, ll, radix));
     }
     /// @overload
     /// @since LibreOffice 4.1
     static OUString number( unsigned long long ll, sal_Int16 radix = 10 )
     {
-        sal_Unicode aBuf[RTL_STR_MAX_VALUEOFUINT64];
-        rtl_uString* pNewData = NULL;
-        rtl_uString_newFromStr_WithLength( &pNewData, aBuf, rtl_ustr_valueOfUInt64( aBuf, ll, radix ) );
-        return OUString( pNewData, SAL_NO_ACQUIRE );
+        sal_Unicode aBuf[RTL_USTR_MAX_VALUEOFUINT64];
+        return OUString(aBuf, rtl_ustr_valueOfUInt64(aBuf, ll, radix));
     }
 
     /**
@@ -3405,15 +3460,13 @@ public:
       This function can't be used for language specific conversion.
 
       @param    f           a float.
-      @return   a string with the string representation of the argument.
+      @return   a string with the decimal representation of the argument.
       @since LibreOffice 4.1
     */
     static OUString number( float f )
     {
         sal_Unicode aBuf[RTL_USTR_MAX_VALUEOFFLOAT];
-        rtl_uString* pNewData = NULL;
-        rtl_uString_newFromStr_WithLength( &pNewData, aBuf, rtl_ustr_valueOfFloat( aBuf, f ) );
-        return OUString( pNewData, SAL_NO_ACQUIRE );
+        return OUString(aBuf, rtl_ustr_valueOfFloat(aBuf, f));
     }
 
     /**
@@ -3422,16 +3475,15 @@ public:
       This function can't be used for language specific conversion.
 
       @param    d           a double.
-      @return   a string with the string representation of the argument.
+      @return   a string with the decimal representation of the argument.
       @since LibreOffice 4.1
     */
     static OUString number( double d )
     {
         sal_Unicode aBuf[RTL_USTR_MAX_VALUEOFDOUBLE];
-        rtl_uString* pNewData = NULL;
-        rtl_uString_newFromStr_WithLength( &pNewData, aBuf, rtl_ustr_valueOfDouble( aBuf, d ) );
-        return OUString( pNewData, SAL_NO_ACQUIRE );
+        return OUString(aBuf, rtl_ustr_valueOfDouble(aBuf, d));
     }
+#endif
 
     /**
       Returns the string representation of the sal_Bool argument.
@@ -3463,9 +3515,7 @@ public:
     static OUString boolean( bool b )
     {
         sal_Unicode aBuf[RTL_USTR_MAX_VALUEOFBOOLEAN];
-        rtl_uString* pNewData = NULL;
-        rtl_uString_newFromStr_WithLength( &pNewData, aBuf, rtl_ustr_valueOfBoolean( aBuf, b ) );
-        return OUString( pNewData, SAL_NO_ACQUIRE );
+        return OUString(aBuf, rtl_ustr_valueOfBoolean(aBuf, b));
     }
 
     /**
@@ -3539,7 +3589,7 @@ public:
     }
 
     /**
-      Returns a OUString copied without conversion from an ASCII
+      Returns an OUString copied without conversion from an ASCII
       character string.
 
       Since this method is optimized for performance, the ASCII character
@@ -3600,7 +3650,7 @@ void operator !=(std::nullptr_t, OUString const &) = delete;
 template<>
 struct ToStringHelper< OUString >
     {
-    static int length( const OUString& s ) { return s.getLength(); }
+    static std::size_t length( const OUString& s ) { return s.getLength(); }
     static sal_Unicode* addData( sal_Unicode* buffer, const OUString& s ) { return addDataHelper( buffer, s.getStr(), s.getLength()); }
     static const bool allowOStringConcat = false;
     static const bool allowOUStringConcat = true;
@@ -3612,7 +3662,7 @@ struct ToStringHelper< OUString >
 template<>
 struct ToStringHelper< OUStringLiteral >
     {
-    static int length( const OUStringLiteral& str ) { return str.size; }
+    static std::size_t length( const OUStringLiteral& str ) { return str.size; }
     static sal_Unicode* addData( sal_Unicode* buffer, const OUStringLiteral& str ) { return addDataLiteral( buffer, str.data, str.size ); }
     static const bool allowOStringConcat = false;
     static const bool allowOUStringConcat = true;
@@ -3716,7 +3766,7 @@ inline std::basic_ostream<charT, traits> & operator <<(
     std::basic_ostream<charT, traits> & stream, OUString const & rString)
 {
     return stream <<
-        OUStringToOString(rString, RTL_TEXTENCODING_UTF8).getStr();
+        OUStringToOString(rString, RTL_TEXTENCODING_UTF8);
         // best effort; potentially loses data due to conversion failures
         // (stray surrogate halves) and embedded null characters
 }
@@ -3739,7 +3789,7 @@ using ::rtl::OUStringHash;
 using ::rtl::OStringToOUString;
 using ::rtl::OUStringToOString;
 using ::rtl::OUStringLiteral;
-using ::rtl::OUStringLiteral1;
+using ::rtl::OUStringChar;
 #endif
 
 /// @cond INTERNAL

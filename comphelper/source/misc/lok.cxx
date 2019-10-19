@@ -12,6 +12,7 @@
 #include <sal/log.hxx>
 
 #include <iostream>
+#include <map>
 
 namespace comphelper
 {
@@ -35,10 +36,15 @@ static bool g_bViewIdForVisCursorInvalidation(false);
 
 static bool g_bLocalRendering(false);
 
+static Compat g_eCompatFlags(Compat::none);
+
 static LanguageTag g_aLanguageTag("en-US", true);
 
 /// Scaling of the cairo or CoreGraphics canvas painting for HiDPI or zooming in Calc.
 static double g_fDPIScale(1.0);
+
+/// List of <viewid, bMobile> pairs
+static std::map<int, bool> g_vIsViewMobile;
 
 void setActive(bool bActive)
 {
@@ -48,6 +54,22 @@ void setActive(bool bActive)
 bool isActive()
 {
     return g_bActive;
+}
+
+void setMobile(int nViewId, bool bMobile)
+{
+    if (g_vIsViewMobile.find(nViewId) != g_vIsViewMobile.end())
+        g_vIsViewMobile[nViewId] = bMobile;
+    else
+        g_vIsViewMobile.insert(std::make_pair(nViewId, bMobile));
+}
+
+bool isMobile(int nViewId)
+{
+    if (g_vIsViewMobile.find(nViewId) != g_vIsViewMobile.end())
+        return g_vIsViewMobile[nViewId];
+    else
+        return false;
 }
 
 void setPartInInvalidation(bool bPartInInvalidation)
@@ -130,6 +152,10 @@ bool isLocalRendering()
     return g_bLocalRendering;
 }
 
+void setCompatFlag(Compat flag) { g_eCompatFlags = static_cast<Compat>(g_eCompatFlags | flag); }
+
+bool isCompatFlagSet(Compat flag) { return (g_eCompatFlags & flag) == flag; }
+
 void setLanguageTag(const LanguageTag& languageTag)
 {
     if (g_aLanguageTag != languageTag)
@@ -180,7 +206,7 @@ bool isWhitelistedLanguage(const OUString& lang)
     if (aWhitelist.empty())
         return false;
 
-    for (auto& entry : aWhitelist)
+    for (const auto& entry : aWhitelist)
     {
         if (lang.startsWith(entry))
             return true;

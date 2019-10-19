@@ -469,6 +469,11 @@ interface DrawView
         StateMethod = GetMenuState ;
         FastCall = FALSE ;
     ]
+    SID_TEXT_COMBINE // ole : no, status : ?
+    [
+        ExecMethod = FuTemporary ;
+        StateMethod = GetMenuState ;
+    ]
     SID_COMBINE // ole : no, status : ?
     [
         ExecMethod = FuTemporary ;
@@ -549,6 +554,11 @@ interface DrawView
         ExecMethod = FuTemporary ;
         StateMethod = GetMenuState ;
     ]
+    SID_FRAME_UP // ole : no, status : play rec
+    [
+        ExecMethod = FuTemporary ;
+        StateMethod = GetMenuState ;
+    ]
     SID_BEFORE_OBJ // ole : no, status : no
     [
         ExecMethod = FuTemporary ;
@@ -565,6 +575,11 @@ interface DrawView
         StateMethod = GetMenuState ;
     ]
     SID_MOREBACK // ole : no, status : play rec
+    [
+        ExecMethod = FuTemporary ;
+        StateMethod = GetMenuState ;
+    ]
+    SID_FRAME_DOWN // ole : no, status : play rec
     [
         ExecMethod = FuTemporary ;
         StateMethod = GetMenuState ;
@@ -2262,6 +2277,11 @@ interface DrawView
         ExecMethod = FuTemporary ;
         StateMethod = GetMenuState ;
     ]
+    SID_COPY_HYPERLINK_LOCATION // ole : no, status : ?
+    [
+        ExecMethod = FuTemporary ;
+        StateMethod = GetMenuState ;
+    ]
     SID_HIDE_LAST_LEVEL // ole : no, status : ?
     [
         ExecMethod = FuTemporary ;
@@ -2797,6 +2817,21 @@ interface DrawView
     SID_REGENERATE_DIAGRAM
     [
         ExecMethod = ExecCtrl ;
+        StateMethod = GetMenuState ;
+    ]
+    SID_EDIT_DIAGRAM
+    [
+        ExecMethod = ExecCtrl ;
+        StateMethod = GetMenuState ;
+    ]
+    SID_INSERT_QRCODE
+    [
+        ExecMethod = FuTemporary ;
+        StateMethod = GetMenuState ;
+    ]
+    SID_EDIT_QRCODE
+    [
+        ExecMethod = FuTemporary ;
         StateMethod = GetMenuState ;
     ]
 

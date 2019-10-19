@@ -601,7 +601,7 @@ void collectUIInformation(const util::URL& rURL, const css::uno::Sequence< css::
     if (!pFile)
         return;
 
-    UITestLogger::getInstance().logCommand("CommandSent Name:" + rURL.Complete, rArgs);
+    UITestLogger::getInstance().logCommand("Send UNO Command (\"" + rURL.Complete + "\") ", rArgs);
 }
 
 }
@@ -611,7 +611,7 @@ void SfxDispatchController_Impl::dispatch( const css::util::URL& aURL,
         const css::uno::Reference< css::frame::XDispatchResultListener >& rListener )
 {
     collectUsageInformation(aURL, aArgs);
-    collectUIInformation(aURL,aArgs);
+    collectUIInformation(aURL, aArgs);
 
     SolarMutexGuard aGuard;
     if (
@@ -667,9 +667,8 @@ void SfxDispatchController_Impl::dispatch( const css::util::URL& aURL,
     {
         sal_uInt32 nIndex( lNewArgs.getLength() );
 
-        lNewArgs.realloc( lNewArgs.getLength()+aAddArgs.size() );
-        for ( sal_uInt32 i = 0; i < nAddArgs; i++ )
-            lNewArgs[nIndex++] = aAddArgs[i];
+        lNewArgs.realloc( nIndex + nAddArgs );
+        std::copy(aAddArgs.begin(), aAddArgs.end(), std::next(lNewArgs.begin(), nIndex));
     }
 
     // Overwrite possible detected synchron argument, if real listener exists (currently no other way)
@@ -720,7 +719,7 @@ void SfxDispatchController_Impl::dispatch( const css::util::URL& aURL,
                     if ( bMasterSlave )
                     {
                         // Extract slave command and add argument to the args list. Master slot MUST
-                        // have a argument that has the same name as the master slot and type is SfxStringItem.
+                        // have an argument that has the same name as the master slot and type is SfxStringItem.
                         sal_Int32 nIndex = lNewArgs.getLength();
                         lNewArgs.realloc( nIndex+1 );
                         lNewArgs[nIndex].Name   = OUString::createFromAscii( pSlot->pUnoName );
@@ -959,7 +958,8 @@ void SfxDispatchController_Impl::StateChanged( sal_uInt16 nSID, SfxItemState eSt
         InterceptLOKStateChangeEvent(pDispatcher->GetFrame(), aEvent, pState);
     }
 
-    for (const OUString& rName: pDispatch->GetListeners().getContainedTypes())
+    const css::uno::Sequence<OUString> aContainedTypes = pDispatch->GetListeners().getContainedTypes();
+    for (const OUString& rName: aContainedTypes)
     {
         if (rName == aDispatchURL.Main || rName == aDispatchURL.Complete)
             sendStatusChanged(rName, aEvent);
@@ -1059,6 +1059,7 @@ static void InterceptLOKStateChangeEvent(const SfxViewFrame* pViewFrame, const c
              aEvent.FeatureURL.Path == "SelectAll" ||
              aEvent.FeatureURL.Path == "InsertAnnotation" ||
              aEvent.FeatureURL.Path == "DeleteAnnotation" ||
+             aEvent.FeatureURL.Path == "ResolveAnnotation" ||
              aEvent.FeatureURL.Path == "InsertRowsBefore" ||
              aEvent.FeatureURL.Path == "InsertRowsAfter" ||
              aEvent.FeatureURL.Path == "InsertColumnsBefore" ||

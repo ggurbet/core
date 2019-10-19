@@ -24,6 +24,7 @@
 #include <com/sun/star/container/XChild.hpp>
 
 #include <comphelper/processfactory.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/string.hxx>
 #include <i18nutil/unicode.hxx>
@@ -124,6 +125,7 @@ void SmGraphicWindow::dispose()
 {
     if (mxAccessible.is())
         mxAccessible->ClearWin();    // make Accessible nonfunctional
+    mxAccessible.clear();
     CaretBlinkStop();
     ScrollableWindow::dispose();
 }
@@ -855,14 +857,9 @@ SmCmdBoxWrapper::SmCmdBoxWrapper(vcl::Window *pParentWindow, sal_uInt16 nId,
 
 struct SmViewShell_Impl
 {
-private:
-    SmViewShell_Impl& operator=(const SmViewShell_Impl&) = delete;
-    SmViewShell_Impl(const SmViewShell_Impl&) = delete;
-public:
-    SmViewShell_Impl() = default;
     std::unique_ptr<sfx2::DocumentInserter> pDocInserter;
     std::unique_ptr<SfxRequest> pRequest;
-    SvtMiscOptions const        aOpts;
+    SvtMiscOptions          aOpts;
 };
 
 SFX_IMPL_SUPERCLASS_INTERFACE(SmViewShell, SfxViewShell)
@@ -1269,10 +1266,10 @@ bool SmViewShell::HasPrintOptionsPage() const
     return true;
 }
 
-VclPtr<SfxTabPage> SmViewShell::CreatePrintOptionsPage(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SmViewShell::CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController,
                                                        const SfxItemSet &rOptions)
 {
-    return SmPrintOptionsTabPage::Create(pParent, rOptions);
+    return SmPrintOptionsTabPage::Create(pPage, pController, rOptions);
 }
 
 SmEditWindow *SmViewShell::GetEditWindow()
@@ -1330,10 +1327,9 @@ void SmViewShell::Insert( SfxMedium& rMedium )
     bool bRet = false;
 
     uno::Reference <embed::XStorage> xStorage = rMedium.GetStorage();
-    uno::Reference <container::XNameAccess> xNameAccess(xStorage, uno::UNO_QUERY);
-    if (xNameAccess.is() && xNameAccess->getElementNames().hasElements())
+    if (xStorage.is() && xStorage->getElementNames().hasElements())
     {
-        if (xNameAccess->hasByName("content.xml") || xNameAccess->hasByName("Content.xml"))
+        if (xStorage->hasByName("content.xml") || xStorage->hasByName("Content.xml"))
         {
             // is this a fabulous math package ?
             Reference<css::frame::XModel> xModel(pDoc->GetModel());
@@ -1451,15 +1447,9 @@ void SmViewShell::Execute(SfxRequest& rReq)
             Reference< datatransfer::XTransferable > xTrans( GetDoc()->GetModel(), uno::UNO_QUERY );
             if( xTrans.is() )
             {
-                Reference< lang::XUnoTunnel> xTnnl( xTrans, uno::UNO_QUERY);
-                if( xTnnl.is() )
-                {
-                    TransferableHelper* pTrans = reinterpret_cast< TransferableHelper * >(
-                            sal::static_int_cast< sal_uIntPtr >(
-                            xTnnl->getSomething( TransferableHelper::getUnoTunnelId() )));
-                    if( pTrans )
-                        pTrans->CopyToClipboard(GetEditWindow());
-                }
+                auto pTrans = comphelper::getUnoTunnelImplementation<TransferableHelper>(xTrans);
+                if( pTrans )
+                    pTrans->CopyToClipboard(GetEditWindow());
             }
         }
         break;

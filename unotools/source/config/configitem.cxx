@@ -178,7 +178,7 @@ void ConfigItem::impl_packLocalizedProperties(  const   Sequence< OUString >&   
     sal_Int32                   nPropertyCounter;    // counter of inner loop for Sequence< PropertyValue >
     sal_Int32                   nPropertiesSize;     // marks end of inner loop
     Sequence< OUString >        lPropertyNames;      // list of all locales for localized entry
-    Sequence< PropertyValue >   lProperties;         // localized values of an configuration entry packed for return
+    Sequence< PropertyValue >   lProperties;         // localized values of a configuration entry packed for return
     Reference< XInterface >     xLocalizedNode;      // if cfg entry is localized ... lInValues contains an XInterface!
 
     // Optimise follow algorithm ... A LITTLE BIT :-)
@@ -244,7 +244,7 @@ void ConfigItem::impl_unpackLocalizedProperties(    const   Sequence< OUString >
     sal_Int32                   nDestinationCounter; // actual position in output lists
     sal_Int32                   nPropertiesSize;     // marks end of inner loop
     OUString                    sNodeName;           // base name of node ( e.g. "UIName/" ) ... expand to locale ( e.g. "UIName/de" )
-    Sequence< PropertyValue >   lProperties;         // localized values of an configuration entry gotten from lInValues-Any
+    Sequence< PropertyValue >   lProperties;         // localized values of a configuration entry gotten from lInValues-Any
 
     // Optimise follow algorithm ... A LITTLE BIT :-)
     // There exist two different possibilities:
@@ -281,7 +281,7 @@ void ConfigItem::impl_unpackLocalizedProperties(    const   Sequence< OUString >
                 lOutValues.realloc  ( nDestinationCounter+nPropertiesSize );
             }
 
-            for( const auto& rProperty : lProperties )
+            for( const auto& rProperty : std::as_const(lProperties) )
             {
                 lOutNames [nDestinationCounter] = sNodeName + rProperty.Name;
                 lOutValues[nDestinationCounter] = rProperty.Value;
@@ -351,7 +351,7 @@ Sequence< sal_Bool > ConfigItem::GetReadOnlyStates(const css::uno::Sequence< OUS
             }
             else
             {
-                xNode.set( xHierarchyAccess, UNO_QUERY );
+                xNode = xHierarchyAccess;
             }
 
             xSet.set(xNode, UNO_QUERY);
@@ -434,7 +434,7 @@ bool ConfigItem::PutProperties( const Sequence< OUString >& rNames,
         if(( m_nMode & ConfigItemMode::AllLocales ) == ConfigItemMode::AllLocales )
         {
             // If ConfigItem works in "ALL_LOCALES"-mode ... we must support a Sequence< PropertyValue >
-            // as value of an localized configuration entry!
+            // as value of a localized configuration entry!
             // How we can do that?
             // We must split all PropertyValues to "Sequence< OUString >" AND "Sequence< Any >"!
             impl_unpackLocalizedProperties( rNames, rValues, lNames, lValues );
@@ -532,16 +532,20 @@ bool ConfigItem::EnableNotification(const Sequence< OUString >& rNames,
 
 void ConfigItem::RemoveChangesListener()
 {
-    Reference<XChangesNotifier> xChgNot(m_xHierarchyAccess, UNO_QUERY);
-    if(xChgNot.is() && xChangeLstnr.is())
+    Reference<XHierarchicalNameAccess> xHierarchyAccess = GetTree();
+    if(xHierarchyAccess.is())
     {
-        try
+        Reference<XChangesNotifier> xChgNot(xHierarchyAccess, UNO_QUERY);
+        if(xChgNot.is() && xChangeLstnr.is())
         {
-            xChgNot->removeChangesListener( xChangeLstnr );
-            xChangeLstnr = nullptr;
-        }
-        catch (const Exception&)
-        {
+            try
+            {
+                xChgNot->removeChangesListener( xChangeLstnr );
+                xChangeLstnr = nullptr;
+            }
+            catch (const Exception&)
+            {
+            }
         }
     }
 }
@@ -637,7 +641,7 @@ bool ConfigItem::ClearNodeSet(const OUString& rNode)
                 xCont.set(xHierarchyAccess, UNO_QUERY);
             if(!xCont.is())
                 return false;
-            Sequence< OUString > aNames = xCont->getElementNames();
+            const Sequence< OUString > aNames = xCont->getElementNames();
             Reference<XChangesBatch> xBatch(xHierarchyAccess, UNO_QUERY);
             for(const OUString& rName : aNames)
             {

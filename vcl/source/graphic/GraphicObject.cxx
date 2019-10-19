@@ -21,20 +21,14 @@
 
 #include <algorithm>
 
-#include <officecfg/Office/Common.hxx>
-#include <osl/file.hxx>
-#include <tools/vcompat.hxx>
+#include <osl/diagnose.h>
 #include <tools/fract.hxx>
 #include <tools/helpers.hxx>
-#include <unotools/ucbstreamhelper.hxx>
-#include <unotools/tempfile.hxx>
-#include <unotools/configmgr.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/cvtgrf.hxx>
 #include <vcl/metaact.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/GraphicObject.hxx>
 #include <vcl/GraphicLoader.hxx>
+#include <vcl/outdev.hxx>
 
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -89,7 +83,8 @@ void SearchForGraphics(uno::Reference<uno::XInterface> const & xInterface,
     Reference<XNameContainer> xContainer(xInterface, UNO_QUERY);
     if (xContainer.is())
     {
-        for (OUString const & rName : xContainer->getElementNames())
+        const css::uno::Sequence<OUString> aElementNames = xContainer->getElementNames();
+        for (OUString const & rName : aElementNames)
         {
             uno::Reference<XInterface> xInnerInterface;
             xContainer->getByName(rName) >>= xInnerInterface;

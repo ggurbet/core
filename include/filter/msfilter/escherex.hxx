@@ -56,7 +56,7 @@ namespace tools {
     class PolyPolygon;
 }
 
-        /*Record Name       FBT-Value   Instance                  Contents                                                          Wrd Exl PPt Ver*/
+        /*Record Name       FBT-Value   Instance                  Contents                                                          Wrd Exl PPT Ver*/
 // In the Microsoft documentation the naming scheme is msofbt... instead of ESCHER_...
 #define ESCHER_DggContainer     0xF000u /*                           per-document data                                                  X   X   X     */
 #define ESCHER_Dgg              0xF006u /*                           an FDGG and several FIDCLs                                         X   X   X   0 */
@@ -600,7 +600,7 @@ public:
     bool        GetPrefSize( const sal_uInt32 nBlibId, Size& rSize, MapMode& rMapMode );
 
     void        SetBaseURI( const OUString& rBaseURI ) { maBaseURI = rBaseURI; };
-    const OUString& GetBaseURI() { return maBaseURI; };
+    const OUString& GetBaseURI() const { return maBaseURI; };
 
     EscherGraphicProvider( EscherGraphicProviderFlags nFlags  = EscherGraphicProviderFlags::NONE );
     virtual ~EscherGraphicProvider();
@@ -922,7 +922,7 @@ public:
     {
         mpHyperlinkRecord.reset( pStream );
     }
-    const std::unique_ptr< SvMemoryStream >&  getHyperlinkRecord() { return mpHyperlinkRecord; }
+    const std::unique_ptr< SvMemoryStream >&  getHyperlinkRecord() const { return mpHyperlinkRecord; }
 };
 
 class EscherExHostAppData
@@ -980,7 +980,7 @@ public:
     /** Creates and returns a new shape identifier, updates the internal shape
         counters and registers the identifier in the DGG cluster table.
         @param nDrawingId  Drawing identifier has to be passed to be able to
-            generate shape identifiers for multiple drawings simultaniously. */
+            generate shape identifiers for multiple drawings simultaneously. */
     sal_uInt32          GenerateShapeId( sal_uInt32 nDrawingId, bool bIsInSpgr );
     /** Returns the number of shapes in the current drawing, based on number of
         calls to the GenerateShapeId() function. */
@@ -1125,14 +1125,14 @@ public:
     void            InsertAtPersistOffset( sal_uInt32 nKey, sal_uInt32 nValue );   // nValue is being inserted into the Stream where it's appropriate (overwrite mode), without that the
                                                                                     // current StreamPosition changes
     void            SetEditAs( const OUString& rEditAs );
-    const OUString& GetEditAs() { return mEditAs; }
+    const OUString& GetEditAs() const { return mEditAs; }
     SvStream&       GetStream() const   { return *mpOutStrm; }
     sal_uLong       GetStreamPos() const    { return mpOutStrm->Tell(); }
 
                 // features during the creation of the following Containers:
 
-                //      ESCHER_DggContainer:    a EscherDgg Atom is automatically being created and managed
-                //      ESCHER_DgContainer:     a EscherDg Atom is automatically being created and managed
+                //      ESCHER_DggContainer:    an EscherDgg Atom is automatically being created and managed
+                //      ESCHER_DgContainer:     an EscherDg Atom is automatically being created and managed
                 //      ESCHER_SpgrContainer:
                 //      ESCHER_SpContainer:
 
@@ -1208,7 +1208,7 @@ public:
 
                 /// Called if an ESCHER_Prop_lTxid shall be written
     virtual sal_uInt32  QueryTextID( const css::uno::Reference< css::drawing::XShape >&, sal_uInt32 nShapeId );
-            // add an dummy rectangle shape into the escher stream
+            // add a dummy rectangle shape into the escher stream
         sal_uInt32  AddDummyShape();
 
     static const SdrObject* GetSdrObject( const css::uno::Reference< css::drawing::XShape >& rXShape );

@@ -207,7 +207,7 @@ public class DocumentView extends    JFrame
     {
         // create view frame (as a XFrame!) here
         // Look for right view mode set by user command line parameter.
-        // First try to get a new unambigous frame name from our global ViewContainer.
+        // First try to get a new unambiguous frame name from our global ViewContainer.
         if(ViewContainer.mbInplace)
         {
             // inplace document view can't be initialized without a visible parent window hierarchy!
@@ -359,7 +359,7 @@ public class DocumentView extends    JFrame
 
     /**
      * callback from our internal saved frame
-     * which wish to die. It's not necessary to remove listener connections
+     * which wishes to die. It's not necessary to remove listener connections
      * here. Because the broadcaster do it automatically.
      * We have to release all references to him only.
      *

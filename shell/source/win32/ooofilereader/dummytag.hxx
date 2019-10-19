@@ -27,7 +27,7 @@
 
 /** Implements the ITag interface but does
     nothing (Null object pattern), may be used for
-    tags we are not interessted in to avoid if-else
+    tags we are not interested in to avoid if-else
     branches.
 */
 class CDummyTag : public ITag
@@ -46,7 +46,7 @@ class CDummyTag : public ITag
             return EMPTY_STRING;
         };
 
-        virtual ::std::wstring const getTagAttribute( ::std::wstring  const & /*attrname*/ ) override { return ::std::wstring(EMPTY_STRING); };
+        virtual ::std::wstring getTagAttribute( ::std::wstring  const & /*attrname*/ ) override { return ::std::wstring(EMPTY_STRING); };
 };
 
 

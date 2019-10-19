@@ -235,6 +235,7 @@ class XMLOFF_DLLPUBLIC SvXMLImport : public cppu::WeakImplHelper<
 protected:
     bool                        mbIsFormsSupported;
     bool                        mbIsTableShapeSupported;
+    bool                        mbNotifyMacroEventRead;
 
     // Create top-level element context.
     // This method is called after the namespace map has been updated, but
@@ -342,6 +343,7 @@ public:
     virtual void SAL_CALL initialize( const css::uno::Sequence< css::uno::Any >& aArguments ) override;
 
     // XUnoTunnel
+    static const css::uno::Sequence<sal_Int8>& getUnoTunnelId() throw();
     virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& aIdentifier ) override;
 
     // XServiceInfo
@@ -375,10 +377,10 @@ public:
     // get import helper for events
     XMLEventImportHelper& GetEventImport();
 
-    static const OUString getNameFromToken( sal_Int32 nToken );
-    static const OUString getNamespacePrefixFromToken(sal_Int32 nToken, const SvXMLNamespaceMap* pMap);
-    static const OUString getNamespaceURIFromToken( sal_Int32 nToken );
-    static const OUString getNamespacePrefixFromURI( const OUString& rURI );
+    static OUString getNameFromToken( sal_Int32 nToken );
+    static OUString getNamespacePrefixFromToken(sal_Int32 nToken, const SvXMLNamespaceMap* pMap);
+    static OUString getNamespaceURIFromToken( sal_Int32 nToken );
+    static OUString getNamespacePrefixFromURI( const OUString& rURI );
 
     SvXMLNamespaceMap& GetNamespaceMap() { return *mpNamespaceMap; }
     const SvXMLNamespaceMap& GetNamespaceMap() const { return *mpNamespaceMap; }
@@ -403,18 +405,18 @@ public:
     css::uno::Reference<css::graphic::XGraphic> loadGraphicByURL(OUString const & rURL);
     css::uno::Reference<css::graphic::XGraphic> loadGraphicFromBase64(css::uno::Reference<css::io::XOutputStream> const & rxOutputStream);
 
-    css::uno::Reference< css::io::XOutputStream > GetStreamForGraphicObjectURLFromBase64();
+    css::uno::Reference< css::io::XOutputStream > GetStreamForGraphicObjectURLFromBase64() const;
 
     bool IsPackageURL( const OUString& rURL ) const;
     OUString ResolveEmbeddedObjectURL( const OUString& rURL,
                                        const OUString& rClassId );
     css::uno::Reference< css::io::XOutputStream >
-        GetStreamForEmbeddedObjectURLFromBase64();
+        GetStreamForEmbeddedObjectURLFromBase64() const;
     OUString ResolveEmbeddedObjectURLFromBase64();
 
     // get source storage we're importing from (if available)
     css::uno::Reference< css::embed::XStorage > const &
-          GetSourceStorage();
+          GetSourceStorage() const;
 
     void AddStyleDisplayName( sal_uInt16 nFamily,
                               const OUString& rName,
@@ -571,6 +573,8 @@ public:
     bool embeddedFontAlreadyProcessed( const OUString& url );
 
     virtual void NotifyEmbeddedFontRead() {};
+    // something referencing a macro/script was imported
+    void NotifyMacroEventRead();
 
     bool needFixPositionAfterZ() const;
 };

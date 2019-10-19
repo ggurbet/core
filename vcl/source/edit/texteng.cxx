@@ -174,7 +174,7 @@ void TextEngine::SetFont( const vcl::Font& rFont )
     maFont = rFont;
     // #i40221# As the font's color now defaults to transparent (since i35764)
     //  we have to choose a useful textcolor in this case.
-    // Otherwise maTextColor and maFont.GetColor() are both transparent....
+    // Otherwise maTextColor and maFont.GetColor() are both transparent...
     if( rFont.GetColor() == COL_TRANSPARENT )
         maTextColor = COL_BLACK;
     else
@@ -559,7 +559,7 @@ TextPaM TextEngine::ImpDeleteText( const TextSelection& rSel )
             pPortion->MarkSelectionInvalid( aStartPaM.GetIndex() );
         }
 
-        // the beginning of EndNodes....
+        // the beginning of EndNodes...
         nEndNode = nStartNode+1;    // the other paragraphs were deleted
         nChars = aEndPaM.GetIndex();
         if ( nChars )
@@ -572,7 +572,7 @@ TextPaM TextEngine::ImpDeleteText( const TextSelection& rSel )
             pPortion->MarkSelectionInvalid( 0 );
         }
 
-        // connect....
+        // connect...
         aStartPaM = ImpConnectParagraphs( nStartNode, nEndNode );
     }
     else
@@ -1961,6 +1961,7 @@ void TextEngine::ImpPaint( OutputDevice* pOutDev, const Point& rStartPos, tools:
                                                 {
                                                     const sal_Int32 nL = pSelStart->GetIndex() - nTmpIndex;
                                                     pOutDev->SetFont( aFont);
+                                                    pOutDev->SetTextFillColor();
                                                     aPos.setX( rStartPos.X() + ImpGetOutputOffset( nPara, &rLine, nTmpIndex, nTmpIndex+nL ) );
                                                     pOutDev->DrawText( aPos, pPortion->GetNode()->GetText(), nTmpIndex, nL );
                                                     nTmpIndex = nTmpIndex + nL;
@@ -1986,6 +1987,7 @@ void TextEngine::ImpPaint( OutputDevice* pOutDev, const Point& rStartPos, tools:
                                                 if ( nTmpIndex < nEnd )
                                                 {
                                                     nL = nEnd-nTmpIndex;
+                                                    pOutDev->SetTextFillColor();
                                                     aPos.setX( rStartPos.X() + ImpGetOutputOffset( nPara, &rLine, nTmpIndex, nTmpIndex+nL ) );
                                                     pOutDev->DrawText( aPos, pPortion->GetNode()->GetText(), nTmpIndex, nEnd-nTmpIndex );
                                                 }
@@ -1994,6 +1996,7 @@ void TextEngine::ImpPaint( OutputDevice* pOutDev, const Point& rStartPos, tools:
                                         }
                                         if ( !bDone )
                                         {
+                                            pOutDev->SetTextFillColor();
                                             aPos.setX( rStartPos.X() + ImpGetOutputOffset( nPara, &rLine, nTmpIndex, nEnd ) );
                                             pOutDev->DrawText( aPos, pPortion->GetNode()->GetText(), nTmpIndex, nEnd-nTmpIndex );
                                         }
@@ -2452,56 +2455,6 @@ void TextEngine::RemoveAttribs( sal_uInt32 nPara )
             IdleFormatAndUpdate( nullptr, 0xFFFF );
         }
     }
-}
-
-void TextEngine::RemoveAttribs( sal_uInt32 nPara, sal_uInt16 nWhich )
-{
-    if ( nPara < mpDoc->GetNodes().size() )
-    {
-        TextNode* pNode = mpDoc->GetNodes()[ nPara ].get();
-        if ( pNode->GetCharAttribs().Count() )
-        {
-            TextCharAttribList& rAttribs = pNode->GetCharAttribs();
-            for(sal_uInt16 nAttr = rAttribs.Count(); nAttr; --nAttr)
-            {
-                if(rAttribs.GetAttrib( nAttr - 1 ).Which() == nWhich)
-                {
-                    // tdf#113400 destroy unique_ptr returned
-                    rAttribs.RemoveAttrib( nAttr -1 ).reset();
-                }
-            }
-            TEParaPortion* pTEParaPortion = mpTEParaPortions->GetObject( nPara );
-            pTEParaPortion->MarkSelectionInvalid( 0 );
-            mbFormatted = false;
-            IdleFormatAndUpdate( nullptr, 0xFFFF );
-        }
-    }
-}
-
-std::unique_ptr<TextCharAttrib> TextEngine::RemoveAttrib( sal_uInt32 nPara, const TextCharAttrib& rAttrib )
-{
-    std::unique_ptr<TextCharAttrib> pRet;
-    if ( nPara < mpDoc->GetNodes().size() )
-    {
-        TextNode* pNode = mpDoc->GetNodes()[ nPara ].get();
-        if ( pNode->GetCharAttribs().Count() )
-        {
-            TextCharAttribList& rAttribs = pNode->GetCharAttribs();
-            for(sal_uInt16 nAttr = rAttribs.Count(); nAttr; --nAttr)
-            {
-                if(&(rAttribs.GetAttrib( nAttr - 1 )) == &rAttrib)
-                {
-                    pRet = rAttribs.RemoveAttrib( nAttr -1 );
-                    break;
-                }
-            }
-            TEParaPortion* pTEParaPortion = mpTEParaPortions->GetObject( nPara );
-            pTEParaPortion->MarkSelectionInvalid( 0 );
-            mbFormatted = false;
-            FormatAndUpdate();
-        }
-    }
-    return pRet;
 }
 
 void TextEngine::SetAttrib( const TextAttrib& rAttr, sal_uInt32 nPara, sal_Int32 nStart, sal_Int32 nEnd, bool bIdleFormatAndUpdate )

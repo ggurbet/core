@@ -16,7 +16,7 @@
  *   except in compliance with the License. You may obtain a copy of
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
-#include <stdlib.h>
+
 #include <string.h>
 #include <cassert>
 #include <memory>
@@ -518,7 +518,7 @@ void SaxExpatParser::setLocale( const Locale & )
 // XServiceInfo
 OUString SaxExpatParser::getImplementationName()
 {
-    return OUString("com.sun.star.comp.extensions.xml.sax.ParserExpat");
+    return "com.sun.star.comp.extensions.xml.sax.ParserExpat";
 }
 
 // XServiceInfo
@@ -614,13 +614,13 @@ OUString getErrorMessage( XML_Error xmlE, const OUString& sSystemId , sal_Int32 
         Message = "not standalone";
     }
 
-    OUString str("[");
-    str += sSystemId;
-    str += " line ";
-    str += OUString::number( nLine );
-    str += "]: ";
-    str += Message;
-    str += "error";
+    OUString str = "[" +
+        sSystemId +
+        " line " +
+        OUString::number( nLine ) +
+        "]: " +
+        Message +
+        "error";
 
     return str;
 }

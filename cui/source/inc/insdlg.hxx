@@ -40,7 +40,7 @@ protected:
         const OUString& rUIXMLDescription, const OString& rID,
         const css::uno::Reference < css::embed::XStorage >& xStorage);
 public:
-    const css::uno::Reference<css::embed::XEmbeddedObject>& GetObject() { return m_xObj; }
+    const css::uno::Reference<css::embed::XEmbeddedObject>& GetObject() const { return m_xObj; }
     virtual css::uno::Reference<css::io::XInputStream> GetIconIfIconified(OUString* pGraphicMediaType);
     void SetHelpId(const OString& rHelpId) { m_xDialog->set_help_id(rHelpId); }
     virtual bool IsCreateNew() const;
@@ -63,7 +63,7 @@ class SvInsertOleDlg : public InsertObjectDialog_Impl
     std::unique_ptr<weld::CheckButton> m_xCbFilelink;
     std::unique_ptr<weld::CheckButton> m_xCbAsIcon;
 
-    DECL_LINK(DoubleClickHdl, weld::TreeView&, void);
+    DECL_LINK(DoubleClickHdl, weld::TreeView&, bool);
     DECL_LINK(BrowseHdl, weld::Button&, void);
     DECL_LINK(RadioHdl, weld::Button&, void);
     bool IsCreateNew() const override { return m_xRbNewObject->get_active(); }

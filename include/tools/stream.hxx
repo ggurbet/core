@@ -145,7 +145,7 @@ private:
                     m_pRWBuf;     ///< Points to read/write buffer
     sal_uInt8*      m_pBufPos;    ///< m_pRWBuf + m_nBufActualPos
     sal_uInt16      m_nBufSize;   ///< Allocated size of buffer
-    sal_uInt16      m_nBufActualLen; ///< Length of used segment of puffer
+    sal_uInt16      m_nBufActualLen; ///< Length of used segment of buffer
                                   ///< = m_nBufSize, if EOF did not occur
     sal_uInt16      m_nBufActualPos; ///< current position in buffer (0..m_nBufSize-1)
     sal_uInt16      m_nBufFree;   ///< number of free slots in buffer to IO of type eIOMode
@@ -246,7 +246,7 @@ public:
     SvStream&       WriteUInt8( sal_uInt8 nuInt8 );
     SvStream&       WriteUnicode( sal_Unicode );
     SvStream&       WriteOString(const OString& rStr)
-                        { return WriteCharPtr(rStr.getStr()); }
+                        { WriteBytes(rStr.getStr(), rStr.getLength()); return *this; }
     SvStream&       WriteStream( SvStream& rStream );
     sal_uInt64      WriteStream( SvStream& rStream, sal_uInt64 nSize );
 

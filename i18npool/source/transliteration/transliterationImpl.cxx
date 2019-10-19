@@ -525,9 +525,7 @@ TransliterationImpl::transliterateRange( const OUString& str1, const OUString& s
     if (numCascade == 1)
         return bodyCascade[0]->transliterateRange(str1, str2);
 
-    Sequence< OUString > ostr(2);
-    ostr[0] = str1;
-    ostr[1] = str2;
+    Sequence< OUString > ostr{ str1, str2 };
 
     return getRange(ostr, 2, 0);
 }
@@ -638,7 +636,7 @@ TransliterationImpl::loadModuleByName( const OUString& implName,
 OUString SAL_CALL
 TransliterationImpl::getImplementationName()
 {
-    return OUString("com.sun.star.i18n.Transliteration");
+    return "com.sun.star.i18n.Transliteration";
 }
 
 sal_Bool SAL_CALL
@@ -650,8 +648,7 @@ TransliterationImpl::supportsService(const OUString& rServiceName)
 Sequence< OUString > SAL_CALL
 TransliterationImpl::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet { "com.sun.star.i18n.Transliteration" };
-    return aRet;
+    return { "com.sun.star.i18n.Transliteration" };
 }
 
 }

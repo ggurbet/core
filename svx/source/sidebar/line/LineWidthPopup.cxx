@@ -47,6 +47,11 @@ LineWidthPopup::LineWidthPopup(LinePropertyPanelBase& rParent)
 
     m_xVSWidth = VclPtr<LineWidthValueSet>::Create(m_xBox);
 
+    // Avoid flicker when hovering over the menu items.
+    if (!IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Focus))
+        // If NWF renders the focus rects itself, that breaks double-buffering.
+        m_xMFWidth->RequestDoubleBuffering(true);
+
     m_xVSWidth->SetStyle(m_xVSWidth->GetStyle()| WB_3DLOOK |  WB_NO_DIRECTSELECT);
 
     maStrUnits[0] = "0.5";
@@ -183,8 +188,8 @@ void LineWidthPopup::SetWidthSelect(long lValue, bool bValuable, MapUnit eMapUni
         m_xVSWidth->SetImage(m_aIMGCus);
         m_xVSWidth->SetCusEnable(true);
 
-        OUString aStrTip( OUString::number( static_cast<double>(m_nCustomWidth) / 10));
-        aStrTip += m_sPt;
+        OUString aStrTip = OUString::number( static_cast<double>(m_nCustomWidth) / 10) +
+            m_sPt;
         m_xVSWidth->SetItemText(9, aStrTip);
     }
     else

@@ -89,12 +89,13 @@
         { OUString(UNO_NAME_TEXT_FRAME), FN_UNO_TEXT_FRAME,     cppu::UnoType<css::text::XTextFrame>::get(),        PropertyAttribute::MAYBEVOID|PropertyAttribute::READONLY ,0 },                     \
         { OUString(UNO_NAME_TEXT_SECTION), FN_UNO_TEXT_SECTION, cppu::UnoType<css::text::XTextSection>::get(),  PropertyAttribute::MAYBEVOID|PropertyAttribute::READONLY ,0 },                    \
         { OUString(UNO_NAME_TEXT_PARAGRAPH), FN_UNO_TEXT_PARAGRAPH, cppu::UnoType<css::text::XTextContent>::get(),  PropertyAttribute::MAYBEVOID|PropertyAttribute::READONLY ,0 },                    \
-        { OUString(UNO_NAME_PARA_CHAPTER_NUMBERING_LEVEL), FN_UNO_PARA_CHAPTER_NUMBERING_LEVEL,cppu::UnoType<sal_Int8>::get(), PROPERTY_NONE, 0},                                                     \
+        { OUString(UNO_NAME_PARA_CHAPTER_NUMBERING_LEVEL), FN_UNO_PARA_CHAPTER_NUMBERING_LEVEL,cppu::UnoType<sal_Int8>::get(), PropertyAttribute::MAYBEVOID, 0},                                                     \
         { OUString(UNO_NAME_PARA_CONDITIONAL_STYLE_NAME), FN_UNO_PARA_CONDITIONAL_STYLE_NAME, cppu::UnoType<OUString>::get(),      PropertyAttribute::READONLY, 0},                                                     \
         { OUString(UNO_NAME_LIST_ID), FN_UNO_LIST_ID, cppu::UnoType<OUString>::get(), PropertyAttribute::MAYBEVOID, 0}, \
         { OUString(UNO_NAME_PARA_IS_NUMBERING_RESTART), FN_NUMBER_NEWSTART,     cppu::UnoType<bool>::get(),     PropertyAttribute::MAYBEVOID, 0 }, \
         { OUString(UNO_NAME_PARA_CONTINUEING_PREVIOUS_SUB_TREE), FN_UNO_PARA_CONT_PREV_SUBTREE, cppu::UnoType<bool>::get(), PropertyAttribute::READONLY, 0 }, \
         { OUString(UNO_NAME_PARA_LIST_LABEL_STRING), FN_UNO_PARA_NUM_STRING, cppu::UnoType<OUString>::get(), PropertyAttribute::READONLY, 0 }, \
+        { OUString(UNO_NAME_PARA_LIST_AUTO_FORMAT), FN_UNO_PARA_NUM_AUTO_FORMAT, cppu::UnoType<cppu::UnoSequenceType<css::beans::NamedValue>>::get(), PropertyAttribute::MAYBEVOID, 0 }, \
         { OUString(UNO_NAME_OUTLINE_LEVEL), RES_PARATR_OUTLINELEVEL,        cppu::UnoType<sal_Int16>::get(),                PropertyAttribute::MAYBEVOID,     0},
 
 #define COMMON_HYPERLINK_PROPERTIES \
@@ -104,7 +105,7 @@
         { OUString(UNO_NAME_UNVISITED_CHAR_STYLE_NAME), RES_TXTATR_INETFMT, cppu::UnoType<OUString>::get(), PropertyAttribute::MAYBEVOID ,MID_URL_UNVISITED_FMT   },   \
         { OUString(UNO_NAME_VISITED_CHAR_STYLE_NAME), RES_TXTATR_INETFMT,   cppu::UnoType<OUString>::get(), PropertyAttribute::MAYBEVOID ,MID_URL_VISITED_FMT  },
 
-// same as COMMON_CRSR_PARA_PROPERTIES_WITHOUT_FN_01 but without
+// same as COMMON_CRSR_PARA_PROPERTIES_WITHOUT_FN but without
 // OUString(UNO_NAME_BREAK_TYPE) and OUString(UNO_NAME_PAGE_DESC_NAME) which can not be used
 // by the SwXTextTableCursor
 #define COMMON_CRSR_PARA_PROPERTIES_WITHOUT_FN_01 \
@@ -324,6 +325,7 @@
     { OUString(UNO_NAME_IS_LAYOUT_IN_CELL), RES_FOLLOW_TEXT_FLOW,     cppu::UnoType<bool>::get(), PROPERTY_NONE, MID_FTF_LAYOUT_IN_CELL}, \
     { OUString(UNO_NAME_PARENT_TEXT), FN_UNO_PARENT_TEXT, cppu::UnoType<text::XText>::get(), PropertyAttribute::MAYBEVOID | PropertyAttribute::READONLY, 0 }, \
     { OUString(UNO_NAME_WRAP_INFLUENCE_ON_POSITION), RES_WRAP_INFLUENCE_ON_OBJPOS, cppu::UnoType<sal_Int8>::get(), PROPERTY_NONE, MID_WRAP_INFLUENCE}, \
+    { OUString(UNO_NAME_ALLOW_OVERLAP), RES_WRAP_INFLUENCE_ON_OBJPOS, cppu::UnoType<bool>::get(), PROPERTY_NONE, MID_ALLOW_OVERLAP}, \
     { OUString(UNO_NAME_TITLE), FN_UNO_TITLE, cppu::UnoType<OUString>::get(), PROPERTY_NONE, 0}, \
     { OUString(UNO_NAME_DESCRIPTION), FN_UNO_DESCRIPTION, cppu::UnoType<OUString>::get(), PROPERTY_NONE, 0}, \
     { OUString(UNO_NAME_LAYOUT_SIZE), WID_LAYOUT_SIZE, cppu::UnoType<css::awt::Size>::get(), PropertyAttribute::MAYBEVOID | PropertyAttribute::READONLY, 0 }, \

@@ -72,7 +72,7 @@ public:
     virtual void                UpdateData() override { ScCellTextData::UpdateData(); }
 };
 
-//  ScAccessibleCellTextData: shared data between sub objects of a accessible cell text object
+//  ScAccessibleCellTextData: shared data between sub objects of an accessible cell text object
 
 class ScAccessibleCellTextData : public ScAccessibleCellBaseTextData
 {
@@ -258,7 +258,7 @@ private:
     typedef ::std::unique_ptr< SvxTextForwarder > TextForwarderPtr;
     typedef ::std::unique_ptr< ScCsvViewForwarder > ViewForwarderPtr;
 
-    VclPtr<vcl::Window>         mpWindow;
+    VclPtr<OutputDevice>        mpWindow;
     EditEngine*                 mpEditEngine;
     TextForwarderPtr            mpTextForwarder;
     ViewForwarderPtr            mpViewForwarder;
@@ -267,7 +267,7 @@ private:
 
 public:
     explicit                    ScAccessibleCsvTextData(
-                                    vcl::Window* pWindow,
+                                    OutputDevice* pWindow,
                                     EditEngine* pEditEngine,
                                     const OUString& rCellText,
                                     const Size& rCellSize );

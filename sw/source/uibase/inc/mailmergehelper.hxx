@@ -19,7 +19,6 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_MAILMERGEHELPER_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_MAILMERGEHELPER_HXX
 
-#include <unotools/configitem.hxx>
 #include <com/sun/star/uno/Sequence.h>
 #include <com/sun/star/mail/XAuthenticator.hpp>
 #include <com/sun/star/mail/XConnectionListener.hpp>
@@ -29,7 +28,6 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/compbase.hxx>
-#include <vcl/scrbar.hxx>
 #include <vcl/customweld.hxx>
 #include <vcl/weld.hxx>
 #include <rtl/ustring.hxx>
@@ -58,30 +56,25 @@ struct SwAddressPreview_Impl;
 
 // Preview window used to show the possible selection of address blocks
 // and also the resulting address filled with database data
-class SW_DLLPUBLIC SwAddressPreview : public vcl::Window
+class SW_DLLPUBLIC SwAddressPreview : public weld::CustomWidgetController
 {
-    VclPtr<ScrollBar> aVScrollBar;
-    SwAddressPreview_Impl* pImpl;
+    std::unique_ptr<SwAddressPreview_Impl> pImpl;
+    std::unique_ptr<weld::ScrolledWindow> m_xVScrollBar;
     Link<LinkParamNone*,void> m_aSelectHdl;
 
     void DrawText_Impl(vcl::RenderContext& rRenderContext, const OUString& rAddress,
                        const Point& rTopLeft, const Size& rSize, bool bIsSelected);
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&) override;
-    virtual void Resize() override;
-    virtual void MouseButtonDown( const MouseEvent& rMEvt ) override;
-    virtual void KeyInput( const KeyEvent& rKEvt ) override;
-    virtual void StateChanged( StateChangedType nStateChange ) override;
+    virtual bool MouseButtonDown( const MouseEvent& rMEvt ) override;
+    virtual bool KeyInput( const KeyEvent& rKEvt ) override;
     void UpdateScrollBar();
 
-    DECL_LINK(ScrollHdl, ScrollBar*,void);
+    DECL_LINK(ScrollHdl, weld::ScrolledWindow&,void);
 
 public:
-    SwAddressPreview(vcl::Window* pParent, WinBits nStyle);
+    SwAddressPreview(std::unique_ptr<weld::ScrolledWindow> xParent);
     virtual ~SwAddressPreview() override;
-    virtual void dispose() override;
-
-    void positionScrollBar();
 
     /** The address string is a list of address elements separated by spaces
     and breaks. The addresses fit into the given layout. If more addresses then
@@ -99,56 +92,18 @@ public:
     // returns the selected address
     sal_uInt16 GetSelectedAddress() const;
     void SelectAddress(sal_uInt16 nSelect);
-
-    // set the number of rows and columns of addresses
-    void SetLayout(sal_uInt16 nRows, sal_uInt16 nColumns);
-
-    // fill the actual data into a string (address block or greeting)
-    static OUString FillData(const OUString& rAddress, SwMailMergeConfigItem const & rConfigItem,
-                             const css::uno::Sequence<OUString>* pAssignments = nullptr);
-
-    void SetSelectHdl (const Link<LinkParamNone*,void>& rLink) { m_aSelectHdl = rLink; }
-};
-
-class SW_DLLPUBLIC AddressPreview : public weld::CustomWidgetController
-{
-    std::unique_ptr<SwAddressPreview_Impl> pImpl;
-    std::unique_ptr<weld::ScrolledWindow> m_xVScrollBar;
-
-    void DrawText_Impl(vcl::RenderContext& rRenderContext, const OUString& rAddress,
-                       const Point& rTopLeft, const Size& rSize, bool bIsSelected);
-
-    virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&) override;
-    virtual bool MouseButtonDown( const MouseEvent& rMEvt ) override;
-    virtual bool KeyInput( const KeyEvent& rKEvt ) override;
-    void UpdateScrollBar();
-
-    DECL_LINK(ScrollHdl, weld::ScrolledWindow&,void);
-
-public:
-    AddressPreview(std::unique_ptr<weld::ScrolledWindow> xParent);
-    virtual ~AddressPreview() override;
-
-    /** The address string is a list of address elements separated by spaces
-    and breaks. The addresses fit into the given layout. If more addresses then
-    rows/columns should be used a scrollbar will be added.
-
-     AddAddress appends the new address to the already added ones.
-     Initially the first added address will be selected
-    */
-    void AddAddress(const OUString& rAddress);
-    //  for preview mode - replaces the currently used address by the given one
-    void SetAddress(const OUString& rAddress);
-
-    // returns the selected address
-    sal_uInt16 GetSelectedAddress() const;
-    void SelectAddress(sal_uInt16 nSelect);
     void ReplaceSelectedAddress(const OUString&);
     void RemoveSelectedAddress();
 
     // set the number of rows and columns of addresses
     void SetLayout(sal_uInt16 nRows, sal_uInt16 nColumns);
     void EnableScrollBar();
+
+    // fill the actual data into a string (address block or greeting)
+    static OUString FillData(const OUString& rAddress, SwMailMergeConfigItem const & rConfigItem,
+                             const css::uno::Sequence<OUString>* pAssignments = nullptr);
+
+    void SetSelectHdl (const Link<LinkParamNone*,void>& rLink) { m_aSelectHdl = rLink; }
 };
 
 

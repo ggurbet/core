@@ -173,6 +173,7 @@ endif
 include $(GBUILDDIR)/ExternalExecutable.mk
 include $(GBUILDDIR)/TargetLocations.mk
 include $(GBUILDDIR)/Tempfile.mk
+include $(GBUILDDIR)/TestHelpers.mk
 
 $(eval $(call gb_Helper_init_registries))
 include $(SRCDIR)/Repository.mk
@@ -242,11 +243,6 @@ ifneq ($(gb_DEBUGLEVEL),1) # 2 or more
 gb_GLOBALDEFS += -DDEBUG \
 
 endif
-endif
-
-ifeq ($(DISABLE_GUI),TRUE)
-gb_GLOBALDEFS += -DLIBO_HEADLESS \
-
 endif
 
 gb_GLOBALDEFS += \

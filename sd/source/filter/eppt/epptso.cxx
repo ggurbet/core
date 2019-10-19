@@ -889,7 +889,7 @@ void PPTWriter::ImplWritePortions( SvStream& rOut, TextObj& rTextObj )
             }
             nCharColor |= 0xfe000000;
             if ( nInstance == 4 )                       // special handling for normal textobjects:
-                nPropertyFlags |= nCharAttr & 0x217;    // not all attributes ar inherited
+                nPropertyFlags |= nCharAttr & 0x217;    // not all attributes are inherited
             else
             {
                 if ( mpStyleSheet->IsHardAttribute( nInstance, pPara->nDepth, CharAttr_Bold, nCharAttr ) )
@@ -1119,11 +1119,11 @@ void PPTWriter::ImplWriteTextStyleAtom( SvStream& rOut, int nTextInstance, sal_u
                             if ( pIter != maSlideNameList.end() )
                             {
                                 nPageIndex = pIter - maSlideNameList.begin();
-                                aPageUrl = OUString::number(256 + nPageIndex);
-                                aPageUrl += ",";
-                                aPageUrl += OUString::number(nPageIndex + 1);
-                                aPageUrl += ",Slide ";
-                                aPageUrl += OUString::number(nPageIndex + 1);
+                                aPageUrl = OUString::number(256 + nPageIndex) +
+                                    "," +
+                                    OUString::number(nPageIndex + 1) +
+                                    ",Slide " +
+                                    OUString::number(nPageIndex + 1);
                             }
                         }
                         sal_uInt32 nHyperId(0);
@@ -1246,11 +1246,11 @@ void PPTWriter::ImplWriteTextStyleAtom( SvStream& rOut, int nTextInstance, sal_u
             if ( nTextRulerAtomFlags & 4 )
             {
                 pRuleOut->WriteUInt16( nTabCount );
-                for ( i = 0; i < nTabs; i++ )
+                for ( const css::style::TabStop& rTabStop : std::as_const(pPara->maTabStop) )
                 {
-                    sal_uInt16 nPosition = static_cast<sal_uInt16>( ( pTabStop[ i ].Position / 4.40972 ) + nTextOfs );
+                    sal_uInt16 nPosition = static_cast<sal_uInt16>( ( rTabStop.Position / 4.40972 ) + nTextOfs );
                     sal_uInt16 nType;
-                    switch ( pTabStop[ i ].Alignment )
+                    switch ( rTabStop.Alignment )
                     {
                         case css::style::TabAlign_DECIMAL :    nType = 3; break;
                         case css::style::TabAlign_RIGHT :      nType = 2; break;
@@ -1258,7 +1258,7 @@ void PPTWriter::ImplWriteTextStyleAtom( SvStream& rOut, int nTextInstance, sal_u
 
                         case css::style::TabAlign_LEFT :
                         default:                               nType = 0;
-                    };
+                    }
                     pRuleOut->WriteUInt16( nPosition )
                              .WriteUInt16( nType );
                 }
@@ -1440,11 +1440,11 @@ void PPTWriter::ImplWriteClickAction( SvStream& rSt, css::presentation::ClickAct
                         nAction = 4;
                         nHyperLinkType = 7;
 
-                        OUString aHyperString = OUString::number(256 + nIndex);
-                        aHyperString += ",";
-                        aHyperString += OUString::number(nIndex + 1);
-                        aHyperString += ",Slide ";
-                        aHyperString += OUString::number(nIndex + 1);
+                        OUString aHyperString = OUString::number(256 + nIndex) +
+                            "," +
+                            OUString::number(nIndex + 1) +
+                            ",Slide " +
+                            OUString::number(nIndex + 1);
                         nHyperLinkID = ImplInsertBookmarkURL( aHyperString, 1 | ( nIndex << 8 ) | ( 1U << 31 ), aBookmark, "", "", aHyperString );
                     }
                     nIndex++;
@@ -1790,7 +1790,12 @@ void PPTWriter::ImplWritePage( const PHLayout& rLayout, EscherSolverContainer& a
                     if ( nRadius >= nLength )
                         nRadius = 0x2a30;                           // 0x2a30 is PPTs maximum radius
                     else
-                        nRadius = ( 0x2a30 * nRadius ) / nLength;
+                    {
+                        if (nLength != 0)
+                            nRadius = ( 0x2a30 * nRadius ) / nLength;
+                        else
+                            nRadius = 0x2a30;                           // 0x2a30 is PPTs maximum radius
+                    }
                     aPropOpt.AddOpt( ESCHER_Prop_adjustValue, nRadius );
                 }
                 else

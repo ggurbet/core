@@ -129,7 +129,7 @@ private:
                     enable/disable using of a might existing deep detection service.
 
         @return     The internal name of a detected type.
-                    An empty value if detection failed. .... but see rLastChance
+                    An empty value if detection failed. ... but see rLastChance
                     for additional returns!
      */
     OUString impl_detectTypeFlatAndDeep(      utl::MediaDescriptor& rDescriptor   ,
@@ -142,8 +142,8 @@ private:
     /** @short      seek a might existing stream to position 0.
 
         @descr      This is an optional action to be more robust
-                    in case any detect service doesn't make this seek ...
-                    Normally it's part of any called detect service or filter ...
+                    in case any detect service doesn't make this seek...
+                    Normally it's part of any called detect service or filter...
                     but sometimes it's not done there.
 
         @param      rDescriptor
@@ -161,7 +161,7 @@ private:
 
         @attention  The results (means type and corresponding filter)
                     are already part of the in/out parameter pDescriptor.
-                    (in case they was valid).
+                    (in case they were valid).
 
         @param      sDetectService
                     uno service name of the detect service.
@@ -338,7 +338,7 @@ public:
 
         @descr  Because this information is used at several places
                 (and mostly an object instance of this class is not possible)
-                its implemented as a static function!
+                it's implemented as a static function!
 
         @return The fix uno implementation name of this class.
      */
@@ -349,7 +349,7 @@ public:
 
         @descr  Because this information is used at several places
                 (and mostly an object instance of this class is not possible)
-                its implemented as a static function!
+                it's implemented as a static function!
 
         @return The fix list of uno services supported by this class.
      */

@@ -23,6 +23,7 @@
 
 #include <vcl/transfer.hxx>
 #include <vcl/graph.hxx>
+#include <vcl/vclptr.hxx>
 #include <sfx2/lnkbase.hxx>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <o3tl/deleter.hxx>
@@ -30,10 +31,13 @@
 #include <svx/swframetypes.hxx>
 #include <memory>
 
+#include <swdllapi.h>
+
 class Graphic;
 class ImageMap;
 class INetBookmark;
 class INetImage;
+class SfxAbstractPasteDialog;
 class SwDoc;
 class SwDocFac;
 class SwTextBlocks;
@@ -150,6 +154,7 @@ protected:
                                         const css::datatransfer::DataFlavor& rFlavor ) override;
     virtual void        DragFinished( sal_Int8 nDropAction ) override;
     virtual void        ObjectReleased() override;
+    virtual sal_Bool SAL_CALL isComplex() override;
 
     using TransferableHelper::StartDrag;
 
@@ -189,7 +194,12 @@ public:
     static bool IsPasteSpecial( const SwWrtShell& rWrtShell,
                                 const TransferableDataHelper& );
     static bool PasteUnformatted( SwWrtShell& rSh, TransferableDataHelper& );
-    static bool PasteSpecial( SwWrtShell& rSh, TransferableDataHelper&, SotClipboardFormatId& rFormatUsed );
+    /**
+     * @brief PrePasteSpecial Prepares the given dialog without actually running it
+     * @param rSh
+     * @param rFormatUsed
+     */
+    static void PrePasteSpecial( const SwWrtShell& rSh, TransferableDataHelper&, const VclPtr<SfxAbstractPasteDialog>& pDlg );
     static bool PasteFormat( SwWrtShell& rSh, TransferableDataHelper& rData,
                              SotClipboardFormatId nFormat );
 

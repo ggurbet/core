@@ -45,7 +45,7 @@ DWORD WINAPI MTAFunc(LPVOID pParams);
 
 char* szSTAWin= "XDragSource::executeDrag is called from the same "
                 "OLE STA thread that created the window.";
-char* szMTAWin= "XDragSource::executeDrag is called from a MTA thread "
+char* szMTAWin= "XDragSource::executeDrag is called from an MTA thread "
                 "that did not create the window.";
 
 WNDPROC wpOrigEditProc;
@@ -115,7 +115,7 @@ LRESULT AWindow::OnCreate(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandle
 
     m_xDropTarget->addDropTargetListener( static_cast<XDropTargetListener*>
         ( new DropTargetListener( m_hwndEdit)) );
-//  // make this window tho a drop target
+//  // make this window a drop target
     m_xDropTarget->setActive(sal_True);
 
     return 0;

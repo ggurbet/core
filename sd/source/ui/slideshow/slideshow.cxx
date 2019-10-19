@@ -22,7 +22,6 @@
 #include <com/sun/star/frame/XDispatchProvider.hpp>
 #include <com/sun/star/util/URL.hpp>
 
-#include <cppuhelper/bootstrap.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
 #include <sal/log.hxx>
@@ -30,13 +29,10 @@
 #include <vcl/wrkwin.hxx>
 #include <svx/svdpool.hxx>
 #include <svl/itemprop.hxx>
-#include <tools/debug.hxx>
 
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/sfxsids.hrc>
-
-#include <svx/unoprov.hxx>
 
 #include <framework/FrameworkHelper.hxx>
 
@@ -239,7 +235,7 @@ void SlideShow::CreateController(  ViewShell* pViewSh, ::sd::View* pView, vcl::W
 // XServiceInfo
 OUString SAL_CALL SlideShow::getImplementationName(  )
 {
-    return OUString( "com.sun.star.comp.sd.SlideShow" );
+    return "com.sun.star.comp.sd.SlideShow";
 }
 
 sal_Bool SAL_CALL SlideShow::supportsService( const OUString& ServiceName )
@@ -249,9 +245,7 @@ sal_Bool SAL_CALL SlideShow::supportsService( const OUString& ServiceName )
 
 Sequence< OUString > SAL_CALL SlideShow::getSupportedServiceNames(  )
 {
-    OUString aService( "com.sun.star.presentation.Presentation" );
-    Sequence< OUString > aSeq( &aService, 1 );
-    return aSeq;
+    return { "com.sun.star.presentation.Presentation" };
 }
 
 // XPropertySet
@@ -914,7 +908,7 @@ OutputDevice* SlideShow::getShowWindow()
     return mxController.is() ? mxController->mpShowWindow.get() : nullptr;
 }
 
-int SlideShow::getAnimationMode()
+int SlideShow::getAnimationMode() const
 {
     return mxController.is() ? mxController->meAnimationMode : ANIMATIONMODE_SHOW;
 }
@@ -931,7 +925,7 @@ void SlideShow::jumpToPageNumber( sal_Int32 nPageNumber )
         mxController->displaySlideNumber( nPageNumber );
 }
 
-sal_Int32 SlideShow::getCurrentPageNumber()
+sal_Int32 SlideShow::getCurrentPageNumber() const
 {
     return mxController.is() ? mxController->getCurrentSlideNumber() : 0;
 }
@@ -942,7 +936,7 @@ void SlideShow::jumpToBookmark( const OUString& sBookmark )
         mxController->jumpToBookmark( sBookmark );
 }
 
-bool SlideShow::isFullScreen()
+bool SlideShow::isFullScreen() const
 {
     return mxController.is() && mxController->maPresSettings.mbFullScreen;
 }

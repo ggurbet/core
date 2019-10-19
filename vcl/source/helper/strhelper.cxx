@@ -18,7 +18,6 @@
  */
 
 #include <vcl/strhelper.hxx>
-#include <sal/alloca.h>
 
 namespace  {
 
@@ -198,7 +197,7 @@ OString GetCommandLineToken(int nToken, const OString& rLine)
 
     *pLeap = 0;
 
-    return OString(pBuffer);
+    return pBuffer;
 }
 
 int GetCommandLineTokenCount(const OUString& rLine)
@@ -363,7 +362,7 @@ OString WhitespaceToSpace(const OString& rLine)
     if( *pLeap == ' ' )
         *pLeap = 0;
 
-    return OString(*pBuffer == ' ' ? pBuffer+1 : pBuffer);
+    return *pBuffer == ' ' ? pBuffer+1 : pBuffer;
 }
 
 } // namespace

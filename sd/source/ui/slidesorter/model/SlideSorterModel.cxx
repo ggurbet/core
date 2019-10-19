@@ -24,19 +24,18 @@
 #include <model/SlsPageDescriptor.hxx>
 #include <model/SlsPageEnumerationProvider.hxx>
 #include <controller/SlideSorterController.hxx>
-#include <controller/SlsProperties.hxx>
 #include <controller/SlsPageSelector.hxx>
 #include <controller/SlsCurrentSlideManager.hxx>
 #include <controller/SlsSlotManager.hxx>
-#include <view/SlideSorterView.hxx>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/drawing/XMasterPagesSupplier.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/beans/UnknownPropertyException.hpp>
 #include <com/sun/star/frame/XController.hpp>
 
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
+
 #include <ViewShellBase.hxx>
-#include <DrawViewShell.hxx>
 #include <DrawDocShell.hxx>
 #include <drawdoc.hxx>
 #include <sdpage.hxx>
@@ -99,6 +98,22 @@ namespace {
 
         return true;
     }
+}
+
+namespace {
+
+void collectUIInformation(const OUString& num, const OUString& rAction)
+{
+    EventDescription aDescription;
+    aDescription.aID = "impress_win_or_draw_win";
+    aDescription.aParameters = {{"POS", num}};
+    aDescription.aAction = rAction;
+    aDescription.aKeyWord = "ImpressWindowUIObject";
+    aDescription.aParent = "MainWindow";
+
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
 }
 
 SlideSorterModel::SlideSorterModel (SlideSorter& rSlideSorter)
@@ -444,7 +459,7 @@ void SlideSorterModel::UpdatePageList()
                     xController->getModel(), UNO_QUERY);
                 if (xSupplier.is())
                 {
-                    xPages.set( xSupplier->getMasterPages(), UNO_QUERY);
+                    xPages = xSupplier->getMasterPages();
                 }
             }
             break;
@@ -455,7 +470,7 @@ void SlideSorterModel::UpdatePageList()
                     xController->getModel(), UNO_QUERY);
                 if (xSupplier.is())
                 {
-                    xPages.set( xSupplier->getDrawPages(), UNO_QUERY);
+                    xPages = xSupplier->getDrawPages();
                 }
             }
             break;
@@ -613,8 +628,9 @@ bool SlideSorterModel::DeleteSlide (const SdPage* pPage)
         bMarkedSelected = (*iter)->HasState(PageDescriptor::ST_Selected);
         maPageDescriptors.erase(iter);
         UpdateIndices(nIndex);
-    }
 
+        collectUIInformation(OUString::number(nIndex + 1), "Delete_Slide_or_Page");
+    }
     return bMarkedSelected;
 }
 

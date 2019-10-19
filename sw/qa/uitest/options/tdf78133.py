@@ -18,7 +18,6 @@ class tdf78133(UITestCase):
 
         self.ui_test.create_doc_in_start_center("writer")
         xWriterDoc = self.xUITest.getTopFocusWindow()
-        xWriterEdit = xWriterDoc.getChild("writer_edit")
         document = self.ui_test.get_component()
         #New text document
         #open option, go to App colors
@@ -30,7 +29,7 @@ class tdf78133(UITestCase):
         xLOEntry.executeAction("EXPAND", tuple())
         xLoAppColorsEntry = xLOEntry.getChild('8')
         xLoAppColorsEntry.executeAction("SELECT", tuple())          #Applications Colors
-        #change text boundaries chckbox, save
+        #change text boundaries checkbox, save
         docboundaries = xDialog.getChild("docboundaries")
         docboundaries.executeAction("CLICK", tuple())
         xOKBtn = xDialog.getChild("ok")
@@ -44,7 +43,7 @@ class tdf78133(UITestCase):
         xLOEntry.executeAction("EXPAND", tuple())
         xLoAppColorsEntry = xLOEntry.getChild('8')
         xLoAppColorsEntry.executeAction("SELECT", tuple())          #Applications Colors
-        #change text boundaries chckbox, save
+        #change text boundaries checkbox, save
         docboundaries = xDialog.getChild("docboundaries")
         self.assertEqual(get_state_as_dict(docboundaries)["Selected"], "false")
         xOKBtn = xDialog.getChild("ok")

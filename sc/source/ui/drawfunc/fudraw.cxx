@@ -22,6 +22,7 @@
 #include <svx/svdobj.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdouno.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 
@@ -253,7 +254,7 @@ bool FuDraw::KeyInput(const KeyEvent& rKEvt)
         case KEY_TAB:
         {
             // in calc do NOT start draw object selection using TAB/SHIFT-TAB when
-            // there is not yet a object selected
+            // there is not yet an object selected
             if(pView->AreObjectsMarked())
             {
                 vcl::KeyCode aCode = rKEvt.GetKeyCode();
@@ -309,7 +310,7 @@ bool FuDraw::KeyInput(const KeyEvent& rKEvt)
         case KEY_END:
         {
             // in calc do NOT select the last draw object when
-            // there is not yet a object selected
+            // there is not yet an object selected
             if(pView->AreObjectsMarked())
             {
                 vcl::KeyCode aCode = rKEvt.GetKeyCode();
@@ -333,7 +334,7 @@ bool FuDraw::KeyInput(const KeyEvent& rKEvt)
         case KEY_HOME:
         {
             // in calc do NOT select the first draw object when
-            // there is not yet a object selected
+            // there is not yet an object selected
             if(pView->AreObjectsMarked())
             {
                 vcl::KeyCode aCode = rKEvt.GetKeyCode();
@@ -360,7 +361,7 @@ bool FuDraw::KeyInput(const KeyEvent& rKEvt)
         case KEY_RIGHT:
         {
             // in calc do cursor travelling of draw objects only when
-            // there is a object selected yet
+            // there is an object selected yet
             if(pView->AreObjectsMarked())
             {
 
@@ -623,8 +624,8 @@ static bool lcl_UrlHit( const SdrView* pView, const Point& rPosPixel, const vcl:
 
     if ( eHit != SdrHitKind::NONE && aVEvt.pObj != nullptr )
     {
-        if ( ScDrawLayer::GetIMapInfo( aVEvt.pObj ) && ScDrawLayer::GetHitIMapObject(
-                                aVEvt.pObj, pWindow->PixelToLogic(rPosPixel), *pWindow ) )
+        if ( SvxIMapInfo::GetIMapInfo( aVEvt.pObj ) && SvxIMapInfo::GetHitIMapObject(
+                                aVEvt.pObj, pWindow->PixelToLogic(rPosPixel), pWindow ) )
             return true;
 
         if ( aVEvt.eEvent == SdrEventKind::ExecuteUrl )

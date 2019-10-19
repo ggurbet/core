@@ -25,7 +25,6 @@
 #include <drawdoc.hxx>
 #include "unolayer.hxx"
 #include <unomodel.hxx>
-#include <unopage.hxx>
 #include <Window.hxx>
 #include <pres.hxx>
 
@@ -34,6 +33,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svx/svdpagv.hxx>
+#include <svx/unopage.hxx>
 #include <svx/unoshape.hxx>
 #include <sfx2/zoomitem.hxx>
 #include <com/sun/star/drawing/DrawViewMode.hpp>
@@ -92,7 +92,7 @@ void SdUnoDrawView::setLayerMode (bool bLayerMode) throw()
     }
 }
 
-Reference<drawing::XLayer> SdUnoDrawView::getActiveLayer()
+Reference<drawing::XLayer> SdUnoDrawView::getActiveLayer() const
 {
     Reference<drawing::XLayer> xCurrentLayer;
 
@@ -251,8 +251,8 @@ Any SAL_CALL SdUnoDrawView::getSelection()
         const size_t nCount = rMarkList.GetMarkCount();
         if( nCount )
         {
-            Reference< drawing::XShapes > xShapes( drawing::ShapeCollection::create(
-                        comphelper::getProcessComponentContext()), UNO_QUERY );
+            Reference< drawing::XShapes > xShapes = drawing::ShapeCollection::create(
+                        comphelper::getProcessComponentContext());
             for( size_t nNum = 0; nNum < nCount; ++nNum)
             {
                 SdrMark *pMark = rMarkList.GetMark(nNum);
@@ -534,7 +534,7 @@ Any SdUnoDrawView::getDrawViewMode() const
 // XServiceInfo
 OUString SAL_CALL SdUnoDrawView::getImplementationName(  )
 {
-    return OUString( "com.sun.star.comp.sd.SdUnoDrawView") ;
+    return "com.sun.star.comp.sd.SdUnoDrawView" ;
 }
 
 sal_Bool SAL_CALL SdUnoDrawView::supportsService( const OUString& ServiceName )
@@ -544,9 +544,7 @@ sal_Bool SAL_CALL SdUnoDrawView::supportsService( const OUString& ServiceName )
 
 Sequence< OUString > SAL_CALL SdUnoDrawView::getSupportedServiceNames(  )
 {
-    OUString aSN("com.sun.star.drawing.DrawingDocumentDrawView");
-    uno::Sequence< OUString > aSeq( &aSN, 1 );
-    return aSeq;
+    return { "com.sun.star.drawing.DrawingDocumentDrawView" };
 }
 
 } // end of namespace sd

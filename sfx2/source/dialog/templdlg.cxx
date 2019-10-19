@@ -521,8 +521,8 @@ public:
     StyleTree_Impl(const OUString &rName, const OUString &rParent):
         aName(rName), aParent(rParent), pChildren(0) {}
 
-    const OUString& getName() { return aName; }
-    const OUString& getParent() { return aParent; }
+    const OUString& getName() const { return aName; }
+    const OUString& getParent() const { return aParent; }
     StyleTreeArr_Impl& getChildren() { return pChildren; }
 };
 
@@ -1184,13 +1184,19 @@ void SfxCommonTemplateDialog_Impl::UpdateStyles_Impl(StyleFlags nFlags)
 
     while( pStyle )
     {
-        //Bubblesort
-        size_t nPos;
-        for(nPos = aStrings.size(); nPos && aSorter.compare(aStrings[nPos-1], pStyle->GetName()) > 0; --nPos)
-        {};
-        aStrings.insert(aStrings.begin() + nPos, pStyle->GetName());
+        aStrings.push_back(pStyle->GetName());
         pStyle = pStyleSheetPool->Next();
     }
+
+    // Paradoxically, with a list and non-Latin style names,
+    // sorting twice is faster than sorting once.
+    // The first sort has a cheap comparator, and gets the list into mostly-sorted order.
+    // Then the second sort needs to call its (much more expensive) comparator less often.
+    std::sort(aStrings.begin(), aStrings.end());
+    std::sort(aStrings.begin(), aStrings.end(),
+       [&aSorter](const OUString& rLHS, const OUString& rRHS) {
+       return aSorter.compare(rLHS, rRHS) < 0;
+       });
 
     size_t nCount = aStrings.size();
     size_t nPos = 0;

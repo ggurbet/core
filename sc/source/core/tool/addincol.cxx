@@ -113,18 +113,13 @@ const ::std::vector<ScUnoAddInFuncData::LocalizedName>& ScUnoAddInFuncData::GetC
             if ( xComp.is() && xFunction.is() )
             {
                 OUString aMethodName = xFunction->getName();
-                uno::Sequence< sheet::LocalizedName> aCompNames( xComp->getCompatibilityNames( aMethodName ));
+                const uno::Sequence< sheet::LocalizedName> aCompNames( xComp->getCompatibilityNames( aMethodName ));
                 maCompNames.clear();
-                sal_Int32 nSeqLen = aCompNames.getLength();
-                if ( nSeqLen )
+                for (const sheet::LocalizedName& rCompName : aCompNames)
                 {
-                    const sheet::LocalizedName* pArray = aCompNames.getArray();
-                    for (sal_Int32 i=0; i<nSeqLen; i++)
-                    {
-                        maCompNames.emplace_back(
-                                    LanguageTag::convertToBcp47( pArray[i].Locale, false),
-                                    pArray[i].Name);
-                    }
+                    maCompNames.emplace_back(
+                                LanguageTag::convertToBcp47( rCompName.Locale, false),
+                                rCompName.Name);
                 }
             }
         }
@@ -353,12 +348,10 @@ void ScUnoAddInCollection::ReadConfiguration()
     const OUString sSlash('/');
 
     // get the list of add-ins (services)
-    uno::Sequence<OUString> aServiceNames = rAddInConfig.GetNodeNames( "" );
+    const uno::Sequence<OUString> aServiceNames = rAddInConfig.GetNodeNames( "" );
 
-    sal_Int32 nServiceCount = aServiceNames.getLength();
-    for ( sal_Int32 nService = 0; nService < nServiceCount; nService++ )
+    for ( const OUString& aServiceName : aServiceNames )
     {
-        OUString aServiceName = aServiceNames[nService];
         ScUnoAddInHelpIdGenerator aHelpIdGenerator( aServiceName );
 
         OUString aFunctionsPath(aServiceName + sSlash + CFGSTR_ADDINFUNCTIONS);
@@ -396,11 +389,7 @@ void ScUnoAddInCollection::ReadConfiguration()
             ppFuncData[nFuncPos+nOld] = nullptr;
 
             // stored function name: (service name).(function)
-            OUStringBuffer aFuncNameBuffer( aServiceName.getLength()+1+pFuncNameArray[nFuncPos].getLength());
-            aFuncNameBuffer.append(aServiceName);
-            aFuncNameBuffer.append('.');
-            aFuncNameBuffer.append(pFuncNameArray[nFuncPos]);
-            OUString aFuncName = aFuncNameBuffer.makeStringAndClear();
+            OUString aFuncName = aServiceName + "." + pFuncNameArray[nFuncPos];
 
             // skip the function if already known (read from old AddIn service)
 
@@ -412,10 +401,7 @@ void ScUnoAddInCollection::ReadConfiguration()
 
                 // get direct information on the function
 
-                OUString aFuncPropPath = aFunctionsPath;
-                aFuncPropPath += sSlash;
-                aFuncPropPath += pFuncNameArray[nFuncPos];
-                aFuncPropPath += sSlash;
+                OUString aFuncPropPath = aFunctionsPath + sSlash + pFuncNameArray[nFuncPos] + sSlash;
 
                 uno::Sequence<OUString> aFuncPropNames{
                     (aFuncPropPath + CFGSTR_DISPLAYNAME), // CFG_FUNCPROP_DISPLAYNAME
@@ -446,17 +432,14 @@ void ScUnoAddInCollection::ReadConfiguration()
                     uno::Sequence<beans::PropertyValue> aLocalEntries;
                     if ( aCompProperties[0] >>= aLocalEntries )
                     {
-                        sal_Int32 nLocaleCount = aLocalEntries.getLength();
-                        const beans::PropertyValue* pConfigArray = aLocalEntries.getConstArray();
-
-                        for ( sal_Int32 nLocale = 0; nLocale < nLocaleCount; nLocale++ )
+                        for ( const beans::PropertyValue& rConfig : std::as_const(aLocalEntries) )
                         {
                             // PropertyValue name is the locale ("convert" from
                             // string to canonicalize)
-                            OUString aLocale( LanguageTag( pConfigArray[nLocale].Name, true).getBcp47( false));
+                            OUString aLocale( LanguageTag( rConfig.Name, true).getBcp47( false));
                             // PropertyValue value is the localized value (string in this case)
                             OUString aName;
-                            pConfigArray[nLocale].Value >>= aName;
+                            rConfig.Value >>= aName;
                             aCompNames.emplace_back( aLocale, aName);
                         }
                     }
@@ -469,7 +452,7 @@ void ScUnoAddInCollection::ReadConfiguration()
 
                 OUString aArgumentsPath(aFuncPropPath + CFGSTR_PARAMETERS);
 
-                uno::Sequence<OUString> aArgumentNames = rAddInConfig.GetNodeNames( aArgumentsPath );
+                const uno::Sequence<OUString> aArgumentNames = rAddInConfig.GetNodeNames( aArgumentsPath );
                 sal_Int32 nArgumentCount = aArgumentNames.getLength();
                 if ( nArgumentCount )
                 {
@@ -477,15 +460,10 @@ void ScUnoAddInCollection::ReadConfiguration()
                     uno::Sequence<OUString> aArgPropNames( nArgumentCount * 2 );
                     OUString* pPropNameArray = aArgPropNames.getArray();
 
-                    sal_Int32 nArgument;
                     sal_Int32 nIndex = 0;
-                    const OUString* pArgNameArray = aArgumentNames.getConstArray();
-                    for ( nArgument = 0; nArgument < nArgumentCount; nArgument++ )
+                    for ( const OUString& rArgName : aArgumentNames )
                     {
-                        OUString aOneArgPath = aArgumentsPath;
-                        aOneArgPath += sSlash;
-                        aOneArgPath += pArgNameArray[nArgument];
-                        aOneArgPath += sSlash;
+                        OUString aOneArgPath = aArgumentsPath + sSlash + rArgName + sSlash;
 
                         pPropNameArray[nIndex++] = aOneArgPath
                             + CFGSTR_DISPLAYNAME;
@@ -496,6 +474,7 @@ void ScUnoAddInCollection::ReadConfiguration()
                     uno::Sequence<uno::Any> aArgProperties = rAddInConfig.GetProperties( aArgPropNames );
                     if ( aArgProperties.getLength() == aArgPropNames.getLength() )
                     {
+                        const OUString* pArgNameArray = aArgumentNames.getConstArray();
                         const uno::Any* pPropArray = aArgProperties.getConstArray();
                         OUString sDisplayName;
                         OUString sDescription;
@@ -508,7 +487,7 @@ void ScUnoAddInCollection::ReadConfiguration()
                         pVisibleArgs.reset(new ScAddInArgDesc[nVisibleCount]);
 
                         nIndex = 0;
-                        for ( nArgument = 0; nArgument < nArgumentCount; nArgument++ )
+                        for ( sal_Int32 nArgument = 0; nArgument < nArgumentCount; nArgument++ )
                         {
                             pPropArray[nIndex++] >>= sDisplayName;
                             pPropArray[nIndex++] >>= sDescription;
@@ -803,11 +782,7 @@ void ScUnoAddInCollection::ReadFromAddIn( const uno::Reference<uno::XInterface>&
                             OUString aFuncU = xFunc->getName();
 
                             // stored function name: (service name).(function)
-                            OUStringBuffer aFuncNameBuffer( aServiceName.getLength()+1+aFuncU.getLength());
-                            aFuncNameBuffer.append(aServiceName);
-                            aFuncNameBuffer.append('.');
-                            aFuncNameBuffer.append(aFuncU);
-                            OUString aFuncName = aFuncNameBuffer.makeStringAndClear();
+                            OUString aFuncName = aServiceName + "." + aFuncU;
 
                             bool bValid = true;
                             long nVisibleCount = 0;
@@ -996,23 +971,16 @@ void ScUnoAddInCollection::UpdateFromAddIn( const uno::Reference<uno::XInterface
     uno::Reference<beans::XIntrospectionAccess> xAcc = xIntro->inspect(aObject);
     if (xAcc.is())
     {
-        uno::Sequence< uno::Reference<reflection::XIdlMethod> > aMethods =
+        const uno::Sequence< uno::Reference<reflection::XIdlMethod> > aMethods =
                 xAcc->getMethods( beans::MethodConcept::ALL );
-        long nMethodCount = aMethods.getLength();
-        const uno::Reference<reflection::XIdlMethod>* pArray = aMethods.getConstArray();
-        for (long nFuncPos=0; nFuncPos<nMethodCount; nFuncPos++)
+        for (const uno::Reference<reflection::XIdlMethod>& xFunc : aMethods)
         {
-            uno::Reference<reflection::XIdlMethod> xFunc = pArray[nFuncPos];
             if (xFunc.is())
             {
                 OUString aFuncU = xFunc->getName();
 
                 // stored function name: (service name).(function)
-                OUStringBuffer aFuncNameBuffer( rServiceName.getLength()+1+aFuncU.getLength());
-                aFuncNameBuffer.append(rServiceName);
-                aFuncNameBuffer.append('.');
-                aFuncNameBuffer.append(aFuncU);
-                OUString aFuncName = aFuncNameBuffer.makeStringAndClear();
+                OUString aFuncName = rServiceName + "." + aFuncU;
 
                 // internal names are skipped because no FuncData exists
                 ScUnoAddInFuncData* pOldData = const_cast<ScUnoAddInFuncData*>( GetFuncData( aFuncName ) );
@@ -1027,12 +995,11 @@ void ScUnoAddInCollection::UpdateFromAddIn( const uno::Reference<uno::XInterface
                     long nVisibleCount = 0;
                     long nCallerPos = SC_CALLERPOS_NONE;
 
-                    uno::Sequence<reflection::ParamInfo> aParams =
+                    const uno::Sequence<reflection::ParamInfo> aParams =
                             xFunc->getParameterInfos();
                     long nParamCount = aParams.getLength();
                     const reflection::ParamInfo* pParArr = aParams.getConstArray();
-                    long nParamPos;
-                    for (nParamPos=0; nParamPos<nParamCount; nParamPos++)
+                    for (long nParamPos=0; nParamPos<nParamCount; nParamPos++)
                     {
                         if ( pParArr[nParamPos].aMode != reflection::ParamMode_IN )
                             bValid = false;
@@ -1054,15 +1021,15 @@ void ScUnoAddInCollection::UpdateFromAddIn( const uno::Reference<uno::XInterface
                             ScAddInArgDesc aDesc;
                             pVisibleArgs.reset(new ScAddInArgDesc[nVisibleCount]);
                             long nDestPos = 0;
-                            for (nParamPos=0; nParamPos<nParamCount; nParamPos++)
+                            for (const auto& rParam : aParams)
                             {
                                 uno::Reference<reflection::XIdlClass> xParClass =
-                                    pParArr[nParamPos].aType;
+                                    rParam.aType;
                                 ScAddInArgumentType eArgType = lcl_GetArgType( xParClass );
                                 if ( eArgType != SC_ADDINARG_CALLER )
                                 {
                                     const ScAddInArgDesc* pOldArgDesc =
-                                        lcl_FindArgDesc( *pOldData, pParArr[nParamPos].aName );
+                                        lcl_FindArgDesc( *pOldData, rParam.aName );
                                     if ( pOldArgDesc )
                                     {
                                         aDesc.aName = pOldArgDesc->aName;
@@ -1078,7 +1045,7 @@ void ScUnoAddInCollection::UpdateFromAddIn( const uno::Reference<uno::XInterface
                                     aDesc.eType = eArgType;
                                     aDesc.bOptional = bOptional;
                                     //TODO: initialize aInternalName only from config?
-                                    aDesc.aInternalName = pParArr[nParamPos].aName;
+                                    aDesc.aInternalName = rParam.aName;
 
                                     pVisibleArgs[nDestPos++] = aDesc;
                                 }
@@ -1244,8 +1211,7 @@ bool ScUnoAddInCollection::FillFunctionDescFromData( const ScUnoAddInFuncData& r
             // no empty names...
             if ( rDesc.maDefArgNames[nArg].isEmpty() )
             {
-                OUString aDefName("arg");
-                aDefName += OUString::number( nArg+1 );
+                OUString aDefName = "arg" + OUString::number( nArg+1 );
                 rDesc.maDefArgNames[nArg] = aDefName;
             }
 
@@ -1400,16 +1366,9 @@ void ScUnoAddInCall::ExecuteCall()
         uno::Sequence<uno::Any> aRealArgs( nDestLen );
         uno::Any* pDest = aRealArgs.getArray();
 
-        const uno::Any* pSource = aArgs.getConstArray();
-        long nSrcPos = 0;
-
-        for ( long nDestPos = 0; nDestPos < nDestLen; nDestPos++ )
-        {
-            if ( nDestPos == nCallPos )
-                pDest[nDestPos] = aCallerAny;
-            else
-                pDest[nDestPos] = pSource[nSrcPos++];
-        }
+        pDest = std::copy_n(aArgs.begin(), nCallPos, pDest);
+        *pDest = aCallerAny;
+        std::copy(std::next(aArgs.begin(), nCallPos), aArgs.end(), std::next(pDest));
 
         ExecuteCallWithArgs( aRealArgs );
     }
@@ -1461,6 +1420,18 @@ void ScUnoAddInCall::ExecuteCallWithArgs(uno::Sequence<uno::Any>& rCallArgs)
         if (nErrCode == FormulaError::NONE)
             SetResult( aAny );      // convert result to Calc types
     }
+}
+
+template <typename T>
+static long lcl_GetMaxColCount(const uno::Sequence< uno::Sequence<T> >* pRowSeq)
+{
+    if (!pRowSeq->hasElements())
+        return 0;
+
+    auto pRow = std::max_element(pRowSeq->begin(), pRowSeq->end(),
+        [](const uno::Sequence<T>& a, const uno::Sequence<T>& b) {
+            return a.getLength() < b.getLength(); });
+    return pRow->getLength();
 }
 
 void ScUnoAddInCall::SetResult( const uno::Any& rNewRes )
@@ -1528,16 +1499,10 @@ void ScUnoAddInCall::SetResult( const uno::Any& rNewRes )
                 if ( pRowSeq )
                 {
                     long nRowCount = pRowSeq->getLength();
-                    const uno::Sequence<sal_Int32>* pRowArr = pRowSeq->getConstArray();
-                    long nMaxColCount = 0;
-                    for (long nRow=0; nRow<nRowCount; nRow++)
-                    {
-                        long nTmp = pRowArr[nRow].getLength();
-                        if ( nTmp > nMaxColCount )
-                            nMaxColCount = nTmp;
-                    }
+                    long nMaxColCount = lcl_GetMaxColCount(pRowSeq);
                     if ( nMaxColCount && nRowCount )
                     {
+                        const uno::Sequence<sal_Int32>* pRowArr = pRowSeq->getConstArray();
                         xMatrix = new ScMatrix(
                                 static_cast<SCSIZE>(nMaxColCount),
                                 static_cast<SCSIZE>(nRowCount), 0.0);
@@ -1569,16 +1534,10 @@ void ScUnoAddInCall::SetResult( const uno::Any& rNewRes )
                 if ( pRowSeq )
                 {
                     long nRowCount = pRowSeq->getLength();
-                    const uno::Sequence<double>* pRowArr = pRowSeq->getConstArray();
-                    long nMaxColCount = 0;
-                    for (long nRow=0; nRow<nRowCount; nRow++)
-                    {
-                        long nTmp = pRowArr[nRow].getLength();
-                        if ( nTmp > nMaxColCount )
-                            nMaxColCount = nTmp;
-                    }
+                    long nMaxColCount = lcl_GetMaxColCount(pRowSeq);
                     if ( nMaxColCount && nRowCount )
                     {
+                        const uno::Sequence<double>* pRowArr = pRowSeq->getConstArray();
                         xMatrix = new ScMatrix(
                                 static_cast<SCSIZE>(nMaxColCount),
                                 static_cast<SCSIZE>(nRowCount), 0.0);
@@ -1610,16 +1569,10 @@ void ScUnoAddInCall::SetResult( const uno::Any& rNewRes )
                 if ( pRowSeq )
                 {
                     long nRowCount = pRowSeq->getLength();
-                    const uno::Sequence<OUString>* pRowArr = pRowSeq->getConstArray();
-                    long nMaxColCount = 0;
-                    for (long nRow=0; nRow<nRowCount; nRow++)
-                    {
-                        long nTmp = pRowArr[nRow].getLength();
-                        if ( nTmp > nMaxColCount )
-                            nMaxColCount = nTmp;
-                    }
+                    long nMaxColCount = lcl_GetMaxColCount(pRowSeq);
                     if ( nMaxColCount && nRowCount )
                     {
+                        const uno::Sequence<OUString>* pRowArr = pRowSeq->getConstArray();
                         xMatrix = new ScMatrix(
                                 static_cast<SCSIZE>(nMaxColCount),
                                 static_cast<SCSIZE>(nRowCount), 0.0);

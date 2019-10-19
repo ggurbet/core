@@ -40,7 +40,6 @@
 
 #include <dialmgr.hxx>
 #include <strings.hrc>
-#include <bitmaps.hlst>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/string.hxx>
@@ -336,12 +335,11 @@ void CommandCategoryListBox::categorySelected(CuiConfigFunctionListBox* pFunctio
             }
             catch( css::uno::Exception const & )
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN("cui.customize", "Caught some exception whilst retrieving browse nodes from factory... Exception: " << exceptionToString(ex));
+                TOOLS_WARN_EXCEPTION("cui.customize", "Caught some exception whilst retrieving browse nodes from factory");
                 // TODO exception handling
             }
 
-            if ( rootNode.is() && rootNode.get()->hasChildNodes() )
+            if ( rootNode.is() && rootNode->hasChildNodes() )
             {
                 //We call acquire on the XBrowseNode so that it does not
                 //get autodestructed and become invalid when accessed later.
@@ -352,24 +350,25 @@ void CommandCategoryListBox::categorySelected(CuiConfigFunctionListBox* pFunctio
                         SfxCfgKind::GROUP_SCRIPTCONTAINER, 0, static_cast<void *>(rootNode.get()) ) );
 
                 // Add main macro groups
-                for ( auto const & childGroup : rootNode.get()->getChildNodes() )
+                const css::uno::Sequence<css::uno::Reference<css::script::browse::XBrowseNode>> aChildNodes = rootNode->getChildNodes();
+                for ( auto const & childGroup : aChildNodes )
                 {
                     OUString sUIName;
-                    childGroup.get()->acquire();
+                    childGroup->acquire();
 
-                    if ( childGroup.get()->hasChildNodes() )
+                    if ( childGroup->hasChildNodes() )
                     {
-                        if ( childGroup.get()->getName() == "user" )
+                        if ( childGroup->getName() == "user" )
                         {
                             sUIName = CuiResId( RID_SVXSTR_MYMACROS );
                         }
-                        else if ( childGroup.get()->getName() == "share" )
+                        else if ( childGroup->getName() == "share" )
                         {
                             sUIName = CuiResId( RID_SVXSTR_PRODMACROS );
                         }
                         else
                         {
-                            sUIName = childGroup.get()->getName();
+                            sUIName = childGroup->getName();
                         }
 
                         if (sUIName.isEmpty())
@@ -483,7 +482,7 @@ void CommandCategoryListBox::SetStylesInfo(SfxStylesInfo_Impl* pStyles)
 }
 
 void CommandCategoryListBox::addChildren(
-    weld::TreeIter* parentEntry, const css::uno::Reference< css::script::browse::XBrowseNode > &parentNode,
+    const weld::TreeIter* parentEntry, const css::uno::Reference< css::script::browse::XBrowseNode > &parentNode,
     CuiConfigFunctionListBox* pFunctionListBox, const OUString& filterTerm , SaveInData *pCurrentSaveInData,
     std::vector<std::unique_ptr<weld::TreeIter>> &rNodesToExpand)
 {
@@ -491,14 +490,15 @@ void CommandCategoryListBox::addChildren(
     m_searchOptions.searchString = filterTerm;
     utl::TextSearch textSearch( m_searchOptions );
 
-    for (auto const & child : parentNode.get()->getChildNodes())
+    const css::uno::Sequence<css::uno::Reference<css::script::browse::XBrowseNode>> aChildNodes = parentNode->getChildNodes();
+    for (auto const & child : aChildNodes)
     {
         // Acquire to prevent auto-destruction
-        child.get()->acquire();
+        child->acquire();
 
-        if (child.get()->hasChildNodes())
+        if (child->hasChildNodes())
         {
-            OUString sUIName = child.get()->getName();
+            OUString sUIName = child->getName();
 
             m_aGroupInfo.push_back( std::make_unique<SfxGroupInfo_Impl>(SfxCfgKind::GROUP_SCRIPTCONTAINER,
                                                                          0, static_cast<void *>( child.get())));
@@ -512,10 +512,10 @@ void CommandCategoryListBox::addChildren(
             else
                 rNodesToExpand.emplace_back(std::move(xNewEntry));
         }
-        else if ( child.get()->getType() == css::script::browse::BrowseNodeTypes::SCRIPT )
+        else if ( child->getType() == css::script::browse::BrowseNodeTypes::SCRIPT )
         {
             // Prepare for filtering
-            OUString sUIName = child.get()->getName();
+            OUString sUIName = child->getName();
             sal_Int32 aStartPos = 0;
             sal_Int32 aEndPos = sUIName.getLength();
 
@@ -528,7 +528,7 @@ void CommandCategoryListBox::addChildren(
 
             OUString uri, description;
 
-            css::uno::Reference < css::beans::XPropertySet >xPropSet( child.get(), css::uno::UNO_QUERY );
+            css::uno::Reference < css::beans::XPropertySet >xPropSet( child, css::uno::UNO_QUERY );
 
             if (!xPropSet.is())
             {

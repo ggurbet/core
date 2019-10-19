@@ -218,10 +218,11 @@ public:
 
     void    GetDocStat( ScDocStat& rDocStat );
 
+    const ScDocument& GetDocument() const { return m_aDocument; }
     ScDocument&     GetDocument()   { return m_aDocument; }
     ScDocFunc&      GetDocFunc()    { return *m_pDocFunc; }
 
-    css::uno::Reference<css::datatransfer::XTransferable2> const & GetClipData() { return m_xClipData; }
+    css::uno::Reference<css::datatransfer::XTransferable2> const & GetClipData() const { return m_xClipData; }
     void SetClipData(const css::uno::Reference<css::datatransfer::XTransferable2>& xTransferable) { m_xClipData = xTransferable; }
 
     SfxPrinter*     GetPrinter( bool bCreateIfNotExist = true );
@@ -288,7 +289,7 @@ public:
     void            DoHardRecalc();
 
     void            UpdateOle( const ScViewData* pViewData, bool bSnapSize = false);
-    bool            IsOle();
+    bool            IsOle() const;
 
     void            DBAreaDeleted( SCTAB nTab, SCCOL nX1, SCROW nY1, SCCOL nX2 );
     ScDBData*       GetDBData( const ScRange& rMarked, ScGetDBMode eMode, ScGetDBSelection eSel );
@@ -300,6 +301,7 @@ public:
     void            UpdateLinks() override;
     void            ReloadAllLinks();
     void            ReloadTabLinks();
+    ScLkUpdMode     GetLinkUpdateModeState() const;
 
     void            SetFormulaOptions( const ScFormulaOptions& rOpt, bool bForLoading = false );
     /**

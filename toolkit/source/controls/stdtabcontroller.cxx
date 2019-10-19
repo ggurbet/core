@@ -23,14 +23,11 @@
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 
 #include <toolkit/controls/stdtabcontroller.hxx>
-#include <toolkit/controls/stdtabcontrollermodel.hxx>
 #include <toolkit/helper/servicenames.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/macros.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/queryinterface.hxx>
-#include <rtl/uuid.h>
 
 #include <sal/log.hxx>
 #include <tools/debug.hxx>
@@ -96,7 +93,7 @@ bool StdTabController::ImplCreateComponentSequence(
     }
 
     bool bOK = true;
-    for ( const Reference< XControl >& xCtrl : rControls )
+    for ( const Reference< XControl >& xCtrl : std::as_const(rControls) )
     {
         // Get the matching control for this model
         if ( !xCtrl.is() )
@@ -133,8 +130,7 @@ bool StdTabController::ImplCreateComponentSequence(
 void StdTabController::ImplActivateControl( bool bFirst ) const
 {
     // HACK due to bug #53688#, map controls onto an interface if remote controls may occur
-    Reference< XTabController >  xTabController(const_cast< ::cppu::OWeakObject* >(static_cast< const ::cppu::OWeakObject* >(this)), UNO_QUERY);
-    Sequence< Reference< XControl > > aCtrls = xTabController->getControls();
+    Sequence< Reference< XControl > > aCtrls = const_cast<StdTabController*>(this)->getControls();
     const Reference< XControl > * pControls = aCtrls.getConstArray();
     sal_uInt32 nCount = aCtrls.getLength();
 
@@ -248,8 +244,7 @@ void StdTabController::autoTabOrder(  )
     Sequence< Reference< XWindow > > aCompSeq;
 
     // This may return a TabController, which returns desired list of controls faster
-    Reference< XTabController >  xTabController(static_cast< ::cppu::OWeakObject* >(this), UNO_QUERY);
-    Sequence< Reference< XControl > > aControls = xTabController->getControls();
+    Sequence< Reference< XControl > > aControls = getControls();
 
     // #58317# Some Models may be missing from the Container. Plus there is a
     // autoTabOrder call later on.
@@ -261,7 +256,7 @@ void StdTabController::autoTabOrder(  )
     // insert sort algorithm
     std::vector< ComponentEntry > aCtrls;
     aCtrls.reserve(nCtrls);
-    for ( const Reference< XWindow >& rComponent : aCompSeq )
+    for ( const Reference< XWindow >& rComponent : std::as_const(aCompSeq) )
     {
         XWindow* pC = rComponent.get();
         ComponentEntry newEntry;
@@ -308,18 +303,17 @@ void StdTabController::activateTabOrder(  )
     if ( !xC.is() || !xVclContainerPeer.is() )
         return;
 
-    // This may return a TabController, which returns desired list of controls faster
-    Reference< XTabController >  xTabController(static_cast< ::cppu::OWeakObject* >(this), UNO_QUERY);
-
     // Get a flattened list of controls sequences
     Sequence< Reference< XControlModel > > aModels = mxModel->getControlModels();
     Sequence< Reference< XWindow > > aCompSeq;
     Sequence< Any> aTabSeq;
 
-    // DG: For the sake of optimization, retrieve Controls from getControls(),
-    // this may sound counterproductive, but leads to performance improvements
-    // in practical scenarios (Forms)
-    Sequence< Reference< XControl > > aControls = xTabController->getControls();
+    // Previously used aControls = xTabController->getControls() "for the sake of optimization",
+    // but that list isn't valid during the creation phase (missing last created control) because
+    // listenermultiplexer.cxx handles fmvwimp::elementinserted before formcontroller::elementInserted
+    // Perhaps other places using the same optimization need to be reviewed?  (tdf#125609)
+    Sequence< Reference< XControl > > aCachedControls = getControls();
+    Sequence< Reference< XControl > > aControls = aCachedControls;
 
     // #58317# Some Models may be missing from the Container. Plus there is a
     // autoTabOrder call later on.
@@ -337,7 +331,7 @@ void StdTabController::activateTabOrder(  )
     {
         mxModel->getGroup( nG, aThisGroupModels, aName );
 
-        aControls = xTabController->getControls();
+        aControls = aCachedControls;
             // ImplCreateComponentSequence has a really strange semantics regarding it's first parameter:
             // upon method entry, it expects a super set of the controls which it returns
             // this means we need to completely fill this sequence with all available controls before
@@ -368,7 +362,7 @@ void StdTabController::activateLast(  )
 
 OUString StdTabController::getImplementationName()
 {
-    return OUString("stardiv.Toolkit.StdTabController");
+    return "stardiv.Toolkit.StdTabController";
 }
 
 sal_Bool StdTabController::supportsService(OUString const & ServiceName)

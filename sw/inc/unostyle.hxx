@@ -29,7 +29,6 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <cppuhelper/implbase.hxx>
-#include "calbck.hxx"
 
 #include <com/sun/star/style/XAutoStyleFamily.hpp>
 #include <com/sun/star/style/XAutoStyles.hpp>
@@ -229,7 +228,7 @@ public:
 
 typedef std::map<OUString, sal_Int32> CellStyleNameMap;
 
-/// A text table style is a uno api wrapper for a SwTableAutoFormat
+/// A text table style is a UNO API wrapper for a SwTableAutoFormat
 class SwXTextTableStyle : public cppu::WeakImplHelper
 <
     css::style::XStyle,
@@ -322,7 +321,7 @@ public:
     static css::uno::Reference<css::style::XStyle> CreateXTextTableStyle(SwDocShell* pDocShell, const OUString& rTableAutoFormatName);
 };
 
-/// A text cell style is a uno api wrapper for a SwBoxAutoFormat core class
+/// A text cell style is a UNO API wrapper for a SwBoxAutoFormat core class
 class SwXTextCellStyle : public cppu::WeakImplHelper
 <
     css::style::XStyle,
@@ -349,7 +348,7 @@ class SwXTextCellStyle : public cppu::WeakImplHelper
     * This function looks for a SwBoxAutoFormat with given name. Parses the name and returns parent name.
     * @param pDocShell pointer to a SwDocShell.
     * @param sName Name of a SwBoxAutoFormat to look for.
-    * @param pParentName Optional output. Pointer to a OUString where parsed parent name will be returned.
+    * @param pParentName Optional output. Pointer to an OUString where parsed parent name will be returned.
     * @return Pointer to a SwBoxAutoFormat, nullptr if not found.
     */
     static SwBoxAutoFormat* GetBoxAutoFormat(SwDocShell* pDocShell, const OUString& sName, OUString* pParentName);
@@ -358,7 +357,7 @@ class SwXTextCellStyle : public cppu::WeakImplHelper
     /// Sets the address of SwBoxAutoFormat this style is bound to. Usable only when style is physical.
     void SetBoxFormat(SwBoxAutoFormat* pBoxFormat);
     void SetPhysical();
-    bool IsPhysical();
+    bool IsPhysical() const;
 
     //XStyle
     virtual sal_Bool SAL_CALL isUserDefined() override;

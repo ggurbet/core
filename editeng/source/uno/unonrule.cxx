@@ -155,7 +155,7 @@ Reference< XCloneable > SAL_CALL SvxUnoNumberingRules::createClone(  )
 
 OUString SAL_CALL SvxUnoNumberingRules::getImplementationName(  )
 {
-    return OUString( "SvxUnoNumberingRules" );
+    return "SvxUnoNumberingRules";
 }
 
 sal_Bool SAL_CALL SvxUnoNumberingRules::supportsService( const OUString& ServiceName )
@@ -165,9 +165,7 @@ sal_Bool SAL_CALL SvxUnoNumberingRules::supportsService( const OUString& Service
 
 Sequence< OUString > SAL_CALL SvxUnoNumberingRules::getSupportedServiceNames(  )
 {
-    OUString aService( "com.sun.star.text.NumberingRules" );
-    Sequence< OUString > aSeq( &aService, 1 );
-    return aSeq;
+    return { "com.sun.star.text.NumberingRules" };
 }
 
 Sequence<beans::PropertyValue> SvxUnoNumberingRules::getNumberingRuleByIndex(sal_Int32 nIndex) const
@@ -440,8 +438,10 @@ void SvxUnoNumberingRules::setNumberingRuleByIndex(const Sequence<beans::Propert
             sal_Int16 nSize = sal_Int16();
             if( aVal >>= nSize )
             {
-                // [Bug 120650] the slide content corrupt when open in Aoo
-                if ((nSize>250)||(nSize<=0))
+                // [AOO Bug 120650] the slide content corrupt when open in Aoo
+                // [TDF# 126234] when MS Office document being imported, the value of the relative size
+                // of the bullet could be as high as 400%
+                if ((nSize>400)||(nSize<=0))
                 {
                     nSize = 100;
                 }

@@ -24,8 +24,6 @@
 #include <xmloff/xmltoken.hxx>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/style/XStyle.hpp>
-#include <com/sun/star/container/XNameContainer.hpp>
-#include <com/sun/star/container/XIndexReplace.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <xmloff/families.hxx>
@@ -199,7 +197,7 @@ void XMLPageExport::exportStyles( bool bUsed, bool bAutoStyles )
 {
     if( xPageStyles.is() )
     {
-        uno::Sequence< OUString> aSeq = xPageStyles->getElementNames();
+        const uno::Sequence< OUString> aSeq = xPageStyles->getElementNames();
         for(const auto& rName : aSeq)
         {
             Reference< XStyle > xStyle(xPageStyles->getByName( rName ),uno::UNO_QUERY);

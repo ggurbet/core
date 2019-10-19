@@ -361,9 +361,7 @@ bool ShapeImporter::isSkip(
     if(xLayer.is())
     {
         OUString layerName;
-        uno::Reference<beans::XPropertySet> xPropLayerSet(
-                                                          xLayer, uno::UNO_QUERY );
-        const uno::Any& a(xPropLayerSet->getPropertyValue("Name") );
+        const uno::Any& a(xLayer->getPropertyValue("Name") );
         bool const bRet = (a >>= layerName);
         if(bRet)
         {
@@ -399,15 +397,14 @@ void ShapeImporter::importPolygons(uno::Reference<beans::XPropertySet> const& xP
     getPropertyValue( nLineColor, xPropSet, "LineColor" );
     getPropertyValue( fLineWidth, xPropSet, "LineWidth" );
 
-    drawing::PointSequence* pOuterSequence = aRetval.getArray();
-    awt::Point* pInnerSequence = pOuterSequence->getArray();
+    const drawing::PointSequence* pOuterSequence = aRetval.getArray();
 
     ::basegfx::B2DPolygon aPoly;
     basegfx::B2DPoint aPoint;
-    for( sal_Int32 nCurrPoly=0; nCurrPoly<pOuterSequence->getLength(); ++nCurrPoly, ++pInnerSequence )
+    for( const awt::Point& rPoint : *pOuterSequence )
     {
-        aPoint.setX((*pInnerSequence).X);
-        aPoint.setY((*pInnerSequence).Y);
+        aPoint.setX(rPoint.X);
+        aPoint.setY(rPoint.Y);
         aPoly.append( aPoint );
     }
     for( const auto& pView : mrContext.mrViewContainer )
@@ -520,7 +517,7 @@ bool ShapeImporter::isImportDone() const
     return maShapesStack.empty();
 }
 
-const PolyPolygonVector& ShapeImporter::getPolygons()
+const PolyPolygonVector& ShapeImporter::getPolygons() const
 {
     return maPolygons;
 }

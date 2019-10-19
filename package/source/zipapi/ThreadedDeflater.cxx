@@ -48,6 +48,7 @@ class ThreadedDeflater::Task : public comphelper::ThreadTask
 public:
     Task(ThreadedDeflater* deflater_, int sequence_, int blockSize_)
         : comphelper::ThreadTask(deflater_->threadTaskTag)
+        , stream()
         , deflater(deflater_)
         , sequence(sequence_)
         , blockSize(blockSize_)
@@ -59,13 +60,13 @@ private:
 };
 
 ThreadedDeflater::ThreadedDeflater(sal_Int32 nSetLevel)
-    : zlibLevel(nSetLevel)
-    , threadTaskTag(comphelper::ThreadPool::createThreadTaskTag())
+    : threadTaskTag(comphelper::ThreadPool::createThreadTaskTag())
+    , zlibLevel(nSetLevel)
     , pendingTasksCount(0)
 {
 }
 
-ThreadedDeflater::~ThreadedDeflater()
+ThreadedDeflater::~ThreadedDeflater() COVERITY_NOEXCEPT_FALSE
 {
     waitForTasks();
     clear();

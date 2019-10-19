@@ -18,7 +18,6 @@
  */
 #include "vbacharacters.hxx"
 
-#include "vbaglobals.hxx"
 #include "vbafont.hxx"
 
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -119,7 +118,7 @@ ScVbaCharacters::Delete(  )
 OUString
 ScVbaCharacters::getServiceImplName()
 {
-    return OUString("ScVbaCharacters");
+    return "ScVbaCharacters";
 }
 
 uno::Sequence< OUString >

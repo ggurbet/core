@@ -24,6 +24,7 @@
 #include <ViewShellBase.hxx>
 #include <ViewShellManager.hxx>
 #include <Window.hxx>
+#include <vcl/vclevent.hxx>
 #include <svx/fmshell.hxx>
 
 namespace sd {
@@ -109,7 +110,7 @@ void FormShellManager::SetFormShell (FmFormShell* pFormShell)
         if (pMainViewShell != nullptr)
         {
             // Prevent setting the view twice at the FmFormShell.
-            FmFormView* pFormView = static_cast<FmFormView*>(pMainViewShell->GetView());
+            FmFormView* pFormView = pMainViewShell->GetView();
             if (mpFormShell->GetFormView() != pFormView)
                 mpFormShell->SetView(pFormView);
         }

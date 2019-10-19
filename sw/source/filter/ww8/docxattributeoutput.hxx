@@ -323,6 +323,10 @@ public:
     /// Definition of a numbering instance.
     virtual void NumberingDefinition( sal_uInt16 nId, const SwNumRule &rRule ) override;
 
+    /// Numbering definition that overrides abstract numbering definition
+    virtual void OverrideNumberingDefinition(SwNumRule const& rRule,
+            sal_uInt16 nNum, sal_uInt16 nAbstractNum) override;
+
     /// Start of the abstract numbering definition instance.
     virtual void StartAbstractNumbering( sal_uInt16 nId ) override;
 
@@ -707,6 +711,9 @@ private:
     /// Closes a currently open SDT block.
     void EndSdtBlock();
 
+    void WriteFormDateStart(const OUString& sFullDate, const OUString& sDateFormat, const OUString& sLang);
+    void WriteFormDateEnd();
+
     void StartField_Impl( const SwTextNode* pNode, sal_Int32 nPos, FieldInfos const & rInfos, bool bWriteRun = false );
     void DoWriteCmd( const OUString& rCmd );
     void CmdField_Impl( const SwTextNode* pNode, sal_Int32 nPos, FieldInfos const & rInfos, bool bWriteRun );
@@ -968,7 +975,7 @@ public:
     void SetSerializer( ::sax_fastparser::FSHelperPtr const & pSerializer );
 
     /// Occasionally need to use this serializer from the outside
-    const ::sax_fastparser::FSHelperPtr& GetSerializer( ) { return m_pSerializer; }
+    const ::sax_fastparser::FSHelperPtr& GetSerializer( ) const { return m_pSerializer; }
 
     /// Do we have any footnotes?
     bool HasFootnotes() const;
@@ -997,11 +1004,11 @@ public:
     void BulletDefinition(int nId, const Graphic& rGraphic, Size aSize) override;
 
     void SetWritingHeaderFooter( bool bWritingHeaderFooter )    {   m_bWritingHeaderFooter = bWritingHeaderFooter;   }
-    bool GetWritingHeaderFooter( )  {   return m_bWritingHeaderFooter;  }
+    bool GetWritingHeaderFooter( ) const  {   return m_bWritingHeaderFooter;  }
     void SetAlternateContentChoiceOpen( bool bAltContentChoiceOpen ) { m_bAlternateContentChoiceOpen = bAltContentChoiceOpen; }
-    bool IsAlternateContentChoiceOpen( ) { return m_bAlternateContentChoiceOpen; }
+    bool IsAlternateContentChoiceOpen( ) const { return m_bAlternateContentChoiceOpen; }
     void GetSdtEndBefore(const SdrObject* pSdrObj);
-    bool IsFirstParagraph() { return m_bIsFirstParagraph; }
+    bool IsFirstParagraph() const { return m_bIsFirstParagraph; }
 
     /// Stores the table export state to the passed context and resets own state.
     void pushToTableExportContext(DocxTableExportContext& rContext);

@@ -40,7 +40,6 @@
 #include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/instance.hxx>
-#include <sal/macros.h>
 #include <sal/log.hxx>
 #include <salhelper/linkhelper.hxx>
 
@@ -310,7 +309,7 @@ void PPDDecompressStream::Open( const OUString& i_rFile )
         // so let's try to decompress the stream
         mpMemStream.reset( new SvMemoryStream( 4096, 4096 ) );
         ZCodec aCodec;
-        aCodec.BeginCompression( ZCODEC_DEFAULT_COMPRESSION, false, true );
+        aCodec.BeginCompression( ZCODEC_DEFAULT_COMPRESSION, /*gzLib*/true );
         long nComp = aCodec.Decompress( *mpFileStream, *mpMemStream );
         aCodec.EndCompression();
         if( nComp < 0 )
@@ -621,10 +620,10 @@ PPDParser::PPDParser(const OUString& rFile, const std::vector<PPDKey*>& keys)
             pwg_media_t *pPWGMedia = pwgMediaForPWG(o.pData->buffer);
             if (pPWGMedia != nullptr) {
                 OUStringBuffer aBuf( 256 );
-                aBuf.append( "0 0 " );
-                aBuf.append( PWG_TO_POINTS(pPWGMedia -> width) );
-                aBuf.append( " " );
-                aBuf.append( PWG_TO_POINTS(pPWGMedia -> length) );
+                aBuf = "0 0 " +
+                    OUString::number(PWG_TO_POINTS(pPWGMedia -> width)) +
+                    " " +
+                    OUString::number(PWG_TO_POINTS(pPWGMedia -> length));
                 if ( pImageableAreaValue )
                     pImageableAreaValue->m_aValue = aBuf.makeStringAndClear();
                 aBuf.append( PWG_TO_POINTS(pPWGMedia -> width) );
@@ -1063,7 +1062,7 @@ void PPDParser::parse( ::std::vector< OString >& rLines )
         OUString aUniKey(OStringToOUString(aKey, RTL_TEXTENCODING_MS_1252));
         // handle CUPS extension for globalized PPDs
         /* FIXME-BCP47: really only ISO 639-1 two character language codes?
-         * goodnight.. */
+         * goodnight... */
         bool bIsGlobalizedLine = false;
         css::lang::Locale aTransLocale;
         if( ( aUniKey.getLength() > 3 && aUniKey[ 2 ] == '.' ) ||

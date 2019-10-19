@@ -73,34 +73,6 @@ ContentProviderImplHelper::~ContentProviderImplHelper()
 {
 }
 
-// XInterface
-void SAL_CALL ContentProviderImplHelper::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL ContentProviderImplHelper::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL ContentProviderImplHelper::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< lang::XTypeProvider* >(this),
-                                               static_cast< lang::XServiceInfo* >(this),
-                                               static_cast< css::ucb::XContentProvider* >(this)
-                                               );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-XTYPEPROVIDER_IMPL_3( ContentProviderImplHelper,
-                         lang::XTypeProvider,
-                         lang::XServiceInfo,
-                         css::ucb::XContentProvider );
-
 // virtual
 sal_Bool SAL_CALL ContentProviderImplHelper::supportsService(
                                             const OUString& ServiceName )
@@ -288,7 +260,7 @@ bool ContentProviderImplHelper::renameAdditionalPropertySet(
         if ( !xNameAccess.is() )
             return false;
 
-        uno::Sequence< OUString > aKeys
+        const uno::Sequence< OUString > aKeys
             = xNameAccess->getElementNames();
         if ( aKeys.hasElements() )
         {
@@ -361,7 +333,7 @@ bool ContentProviderImplHelper::copyAdditionalPropertySet(
         if ( !xNameAccess.is() )
             return false;
 
-        uno::Sequence< OUString > aKeys
+        const uno::Sequence< OUString > aKeys
             = xNameAccess->getElementNames();
         if ( aKeys.hasElements() )
         {
@@ -410,7 +382,7 @@ bool ContentProviderImplHelper::copyAdditionalPropertySet(
             return false;
 
         // Obtain all values from old set.
-        uno::Sequence< beans::PropertyValue > aValues
+        const uno::Sequence< beans::PropertyValue > aValues
             = xOldPropAccess->getPropertyValues();
 
         uno::Sequence< beans::Property > aProps
@@ -481,7 +453,7 @@ bool ContentProviderImplHelper::removeAdditionalPropertySet(
         if ( !xNameAccess.is() )
             return false;
 
-        uno::Sequence< OUString > aKeys
+        const uno::Sequence< OUString > aKeys
             = xNameAccess->getElementNames();
         if ( aKeys.hasElements() )
         {

@@ -23,12 +23,15 @@
 #include "TimerTriggeredControllerLock.hxx"
 #include "TabPageNotifiable.hxx"
 
-#include <svtools/roadmapwizard.hxx>
+#include <vcl/roadmapwizard.hxx>
 
 #include <memory>
 
 namespace com { namespace sun { namespace star { namespace chart2 { class XChartDocument; } } } }
 namespace com { namespace sun { namespace star { namespace uno { class XComponentContext; } } } }
+
+using vcl::WizardTypes::WizardState;
+using vcl::WizardTypes::CommitPageReason;
 
 namespace chart
 {
@@ -36,10 +39,10 @@ namespace chart
 class DialogModel;
 class ChartTypeTemplateProvider;
 
-class CreationWizard : public svt::RoadmapWizard, public TabPageNotifiable
+class CreationWizard : public vcl::RoadmapWizardMachine, public TabPageNotifiable
 {
 public:
-    CreationWizard(vcl::Window* pParent,
+    CreationWizard(weld::Window* pParent,
         const css::uno::Reference<css::frame::XModel>& xChartModel,
         const css::uno::Reference<css::uno::XComponentContext>& xContext);
 
@@ -47,8 +50,8 @@ public:
     virtual ~CreationWizard() override;
 
     // TabPageNotifiable
-    virtual void setInvalidPage(TabPage * pTabPage) override;
-    virtual void setValidPage(TabPage * pTabPage) override;
+    virtual void setInvalidPage(BuilderPage * pTabPage) override;
+    virtual void setValidPage(BuilderPage * pTabPage) override;
 
 protected:
     virtual bool leaveState( WizardState _nState ) override;
@@ -58,7 +61,7 @@ protected:
     virtual OUString getStateDisplayName(WizardState nState) const override;
 
 private:
-    virtual VclPtr<TabPage> createPage(WizardState nState) override;
+    virtual std::unique_ptr<BuilderPage> createPage(WizardState nState) override;
 
     css::uno::Reference<css::chart2::XChartDocument> m_xChartModel;
     css::uno::Reference<css::uno::XComponentContext> m_xComponentContext;

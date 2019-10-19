@@ -225,11 +225,11 @@ static OUString impl_getFilter( const OUString& _rURL )
             if ( !sType.isEmpty() )
             {
                 // Honor a selected/detected filter.
-                for (sal_Int32 i=0; i < aDescrList.getLength(); ++i)
+                for (const auto& rDescr : std::as_const(aDescrList))
                 {
-                    if (aDescrList[i].Name == "FilterName")
+                    if (rDescr.Name == "FilterName")
                     {
-                        if (aDescrList[i].Value >>= sFilter)
+                        if (rDescr.Value >>= sFilter)
                             break;
                     }
                 }
@@ -280,8 +280,8 @@ void SvFileObject::Edit(weld::Window* pParent, sfx2::SvBaseLink* pLink, const Li
             if( !aDlg.Execute() )
             {
                 sFile = aDlg.GetPath()
-                    + OUStringLiteral1(sfx2::cTokenSeparator)
-                    + OUStringLiteral1(sfx2::cTokenSeparator)
+                    + OUStringChar(sfx2::cTokenSeparator)
+                    + OUStringChar(sfx2::cTokenSeparator)
                     + aDlg.GetDetectedFilter();
 
                 aEndEditLink.Call( sFile );
@@ -325,7 +325,7 @@ void SvFileObject::Edit(weld::Window* pParent, sfx2::SvBaseLink* pLink, const Li
 
 IMPL_LINK_NOARG( SvFileObject, LoadGrfReady_Impl, void*, void )
 {
-    // When we come form here there it can not be an error no more.
+    // When we come from here there it can not be an error no more.
     bLoadError = false;
     bWaitForData = false;
 
@@ -368,8 +368,8 @@ IMPL_LINK( SvFileObject, DialogClosedHdl, sfx2::FileDialogHelper*, _pFileDlg, vo
         if ( _pFileDlg && _pFileDlg->GetError() == ERRCODE_NONE )
         {
             OUString sURL( _pFileDlg->GetPath() );
-            sFile = sURL + OUStringLiteral1(sfx2::cTokenSeparator)
-                + OUStringLiteral1(sfx2::cTokenSeparator)
+            sFile = sURL + OUStringChar(sfx2::cTokenSeparator)
+                + OUStringChar(sfx2::cTokenSeparator)
                 + impl_getFilter( sURL );
         }
     }
@@ -430,7 +430,7 @@ void SvFileObject::SendStateChg_Impl( sfx2::LinkManager::LinkState nState )
     if( !bStateChangeCalled && HasDataLinks() )
     {
         DataChanged( SotExchange::GetFormatName(
-                        sfx2::LinkManager::RegisterStatusInfoId()), css::uno::Any(OUString::number( nState )) );
+                        sfx2::LinkManager::RegisterStatusInfoId()), css::uno::makeAny(OUString::number( nState )) );
         bStateChangeCalled = true;
     }
 }

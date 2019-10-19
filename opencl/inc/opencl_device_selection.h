@@ -97,14 +97,14 @@ inline OString getPlatformInfoString(cl_platform_id aPlatformId, cl_platform_inf
 {
     std::vector<char> temporary(2048, 0);
     clGetPlatformInfo(aPlatformId, aPlatformInfo, temporary.size(), temporary.data(), nullptr);
-    return OString(temporary.data());
+    return temporary.data();
 }
 
 inline OString getDeviceInfoString(cl_device_id aDeviceId, cl_device_info aDeviceInfo)
 {
     std::vector<char> temporary(2048, 0);
     clGetDeviceInfo(aDeviceId, aDeviceInfo, temporary.size(), temporary.data(), nullptr);
-    return OString(temporary.data());
+    return temporary.data();
 }
 
 inline OString getDeviceType(cl_device_id aDeviceId)
@@ -254,7 +254,7 @@ inline ds_status writeProfile(const OUString& rStreamName, std::unique_ptr<ds_pr
     aXmlWriter.content(pProfile->version);
     aXmlWriter.endElement();
 
-    for (ds_device& rDevice : pProfile->devices)
+    for (const ds_device& rDevice : pProfile->devices)
     {
         aXmlWriter.startElement("device");
 

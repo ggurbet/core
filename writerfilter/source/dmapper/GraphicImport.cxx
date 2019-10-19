@@ -166,7 +166,7 @@ struct GraphicBorderLine
         ,bHasShadow(false)
         {}
 
-    bool isEmpty()
+    bool isEmpty() const
     {
         return nLineWidth == 0 && !bHasShadow;
     }
@@ -197,6 +197,7 @@ public:
     sal_Int16 nVertRelation;
     text::WrapTextMode nWrap;
     bool      bLayoutInCell;
+    bool bAllowOverlap = true;
     bool      bOpaque;
     bool      bContour;
     bool      bContourOutside;
@@ -596,9 +597,9 @@ void GraphicImport::lcl_attribute(Id nName, Value& rValue)
         break;
         case NS_ooxml::LN_CT_Anchor_hidden: // 90992; - ignored
         break;
-        case NS_ooxml::LN_CT_Anchor_allowOverlap: // 90993;
-            //enable overlapping - ignored
-        break;
+        case NS_ooxml::LN_CT_Anchor_allowOverlap:
+            m_pImpl->bAllowOverlap = nIntValue != 0;
+            break;
         case NS_ooxml::LN_CT_Anchor_wp14_anchorId:
         case NS_ooxml::LN_CT_Inline_wp14_anchorId:
         {
@@ -866,6 +867,8 @@ void GraphicImport::lcl_attribute(Id nName, Value& rValue)
                         xShapeProps->setPropertyValue("Surround", uno::makeAny(static_cast<sal_Int32>(m_pImpl->nWrap)));
                         m_pImpl->applyZOrder(xShapeProps);
                         m_pImpl->applyName(xShapeProps);
+                        xShapeProps->setPropertyValue("AllowOverlap",
+                                                      uno::makeAny(m_pImpl->bAllowOverlap));
 
                         // Get the grab-bag set by oox, merge with our one and then put it back.
                         comphelper::SequenceAsHashMap aInteropGrabBag(xShapeProps->getPropertyValue("InteropGrabBag"));
@@ -975,7 +978,6 @@ void GraphicImport::ProcessShapeOptions(Value const & rValue)
     switch( m_pImpl->nShapeOptionType )
     {
         case NS_ooxml::LN_CT_Anchor_distL:
-            //todo: changes have to be applied depending on the orientation, see SwWW8ImplReader::AdjustLRWrapForWordMargins()
             m_pImpl->nLeftMargin = nIntValue / 360;
         break;
         case NS_ooxml::LN_CT_Anchor_distT:
@@ -1070,6 +1072,16 @@ void GraphicImport::lcl_sprm(Sprm& rSprm)
                     m_pImpl->nHoriRelation = pHandler->relation();
                     m_pImpl->nHoriOrient = pHandler->orientation();
                     m_pImpl->nLeftPosition = pHandler->position();
+
+                    // Left adjustments: if horizontally aligned to left of margin, then remove the
+                    // left wrapping.
+                    if (m_pImpl->nHoriOrient == text::HoriOrientation::LEFT)
+                    {
+                        if (m_pImpl->nHoriRelation == text::RelOrientation::PAGE_PRINT_AREA)
+                        {
+                            m_pImpl->nLeftMargin = 0;
+                        }
+                    }
                 }
             }
         }
@@ -1104,7 +1116,25 @@ void GraphicImport::lcl_sprm(Sprm& rSprm)
                 {
                     uno::Reference<beans::XPropertySet> xPropertySet(m_xShape, uno::UNO_QUERY);
                     OUString aProperty = nSprmId == NS_ooxml::LN_CT_SizeRelH_pctWidth ? OUString("RelativeWidth") : OUString("RelativeHeight");
-                    xPropertySet->setPropertyValue(aProperty, uno::makeAny(nPositivePercentage));
+
+                    sal_Int32 nTextPreRotateAngle = 0;
+                    uno::Any aAny;
+                    if (xPropertySet->getPropertySetInfo()->hasPropertyByName(
+                            "CustomShapeGeometry"))
+                    {
+                        aAny = xPropertySet->getPropertyValue("CustomShapeGeometry");
+                    }
+                    comphelper::SequenceAsHashMap aCustomShapeGeometry(aAny);
+                    auto it = aCustomShapeGeometry.find("TextPreRotateAngle");
+                    if (it != aCustomShapeGeometry.end())
+                    {
+                        nTextPreRotateAngle = it->second.get<sal_Int32>();
+                    }
+                    if (nTextPreRotateAngle == 0)
+                    {
+                        xPropertySet->setPropertyValue(aProperty,
+                                                       uno::makeAny(nPositivePercentage));
+                    }
                 }
             }
 
@@ -1148,7 +1178,7 @@ void GraphicImport::lcl_sprm(Sprm& rSprm)
     }
 }
 
-void GraphicImport::lcl_entry(int /*pos*/, writerfilter::Reference<Properties>::Pointer_t /*ref*/)
+void GraphicImport::lcl_entry(writerfilter::Reference<Properties>::Pointer_t /*ref*/)
 {
 }
 
@@ -1293,29 +1323,15 @@ uno::Reference<text::XTextContent> GraphicImport::createGraphicObject(uno::Refer
                 }
                 xGraphicObjectProperties->setPropertyValue(getPropertyName( PROP_SURROUND ),
                     uno::makeAny(static_cast<sal_Int32>(m_pImpl->nWrap)));
-                if( m_pImpl->rDomainMapper.IsInTable() && m_pImpl->bLayoutInCell && m_pImpl->nWrap != text::WrapTextMode_THROUGH )
+                if( m_pImpl->rDomainMapper.IsInTable() && m_pImpl->bLayoutInCell )
                     xGraphicObjectProperties->setPropertyValue(getPropertyName( PROP_FOLLOW_TEXT_FLOW ),
                         uno::makeAny(true));
-                if( m_pImpl->rDomainMapper.IsInTable() && m_pImpl->bLayoutInCell )
-                {
-                    xGraphicObjectProperties->setPropertyValue(getPropertyName( PROP_LAYOUT_IN_CELL ),
-                        uno::makeAny(true));
-                }
 
                 xGraphicObjectProperties->setPropertyValue(getPropertyName( PROP_SURROUND_CONTOUR ),
                     uno::makeAny(m_pImpl->bContour));
                 xGraphicObjectProperties->setPropertyValue(getPropertyName( PROP_CONTOUR_OUTSIDE ),
                     uno::makeAny(m_pImpl->bContourOutside));
                 m_pImpl->applyMargins(xGraphicObjectProperties);
-            }
-
-            if( m_pImpl->eColorMode == drawing::ColorMode_WATERMARK &&
-                m_pImpl->nContrast == -70 &&
-                m_pImpl->nBrightness == 70 )
-            {
-                // watermark filter is already applied at this point, so reset Contrast and Brightness
-                m_pImpl->nContrast = 0;
-                m_pImpl->nBrightness = 0;
             }
 
             xGraphicObjectProperties->setPropertyValue(getPropertyName( PROP_ADJUST_CONTRAST ),
@@ -1396,7 +1412,7 @@ uno::Reference<text::XTextContent> GraphicImport::createGraphicObject(uno::Refer
 }
 
 
-void GraphicImport::data(const sal_uInt8* buf, size_t len, writerfilter::Reference<Properties>::Pointer_t /*ref*/)
+void GraphicImport::data(const sal_uInt8* buf, size_t len)
 {
     beans::PropertyValues aMediaProperties( 1 );
     aMediaProperties[0].Name = getPropertyName(PROP_INPUT_STREAM);
@@ -1462,10 +1478,6 @@ void GraphicImport::lcl_table(Id /*name*/, writerfilter::Reference<Table>::Point
 
 
 void GraphicImport::lcl_substream(Id /*name*/, ::writerfilter::Reference<Stream>::Pointer_t /*ref*/)
-{
-}
-
-void GraphicImport::lcl_info(const std::string& /*info*/)
 {
 }
 

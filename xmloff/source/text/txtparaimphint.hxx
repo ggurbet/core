@@ -20,9 +20,8 @@
 #define INCLUDED_XMLOFF_SOURCE_TEXT_TXTPARAIMPHINT_HXX
 
 #include <rtl/ustring.hxx>
-#include <rtl/ustrbuf.hxx>
-#include <xmloff/xmlimp.hxx>
 #include "XMLTextFrameContext.hxx"
+#include "XMLTextFrameHyperlinkContext.hxx"
 #include <xmloff/XMLEventsImportContext.hxx>
 
 #define XML_HINT_STYLE 1
@@ -58,9 +57,9 @@ public:
     void SetEnd( const css::uno::Reference < css::text::XTextRange > & rPos ) { xEnd = rPos; }
 
     // We don't use virtual methods to differ between the sub classes,
-    // because this seems to be to expensive if compared to inline methods.
+    // because this seems to be too expensive if compared to inline methods.
     sal_uInt8 GetType() const { return nType; }
-    bool IsReference() { return XML_HINT_REFERENCE==nType; }
+    bool IsReference() const { return XML_HINT_REFERENCE==nType; }
 };
 
 class XMLStyleHint_Impl : public XMLHint_Impl

@@ -19,10 +19,6 @@
 #ifndef INCLUDED_SW_SOURCE_UI_FLDUI_FLDDB_HXX
 #define INCLUDED_SW_SOURCE_UI_FLDUI_FLDDB_HXX
 
-#include <vcl/fixed.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/button.hxx>
-
 #include <condedit.hxx>
 #include <dbtree.hxx>
 #include <numfmtlb.hxx>
@@ -46,7 +42,7 @@ class SwFieldDBPage : public SwFieldPage
     std::unique_ptr<weld::Entry> m_xValueED;
     std::unique_ptr<weld::RadioButton> m_xDBFormatRB;
     std::unique_ptr<weld::RadioButton> m_xNewFormatRB;
-    std::unique_ptr<SwNumFormatListBox> m_xNumFormatLB;
+    std::unique_ptr<NumFormatListBox> m_xNumFormatLB;
     std::unique_ptr<weld::ComboBox> m_xFormatLB;
     std::unique_ptr<weld::Widget> m_xFormat;
 
@@ -65,12 +61,11 @@ protected:
     virtual sal_uInt16      GetGroup() override;
 
 public:
-    SwFieldDBPage(TabPageParent pParent, const SfxItemSet* rSet);
+    SwFieldDBPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
 
     virtual ~SwFieldDBPage() override;
-    virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

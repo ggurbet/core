@@ -40,7 +40,7 @@ DdeData::DdeData(const DdeData&)
 {
 }
 
-DdeData::DdeData(DdeData&&)
+DdeData::DdeData(DdeData&&) noexcept
 {
 }
 
@@ -66,7 +66,7 @@ DdeData& DdeData::operator=(const DdeData&)
     return *this;
 }
 
-DdeData& DdeData::operator=(DdeData&&)
+DdeData& DdeData::operator=(DdeData&&) noexcept
 {
     return *this;
 }
@@ -83,7 +83,7 @@ void const * DdeData::getData() const
 
 struct DdeImp {};
 
-long DdeConnection::GetError()
+long DdeConnection::GetError() const
 {
     return 0L;
 }
@@ -98,12 +98,12 @@ DdeConnection::~DdeConnection()
 {
 }
 
-const OUString DdeConnection::GetServiceName()
+OUString DdeConnection::GetServiceName() const
 {
     return OUString();
 }
 
-const OUString DdeConnection::GetTopicName()
+OUString DdeConnection::GetTopicName() const
 {
     return OUString();
 }
@@ -197,7 +197,7 @@ bool DdeTopic::Put( SAL_UNUSED_PARAMETER const DdeData* )
     return false;
 }
 
-const OUString DdeTopic::GetName() const
+OUString DdeTopic::GetName() const
 {
     return OUString();
 }
@@ -244,7 +244,7 @@ void DdeService::RemoveTopic( SAL_UNUSED_PARAMETER const DdeTopic& )
 {
 }
 
-const OUString DdeService::GetName() const
+OUString DdeService::GetName() const
 {
     return OUString();
 }

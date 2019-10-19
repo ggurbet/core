@@ -232,7 +232,7 @@ public:
 
     void            FillList();
     void            Update( const css::awt::FontDescriptor* pFontDesc );
-    sal_uInt16      GetListCount() { return nFtCount; }
+    sal_uInt16      GetListCount() const { return nFtCount; }
     void            Clear() { FontNameBox::Clear(); nFtCount = 0; }
     void            Fill( const FontList* pList )
                         { FontNameBox::Fill( pList );
@@ -295,7 +295,7 @@ namespace
         typedef Color (*ColorFunc)(Color);
         typedef Color (*ColorDistFunc)(Color, Color);
 
-                        LineListBox( vcl::Window* pParent, WinBits nWinStyle = WB_BORDER );
+                        LineListBox( vcl::Window* pParent );
         virtual         ~LineListBox() override;
         virtual void    dispose() override;
 
@@ -442,8 +442,8 @@ namespace
         rBmp = aVirDev->GetBitmapEx( Point(), Size( aSize.Width(), n1+nDist+n2 ) );
     }
 
-    LineListBox::LineListBox( vcl::Window* pParent, WinBits nWinStyle ) :
-        ListBox( pParent, nWinStyle ),
+    LineListBox::LineListBox( vcl::Window* pParent ) :
+        ListBox( pParent, WB_BORDER ),
         m_nWidth( 5 ),
         m_sNone( ),
         aVirDev( VclPtr<VirtualDevice>::Create() ),
@@ -1206,7 +1206,7 @@ IMPL_LINK(SvxStyleBox_Impl, CalcOptimalExtraUserWidth, VclWindowEvent&, event, v
 // return is always the Font-Color
 //        when both light or dark, change the Contrast
 //        in other case do not change the origin color
-//        when the color is R=G=B=128 the DecreaseContrast make 128 the need a exception
+//        when the color is R=G=B=128 the DecreaseContrast make 128 the need an exception
 Color SvxStyleBox_Impl::TestColorsVisible(const Color &FontCol, const Color &BackCol)
 {
     const sal_uInt8  ChgVal = 60;       // increase/decrease the Contrast
@@ -1704,15 +1704,13 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
                          sal_uInt16                 nSlotId,
                          const Reference< XFrame >& rFrame,
                          weld::Window*              pParentWindow,
-                         weld::MenuButton*          pMenuButton,
-                         bool                       bInterimBuilder,
+                         const MenuOrToolMenuButton& rMenuButton,
                          ColorSelectFunction const & aFunction)
     : ToolbarPopupBase(rFrame)
-    , m_xBuilder(bInterimBuilder ? Application::CreateInterimBuilder(pMenuButton, "svx/ui/colorwindow.ui")
-                                 : Application::CreateBuilder(pMenuButton, "svx/ui/colorwindow.ui"))
+    , m_xBuilder(Application::CreateBuilder(rMenuButton.get_widget(), "svx/ui/colorwindow.ui"))
     , theSlotId(nSlotId)
     , mpParentWindow(pParentWindow)
-    , mpMenuButton(pMenuButton)
+    , maMenuButton(rMenuButton)
     , mxPaletteManager(rPaletteManager)
     , mrColorStatus(rColorStatus)
     , maColorSelectFunction(aFunction)
@@ -1956,12 +1954,12 @@ IMPL_LINK(ColorWindow, SelectHdl, SvtValueSet*, pColorSet, void)
     if (pColorSet != mxRecentColorSet.get())
     {
          mxPaletteManager->AddRecentColor(aNamedColor.first, aNamedColor.second);
-         if (!mpMenuButton->get_active())
+         if (!maMenuButton.get_active())
             mxPaletteManager->ReloadRecentColorSet(*mxRecentColorSet);
     }
 
-    if (mpMenuButton->get_active())
-        mpMenuButton->set_active(false);
+    if (maMenuButton.get_active())
+        maMenuButton.set_active(false);
 
     maColorSelectFunction(OUString(), aNamedColor);
 }
@@ -2014,8 +2012,8 @@ IMPL_LINK(ColorWindow, AutoColorClickHdl, weld::Button&, rButton, void)
 
     mxRecentColorSet->SetNoSelection();
 
-    if (mpMenuButton->get_active())
-        mpMenuButton->set_active(false);
+    if (maMenuButton.get_active())
+        maMenuButton.set_active(false);
 
     maColorSelectFunction(OUString(), aNamedColor);
 }
@@ -2034,7 +2032,7 @@ IMPL_LINK_NOARG(SvxColorWindow, OpenPickerClickHdl, Button*, void)
     }
     else
     {
-        const css::uno::Reference<css::awt::XWindow> xParent(mxFrame->getContainerWindow(), uno::UNO_QUERY);
+        const css::uno::Reference<css::awt::XWindow> xParent = mxFrame->getContainerWindow();
         pParentFrame = Application::GetFrameWeld(xParent);
     }
     mxPaletteManager->PopupColorPicker(pParentFrame, maCommand, GetSelectEntryColor().first);
@@ -2042,8 +2040,8 @@ IMPL_LINK_NOARG(SvxColorWindow, OpenPickerClickHdl, Button*, void)
 
 IMPL_LINK_NOARG(ColorWindow, OpenPickerClickHdl, weld::Button&, void)
 {
-    if (mpMenuButton->get_active())
-        mpMenuButton->set_active(false);
+    if (maMenuButton.get_active())
+        maMenuButton.set_active(false);
     mxPaletteManager->PopupColorPicker(mpParentWindow, OUString(), GetSelectEntryColor().first);
 }
 
@@ -2958,7 +2956,7 @@ void SAL_CALL SvxStyleToolBoxControl::update()
     }
 }
 
-SfxStyleFamily SvxStyleToolBoxControl::GetActFamily()
+SfxStyleFamily SvxStyleToolBoxControl::GetActFamily() const
 {
     switch ( nActFamily-1 + SID_STYLE_FAMILY_START )
     {
@@ -3309,7 +3307,7 @@ void SvxFontNameToolBoxControl::dispose()
 
 OUString SvxFontNameToolBoxControl::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.svx.FontNameToolBoxControl" );
+    return "com.sun.star.comp.svx.FontNameToolBoxControl";
 }
 
 sal_Bool SvxFontNameToolBoxControl::supportsService( const OUString& rServiceName )
@@ -3550,7 +3548,7 @@ void SvxColorToolBoxControl::functionSelected( const OUString& /*rCommand*/ )
 
 OUString SvxColorToolBoxControl::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.svx.ColorToolBoxControl" );
+    return "com.sun.star.comp.svx.ColorToolBoxControl";
 }
 
 css::uno::Sequence<OUString> SvxColorToolBoxControl::getSupportedServiceNames()
@@ -3609,7 +3607,7 @@ VclPtr<vcl::Window> SvxFrameToolBoxControl::createPopupWindow( vcl::Window* pPar
 
 OUString SvxFrameToolBoxControl::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.svx.FrameToolBoxControl" );
+    return "com.sun.star.comp.svx.FrameToolBoxControl";
 }
 
 css::uno::Sequence< OUString > SvxFrameToolBoxControl::getSupportedServiceNames()
@@ -3714,7 +3712,7 @@ void SvxCurrencyToolBoxControl::execute( sal_Int16 nSelectModifier )
 
 OUString SvxCurrencyToolBoxControl::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.svx.CurrencyToolBoxControl" );
+    return "com.sun.star.comp.svx.CurrencyToolBoxControl";
 }
 
 css::uno::Sequence<OUString> SvxCurrencyToolBoxControl::getSupportedServiceNames()
@@ -4077,7 +4075,6 @@ void ColorListBox::createColorWindow()
                             xFrame,
                             m_pTopLevel,
                             m_xButton.get(),
-                            /*bInterimBuilder*/false,
                             m_aColorWrapper));
 
     SetNoSelection();
@@ -4166,6 +4163,43 @@ void ColorListBox::ShowPreview(const NamedColor &rColor)
 
     m_xButton->set_image(xDevice.get());
     m_xButton->set_label(rColor.second);
+}
+
+MenuOrToolMenuButton::MenuOrToolMenuButton(weld::MenuButton* pMenuButton)
+    : m_pMenuButton(pMenuButton)
+    , m_pToolbar(nullptr)
+{
+}
+
+MenuOrToolMenuButton::MenuOrToolMenuButton(weld::Toolbar* pToolbar, const OString& rIdent)
+    : m_pMenuButton(nullptr)
+    , m_pToolbar(pToolbar)
+    , m_aIdent(rIdent)
+{
+}
+
+bool MenuOrToolMenuButton::get_active() const
+{
+    if (m_pMenuButton)
+        return m_pMenuButton->get_active();
+    return m_pToolbar->get_item_active(m_aIdent);
+}
+
+void MenuOrToolMenuButton::set_active(bool bActive) const
+{
+    if (m_pMenuButton)
+    {
+        m_pMenuButton->set_active(bActive);
+        return;
+    }
+    m_pToolbar->set_item_active(m_aIdent, bActive);
+}
+
+weld::Widget* MenuOrToolMenuButton::get_widget() const
+{
+    if (m_pMenuButton)
+        return m_pMenuButton;
+    return m_pToolbar;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

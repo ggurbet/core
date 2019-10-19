@@ -23,9 +23,6 @@
 #include <tools/stream.hxx>
 #endif
 
-#include <math.h>
-#include <stdlib.h>
-
 SwRect::SwRect( const tools::Rectangle &rRect ) :
     m_Point( rRect.Left(), rRect.Top() )
 {
@@ -171,13 +168,13 @@ void SwRect::AddBottom( const long nAdd ){ m_Size.AdjustHeight(nAdd ); }
 void SwRect::SetPosX( const long nNew ){ m_Point.setX(nNew); }
 void SwRect::SetPosY( const long nNew ){ m_Point.setY(nNew); }
 
-const Size  SwRect::Size_() const { return SSize(); }
-const Size  SwRect::SwappedSize() const { return Size( m_Size.getHeight(), m_Size.getWidth() ); }
+Size  SwRect::Size_() const { return SSize(); }
+Size  SwRect::SwappedSize() const { return Size( m_Size.getHeight(), m_Size.getWidth() ); }
 
-const Point SwRect::TopLeft() const { return Pos(); }
-const Point SwRect::TopRight() const { return Point( m_Point.getX() + m_Size.getWidth(), m_Point.getY() ); }
-const Point SwRect::BottomLeft() const { return Point( m_Point.getX(), m_Point.getY() + m_Size.getHeight() ); }
-const Point SwRect::BottomRight() const
+Point SwRect::TopLeft() const { return Pos(); }
+Point SwRect::TopRight() const { return Point( m_Point.getX() + m_Size.getWidth(), m_Point.getY() ); }
+Point SwRect::BottomLeft() const { return Point( m_Point.getX(), m_Point.getY() + m_Size.getHeight() ); }
+Point SwRect::BottomRight() const
     { return Point( m_Point.getX() + m_Size.getWidth(), m_Point.getY() + m_Size.getHeight() ); }
 
 long SwRect::GetLeftDistance( long nLimit ) const { return m_Point.getX() - nLimit; }

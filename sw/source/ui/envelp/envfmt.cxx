@@ -38,6 +38,7 @@
 #include <fmtcol.hxx>
 #include <swuipardlg.hxx>
 #include <chrdlgmodes.hxx>
+#include <pardlg.hxx>
 #include <pattern.hxx>
 #include <poolfmt.hxx>
 #include <uitool.hxx>
@@ -115,8 +116,8 @@ namespace {
 static long lUserW = 5669; // 10 cm
 static long lUserH = 5669; // 10 cm
 
-SwEnvFormatPage::SwEnvFormatPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/envformatpage.ui", "EnvFormatPage", &rSet)
+SwEnvFormatPage::SwEnvFormatPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/envformatpage.ui", "EnvFormatPage", &rSet)
     , m_pDialog(nullptr)
     , m_xAddrLeftField(m_xBuilder->weld_metric_spin_button("leftaddr", FieldUnit::CM))
     , m_xAddrTopField(m_xBuilder->weld_metric_spin_button("topaddr", FieldUnit::CM))
@@ -186,7 +187,6 @@ void SwEnvFormatPage::Init(SwEnvDlg* pDialog)
 
 SwEnvFormatPage::~SwEnvFormatPage()
 {
-    disposeOnce();
 }
 
 IMPL_LINK( SwEnvFormatPage, ModifyHdl, weld::MetricSpinButton&, rEdit, void )
@@ -254,7 +254,7 @@ void SwEnvFormatPage::Edit(const OString& rIdent, bool bSender)
         SwAbstractDialogFactory& rFact = swui::GetFactory();
 
         const OUString sFormatStr = pColl->GetName();
-        ScopedVclPtr<SfxAbstractTabDialog> pDlg(rFact.CreateSwCharDlg(GetDialogFrameWeld(), pSh->GetView(), aTmpSet, SwCharDlgMode::Env, &sFormatStr));
+        ScopedVclPtr<SfxAbstractTabDialog> pDlg(rFact.CreateSwCharDlg(GetFrameWeld(), pSh->GetView(), aTmpSet, SwCharDlgMode::Env, &sFormatStr));
         if (pDlg->Execute() == RET_OK)
         {
             SfxItemSet aOutputSet( *pDlg->GetOutputItemSet() );
@@ -290,7 +290,7 @@ void SwEnvFormatPage::Edit(const OString& rIdent, bool bSender)
         ::PrepareBoxInfo( aTmpSet, *pSh );
 
         const OUString sFormatStr = pColl->GetName();
-        SwParaDlg aDlg(GetDialogFrameWeld(), pSh->GetView(), aTmpSet, DLG_ENVELOP, &sFormatStr);
+        SwParaDlg aDlg(GetFrameWeld(), pSh->GetView(), aTmpSet, DLG_ENVELOP, &sFormatStr);
 
         if (aDlg.run() == RET_OK)
         {
@@ -412,9 +412,9 @@ void SwEnvFormatPage::SetMinMax()
                                100 * (getfieldval(*m_xAddrTopField ) - 2 * 566), FieldUnit::TWIP);
 }
 
-VclPtr<SfxTabPage> SwEnvFormatPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SwEnvFormatPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SwEnvFormatPage>::Create(pParent, *rSet);
+    return std::make_unique<SwEnvFormatPage>(pPage, pController, *rSet);
 }
 
 void SwEnvFormatPage::ActivatePage(const SfxItemSet& rSet)

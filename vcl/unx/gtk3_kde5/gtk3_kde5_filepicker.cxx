@@ -60,11 +60,8 @@ namespace
 {
 uno::Sequence<OUString> FilePicker_getSupportedServiceNames()
 {
-    uno::Sequence<OUString> aRet(3);
-    aRet[0] = "com.sun.star.ui.dialogs.FilePicker";
-    aRet[1] = "com.sun.star.ui.dialogs.SystemFilePicker";
-    aRet[2] = "com.sun.star.ui.dialogs.Gtk3KDE5FilePicker";
-    return aRet;
+    return { "com.sun.star.ui.dialogs.FilePicker", "com.sun.star.ui.dialogs.SystemFilePicker",
+             "com.sun.star.ui.dialogs.Gtk3KDE5FilePicker" };
 }
 }
 
@@ -435,10 +432,7 @@ void Gtk3KDE5FilePicker::disposing(const lang::EventObject& rEvent)
     }
 }
 
-OUString SAL_CALL Gtk3KDE5FilePicker::getImplementationName()
-{
-    return OUString(FILE_PICKER_IMPL_NAME);
-}
+OUString SAL_CALL Gtk3KDE5FilePicker::getImplementationName() { return FILE_PICKER_IMPL_NAME; }
 
 sal_Bool SAL_CALL Gtk3KDE5FilePicker::supportsService(const OUString& ServiceName)
 {

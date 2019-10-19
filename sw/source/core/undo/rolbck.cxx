@@ -251,7 +251,7 @@ void SwHistorySetText::SetInDoc( SwDoc* pDoc, bool )
     }
 }
 
-SwHistorySetTextField::SwHistorySetTextField( SwTextField* pTextField, sal_uLong nNodePos )
+SwHistorySetTextField::SwHistorySetTextField( const SwTextField* pTextField, sal_uLong nNodePos )
     : SwHistoryHint( HSTRY_SETTXTFLDHNT )
     , m_pField( new SwFormatField( *pTextField->GetFormatField().GetField() ) )
 {
@@ -309,7 +309,7 @@ void SwHistorySetTextField::SetInDoc( SwDoc* pDoc, bool )
     }
 }
 
-SwHistorySetRefMark::SwHistorySetRefMark( SwTextRefMark* pTextHt, sal_uLong nNodePos )
+SwHistorySetRefMark::SwHistorySetRefMark( const SwTextRefMark* pTextHt, sal_uLong nNodePos )
     : SwHistoryHint( HSTRY_SETREFMARKHNT )
     , m_RefName( pTextHt->GetRefMark().GetRefName() )
     , m_nNodeIndex( nNodePos )
@@ -336,7 +336,7 @@ void SwHistorySetRefMark::SetInDoc( SwDoc* pDoc, bool )
     }
 }
 
-SwHistorySetTOXMark::SwHistorySetTOXMark( SwTextTOXMark* pTextHt, sal_uLong nNodePos )
+SwHistorySetTOXMark::SwHistorySetTOXMark( const SwTextTOXMark* pTextHt, sal_uLong nNodePos )
     : SwHistoryHint( HSTRY_SETTOXMARKHNT )
     , m_TOXMark( pTextHt->GetTOXMark() )
     , m_TOXName( m_TOXMark.GetTOXType()->GetTypeName() )
@@ -773,8 +773,8 @@ SwHistorySetAttrSet::SwHistorySetAttrSet( const SfxItemSet& rSet,
     , m_nNodeIndex( nNodePos )
 {
     SfxItemIter aIter( m_OldSet ), aOrigIter( rSet );
-    const SfxPoolItem* pItem = aIter.FirstItem(),
-                     * pOrigItem = aOrigIter.FirstItem();
+    const SfxPoolItem* pItem = aIter.GetCurItem(),
+                     * pOrigItem = aOrigIter.GetCurItem();
     while (pItem && pOrigItem)
     {
         if( !rSetArr.count( pOrigItem->Which() ))
@@ -1191,27 +1191,17 @@ void SwHistory::CopyFormatAttr(
     if(rSet.Count())
     {
         SfxItemIter aIter(rSet);
-
+        const SfxPoolItem* pItem = aIter.GetCurItem();
         do
         {
-            if(!IsInvalidItem(aIter.GetCurItem()))
+            if(!IsInvalidItem(pItem))
             {
-                const SfxPoolItem* pNew = aIter.GetCurItem();
-
-                Add(
-                    pNew,
-                    pNew,
-                    nNodeIdx);
+                Add(pItem, pItem, nNodeIdx);
             }
 
-            if(aIter.IsAtEnd())
-            {
-                break;
-            }
+            pItem = aIter.NextItem();
 
-            aIter.NextItem();
-
-        } while(true);
+        } while(pItem);
     }
 }
 
@@ -1298,7 +1288,7 @@ SwRegHistory::SwRegHistory( const SwNode& rNd, SwHistory* pHst )
 
 void SwRegHistory::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
 {
-    if ( m_pHistory && ( pOld || pNew ) && pOld != pNew )
+    if ( m_pHistory && pNew && pOld != pNew )
     {
         if ( pNew->Which() < POOLATTR_END )
         {
@@ -1326,7 +1316,7 @@ void SwRegHistory::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
             {
                 pNewHstr.reset( new SwHistorySetAttrSet( rSet, m_nNodeIndex, m_WhichIdSet ) );
             }
-            else if (const SfxPoolItem* pItem = SfxItemIter( rSet ).FirstItem())
+            else if (const SfxPoolItem* pItem = SfxItemIter(rSet).GetCurItem())
             {
                 if ( m_WhichIdSet.count( pItem->Which() ) )
                 {
@@ -1384,7 +1374,7 @@ bool SwRegHistory::InsertItems( const SfxItemSet& rSet,
     if ( m_pHistory && bInserted )
     {
         SfxItemIter aIter(rSet);
-        for (SfxPoolItem const* pItem = aIter.FirstItem(); pItem; pItem = aIter.NextItem())
+        for (SfxPoolItem const* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
         {   // check that the history recorded a hint to reset every item
             sal_uInt16 const nWhich(pItem->Which());
             sal_uInt16 const nExpected(
@@ -1445,14 +1435,10 @@ void SwRegHistory::MakeSetWhichIds()
         if( pSet && pSet->Count() )
         {
             SfxItemIter aIter( *pSet );
-            const SfxPoolItem* pItem = aIter.FirstItem();
-            while(pItem)
+            for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
             {
                 sal_uInt16 nW = pItem->Which();
                 m_WhichIdSet.insert( nW );
-                if( aIter.IsAtEnd() )
-                    break;
-                pItem = aIter.NextItem();
             }
         }
     }

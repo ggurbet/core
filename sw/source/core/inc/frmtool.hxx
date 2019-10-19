@@ -22,6 +22,7 @@
 
 #include <swtypes.hxx>
 #include "frame.hxx"
+#include "txtfrm.hxx"
 #include "swcache.hxx"
 #include <swatrset.hxx>
 
@@ -60,11 +61,13 @@ void AppendObjs( const SwFrameFormats *pTable, sal_uLong nIndex,
 void AppendObjsOfNode(SwFrameFormats const* pTable, sal_uLong nIndex,
         SwFrame * pFrame, SwPageFrame * pPage, SwDoc * pDoc,
         std::vector<sw::Extent>::const_iterator const* pIter,
-        std::vector<sw::Extent>::const_iterator const* pEnd);
+        std::vector<sw::Extent>::const_iterator const* pEnd,
+        SwTextNode const* pFirstNode, SwTextNode const* pLastNode);
 
 void RemoveHiddenObjsOfNode(SwTextNode const& rNode,
         std::vector<sw::Extent>::const_iterator const* pIter,
-        std::vector<sw::Extent>::const_iterator const* pEnd);
+        std::vector<sw::Extent>::const_iterator const* pEnd,
+        SwTextNode const* pFirstNode, SwTextNode const* pLastNode);
 
 bool IsAnchoredObjShown(SwTextFrame const& rFrame, SwFormatAnchor const& rAnchor);
 
@@ -129,7 +132,7 @@ void RestoreContent( SwFrame *pSav, SwLayoutFrame *pParent, SwFrame *pSibling );
 // Get ContentNodes, create ContentFrames, and add them to LayFrame.
 void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc, sal_uLong nIndex,
                  bool bPages = false, sal_uLong nEndIndex = 0,
-                 SwFrame *pPrv = nullptr );
+                 SwFrame *pPrv = nullptr, sw::FrameMode eMode = sw::FrameMode::New);
 
 // Creation of frames for a specific section (uses InsertCnt_)
 void MakeFrames( SwDoc *pDoc, const SwNodeIndex &rSttIdx,
@@ -230,7 +233,7 @@ public:
     ~SwLayNotify();
 
     void SetLowersComplete( bool b ) { m_bLowersComplete = b; }
-    bool IsLowersComplete()          { return m_bLowersComplete; }
+    bool IsLowersComplete() const    { return m_bLowersComplete; }
 };
 
 class SwFlyNotify : public SwLayNotify
@@ -572,7 +575,7 @@ public:
      *    true if mpFrame != 0 and mpFrame is not client of pRegIn
      *    false otherwise
      */
-    bool HasBeenDeleted();
+    bool HasBeenDeleted() const;
 };
 
 #endif

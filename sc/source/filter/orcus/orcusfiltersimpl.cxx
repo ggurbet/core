@@ -28,12 +28,6 @@
 #include <orcus/stream.hpp>
 #include <com/sun/star/task/XStatusIndicator.hpp>
 
-#ifdef _WIN32
-#define SYSTEM_PATH FSysStyle::Dos
-#else
-#define SYSTEM_PATH FSysStyle::Unix
-#endif
-
 using namespace com::sun::star;
 
 namespace {
@@ -79,12 +73,6 @@ bool loadFileContent(SfxMedium& rMedium, orcus::iface::import_filter& filter)
     return true;
 }
 
-}
-
-OString ScOrcusFiltersImpl::toSystemPath(const OUString& rPath)
-{
-    INetURLObject aURL(rPath);
-    return OUStringToOString(aURL.getFSysPath(SYSTEM_PATH), RTL_TEXTENCODING_UTF8);
 }
 
 bool ScOrcusFiltersImpl::importCSV(ScDocument& rDoc, SfxMedium& rMedium) const
@@ -139,10 +127,10 @@ bool ScOrcusFiltersImpl::importODS_Styles(ScDocument& rDoc, OUString& aPath) con
 
     try
     {
-        std::string content = orcus::load_file_content(path);
+        orcus::file_content content(path);
         ScOrcusFactory aFactory(rDoc);
         ScOrcusStyles aStyles(aFactory);
-        orcus::import_ods::read_styles(content.c_str(), content.size(), &aStyles);
+        orcus::import_ods::read_styles(content.data(), content.size(), &aStyles);
     }
     catch (const std::exception& e)
     {
@@ -153,9 +141,9 @@ bool ScOrcusFiltersImpl::importODS_Styles(ScDocument& rDoc, OUString& aPath) con
     return true;
 }
 
-ScOrcusXMLContext* ScOrcusFiltersImpl::createXMLContext(ScDocument& rDoc, const OUString& rPath) const
+std::unique_ptr<ScOrcusXMLContext> ScOrcusFiltersImpl::createXMLContext(ScDocument& rDoc, const OUString& rPath) const
 {
-    return new ScOrcusXMLContextImpl(rDoc, rPath);
+    return std::make_unique<ScOrcusXMLContextImpl>(rDoc, rPath);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

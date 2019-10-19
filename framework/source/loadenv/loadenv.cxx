@@ -252,7 +252,7 @@ void LoadEnv::initializeLoading(const OUString& sURL, const uno::Sequence<beans:
     if (!tools::IsMappedWebDAVPath(sURL, &aRealURL))
         aRealURL = sURL;
 
-    // try to find out, if its really a content, which can be loaded or must be "handled"
+    // try to find out, if it's really a content, which can be loaded or must be "handled"
     // We use a default value for this in-parameter. Then we have to start a complex check method
     // internally. But if this check was already done outside it can be suppressed to perform
     // the load request. We take over the result then!
@@ -365,7 +365,7 @@ void LoadEnv::startLoading()
     // <- SAFE
 
     // detect its type/filter etc.
-    // These information will be available by the
+    // This information will be available by the
     // used descriptor member afterwards and is needed
     // for all following operations!
     // Note: An exception will be thrown, in case operation was not successfully ...
@@ -444,13 +444,13 @@ css::uno::Reference< css::lang::XComponent > LoadEnv::getTargetComponent() const
 
     css::uno::Reference< css::frame::XController > xController = m_xTargetFrame->getController();
     if (!xController.is())
-        return css::uno::Reference< css::lang::XComponent >(m_xTargetFrame->getComponentWindow(), css::uno::UNO_QUERY);
+        return m_xTargetFrame->getComponentWindow();
 
     css::uno::Reference< css::frame::XModel > xModel = xController->getModel();
     if (!xModel.is())
-        return css::uno::Reference< css::lang::XComponent >(xController, css::uno::UNO_QUERY);
+        return xController;
 
-    return css::uno::Reference< css::lang::XComponent >(xModel, css::uno::UNO_QUERY);
+    return xModel;
 }
 
 void SAL_CALL LoadEnvListener::loadFinished(const css::uno::Reference< css::frame::XFrameLoader >&)
@@ -554,7 +554,7 @@ LoadEnv::EContentType LoadEnv::classifyContent(const OUString&                  
     //      load request will fail.
 
     /* Attention: The following code can't work on such special URLs!
-                  It should not break the office .. but it make no sense
+                  It should not break the office .. but it makes no sense
                   to start expensive object creations and complex search
                   algorithm if its clear, that such URLs must be handled
                   in a special way .-)
@@ -1190,8 +1190,8 @@ css::uno::Reference< css::uno::XInterface > LoadEnv::impl_searchLoader()
         throw LoadEnvException(LoadEnvException::ID_INVALID_ENVIRONMENT);
     }
 
-    // Otherwise ...
-    // We need this type information to locate an registered frame loader
+    // Otherwise...
+    // We need this type information to locate a registered frame loader
     // Without such information we can't work!
     OUString sType = m_lMediaDescriptor.getUnpackedValueOrDefault(utl::MediaDescriptor::PROP_TYPENAME(), OUString());
     if (sType.isEmpty())
@@ -1291,7 +1291,7 @@ css::uno::Reference< css::frame::XFrame > LoadEnv::impl_searchAlreadyLoaded()
     // otherwise - iterate through the tasks of the desktop container
     // to find out, which of them might contains the requested document
     css::uno::Reference< css::frame::XDesktop2 >  xSupplier = css::frame::Desktop::create( m_xContext );
-    css::uno::Reference< css::container::XIndexAccess > xTaskList(xSupplier->getFrames()                      , css::uno::UNO_QUERY);
+    css::uno::Reference< css::container::XIndexAccess > xTaskList = xSupplier->getFrames();
 
     if (!xTaskList.is())
         return css::uno::Reference< css::frame::XFrame >(); // task list can be empty!
@@ -1343,7 +1343,7 @@ css::uno::Reference< css::frame::XFrame > LoadEnv::impl_searchAlreadyLoaded()
             }
 
             // get the original load arguments from the current document
-            // and decide if its really the same then the one will be.
+            // and decide if it's really the same then the one will be.
             // It must be visible and must use the same file revision ...
             // or must not have any file revision set (-1 == -1!)
             utl::MediaDescriptor lOldDocDescriptor(xModel->getArgs());
@@ -1422,7 +1422,7 @@ css::uno::Reference< css::frame::XFrame > LoadEnv::impl_searchRecycleTarget()
     if (m_lMediaDescriptor.getUnpackedValueOrDefault(utl::MediaDescriptor::PROP_HIDDEN(), false))
         return css::uno::Reference< css::frame::XFrame >();
 
-    css::uno::Reference< css::frame::XFramesSupplier > xSupplier( css::frame::Desktop::create( m_xContext ), css::uno::UNO_QUERY);
+    css::uno::Reference< css::frame::XFramesSupplier > xSupplier = css::frame::Desktop::create( m_xContext );
     FrameListAnalyzer aTasksAnalyzer(xSupplier, css::uno::Reference< css::frame::XFrame >(), FrameAnalyzerFlags::BackingComponent);
     if (aTasksAnalyzer.m_xBackingComponent.is())
     {
@@ -1616,15 +1616,13 @@ void LoadEnv::impl_reactForLoadingState()
     {
         // close empty frames
         css::uno::Reference< css::util::XCloseable > xCloseable (m_xTargetFrame, css::uno::UNO_QUERY);
-        css::uno::Reference< css::lang::XComponent > xDisposable(m_xTargetFrame, css::uno::UNO_QUERY);
 
         try
         {
             if (xCloseable.is())
                 xCloseable->close(true);
-            else
-            if (xDisposable.is())
-                xDisposable->dispose();
+            else if (m_xTargetFrame.is())
+                m_xTargetFrame->dispose();
         }
         catch(const css::util::CloseVetoException&)
         {}

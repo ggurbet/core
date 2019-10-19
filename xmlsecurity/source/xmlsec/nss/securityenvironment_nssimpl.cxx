@@ -136,7 +136,7 @@ SecurityEnvironment_NssImpl::~SecurityEnvironment_NssImpl() {
 
 /* XServiceInfo */
 OUString SAL_CALL SecurityEnvironment_NssImpl::getImplementationName() {
-    return OUString("com.sun.star.xml.crypto.SecurityEnvironment");
+    return "com.sun.star.xml.crypto.SecurityEnvironment";
 }
 
 /* XServiceInfo */
@@ -154,7 +154,7 @@ Sequence< OUString > SAL_CALL SecurityEnvironment_NssImpl::getSupportedServiceNa
 /* XUnoTunnel */
 sal_Int64 SAL_CALL SecurityEnvironment_NssImpl::getSomething( const Sequence< sal_Int8 >& aIdentifier )
 {
-    if( aIdentifier.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(), aIdentifier.getConstArray(), 16 ) ) {
+    if( isUnoTunnelId<SecurityEnvironment_NssImpl>(aIdentifier) ) {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
     }
     return 0 ;
@@ -836,7 +836,7 @@ xmlSecKeysMngrPtr SecurityEnvironment_NssImpl::createKeysManager() {
     std::unique_ptr<PK11SlotInfo*[]> sarSlots(new PK11SlotInfo*[cSlots]);
     PK11SlotInfo**  slots = sarSlots.get();
     int count = 0;
-    for (auto& slot : m_Slots)
+    for (const auto& slot : m_Slots)
     {
         slots[count] = slot;
         ++count;

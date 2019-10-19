@@ -15,9 +15,6 @@
 #include <vcl/syschild.hxx>
 #include <vcl/sysdata.hxx>
 
-#include <vcl/bitmapaccess.hxx>
-#include <vcl/graph.hxx>
-
 #include <osl/thread.hxx>
 #include <sal/log.hxx>
 
@@ -394,9 +391,7 @@ void OpenGLContext::reset()
 
 SystemWindowData OpenGLContext::generateWinData(vcl::Window* /*pParent*/, bool /*bRequestLegacyContext*/)
 {
-    SystemWindowData aWinData;
-    memset(&aWinData, 0, sizeof(aWinData));
-    return aWinData;
+    return {};
 }
 
 bool OpenGLContext::isCurrent()

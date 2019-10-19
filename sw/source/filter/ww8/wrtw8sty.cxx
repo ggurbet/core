@@ -317,6 +317,26 @@ void MSWordStyles::BuildStylesTable()
     }
 }
 
+OString MSWordStyles::CreateStyleId(const OUString &rName)
+{
+    OStringBuffer aStyleIdBuf(rName.getLength());
+    for (int i = 0; i < rName.getLength(); ++i)
+    {
+        sal_Unicode nChar = rName[i];
+        if (('0' <= nChar && nChar <= '9') ||
+            ('a' <= nChar && nChar <= 'z') ||
+            ('A' <= nChar && nChar <= 'Z'))
+        {
+            // first letter should be uppercase
+            if (aStyleIdBuf.isEmpty() && 'a' <= nChar && nChar <= 'z')
+                aStyleIdBuf.append(char(nChar - ('a' - 'A')));
+            else
+                aStyleIdBuf.append(char(nChar));
+        }
+    }
+    return aStyleIdBuf.makeStringAndClear();
+}
+
 void MSWordStyles::BuildStyleIds()
 {
     std::unordered_set<OString> aUsed;
@@ -331,23 +351,9 @@ void MSWordStyles::BuildStyleIds()
             aName = m_pFormatA[n]->GetName();
         else if (m_aNumRules.find(n) != m_aNumRules.end())
             aName = m_aNumRules[n]->GetName();
-        OStringBuffer aStyleIdBuf(aName.getLength());
-        for (int i = 0; i < aName.getLength(); ++i)
-        {
-            sal_Unicode nChar = aName[i];
-            if (('0' <= nChar && nChar <= '9') ||
-                ('a' <= nChar && nChar <= 'z') ||
-                ('A' <= nChar && nChar <= 'Z'))
-            {
-                // first letter should be uppercase
-                if (aStyleIdBuf.isEmpty() && 'a' <= nChar && nChar <= 'z')
-                    aStyleIdBuf.append(char(nChar - ('a' - 'A')));
-                else
-                    aStyleIdBuf.append(char(nChar));
-            }
-        }
 
-        OString aStyleId(aStyleIdBuf.makeStringAndClear());
+        OString aStyleId = CreateStyleId(aName);
+
         if (aStyleId.isEmpty())
             aStyleId = "Style";
 
@@ -398,9 +404,8 @@ void WW8AttributeOutput::EndStyle()
 void WW8AttributeOutput::StartStyle( const OUString& rName, StyleType eType, sal_uInt16 nWwBase,
     sal_uInt16 nWwNext, sal_uInt16 nWwId, sal_uInt16 /*nId*/, bool bAutoUpdate )
 {
-    sal_uInt8 aWW8_STD[ sizeof( WW8_STD ) ];
+    sal_uInt8 aWW8_STD[ sizeof( WW8_STD ) ] = {};
     sal_uInt8* pData = aWW8_STD;
-    memset( &aWW8_STD, 0, sizeof( WW8_STD ) );
 
     sal_uInt16 nBit16 = 0x1000;         // fInvalHeight
     nBit16 |= (ww::stiNil & nWwId);
@@ -624,6 +629,10 @@ void MSWordStyles::OutputStyle( SwFormat* pFormat, sal_uInt16 nPos )
             // tdf#92335 don't export redundant DOCX import style "ListLabel"
             return;
         }
+        else if (aName.equalsIgnoreAsciiCase("Internet Link"))
+        {
+            aName = "Hyperlink";
+        }
 
         m_rExport.AttrOutput().StartStyle( aName, (bFormatColl ? STYLE_TYPE_PARA : STYLE_TYPE_CHAR),
                 nBase, nWwNext, GetWWId( *pFormat ), nPos,
@@ -719,8 +728,6 @@ wwFont::wwFont(const OUString &rFamilyName, FontPitch ePitch, FontFamily eFamily
         mbAlt = true;
     }
 
-    memset(maWW8_FFN, 0, sizeof(maWW8_FFN));
-
     maWW8_FFN[0] = static_cast<sal_uInt8>( 6 - 1 + 0x22 + ( 2 * ( 1 + msFamilyNm.getLength() ) ));
     if (mbAlt)
         maWW8_FFN[0] = static_cast< sal_uInt8 >(maWW8_FFN[0] + 2 * ( 1 + msAltNm.getLength()));
@@ -777,7 +784,7 @@ wwFont::wwFont(const OUString &rFamilyName, FontPitch ePitch, FontFamily eFamily
 void wwFont::Write(SvStream *pTableStrm) const
 {
     pTableStrm->WriteBytes(maWW8_FFN, sizeof(maWW8_FFN));    // fixed part
-    // from Ver8 following two fields interjected,
+    // from Ver8 following two fields intersected,
     // we ignore them.
     //char  panose[ 10 ];       //  0x6   PANOSE
     //char  fs[ 24     ];       //  0x10  FONTSIGNATURE
@@ -1625,7 +1632,7 @@ void MSWordExportBase::SectionProperties( const WW8_SepInfo& rSepInfo, WW8_PdAtt
         // it as title page.
         // With Left/Right changes it's different - we have to detect where
         // the change of pages is, but here it's too late for that!
-        // tdf#101814 if there is already a explicit first-page, no point
+        // tdf#101814 if there is already an explicit first-page, no point
         // in checking heuristics here.
         if ( !titlePage && pPd->GetFollow() && pPd != pPd->GetFollow() &&
              pPd->GetFollow()->GetFollow() == pPd->GetFollow() &&
@@ -1780,7 +1787,7 @@ bool WW8_WrPlcSepx::WriteKFText( WW8Export& rWrt )
     unsigned int nOldIndex = rWrt.GetHdFtIndex();
     rWrt.SetHdFtIndex( 0 );
 
-    for (WW8_SepInfo & rSepInfo : aSects)
+    for (const WW8_SepInfo & rSepInfo : aSects)
     {
         std::shared_ptr<WW8_PdAttrDesc> const pAttrDesc(new WW8_PdAttrDesc);
         m_SectionAttributes.push_back(pAttrDesc);

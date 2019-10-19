@@ -160,12 +160,11 @@ public:
     SwMailMergeConfigItem_Impl();
 
     virtual void Notify( const css::uno::Sequence< OUString >& aPropertyNames ) override;
-    const           Sequence< OUString>
-                        GetAddressBlocks(bool bConvertToConfig = false) const;
+    Sequence< OUString> GetAddressBlocks(bool bConvertToConfig = false) const;
     void                SetAddressBlocks(
                                 const Sequence< OUString>& rBlocks,
                                 bool bConvertFromConfig = false);
-    const uno::Sequence< OUString>
+    uno::Sequence< OUString>
                         GetGreetings(SwMailMergeConfigItem::Gender eType,
                                         bool bConvertToConfig = false) const;
     void                SetGreetings(SwMailMergeConfigItem::Gender eType,
@@ -300,10 +299,10 @@ SwMailMergeConfigItem_Impl::SwMailMergeConfigItem_Impl() :
         sal_Int32 nAssign;
         for(nAssign = 0; nAssign < aAssignProperties.getLength(); nAssign += 4)
         {
-            OUString sAssignPath = cAddressDataAssignments;
-            sAssignPath += "/";
-            sAssignPath += pAssignments[nAssign / 4];
-            sAssignPath += "/";
+            OUString sAssignPath = OUStringLiteral(cAddressDataAssignments) +
+                "/" +
+                pAssignments[nAssign / 4] +
+                "/";
             pAssignProperties[nAssign] = sAssignPath;
             pAssignProperties[nAssign] += cDataSourceName;
             pAssignProperties[nAssign + 1] = sAssignPath;
@@ -374,7 +373,7 @@ static void lcl_ConvertToNumbers(OUString& rBlock, const std::vector<std::pair<O
     for (size_t i = 0; i < rHeaders.size(); ++i)
     {
         OUString sHeader = "<" + rHeaders[i].first + ">";
-        OUString sReplace = "<" + OUStringLiteral1('0' + i) + ">";
+        OUString sReplace = "<" + OUStringChar('0' + i) + ">";
         sBlock = sBlock.replaceAll(sHeader, sReplace);
     }
     rBlock = sBlock;
@@ -553,10 +552,7 @@ void  SwMailMergeConfigItem_Impl::ImplCommit()
                         rAssignment.sConfigNodeName :
                         lcl_CreateNodeName(aAssignments);
             OUString sSlash = "/";
-            OUString sNodePath = cAddressDataAssignments;
-            sNodePath += sSlash;
-            sNodePath += sNewNode;
-            sNodePath += sSlash;
+            OUString sNodePath = cAddressDataAssignments + sSlash + sNewNode + sSlash;
             //only one new entry is written
             Sequence< PropertyValue > aNewValues(4);
             PropertyValue* pNewValues = aNewValues.getArray();
@@ -580,7 +576,7 @@ void  SwMailMergeConfigItem_Impl::ImplCommit()
     m_bUserSettingWereOverwritten = false;
 }
 
-const Sequence< OUString> SwMailMergeConfigItem_Impl::GetAddressBlocks(
+Sequence< OUString> SwMailMergeConfigItem_Impl::GetAddressBlocks(
         bool bConvertToConfig) const
 {
     Sequence< OUString> aRet(m_aAddressBlocks.size());
@@ -610,7 +606,7 @@ void SwMailMergeConfigItem_Impl::SetAddressBlocks(
     SetModified();
 }
 
-const Sequence< OUString>   SwMailMergeConfigItem_Impl::GetGreetings(
+Sequence< OUString>   SwMailMergeConfigItem_Impl::GetGreetings(
         SwMailMergeConfigItem::Gender eType, bool bConvertToConfig) const
 {
     const std::vector< OUString>& rGreetings =
@@ -732,7 +728,7 @@ void SwMailMergeConfigItem::SetAddressBlocks(
     m_pImpl->SetAddressBlocks(rBlocks);
 }
 
-const Sequence< OUString> SwMailMergeConfigItem::GetAddressBlocks() const
+Sequence< OUString> SwMailMergeConfigItem::GetAddressBlocks() const
 {
     return m_pImpl->GetAddressBlocks();
 }
@@ -802,12 +798,12 @@ void SwMailMergeConfigItem::SetCurrentConnection(
         m_pImpl->SetModified();
 }
 
-Reference< XDataSource> const & SwMailMergeConfigItem::GetSource()
+Reference< XDataSource> const & SwMailMergeConfigItem::GetSource() const
 {
     return m_pImpl->m_xSource;
 }
 
-SharedConnection const & SwMailMergeConfigItem::GetConnection()
+SharedConnection const & SwMailMergeConfigItem::GetConnection() const
 {
     return m_pImpl->m_xConnection;
 }
@@ -871,8 +867,7 @@ Reference< XResultSet> const & SwMailMergeConfigItem::GetResultSet() const
             }
             catch (const Exception&)
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN("sw.ui", "exception caught: " << exceptionToString(ex));
+                TOOLS_WARN_EXCEPTION("sw.ui", "");
             }
             xRowSet->execute();
             m_pImpl->m_xResultSet = xRowSet.get();
@@ -881,8 +876,7 @@ Reference< XResultSet> const & SwMailMergeConfigItem::GetResultSet() const
         }
         catch (const Exception&)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("sw.ui", "exception caught in: SwMailMergeConfigItem::GetResultSet() " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("sw.ui", "SwMailMergeConfigItem::GetResultSet()");
         }
     }
     return m_pImpl->m_xResultSet;
@@ -920,8 +914,7 @@ void  SwMailMergeConfigItem::SetFilter(OUString const & rFilter)
             }
             catch (const Exception&)
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN("sw.ui", "exception caught in SwMailMergeConfigItem::SetFilter(): " << exceptionToString(ex));
+                TOOLS_WARN_EXCEPTION("sw.ui", "SwMailMergeConfigItem::SetFilter()");
             }
         }
     }
@@ -1088,7 +1081,7 @@ void     SwMailMergeConfigItem::SetGreetingLine(bool bSet, bool bInEMail)
     }
 }
 
-const Sequence< OUString>   SwMailMergeConfigItem::GetGreetings(
+Sequence< OUString>   SwMailMergeConfigItem::GetGreetings(
         Gender eType ) const
 {
     return m_pImpl->GetGreetings(eType);
@@ -1247,8 +1240,7 @@ bool SwMailMergeConfigItem::IsGreetingFieldsAssigned() const
     if(rMaleEntries.getLength() > nCurrentMale)
         sMale = rMaleEntries[nCurrentMale];
 
-    OUString sAddress( sFemale );
-    sAddress += sMale;
+    OUString sAddress = sFemale + sMale;
     SwAddressIterator aIter(sAddress);
     while(aIter.HasMore())
     {

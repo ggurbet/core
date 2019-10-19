@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_feature_opencl.h>
 
 #include <sal/config.h>
 #include <sal/log.hxx>
@@ -74,6 +74,7 @@
 #include <memory>
 #include <map>
 #include <vector>
+#include <unordered_set>
 
 using namespace formula;
 
@@ -103,7 +104,7 @@ struct DebugCalculationEntry
     Either, somewhere set aDC.mbActive=true, or
     aDC.maTrigger=ScAddress(col,row,tab) of interest from where to start.
     This does not work for deep recursion > MAXRECURSION, the results are
-    somewhat.. funny.. ;)
+    somewhat... funny... ;)
  */
 static struct DebugCalculation
 {
@@ -583,7 +584,7 @@ sc::FormulaGroupAreaListener* ScFormulaCellGroup::getAreaListener(
 
 void ScFormulaCellGroup::endAllGroupListening( ScDocument& rDoc )
 {
-    for (auto& rEntry : mpImpl->m_AreaListeners)
+    for (const auto& rEntry : mpImpl->m_AreaListeners)
     {
         sc::FormulaGroupAreaListener *const pListener = rEntry.second.get();
         ScRange aListenRange = pListener->getListeningRange();
@@ -1088,7 +1089,7 @@ void ScFormulaCell::GetResultDimensions( SCSIZE& rCols, SCSIZE& rRows )
 
     const ScMatrix* pMat = nullptr;
     if (pCode->GetCodeError() == FormulaError::NONE && aResult.GetType() == svMatrixCell &&
-            ((pMat = aResult.GetToken().get()->GetMatrix()) != nullptr))
+            ((pMat = aResult.GetToken()->GetMatrix()) != nullptr))
         pMat->GetDimensions( rCols, rRows );
     else
     {
@@ -1516,6 +1517,9 @@ bool ScFormulaCell::Interpret(SCROW nStartOffset, SCROW nEndOffset)
     ScRecursionHelper& rRecursionHelper = pDocument->GetRecursionHelper();
     bool bGroupInterpreted = false;
 
+    if (mxGroup && !rRecursionHelper.CheckFGIndependence(mxGroup.get()))
+        return bGroupInterpreted;
+
     static ForceCalculationType forceType = ScCalcConfig::getForceCalculationType();
     TemporaryCellGroupMaker cellGroupMaker( this, forceType != ForceCalculationNone && forceType != ForceCalculationCore );
 
@@ -1882,7 +1886,19 @@ void ScFormulaCell::InterpretTail( ScInterpreterContext& rContext, ScInterpretTa
 
     if( pCode->GetCodeLen() && pDocument )
     {
-        std::unique_ptr<ScInterpreter> pInterpreter(new ScInterpreter( this, pDocument, rContext, aPos, *pCode ));
+        std::unique_ptr<ScInterpreter> pScopedInterpreter;
+        ScInterpreter* pInterpreter;
+        if (rContext.pInterpreter)
+        {
+            pInterpreter = rContext.pInterpreter;
+            pInterpreter->Init(this, aPos, *pCode);
+        }
+        else
+        {
+            pScopedInterpreter.reset(new ScInterpreter( this, pDocument, rContext, aPos, *pCode ));
+            pInterpreter = pScopedInterpreter.get();
+        }
+
         FormulaError nOldErrCode = aResult.GetResultError();
         if ( nSeenInIteration == 0 )
         {   // Only the first time
@@ -2109,7 +2125,7 @@ void ScFormulaCell::InterpretTail( ScInterpreterContext& rContext, ScInterpretTa
                     // SetNumberFormat() is not thread-safe (modifies ScAttrArray), delay the work
                     // to the main thread. Since thread calculations operate on formula groups,
                     // it's enough to store just the row.
-                    DelayedSetNumberFormat data = { aPos.Row(), nFormatIndex };
+                    DelayedSetNumberFormat data = { aPos.Col(), aPos.Row(), nFormatIndex };
                     rContext.maDelayedSetNumberFormat.push_back( data );
                 }
                 bChanged = true;
@@ -2282,14 +2298,21 @@ void ScFormulaCell::InterpretTail( ScInterpreterContext& rContext, ScInterpretTa
     }
 }
 
-void ScFormulaCell::HandleStuffAfterParallelCalculation()
+void ScFormulaCell::HandleStuffAfterParallelCalculation(ScInterpreter* pInterpreter)
 {
     if( pCode->GetCodeLen() && pDocument )
     {
         if ( !pCode->IsRecalcModeAlways() )
             pDocument->RemoveFromFormulaTree( this );
 
-        std::unique_ptr<ScInterpreter> pInterpreter(new ScInterpreter( this, pDocument, pDocument->GetNonThreadedContext(), aPos, *pCode ));
+        std::unique_ptr<ScInterpreter> pScopedInterpreter;
+        if (pInterpreter)
+            pInterpreter->Init(this, aPos, *pCode);
+        else
+        {
+            pScopedInterpreter.reset(new ScInterpreter( this, pDocument, pDocument->GetNonThreadedContext(), aPos, *pCode ));
+            pInterpreter = pScopedInterpreter.get();
+        }
 
         switch (pInterpreter->GetVolatileType())
         {
@@ -2919,7 +2942,7 @@ FormulaError ScFormulaCell::GetErrCode()
     return aResult.GetResultError();
 }
 
-FormulaError ScFormulaCell::GetRawError()
+FormulaError ScFormulaCell::GetRawError() const
 {
     FormulaError nErr =  pCode->GetCodeError();
     if (nErr != FormulaError::NONE)
@@ -3265,7 +3288,7 @@ bool ScFormulaCell::UpdateReferenceOnShift(
             bRecompile = (eRelNameRef == RelNameRef::DOUBLE);
         }
         // Reference changed and new listening needed?
-        // Except in Insert/Delete without specialties.
+        // Except in Insert/Delete without specialities.
         bNewListening = (bRefModified || bRecompile
                 || (bValChanged && bInDeleteUndo) || bHasRelName);
 
@@ -3854,7 +3877,7 @@ static void lcl_FindRangeNamesInUse(sc::UpdatedRangeNames& rIndexes, const ScTok
             SCTAB nTab = p->GetSheet();
             rIndexes.setUpdatedName( nTab, nTokenIndex);
 
-            if (nRecursion < 126)   // whatever.. 42*3
+            if (nRecursion < 126)   // whatever... 42*3
             {
                 ScRangeData* pSubName = pDoc->FindRangeNameBySheetAndIndex( nTab, nTokenIndex);
                 if (pSubName)
@@ -4606,12 +4629,20 @@ bool ScFormulaCell::InterpretFormulaGroup(SCROW nStartOffset, SCROW nEndOffset)
     return false;
 }
 
-bool ScFormulaCell::CheckComputeDependencies(sc::FormulaLogger::GroupScope& rScope, bool fromFirstRow, SCROW nStartOffset, SCROW nEndOffset)
+bool ScFormulaCell::CheckComputeDependencies(sc::FormulaLogger::GroupScope& rScope, bool fromFirstRow,
+                                             SCROW nStartOffset, SCROW nEndOffset,
+                                             bool bCalcDependencyOnly)
 {
     ScRecursionHelper& rRecursionHelper = pDocument->GetRecursionHelper();
     // iterate over code in the formula ...
     // ensure all input is pre-calculated -
     // to avoid writing during the calculation
+    if (bCalcDependencyOnly)
+    {
+        ScFormulaGroupDependencyComputeGuard aDepComputeGuard(rRecursionHelper);
+        ScDependantsCalculator aCalculator(*pDocument, *pCode, *this, mxGroup->mpTopCell->aPos, fromFirstRow, nStartOffset, nEndOffset);
+        return aCalculator.DoIt();
+    }
 
     bool bOKToParallelize = false;
     {
@@ -4652,6 +4683,61 @@ bool ScFormulaCell::CheckComputeDependencies(sc::FormulaLogger::GroupScope& rSco
     return true;
 }
 
+static SCCOL lcl_probeLeftOrRightFGs(const ScFormulaCellGroupRef& xGroup, const ScDocument& rDoc,
+                                     std::unordered_set<ScFormulaCellGroup*>& rFGSet,
+                                     std::map<SCCOL, ScFormulaCell*>& rFGMap, bool bLeft)
+{
+    const SCROW nLen = xGroup->mnLength;
+    const sal_Int32 nWt = xGroup->mnWeight;
+    ScAddress aAddr(xGroup->mpTopCell->aPos);
+
+    SCCOL nColRet = aAddr.Col();
+
+    const SCCOL nMaxCol = rDoc.GetAllocatedColumnsCount(aAddr.Tab()) - 1;
+    if (bLeft)
+        --nColRet;
+    else
+        ++nColRet;
+
+    while (nColRet >= 0 && nColRet <= nMaxCol)
+    {
+        aAddr.SetCol(nColRet);
+        const ScFormulaCell* pCell = rDoc.GetFormulaCell(aAddr);
+        if (!pCell)
+            break;
+
+        if (!pCell->NeedsInterpret())
+            break;
+
+        const ScFormulaCellGroupRef& xNGroup = pCell->GetCellGroup();
+        if (!xNGroup)
+            break;
+
+        if (xNGroup->mpTopCell->aPos.Row() != aAddr.Row())
+            break;
+
+        const SCROW nNLen = xNGroup->mnLength;
+        const sal_Int32 nNWt = pCell->GetWeight();
+        if (nNLen != nLen || nNWt != nWt)
+            break;
+
+        rFGSet.insert(xNGroup.get());
+        rFGMap[nColRet] = xNGroup->mpTopCell;
+
+        if (bLeft)
+            --nColRet;
+        else
+            ++nColRet;
+    }
+
+    if (bLeft)
+        ++nColRet;
+    else
+        --nColRet;
+
+    return nColRet;
+}
+
 // To be called only from InterpretFormulaGroup().
 bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope& aScope,
                                                    bool& bDependencyComputed,
@@ -4673,7 +4759,7 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
 
         bDependencyComputed = true;
 
-        const static bool bHyperThreadingActive = tools::cpuid::hasHyperThreading();
+        const static bool bHyperThreadingActive = cpuid::hasHyperThreading();
 
         // Then do the threaded calculation
 
@@ -4685,6 +4771,8 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
             ScDocument* mpDocument;
             ScInterpreterContext* mpContext;
             const ScAddress& mrTopPos;
+            SCCOL const mnStartCol;
+            SCCOL const mnEndCol;
             SCROW const mnStartOffset;
             SCROW const mnEndOffset;
 
@@ -4695,6 +4783,8 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
                      ScDocument* pDocument2,
                      ScInterpreterContext* pContext,
                      const ScAddress& rTopPos,
+                     SCCOL nStartCol,
+                     SCCOL nEndCol,
                      SCROW nStartOff,
                      SCROW nEndOff) :
                 comphelper::ThreadTask(rTag),
@@ -4703,6 +4793,8 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
                 mpDocument(pDocument2),
                 mpContext(pContext),
                 mrTopPos(rTopPos),
+                mnStartCol(nStartCol),
+                mnEndCol(nEndCol),
                 mnStartOffset(nStartOff),
                 mnEndOffset(nEndOff)
             {
@@ -4710,8 +4802,9 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
 
             virtual void doWork() override
             {
-                ScAddress aStartPos(mrTopPos.Col(), mrTopPos.Row() + mnStartOffset, mrTopPos.Tab());
-                mpDocument->CalculateInColumnInThread(*mpContext, aStartPos, mnEndOffset - mnStartOffset + 1, mnThisThread, mnThreadsTotal);
+                ScRange aCalcRange(mnStartCol, mrTopPos.Row() + mnStartOffset, mrTopPos.Tab(),
+                                   mnEndCol, mrTopPos.Row() + mnEndOffset, mrTopPos.Tab());
+                mpDocument->CalculateInColumnInThread(*mpContext, aCalcRange, mnThisThread, mnThreadsTotal);
                 ScDocumentThreadSpecific::MergeBackIntoNonThreadedData(mpDocument->maNonThreaded);
             }
 
@@ -4726,6 +4819,38 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
             nThreadCount /= 2;
 
         SAL_INFO("sc.threaded", "Running " << nThreadCount << " threads");
+
+        std::unordered_set<ScFormulaCellGroup*> aFGSet;
+        std::map<SCCOL, ScFormulaCell*> aFGMap;
+        aFGSet.insert(mxGroup.get());
+
+        ScRecursionHelper& rRecursionHelper = pDocument->GetRecursionHelper();
+        SCCOL nColStart = aPos.Col();
+        SCCOL nColEnd = nColStart;
+        if (!rRecursionHelper.HasFormulaGroupSet() && pDocument->IsInDocShellRecalc())
+        {
+            nColStart = lcl_probeLeftOrRightFGs(mxGroup, *pDocument, aFGSet, aFGMap, true);
+            nColEnd = lcl_probeLeftOrRightFGs(mxGroup, *pDocument, aFGSet, aFGMap, false);
+        }
+
+        if (nColStart != nColEnd)
+        {
+            ScCheckIndependentFGGuard aGuard(rRecursionHelper, &aFGSet);
+            for (SCCOL nCurrCol = nColStart; nCurrCol <= nColEnd; ++nCurrCol)
+            {
+                if (nCurrCol == aPos.Col())
+                    continue;
+
+                bool bFGOK = aFGMap[nCurrCol]->CheckComputeDependencies(aScope, false, nStartOffset, nEndOffset, true);
+                if (!bFGOK || !aGuard.AreGroupsIndependent())
+                {
+                    nColEnd = nColStart = aPos.Col();
+                    break;
+                }
+            }
+        }
+
+        std::vector<std::unique_ptr<ScInterpreter>> aInterpreters(nThreadCount);
         {
             assert(!pDocument->IsThreadedGroupCalcInProgress());
             pDocument->SetThreadedGroupCalcInProgress(true);
@@ -4740,9 +4865,12 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
             for (int i = 0; i < nThreadCount; ++i)
             {
                 context = aContextGetterGuard.GetInterpreterContextForThreadIdx(i);
+                assert(!context->pInterpreter);
+                aInterpreters[i].reset(new ScInterpreter(this, pDocument, *context, mxGroup->mpTopCell->aPos, *pCode, true));
+                context->pInterpreter = aInterpreters[i].get();
                 ScDocument::SetupFromNonThreadedContext(*context, i);
                 rThreadPool.pushTask(std::make_unique<Executor>(aTag, i, nThreadCount, pDocument, context, mxGroup->mpTopCell->aPos,
-                                                                nStartOffset, nEndOffset));
+                                                                nColStart, nColEnd, nStartOffset, nEndOffset));
             }
 
             SAL_INFO("sc.threaded", "Waiting for threads to finish work");
@@ -4757,6 +4885,7 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
                 context = aContextGetterGuard.GetInterpreterContextForThreadIdx(i);
                 // This is intentionally done in this main thread in order to avoid locking.
                 pDocument->MergeBackIntoNonThreadedContext(*context, i);
+                context->pInterpreter = nullptr;
             }
 
             SAL_INFO("sc.threaded", "Done");
@@ -4765,7 +4894,9 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
         ScAddress aStartPos(mxGroup->mpTopCell->aPos);
         SCROW nSpanLen = nEndOffset - nStartOffset + 1;
         aStartPos.SetRow(aStartPos.Row() + nStartOffset);
-        pDocument->HandleStuffAfterParallelCalculation(aStartPos, nSpanLen);
+        // Reuse one of the previously allocated interpreter objects here.
+        pDocument->HandleStuffAfterParallelCalculation(nColStart, nColEnd, aStartPos.Row(), nSpanLen,
+                                                       aStartPos.Tab(), aInterpreters[0].get());
 
         return true;
     }

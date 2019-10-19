@@ -31,7 +31,6 @@
 #include <comphelper/genericpropertyset.hxx>
 #include <comphelper/propertysetinfo.hxx>
 #include <comphelper/processfactory.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <osl/diagnose.h>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/nmspmap.hxx>
@@ -196,7 +195,7 @@ XMLMetaExportComponent_get_implementation(
 
 OUString XMLMetaExportOOO_getImplementationName() throw()
 {
-    return OUString( "XMLMetaExportOOo" );
+    return "XMLMetaExportOOo";
 }
 
 uno::Reference< uno::XInterface > XMLMetaExportOOO_createInstance(

@@ -24,7 +24,6 @@
 #include <connectivity/dbtools.hxx>
 #include <osl/diagnose.h>
 
-#include <editutil.hxx>
 #include <filtuno.hxx>
 #include <miscuno.hxx>
 #include <scdll.hxx>
@@ -34,7 +33,6 @@
 #include <globstr.hrc>
 #include <scresid.hxx>
 
-#include <sc.hrc>
 #include <scabstdlg.hxx>
 #include <i18nlangtag/lang.h>
 
@@ -149,11 +147,8 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScFilterOptionsObj::getPropertyValu
 
 void SAL_CALL ScFilterOptionsObj::setPropertyValues( const uno::Sequence<beans::PropertyValue>& aProps )
 {
-    const beans::PropertyValue* pPropArray = aProps.getConstArray();
-    long nPropCount = aProps.getLength();
-    for (long i = 0; i < nPropCount; i++)
+    for (const beans::PropertyValue& rProp : aProps)
     {
-        const beans::PropertyValue& rProp = pPropArray[i];
         OUString aPropName(rProp.Name);
 
         if ( aPropName == SC_UNONAME_FILENAME )
@@ -192,7 +187,8 @@ sal_Int16 SAL_CALL ScFilterOptionsObj::execute()
         if ( xInputStream.is() )
             pInStream = utl::UcbStreamHelper::CreateStream( xInputStream );
 
-        ScopedVclPtr<AbstractScImportAsciiDlg> pDlg(pFact->CreateScImportAsciiDlg(nullptr, aPrivDatName, pInStream.get(), SC_IMPORTFILE));
+        ScopedVclPtr<AbstractScImportAsciiDlg> pDlg(pFact->CreateScImportAsciiDlg(Application::GetFrameWeld(xDialogParent), aPrivDatName,
+                                                                                  pInStream.get(), SC_IMPORTFILE));
         if ( pDlg->Execute() == RET_OK )
         {
             ScAsciiOptions aOptions;

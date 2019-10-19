@@ -72,7 +72,6 @@
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <com/sun/star/drawing/PointSequence.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
-#include <calbck.hxx>
 
 using namespace ::com::sun::star;
 
@@ -255,6 +254,8 @@ SwFmDrawPage::SwFmDrawPage( SdrPage* pPage ) :
 
 SwFmDrawPage::~SwFmDrawPage() throw ()
 {
+    while (!m_vShapes.empty())
+        m_vShapes.back()->dispose();
     RemovePageView();
 }
 
@@ -267,8 +268,7 @@ const SdrMarkList&  SwFmDrawPage::PreGroup(const uno::Reference< drawing::XShape
 
 void SwFmDrawPage::PreUnGroup(const uno::Reference< drawing::XShapeGroup >&  rShapeGroup)
 {
-    uno::Reference< drawing::XShape >  xShape( rShapeGroup, uno::UNO_QUERY);
-    SelectObjectInView( xShape, GetPageView() );
+    SelectObjectInView( rShapeGroup, GetPageView() );
 }
 
 SdrPageView*    SwFmDrawPage::GetPageView()
@@ -285,37 +285,26 @@ void    SwFmDrawPage::RemovePageView()
     pPageView = nullptr;
 }
 
-uno::Reference< uno::XInterface >   SwFmDrawPage::GetInterface( SdrObject* pObj )
+uno::Reference<drawing::XShape> SwFmDrawPage::GetShape(SdrObject* pObj)
 {
-    uno::Reference< XInterface >  xShape;
-    if( pObj )
+    if(!pObj)
+        return nullptr;
+    SwFrameFormat* pFormat = ::FindFrameFormat( pObj );
+    SwFmDrawPage* pPage = dynamic_cast<SwFmDrawPage*>(pFormat);
+    if(!pPage || pPage->m_vShapes.empty())
+        return uno::Reference<drawing::XShape>(pObj->getUnoShape(), uno::UNO_QUERY);
+    for(auto pShape : pPage->m_vShapes)
     {
-        SwFrameFormat* pFormat = ::FindFrameFormat( pObj );
-
-        SwIterator<SwXShape,SwFormat> aIter(*pFormat);
-        SwXShape* pxShape = aIter.First();
-        if (pxShape)
-        {
-            //tdf#113615 when mapping from SdrObject to XShape via
-            //SwFrameFormat check all the SdrObjects belonging to this
-            //SwFrameFormat to find the right one. In the case of Grouped
-            //objects there can be both the group and the elements of the group
-            //registered here so the first one isn't necessarily the right one
-            while (SwXShape* pNext = aIter.Next())
-            {
-                SvxShape* pSvxShape = pNext->GetSvxShape();
-                if (pSvxShape && pSvxShape->GetSdrObject() == pObj)
-                {
-                    pxShape = pNext;
-                    break;
-                }
-            }
-            xShape =  *static_cast<cppu::OWeakObject*>(pxShape);
-        }
-        else
-            xShape = pObj->getUnoShape();
+        SvxShape* pSvxShape = pShape->GetSvxShape();
+        if (pSvxShape && pSvxShape->GetSdrObject() == pObj)
+            return uno::Reference<drawing::XShape>(static_cast<::cppu::OWeakObject*>(pShape), uno::UNO_QUERY);
     }
-    return xShape;
+    return nullptr;
+}
+
+uno::Reference<drawing::XShapeGroup> SwFmDrawPage::GetShapeGroup(SdrObject* pObj)
+{
+    return uno::Reference<drawing::XShapeGroup>(GetShape(pObj), uno::UNO_QUERY);
 }
 
 uno::Reference< drawing::XShape > SwFmDrawPage::CreateShape( SdrObject *pObj ) const
@@ -376,13 +365,15 @@ uno::Reference< drawing::XShape > SwFmDrawPage::CreateShape( SdrObject *pObj ) c
             xShapeTunnel = nullptr;
             uno::Reference< uno::XInterface > xCreate(xRet, uno::UNO_QUERY);
             xRet = nullptr;
-            uno::Reference< beans::XPropertySet >  xPrSet;
             if ( pObj->IsGroupObject() && (!pObj->Is3DObj() || (dynamic_cast<const E3dScene*>( pObj) !=  nullptr)) )
-                xPrSet = new SwXGroupShape(xCreate, nullptr);
+                pShape = new SwXGroupShape(xCreate, nullptr);
             else
-                xPrSet = new SwXShape(xCreate, nullptr);
+                pShape = new SwXShape(xCreate, nullptr);
+            uno::Reference<beans::XPropertySet> xPrSet = pShape;
             xRet.set(xPrSet, uno::UNO_QUERY);
         }
+        const_cast<std::vector<SwXShape*>*>(&m_vShapes)->push_back(pShape);
+        pShape->m_pPage = this;
     }
     return xRet;
 }
@@ -441,7 +432,7 @@ uno::Any SwXShapesEnumeration::nextElement()
 
 OUString SwXShapesEnumeration::getImplementationName()
 {
-    return OUString("SwXShapeEnumeration");
+    return "SwXShapeEnumeration";
 }
 
 sal_Bool SwXShapesEnumeration::supportsService(const OUString& ServiceName)
@@ -463,7 +454,7 @@ uno::Reference< container::XEnumeration > SwXDrawPage::createEnumeration()
 
 OUString SwXDrawPage::getImplementationName()
 {
-    return OUString("SwXDrawPage");
+    return "SwXDrawPage";
 }
 
 sal_Bool SwXDrawPage::supportsService(const OUString& rServiceName)
@@ -583,7 +574,7 @@ void SwXDrawPage::add(const uno::Reference< drawing::XShape > & xShape)
                                     static_cast< cppu::OWeakObject * > ( this ) );
 
     // we're already registered in the model / SwXDrawPage::add() already called
-    if(pShape->GetRegisteredIn() || !pShape->m_bDescriptor )
+    if(pShape->m_pPage || pShape->m_pFormat || !pShape->m_bDescriptor )
         return;
 
     // we're inserted elsewhere already
@@ -719,7 +710,7 @@ void SwXDrawPage::add(const uno::Reference< drawing::XShape > & xShape)
     pDoc->getIDocumentContentOperations().InsertDrawObj( *pTemp, *pObj, aSet );
     SwFrameFormat* pFormat = ::FindFrameFormat( pObj );
     if(pFormat)
-        pFormat->Add(pShape);
+        pShape->SetFrameFormat(pFormat);
     pShape->m_bDescriptor = false;
 
     pPam.reset();
@@ -772,10 +763,7 @@ uno::Reference< drawing::XShapeGroup >  SwXDrawPage::group(const uno::Reference<
 
                 pPage->GetDrawView()->UnmarkAll();
                 if(pContact)
-                {
-                    uno::Reference< uno::XInterface >  xInt = SwFmDrawPage::GetInterface( pContact->GetMaster() );
-                    xRet.set(xInt, uno::UNO_QUERY);
-                }
+                    xRet = SwFmDrawPage::GetShapeGroup( pContact->GetMaster() );
                 pDoc->GetIDocumentUndoRedo().EndUndo( SwUndoId::END, nullptr );
             }
             pPage->RemovePageView();
@@ -851,9 +839,7 @@ const uno::Sequence< sal_Int8 > & SwXShape::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SwXShape::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXShape>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >(this) );
     }
@@ -880,13 +866,15 @@ namespace
     }
 }
 
-SwXShape::SwXShape(uno::Reference<uno::XInterface> & xShape,
-                   SwDoc const*const pDoc)
-    :
-    m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_SHAPE)),
-    m_pPropertyMapEntries(aSwMapProvider.GetPropertyMapEntries(PROPERTY_MAP_TEXT_SHAPE)),
-    pImpl(new SwShapeDescriptor_Impl(pDoc)),
-    m_bDescriptor(true)
+SwXShape::SwXShape(
+        uno::Reference<uno::XInterface> & xShape,
+        SwDoc const*const pDoc)
+    : m_pPage(nullptr)
+    , m_pFormat(nullptr)
+    , m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_SHAPE))
+    , m_pPropertyMapEntries(aSwMapProvider.GetPropertyMapEntries(PROPERTY_MAP_TEXT_SHAPE))
+    , pImpl(new SwShapeDescriptor_Impl(pDoc))
+    , m_bDescriptor(true)
 {
     if(!xShape.is())  // default Ctor
         return;
@@ -910,18 +898,14 @@ SwXShape::SwXShape(uno::Reference<uno::XInterface> & xShape,
         xShapeAgg->setDelegator( static_cast<cppu::OWeakObject*>(this) );
     osl_atomic_decrement(&m_refCount);
 
-    uno::Reference< lang::XUnoTunnel > xShapeTunnel(xShapeAgg, uno::UNO_QUERY);
-    SvxShape* pShape = nullptr;
-    if(xShapeTunnel.is())
-        pShape = reinterpret_cast< SvxShape * >(
-                sal::static_int_cast< sal_IntPtr >( xShapeTunnel->getSomething(SvxShape::getUnoTunnelId()) ));
+    SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>(xShapeAgg);
 
     SdrObject* pObj = pShape ? pShape->GetSdrObject() : nullptr;
     if(pObj)
     {
-        SwFrameFormat* pFormat = ::FindFrameFormat( pObj );
+        auto pFormat = ::FindFrameFormat( pObj );
         if(pFormat)
-            pFormat->Add(this);
+            SetFrameFormat(pFormat);
 
         lcl_addShapePropertyEventFactories( *pObj, *this );
         pImpl->bInitializedPropertyNotifier = true;
@@ -939,18 +923,14 @@ void SwXShape::AddExistingShapeToFormat( SdrObject const & _rObj )
         if ( !pCurrent )
             continue;
 
-        SwXShape* pSwShape = nullptr;
-        uno::Reference< lang::XUnoTunnel > xShapeTunnel( pCurrent->getWeakUnoShape(), uno::UNO_QUERY );
-        if ( xShapeTunnel.is() )
-            pSwShape = reinterpret_cast< SwXShape * >(
-                    sal::static_int_cast< sal_IntPtr >( xShapeTunnel->getSomething( SwXShape::getUnoTunnelId() ) ) );
+        auto pSwShape = comphelper::getUnoTunnelImplementation<SwXShape>(pCurrent->getWeakUnoShape());
         if ( pSwShape )
         {
             if ( pSwShape->m_bDescriptor )
             {
-                SwFrameFormat* pFormat = ::FindFrameFormat( pCurrent );
+                auto pFormat = ::FindFrameFormat( pCurrent );
                 if ( pFormat )
-                    pFormat->Add( pSwShape );
+                    pSwShape->SetFrameFormat(pFormat);
                 pSwShape->m_bDescriptor = false;
             }
 
@@ -973,6 +953,9 @@ SwXShape::~SwXShape()
     }
     pImpl.reset();
     EndListeningAll();
+    if(m_pPage)
+       const_cast<SwFmDrawPage*>(m_pPage)->RemoveShape(this);
+    m_pPage = nullptr;
 }
 
 uno::Any SwXShape::queryInterface( const uno::Type& aType )
@@ -1060,11 +1043,7 @@ void SwXShape::setPropertyValue(const OUString& rPropertyName, const uno::Any& a
                     uno::Reference<text::XTextFrame> xFrame;
                     if(aValue >>= xFrame)
                     {
-                        uno::Reference<lang::XUnoTunnel> xTunnel(xFrame, uno::UNO_QUERY);
-                        SwXFrame* pFrame = xTunnel.is() ?
-                                reinterpret_cast< SwXFrame * >(
-                                    sal::static_int_cast< sal_IntPtr >( xTunnel->getSomething(SwXFrame::getUnoTunnelId()) ))
-                                : nullptr;
+                        SwXFrame* pFrame = comphelper::getUnoTunnelImplementation<SwXFrame>(xFrame);
                         if(pFrame && pFrame->GetFrameFormat() &&
                             pFrame->GetFrameFormat()->GetDoc() == pDoc)
                         {
@@ -1993,9 +1972,13 @@ void SwXShape::removeVetoableChangeListener(
     OSL_FAIL("not implemented");
 }
 
-void SwXShape::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwXShape::Notify(const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
+    if(rHint.GetId() == SfxHintId::Dying)
+    {
+        m_pFormat = nullptr;
+        EndListeningAll();
+    }
 }
 
 void SwXShape::attach(const uno::Reference< text::XTextRange > & xTextRange)
@@ -2127,6 +2110,9 @@ void SwXShape::dispose()
         if(xComp.is())
             xComp->dispose();
     }
+    if(m_pPage)
+        const_cast<SwFmDrawPage*>(m_pPage)->RemoveShape(this);
+    m_pPage = nullptr;
 }
 
 void SwXShape::addEventListener(
@@ -2147,7 +2133,7 @@ void SwXShape::removeEventListener(
 
 OUString SwXShape::getImplementationName()
 {
-    return OUString("SwXShape");
+    return "SwXShape";
 }
 
 sal_Bool SwXShape::supportsService(const OUString& rServiceName)
@@ -2167,15 +2153,9 @@ uno::Sequence< OUString > SwXShape::getSupportedServiceNames()
 
 SvxShape*   SwXShape::GetSvxShape()
 {
-    SvxShape* pSvxShape = nullptr;
     if(xShapeAgg.is())
-    {
-        uno::Reference< lang::XUnoTunnel > xShapeTunnel(xShapeAgg, uno::UNO_QUERY);
-        if(xShapeTunnel.is())
-            pSvxShape = reinterpret_cast< SvxShape * >(
-                    sal::static_int_cast< sal_IntPtr >( xShapeTunnel->getSomething(SvxShape::getUnoTunnelId()) ));
-    }
-    return pSvxShape;
+        return comphelper::getUnoTunnelImplementation<SvxShape>(xShapeAgg);
+    return nullptr;
 }
 
 // #i31698#
@@ -2290,11 +2270,7 @@ void SAL_CALL SwXShape::setPosition( const awt::Point& aPosition )
             // #i34750#
             // use method <SvxShape->getPosition()> to get the correct
             // 'Drawing layer' position of the top group shape.
-            uno::Reference< lang::XUnoTunnel > xGrpShapeTunnel(
-                                                    pTopGroupObj->getUnoShape(),
-                                                    uno::UNO_QUERY );
-            SvxShape* pSvxGroupShape = reinterpret_cast< SvxShape * >(
-                    sal::static_int_cast< sal_IntPtr >( xGrpShapeTunnel->getSomething(SvxShape::getUnoTunnelId()) ));
+            auto pSvxGroupShape = comphelper::getUnoTunnelImplementation<SvxShape>(pTopGroupObj->getUnoShape());
             const awt::Point aGroupPos = pSvxGroupShape->getPosition();
             aNewPos.X = o3tl::saturating_add(aNewPos.X, aGroupPos.X);
             aNewPos.Y = o3tl::saturating_add(aNewPos.Y, aGroupPos.Y);
@@ -2656,20 +2632,14 @@ css::drawing::PolyPolygonBezierCoords SwXShape::ConvertPolyPolygonBezierToLayout
                 const basegfx::B2DHomMatrix aMatrix(basegfx::utils::createTranslateB2DHomMatrix(
                     aTranslateDiff.X, aTranslateDiff.Y));
 
-                const sal_Int32 nOuterSequenceCount(aConvertedPath.Coordinates.getLength());
-                drawing::PointSequence* pInnerSequence = aConvertedPath.Coordinates.getArray();
-                for(sal_Int32 a(0); a < nOuterSequenceCount; a++)
+                for(drawing::PointSequence& rInnerSequence : aConvertedPath.Coordinates)
                 {
-                    const sal_Int32 nInnerSequenceCount(pInnerSequence->getLength());
-                    awt::Point* pArray = pInnerSequence->getArray();
-
-                    for(sal_Int32 b(0); b < nInnerSequenceCount; b++)
+                    for(awt::Point& rPoint : rInnerSequence)
                     {
-                        basegfx::B2DPoint aNewCoordinatePair(pArray->X, pArray->Y);
+                        basegfx::B2DPoint aNewCoordinatePair(rPoint.X, rPoint.Y);
                         aNewCoordinatePair *= aMatrix;
-                        pArray->X = basegfx::fround(aNewCoordinatePair.getX());
-                        pArray->Y = basegfx::fround(aNewCoordinatePair.getY());
-                        pArray++;
+                        rPoint.X = basegfx::fround(aNewCoordinatePair.getX());
+                        rPoint.Y = basegfx::fround(aNewCoordinatePair.getY());
                     }
                 }
             }
@@ -2766,8 +2736,9 @@ void SwXGroupShape::add( const uno::Reference< XShape >& xShape )
         pSwShape->m_bDescriptor = false;
         //add the group member to the format of the group
         SwFrameFormat* pShapeFormat = ::FindFrameFormat( pSvxShape->GetSdrObject() );
+
         if(pShapeFormat)
-            pFormat->Add(pSwShape);
+            pSwShape->SetFrameFormat(pShapeFormat);
     }
 
 }

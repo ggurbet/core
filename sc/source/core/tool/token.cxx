@@ -61,6 +61,7 @@ using ::std::vector;
 #include <com/sun/star/sheet/ReferenceFlags.hpp>
 #include <com/sun/star/sheet/NameToken.hpp>
 #include <utility>
+#include <o3tl/sorted_vector.hxx>
 
 using namespace formula;
 using namespace com::sun::star;
@@ -577,7 +578,7 @@ FormulaTokenRef extendRangeReference( FormulaToken & rTok1, FormulaToken & rTok2
             xRes = new ScDoubleRefToken( (*pRefList)[0] );
         }
         if (!xRes)
-            return nullptr;    // shouldn't happen..
+            return nullptr;    // shouldn't happen...
         StackVar sv[2] = { sv1, sv2 };
         formula::FormulaToken* pt[2] = { &rTok1, &rTok2 };
         ScComplexRefData& rRef = *xRes->GetDoubleRef();
@@ -1112,7 +1113,7 @@ ScHybridCellToken::ScHybridCellToken(
         maFormula( rFormula ),
         mbEmptyDisplayedAsString( bEmptyDisplayedAsString)
 {
-    // caller, make up your mind..
+    // caller, make up your mind...
     assert( !bEmptyDisplayedAsString || (f == 0.0 && rStr.getString().isEmpty()));
 }
 
@@ -1276,7 +1277,10 @@ bool ScTokenArray::AddFormulaToken(
 
 void ScTokenArray::CheckForThreading( const FormulaToken& r )
 {
-    static const std::set<OpCode> aThreadedCalcBlackList({
+#if HAVE_CPP_CONSTINIT_SORTED_VECTOR
+    constinit
+#endif
+    static const o3tl::sorted_vector<OpCode> aThreadedCalcBlackList({
         ocIndirect,
         ocMacro,
         ocOffset,
@@ -1319,7 +1323,7 @@ void ScTokenArray::CheckForThreading( const FormulaToken& r )
 
     OpCode eOp = r.GetOpCode();
 
-    if (aThreadedCalcBlackList.count(eOp))
+    if (aThreadedCalcBlackList.find(eOp) != aThreadedCalcBlackList.end())
     {
         SAL_INFO("sc.core.formulagroup", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp)
             << "(" << int(eOp) << ") disables threaded calculation of formula group");
@@ -1621,7 +1625,7 @@ void ScTokenArray::CheckToken( const FormulaToken& r )
                 // ScFormulaCell::InterpretFormulaGroup() and below.
 
             case ocDBArea:
-                // Certainly not a vectorization of the entire area..
+                // Certainly not a vectorization of the entire area...
 
             case ocTableRef:
                 // May result in a single cell or range reference, depending on

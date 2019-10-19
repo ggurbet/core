@@ -147,7 +147,7 @@ static void ResolveTextFields( XmlFilterBase const & rFilter )
                             aURL = "#" + xNamed->getName();
                             xPropSet->setPropertyValue( sURL, Any( aURL ) );
                             Reference< text::XTextContent > xContent( rTextField.xTextField, UNO_QUERY);
-                            Reference< text::XTextRange > xTextRange( rTextField.xTextCursor, UNO_QUERY );
+                            Reference< text::XTextRange > xTextRange = rTextField.xTextCursor;
                             rTextField.xText->insertTextContent( xTextRange, xContent, true );
                         }
                         catch( uno::Exception& )
@@ -458,8 +458,7 @@ void PresentationFragmentHandler::importSlide(sal_uInt32 nSlide, bool bFirstPage
     }
     catch( uno::Exception& )
     {
-        SAL_WARN( "oox", "oox::ppt::PresentationFragmentHandler::EndDocument(), "
-                  "exception caught: " << exceptionToString( cppu::getCaughtException() ) );
+        TOOLS_WARN_EXCEPTION( "oox", "oox::ppt::PresentationFragmentHandler::EndDocument()" );
     }
 }
 
@@ -497,7 +496,7 @@ void PresentationFragmentHandler::finalizeImport()
         try
         {
             int nPagesImported = 0;
-            for (auto const& elem : aRangeEnumerator)
+            for (sal_Int32 elem : aRangeEnumerator)
             {
                 if ( rxStatusIndicator.is() )
                     rxStatusIndicator->setValue((nPagesImported * 10000) / aRangeEnumerator.size());
@@ -509,8 +508,7 @@ void PresentationFragmentHandler::finalizeImport()
         }
         catch( uno::Exception& )
         {
-            SAL_WARN( "oox", "oox::ppt::PresentationFragmentHandler::finalizeImport(), "
-                        "exception caught: " << exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "oox", "oox::ppt::PresentationFragmentHandler::finalizeImport()" );
         }
         // todo error handling;
         if ( rxStatusIndicator.is() )

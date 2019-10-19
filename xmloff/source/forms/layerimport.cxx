@@ -25,11 +25,8 @@
 #include <xmloff/xmlictxt.hxx>
 #include <xmloff/xmlstyle.hxx>
 #include <xmloff/families.hxx>
-#include <xmloff/xmlprmap.hxx>
-#include <xmloff/prstylei.hxx>
 #include <xmloff/xmlimp.hxx>
 #include <XMLEventImportHelper.hxx>
-#include <xmloff/xmlimppr.hxx>
 #include <xmloff/xmlnumfi.hxx>
 #include <com/sun/star/util/XNumberFormatsSupplier.hpp>
 #include <com/sun/star/form/FormSubmitEncoding.hpp>
@@ -38,13 +35,7 @@
 #include <com/sun/star/form/NavigationBarMode.hpp>
 #include <com/sun/star/form/TabulatorCycle.hpp>
 #include <com/sun/star/form/FormButtonType.hpp>
-#include <com/sun/star/awt/ScrollBarOrientation.hpp>
-#include <com/sun/star/awt/VisualEffect.hpp>
 #include <com/sun/star/form/ListSourceType.hpp>
-#include <tools/gen.hxx>
-#include <com/sun/star/lang/Locale.hpp>
-#include <xmloff/controlpropertyhdl.hxx>
-#include "controlpropertymap.hxx"
 #include "formevents.hxx"
 #include "formcellbinding.hxx"
 #include <xmloff/xformsimport.hxx>
@@ -52,7 +43,6 @@
 #include <xmloff/xmlnmspe.hxx>
 #include <rtl/strbuf.hxx>
 #include <algorithm>
-#include <functional>
 
 namespace xmloff
 {
@@ -548,13 +538,13 @@ void OFormLayerXMLImport_Impl::documentDone( )
     }
 
     // process XForms-bindings; call registerXFormsValueBinding for each
-    for (auto& aXFormsValueBinding : m_aXFormsValueBindings)
+    for (const auto& aXFormsValueBinding : m_aXFormsValueBindings)
         bindXFormsValueBinding(rImport.GetModel(), aXFormsValueBinding);
     // same for list bindings
-    for (auto& aXFormsListBindings : m_aXFormsListBindings)
+    for (const auto& aXFormsListBindings : m_aXFormsListBindings)
         bindXFormsListBinding(rImport.GetModel(), aXFormsListBindings);
     // same for submissions
-    for (auto& aXFormsSubmission : m_aXFormsSubmissions)
+    for (const auto& aXFormsSubmission : m_aXFormsSubmissions)
         bindXFormsSubmission(rImport.GetModel(), aXFormsSubmission);
 }
 

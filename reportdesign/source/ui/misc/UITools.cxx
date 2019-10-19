@@ -162,15 +162,13 @@ void adjustSectionName(const uno::Reference< report::XGroup >& _xGroup,sal_Int32
     OSL_ENSURE(_xGroup.is(),"Group is NULL -> GPF");
     if ( _xGroup->getHeaderOn() && _xGroup->getHeader()->getName().isEmpty() )
     {
-        OUString sName = RptResId(RID_STR_GROUPHEADER);
-        sName += OUString::number(_nPos);
+        OUString sName = RptResId(RID_STR_GROUPHEADER) + OUString::number(_nPos);
         _xGroup->getHeader()->setName(sName);
     }
 
     if ( _xGroup->getFooterOn() && _xGroup->getFooter()->getName().isEmpty() )
     {
-        OUString sName = RptResId(RID_STR_GROUPFOOTER);
-        sName += OUString::number(_nPos);
+        OUString sName = RptResId(RID_STR_GROUPFOOTER) + OUString::number(_nPos);
         _xGroup->getFooter()->setName(sName);
     }
 }
@@ -227,7 +225,7 @@ namespace
         return lcl_getReportControlFont( _rxReportControlFormat, aAwtFont, _nWhich );
     }
 
-    const vcl::Font lcl_setFont(const uno::Reference<report::XReportControlFormat >& _rxReportControlFormat,
+    vcl::Font lcl_setFont(const uno::Reference<report::XReportControlFormat >& _rxReportControlFormat,
         SfxItemSet& _rItemSet,sal_uInt16 _nWhich,sal_uInt16 _nFont, sal_uInt16 _nFontHeight,sal_uInt16 _nLanguage,sal_uInt16 _nPosture, sal_uInt16 _nWeight)
     {
         // fill it
@@ -622,7 +620,7 @@ bool openCharDialog( const uno::Reference<report::XReportControlFormat >& _rxRep
         { SID_ATTR_CHAR_SCALEWIDTH, true },
         { SID_ATTR_CHAR_RELIEF, true },
         { SID_ATTR_CHAR_HIDDEN, true },
-        { SID_ATTR_BRUSH, true },
+        { SID_ATTR_BRUSH_CHAR, true },
         { SID_ATTR_ALIGN_HOR_JUSTIFY, true },
         { SID_ATTR_ALIGN_VER_JUSTIFY, true },
 
@@ -639,8 +637,7 @@ bool openCharDialog( const uno::Reference<report::XReportControlFormat >& _rxRep
         { SID_ATTR_CHAR_CTL_POSTURE, true },
         { SID_ATTR_CHAR_CTL_WEIGHT, true }
     };
-    VclPtr<vcl::Window> pParent = VCLUnoHelper::GetWindow( _rxParentWindow );
-    ::std::unique_ptr<FontList> pFontList(new FontList( pParent ));
+    ::std::unique_ptr<FontList> pFontList(new FontList(Application::GetDefaultDevice()));
     XColorListRef pColorList( XColorList::CreateStdColorList() );
     std::vector<SfxPoolItem*> pDefaults
     {

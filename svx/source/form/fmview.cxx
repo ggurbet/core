@@ -108,7 +108,7 @@ void FmFormView::Init()
         // We _want_ to have this because it makes a lot of hacks following the original fix
         DBG_ASSERT( !bInitDesignMode, "FmFormView::Init: doesn't the model default to FALSE anymore?" );
             // if this asserts, either the on-construction default in the model has changed (then this here
-            // may not be necessary anymore), or we're not dealing with a new document ....
+            // may not be necessary anymore), or we're not dealing with a new document...
         bInitDesignMode = true;
     }
 
@@ -253,7 +253,7 @@ void FmFormView::ChangeDesignMode(bool bDesign)
     // --- 5. base class functionality
     SetDesignMode( bDesign );
 
-    // --- 6. simulate a activation (the shell will handle some things there ...?)
+    // --- 6. simulate an activation (the shell will handle some things there ...?)
     OSL_PRECOND( pFormShell && pFormShell->GetImpl(), "FmFormView::ChangeDesignMode: is this really allowed? No shell?" );
     if ( pFormShell && pFormShell->GetImpl() )
         pFormShell->GetImpl()->viewActivated_Lock(*this);

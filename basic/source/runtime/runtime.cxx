@@ -99,7 +99,7 @@ void StarBASIC::SetVBAEnabled( bool bEnabled )
     }
 }
 
-bool StarBASIC::isVBAEnabled()
+bool StarBASIC::isVBAEnabled() const
 {
     if ( bDocBasic )
     {
@@ -118,8 +118,6 @@ struct SbiArgv {                   // Argv stack:
         refArgv(refArgv_),
         nArgc(nArgc_) {}
 };
-
-#define MAXRECURSION 500 //to prevent dead-recursions
 
 struct SbiGosub {              // GOSUB-Stack:
     const sal_uInt8* pCode;         // Return-Pointer
@@ -344,8 +342,7 @@ SbiInstance::~SbiInstance()
     }
     catch( const Exception& )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("basic", "SbiInstance::~SbiInstance: caught an exception while disposing the components! " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION("basic", "SbiInstance::~SbiInstance: caught an exception while disposing the components" );
     }
 }
 
@@ -1262,7 +1259,7 @@ bool SbiRuntime::IsImageFlag( SbiImageFlags n ) const
     return pImg->IsFlag( n );
 }
 
-sal_uInt16 SbiRuntime::GetBase()
+sal_uInt16 SbiRuntime::GetBase() const
 {
     return pImg->GetBase();
 }
@@ -4041,7 +4038,7 @@ void SbiRuntime::StepPARAM( sal_uInt32 nOp1, sal_uInt32 nOp2 )
                     if( nDefaultId > 0 )
                     {
                         OUString aDefaultStr = pImg->GetString( nDefaultId );
-                        p = new SbxVariable();
+                        p = new SbxVariable(pParam-> eType);
                         p->PutString( aDefaultStr );
                         refParams->Put( p, i );
                     }

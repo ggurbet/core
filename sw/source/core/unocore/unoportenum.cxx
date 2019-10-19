@@ -101,7 +101,7 @@ namespace
         , aPosition ( rPosition )
         {
         }
-        sal_Int32 getIndex ()
+        sal_Int32 getIndex () const
         {
             return aPosition.nContent.GetIndex();
         }
@@ -236,7 +236,7 @@ namespace
         {
         }
 
-        sal_Int32 getIndex ()
+        sal_Int32 getIndex () const
         {
             return maPosition.nContent.GetIndex();
         }
@@ -310,9 +310,7 @@ const uno::Sequence< sal_Int8 > & SwXTextPortionEnumeration::getUnoTunnelId()
 sal_Int64 SAL_CALL SwXTextPortionEnumeration::getSomething(
         const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXTextPortionEnumeration>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ) );
     }
@@ -321,7 +319,7 @@ sal_Int64 SAL_CALL SwXTextPortionEnumeration::getSomething(
 
 OUString SwXTextPortionEnumeration::getImplementationName()
 {
-    return OUString("SwXTextPortionEnumeration");
+    return "SwXTextPortionEnumeration";
 }
 
 sal_Bool
@@ -398,7 +396,7 @@ lcl_FillFieldMarkArray(std::deque<sal_Int32> & rFieldMarks, SwUnoCursor const & 
     if (!pTextNode) return;
 
     const sal_Unicode fld[] = {
-        CH_TXT_ATR_FIELDSTART, CH_TXT_ATR_FIELDEND, CH_TXT_ATR_FORMELEMENT, 0 };
+        CH_TXT_ATR_FIELDSTART, CH_TXT_ATR_FIELDSEP, CH_TXT_ATR_FIELDEND, CH_TXT_ATR_FORMELEMENT, 0 };
     sal_Int32 pos = std::max(static_cast<sal_Int32>(0), i_nStartPos);
     while ((pos = ::comphelper::string::indexOfAny(pTextNode->GetText(), fld, pos)) != -1)
     {
@@ -415,7 +413,7 @@ lcl_ExportFieldMark(
 {
     uno::Reference<text::XTextRange> xRef;
     SwDoc* pDoc = pUnoCursor->GetDoc();
-    // maybe it's a good idea to add a special hint to the hints array and rely on the hint segmentation....
+    // maybe it's a good idea to add a special hint to the hints array and rely on the hint segmentation...
     const sal_Int32 start = pUnoCursor->Start()->nContent.GetIndex();
     OSL_ENSURE(pUnoCursor->End()->nContent.GetIndex() == start,
                "hmm --- why is this different");
@@ -434,7 +432,7 @@ lcl_ExportFieldMark(
         if (pDoc)
         {
             pFieldmark = pDoc->getIDocumentMarkAccess()->
-                getFieldmarkFor(*pUnoCursor->GetMark());
+                getFieldmarkAt(*pUnoCursor->GetMark());
         }
         SwXTextPortion* pPortion = new SwXTextPortion(
             pUnoCursor, i_xParentText, PORTION_FIELD_START);
@@ -445,13 +443,20 @@ lcl_ExportFieldMark(
                 SwXFieldmark::CreateXFieldmark(*pDoc, pFieldmark));
         }
     }
+    else if (CH_TXT_ATR_FIELDSEP == Char)
+    {
+        // TODO how to get the field?
+        SwXTextPortion* pPortion = new SwXTextPortion(
+            pUnoCursor, i_xParentText, PORTION_FIELD_SEP);
+        xRef = pPortion;
+    }
     else if (CH_TXT_ATR_FIELDEND == Char)
     {
         ::sw::mark::IFieldmark* pFieldmark = nullptr;
         if (pDoc)
         {
             pFieldmark = pDoc->getIDocumentMarkAccess()->
-                getFieldmarkFor(*pUnoCursor->GetMark());
+                getFieldmarkAt(*pUnoCursor->GetMark());
         }
         SwXTextPortion* pPortion = new SwXTextPortion(
             pUnoCursor, i_xParentText, PORTION_FIELD_END);
@@ -467,7 +472,7 @@ lcl_ExportFieldMark(
         ::sw::mark::IFieldmark* pFieldmark = nullptr;
         if (pDoc)
         {
-            pFieldmark = pDoc->getIDocumentMarkAccess()->getFieldmarkFor(*pUnoCursor->GetMark());
+            pFieldmark = pDoc->getIDocumentMarkAccess()->getFieldmarkAt(*pUnoCursor->GetMark());
         }
         SwXTextPortion* pPortion = new SwXTextPortion(
             pUnoCursor, i_xParentText, PORTION_FIELD_START_END);
@@ -537,9 +542,8 @@ lcl_CreateTOXMarkPortion(
     SwDoc* pDoc = pUnoCursor->GetDoc();
     SwTOXMark & rTOXMark = static_cast<SwTOXMark&>(rAttr.GetAttr());
 
-    const Reference<XTextContent> xContent(
-        SwXDocumentIndexMark::CreateXDocumentIndexMark(*pDoc, & rTOXMark),
-        uno::UNO_QUERY);
+    const Reference<XTextContent> xContent =
+        SwXDocumentIndexMark::CreateXDocumentIndexMark(*pDoc, & rTOXMark);
 
     SwXTextPortion* pPortion = nullptr;
     if (!bEnd)
@@ -692,7 +696,7 @@ struct SwXRedlinePortion_Impl
     {
     }
 
-    sal_Int32 getRealIndex ()
+    sal_Int32 getRealIndex () const
     {
         return m_bStart ? m_pRedline->Start()->nContent.GetIndex()
                         : m_pRedline->End()  ->nContent.GetIndex();

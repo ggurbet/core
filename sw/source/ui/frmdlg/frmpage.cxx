@@ -35,6 +35,7 @@
 #include <editeng/brushitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/frmdiritem.hxx>
+#include <svx/swframeposstrings.hxx>
 #include <svx/swframevalidation.hxx>
 #include <comphelper/classids.hxx>
 #include <sfx2/viewfrm.hxx>
@@ -42,6 +43,7 @@
 #include <fmturl.hxx>
 #include <fmteiro.hxx>
 #include <fmtcnct.hxx>
+#include <fmtsrnd.hxx>
 #include <view.hxx>
 #include <wrtsh.hxx>
 #include <swmodule.hxx>
@@ -72,6 +74,7 @@
 #include <com/sun/star/ui/dialogs/ExtendedFilePickerElementIds.hpp>
 #include <vcl/graphicfilter.hxx>
 #include <svtools/embedhlp.hxx>
+#include <comphelper/lok.hxx>
 #include <memory>
 
 using namespace ::com::sun::star;
@@ -605,8 +608,8 @@ namespace
     }
 }
 
-SwFramePage::SwFramePage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/frmtypepage.ui", "FrameTypePage", &rSet)
+SwFramePage::SwFramePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/frmtypepage.ui", "FrameTypePage", &rSet)
     , m_bAtHorzPosModified(false)
     , m_bAtVertPosModified(false)
     , m_bFormat(false)
@@ -703,11 +706,17 @@ SwFramePage::SwFramePage(TabPageParent pParent, const SfxItemSet &rSet)
 
     m_xAutoWidthCB->connect_toggled(LINK(this, SwFramePage, AutoWidthClickHdl));
     m_xAutoHeightCB->connect_toggled(LINK(this, SwFramePage, AutoHeightClickHdl));
+
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        m_xAnchorAtPageRB->hide();
+        m_xAnchorAtParaRB->hide();
+        m_xAnchorAtFrameRB->hide();
+    }
 }
 
 SwFramePage::~SwFramePage()
 {
-    disposeOnce();
 }
 
 namespace
@@ -811,9 +820,9 @@ void SwFramePage::setOptimalRelWidth()
     m_xHoriRelationLB->clear();
 }
 
-VclPtr<SfxTabPage> SwFramePage::Create(TabPageParent pParent, const SfxItemSet *rSet)
+std::unique_ptr<SfxTabPage> SwFramePage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet)
 {
-    return VclPtr<SwFramePage>::Create(pParent, *rSet);
+    return std::make_unique<SwFramePage>(pPage, pController, *rSet);
 }
 
 void SwFramePage::EnableGraficMode()
@@ -901,9 +910,9 @@ void SwFramePage::Reset( const SfxItemSet *rSet )
         else
         {
             if ( m_bNew )
-                SetText(SwResId(STR_FRMUI_OLE_INSERT));
+                SetPageTitle(SwResId(STR_FRMUI_OLE_INSERT));
             else
-                SetText(SwResId(STR_FRMUI_OLE_EDIT));
+                SetPageTitle(SwResId(STR_FRMUI_OLE_EDIT));
         }
     }
     else
@@ -1637,7 +1646,7 @@ sal_Int32 SwFramePage::GetMapPos(const FrameMap *pMap, const weld::ComboBox& rAl
     return nMapPos;
 }
 
-RndStdIds SwFramePage::GetAnchor()
+RndStdIds SwFramePage::GetAnchor() const
 {
     RndStdIds nRet = RndStdIds::FLY_AT_PAGE;
     if (m_xAnchorAtParaRB->get_active())
@@ -2279,8 +2288,8 @@ void SwFramePage::EnableVerticalPositioning( bool bEnable )
     m_xVertRelationLB->set_sensitive( bEnable );
 }
 
-SwGrfExtPage::SwGrfExtPage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/picturepage.ui", "PicturePage", &rSet)
+SwGrfExtPage::SwGrfExtPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/picturepage.ui", "PicturePage", &rSet)
     , m_bHtmlMode(false)
     , m_xMirror(m_xBuilder->weld_widget("flipframe"))
     , m_xMirrorVertBox(m_xBuilder->weld_check_button("vert"))
@@ -2309,20 +2318,14 @@ SwGrfExtPage::SwGrfExtPage(TabPageParent pParent, const SfxItemSet &rSet)
 
 SwGrfExtPage::~SwGrfExtPage()
 {
-    disposeOnce();
-}
-
-void SwGrfExtPage::dispose()
-{
     m_xBmpWin.reset();
     m_xCtlAngle.reset();
     m_xGrfDlg.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SwGrfExtPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
+std::unique_ptr<SfxTabPage> SwGrfExtPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet)
 {
-    return VclPtr<SwGrfExtPage>::Create(pParent, *rSet);
+    return std::make_unique<SwGrfExtPage>(pPage, pController, *rSet);
 }
 
 void SwGrfExtPage::Reset(const SfxItemSet *rSet)
@@ -2655,8 +2658,8 @@ void BmpWindow::SetBitmapEx(const BitmapEx& rBmp)
 }
 
 // set URL and ImageMap at frames
-SwFrameURLPage::SwFrameURLPage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/frmurlpage.ui", "FrameURLPage", &rSet)
+SwFrameURLPage::SwFrameURLPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/frmurlpage.ui", "FrameURLPage", &rSet)
     , m_xURLED(m_xBuilder->weld_entry("url"))
     , m_xSearchPB(m_xBuilder->weld_button("search"))
     , m_xNameED(m_xBuilder->weld_entry("name"))
@@ -2669,7 +2672,6 @@ SwFrameURLPage::SwFrameURLPage(TabPageParent pParent, const SfxItemSet &rSet)
 
 SwFrameURLPage::~SwFrameURLPage()
 {
-    disposeOnce();
 }
 
 void SwFrameURLPage::Reset( const SfxItemSet *rSet )
@@ -2745,9 +2747,9 @@ bool SwFrameURLPage::FillItemSet(SfxItemSet *rSet)
     return bModified;
 }
 
-VclPtr<SfxTabPage> SwFrameURLPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
+std::unique_ptr<SfxTabPage> SwFrameURLPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet)
 {
-    return VclPtr<SwFrameURLPage>::Create(pParent, *rSet);
+    return std::make_unique<SwFrameURLPage>(pPage, pController, *rSet);
 }
 
 IMPL_LINK_NOARG(SwFrameURLPage, InsertFileHdl, weld::Button&, void)
@@ -2769,8 +2771,8 @@ IMPL_LINK_NOARG(SwFrameURLPage, InsertFileHdl, weld::Button&, void)
     }
 }
 
-SwFrameAddPage::SwFrameAddPage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/frmaddpage.ui", "FrameAddPage", &rSet)
+SwFrameAddPage::SwFrameAddPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/frmaddpage.ui", "FrameAddPage", &rSet)
     , m_pWrtSh(nullptr)
     , m_bHtmlMode(false)
     , m_bFormat(false)
@@ -2809,18 +2811,12 @@ SwFrameAddPage::SwFrameAddPage(TabPageParent pParent, const SfxItemSet &rSet)
 
 SwFrameAddPage::~SwFrameAddPage()
 {
-    disposeOnce();
-}
-
-void SwFrameAddPage::dispose()
-{
     m_xTextFlowLB.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SwFrameAddPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
+std::unique_ptr<SfxTabPage> SwFrameAddPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet)
 {
-    return VclPtr<SwFrameAddPage>::Create(pParent, *rSet);
+    return std::make_unique<SwFrameAddPage>(pPage, pController, *rSet);
 }
 
 void SwFrameAddPage::Reset(const SfxItemSet *rSet )

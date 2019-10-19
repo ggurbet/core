@@ -312,7 +312,7 @@ void ScInterpreter::ScWebservice()
         }
 
         // Need to reinterpret after loading (build links)
-        rArr.AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
+        pArr->AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
 
         //  while the link is not evaluated, idle must be disabled (to avoid circular references)
         bool bOldEnabled = pDok->IsIdleEnabled();
@@ -354,7 +354,7 @@ void ScInterpreter::ScWebservice()
                 pMyFormulaCell->StartListening(*pLink);
         }
 
-        //  If an new Error from Reschedule appears when the link is executed then reset the errorflag
+        //  If a new Error from Reschedule appears when the link is executed then reset the errorflag
         if (pMyFormulaCell && pMyFormulaCell->GetRawError() != FormulaError::NONE && !bWasError)
             pMyFormulaCell->SetErrCode(FormulaError::NONE);
 
@@ -378,7 +378,7 @@ void ScInterpreter::ScWebservice()
              * document (i.e. the formula result could not be influenced by an
              * ONLOAD_MUST or ALWAYS recalc, necessary as we don't track
              * interim results of subexpressions that could be compared), which
-             * also means to track setting ScRecalcMode somehow.. note this is
+             * also means to track setting ScRecalcMode somehow... note this is
              * just a vague idea so far and might or might not work. */
             if (pMyFormulaCell && pMyFormulaCell->HasHybridStringResult())
             {

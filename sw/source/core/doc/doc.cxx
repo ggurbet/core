@@ -599,16 +599,15 @@ static void lcl_FormatPostIt(
     }
 
     OUString aStr( SwViewShell::GetShellRes()->aPostItPage );
-    aStr += sTmp;
-
-    aStr += OUString::number( nPageNo );
-    aStr += " ";
+    aStr += sTmp +
+        OUString::number( nPageNo ) +
+        " ";
     if( nLineNo )
     {
         aStr += SwViewShell::GetShellRes()->aPostItLine;
-        aStr += sTmp;
-        aStr += OUString::number( nLineNo );
-        aStr += " ";
+        aStr += sTmp +
+            OUString::number( nLineNo ) +
+            " ";
     }
     aStr += SwViewShell::GetShellRes()->aPostItAuthor;
     aStr += sTmp;
@@ -616,6 +615,8 @@ static void lcl_FormatPostIt(
     aStr += " ";
     SvtSysLocale aSysLocale;
     aStr += /*(LocaleDataWrapper&)*/aSysLocale.GetLocaleData().getDate( pField->GetDate() );
+    if(pField->GetResolved())
+        aStr += " " + SwResId(STR_RESOLVED);
     pIDCO->InsertString( aPam, aStr );
 
     pIDCO->SplitNode( *aPam.GetPoint(), false );
@@ -681,6 +682,29 @@ OUString UIPages2PhyPages(const OUString& rUIPageRange, const std::map< sal_Int3
 
     return aOut.makeStringAndClear();
 }
+}
+
+// tdf#52316 remove blank pages from page count and actual page number
+void SwDoc::CalculateNonBlankPages(
+    const SwRootFrame& rLayout,
+    sal_uInt16& nDocPageCount,
+    sal_uInt16& nActualPage)
+{
+    sal_uInt16 nDocPageCountWithBlank = nDocPageCount;
+    sal_uInt16 nActualPageWithBlank = nActualPage;
+    sal_uInt16 nPageNum = 1;
+    const SwPageFrame *pStPage = dynamic_cast<const SwPageFrame*>( rLayout.Lower() );
+    while (pStPage && nPageNum <= nDocPageCountWithBlank)
+    {
+        if ( pStPage->getFrameArea().Height() == 0 )
+        {
+            --nDocPageCount;
+            if (nPageNum <= nActualPageWithBlank)
+                --nActualPage;
+        }
+        ++nPageNum;
+        pStPage = static_cast<const SwPageFrame*>(pStPage->GetNext());
+    }
 }
 
 void SwDoc::CalculatePagesForPrinting(
@@ -1789,7 +1813,7 @@ OUString SwDoc::GetPaMDescr(const SwPaM & rPam)
         return SwResId(STR_PARAGRAPHS);
     }
 
-    return OUString("??");
+    return "??";
 }
 
 bool SwDoc::ContainsHiddenChars() const

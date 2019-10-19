@@ -21,6 +21,7 @@
 
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/uno/Reference.hxx>
+#include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/uri/XUriSchemeParser.hpp>
 #include <com/sun/star/uri/XVndSunStarExpandUrlReference.hpp>
@@ -28,7 +29,6 @@
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/weak.hxx>
-#include <osl/diagnose.h>
 #include <rtl/textenc.h>
 #include <rtl/uri.h>
 #include <rtl/uri.hxx>
@@ -56,7 +56,7 @@ class UrlReference:
 public:
     UrlReference(OUString const & scheme, OUString const & path):
         base_(
-            scheme, false, false, OUString(), path, false,
+            scheme, false, OUString(), path, false,
             OUString())
     {}
 
@@ -126,7 +126,9 @@ private:
 OUString UrlReference::expand(
     css::uno::Reference< css::util::XMacroExpander > const & expander)
 {
-    OSL_ASSERT(expander.is());
+    if (!expander.is()) {
+        throw css::uno::RuntimeException("null expander passed to XVndSunStarExpandUrl.expand");
+    }
     return expander->expandMacros(
         ::rtl::Uri::decode(
             getPath(), ::rtl_UriDecodeWithCharset, RTL_TEXTENCODING_UTF8));
@@ -161,7 +163,7 @@ private:
 
 OUString Parser::getImplementationName()
 {
-    return OUString("com.sun.star.comp.uri.UriSchemeParser_vndDOTsunDOTstarDOTexpand");
+    return "com.sun.star.comp.uri.UriSchemeParser_vndDOTsunDOTstarDOTexpand";
 }
 
 sal_Bool Parser::supportsService(OUString const & serviceName)

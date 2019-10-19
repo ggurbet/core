@@ -35,12 +35,8 @@
 
 #include <fpicker/strings.hrc>
 
-#include <vcl/ctrl.hxx>
-#include <vcl/menu.hxx>
-#include <vcl/layout.hxx>
-#include <vcl/scrbar.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/builderfactory.hxx>
 
 #include <osl/mutex.hxx>
 #include <sal/log.hxx>
@@ -94,7 +90,7 @@ namespace dp_gui {
 
 struct StrAllFiles : public rtl::StaticWithInit< OUString, StrAllFiles >
 {
-    const OUString operator () () {
+    OUString operator () () {
         const SolarMutexGuard guard;
         std::locale loc = Translate::Create("fps");
         return Translate::get(STR_FILTERNAME_ALL, loc);
@@ -117,7 +113,7 @@ public:
     void InitFromDialog(ExtMgrDialog *pParentDialog);
 
     virtual bool    MouseButtonDown( const MouseEvent& rMEvt ) override;
-    virtual bool    ContextMenu( const CommandEvent& rCEvt ) override;
+    virtual bool    Command( const CommandEvent& rCEvt ) override;
 
     virtual void    RecalcAll() override;
     virtual void    selectEntry( const long nPos ) override;
@@ -214,10 +210,10 @@ void ExtBoxWithBtns_Impl::SetButtonStatus(const TEntry_Impl& rEntry)
     }
 }
 
-bool ExtBoxWithBtns_Impl::ContextMenu(const CommandEvent& rCEvt)
+bool ExtBoxWithBtns_Impl::Command(const CommandEvent& rCEvt)
 {
     if (rCEvt.GetCommand() != CommandEventId::ContextMenu)
-        return false;
+        return ExtensionBox_Impl::Command(rCEvt);
 
     const Point aMousePos(rCEvt.GetMousePosPixel());
     const auto nPos = PointToPos(aMousePos);
@@ -682,8 +678,7 @@ uno::Sequence< OUString > ExtMgrDialog::raiseAddPicker()
         }
         catch (const lang::IllegalArgumentException &)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "desktop", exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "desktop", "" );
         }
     }
     xFilePicker->setCurrentFilter( sDefaultFilter );
@@ -1277,8 +1272,7 @@ bool UpdateRequiredDialog::isEnabled( const uno::Reference< deployment::XPackage
     }
     catch ( const uno::RuntimeException & ) { throw; }
     catch (const uno::Exception & ) {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "desktop", exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "desktop", "" );
         bRegistered = false;
     }
 

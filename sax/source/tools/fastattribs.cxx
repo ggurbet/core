@@ -236,7 +236,7 @@ Sequence< Attribute > FastAttributeList::getUnknownAttributes(  )
 {
     Sequence< Attribute > aSeq( maUnknownAttributes.size() );
     Attribute* pAttr = aSeq.getArray();
-    for( auto& rAttr : maUnknownAttributes )
+    for( const auto& rAttr : maUnknownAttributes )
         rAttr.FillAttribute( pAttr++ );
     return aSeq;
 }
@@ -253,7 +253,7 @@ Sequence< FastAttribute > FastAttributeList::getFastAttributes(  )
     return aSeq;
 }
 
-const FastAttributeList::FastAttributeIter FastAttributeList::find( sal_Int32 nToken ) const
+FastAttributeList::FastAttributeIter FastAttributeList::find( sal_Int32 nToken ) const
 {
     for (size_t i = 0; i < maAttributeTokens.size(); ++i)
         if( maAttributeTokens[i] == nToken )

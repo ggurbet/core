@@ -22,7 +22,6 @@
 #include <toolkit/controls/roadmapentry.hxx>
 #include <toolkit/helper/property.hxx>
 #include <toolkit/helper/servicenames.hxx>
-#include <com/sun/star/awt/XVclWindowPeer.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 
@@ -43,12 +42,12 @@ namespace toolkit
 
 
 static void lcl_throwIllegalArgumentException( )
-{   // throwing is expensive (in terms of code size), thus we hope the compiler does not inline this ....
+{   // throwing is expensive (in terms of code size), thus we hope the compiler does not inline this...
     throw IllegalArgumentException();
 }
 
 static void lcl_throwIndexOutOfBoundsException( )
-{   // throwing is expensive (in terms of code size), thus we hope the compiler does not inline this ....
+{   // throwing is expensive (in terms of code size), thus we hope the compiler does not inline this...
     throw IndexOutOfBoundsException();
 }
 
@@ -85,7 +84,7 @@ static void lcl_throwIndexOutOfBoundsException( )
 
     OUString UnoControlRoadmapModel::getImplementationName()
     {
-        return OUString("stardiv.Toolkit.UnoControlRoadmapModel");
+        return "stardiv.Toolkit.UnoControlRoadmapModel";
     }
 
     css::uno::Sequence<OUString>
@@ -385,7 +384,7 @@ sal_Bool SAL_CALL UnoRoadmapControl::setModel(const Reference< XControlModel >& 
 
     OUString UnoRoadmapControl::GetComponentServiceName()
     {
-        return OUString("Roadmap");
+        return "Roadmap";
     }
 
 
@@ -441,7 +440,7 @@ void UnoRoadmapControl::elementReplaced( const ContainerEvent& rEvent )
 void SAL_CALL UnoRoadmapControl::itemStateChanged( const ItemEvent& rEvent )
 {
     sal_Int16 CurItemIndex = sal::static_int_cast< sal_Int16 >(rEvent.ItemId);
-    Reference< XControlModel > xModel( getModel( ), UNO_QUERY );
+    Reference< XControlModel > xModel = getModel( );
     Reference< XPropertySet > xPropertySet( xModel, UNO_QUERY );
     xPropertySet->setPropertyValue( GetPropertyName( BASEPROPERTY_CURRENTITEMID ), Any(CurItemIndex) );
     if ( maItemListeners.getLength() )
@@ -481,7 +480,7 @@ void SAL_CALL UnoRoadmapControl::propertyChange( const PropertyChangeEvent& evt 
 
 OUString UnoRoadmapControl::getImplementationName()
 {
-    return OUString("stardiv.Toolkit.UnoRoadmapControl");
+    return "stardiv.Toolkit.UnoRoadmapControl";
 }
 
 css::uno::Sequence<OUString> UnoRoadmapControl::getSupportedServiceNames()

@@ -7,9 +7,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <comphelper/lok.hxx>
 #include <condformatdlg.hxx>
 
 #include <sfx2/dispatch.hxx>
+#include <sfx2/lokhelper.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 
@@ -99,7 +101,7 @@ void ScCondFormatList::init(ScDocument* pDoc,
             }
         }
         if(nCount)
-            EntrySelectHdl(*maEntries[0].get());
+            EntrySelectHdl(*maEntries[0]);
     }
     else
     {
@@ -410,7 +412,7 @@ ScCondFormatDlg::ScCondFormatDlg(SfxBindings* pB, SfxChildWindow* pCW,
     weld::Window* pParent, ScViewData* pViewData,
     const ScCondFormatDlgItem* pItem)
         : ScAnyRefDlgController(pB, pCW, pParent,
-                        "modules/scalc/ui/conditionalformatdialog.ui",
+                        (comphelper::LibreOfficeKit::isMobile(SfxLokHelper::getView())?OUString("modules/scalc/ui/conditionalformatdialogmobile.ui"):OUString("modules/scalc/ui/conditionalformatdialog.ui")),
                         "ConditionalFormatDialog")
     , mpViewData(pViewData)
     , mpDlgItem(static_cast<ScCondFormatDlgItem*>(pItem->Clone()))

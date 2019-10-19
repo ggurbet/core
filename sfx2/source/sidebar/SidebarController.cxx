@@ -32,6 +32,7 @@
 #include <sfx2/sidebar/ContextList.hxx>
 
 
+#include <sfx2/lokhelper.hxx>
 #include <sfx2/sfxresid.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/titledockwin.hxx>
@@ -48,8 +49,10 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/namedvaluecollection.hxx>
+#include <comphelper/lok.hxx>
 #include <sal/log.hxx>
 #include <officecfg/Office/UI/Sidebar.hxx>
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 #include <com/sun/star/awt/XWindowPeer.hpp>
 #include <com/sun/star/frame/XDispatch.hpp>
@@ -70,6 +73,32 @@ namespace
     const static char gsReadOnlyCommandName[] = ".uno:EditDoc";
     const static sal_Int32 gnWidthCloseThreshold (70);
     const static sal_Int32 gnWidthOpenThreshold (40);
+
+    std::string UnoNameFromDeckId(const OUString& rsDeckId, bool isDraw=false)
+    {
+        if (rsDeckId == "SdCustomAnimationDeck")
+            return ".uno:CustomAnimation";
+
+        if (rsDeckId == "PropertyDeck")
+            return isDraw ? ".uno:ModifyPage" : ".uno:Sidebar";
+
+        if (rsDeckId == "SdLayoutsDeck")
+            return ".uno:ModifyPage";
+
+        if (rsDeckId == "SdSlideTransitionDeck")
+            return ".uno:SlideChangeWindow";
+
+        if (rsDeckId == "SdAllMasterPagesDeck")
+            return ".uno:MasterSlidesPanel";
+
+        if (rsDeckId == "SdMasterPagesDeck")
+            return ".uno:MasterSlidesPanel";
+
+        if (rsDeckId == "GalleryDeck")
+            return ".uno:Gallery";
+
+        return "";
+    }
 }
 
 namespace sfx2 { namespace sidebar {
@@ -93,17 +122,18 @@ namespace {
 
 SidebarController::SidebarController (
     SidebarDockingWindow* pParentWindow,
-    const css::uno::Reference<css::frame::XFrame>& rxFrame)
+    const SfxViewFrame* pViewFrame)
     : SidebarControllerInterfaceBase(m_aMutex),
       mpCurrentDeck(),
       mpParentWindow(pParentWindow),
+      mpViewFrame(pViewFrame),
+      mxFrame(pViewFrame->GetFrame().GetFrameInterface()),
       mpTabBar(VclPtr<TabBar>::Create(
               mpParentWindow,
-              rxFrame,
+              mxFrame,
               [this](const OUString& rsDeckId) { return this->OpenThenToggleDeck(rsDeckId); },
               [this](const tools::Rectangle& rButtonBox,const ::std::vector<TabBar::DeckMenuData>& rMenuData) { return this->ShowPopupMenu(rButtonBox,rMenuData); },
               this)),
-      mxFrame(rxFrame),
       maCurrentContext(OUString(), OUString()),
       maRequestedContext(),
       mnRequestedForceFlags(SwitchFlag_NoForce),
@@ -128,13 +158,12 @@ SidebarController::SidebarController (
     mpResourceManager = std::make_unique<ResourceManager>();
 }
 
-rtl::Reference<SidebarController> SidebarController::create(
-    SidebarDockingWindow* pParentWindow,
-    const css::uno::Reference<css::frame::XFrame>& rxFrame)
+rtl::Reference<SidebarController> SidebarController::create(SidebarDockingWindow* pParentWindow,
+                                                            const SfxViewFrame* pViewFrame)
 {
-    rtl::Reference<SidebarController> instance(
-        new SidebarController(pParentWindow, rxFrame));
+    rtl::Reference<SidebarController> instance(new SidebarController(pParentWindow, pViewFrame));
 
+    const css::uno::Reference<css::frame::XFrame>& rxFrame = pViewFrame->GetFrame().GetFrameInterface();
     registerSidebarForFrame(instance.get(), rxFrame->getController());
     rxFrame->addFrameActionListener(instance.get());
     // Listen for window events.
@@ -192,7 +221,9 @@ void SidebarController::registerSidebarForFrame(SidebarController* pController, 
 
 void SidebarController::unregisterSidebarForFrame(SidebarController* pController, const css::uno::Reference<css::frame::XController>& xController)
 {
+    pController->saveDeckState();
     pController->disposeDecks();
+
     css::uno::Reference<css::ui::XContextChangeEventMultiplexer> xMultiplexer (
         css::ui::ContextChangeEventMultiplexer::get(
             ::comphelper::getProcessComponentContext()));
@@ -204,6 +235,20 @@ void SidebarController::unregisterSidebarForFrame(SidebarController* pController
 void SidebarController::disposeDecks()
 {
     SolarMutexGuard aSolarMutexGuard;
+
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        if (const SfxViewShell* pViewShell = mpViewFrame->GetViewShell())
+        {
+            const std::string hide = UnoNameFromDeckId(msCurrentDeckId);
+            if (!hide.empty())
+                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_STATE_CHANGED,
+                                                       (hide + "=false").c_str());
+        }
+
+        mpParentWindow->ReleaseLOKNotifier();
+    }
+
     mpCurrentDeck.clear();
     maFocusManager.Clear();
     mpResourceManager->disposeDecks();
@@ -216,16 +261,7 @@ void SAL_CALL SidebarController::disposing()
     maFocusManager.Clear();
     mpTabBar.disposeAndClear();
 
-    // save decks settings
-    // Impress shutdown : context (frame) is disposed before sidebar disposing
-    // calc writer : context (frame) is disposed after sidebar disposing
-    // so need to test if GetCurrentContext is still valid regarding msApplication
-
-    if (GetCurrentContext().msApplication != "none")
-    {
-        mpResourceManager->SaveDecksSettings(GetCurrentContext());
-        mpResourceManager->SaveLastActiveDeck(GetCurrentContext(), msCurrentDeckId);
-    }
+    saveDeckState();
 
     // clear decks
     ResourceManager::DeckContextDescriptorContainer aDecks;
@@ -350,7 +386,7 @@ void SidebarController::NotifyResize()
     }
 
     vcl::Window* pParentWindow = mpTabBar->GetParent();
-    sal_Int32 nTabBarDefaultWidth = TabBar::GetDefaultWidth() * mpTabBar->GetDPIScaleFactor();
+    const sal_Int32 nTabBarDefaultWidth = TabBar::GetDefaultWidth() * mpTabBar->GetDPIScaleFactor();
 
     const sal_Int32 nWidth (pParentWindow->GetSizePixel().Width());
     const sal_Int32 nHeight (pParentWindow->GetSizePixel().Height());
@@ -382,13 +418,29 @@ void SidebarController::NotifyResize()
         else   // attach the Sidebar towards the right-side of screen
         {
             nDeckX = 0;
-            nTabX = nWidth-nTabBarDefaultWidth;
+            nTabX = nWidth - nTabBarDefaultWidth;
         }
 
         // Place the deck first.
         if (bIsDeckVisible)
         {
-            mpCurrentDeck->setPosSizePixel(nDeckX, 0, nWidth - nTabBarDefaultWidth, nHeight);
+            if (comphelper::LibreOfficeKit::isActive())
+            {
+                // We want to let the layouter use up as much of the
+                // height as necessary to make sure no scrollbar is
+                // visible. This only works when there are no greedy
+                // panes that fill up all available area. So we only
+                // use this for the PropertyDeck, which has no such
+                // panes, while most other do. This is fine, since
+                // it's the PropertyDeck that really has many panes
+                // that can collapse or expand. For others, limit
+                // the height to something sensible.
+                const sal_Int32 nExtHeight = (msCurrentDeckId == "PropertyDeck" ? 2000 : 600);
+                // No TabBar in LOK (use nWidth in full).
+                mpCurrentDeck->setPosSizePixel(nDeckX, 0, nWidth, nExtHeight);
+            }
+            else
+                mpCurrentDeck->setPosSizePixel(nDeckX, 0, nWidth - nTabBarDefaultWidth, nHeight);
             mpCurrentDeck->Show();
             mpCurrentDeck->RequestLayout();
         }
@@ -397,8 +449,8 @@ void SidebarController::NotifyResize()
 
         // Now place the tab bar.
         mpTabBar->setPosSizePixel(nTabX, 0, nTabBarDefaultWidth, nHeight);
-        mpTabBar->Show();
-
+        if (!comphelper::LibreOfficeKit::isActive())
+            mpTabBar->Show(); // Don't show TabBar in LOK.
     }
 
     // Determine if the closer of the deck can be shown.
@@ -412,6 +464,8 @@ void SidebarController::NotifyResize()
     }
 
     RestrictWidth(nMinimalWidth);
+
+    mpParentWindow->NotifyResize();
 }
 
 void SidebarController::ProcessNewWidth (const sal_Int32 nNewWidth)
@@ -420,10 +474,11 @@ void SidebarController::ProcessNewWidth (const sal_Int32 nNewWidth)
         return;
 
     if (mbIsDeckRequestedOpen.get())
-     {
+    {
         // Deck became large enough to be shown.  Show it.
         mnSavedSidebarWidth = nNewWidth;
-        RequestOpenDeck();
+        if (!mbIsDeckOpen.get())
+            RequestOpenDeck();
     }
     else
     {
@@ -445,7 +500,7 @@ void SidebarController::UpdateConfigurations()
         return;
 
     if ((maCurrentContext.msApplication != "none") &&
-         !maCurrentContext.msApplication.isEmpty())
+            !maCurrentContext.msApplication.isEmpty())
     {
         mpResourceManager->SaveDecksSettings(maCurrentContext);
         mpResourceManager->SetLastActiveDeck(maCurrentContext, msCurrentDeckId);
@@ -453,11 +508,11 @@ void SidebarController::UpdateConfigurations()
 
     // get last active deck for this application on first update
     if (!maRequestedContext.msApplication.isEmpty() &&
-         (maCurrentContext.msApplication != maRequestedContext.msApplication))
+            (maCurrentContext.msApplication != maRequestedContext.msApplication))
     {
-       OUString sLastActiveDeck = mpResourceManager->GetLastActiveDeck( maRequestedContext );
-       if (!sLastActiveDeck.isEmpty())
-           msCurrentDeckId = sLastActiveDeck;
+        OUString sLastActiveDeck = mpResourceManager->GetLastActiveDeck( maRequestedContext );
+        if (!sLastActiveDeck.isEmpty())
+            msCurrentDeckId = sLastActiveDeck;
     }
 
     maCurrentContext = maRequestedContext;
@@ -539,16 +594,16 @@ void SidebarController::OpenThenToggleDeck (
         pSplitWindow->FadeIn();
     else if ( IsDeckVisible( rsDeckId ) )
     {
-        if ( pSplitWindow )
-        {
-            // tdf#67627 Clicking a second time on a Deck icon will close the Deck
-            RequestCloseDeck();
-            return;
-        }
-        else if( !WasFloatingDeckClosed() )
+        if( !WasFloatingDeckClosed() )
         {
             // tdf#88241 Summoning an undocked sidebar a second time should close sidebar
             mpParentWindow->Close();
+            return;
+        }
+        else
+        {
+            // tdf#67627 Clicking a second time on a Deck icon will close the Deck
+            RequestCloseDeck();
             return;
         }
     }
@@ -561,22 +616,15 @@ void SidebarController::OpenThenToggleDeck (
     if (mnSavedSidebarWidth < nRequestedWidth)
         SetChildWindowWidth(nRequestedWidth);
 
-    mpTabBar->Invalidate();
-    mpTabBar->HighlightDeck(rsDeckId);
     collectUIInformation(rsDeckId);
 }
 
 void SidebarController::OpenThenSwitchToDeck (
     const OUString& rsDeckId)
 {
-    SfxSplitWindow* pSplitWindow = GetSplitWindow();
-    if ( pSplitWindow && !pSplitWindow->IsFadeIn() )
-        // tdf#83546 Collapsed sidebar should expand first
-        pSplitWindow->FadeIn();
     RequestOpenDeck();
     SwitchToDeck(rsDeckId);
-    mpTabBar->Invalidate();
-    mpTabBar->HighlightDeck(rsDeckId);
+
 }
 
 void SidebarController::SwitchToDefaultDeck()
@@ -701,6 +749,24 @@ void SidebarController::SwitchToDeck (
     const DeckDescriptor& rDeckDescriptor,
     const Context& rContext)
 {
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        if (const SfxViewShell* pViewShell = mpViewFrame->GetViewShell())
+        {
+            if (msCurrentDeckId != rDeckDescriptor.msId)
+            {
+                const std::string hide = UnoNameFromDeckId(msCurrentDeckId);
+                if (!hide.empty())
+                    pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_STATE_CHANGED,
+                                                           (hide + "=false").c_str());
+            }
+
+            const std::string show = UnoNameFromDeckId(rDeckDescriptor.msId);
+            if (!show.empty())
+                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_STATE_CHANGED,
+                                                       (show + "=true").c_str());
+        }
+    }
 
     maFocusManager.Clear();
 
@@ -716,6 +782,7 @@ void SidebarController::SwitchToDeck (
 
         msCurrentDeckId = rDeckDescriptor.msId;
     }
+    mpTabBar->Invalidate();
     mpTabBar->HighlightDeck(msCurrentDeckId);
 
     // Determine the panels to display in the deck.
@@ -783,7 +850,6 @@ void SidebarController::SwitchToDeck (
         nDeckX = 0;
     }
 
-
     // Activate the deck and the new set of panels.
     mpCurrentDeck->setPosSizePixel(
         nDeckX,
@@ -833,7 +899,7 @@ VclPtr<Panel> SidebarController::CreatePanel (
         *xPanelDescriptor,
         pParentWindow,
         bIsInitiallyExpanded,
-        [pDeck]() { return pDeck.get()->RequestLayout(); },
+        [pDeck]() { return pDeck->RequestLayout(); },
         [this]() { return this->GetCurrentContext(); },
         mxFrame);
 
@@ -979,23 +1045,28 @@ void SidebarController::ShowPopupMenu (
     // pass toolbox button rect so the menu can stay open on button up
     tools::Rectangle aBox (rButtonBox);
     aBox.Move(mpTabBar->GetPosPixel().X(), 0);
-    pMenu->Execute(mpParentWindow, aBox, PopupMenuFlags::ExecuteDown);
+    const PopupMenuFlags aMenuDirection
+        = (comphelper::LibreOfficeKit::isActive() ? PopupMenuFlags::ExecuteLeft
+                                                  : PopupMenuFlags::ExecuteDown);
+    pMenu->Execute(mpParentWindow, aBox, aMenuDirection);
     pMenu.disposeAndClear();
 }
 
-VclPtr<PopupMenu> SidebarController::CreatePopupMenu (
-    const ::std::vector<TabBar::DeckMenuData>& rMenuData) const
+VclPtr<PopupMenu>
+SidebarController::CreatePopupMenu(const ::std::vector<TabBar::DeckMenuData>& rMenuData) const
 {
     // Create the top level popup menu.
     auto pMenu = VclPtr<PopupMenu>::Create();
     FloatingWindow* pMenuWindow = dynamic_cast<FloatingWindow*>(pMenu->GetWindow());
     if (pMenuWindow != nullptr)
     {
-        pMenuWindow->SetPopupModeFlags(pMenuWindow->GetPopupModeFlags() | FloatWinPopupFlags::NoMouseUpClose);
+        pMenuWindow->SetPopupModeFlags(pMenuWindow->GetPopupModeFlags()
+                                       | FloatWinPopupFlags::NoMouseUpClose);
     }
 
-    // Create sub menu for customization (hiding of deck tabs.)
-    VclPtr<PopupMenu> pCustomizationMenu = VclPtr<PopupMenu>::Create();
+    // Create sub menu for customization (hiding of deck tabs), only on desktop.
+    VclPtr<PopupMenu> pCustomizationMenu
+        = (comphelper::LibreOfficeKit::isActive() ? nullptr : VclPtr<PopupMenu>::Create());
 
     // Add one entry for every tool panel element to individually make
     // them visible or hide them.
@@ -1007,35 +1078,50 @@ VclPtr<PopupMenu> SidebarController::CreatePopupMenu (
         pMenu->CheckItem(nMenuIndex, rItem.mbIsCurrentDeck);
         pMenu->EnableItem(nMenuIndex, rItem.mbIsEnabled && rItem.mbIsActive);
 
-        const sal_Int32 nSubMenuIndex (nIndex+MID_FIRST_HIDE);
-        if (rItem.mbIsCurrentDeck)
+        if (!comphelper::LibreOfficeKit::isActive())
         {
-            // Don't allow the currently visible deck to be disabled.
-            pCustomizationMenu->InsertItem(nSubMenuIndex, rItem.msDisplayName, MenuItemBits::RADIOCHECK);
-            pCustomizationMenu->CheckItem(nSubMenuIndex);
+            const sal_Int32 nSubMenuIndex(nIndex + MID_FIRST_HIDE);
+            if (rItem.mbIsCurrentDeck)
+            {
+                // Don't allow the currently visible deck to be disabled.
+                pCustomizationMenu->InsertItem(nSubMenuIndex, rItem.msDisplayName,
+                                               MenuItemBits::RADIOCHECK);
+                pCustomizationMenu->CheckItem(nSubMenuIndex);
+            }
+            else
+            {
+                pCustomizationMenu->InsertItem(nSubMenuIndex, rItem.msDisplayName,
+                                               MenuItemBits::CHECKABLE);
+                pCustomizationMenu->CheckItem(nSubMenuIndex, rItem.mbIsEnabled && rItem.mbIsActive);
+            }
         }
-        else
-        {
-            pCustomizationMenu->InsertItem(nSubMenuIndex, rItem.msDisplayName, MenuItemBits::CHECKABLE);
-            pCustomizationMenu->CheckItem(nSubMenuIndex, rItem.mbIsEnabled && rItem.mbIsActive);
-        }
+
         ++nIndex;
     }
 
     pMenu->InsertSeparator();
 
-    // Add entry for docking or un-docking the tool panel.
-    if (mpParentWindow->IsFloatingMode())
-        pMenu->InsertItem(MID_LOCK_TASK_PANEL, SfxResId(STR_SFX_DOCK));
-    else
-        pMenu->InsertItem(MID_UNLOCK_TASK_PANEL, SfxResId(STR_SFX_UNDOCK));
+    // LOK doesn't support docked/undocked; Sidebar is floating but rendered docked in browser.
+    if (!comphelper::LibreOfficeKit::isActive())
+    {
+        // Add entry for docking or un-docking the tool panel.
+        if (mpParentWindow->IsFloatingMode())
+            pMenu->InsertItem(MID_LOCK_TASK_PANEL, SfxResId(STR_SFX_DOCK));
+        else
+            pMenu->InsertItem(MID_UNLOCK_TASK_PANEL, SfxResId(STR_SFX_UNDOCK));
+    }
 
     pMenu->InsertItem(MID_HIDE_SIDEBAR, SfxResId(SFX_STR_SIDEBAR_HIDE_SIDEBAR));
-    pCustomizationMenu->InsertSeparator();
-    pCustomizationMenu->InsertItem(MID_RESTORE_DEFAULT, SfxResId(SFX_STR_SIDEBAR_RESTORE));
 
-    pMenu->InsertItem(MID_CUSTOMIZATION, SfxResId(SFX_STR_SIDEBAR_CUSTOMIZATION));
-    pMenu->SetPopupMenu(MID_CUSTOMIZATION, pCustomizationMenu);
+    // No Restore or Customize options for LoKit.
+    if (!comphelper::LibreOfficeKit::isActive())
+    {
+        pCustomizationMenu->InsertSeparator();
+        pCustomizationMenu->InsertItem(MID_RESTORE_DEFAULT, SfxResId(SFX_STR_SIDEBAR_RESTORE));
+
+        pMenu->InsertItem(MID_CUSTOMIZATION, SfxResId(SFX_STR_SIDEBAR_CUSTOMIZATION));
+        pMenu->SetPopupMenu(MID_CUSTOMIZATION, pCustomizationMenu);
+    }
 
     pMenu->RemoveDisabledEntries(false);
 
@@ -1070,10 +1156,20 @@ IMPL_LINK(SidebarController, OnMenuItemSelected, Menu*, pMenu, bool)
 
         case MID_HIDE_SIDEBAR:
         {
-            const util::URL aURL (Tools::GetURL(".uno:Sidebar"));
-            Reference<frame::XDispatch> xDispatch (Tools::GetDispatch(mxFrame, aURL));
-            if (xDispatch.is())
+            if (!comphelper::LibreOfficeKit::isActive())
+            {
+                const util::URL aURL(Tools::GetURL(".uno:Sidebar"));
+                Reference<frame::XDispatch> xDispatch(Tools::GetDispatch(mxFrame, aURL));
+                if (xDispatch.is())
                     xDispatch->dispatch(aURL, Sequence<beans::PropertyValue>());
+            }
+            else
+            {
+                // In LOK we don't really destroy the sidebar when "closing";
+                // we simply hide it. This is because recreating it is problematic
+                // See notes in SidebarDockingWindow::NotifyResize().
+                RequestCloseDeck();
+            }
             break;
         }
         default:
@@ -1125,6 +1221,11 @@ void SidebarController::RequestCloseDeck()
 
 void SidebarController::RequestOpenDeck()
 {
+    SfxSplitWindow* pSplitWindow = GetSplitWindow();
+    if ( pSplitWindow && !pSplitWindow->IsFadeIn() )
+        // tdf#83546 Collapsed sidebar should expand first
+        pSplitWindow->FadeIn();
+
     mbIsDeckRequestedOpen = true;
     UpdateDeckOpenState();
 }
@@ -1150,7 +1251,7 @@ void SidebarController::UpdateDeckOpenState()
         // No state requested.
         return;
 
-    sal_Int32 nTabBarDefaultWidth = TabBar::GetDefaultWidth() * mpTabBar->GetDPIScaleFactor();
+    const sal_Int32 nTabBarDefaultWidth = TabBar::GetDefaultWidth() * mpTabBar->GetDPIScaleFactor();
 
     // Update (change) the open state when it either has not yet been initialized
     // or when its value differs from the requested state.
@@ -1159,15 +1260,77 @@ void SidebarController::UpdateDeckOpenState()
 
     if (mbIsDeckRequestedOpen.get())
     {
-        if (mnSavedSidebarWidth <= nTabBarDefaultWidth)
-            SetChildWindowWidth(SidebarChildWindow::GetDefaultWidth(mpParentWindow));
+        if (!mpParentWindow->IsFloatingMode())
+        {
+            if (mnSavedSidebarWidth <= nTabBarDefaultWidth)
+                SetChildWindowWidth(SidebarChildWindow::GetDefaultWidth(mpParentWindow));
+            else
+                SetChildWindowWidth(mnSavedSidebarWidth);
+        }
         else
-            SetChildWindowWidth(mnSavedSidebarWidth);
+        {
+            // Show the Deck by resizing back to the original size (before hiding).
+            Size aNewSize(mpParentWindow->GetFloatingWindow()->GetSizePixel());
+            Point aNewPos(mpParentWindow->GetFloatingWindow()->GetPosPixel());
+
+            aNewPos.setX(aNewPos.X() - mnSavedSidebarWidth + nTabBarDefaultWidth);
+            aNewSize.setWidth(mnSavedSidebarWidth);
+
+            mpParentWindow->GetFloatingWindow()->SetPosSizePixel(aNewPos, aNewSize);
+
+            if (comphelper::LibreOfficeKit::isActive())
+            {
+                // Sidebar wide enough to render the menu; enable it.
+                mpTabBar->EnableMenuButton(true);
+
+                if (const SfxViewShell* pViewShell = mpViewFrame->GetViewShell())
+                {
+                    const std::string uno = UnoNameFromDeckId(msCurrentDeckId);
+                    if (!uno.empty())
+                        pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_STATE_CHANGED,
+                                                                (uno + "=true").c_str());
+                }
+            }
+        }
     }
     else
     {
         if ( ! mpParentWindow->IsFloatingMode())
             mnSavedSidebarWidth = SetChildWindowWidth(nTabBarDefaultWidth);
+        else
+        {
+            // Hide the Deck by resizing to the width of the TabBar.
+            Size aNewSize(mpParentWindow->GetFloatingWindow()->GetSizePixel());
+            Point aNewPos(mpParentWindow->GetFloatingWindow()->GetPosPixel());
+            mnSavedSidebarWidth = aNewSize.Width(); // Save the current width to restore.
+
+            aNewPos.setX(aNewPos.X() + mnSavedSidebarWidth - nTabBarDefaultWidth);
+            if (comphelper::LibreOfficeKit::isActive())
+            {
+                // Hide by collapsing, otherwise with 0x0 the client might expect
+                // to get valid dimensions on rendering and not collapse the sidebar.
+                aNewSize.setWidth(1);
+            }
+            else
+                aNewSize.setWidth(nTabBarDefaultWidth);
+
+            mpParentWindow->GetFloatingWindow()->SetPosSizePixel(aNewPos, aNewSize);
+
+            if (comphelper::LibreOfficeKit::isActive())
+            {
+                // Sidebar too narrow to render the menu; disable it.
+                mpTabBar->EnableMenuButton(false);
+
+                if (const SfxViewShell* pViewShell = mpViewFrame->GetViewShell())
+                {
+                    const std::string uno = UnoNameFromDeckId(msCurrentDeckId);
+                    if (!uno.empty())
+                        pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_STATE_CHANGED,
+                                                                (uno + "=false").c_str());
+                }
+            }
+        }
+
         if (mnWidthOnSplitterButtonDown > nTabBarDefaultWidth)
             mnSavedSidebarWidth = mnWidthOnSplitterButtonDown;
         mpParentWindow->SetStyle(mpParentWindow->GetStyle() & ~WB_SIZEABLE);
@@ -1406,6 +1569,18 @@ void SidebarController::frameAction(const css::frame::FrameActionEvent& rEvent)
             unregisterSidebarForFrame(this, mxFrame->getController());
         else if (rEvent.Action == css::frame::FrameAction_COMPONENT_REATTACHED)
             registerSidebarForFrame(this, mxFrame->getController());
+    }
+}
+
+void SidebarController::saveDeckState()
+{
+    // Impress shutdown : context (frame) is disposed before sidebar disposing
+    // calc writer : context (frame) is disposed after sidebar disposing
+    // so need to test if GetCurrentContext is still valid regarding msApplication
+    if (GetCurrentContext().msApplication != "none")
+    {
+        mpResourceManager->SaveDecksSettings(GetCurrentContext());
+        mpResourceManager->SaveLastActiveDeck(GetCurrentContext(), msCurrentDeckId);
     }
 }
 

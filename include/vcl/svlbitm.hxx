@@ -39,8 +39,7 @@ enum class SvBmp
     TRISTATE         = 2,
     HIUNCHECKED      = 3,
     HICHECKED        = 4,
-    HITRISTATE       = 5,
-    STATICIMAGE      = 6
+    HITRISTATE       = 5
 };
 
 enum class SvItemStateFlags
@@ -66,7 +65,7 @@ private:
     long                    nHeight;
     std::unique_ptr<SvLBoxButtonData_Impl> pImpl;
     bool                    bDataOk;
-    std::vector<Image>      aBmps;  // indices s. constants BMP_ ....
+    std::vector<Image>      aBmps;  // indices s. constants BMP_...
 
     VCL_DLLPRIVATE void     SetWidthAndHeight();
     VCL_DLLPRIVATE void     InitData( bool _bRadioBtn, const Control* pControlForSettings );
@@ -81,7 +80,7 @@ public:
     long                    Width();
     long                    Height();
     void                    SetLink( const Link<SvLBoxButtonData*,void>& rLink) { aLink=rLink; }
-    bool                    IsRadio();
+    bool                    IsRadio() const;
     // as buttons are not derived from LinkHdl
     void                    CallLink();
 
@@ -145,17 +144,15 @@ class VCL_DLLPUBLIC SvLBoxButton : public SvLBoxItem
 {
     bool    isVis;
     SvLBoxButtonData*   pData;
-    SvLBoxButtonKind const eKind;
     SvItemStateFlags nItemFlags;
 
     static void ImplAdjustBoxSize( Size& io_rCtrlSize, ControlType i_eType, vcl::RenderContext const & pRenderContext);
 public:
-    // An SvLBoxButton can be of three different kinds: an
-    // enabled checkbox (the normal kind), a disabled checkbox
-    // (which cannot be modified via UI), or a static image
+    // An SvLBoxButton can be of two different kinds: an
+    // enabled checkbox (the normal kind), or a static image
     // (see SV_BMP_STATICIMAGE; nFlags are effectively ignored
     // for that kind).
-    SvLBoxButton( SvLBoxButtonKind eTheKind, SvLBoxButtonData* pBData );
+    SvLBoxButton( SvLBoxButtonData* pBData );
     SvLBoxButton();
     virtual ~SvLBoxButton() override;
     virtual void InitViewData(SvTreeListBox* pView,
@@ -197,11 +194,6 @@ public:
     void SetStateUnchecked();
     void SetStateTristate();
     void SetStateHilighted(bool bHilight);
-
-    SvLBoxButtonKind GetKind() const { return eKind; }
-
-    // Check whether this button can be modified via UI
-    bool CheckModification() const;
 };
 
 inline void SvLBoxButton::SetStateChecked()

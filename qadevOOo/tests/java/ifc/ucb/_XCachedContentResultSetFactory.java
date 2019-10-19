@@ -35,7 +35,7 @@ import com.sun.star.ucb.XCachedContentResultSetFactory;
 * <ul>
 *  <li> <code>'CachedContentResultSetStub'</code> (of type
 *   <code>com.sun.star.sdbc.XResultSet</code>):
-*   this must be an imlementation of <code>
+*   this must be an implementation of <code>
 *   com.sun.star.ucb.CachedContentResultSetStub</code> service.</li>
 * <ul> <p>
 * Test is <b> NOT </b> multithread compliant. <p>
@@ -69,7 +69,7 @@ public class _XCachedContentResultSetFactory extends MultiMethodTest {
     * of rows from result set created and its stub are retrieved
     * using their static representations and comared. <p>
     * Has <b>OK</b> status if numbers of rows are equal and they are
-    * greater then 0 (because JAR file contains at least one entry).
+    * greater than 0 (because JAR file contains at least one entry).
     */
     public void _createCachedContentResultSet() {
         boolean result = true ;

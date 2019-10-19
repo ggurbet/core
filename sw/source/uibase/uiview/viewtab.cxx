@@ -58,7 +58,7 @@
 #include <fmtcol.hxx>
 #include <section.hxx>
 #include <swruler.hxx>
-
+#include <cntfrm.hxx>
 #include <ndtxt.hxx>
 #include <pam.hxx>
 
@@ -1009,7 +1009,85 @@ void SwView::ExecTabWin( SfxRequest const & rReq )
             }
         }
         break;
+    case SID_TABLE_CHANGE_CURRENT_BORDER_POSITION:
+    {
+        if (pReqArgs)
+        {
+            const SfxPoolItem *pBorderType;
+            const SfxPoolItem *pIndex;
+            const SfxPoolItem *pOffset;
+            constexpr long constDistanceOffset = 40;
 
+            if (pReqArgs->GetItemState(SID_TABLE_BORDER_TYPE, true, &pBorderType) == SfxItemState::SET
+            && pReqArgs->GetItemState(SID_TABLE_BORDER_INDEX, true, &pIndex) == SfxItemState::SET
+            && pReqArgs->GetItemState(SID_TABLE_BORDER_OFFSET, true, &pOffset) == SfxItemState::SET)
+            {
+                const OUString sType = static_cast<const SfxStringItem*>(pBorderType)->GetValue();
+                const sal_uInt16 nIndex = static_cast<const SfxUInt16Item*>(pIndex)->GetValue();
+                const sal_Int32 nOffset = static_cast<const SfxInt32Item*>(pOffset)->GetValue();
+
+                if (sType.startsWith("column"))
+                {
+                    SwTabCols aTabCols;
+                    rSh.GetTabCols(aTabCols);
+
+                    if (sType == "column-left")
+                    {
+                        auto & rEntry = aTabCols.GetEntry(0);
+                        long nNewPosition = aTabCols.GetLeft() + long(nOffset);
+                        long nPosition = std::min(nNewPosition, rEntry.nPos - constDistanceOffset);
+                        aTabCols.SetLeft(nPosition);
+                    }
+                    else if (sType == "column-right")
+                    {
+                        auto & rEntry = aTabCols.GetEntry(aTabCols.Count() - 1);
+                        long nNewPosition = aTabCols.GetRight() + long(nOffset);
+                        long nPosition = std::max(nNewPosition, rEntry.nPos + constDistanceOffset);
+                        aTabCols.SetRight(nPosition);
+                    }
+                    else if (sType == "column-middle" && nIndex < aTabCols.Count())
+                    {
+                        auto & rEntry = aTabCols.GetEntry(nIndex);
+                        long nNewPosition = rEntry.nPos + long(nOffset);
+                        long nPosition = std::clamp(nNewPosition, rEntry.nMin, rEntry.nMax - constDistanceOffset);
+                        rEntry.nPos = nPosition;
+                    }
+
+                    rSh.SetTabCols(aTabCols, false);
+                }
+                else if (sType.startsWith("row"))
+                {
+                    SwTabCols aTabRows;
+                    rSh.GetTabRows(aTabRows);
+
+                    if (sType == "row-left")
+                    {
+                        auto & rEntry = aTabRows.GetEntry(0);
+                        long nNewPosition = aTabRows.GetLeft() + long(nOffset);
+                        long nPosition = std::min(nNewPosition, rEntry.nPos - constDistanceOffset);
+                        aTabRows.SetLeft(nPosition);
+                    }
+                    else if (sType == "row-right")
+                    {
+                        auto & rEntry = aTabRows.GetEntry(aTabRows.Count() - 1);
+                        long nNewPosition = aTabRows.GetRight() + long(nOffset);
+                        long nPosition = std::max(nNewPosition, rEntry.nPos + constDistanceOffset);
+                        aTabRows.SetRight(nPosition);
+                    }
+                    else if (sType == "row-middle" && nIndex < aTabRows.Count())
+                    {
+                        auto & rEntry = aTabRows.GetEntry(nIndex);
+                        long nNewPosition = rEntry.nPos + long(nOffset);
+                        long nPosition = std::clamp(nNewPosition, rEntry.nMin, rEntry.nMax - constDistanceOffset);
+                        rEntry.nPos = nPosition;
+                    }
+
+                    rSh.SetTabRows(aTabRows, false);
+                }
+            }
+        }
+    }
+    break;
     case SID_ATTR_PAGE_HEADER:
     {
         if ( pReqArgs )
@@ -2295,56 +2373,64 @@ void SwView::StateTabWin(SfxItemSet& rSet)
         case SID_ATTR_PAGE_BITMAP:
         {
             SfxItemSet aSet = rDesc.GetMaster().GetAttrSet();
-            drawing::FillStyle eXFS = aSet.GetItem(XATTR_FILLSTYLE)->GetValue();
-            XFillStyleItem aFillStyleItem( eXFS );
-            aFillStyleItem.SetWhich( SID_ATTR_PAGE_FILLSTYLE );
-            rSet.Put(aFillStyleItem);
-            switch(eXFS)
+            if (const auto pFillStyleItem = aSet.GetItem(XATTR_FILLSTYLE))
             {
-                case drawing::FillStyle_SOLID:
-                {
-                    Color aColor = aSet.GetItem<XFillColorItem>( XATTR_FILLCOLOR, false )->GetColorValue();
-                    XFillColorItem aFillColorItem( OUString(), aColor );
-                    aFillColorItem.SetWhich( SID_ATTR_PAGE_COLOR );
-                    rSet.Put( aFillColorItem );
-                }
-                break;
+                drawing::FillStyle eXFS = pFillStyleItem->GetValue();
+                XFillStyleItem aFillStyleItem( eXFS );
+                aFillStyleItem.SetWhich( SID_ATTR_PAGE_FILLSTYLE );
+                rSet.Put(aFillStyleItem);
 
-                case drawing::FillStyle_GRADIENT:
+                switch(eXFS)
                 {
-                    const XGradient& xGradient = aSet.GetItem<XFillGradientItem>( XATTR_FILLGRADIENT )->GetGradientValue();
-                    XFillGradientItem aFillGradientItem( OUString(), xGradient, SID_ATTR_PAGE_GRADIENT  );
-                    rSet.Put( aFillGradientItem );
-                }
-                break;
+                    case drawing::FillStyle_SOLID:
+                    {
+                        if (const auto pItem = aSet.GetItem<XFillColorItem>(XATTR_FILLCOLOR, false))
+                        {
+                            Color aColor = pItem->GetColorValue();
+                            XFillColorItem aFillColorItem( OUString(), aColor );
+                            aFillColorItem.SetWhich( SID_ATTR_PAGE_COLOR );
+                            rSet.Put( aFillColorItem );
+                        }
+                        break;
+                    }
 
-                case drawing::FillStyle_HATCH:
-                {
-                    const XFillHatchItem *pFillHatchItem( aSet.GetItem<XFillHatchItem>( XATTR_FILLHATCH ) );
-                    XFillHatchItem aFillHatchItem( pFillHatchItem->GetName(), pFillHatchItem->GetHatchValue());
-                    aFillHatchItem.SetWhich( SID_ATTR_PAGE_HATCH );
-                    rSet.Put( aFillHatchItem );
-                }
-                break;
+                    case drawing::FillStyle_GRADIENT:
+                    {
+                        const XGradient& xGradient = aSet.GetItem<XFillGradientItem>( XATTR_FILLGRADIENT )->GetGradientValue();
+                        XFillGradientItem aFillGradientItem( OUString(), xGradient, SID_ATTR_PAGE_GRADIENT  );
+                        rSet.Put( aFillGradientItem );
+                    }
+                    break;
 
-                case drawing::FillStyle_BITMAP:
-                {
-                    const XFillBitmapItem *pFillBitmapItem = aSet.GetItem<XFillBitmapItem>( XATTR_FILLBITMAP );
-                    XFillBitmapItem aFillBitmapItem( pFillBitmapItem->GetName(), pFillBitmapItem->GetGraphicObject() );
-                    aFillBitmapItem.SetWhich( SID_ATTR_PAGE_BITMAP );
-                    rSet.Put( aFillBitmapItem );
-                }
-                break;
-                case drawing::FillStyle_NONE:
-                {
-                }
-                break;
+                    case drawing::FillStyle_HATCH:
+                    {
+                        const XFillHatchItem *pFillHatchItem( aSet.GetItem<XFillHatchItem>( XATTR_FILLHATCH ) );
+                        XFillHatchItem aFillHatchItem( pFillHatchItem->GetName(), pFillHatchItem->GetHatchValue());
+                        aFillHatchItem.SetWhich( SID_ATTR_PAGE_HATCH );
+                        rSet.Put( aFillHatchItem );
+                    }
+                    break;
 
-                default:
-                break;
+                    case drawing::FillStyle_BITMAP:
+                    {
+                        const XFillBitmapItem *pFillBitmapItem = aSet.GetItem<XFillBitmapItem>( XATTR_FILLBITMAP );
+                        XFillBitmapItem aFillBitmapItem( pFillBitmapItem->GetName(), pFillBitmapItem->GetGraphicObject() );
+                        aFillBitmapItem.SetWhich( SID_ATTR_PAGE_BITMAP );
+                        rSet.Put( aFillBitmapItem );
+                    }
+                    break;
+                    case drawing::FillStyle_NONE:
+                    {
+                    }
+                    break;
+
+                    default:
+                    break;
+                }
             }
+            break;
         }
-        break;
+
         }
         nWhich = aIter.NextWhich();
     }

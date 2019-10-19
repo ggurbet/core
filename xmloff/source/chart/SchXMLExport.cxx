@@ -43,19 +43,15 @@
 #include <xmloff/families.hxx>
 #include <xmloff/xmlaustp.hxx>
 #include <xmloff/xmluconv.hxx>
-#include <xmloff/xmlmetae.hxx>
 #include <xmloff/SchXMLSeriesHelper.hxx>
-#include <xexptran.hxx>
 #include <rtl/math.hxx>
 
 #include <vector>
-#include <typeinfo>
 #include <algorithm>
 #include <queue>
 #include <iterator>
 #include <numeric>
 
-#include <com/sun/star/task/XStatusIndicatorSupplier.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XServiceName.hpp>
@@ -66,18 +62,14 @@
 #include <com/sun/star/chart/XAxis.hpp>
 #include <com/sun/star/chart/XAxisSupplier.hpp>
 #include <com/sun/star/chart/XChartDocument.hpp>
-#include <com/sun/star/chart/ChartLegendPosition.hpp>
 #include <com/sun/star/chart/ChartLegendExpansion.hpp>
 #include <com/sun/star/chart/ChartDataRowSource.hpp>
 #include <com/sun/star/chart/ChartAxisAssign.hpp>
-#include <com/sun/star/chart/ChartAxisType.hpp>
 #include <com/sun/star/chart/TimeIncrement.hpp>
 #include <com/sun/star/chart/TimeInterval.hpp>
 #include <com/sun/star/chart/TimeUnit.hpp>
-#include <com/sun/star/chart/ChartSeriesAddress.hpp>
 #include <com/sun/star/chart/X3DDisplay.hpp>
 #include <com/sun/star/chart/XStatisticDisplay.hpp>
-#include <com/sun/star/chart/XSecondAxisTitleSupplier.hpp>
 #include <com/sun/star/chart/XDiagramPositioning.hpp>
 
 #include <com/sun/star/chart2/XAnyDescriptionAccess.hpp>
@@ -91,7 +83,6 @@
 #include <com/sun/star/chart2/XDataSeriesContainer.hpp>
 #include <com/sun/star/chart2/data/XDataSource.hpp>
 #include <com/sun/star/chart2/data/XDataSink.hpp>
-#include <com/sun/star/chart2/data/XDataReceiver.hpp>
 #include <com/sun/star/chart2/data/XDataProvider.hpp>
 #include <com/sun/star/chart2/data/XDatabaseDataProvider.hpp>
 #include <com/sun/star/chart2/data/XPivotTableDataProvider.hpp>
@@ -100,8 +91,6 @@
 #include <com/sun/star/chart2/data/XNumericalDataSequence.hpp>
 
 #include <com/sun/star/util/MeasureUnit.hpp>
-#include <com/sun/star/util/XStringMapping.hpp>
-#include <com/sun/star/drawing/HomogenMatrix.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
 #include <com/sun/star/drawing/XShapes.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
@@ -212,7 +201,7 @@ public:
 
     void exportPropertyMapping(
         const css::uno::Reference< css::chart2::data::XDataSource > & xSource,
-        Sequence< OUString >& rSupportedMappings );
+        const Sequence< OUString >& rSupportedMappings );
 
     void exportCandleStickSeries(
         const css::uno::Sequence<
@@ -319,7 +308,7 @@ Reference< chart2::data::XLabeledDataSequence > lcl_getCategories( const Referen
     {
         Reference< chart2::XCoordinateSystemContainer > xCooSysCnt(
             xDiagram, uno::UNO_QUERY_THROW );
-        Sequence< Reference< chart2::XCoordinateSystem > > aCooSysSeq(
+        const Sequence< Reference< chart2::XCoordinateSystem > > aCooSysSeq(
             xCooSysCnt->getCoordinateSystems());
         for( const auto& rCooSys : aCooSysSeq )
         {
@@ -881,7 +870,7 @@ void lcl_exportNumberFormat( const OUString& rPropertyName, const Reference< bea
     if( !xErrorBarDataSource.is())
         return aResult;
 
-    Sequence< Reference< chart2::data::XLabeledDataSequence > > aSequences(
+    const Sequence< Reference< chart2::data::XLabeledDataSequence > > aSequences(
         xErrorBarDataSource->getDataSequences());
     for( const auto& rSequence : aSequences )
     {
@@ -951,7 +940,7 @@ SchXMLExportHelper::~SchXMLExportHelper()
 {
 }
 
-const OUString& SchXMLExportHelper::getChartCLSID()
+const OUString& SchXMLExportHelper::getChartCLSID() const
 {
     return m_pImpl->msCLSID;
 }
@@ -1149,7 +1138,7 @@ void SchXMLExportHelper_Impl::parseDocument( Reference< chart::XChartDocument > 
     // get property states for autostyles
     if( mxExpPropMapper.is())
     {
-        Reference< beans::XPropertySet > xPropSet( rChartDoc->getArea(), uno::UNO_QUERY );
+        Reference< beans::XPropertySet > xPropSet = rChartDoc->getArea();
         if( xPropSet.is())
             aPropertyStates = mxExpPropMapper->Filter( xPropSet );
     }
@@ -1194,7 +1183,7 @@ void SchXMLExportHelper_Impl::parseDocument( Reference< chart::XChartDocument > 
 
             if( eXMLChartType == XML_ADD_IN )
             {
-                // sChartType is the servie-name of the add-in
+                // sChartType is the service-name of the add-in
                 mrExport.AddAttribute( XML_NAMESPACE_CHART, XML_CLASS,
                                        mrExport.GetNamespaceMap().GetQNameByKey(
                                            XML_NAMESPACE_OOO, sChartType) );
@@ -1448,7 +1437,7 @@ void SchXMLExportHelper_Impl::parseDocument( Reference< chart::XChartDocument > 
                 SAL_WARN_IF( !xSupplier.is(), "xmloff.chart", "Cannot retrieve draw page to initialize shape export" );
                 if( xSupplier.is() )
                 {
-                    Reference< drawing::XShapes > xDrawPage( xSupplier->getDrawPage(), uno::UNO_QUERY );
+                    Reference< drawing::XShapes > xDrawPage = xSupplier->getDrawPage();
                     SAL_WARN_IF( !xDrawPage.is(), "xmloff.chart", "Invalid draw page for initializing shape export" );
                     if( xDrawPage.is())
                         mrExport.GetShapeExport()->seekShapes( xDrawPage );
@@ -1856,11 +1845,10 @@ void SchXMLExportHelper_Impl::exportPlotArea(
         }
 
         // attributes
-        Reference< drawing::XShape > xShape ( xDiagram, uno::UNO_QUERY );
-        if( xShape.is())
+        if( xDiagram.is())
         {
-            addPosition( xShape );
-            addSize( xShape );
+            addPosition( xDiagram );
+            addSize( xDiagram );
         }
 
         bool bIs3DChart = false;
@@ -1996,7 +1984,7 @@ void SchXMLExportHelper_Impl::exportPlotArea(
         // remove property states for autostyles
         aPropertyStates.clear();
 
-        Reference< beans::XPropertySet > xWallPropSet( xWallFloorSupplier->getWall(), uno::UNO_QUERY );
+        Reference< beans::XPropertySet > xWallPropSet = xWallFloorSupplier->getWall();
         if( xWallPropSet.is())
         {
             aPropertyStates = mxExpPropMapper->Filter( xWallPropSet );
@@ -2022,7 +2010,7 @@ void SchXMLExportHelper_Impl::exportPlotArea(
         // remove property states for autostyles
         aPropertyStates.clear();
 
-        Reference< beans::XPropertySet > xFloorPropSet( xWallFloorSupplier->getFloor(), uno::UNO_QUERY );
+        Reference< beans::XPropertySet > xFloorPropSet = xWallFloorSupplier->getFloor();
         if( xFloorPropSet.is())
         {
             aPropertyStates = mxExpPropMapper->Filter( xFloorPropSet );
@@ -2488,14 +2476,14 @@ void SchXMLExportHelper_Impl::exportSeries(
 
     std::vector< XMLPropertyState > aPropertyStates;
 
-    Sequence< Reference< chart2::XCoordinateSystem > >
+    const Sequence< Reference< chart2::XCoordinateSystem > >
         aCooSysSeq( xBCooSysCnt->getCoordinateSystems());
     for( const auto& rCooSys : aCooSysSeq )
     {
         Reference< chart2::XChartTypeContainer > xCTCnt( rCooSys, uno::UNO_QUERY );
         if( ! xCTCnt.is())
             continue;
-        Sequence< Reference< chart2::XChartType > > aCTSeq( xCTCnt->getChartTypes());
+        const Sequence< Reference< chart2::XChartType > > aCTSeq( xCTCnt->getChartTypes());
         for( const auto& rChartType : aCTSeq )
         {
             Reference< chart2::XDataSeriesContainer > xDSCnt( rChartType, uno::UNO_QUERY );
@@ -2813,7 +2801,7 @@ void SchXMLExportHelper_Impl::exportSeries(
 }
 
 void SchXMLExportHelper_Impl::exportPropertyMapping(
-    const Reference< chart2::data::XDataSource > & xSource, Sequence< OUString >& rSupportedMappings )
+    const Reference< chart2::data::XDataSource > & xSource, const Sequence< OUString >& rSupportedMappings )
 {
     Reference< chart2::XChartDocument > xNewDoc( mrExport.GetModel(), uno::UNO_QUERY );
     Sequence< Reference< chart2::data::XLabeledDataSequence > > aSeqCnt(
@@ -2852,7 +2840,7 @@ void SchXMLExportHelper_Impl::exportRegressionCurve(
     Reference< chart2::XRegressionCurveContainer > xRegressionCurveContainer( xSeries, uno::UNO_QUERY );
     if( xRegressionCurveContainer.is() )
     {
-        Sequence< Reference< chart2::XRegressionCurve > > aRegCurveSeq = xRegressionCurveContainer->getRegressionCurves();
+        const Sequence< Reference< chart2::XRegressionCurve > > aRegCurveSeq = xRegressionCurveContainer->getRegressionCurves();
 
         for( const auto& xRegCurve : aRegCurveSeq )
         {
@@ -3594,7 +3582,7 @@ void SchXMLExportHelper_Impl::InitRangeSegmentationProperties( const Reference< 
             if( xDataProvider.is())
             {
                 Reference< chart2::data::XDataSource > xDataSource( lcl_pressUsedDataIntoRectangularFormat( xChartDoc, mbHasCategoryLabels ));
-                Sequence< beans::PropertyValue > aArgs( xDataProvider->detectArguments( xDataSource ));
+                const Sequence< beans::PropertyValue > aArgs( xDataProvider->detectArguments( xDataSource ));
                 OUString sCellRange, sBrokenRange;
                 bool bBrokenRangeAvailable = false;
                 for( const auto& rArg : aArgs )
@@ -3644,7 +3632,7 @@ Sequence< OUString > SchXMLExport_getSupportedServiceNames() throw()
 
 OUString SchXMLExport_getImplementationName() throw()
 {
-    return OUString(  "SchXMLExport.Compact"  );
+    return "SchXMLExport.Compact";
 }
 
 Reference< uno::XInterface > SchXMLExport_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)
@@ -3661,7 +3649,7 @@ Sequence< OUString > SchXMLExport_Oasis_getSupportedServiceNames() throw()
 
 OUString SchXMLExport_Oasis_getImplementationName() throw()
 {
-    return OUString(  "SchXMLExport.Oasis.Compact"  );
+    return "SchXMLExport.Oasis.Compact";
 }
 
 Reference< uno::XInterface > SchXMLExport_Oasis_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)
@@ -3681,7 +3669,7 @@ Sequence< OUString > SchXMLExport_Styles_getSupportedServiceNames() throw()
 
 OUString SchXMLExport_Styles_getImplementationName() throw()
 {
-    return OUString(  "SchXMLExport.Styles" );
+    return "SchXMLExport.Styles";
 }
 
 Reference< uno::XInterface > SchXMLExport_Styles_createInstance(const Reference< lang::XMultiServiceFactory >& rSMgr)
@@ -3697,7 +3685,7 @@ Sequence< OUString > SchXMLExport_Oasis_Styles_getSupportedServiceNames() throw(
 
 OUString SchXMLExport_Oasis_Styles_getImplementationName() throw()
 {
-    return OUString( "SchXMLExport.Oasis.Styles" );
+    return "SchXMLExport.Oasis.Styles";
 }
 
 Reference< uno::XInterface > SchXMLExport_Oasis_Styles_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)
@@ -3712,7 +3700,7 @@ Sequence< OUString > SchXMLExport_Content_getSupportedServiceNames() throw()
 
 OUString SchXMLExport_Content_getImplementationName() throw()
 {
-    return OUString(  "SchXMLExport.Content" );
+    return "SchXMLExport.Content";
 }
 
 Reference< uno::XInterface > SchXMLExport_Content_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)
@@ -3728,7 +3716,7 @@ Sequence< OUString > SchXMLExport_Oasis_Content_getSupportedServiceNames() throw
 
 OUString SchXMLExport_Oasis_Content_getImplementationName() throw()
 {
-    return OUString(  "SchXMLExport.Oasis.Content" );
+    return "SchXMLExport.Oasis.Content";
 }
 
 Reference< uno::XInterface > SchXMLExport_Oasis_Content_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)
@@ -3744,7 +3732,7 @@ Sequence< OUString > SchXMLExport_Oasis_Meta_getSupportedServiceNames() throw()
 
 OUString SchXMLExport_Oasis_Meta_getImplementationName() throw()
 {
-    return OUString(  "SchXMLExport.Oasis.Meta" );
+    return "SchXMLExport.Oasis.Meta";
 }
 
 Reference< uno::XInterface > SchXMLExport_Oasis_Meta_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)

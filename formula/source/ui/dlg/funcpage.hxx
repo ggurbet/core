@@ -53,7 +53,7 @@ private:
 
     DECL_LINK(SelComboBoxHdl, weld::ComboBox&, void);
     DECL_LINK(SelTreeViewHdl, weld::TreeView&, void);
-    DECL_LINK(DblClkHdl, weld::TreeView&, void);
+    DECL_LINK(DblClkHdl, weld::TreeView&, bool);
     DECL_LINK(KeyInputHdl, const KeyEvent&, bool);
     DECL_LINK(ModifyHdl, weld::Entry&, void);
 
@@ -67,9 +67,9 @@ public:
     void            SetCategory(sal_Int32  nCat);
     void            SetFunction(sal_Int32  nFunc);
     void            SetFocus();
-    sal_Int32       GetCategory();
-    sal_Int32       GetFunction();
-    sal_Int32       GetFunctionEntryCount();
+    sal_Int32       GetCategory() const;
+    sal_Int32       GetFunction() const;
+    sal_Int32       GetFunctionEntryCount() const;
 
     sal_Int32       GetFuncPos(const IFunctionDescription* _pDesc);
     const IFunctionDescription* GetFuncDesc( sal_Int32  nPos ) const;
@@ -79,7 +79,7 @@ public:
 
     void            SetSelectHdl( const Link<FuncPage&,void>& rLink ) { aSelectionLink = rLink; }
 
-    bool            IsVisible() { return m_xContainer->get_visible(); }
+    bool            IsVisible() const { return m_xContainer->get_visible(); }
 };
 
 } // formula

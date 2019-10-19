@@ -245,8 +245,7 @@ const css::uno::Sequence< sal_Int8 > & SvxUnoTextField::getUnoTunnelId() throw()
 
 sal_Int64 SAL_CALL SvxUnoTextField::getSomething( const css::uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                                         rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SvxUnoTextField>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }
@@ -619,39 +618,39 @@ OUString SAL_CALL SvxUnoTextField::getPresentation( sal_Bool bShowCommand )
         switch (mnServiceId)
         {
             case text::textfield::Type::DATE:
-                return OUString("Date");
+                return "Date";
             case text::textfield::Type::URL:
-                return OUString("URL");
+                return "URL";
             case text::textfield::Type::PAGE:
-                return OUString("Page");
+                return "Page";
             case text::textfield::Type::PAGES:
-                return OUString("Pages");
+                return "Pages";
             case text::textfield::Type::TIME:
-                return OUString("Time");
+                return "Time";
             case text::textfield::Type::DOCINFO_TITLE:
-                return OUString("File");
+                return "File";
             case text::textfield::Type::TABLE:
-                return OUString("Table");
+                return "Table";
             case text::textfield::Type::EXTENDED_TIME:
-                return OUString("ExtTime");
+                return "ExtTime";
             case text::textfield::Type::EXTENDED_FILE:
-                return OUString("ExtFile");
+                return "ExtFile";
             case text::textfield::Type::AUTHOR:
-                return OUString("Author");
+                return "Author";
             case text::textfield::Type::MEASURE:
-                return OUString("Measure");
+                return "Measure";
             case text::textfield::Type::PRESENTATION_HEADER:
-                return OUString("Header");
+                return "Header";
             case text::textfield::Type::PRESENTATION_FOOTER:
-                return OUString("Footer");
+                return "Footer";
             case text::textfield::Type::PRESENTATION_DATE_TIME:
-                return OUString("DateTime");
+                return "DateTime";
             case text::textfield::Type::PAGE_NAME:
-                return OUString("PageName");
+                return "PageName";
             case text::textfield::Type::DOCINFO_CUSTOM:
-                return OUString("Custom");
+                return "Custom";
             default:
-                return OUString("Unknown");
+                return "Unknown";
         }
     }
     else
@@ -716,7 +715,7 @@ void SAL_CALL SvxUnoTextField::setPropertyValue( const OUString& aPropertyName, 
 
     const SfxItemPropertySimpleEntry* pMap = mpPropSet->getPropertyMap().getByName( aPropertyName );
     if ( !pMap )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     switch( pMap->nWID )
     {
@@ -771,7 +770,7 @@ uno::Any SAL_CALL SvxUnoTextField::getPropertyValue( const OUString& PropertyNam
 
     const SfxItemPropertySimpleEntry* pMap = mpPropSet->getPropertyMap().getByName( PropertyName );
     if ( !pMap )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(PropertyName);
 
     switch( pMap->nWID )
     {
@@ -818,7 +817,7 @@ void SvxUnoTextField::disposing()
 // lang::XServiceInfo
 OUString SAL_CALL SvxUnoTextField::getImplementationName()
 {
-    return OUString("SvxUnoTextField");
+    return "SvxUnoTextField";
 }
 
 uno::Sequence< OUString > SAL_CALL SvxUnoTextField::getSupportedServiceNames()

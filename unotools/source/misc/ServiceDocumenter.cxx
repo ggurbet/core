@@ -9,6 +9,7 @@
 #include "ServiceDocumenter.hxx"
 #include <unotoolsservices.hxx>
 #include <comphelper/servicedecl.hxx>
+#include <com/sun/star/system/SystemShellExecuteFlags.hpp>
 #include <com/sun/star/system/XSystemShellExecute.hpp>
 using namespace com::sun::star;
 using uno::Reference;
@@ -21,7 +22,9 @@ void unotools::misc::ServiceDocumenter::showCoreDocs(const Reference<XServiceInf
         return;
     auto xMSF(m_xContext->getServiceManager());
     Reference<system::XSystemShellExecute> xShell(xMSF->createInstanceWithContext("com.sun.star.system.SystemShellExecute", m_xContext), uno::UNO_QUERY);
-    xShell->execute(m_sCoreBaseUrl + xService->getImplementationName() + ".html", "", 0);
+    xShell->execute(
+        m_sCoreBaseUrl + xService->getImplementationName() + ".html", "",
+        css::system::SystemShellExecuteFlags::URIS_ONLY);
 }
 
 void unotools::misc::ServiceDocumenter::showInterfaceDocs(const Reference<XTypeProvider>& xTypeProvider)
@@ -30,13 +33,16 @@ void unotools::misc::ServiceDocumenter::showInterfaceDocs(const Reference<XTypeP
         return;
     auto xMSF(m_xContext->getServiceManager());
     Reference<system::XSystemShellExecute> xShell(xMSF->createInstanceWithContext("com.sun.star.system.SystemShellExecute", m_xContext), uno::UNO_QUERY);
-    for(const auto& aType : xTypeProvider->getTypes())
+    const css::uno::Sequence<css::uno::Type> aTypes = xTypeProvider->getTypes();
+    for(const auto& aType : aTypes)
     {
         auto sUrl = aType.getTypeName();
         sal_Int32 nIdx = 0;
         while(nIdx != -1)
             sUrl = sUrl.replaceFirst(".", "_1_1", &nIdx);
-        xShell->execute(m_sServiceBaseUrl + "/interface" + sUrl + ".html", "", 0);
+        xShell->execute(
+            m_sServiceBaseUrl + "/interface" + sUrl + ".html", "",
+            css::system::SystemShellExecuteFlags::URIS_ONLY);
     }
 }
 
@@ -46,13 +52,16 @@ void unotools::misc::ServiceDocumenter::showServiceDocs(const Reference<XService
         return;
     auto xMSF(m_xContext->getServiceManager());
     Reference<system::XSystemShellExecute> xShell(xMSF->createInstanceWithContext("com.sun.star.system.SystemShellExecute", m_xContext), uno::UNO_QUERY);
-    for(const auto& sService : xService->getSupportedServiceNames())
+    const css::uno::Sequence<OUString> aServiceNames = xService->getSupportedServiceNames();
+    for(const auto& sService : aServiceNames)
     {
         auto sUrl = sService;
         sal_Int32 nIdx = 0;
         while(nIdx != -1)
             sUrl = sUrl.replaceFirst(".", "_1_1", &nIdx);
-        xShell->execute(m_sServiceBaseUrl + "/service" + sUrl + ".html", "", 0);
+        xShell->execute(
+            m_sServiceBaseUrl + "/service" + sUrl + ".html", "",
+            css::system::SystemShellExecuteFlags::URIS_ONLY);
     }
 }
 

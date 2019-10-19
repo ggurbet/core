@@ -47,6 +47,7 @@
 #include <rtl/strbuf.hxx>
 #include <rtl/uri.hxx>
 #include <cppuhelper/bootstrap.hxx>
+#include <comphelper/base64.hxx>
 #include <comphelper/dispatchcommand.hxx>
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
@@ -55,7 +56,6 @@
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/scopeguard.hxx>
 #include <comphelper/threadpool.hxx>
-#include <comphelper/base64.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -78,6 +78,7 @@
 #include <com/sun/star/util/URLTransformer.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
 #include <com/sun/star/datatransfer/UnsupportedFlavorException.hpp>
+#include <com/sun/star/datatransfer/XTransferable2.hpp>
 #include <com/sun/star/text/TextContentAnchorType.hpp>
 #include <com/sun/star/document/XRedlinesSupplier.hpp>
 #include <com/sun/star/ui/GlobalAcceleratorConfiguration.hpp>
@@ -146,6 +147,7 @@
 #include <vcl/builder.hxx>
 #include <vcl/abstdlg.hxx>
 #include <tools/diagnose_ex.h>
+#include <vcl/uitest/uiobject.hxx>
 
 #include <app.hxx>
 
@@ -170,6 +172,7 @@ static std::weak_ptr< LibreOfficeKitDocumentClass > gDocumentClass;
 
 static void SetLastExceptionMsg(const OUString& s = OUString())
 {
+    SAL_WARN_IF(!s.isEmpty(), "lok", "lok exception '" + s + "'");
     if (gImpl)
         gImpl->maLastExceptionMsg = s;
 }
@@ -366,9 +369,21 @@ std::vector<beans::PropertyValue> desktop::jsonToPropertyValuesVector(const char
             else if (rType == "long")
                 aValue.Value <<= OString(rValue.c_str()).toInt32();
             else if (rType == "short")
-                aValue.Value <<= static_cast<sal_Int16>(OString(rValue.c_str()).toInt32());
+                aValue.Value <<= sal_Int16(OString(rValue.c_str()).toInt32());
             else if (rType == "unsigned short")
-                aValue.Value <<= static_cast<sal_uInt16>(OString(rValue.c_str()).toUInt32());
+                aValue.Value <<= sal_uInt16(OString(rValue.c_str()).toUInt32());
+            else if (rType == "int64")
+                aValue.Value <<= OString(rValue.c_str()).toInt64();
+            else if (rType == "int32")
+                aValue.Value <<= OString(rValue.c_str()).toInt32();
+            else if (rType == "int16")
+                aValue.Value <<= sal_Int16(OString(rValue.c_str()).toInt32());
+            else if (rType == "uint64")
+                aValue.Value <<= OString(rValue.c_str()).toUInt64();
+            else if (rType == "uint32")
+                aValue.Value <<= OString(rValue.c_str()).toUInt32();
+            else if (rType == "uint16")
+                aValue.Value <<= sal_uInt16(OString(rValue.c_str()).toUInt32());
             else if (rType == "[]byte")
             {
                 aNodeValue = rPair.second.get_child("value", aNodeNull);
@@ -710,6 +725,8 @@ static int doc_getParts(LibreOfficeKitDocument* pThis);
 static char* doc_getPartPageRectangles(LibreOfficeKitDocument* pThis);
 static int doc_getPart(LibreOfficeKitDocument* pThis);
 static void doc_setPart(LibreOfficeKitDocument* pThis, int nPart);
+static void doc_selectPart(LibreOfficeKitDocument* pThis, int nPart, int nSelect);
+static void doc_moveSelectedParts(LibreOfficeKitDocument* pThis, int nPosition, bool bDuplicate);
 static char* doc_getPartName(LibreOfficeKitDocument* pThis, int nPart);
 static void doc_setPartMode(LibreOfficeKitDocument* pThis, int nPartMode);
 static void doc_paintTile(LibreOfficeKitDocument* pThis,
@@ -748,6 +765,13 @@ static void doc_postWindowExtTextInputEvent(LibreOfficeKitDocument* pThis,
                                             unsigned nWindowId,
                                             int nType,
                                             const char* pText);
+static void doc_removeTextContext(LibreOfficeKitDocument* pThis,
+                                  unsigned nLOKWindowId,
+                                  int nCharBefore,
+                                  int nCharAfter);
+static void doc_sendDialogEvent(LibreOfficeKitDocument* pThis,
+                               unsigned nLOKWindowId,
+                               const char* pArguments);
 static void doc_postWindowKeyEvent(LibreOfficeKitDocument* pThis,
                                    unsigned nLOKWindowId,
                                    int nType,
@@ -785,6 +809,18 @@ static void doc_setTextSelection (LibreOfficeKitDocument* pThis,
 static char* doc_getTextSelection(LibreOfficeKitDocument* pThis,
                                   const char* pMimeType,
                                   char** pUsedMimeType);
+static int doc_getSelectionType(LibreOfficeKitDocument* pThis);
+static int doc_getClipboard (LibreOfficeKitDocument* pThis,
+                             const char **pMimeTypes,
+                             size_t      *pOutCount,
+                             char      ***pOutMimeTypes,
+                             size_t     **pOutSizes,
+                             char      ***pOutStreams);
+static int doc_setClipboard (LibreOfficeKitDocument* pThis,
+                             const size_t   nInCount,
+                             const char   **pInMimeTypes,
+                             const size_t  *pInSizes,
+                             const char   **pInStreams);
 static bool doc_paste(LibreOfficeKitDocument* pThis,
                       const char* pMimeType,
                       const char* pData,
@@ -844,6 +880,36 @@ static int doc_getSignatureState(LibreOfficeKitDocument* pThis);
 
 static size_t doc_renderShapeSelection(LibreOfficeKitDocument* pThis, char** pOutput);
 
+static void doc_resizeWindow(LibreOfficeKitDocument* pThis, unsigned nLOKWindowId,
+                             const int nWidth, const int nHeight);
+
+} // extern "C"
+
+namespace {
+ITiledRenderable* getTiledRenderable(LibreOfficeKitDocument* pThis)
+{
+    LibLODocument_Impl* pDocument = static_cast<LibLODocument_Impl*>(pThis);
+    return dynamic_cast<ITiledRenderable*>(pDocument->mxComponent.get());
+}
+
+/*
+ * Unfortunately clipboard creation using UNO is insanely baroque.
+ * we also need to ensure that this works for the first view which
+ * has no clear 'createView' called for it (unfortunately).
+ */
+rtl::Reference<LOKClipboard> forceSetClipboardForCurrentView(LibreOfficeKitDocument *pThis)
+{
+    ITiledRenderable* pDoc = getTiledRenderable(pThis);
+    rtl::Reference<LOKClipboard> xClip(LOKClipboardFactory::getClipboardForCurView());
+
+    SAL_INFO("lok", "Set to clipboard for view " << xClip.get());
+    // FIXME: using a hammer here - should not be necessary if all tests used createView.
+    pDoc->setClipboard(uno::Reference<datatransfer::clipboard::XClipboard>(xClip->getXI(), UNO_QUERY));
+
+    return xClip;
+}
+} // anonymous namespace
+
 LibLODocument_Impl::LibLODocument_Impl(const uno::Reference <css::lang::XComponent> &xComponent)
     : mxComponent(xComponent)
 {
@@ -860,6 +926,8 @@ LibLODocument_Impl::LibLODocument_Impl(const uno::Reference <css::lang::XCompone
         m_pDocumentClass->getPartPageRectangles = doc_getPartPageRectangles;
         m_pDocumentClass->getPart = doc_getPart;
         m_pDocumentClass->setPart = doc_setPart;
+        m_pDocumentClass->selectPart = doc_selectPart;
+        m_pDocumentClass->moveSelectedParts = doc_moveSelectedParts;
         m_pDocumentClass->getPartName = doc_getPartName;
         m_pDocumentClass->setPartMode = doc_setPartMode;
         m_pDocumentClass->paintTile = doc_paintTile;
@@ -873,12 +941,17 @@ LibLODocument_Impl::LibLODocument_Impl(const uno::Reference <css::lang::XCompone
         m_pDocumentClass->registerCallback = doc_registerCallback;
         m_pDocumentClass->postKeyEvent = doc_postKeyEvent;
         m_pDocumentClass->postWindowExtTextInputEvent = doc_postWindowExtTextInputEvent;
+        m_pDocumentClass->removeTextContext = doc_removeTextContext;
         m_pDocumentClass->postWindowKeyEvent = doc_postWindowKeyEvent;
         m_pDocumentClass->postMouseEvent = doc_postMouseEvent;
         m_pDocumentClass->postWindowMouseEvent = doc_postWindowMouseEvent;
+        m_pDocumentClass->sendDialogEvent = doc_sendDialogEvent;
         m_pDocumentClass->postUnoCommand = doc_postUnoCommand;
         m_pDocumentClass->setTextSelection = doc_setTextSelection;
         m_pDocumentClass->getTextSelection = doc_getTextSelection;
+        m_pDocumentClass->getSelectionType = doc_getSelectionType;
+        m_pDocumentClass->getClipboard = doc_getClipboard;
+        m_pDocumentClass->setClipboard = doc_setClipboard;
         m_pDocumentClass->paste = doc_paste;
         m_pDocumentClass->setGraphicSelection = doc_setGraphicSelection;
         m_pDocumentClass->resetSelection = doc_resetSelection;
@@ -900,6 +973,7 @@ LibLODocument_Impl::LibLODocument_Impl(const uno::Reference <css::lang::XCompone
         m_pDocumentClass->paintWindow = doc_paintWindow;
         m_pDocumentClass->paintWindowDPI = doc_paintWindowDPI;
         m_pDocumentClass->postWindow = doc_postWindow;
+        m_pDocumentClass->resizeWindow = doc_resizeWindow;
 
         m_pDocumentClass->setViewLanguage = doc_setViewLanguage;
 
@@ -917,6 +991,8 @@ LibLODocument_Impl::LibLODocument_Impl(const uno::Reference <css::lang::XCompone
         gDocumentClass = m_pDocumentClass;
     }
     pClass = m_pDocumentClass.get();
+
+    forceSetClipboardForCurrentView(this);
 }
 
 LibLODocument_Impl::~LibLODocument_Impl()
@@ -931,6 +1007,17 @@ LibLODocument_Impl::~LibLODocument_Impl()
     }
 }
 
+static OUString getGenerator()
+{
+    OUString sGenerator(
+        Translate::ExpandVariables("%PRODUCTNAME %PRODUCTVERSION%PRODUCTEXTENSION (%1)"));
+    OUString os("$_OS");
+    ::rtl::Bootstrap::expandMacros(os);
+    return sGenerator.replaceFirst("%1", os);
+}
+
+extern "C" {
+
 CallbackFlushHandler::CallbackFlushHandler(LibreOfficeKitDocument* pDocument, LibreOfficeKitCallback pCallback, void* pData)
     : Idle( "lokit timer callback" ),
       m_pDocument(pDocument),
@@ -941,8 +1028,8 @@ CallbackFlushHandler::CallbackFlushHandler(LibreOfficeKitDocument* pDocument, Li
 {
     SetPriority(TaskPriority::POST_PAINT);
 
-    // Add the states that are safe to skip duplicates on,
-    // even when not consequent.
+    // Add the states that are safe to skip duplicates on, even when
+    // not consequent (i.e. do no emit them if unchanged from last).
     m_states.emplace(LOK_CALLBACK_TEXT_SELECTION, "NIL");
     m_states.emplace(LOK_CALLBACK_GRAPHIC_SELECTION, "NIL");
     m_states.emplace(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR, "NIL");
@@ -977,22 +1064,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
 
     CallbackData aCallbackData(type, (data ? data : "(nil)"));
     const std::string& payload = aCallbackData.PayloadString;
-    SAL_INFO("lok", "Queue: " << type << " : " << payload);
-
-#ifdef DBG_UTIL
-    {
-        // Dump the queue state and validate cached data.
-        int i = 1;
-        std::ostringstream oss;
-        oss << '\n';
-        for (const CallbackData& c : m_queue)
-            oss << i++ << ": [" << c.Type << "] [" << c.PayloadString << "].\n";
-        const std::string aQueued = oss.str();
-        SAL_INFO("lok", "Current Queue: " << (aQueued.empty() ? "Empty" : aQueued));
-        for (const CallbackData& c : m_queue)
-            assert(c.validate());
-    }
-#endif
+    SAL_INFO("lok", "Queue: [" << type << "]: [" << payload << "] on " << m_queue.size() << " entries.");
 
     bool bIsChartActive = false;
     if (type == LOK_CALLBACK_GRAPHIC_SELECTION)
@@ -1015,7 +1087,8 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             type != LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR &&
             type != LOK_CALLBACK_CURSOR_VISIBLE &&
             type != LOK_CALLBACK_VIEW_CURSOR_VISIBLE &&
-            type != LOK_CALLBACK_TEXT_SELECTION)
+            type != LOK_CALLBACK_TEXT_SELECTION &&
+            type != LOK_CALLBACK_REFERENCE_MARKS)
         {
             SAL_INFO("lok", "Skipping while painting [" << type << "]: [" << payload << "].");
             return;
@@ -1049,7 +1122,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
         case LOK_CALLBACK_GRAPHIC_SELECTION:
         case LOK_CALLBACK_GRAPHIC_VIEW_SELECTION:
         case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR:
-        case LOK_CALLBACK_INVALIDATE_VIEW_CURSOR :
+        case LOK_CALLBACK_INVALIDATE_VIEW_CURSOR:
         case LOK_CALLBACK_STATE_CHANGED:
         case LOK_CALLBACK_MOUSE_POINTER:
         case LOK_CALLBACK_CELL_CURSOR:
@@ -1099,9 +1172,10 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             case LOK_CALLBACK_GRAPHIC_SELECTION:
             case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR:
             case LOK_CALLBACK_INVALIDATE_TILES:
-                SAL_INFO("lok", "Removing dups of [" << type << "]: [" << payload << "].");
-                removeAll([type] (const queue_type::value_type& elem) { return (elem.Type == type); });
-            break;
+                if (removeAll(
+                        [type](const queue_type::value_type& elem) { return (elem.Type == type); }))
+                    SAL_INFO("lok", "Removed dups of [" << type << "]: [" << payload << "].");
+                break;
         }
     }
     else
@@ -1113,7 +1187,6 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             case LOK_CALLBACK_TEXT_SELECTION_START:
             case LOK_CALLBACK_TEXT_SELECTION_END:
             case LOK_CALLBACK_TEXT_SELECTION:
-            case LOK_CALLBACK_GRAPHIC_SELECTION:
             case LOK_CALLBACK_MOUSE_POINTER:
             case LOK_CALLBACK_CELL_CURSOR:
             case LOK_CALLBACK_CELL_FORMULA:
@@ -1123,7 +1196,9 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             case LOK_CALLBACK_STATUS_INDICATOR_SET_VALUE:
             case LOK_CALLBACK_RULER_UPDATE:
             {
-                removeAll([type] (const queue_type::value_type& elem) { return (elem.Type == type); });
+                if (removeAll(
+                        [type](const queue_type::value_type& elem) { return (elem.Type == type); }))
+                    SAL_INFO("lok", "Removed dups of [" << type << "]: [" << payload << "].");
             }
             break;
 
@@ -1133,6 +1208,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             case LOK_CALLBACK_CELL_VIEW_CURSOR:
             case LOK_CALLBACK_GRAPHIC_VIEW_SELECTION:
             case LOK_CALLBACK_INVALIDATE_VIEW_CURSOR:
+            case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR:
             case LOK_CALLBACK_TEXT_VIEW_SELECTION:
             case LOK_CALLBACK_VIEW_CURSOR_VISIBLE:
             {
@@ -1145,135 +1221,9 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             }
             break;
 
-            case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR:
-            {
-                removeAll(
-                    [type, &payload] (const queue_type::value_type& elem) {
-                        return (elem.Type == type && elem.PayloadString == payload);
-                    }
-                );
-            }
-            break;
-
             case LOK_CALLBACK_INVALIDATE_TILES:
-            {
-                RectangleAndPart& rcNew = aCallbackData.setRectangleAndPart(payload);
-                if (rcNew.isEmpty())
-                {
-                    SAL_INFO("lok", "Skipping invalid event [" << type << "]: [" << payload << "].");
+                if (processInvalidateTilesEvent(aCallbackData))
                     return;
-                }
-
-                // If we have to invalidate all tiles, we can skip any new tile invalidation.
-                // Find the last INVALIDATE_TILES entry, if any to see if it's invalidate-all.
-                const auto& pos = std::find_if(m_queue.rbegin(), m_queue.rend(),
-                        [] (const queue_type::value_type& elem) { return (elem.Type == LOK_CALLBACK_INVALIDATE_TILES); });
-                if (pos != m_queue.rend())
-                {
-                    const RectangleAndPart& rcOld = pos->getRectangleAndPart();
-                    if (rcOld.isInfinite() && (rcOld.m_nPart == -1 || rcOld.m_nPart == rcNew.m_nPart))
-                    {
-                        SAL_INFO("lok", "Skipping queue [" << type << "]: [" << payload << "] since all tiles need to be invalidated.");
-                        return;
-                    }
-
-                    if (rcOld.m_nPart == -1 || rcOld.m_nPart == rcNew.m_nPart)
-                    {
-                        // If fully overlapping.
-                        if (rcOld.m_aRectangle.IsInside(rcNew.m_aRectangle))
-                        {
-                            SAL_INFO("lok", "Skipping queue [" << type << "]: [" << payload << "] since overlaps existing all-parts.");
-                            return;
-                        }
-                    }
-                }
-
-                if (rcNew.isInfinite())
-                {
-                    SAL_INFO("lok", "Have Empty [" << type << "]: [" << payload << "] so removing all with part " << rcNew.m_nPart << ".");
-                    removeAll(
-                        [&rcNew] (const queue_type::value_type& elem) {
-                            if (elem.Type == LOK_CALLBACK_INVALIDATE_TILES)
-                            {
-                                // Remove exiting if new is all-encompassing, or if of the same part.
-                                const RectangleAndPart rcOld = RectangleAndPart::Create(elem.PayloadString);
-                                return (rcNew.m_nPart == -1 || rcOld.m_nPart == rcNew.m_nPart);
-                            }
-
-                            // Keep others.
-                            return false;
-                        }
-                    );
-                }
-                else
-                {
-                    const auto rcOrig = rcNew;
-
-                    SAL_INFO("lok", "Have [" << type << "]: [" << payload << "] so merging overlapping.");
-                    removeAll(
-                        [&rcNew] (const queue_type::value_type& elem) {
-                            if (elem.Type == LOK_CALLBACK_INVALIDATE_TILES)
-                            {
-                                const RectangleAndPart& rcOld = elem.getRectangleAndPart();
-                                if (rcNew.m_nPart != -1 && rcOld.m_nPart != -1 && rcOld.m_nPart != rcNew.m_nPart)
-                                {
-                                    SAL_INFO("lok", "Nothing to merge between new: " << rcNew.toString() << ", and old: " << rcOld.toString());
-                                    return false;
-                                }
-
-                                if (rcNew.m_nPart == -1)
-                                {
-                                    // Don't merge unless fully overlapped.
-                                    SAL_INFO("lok", "New " << rcNew.toString() << " has " << rcOld.toString() << "?");
-                                    if (rcNew.m_aRectangle.IsInside(rcOld.m_aRectangle))
-                                    {
-                                        SAL_INFO("lok", "New " << rcNew.toString() << " engulfs old " << rcOld.toString() << ".");
-                                        return true;
-                                    }
-                                }
-                                else if (rcOld.m_nPart == -1)
-                                {
-                                    // Don't merge unless fully overlapped.
-                                    SAL_INFO("lok", "Old " << rcOld.toString() << " has " << rcNew.toString() << "?");
-                                    if (rcOld.m_aRectangle.IsInside(rcNew.m_aRectangle))
-                                    {
-                                        SAL_INFO("lok", "New " << rcNew.toString() << " engulfs old " << rcOld.toString() << ".");
-                                        return true;
-                                    }
-                                }
-                                else
-                                {
-                                    const tools::Rectangle rcOverlap = rcNew.m_aRectangle.GetIntersection(rcOld.m_aRectangle);
-                                    const bool bOverlap = !rcOverlap.IsEmpty();
-                                    SAL_INFO("lok", "Merging " << rcNew.toString() << " & " << rcOld.toString() << " => " <<
-                                            rcOverlap.toString() << " Overlap: " << bOverlap);
-                                    if (bOverlap)
-                                    {
-                                        rcNew.m_aRectangle.Union(rcOld.m_aRectangle);
-                                        SAL_INFO("lok", "Merged: " << rcNew.toString());
-                                        return true;
-                                    }
-                                }
-                            }
-
-                            // Keep others.
-                            return false;
-                        }
-                    );
-
-                    if (rcNew.m_aRectangle != rcOrig.m_aRectangle)
-                    {
-                        SAL_INFO("lok", "Replacing: " << rcOrig.toString() << " by " << rcNew.toString());
-                        if (rcNew.m_aRectangle.GetWidth() < rcOrig.m_aRectangle.GetWidth() ||
-                            rcNew.m_aRectangle.GetHeight() < rcOrig.m_aRectangle.GetHeight())
-                        {
-                            SAL_WARN("lok", "Error: merged rect smaller.");
-                        }
-                    }
-                }
-
-                aCallbackData.setRectangleAndPart(rcNew);
-            }
             break;
 
             // State changes with same name override previous ones with a different value.
@@ -1295,122 +1245,16 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             break;
 
             case LOK_CALLBACK_WINDOW:
+                if (processWindowEvent(aCallbackData))
+                    return;
+            break;
+
+            case LOK_CALLBACK_GRAPHIC_SELECTION:
             {
-                // reading JSON by boost might be slow?
-                boost::property_tree::ptree& aTree = aCallbackData.setJson(payload);
-                const unsigned nLOKWindowId = aTree.get<unsigned>("id", 0);
-                if (aTree.get<std::string>("action", "") == "invalidate")
-                {
-                    std::string aRectStr = aTree.get<std::string>("rectangle", "");
-                    // no 'rectangle' field => invalidate all of the window =>
-                    // remove all previous window part invalidations
-                    if (aRectStr.empty())
-                    {
-                        removeAll([&nLOKWindowId] (const queue_type::value_type& elem) {
-                                if (elem.Type == LOK_CALLBACK_WINDOW)
-                                {
-                                    const boost::property_tree::ptree& aOldTree = elem.getJson();
-                                    const unsigned nOldDialogId = aOldTree.get<unsigned>("id", 0);
-                                    if (aOldTree.get<std::string>("action", "") == "invalidate" &&
-                                        nLOKWindowId == nOldDialogId)
-                                    {
-                                        return true;
-                                    }
-                                }
-                                return false;
-                            });
-                    }
-                    else
-                    {
-                        // if we have to invalidate all of the window, ignore
-                        // any part invalidation message
-                        const auto invAllExist = std::any_of(m_queue.rbegin(), m_queue.rend(),
-                                                       [&nLOKWindowId] (const queue_type::value_type& elem)
-                                                       {
-                                                           if (elem.Type != LOK_CALLBACK_WINDOW)
-                                                               return false;
-
-                                                           const boost::property_tree::ptree& aOldTree = elem.getJson();
-                                                           const unsigned nOldDialogId = aOldTree.get<unsigned>("id", 0);
-                                                           return aOldTree.get<std::string>("action", "") == "invalidate" &&
-                                                               nLOKWindowId == nOldDialogId &&
-                                                               aOldTree.get<std::string>("rectangle", "").empty();
-                                                       });
-
-                        // we found an invalidate-all window callback
-                        if (invAllExist)
-                        {
-                            SAL_INFO("lok.dialog", "Skipping queue [" << type << "]: [" << payload << "] since whole window needs to be invalidated.");
-                            return;
-                        }
-
-                        std::istringstream aRectStream(aRectStr);
-                        long nLeft, nTop, nWidth, nHeight;
-                        char nComma;
-                        aRectStream >> nLeft >> nComma >> nTop >> nComma >> nWidth >> nComma >> nHeight;
-                        tools::Rectangle aNewRect(nLeft, nTop, nLeft + nWidth, nTop + nHeight);
-                        bool currentIsRedundant = false;
-                        removeAll([&aNewRect, &nLOKWindowId, &currentIsRedundant] (const queue_type::value_type& elem) {
-                                if (elem.Type != LOK_CALLBACK_WINDOW)
-                                    return false;
-
-                                const boost::property_tree::ptree& aOldTree = elem.getJson();
-                                if (aOldTree.get<std::string>("action", "") == "invalidate")
-                                {
-                                    const unsigned nOldDialogId = aOldTree.get<unsigned>("id", 0);
-                                    std::string aOldRectStr = aOldTree.get<std::string>("rectangle", "");
-                                    // not possible that we encounter an empty
-                                    // rectangle here; we already handled this
-                                    // case before
-                                    std::istringstream aOldRectStream(aOldRectStr);
-                                    long nOldLeft, nOldTop, nOldWidth, nOldHeight;
-                                    char nOldComma;
-                                    aOldRectStream >> nOldLeft >> nOldComma >> nOldTop >> nOldComma >> nOldWidth >> nOldComma >> nOldHeight;
-                                    tools::Rectangle aOldRect = tools::Rectangle(nOldLeft, nOldTop, nOldLeft + nOldWidth, nOldTop + nOldHeight);
-
-                                    if (nLOKWindowId == nOldDialogId)
-                                    {
-                                        // new one engulfs the old one?
-                                        if (aNewRect.IsInside(aOldRect))
-                                        {
-                                            SAL_INFO("lok.dialog", "New " << aNewRect.toString() << " engulfs old " << aOldRect.toString() << ".");
-                                            return true;
-                                        }
-                                        // old one engulfs the new one?
-                                        else if (aOldRect.IsInside(aNewRect))
-                                        {
-                                            SAL_INFO("lok.dialog", "Old " << aOldRect.toString() << " engulfs new " << aNewRect.toString() << ".");
-                                            // we have a rectangle in the queue
-                                            // already that makes the current
-                                            // Callback useless
-                                            currentIsRedundant = true;
-                                            return false;
-                                        }
-                                        else
-                                        {
-                                            SAL_INFO("lok.dialog", "Merging " << aNewRect.toString() << " & " << aOldRect.toString());
-                                            aNewRect.Union(aOldRect);
-                                            SAL_INFO("lok.dialog", "Merged: " << aNewRect.toString());
-                                            return true;
-                                        }
-                                    }
-                                }
-
-                                // keep rest
-                                return false;
-                            });
-
-                        if (currentIsRedundant)
-                        {
-                            SAL_INFO("lok.dialog", "Current payload is engulfed by one already in the queue. Skipping redundant payload: " << aNewRect.toString());
-                            return;
-                        }
-
-                        aTree.put("rectangle", aNewRect.toString().getStr());
-                        aCallbackData.setJson(aTree);
-                        assert(aCallbackData.validate() && "Validation after setJson failed!");
-                    }
-                }
+                // remove only selection ranges and 'EMPTY' messages
+                // always send 'INPLACE' and 'INPLACE EXIT' messages
+                removeAll([type, payload] (const queue_type::value_type& elem)
+                    { return (elem.Type == type && elem.PayloadString[0] != 'I'); });
             }
             break;
         }
@@ -1422,11 +1266,341 @@ void CallbackFlushHandler::queue(const int type, const char* data)
     SAL_INFO("lok", "Queued #" << (m_queue.size() - 1) <<
              " [" << type << "]: [" << payload << "] to have " << m_queue.size() << " entries.");
 
+#ifdef DBG_UTIL
+    {
+        // Dump the queue state and validate cached data.
+        int i = 1;
+        std::ostringstream oss;
+        if (m_queue.empty())
+            oss << "Empty";
+        else
+            oss << m_queue.size() << " items\n";
+        for (const CallbackData& c : m_queue)
+            oss << i++ << ": [" << c.Type << "] [" << c.PayloadString << "].\n";
+        SAL_INFO("lok", "Current Queue: " << oss.str());
+        for (const CallbackData& c : m_queue)
+            assert(c.validate());
+    }
+#endif
+
     lock.unlock();
     if (!IsActive())
     {
         Start();
     }
+}
+
+bool CallbackFlushHandler::processInvalidateTilesEvent(CallbackData& aCallbackData)
+{
+    const std::string& payload = aCallbackData.PayloadString;
+    const int type = aCallbackData.Type;
+
+    RectangleAndPart& rcNew = aCallbackData.setRectangleAndPart(payload);
+    if (rcNew.isEmpty())
+    {
+        SAL_INFO("lok", "Skipping invalid event [" << type << "]: [" << payload << "].");
+        return true;
+    }
+
+    // If we have to invalidate all tiles, we can skip any new tile invalidation.
+    // Find the last INVALIDATE_TILES entry, if any to see if it's invalidate-all.
+    const auto& pos
+        = std::find_if(m_queue.rbegin(), m_queue.rend(), [](const queue_type::value_type& elem) {
+              return (elem.Type == LOK_CALLBACK_INVALIDATE_TILES);
+          });
+    if (pos != m_queue.rend())
+    {
+        const RectangleAndPart& rcOld = pos->getRectangleAndPart();
+        if (rcOld.isInfinite() && (rcOld.m_nPart == -1 || rcOld.m_nPart == rcNew.m_nPart))
+        {
+            SAL_INFO("lok", "Skipping queue [" << type << "]: [" << payload
+                                               << "] since all tiles need to be invalidated.");
+            return true;
+        }
+
+        if (rcOld.m_nPart == -1 || rcOld.m_nPart == rcNew.m_nPart)
+        {
+            // If fully overlapping.
+            if (rcOld.m_aRectangle.IsInside(rcNew.m_aRectangle))
+            {
+                SAL_INFO("lok", "Skipping queue [" << type << "]: [" << payload
+                                                   << "] since overlaps existing all-parts.");
+                return true;
+            }
+        }
+    }
+
+    if (rcNew.isInfinite())
+    {
+        SAL_INFO("lok", "Have Empty [" << type << "]: [" << payload
+                                       << "] so removing all with part " << rcNew.m_nPart << ".");
+        removeAll([&rcNew](const queue_type::value_type& elem) {
+            if (elem.Type == LOK_CALLBACK_INVALIDATE_TILES)
+            {
+                // Remove exiting if new is all-encompassing, or if of the same part.
+                const RectangleAndPart rcOld = RectangleAndPart::Create(elem.PayloadString);
+                return (rcNew.m_nPart == -1 || rcOld.m_nPart == rcNew.m_nPart);
+            }
+
+            // Keep others.
+            return false;
+        });
+    }
+    else
+    {
+        const auto rcOrig = rcNew;
+
+        SAL_INFO("lok", "Have [" << type << "]: [" << payload << "] so merging overlapping.");
+        removeAll([&rcNew](const queue_type::value_type& elem) {
+            if (elem.Type == LOK_CALLBACK_INVALIDATE_TILES)
+            {
+                const RectangleAndPart& rcOld = elem.getRectangleAndPart();
+                if (rcNew.m_nPart != -1 && rcOld.m_nPart != -1 && rcOld.m_nPart != rcNew.m_nPart)
+                {
+                    SAL_INFO("lok", "Nothing to merge between new: "
+                                        << rcNew.toString() << ", and old: " << rcOld.toString());
+                    return false;
+                }
+
+                if (rcNew.m_nPart == -1)
+                {
+                    // Don't merge unless fully overlapped.
+                    SAL_INFO("lok", "New " << rcNew.toString() << " has " << rcOld.toString()
+                                           << "?");
+                    if (rcNew.m_aRectangle.IsInside(rcOld.m_aRectangle))
+                    {
+                        SAL_INFO("lok", "New " << rcNew.toString() << " engulfs old "
+                                               << rcOld.toString() << ".");
+                        return true;
+                    }
+                }
+                else if (rcOld.m_nPart == -1)
+                {
+                    // Don't merge unless fully overlapped.
+                    SAL_INFO("lok", "Old " << rcOld.toString() << " has " << rcNew.toString()
+                                           << "?");
+                    if (rcOld.m_aRectangle.IsInside(rcNew.m_aRectangle))
+                    {
+                        SAL_INFO("lok", "New " << rcNew.toString() << " engulfs old "
+                                               << rcOld.toString() << ".");
+                        return true;
+                    }
+                }
+                else
+                {
+                    const tools::Rectangle rcOverlap
+                        = rcNew.m_aRectangle.GetIntersection(rcOld.m_aRectangle);
+                    const bool bOverlap = !rcOverlap.IsEmpty();
+                    SAL_INFO("lok", "Merging " << rcNew.toString() << " & " << rcOld.toString()
+                                               << " => " << rcOverlap.toString()
+                                               << " Overlap: " << bOverlap);
+                    if (bOverlap)
+                    {
+                        rcNew.m_aRectangle.Union(rcOld.m_aRectangle);
+                        SAL_INFO("lok", "Merged: " << rcNew.toString());
+                        return true;
+                    }
+                }
+            }
+
+            // Keep others.
+            return false;
+        });
+
+        if (rcNew.m_aRectangle != rcOrig.m_aRectangle)
+        {
+            SAL_INFO("lok", "Replacing: " << rcOrig.toString() << " by " << rcNew.toString());
+            if (rcNew.m_aRectangle.GetWidth() < rcOrig.m_aRectangle.GetWidth()
+                || rcNew.m_aRectangle.GetHeight() < rcOrig.m_aRectangle.GetHeight())
+            {
+                SAL_WARN("lok", "Error: merged rect smaller.");
+            }
+        }
+    }
+
+    aCallbackData.setRectangleAndPart(rcNew);
+    // Queue this one.
+    return false;
+}
+
+bool CallbackFlushHandler::processWindowEvent(CallbackData& aCallbackData)
+{
+    const std::string& payload = aCallbackData.PayloadString;
+    const int type = aCallbackData.Type;
+
+    boost::property_tree::ptree& aTree = aCallbackData.setJson(payload);
+    const unsigned nLOKWindowId = aTree.get<unsigned>("id", 0);
+    const std::string aAction = aTree.get<std::string>("action", "");
+    if (aAction == "invalidate")
+    {
+        std::string aRectStr = aTree.get<std::string>("rectangle", "");
+        // no 'rectangle' field => invalidate all of the window =>
+        // remove all previous window part invalidations
+        if (aRectStr.empty())
+        {
+            removeAll([&nLOKWindowId](const queue_type::value_type& elem) {
+                if (elem.Type == LOK_CALLBACK_WINDOW)
+                {
+                    const boost::property_tree::ptree& aOldTree = elem.getJson();
+                    if (nLOKWindowId == aOldTree.get<unsigned>("id", 0)
+                        && aOldTree.get<std::string>("action", "") == "invalidate")
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+        else
+        {
+            // if we have to invalidate all of the window, ignore
+            // any part invalidation message
+            const auto invAllExist = std::any_of(m_queue.rbegin(), m_queue.rend(),
+                                        [&nLOKWindowId] (const queue_type::value_type& elem)
+                                        {
+                                            if (elem.Type != LOK_CALLBACK_WINDOW)
+                                                return false;
+
+                                            const boost::property_tree::ptree& aOldTree = elem.getJson();
+                                            return nLOKWindowId == aOldTree.get<unsigned>("id", 0)
+                                                && aOldTree.get<std::string>("action", "") == "invalidate"
+                                                && aOldTree.get<std::string>("rectangle", "").empty();
+                                        });
+
+            // we found a invalidate-all window callback
+            if (invAllExist)
+            {
+                SAL_INFO("lok.dialog", "Skipping queue ["
+                                           << type << "]: [" << payload
+                                           << "] since whole window needs to be invalidated.");
+                return true;
+            }
+
+            std::istringstream aRectStream(aRectStr);
+            long nLeft, nTop, nWidth, nHeight;
+            char nComma;
+            aRectStream >> nLeft >> nComma >> nTop >> nComma >> nWidth >> nComma >> nHeight;
+            tools::Rectangle aNewRect(nLeft, nTop, nLeft + nWidth, nTop + nHeight);
+            bool currentIsRedundant = false;
+            removeAll([&aNewRect, &nLOKWindowId,
+                       &currentIsRedundant](const queue_type::value_type& elem) {
+                if (elem.Type != LOK_CALLBACK_WINDOW)
+                    return false;
+
+                const boost::property_tree::ptree& aOldTree = elem.getJson();
+                if (aOldTree.get<std::string>("action", "") == "invalidate")
+                {
+                    // Not possible that we encounter an empty rectangle here; we already handled this case above.
+                    std::istringstream aOldRectStream(aOldTree.get<std::string>("rectangle", ""));
+                    long nOldLeft, nOldTop, nOldWidth, nOldHeight;
+                    char nOldComma;
+                    aOldRectStream >> nOldLeft >> nOldComma >> nOldTop >> nOldComma >> nOldWidth
+                        >> nOldComma >> nOldHeight;
+                    const tools::Rectangle aOldRect = tools::Rectangle(
+                        nOldLeft, nOldTop, nOldLeft + nOldWidth, nOldTop + nOldHeight);
+
+                    if (nLOKWindowId == aOldTree.get<unsigned>("id", 0))
+                    {
+                        if (aNewRect == aOldRect)
+                        {
+                            SAL_INFO("lok.dialog", "Duplicate rect [" << aNewRect.toString()
+                                                                      << "]. Skipping new.");
+                            // We have a rectangle in the queue already that makes the current Callback useless.
+                            currentIsRedundant = true;
+                            return false;
+                        }
+                        // new one engulfs the old one?
+                        else if (aNewRect.IsInside(aOldRect))
+                        {
+                            SAL_INFO("lok.dialog",
+                                     "New rect [" << aNewRect.toString() << "] engulfs old ["
+                                                  << aOldRect.toString() << "]. Replacing old.");
+                            return true;
+                        }
+                        // old one engulfs the new one?
+                        else if (aOldRect.IsInside(aNewRect))
+                        {
+                            SAL_INFO("lok.dialog",
+                                     "Old rect [" << aOldRect.toString() << "] engulfs new ["
+                                                  << aNewRect.toString() << "]. Skipping new.");
+                            // We have a rectangle in the queue already that makes the current Callback useless.
+                            currentIsRedundant = true;
+                            return false;
+                        }
+                        else
+                        {
+                            // Overlapping rects.
+                            const tools::Rectangle aPreMergeRect = aNewRect;
+                            aNewRect.Union(aOldRect);
+                            SAL_INFO("lok.dialog", "Merging rects ["
+                                                       << aPreMergeRect.toString() << "] & ["
+                                                       << aOldRect.toString() << "] = ["
+                                                       << aNewRect.toString()
+                                                       << "]. Replacing old.");
+                            return true;
+                        }
+                    }
+                }
+
+                // keep rest
+                return false;
+            });
+
+            // Do not enqueue if redundant.
+            if (currentIsRedundant)
+                return true;
+
+            aTree.put("rectangle", aNewRect.toString().getStr());
+            aCallbackData.setJson(aTree);
+            assert(aCallbackData.validate() && "Validation after setJson failed!");
+        }
+    }
+    else if (aAction == "created")
+    {
+        // Remove all previous actions on same dialog, if we are creating it anew.
+        removeAll([&nLOKWindowId](const queue_type::value_type& elem) {
+            if (elem.Type == LOK_CALLBACK_WINDOW)
+            {
+                const boost::property_tree::ptree& aOldTree = elem.getJson();
+                if (nLOKWindowId == aOldTree.get<unsigned>("id", 0))
+                    return true;
+            }
+            return false;
+        });
+
+        VclPtr<Window> pWindow = vcl::Window::FindLOKWindow(nLOKWindowId);
+        if (!pWindow)
+        {
+            gImpl->maLastExceptionMsg = "Document doesn't support dialog rendering, or window not found.";
+            return false;
+        }
+
+        auto xClip = forceSetClipboardForCurrentView(m_pDocument);
+
+        uno::Reference<datatransfer::clipboard::XClipboard> xClipboard(xClip.get());
+        pWindow->SetClipboard(xClipboard);
+    }
+    else if (aAction == "size_changed")
+    {
+        // A size change is practically re-creation of the window.
+        // But at a minimum it's a full invalidation.
+        removeAll([&nLOKWindowId](const queue_type::value_type& elem) {
+            if (elem.Type == LOK_CALLBACK_WINDOW)
+            {
+                const boost::property_tree::ptree& aOldTree = elem.getJson();
+                if (nLOKWindowId == aOldTree.get<unsigned>("id", 0))
+                {
+                    const std::string aOldAction = aOldTree.get<std::string>("action", "");
+                    if (aOldAction == "invalidate")
+                        return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    // Queue this one.
+    return false;
 }
 
 void CallbackFlushHandler::Invoke()
@@ -1494,10 +1668,16 @@ void CallbackFlushHandler::Invoke()
     }
 }
 
-void CallbackFlushHandler::removeAll(const std::function<bool (const CallbackFlushHandler::queue_type::value_type&)>& rTestFunc)
+bool CallbackFlushHandler::removeAll(const std::function<bool (const CallbackFlushHandler::queue_type::value_type&)>& rTestFunc)
 {
     auto newEnd = std::remove_if(m_queue.begin(), m_queue.end(), rTestFunc);
-    m_queue.erase(newEnd, m_queue.end());
+    if (newEnd != m_queue.end())
+    {
+        m_queue.erase(newEnd, m_queue.end());
+        return true;
+    }
+
+    return false;
 }
 
 void CallbackFlushHandler::addViewStates(int viewId)
@@ -1520,6 +1700,8 @@ static void doc_destroy(LibreOfficeKitDocument *pThis)
     comphelper::ProfileZone aZone("doc_destroy");
 
     SolarMutexGuard aGuard;
+
+    LOKClipboardFactory::releaseClipboardForView(-1);
 
     LibLODocument_Impl *pDocument = static_cast<LibLODocument_Impl*>(pThis);
     delete pDocument;
@@ -1594,12 +1776,6 @@ LibLibreOffice_Impl::~LibLibreOffice_Impl()
 namespace
 {
 
-ITiledRenderable* getTiledRenderable(LibreOfficeKitDocument* pThis)
-{
-    LibLODocument_Impl* pDocument = static_cast<LibLODocument_Impl*>(pThis);
-    return dynamic_cast<ITiledRenderable*>(pDocument->mxComponent.get());
-}
-
 #ifdef IOS
 void paintTileToCGContext(ITiledRenderable* pDocument,
                           void* rCGContext, const Size nCanvasSize,
@@ -1609,7 +1785,7 @@ void paintTileToCGContext(ITiledRenderable* pDocument,
     SystemGraphicsData aData;
     aData.rCGContext = reinterpret_cast<CGContextRef>(rCGContext);
 
-    ScopedVclPtrInstance<VirtualDevice> pDevice(&aData, Size(1, 1), DeviceFormat::DEFAULT);
+    ScopedVclPtrInstance<VirtualDevice> pDevice(aData, Size(1, 1), DeviceFormat::DEFAULT);
     pDevice->SetBackground(Wallpaper(COL_TRANSPARENT));
     pDevice->SetOutputSizePixel(nCanvasSize);
     pDocument->paintTile(*pDevice, nCanvasSize.Width(), nCanvasSize.Height(),
@@ -2003,31 +2179,37 @@ static int doc_saveAs(LibreOfficeKitDocument* pThis, const char* sUrl, const cha
 
         OUString aFilterOptions = getUString(pFilterOptions);
 
-        // Check if watermark for pdf is passed by filteroptions..
+        // Check if watermark for pdf is passed by filteroptions...
         // It is not a real filter option so it must be filtered out.
-        OUString watermarkText;
+        OUString watermarkText, sFullSheetPreview;
         int aIndex = -1;
         if ((aIndex = aFilterOptions.indexOf(",Watermark=")) >= 0)
         {
             int bIndex = aFilterOptions.indexOf("WATERMARKEND");
             watermarkText = aFilterOptions.copy(aIndex+11, bIndex-(aIndex+11));
-            if(aIndex > 0)
-            {
-                OUString temp = aFilterOptions.copy(0, aIndex);
-                aFilterOptions = temp + aFilterOptions.copy(bIndex+12);
-            }
-            else
-            {
-                aFilterOptions.clear();
-            }
+
+            OUString temp = aFilterOptions.copy(0, aIndex);
+            aFilterOptions = temp + aFilterOptions.copy(bIndex+12);
         }
+
+        aIndex = -1;
+        if ((aIndex = aFilterOptions.indexOf(",FullSheetPreview=")) >= 0)
+        {
+            int bIndex = aFilterOptions.indexOf("FULLSHEETPREVEND");
+            sFullSheetPreview = aFilterOptions.copy(aIndex+18, bIndex-(aIndex+18));
+
+            OUString temp = aFilterOptions.copy(0, aIndex);
+            aFilterOptions = temp + aFilterOptions.copy(bIndex+16);
+        }
+
+        bool bFullSheetPreview = sFullSheetPreview == "true";
 
         // 'TakeOwnership' == this is a 'real' SaveAs (that is, the document
         // gets a new name).  When this is not provided, the meaning of
         // saveAs() is more like save-a-copy, which allows saving to any
         // random format like PDF or PNG.
         // It is not a real filter option, so we have to filter it out.
-        uno::Sequence<OUString> aOptionSeq = comphelper::string::convertCommaSeparated(aFilterOptions);
+        const uno::Sequence<OUString> aOptionSeq = comphelper::string::convertCommaSeparated(aFilterOptions);
         std::vector<OUString> aFilteredOptionVec;
         bool bTakeOwnership = false;
         MediaDescriptor aSaveMediaDescriptor;
@@ -2047,18 +2229,32 @@ static int doc_saveAs(LibreOfficeKitDocument* pThis, const char* sUrl, const cha
         auto aFilteredOptionSeq = comphelper::containerToSequence<OUString>(aFilteredOptionVec);
         aFilterOptions = comphelper::string::convertCommaSeparated(aFilteredOptionSeq);
         aSaveMediaDescriptor[MediaDescriptor::PROP_FILTEROPTIONS()] <<= aFilterOptions;
-        if(!watermarkText.isEmpty())
+
+        if(!watermarkText.isEmpty() || bFullSheetPreview)
         {
-            uno::Sequence< beans::PropertyValue > aFilterData( 1 );
-            aFilterData[ 0 ].Name = "TiledWatermark";
-            aFilterData[ 0 ].Value <<= watermarkText;
+            uno::Sequence< beans::PropertyValue > aFilterData( static_cast<int>(bFullSheetPreview) + static_cast<int>(!watermarkText.isEmpty()) );
+
+            if (!watermarkText.isEmpty())
+            {
+                aFilterData[ 0 ].Name = "TiledWatermark";
+                aFilterData[ 0 ].Value <<= watermarkText;
+            }
+
+            if (bFullSheetPreview)
+            {
+                int nOptIndex = static_cast<int>(!watermarkText.isEmpty());
+
+                aFilterData[ nOptIndex ].Name = "SinglePageSheets";
+                aFilterData[ nOptIndex ].Value <<= true;
+            }
+
             aSaveMediaDescriptor["FilterData"] <<= aFilterData;
         }
 
         // add interaction handler too
         if (gImpl)
         {
-            // gImpl does not have to exist when running from an unit test
+            // gImpl does not have to exist when running from a unit test
             rtl::Reference<LOKInteractionHandler> const pInteraction(
                     new LOKInteractionHandler("saveas", gImpl, pDocument));
             uno::Reference<task::XInteractionHandler2> const xInteraction(pInteraction.get());
@@ -2133,6 +2329,7 @@ static void doc_iniUnoCommands ()
         OUString(".uno:InsertAnnotation"),
         OUString(".uno:DeleteAnnotation"),
         OUString(".uno:ReplyComment"),
+        OUString(".uno:ResolveComment"),
         OUString(".uno:InsertRowsBefore"),
         OUString(".uno:InsertRowsAfter"),
         OUString(".uno:InsertColumnsBefore"),
@@ -2193,7 +2390,7 @@ static void doc_iniUnoCommands ()
     SfxViewFrame* pViewFrame = pViewShell? pViewShell->GetViewFrame(): nullptr;
 
     // check if Frame-Controller were created.
-    if (!pViewShell && !pViewFrame)
+    if (!pViewFrame)
     {
         SAL_WARN("lok", "iniUnoCommands: No Frame-Controller created.");
         return;
@@ -2212,15 +2409,12 @@ static void doc_iniUnoCommands ()
 
     for (const auto & sUnoCommand : sUnoCommands)
     {
-        const SfxSlot* pSlot = nullptr;
-
         aCommandURL.Complete = sUnoCommand;
         xParser->parseStrict(aCommandURL);
-        pSlot = rSlotPool.GetUnoSlot(aCommandURL.Path);
 
         // when null, this command is not supported by the given component
         // (like eg. Calc does not have ".uno:DefaultBullet" etc.)
-        if (pSlot)
+        if (const SfxSlot* pSlot = rSlotPool.GetUnoSlot(aCommandURL.Path))
         {
             // Initialize slot to dispatch .uno: Command.
             pViewFrame->GetBindings().GetDispatch(pSlot, aCommandURL, false);
@@ -2338,6 +2532,38 @@ static char* doc_getPartInfo(LibreOfficeKitDocument* pThis, int nPart)
     assert(pMemory); // Don't handle OOM conditions
     strcpy(pMemory, aString.getStr());
     return pMemory;
+}
+
+static void doc_selectPart(LibreOfficeKitDocument* pThis, int nPart, int nSelect)
+{
+    SolarMutexGuard aGuard;
+    if (gImpl)
+        gImpl->maLastExceptionMsg.clear();
+
+    ITiledRenderable* pDoc = getTiledRenderable(pThis);
+    if (!pDoc)
+    {
+        gImpl->maLastExceptionMsg = "Document doesn't support tiled rendering";
+        return;
+    }
+
+    pDoc->selectPart( nPart, nSelect );
+}
+
+static void doc_moveSelectedParts(LibreOfficeKitDocument* pThis, int nPosition, bool bDuplicate)
+{
+    SolarMutexGuard aGuard;
+    if (gImpl)
+        gImpl->maLastExceptionMsg.clear();
+
+    ITiledRenderable* pDoc = getTiledRenderable(pThis);
+    if (!pDoc)
+    {
+        gImpl->maLastExceptionMsg = "Document doesn't support tiled rendering";
+        return;
+    }
+
+    pDoc->moveSelectedParts(nPosition, bDuplicate);
 }
 
 static char* doc_getPartPageRectangles(LibreOfficeKitDocument* pThis)
@@ -2496,7 +2722,7 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
 #if defined(IOS)
     paintTileIOS(pThis, pBuffer, nCanvasWidth, nCanvasHeight, fDPIScaleX, nTilePosX, nTilePosY, nTileWidth, nTileHeight);
 #else
-    ScopedVclPtrInstance< VirtualDevice > pDevice(nullptr, Size(1, 1), DeviceFormat::DEFAULT) ;
+    ScopedVclPtrInstance< VirtualDevice > pDevice(DeviceFormat::DEFAULT);
 
 #if defined(ANDROID)
     if (!android_lok_from_jni)
@@ -2601,8 +2827,12 @@ static void doc_paintPartTile(LibreOfficeKitDocument* pThis,
     }
 
     // Disable callbacks while we are painting.
-    if (nOrigViewId >= 0 && pDocument->mpCallbackFlushHandlers[nOrigViewId])
-        pDocument->mpCallbackFlushHandlers[nOrigViewId]->setPartTilePainting(true);
+    if (nOrigViewId >= 0)
+    {
+        auto findIt = pDocument->mpCallbackFlushHandlers.find(nOrigViewId);
+        if (findIt != pDocument->mpCallbackFlushHandlers.end())
+            findIt->second->setPartTilePainting(true);
+    }
 
     try
     {
@@ -2652,8 +2882,12 @@ static void doc_paintPartTile(LibreOfficeKitDocument* pThis,
         // Nothing to do but restore the PartTilePainting flag.
     }
 
-    if (nOrigViewId >= 0 && pDocument->mpCallbackFlushHandlers[nOrigViewId])
-        pDocument->mpCallbackFlushHandlers[nOrigViewId]->setPartTilePainting(false);
+    if (nOrigViewId >= 0)
+    {
+        auto findIt = pDocument->mpCallbackFlushHandlers.find(nOrigViewId);
+        if (findIt != pDocument->mpCallbackFlushHandlers.end())
+            findIt->second->setPartTilePainting(false);
+    }
 }
 
 static int doc_getTileMode(SAL_UNUSED_PARAMETER LibreOfficeKitDocument* /*pThis*/)
@@ -2842,18 +3076,61 @@ static void doc_postWindowExtTextInputEvent(LibreOfficeKitDocument* pThis, unsig
         return;
     }
 
-    switch (nType)
+    SfxLokHelper::postExtTextEventAsync(pWindow, nType, OUString::fromUtf8(OString(pText, strlen(pText))));
+}
+
+static void doc_removeTextContext(LibreOfficeKitDocument* pThis, unsigned nLOKWindowId, int nCharBefore, int nCharAfter)
+{
+    SolarMutexGuard aGuard;
+    VclPtr<vcl::Window> pWindow;
+    if (nLOKWindowId == 0)
     {
-    case LOK_EXT_TEXTINPUT:
-        pWindow->PostExtTextInputEvent(VclEventId::ExtTextInput,
-                                       OUString::fromUtf8(OString(pText, strlen(pText))));
-        break;
-    case LOK_EXT_TEXTINPUT_END:
-        pWindow->PostExtTextInputEvent(VclEventId::EndExtTextInput,
-                                       OUString::fromUtf8(OString(pText, strlen(pText))));
-        break;
-    default:
-        assert(false && "Unhandled External Text input event!");
+        ITiledRenderable* pDoc = getTiledRenderable(pThis);
+        if (!pDoc)
+        {
+            gImpl->maLastExceptionMsg = "Document doesn't support tiled rendering";
+            return;
+        }
+        pWindow = pDoc->getDocWindow();
+    }
+    else
+    {
+        pWindow = vcl::Window::FindLOKWindow(nLOKWindowId);
+    }
+
+    if (!pWindow)
+    {
+        gImpl->maLastExceptionMsg = "No window found for window id: " + OUString::number(nLOKWindowId);
+        return;
+    }
+
+    // Annoyingly - backspace and delete are handled in the apps via an accelerator
+    // which are PostMessage'd by SfxViewShell::ExecKey_Impl so to stay in the same
+    // order we do this synchronously here, unless we're in a dialog.
+    if (nCharBefore > 0)
+    {
+        // backspace
+        if (nLOKWindowId == 0)
+        {
+            KeyEvent aEvt(8, 1283);
+            for (int i = 0; i < nCharBefore; ++i)
+                pWindow->KeyInput(aEvt);
+        }
+        else
+            SfxLokHelper::postKeyEventAsync(pWindow, LOK_KEYEVENT_KEYINPUT, 8, 1283, nCharBefore - 1);
+    }
+
+    if (nCharAfter > 0)
+    {
+        // delete (forward)
+        if (nLOKWindowId == 0)
+        {
+            KeyEvent aEvt(46, 1286);
+            for (int i = 0; i < nCharAfter; ++i)
+                pWindow->KeyInput(aEvt);
+        }
+        else
+            SfxLokHelper::postKeyEventAsync(pWindow, LOK_KEYEVENT_KEYINPUT, 46, 1286, nCharAfter - 1);
     }
 }
 
@@ -2991,6 +3268,76 @@ public:
     virtual void SAL_CALL disposing(const css::lang::EventObject&) override {}
 };
 
+static void doc_sendDialogEvent(LibreOfficeKitDocument* /*pThis*/, unsigned nWindowId, const char* pArguments)
+{
+    SolarMutexGuard aGuard;
+
+    char* pCopy = strdup(pArguments);
+    if (!pCopy) {
+        SetLastExceptionMsg("String copying error.");
+        return;
+    }
+
+    char* pIdChar = strtok(pCopy, " ");
+    char* pOptionalEventType = strtok(nullptr, " ");
+    char* pOptionalData = strtok(nullptr, " ");
+
+    if (!pIdChar) {
+        SetLastExceptionMsg("Error parsing the command.");
+        free(pCopy);
+        return;
+    }
+
+    OUString sId = OUString::createFromAscii(pIdChar);
+
+    VclPtr<Window> pWindow = vcl::Window::FindLOKWindow(nWindowId);
+    if (!pWindow)
+    {
+        SetLastExceptionMsg("Document doesn't support dialog rendering, or window not found.");
+        free(pCopy);
+        return;
+    }
+    else
+    {
+        const OUString sClickAction("CLICK");
+        const OUString sSelectAction("SELECT");
+
+        try
+        {
+            WindowUIObject aUIObject(pWindow);
+            std::unique_ptr<UIObject> pUIWindow(aUIObject.get_child(sId));
+            if (pUIWindow) {
+                if (pOptionalEventType) {
+                    if (strcmp(pOptionalEventType, "selected") == 0 && pOptionalData) {
+                        char* pPos = strtok(pOptionalData, ";");
+                        char* pText = strtok(nullptr, ";");
+
+                        if (!pPos || !pText)
+                        {
+                            SetLastExceptionMsg("Error parsing the command.");
+                            free(pCopy);
+                            return;
+                        }
+
+                        StringMap aMap;
+                        aMap["POS"] = OUString::createFromAscii(pPos);
+                        aMap["TEXT"] = OUString::createFromAscii(pText);
+
+                        pUIWindow->execute(sSelectAction, aMap);
+                    }
+                } else {
+                    pUIWindow->execute(sClickAction, StringMap());
+                }
+            }
+        } catch(...) {}
+
+        // force resend
+        pWindow->Resize();
+    }
+
+    free(pCopy);
+}
+
 static void doc_postUnoCommand(LibreOfficeKitDocument* pThis, const char* pCommand, const char* pArguments, bool bNotifyWhenFinished)
 {
     comphelper::ProfileZone aZone("doc_postUnoCommand");
@@ -3015,6 +3362,18 @@ static void doc_postUnoCommand(LibreOfficeKitDocument* pThis, const char* pComma
     int nView = SfxLokHelper::getView();
     if (nView < 0)
         return;
+
+    // Set/unset mobile view for LOK
+    if (gImpl && aCommand == ".uno:LOKSetMobile")
+    {
+        comphelper::LibreOfficeKit::setMobile(nView);
+        return;
+    }
+    else if (gImpl && aCommand == ".uno:LOKUnSetMobile")
+    {
+        comphelper::LibreOfficeKit::setMobile(nView, false);
+        return;
+    }
 
     // handle potential interaction
     if (gImpl && aCommand == ".uno:Save")
@@ -3127,7 +3486,7 @@ static void doc_postUnoCommand(LibreOfficeKitDocument* pThis, const char* pComma
     }
 
     bool bResult = false;
-    if (bNotifyWhenFinished && pDocument->mpCallbackFlushHandlers[nView])
+    if (bNotifyWhenFinished && pDocument->mpCallbackFlushHandlers.count(nView))
     {
         bResult = comphelper::dispatchCommand(aCommand, comphelper::containerToSequence(aPropertyValuesVector),
                 new DispatchResultListener(pCommand, pDocument->mpCallbackFlushHandlers[nView]));
@@ -3172,7 +3531,7 @@ static void doc_postWindowMouseEvent(LibreOfficeKitDocument* /*pThis*/, unsigned
         return;
     }
 
-    Point aPos(nX, nY);
+    const Point aPos(nX, nY);
     MouseEvent aEvent(aPos, nCount, MouseEventModifiers::SIMPLECLICK, nButtons, nModifier);
 
     if (Dialog* pDialog = dynamic_cast<Dialog*>(pWindow.get()))
@@ -3254,10 +3613,59 @@ static void doc_setTextSelection(LibreOfficeKitDocument* pThis, int nType, int n
 
 static bool getFromTransferrable(
     const css::uno::Reference<css::datatransfer::XTransferable> &xTransferable,
-    const char *pMimeType, OString &aRet)
+    const OString &aInMimeType, OString &aRet);
+
+static bool encodeImageAsHTML(
+    const css::uno::Reference<css::datatransfer::XTransferable> &xTransferable,
+    const OString &aMimeType, OString &aRet)
 {
+    if (!getFromTransferrable(xTransferable, aMimeType, aRet))
+        return false;
+
+    // Encode in base64.
+    auto aSeq = Sequence<sal_Int8>(reinterpret_cast<const sal_Int8*>(aRet.getStr()),
+                                   aRet.getLength());
+    OUStringBuffer aBase64Data;
+    comphelper::Base64::encode(aBase64Data, aSeq);
+
+    // Embed in HTML.
+    aRet = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">\n"
+        "<html><head>"
+        "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\"/><meta "
+        "name=\"generator\" content=\""
+        + getGenerator().toUtf8()
+        + "\"/>"
+        "</head><body><img src=\"data:" + aMimeType + ";base64,"
+        + aBase64Data.makeStringAndClear().toUtf8() + "\"/></body></html>";
+
+    return true;
+}
+
+static bool encodeTextAsHTML(
+    const css::uno::Reference<css::datatransfer::XTransferable> &xTransferable,
+    const OString &aMimeType, OString &aRet)
+{
+    if (!getFromTransferrable(xTransferable, aMimeType, aRet))
+        return false;
+
+    // Embed in HTML - FIXME: needs some escaping.
+    aRet = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">\n"
+        "<html><head>"
+        "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\"/><meta "
+        "name=\"generator\" content=\""
+        + getGenerator().toUtf8()
+        + "\"/></head><body><pre>" + aRet + "</pre></body></html>";
+
+    return true;
+}
+
+static bool getFromTransferrable(
+    const css::uno::Reference<css::datatransfer::XTransferable> &xTransferable,
+    const OString &aInMimeType, OString &aRet)
+{
+    OString aMimeType(aInMimeType);
+
     // Take care of UTF-8 text here.
-    OString aMimeType(pMimeType);
     bool bConvert = false;
     sal_Int32 nIndex = 0;
     if (aMimeType.getToken(0, ';', nIndex) == "text/plain")
@@ -3278,6 +3686,17 @@ static bool getFromTransferrable(
 
     if (!xTransferable->isDataFlavorSupported(aFlavor))
     {
+        // Try harder for HTML it is our copy/paste meta-file format
+        if (aInMimeType == "text/html")
+        {
+            // Desperate measures - convert text to HTML instead.
+            if (encodeTextAsHTML(xTransferable, "text/plain;charset=utf-8", aRet))
+                return true;
+            // If html is not supported, might be a graphic-selection,
+            if (encodeImageAsHTML(xTransferable, "image/png", aRet))
+                return true;
+        }
+
         SetLastExceptionMsg("Flavor " + aFlavor.MimeType + " is not supported");
         return false;
     }
@@ -3314,7 +3733,15 @@ static bool getFromTransferrable(
         aRet = OString(reinterpret_cast<sal_Char*>(aSequence.getArray()), aSequence.getLength());
     }
 
-    return true;;
+    return true;
+}
+
+// Tolerate embedded \0s etc.
+static char *convertOString(const OString &rStr)
+{
+    char* pMemory = static_cast<char*>(malloc(rStr.getLength() + 1));
+    memcpy(pMemory, rStr.getStr(), rStr.getLength() + 1);
+    return pMemory;
 }
 
 static char* doc_getTextSelection(LibreOfficeKitDocument* pThis, const char* pMimeType, char** pUsedMimeType)
@@ -3343,31 +3770,148 @@ static char* doc_getTextSelection(LibreOfficeKitDocument* pThis, const char* pMi
         pType = "text/plain;charset=utf-8";
 
     OString aRet;
-    bool bSuccess = getFromTransferrable(xTransferable, pType, aRet);
+    bool bSuccess = getFromTransferrable(xTransferable, OString(pType), aRet);
     if (!bSuccess)
         return nullptr;
-
-    char* pMemory = static_cast<char*>(malloc(aRet.getLength() + 1));
-    assert(pMemory); // Don't handle OOM conditions
-    strcpy(pMemory, aRet.getStr());
 
     if (pUsedMimeType) // legacy
     {
         if (pMimeType)
-        {
-            *pUsedMimeType = static_cast<char*>(malloc(strlen(pMimeType) + 1));
-            strcpy(*pUsedMimeType, pMimeType);
-        }
+            *pUsedMimeType = strdup(pMimeType);
         else
             *pUsedMimeType = nullptr;
     }
 
-    return pMemory;
+    return convertOString(aRet);
 }
 
-static bool doc_paste(LibreOfficeKitDocument* pThis, const char* pMimeType, const char* pData, size_t nSize)
+static int doc_getSelectionType(LibreOfficeKitDocument* pThis)
 {
-    comphelper::ProfileZone aZone("doc_paste");
+    comphelper::ProfileZone aZone("doc_getSelectionType");
+
+    SolarMutexGuard aGuard;
+    SetLastExceptionMsg();
+
+    ITiledRenderable* pDoc = getTiledRenderable(pThis);
+    if (!pDoc)
+    {
+        SetLastExceptionMsg("Document doesn't support tiled rendering");
+        return LOK_SELTYPE_NONE;
+    }
+
+    css::uno::Reference<css::datatransfer::XTransferable2> xTransferable(pDoc->getSelection(), css::uno::UNO_QUERY);
+    if (!xTransferable)
+    {
+        SetLastExceptionMsg("No selection available");
+        return LOK_SELTYPE_NONE;
+    }
+
+    if (xTransferable->isComplex())
+        return LOK_SELTYPE_COMPLEX;
+
+    OString aRet;
+    bool bSuccess = getFromTransferrable(xTransferable, "text/plain;charset=utf-8", aRet);
+    if (!bSuccess)
+        return LOK_SELTYPE_NONE;
+
+    if (aRet.getLength() > 10000)
+        return LOK_SELTYPE_COMPLEX;
+
+    return aRet.getLength() ? LOK_SELTYPE_TEXT : LOK_SELTYPE_NONE;
+}
+
+static int doc_getClipboard(LibreOfficeKitDocument* pThis,
+                            const char **pMimeTypes,
+                            size_t      *pOutCount,
+                            char      ***pOutMimeTypes,
+                            size_t     **pOutSizes,
+                            char      ***pOutStreams)
+{
+    comphelper::ProfileZone aZone("doc_getClipboard");
+
+    SolarMutexGuard aGuard;
+    SetLastExceptionMsg();
+
+    assert (pOutCount);
+    assert (pOutMimeTypes);
+    assert (pOutSizes);
+    assert (pOutStreams);
+
+    *pOutCount = 0;
+    *pOutMimeTypes = nullptr;
+    *pOutSizes = nullptr;
+    *pOutStreams = nullptr;
+
+    ITiledRenderable* pDoc = getTiledRenderable(pThis);
+    if (!pDoc)
+    {
+        SetLastExceptionMsg("Document doesn't support tiled rendering");
+        return 0;
+    }
+
+    rtl::Reference<LOKClipboard> xClip(LOKClipboardFactory::getClipboardForCurView());
+
+    css::uno::Reference<css::datatransfer::XTransferable> xTransferable = xClip->getContents();
+    SAL_INFO("lok", "Got from clip: " << xClip.get() << " transferrable: " << xTransferable);
+    if (!xTransferable)
+    {
+        SetLastExceptionMsg("No clipboard content available");
+        return 0;
+    }
+
+    std::vector<OString> aMimeTypes;
+    if (!pMimeTypes) // everything
+    {
+        const uno::Sequence< css::datatransfer::DataFlavor > flavors = xTransferable->getTransferDataFlavors();
+        if (!flavors.getLength())
+        {
+            SetLastExceptionMsg("Flavourless selection");
+            return 0;
+        }
+        for (const auto &it : flavors)
+            aMimeTypes.push_back(OUStringToOString(it.MimeType, RTL_TEXTENCODING_UTF8));
+    }
+    else
+    {
+        for (size_t i = 0; pMimeTypes[i]; ++i)
+            aMimeTypes.push_back(OString(pMimeTypes[i]));
+    }
+
+    *pOutCount = aMimeTypes.size();
+    *pOutSizes = static_cast<size_t *>(malloc(*pOutCount * sizeof(size_t)));
+    *pOutMimeTypes = static_cast<char **>(malloc(*pOutCount * sizeof(char *)));
+    *pOutStreams = static_cast<char **>(malloc(*pOutCount * sizeof(char *)));
+    for (size_t i = 0; i < aMimeTypes.size(); ++i)
+    {
+        if (aMimeTypes[i] == "text/plain;charset=utf-16")
+            (*pOutMimeTypes)[i] = strdup("text/plain;charset=utf-8");
+        else
+            (*pOutMimeTypes)[i] = strdup(aMimeTypes[i].getStr());
+
+        OString aRet;
+        bool bSuccess = getFromTransferrable(xTransferable, (*pOutMimeTypes)[i], aRet);
+        if (!bSuccess || aRet.getLength() < 1)
+        {
+            (*pOutSizes)[i] = 0;
+            (*pOutStreams)[i] = nullptr;
+        }
+        else
+        {
+            (*pOutSizes)[i] = aRet.getLength();
+            (*pOutStreams)[i] =  convertOString(aRet);
+        }
+    }
+
+    return 1;
+}
+
+static int doc_setClipboard(LibreOfficeKitDocument* pThis,
+                            const size_t   nInCount,
+                            const char   **pInMimeTypes,
+                            const size_t  *pInSizes,
+                            const char   **pInStreams)
+{
+    comphelper::ProfileZone aZone("doc_setClipboard");
 
     SolarMutexGuard aGuard;
     SetLastExceptionMsg();
@@ -3379,15 +3923,37 @@ static bool doc_paste(LibreOfficeKitDocument* pThis, const char* pMimeType, cons
         return false;
     }
 
-    uno::Reference<datatransfer::XTransferable> xTransferable(new LOKTransferable(pMimeType, pData, nSize));
-    uno::Reference<datatransfer::clipboard::XClipboard> xClipboard(new LOKClipboard);
-    xClipboard->setContents(xTransferable, uno::Reference<datatransfer::clipboard::XClipboardOwner>());
-    pDoc->setClipboard(xClipboard);
+    uno::Reference<datatransfer::XTransferable> xTransferable(new LOKTransferable(nInCount, pInMimeTypes, pInSizes, pInStreams));
+
+    auto xClip = forceSetClipboardForCurrentView(pThis);
+    xClip->setContents(xTransferable, uno::Reference<datatransfer::clipboard::XClipboardOwner>());
+
+    SAL_INFO("lok", "Set clip: " << xClip.get() << " to: " << xTransferable);
+
     if (!pDoc->isMimeTypeSupported())
     {
         SetLastExceptionMsg("Document doesn't support this mime type");
         return false;
     }
+
+    return true;
+}
+
+static bool doc_paste(LibreOfficeKitDocument* pThis, const char* pMimeType, const char* pData, size_t nSize)
+{
+    comphelper::ProfileZone aZone("doc_paste");
+
+    SolarMutexGuard aGuard;
+
+    const char *pInMimeTypes[1];
+    const char *pInStreams[1];
+    size_t pInSizes[1];
+    pInMimeTypes[0] = pMimeType;
+    pInSizes[0] = nSize;
+    pInStreams[0] = pData;
+
+    if (!doc_setClipboard(pThis, 1, pInMimeTypes, pInSizes, pInStreams))
+        return false;
 
     uno::Sequence<beans::PropertyValue> aPropertyValues(comphelper::InitPropertySequence(
     {
@@ -3446,11 +4012,9 @@ static char* getLanguages(const char* pCommand)
         css::uno::Reference<css::linguistic2::XLinguServiceManager2> xLangSrv = css::linguistic2::LinguServiceManager::create(xContext);
         if (xLangSrv.is())
         {
-            css::uno::Reference<css::linguistic2::XSpellChecker> xSpell(xLangSrv->getSpellChecker(), css::uno::UNO_QUERY);
-            css::uno::Reference<css::linguistic2::XSupportedLocales> xLocales(xSpell, css::uno::UNO_QUERY);
-
-            if (xLocales.is())
-                aLocales = xLocales->getLocales();
+            css::uno::Reference<css::linguistic2::XSpellChecker> xSpell = xLangSrv->getSpellChecker();
+            if (xSpell.is())
+                aLocales = xSpell->getLocales();
         }
     }
 
@@ -3461,10 +4025,12 @@ static char* getLanguages(const char* pCommand)
     OUString sLanguage;
     for ( sal_Int32 itLocale = 0; itLocale < aLocales.getLength(); itLocale++ )
     {
-        sLanguage = SvtLanguageTable::GetLanguageString(LanguageTag::convertToLanguageType(aLocales[itLocale]));
+        const LanguageTag aLanguageTag( aLocales[itLocale]);
+        sLanguage = SvtLanguageTable::GetLanguageString(aLanguageTag.getLanguageType());
         if (sLanguage.startsWith("{") && sLanguage.endsWith("}"))
             continue;
 
+        sLanguage += ";" + aLanguageTag.getBcp47(false);
         aChild.put("", sLanguage.toUtf8());
         aValues.push_back(std::make_pair("", aChild));
     }
@@ -3544,7 +4110,7 @@ static char* getFontSubset (const OString& aFontName)
         if ( nItFont < nFontCount )
         {
             FontCharMapRef xFontCharMap (new FontCharMap());
-            auto aDevice(VclPtr<VirtualDevice>::Create(nullptr, Size(1, 1), DeviceFormat::DEFAULT));
+            auto aDevice(VclPtr<VirtualDevice>::Create(DeviceFormat::DEFAULT));
             const vcl::Font& aFont(pList->GetFontName(nItFont));
 
             aDevice->SetFont(aFont);
@@ -3577,7 +4143,7 @@ static char* getStyles(LibreOfficeKitDocument* pThis, const char* pCommand)
     boost::property_tree::ptree aTree;
     aTree.put("commandName", pCommand);
     uno::Reference<css::style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(pDocument->mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
     uno::Sequence<OUString> aStyleFamilies = xStyleFamilies->getElementNames();
 
     static const std::vector<OUString> aWriterStyles =
@@ -3619,7 +4185,7 @@ static char* getStyles(LibreOfficeKitDocument* pThis, const char* pCommand)
             }
         }
 
-        uno::Sequence<OUString> aStyles = xStyleFamily->getElementNames();
+        const uno::Sequence<OUString> aStyles = xStyleFamily->getElementNames();
         for (const OUString& rStyle: aStyles )
         {
             // Filter out the default styles - they are already at the top
@@ -4032,7 +4598,7 @@ static void doc_setOutlineState(LibreOfficeKitDocument* pThis, bool bColumn, int
     pDoc->setOutlineState(bColumn, nLevel, nIndex, bHidden);
 }
 
-static int doc_createViewWithOptions(SAL_UNUSED_PARAMETER LibreOfficeKitDocument* /*pThis*/,
+static int doc_createViewWithOptions(LibreOfficeKitDocument* pThis,
                                      const char* pOptions)
 {
     comphelper::ProfileZone aZone("doc_createView");
@@ -4049,7 +4615,11 @@ static int doc_createViewWithOptions(SAL_UNUSED_PARAMETER LibreOfficeKitDocument
         comphelper::LibreOfficeKit::setLanguageTag(LanguageTag(aLanguage));
     }
 
-    return SfxLokHelper::createView();
+    int nId = SfxLokHelper::createView();
+
+    forceSetClipboardForCurrentView(pThis);
+
+    return nId;
 }
 
 static int doc_createView(LibreOfficeKitDocument* pThis)
@@ -4063,6 +4633,8 @@ static void doc_destroyView(SAL_UNUSED_PARAMETER LibreOfficeKitDocument* /*pThis
 
     SolarMutexGuard aGuard;
     SetLastExceptionMsg();
+
+    LOKClipboardFactory::releaseClipboardForView(nId);
 
     SfxLokHelper::destroyView(nId);
 }
@@ -4150,9 +4722,7 @@ unsigned char* doc_renderFont(SAL_UNUSED_PARAMETER LibreOfficeKitDocument* /*pTh
             if (aText.isEmpty())
                 aText = rFontMetric.GetFamilyName();
 
-            auto aDevice(
-                VclPtr<VirtualDevice>::Create(
-                    nullptr, Size(1, 1), DeviceFormat::DEFAULT));
+            auto aDevice(VclPtr<VirtualDevice>::Create(DeviceFormat::DEFAULT));
             ::tools::Rectangle aRect;
             vcl::Font aFont(rFontMetric);
             aFont.SetFontSize(Size(0, nDefaultFontSize));
@@ -4264,7 +4834,7 @@ static void doc_paintWindowDPI(LibreOfficeKitDocument* /*pThis*/, unsigned nLOKW
     SystemGraphicsData aData;
     aData.rCGContext = cgc;
 
-    ScopedVclPtrInstance<VirtualDevice> pDevice(&aData, Size(1, 1), DeviceFormat::DEFAULT);
+    ScopedVclPtrInstance<VirtualDevice> pDevice(aData, Size(1, 1), DeviceFormat::DEFAULT);
     pDevice->SetBackground(Wallpaper(COL_TRANSPARENT));
 
     pDevice->SetOutputSizePixel(Size(nWidth, nHeight));
@@ -4281,7 +4851,7 @@ static void doc_paintWindowDPI(LibreOfficeKitDocument* /*pThis*/, unsigned nLOKW
 
 #else
 
-    ScopedVclPtrInstance<VirtualDevice> pDevice(nullptr, Size(1, 1), DeviceFormat::DEFAULT);
+    ScopedVclPtrInstance<VirtualDevice> pDevice(DeviceFormat::DEFAULT);
     pDevice->SetBackground(Wallpaper(COL_TRANSPARENT));
 
     pDevice->SetOutputSizePixelScaleOffsetAndBuffer(Size(nWidth, nHeight), Fraction(1.0), Point(), pBuffer);
@@ -4500,6 +5070,23 @@ static int doc_getSignatureState(LibreOfficeKitDocument* pThis)
     return int(pObjectShell->GetDocumentSignatureState());
 }
 
+static void doc_resizeWindow(LibreOfficeKitDocument* /*pThis*/, unsigned nLOKWindowId,
+                             const int nWidth, const int nHeight)
+{
+    SolarMutexGuard aGuard;
+    if (gImpl)
+        gImpl->maLastExceptionMsg.clear();
+
+    VclPtr<Window> pWindow = vcl::Window::FindLOKWindow(nLOKWindowId);
+    if (!pWindow)
+    {
+        gImpl->maLastExceptionMsg = "Document doesn't support dialog resizing, or window not found.";
+        return;
+    }
+
+    pWindow->SetSizePixel(Size(nWidth, nHeight));
+}
+
 static char* lo_getError (LibreOfficeKit *pThis)
 {
     comphelper::ProfileZone aZone("lo_getError");
@@ -4536,7 +5123,7 @@ static char* lo_getFilterTypes(LibreOfficeKit* pThis)
     }
 
     uno::Reference<container::XNameAccess> xTypeDetection(xSFactory->createInstance("com.sun.star.document.TypeDetection"), uno::UNO_QUERY);
-    uno::Sequence<OUString> aTypes = xTypeDetection->getElementNames();
+    const uno::Sequence<OUString> aTypes = xTypeDetection->getElementNames();
     boost::property_tree::ptree aTree;
     for (const OUString& rType : aTypes)
     {
@@ -4622,10 +5209,10 @@ static void force_c_locale()
 
 static void aBasicErrorFunc(const OUString& rError, const OUString& rAction)
 {
-    OStringBuffer aBuffer("Unexpected dialog: ");
-    aBuffer.append(OUStringToOString(rAction, RTL_TEXTENCODING_ASCII_US));
-    aBuffer.append(" Error: ");
-    aBuffer.append(OUStringToOString(rError, RTL_TEXTENCODING_ASCII_US));
+    OString aBuffer = "Unexpected dialog: " +
+        OUStringToOString(rAction, RTL_TEXTENCODING_ASCII_US) +
+        " Error: " +
+        OUStringToOString(rError, RTL_TEXTENCODING_ASCII_US);
 
     fprintf(stderr, "Unexpected basic error dialog '%s'\n", aBuffer.getStr());
 }
@@ -4725,7 +5312,8 @@ static void lo_status_indicator_callback(void *data, comphelper::LibreOfficeKit:
         pLib->mpCallback(LOK_CALLBACK_STATUS_INDICATOR_START, nullptr, pLib->mpCallbackData);
         break;
     case comphelper::LibreOfficeKit::statusIndicatorCallbackType::SetValue:
-        pLib->mpCallback(LOK_CALLBACK_STATUS_INDICATOR_SET_VALUE, OUString::number(percent).toUtf8().getStr(), pLib->mpCallbackData);
+        pLib->mpCallback(LOK_CALLBACK_STATUS_INDICATOR_SET_VALUE,
+            OUString(OUString::number(percent)).toUtf8().getStr(), pLib->mpCallbackData);
         break;
     case comphelper::LibreOfficeKit::statusIndicatorCallbackType::Finish:
         pLib->mpCallback(LOK_CALLBACK_STATUS_INDICATOR_FINISH, nullptr, pLib->mpCallbackData);
@@ -4800,13 +5388,12 @@ static void preloadData()
     css::uno::Reference<css::linguistic2::XLinguServiceManager2> xLangSrv = css::linguistic2::LinguServiceManager::create(xContext);
     if (xLangSrv.is())
     {
-        css::uno::Reference<css::linguistic2::XSpellChecker> xSpell(xLangSrv->getSpellChecker(), css::uno::UNO_QUERY);
-        css::uno::Reference<css::linguistic2::XSupportedLocales> xLocales(xSpell, css::uno::UNO_QUERY);
-        if (xLocales.is())
-            aLocales = xLocales->getLocales();
+        css::uno::Reference<css::linguistic2::XSpellChecker> xSpell = xLangSrv->getSpellChecker();
+        if (xSpell.is())
+            aLocales = xSpell->getLocales();
     }
 
-    for (const auto& aLocale : aLocales)
+    for (const auto& aLocale : std::as_const(aLocales))
     {
         //TODO: Add more types and cache more aggressively. For now this initializes the fontcache.
         using namespace ::com::sun::star::i18n::ScriptType;
@@ -4834,10 +5421,10 @@ public:
     }
     virtual void Invoke() override
     {
-        css::uno::Sequence<OUString> aEvents =
+        const css::uno::Sequence<OUString> aEvents =
             comphelper::ProfileRecording::getRecordingAndClear();
         OStringBuffer aOutput;
-        for (auto &s : aEvents)
+        for (const auto &s : aEvents)
         {
             aOutput.append(OUStringToOString(s, RTL_TEXTENCODING_UTF8));
             aOutput.append("\n");
@@ -4868,12 +5455,15 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
         const char *pOptions = getenv("SAL_LOK_OPTIONS");
         if (pOptions)
             aOpts = comphelper::string::split(OUString(pOptions, strlen(pOptions), RTL_TEXTENCODING_UTF8), ':');
-        for (auto &it : aOpts)
+        for (const auto &it : aOpts)
         {
             if (it == "unipoll")
                 bUnipoll = true;
             else if (it == "profile_events")
                 bProfileZones = true;
+            else if (it == "sc_no_grid_bg")
+                comphelper::LibreOfficeKit::setCompatFlag(
+                    comphelper::LibreOfficeKit::Compat::scNoGridBackground);
         }
     }
 
@@ -4989,10 +5579,10 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
                 {
                     // Quick test that ICU works...
                     UConverter *cnv = ucnv_open("iso-8859-3", &icuStatus);
-                    NSLog(@"ucnv_open(iso-8859-3)-> %p, err = %s, name=%s",
-                          (void *)cnv, u_errorName(icuStatus), (!cnv)?"?":ucnv_getName(cnv,&icuStatus));
                     if (U_SUCCESS(icuStatus))
                         ucnv_close(cnv);
+                    else
+                        NSLog(@"ucnv_open() failed: %s", u_errorName(icuStatus));
                 }
             }
         }
@@ -5037,6 +5627,9 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
                     std::cerr << "Init vcl\n";
                     InitVCL();
                 }
+
+                // pre-load all graphic libraries.
+                GraphicFilter::GetGraphicFilter().preload();
 
                 // pre-load all component libraries.
                 if (!xContext.is())
@@ -5203,14 +5796,10 @@ static void lo_destroy(LibreOfficeKit* pThis)
     SAL_INFO("lok", "LO Destroy Done");
 }
 
-}
-
 #ifdef IOS
 
 // Used by the unmaintained LibreOfficeLight app. Once that has been retired, get rid of this, too.
 
-extern "C"
-{
 __attribute__((visibility("default")))
 void temporaryHackToInvokeCallbackHandlers(LibreOfficeKitDocument* pThis)
 {
@@ -5224,7 +5813,9 @@ void temporaryHackToInvokeCallbackHandlers(LibreOfficeKitDocument* pThis)
         pDocument->mpCallbackFlushHandlers[nOrigViewId]->Invoke();
     }
 }
-}
+
 #endif
+
+} // extern "C"
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

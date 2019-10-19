@@ -22,80 +22,66 @@
 
 #include <sal/config.h>
 #include <sfx2/dllapi.h>
-#include <sal/types.h>
-#include <vcl/button.hxx>
-#include <vcl/field.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/print.hxx>
-
 #include <sfx2/tabdlg.hxx>
+#include <sal/types.h>
+#include <vcl/print.hxx>
 
 
 class SFX2_DLLPUBLIC SfxCommonPrintOptionsTabPage : public SfxTabPage
 {
 private:
 
-    VclPtr<RadioButton>        m_pPrinterOutputRB;
-    VclPtr<RadioButton>        m_pPrintFileOutputRB;
-
-    VclPtr<CheckBox>           m_pReduceTransparencyCB;
-    VclPtr<RadioButton>        m_pReduceTransparencyAutoRB;
-    VclPtr<RadioButton>        m_pReduceTransparencyNoneRB;
-
-    VclPtr<CheckBox>           m_pReduceGradientsCB;
-    VclPtr<RadioButton>        m_pReduceGradientsStripesRB;
-    VclPtr<RadioButton>        m_pReduceGradientsColorRB;
-    VclPtr<NumericField>       m_pReduceGradientsStepCountNF;
-
-    VclPtr<CheckBox>           m_pReduceBitmapsCB;
-    VclPtr<RadioButton>        m_pReduceBitmapsOptimalRB;
-    VclPtr<RadioButton>        m_pReduceBitmapsNormalRB;
-    VclPtr<RadioButton>        m_pReduceBitmapsResolutionRB;
-    VclPtr<ListBox>            m_pReduceBitmapsResolutionLB;
-    VclPtr<CheckBox>           m_pReduceBitmapsTransparencyCB;
-
-    VclPtr<CheckBox>           m_pConvertToGreyscalesCB;
-
-    VclPtr<CheckBox>           m_pPDFCB;
-
-    VclPtr<CheckBox>           m_pPaperSizeCB;
-    VclPtr<CheckBox>           m_pPaperOrientationCB;
-    VclPtr<CheckBox>           m_pTransparencyCB;
+    std::unique_ptr<weld::RadioButton> m_xPrinterOutputRB;
+    std::unique_ptr<weld::RadioButton> m_xPrintFileOutputRB;
+    std::unique_ptr<weld::CheckButton> m_xReduceTransparencyCB;
+    std::unique_ptr<weld::RadioButton> m_xReduceTransparencyAutoRB;
+    std::unique_ptr<weld::RadioButton> m_xReduceTransparencyNoneRB;
+    std::unique_ptr<weld::CheckButton> m_xReduceGradientsCB;
+    std::unique_ptr<weld::RadioButton> m_xReduceGradientsStripesRB;
+    std::unique_ptr<weld::RadioButton> m_xReduceGradientsColorRB;
+    std::unique_ptr<weld::SpinButton> m_xReduceGradientsStepCountNF;
+    std::unique_ptr<weld::CheckButton> m_xReduceBitmapsCB;
+    std::unique_ptr<weld::RadioButton> m_xReduceBitmapsOptimalRB;
+    std::unique_ptr<weld::RadioButton> m_xReduceBitmapsNormalRB;
+    std::unique_ptr<weld::RadioButton> m_xReduceBitmapsResolutionRB;
+    std::unique_ptr<weld::ComboBox> m_xReduceBitmapsResolutionLB;
+    std::unique_ptr<weld::CheckButton> m_xReduceBitmapsTransparencyCB;
+    std::unique_ptr<weld::CheckButton> m_xConvertToGreyscalesCB;
+    std::unique_ptr<weld::CheckButton> m_xPDFCB;
+    std::unique_ptr<weld::CheckButton> m_xPaperSizeCB;
+    std::unique_ptr<weld::CheckButton> m_xPaperOrientationCB;
+    std::unique_ptr<weld::CheckButton> m_xTransparencyCB;
 
 private:
 
     PrinterOptions      maPrinterOptions;
     PrinterOptions      maPrintFileOptions;
 
-                        DECL_DLLPRIVATE_LINK( ToggleOutputPrinterRBHdl, RadioButton&, void );
-                        DECL_DLLPRIVATE_LINK( ToggleOutputPrintFileRBHdl, RadioButton&, void);
+                        DECL_DLLPRIVATE_LINK( ToggleOutputPrinterRBHdl, weld::ToggleButton&, void );
+                        DECL_DLLPRIVATE_LINK( ToggleOutputPrintFileRBHdl, weld::ToggleButton&, void);
 
-                        DECL_DLLPRIVATE_LINK( ClickReduceTransparencyCBHdl, Button*, void );
-                        DECL_DLLPRIVATE_LINK( ClickReduceGradientsCBHdl, Button*, void );
-                        DECL_DLLPRIVATE_LINK( ClickReduceBitmapsCBHdl, Button*, void );
+                        DECL_DLLPRIVATE_LINK( ClickReduceTransparencyCBHdl, weld::Button&, void );
+                        DECL_DLLPRIVATE_LINK( ClickReduceGradientsCBHdl, weld::Button&, void );
+                        DECL_DLLPRIVATE_LINK( ClickReduceBitmapsCBHdl, weld::Button&, void );
 
-                        DECL_DLLPRIVATE_LINK( ToggleReduceGradientsStripesRBHdl, RadioButton&, void );
-                        DECL_DLLPRIVATE_LINK( ToggleReduceBitmapsResolutionRBHdl, RadioButton&, void );
+                        DECL_DLLPRIVATE_LINK( ToggleReduceGradientsStripesRBHdl, weld::ToggleButton&, void );
+                        DECL_DLLPRIVATE_LINK( ToggleReduceBitmapsResolutionRBHdl, weld::ToggleButton&, void );
 
     SAL_DLLPRIVATE void ImplUpdateControls( const PrinterOptions* pCurrentOptions );
     SAL_DLLPRIVATE void ImplSaveControls( PrinterOptions* pCurrentOptions );
 
 protected:
 
-    using TabPage::DeactivatePage;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
 
-                        SfxCommonPrintOptionsTabPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    SfxCommonPrintOptionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual             ~SfxCommonPrintOptionsTabPage() override;
-    virtual void        dispose() override;
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
-    virtual vcl::Window*     GetParentLabeledBy( const vcl::Window* pLabel ) const override;
-    virtual vcl::Window*     GetParentLabelFor( const vcl::Window* pLabel ) const override;
 
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet*);
 };
 
 #endif // INCLUDED_SFX2_PRINTOPT_HXX

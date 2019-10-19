@@ -19,21 +19,14 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_REGIONSW_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_REGIONSW_HXX
 
-#include <hintids.hxx>
 #include <sfx2/basedlgs.hxx>
 #include <sfx2/tabdlg.hxx>
-#include <editeng/brushitem.hxx>
 
 #include "condedit.hxx"
 #include <section.hxx>
-#include <fmtclds.hxx>
 #include <fmtftntx.hxx>
-#include <fmtclbl.hxx>
 #include "numberingtypelistbox.hxx"
-#include <editeng/frmdiritem.hxx>
-#include <vcl/image.hxx>
 #include <svx/paraprev.hxx>
-#include <editeng/lrspitem.hxx>
 
 #include <memory>
 #include <map>
@@ -85,7 +78,7 @@ class SwEditRegionDlg : public SfxDialogController
     std::unique_ptr<weld::Button> m_xDismiss;
     std::unique_ptr<weld::Widget> m_xHideFrame;
 
-    void    RecurseList(const SwSectionFormat* pFormat, weld::TreeIter* pIter);
+    void    RecurseList(const SwSectionFormat* pFormat, const weld::TreeIter* pIter);
     size_t  FindArrPos(const SwSectionFormat* pFormat);
 
     DECL_LINK( GetFirstEntryHdl, weld::TreeView&, void );
@@ -164,7 +157,7 @@ class SwInsertSectionTabPage : public SfxTabPage
     DECL_LINK( DlgClosedHdl, sfx2::FileDialogHelper*, void );
 
 public:
-    SwInsertSectionTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet);
+    SwInsertSectionTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rAttrSet);
     virtual ~SwInsertSectionTabPage() override;
 
     void    SetWrtShell(SwWrtShell& rSh);
@@ -172,7 +165,7 @@ public:
     virtual bool        FillItemSet( SfxItemSet* ) override;
     virtual void        Reset( const SfxItemSet* ) override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 };
 
@@ -203,13 +196,13 @@ class SwSectionFootnoteEndTabPage : public SfxTabPage
     void ResetState( bool bFootnote, const SwFormatFootnoteEndAtTextEnd& );
 
 public:
-    SwSectionFootnoteEndTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet);
+    SwSectionFootnoteEndTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rAttrSet);
     virtual ~SwSectionFootnoteEndTabPage() override;
 
     virtual bool        FillItemSet( SfxItemSet* ) override;
     virtual void        Reset( const SfxItemSet* ) override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 };
 
@@ -222,13 +215,13 @@ class SwSectionIndentTabPage : public SfxTabPage
 
     DECL_LINK(IndentModifyHdl, weld::MetricSpinButton&, void);
 public:
-    SwSectionIndentTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet);
+    SwSectionIndentTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rAttrSet);
     virtual ~SwSectionIndentTabPage() override;
 
     virtual bool        FillItemSet( SfxItemSet* ) override;
     virtual void        Reset( const SfxItemSet* ) override;
 
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     void    SetWrtShell(SwWrtShell const & rSh);
 };

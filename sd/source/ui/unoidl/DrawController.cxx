@@ -20,7 +20,6 @@
 #include <DrawController.hxx>
 #include <DrawDocShell.hxx>
 
-#include <DrawSubController.hxx>
 #include <sdpage.hxx>
 #include <ViewShell.hxx>
 #include <ViewShellBase.hxx>
@@ -31,14 +30,13 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/servicehelper.hxx>
-#include <cppuhelper/exc_hlp.hxx>
-#include <cppuhelper/bootstrap.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
 
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/drawing/framework/ConfigurationController.hpp>
 #include <com/sun/star/drawing/framework/ModuleController.hpp>
+#include <com/sun/star/drawing/XDrawSubController.hpp>
 #include <com/sun/star/drawing/XLayer.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 
@@ -204,7 +202,7 @@ OUString SAL_CALL DrawController::getImplementationName(  )
     // Do not throw an exception at the moment.  This leads to a crash
     // under Solaris on reload.  See issue i70929 for details.
     //    ThrowIfDisposed();
-    return OUString("DrawController") ;
+    return "DrawController" ;
 }
 
 static const char ssServiceName[] = "com.sun.star.drawing.DrawingDocumentDrawView";
@@ -429,8 +427,7 @@ void DrawController::FireSwitchCurrentPage (SdPage* pNewCurrentPage) throw()
     }
     catch (const uno::Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("sd", "sd::SdUnoDrawView::FireSwitchCurrentPage(), exception caught:  " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("sd", "sd::SdUnoDrawView::FireSwitchCurrentPage()");
     }
 }
 
@@ -574,8 +571,7 @@ sal_Int64 SAL_CALL DrawController::getSomething (const Sequence<sal_Int8>& rId)
 {
     sal_Int64 nResult = 0;
 
-    if (rId.getLength() == 16
-        && memcmp(getUnoTunnelId().getConstArray(), rId.getConstArray(), 16) == 0)
+    if (isUnoTunnelId<DrawController>(rId))
     {
         nResult = sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }

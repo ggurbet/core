@@ -20,6 +20,7 @@
 #include "vbatables.hxx"
 #include "vbatable.hxx"
 #include "vbarange.hxx"
+#include "wordvbahelper.hxx"
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/text/XTextTablesSupplier.hpp>
 #include <com/sun/star/text/XTextDocument.hpp>
@@ -208,7 +209,7 @@ SwVbaTables::createCollectionObject( const uno::Any& aSource )
 OUString
 SwVbaTables::getServiceImplName()
 {
-    return OUString("SwVbaTables");
+    return "SwVbaTables";
 }
 
 // XEnumerationAccess

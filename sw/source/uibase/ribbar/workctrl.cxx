@@ -375,6 +375,7 @@ IMPL_LINK(SwScrollNaviPopup, SelectHdl, ToolBox*, pSet, void)
     sal_uInt16 nSet = pSet->GetCurItemId();
     if( nSet != NID_PREV && nSet != NID_NEXT )
     {
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
         SwView::SetMoveType( nSet );
         Sequence< PropertyValue > aArgs;
         SfxToolBoxControl::Dispatch( Reference< XDispatchProvider >( GetFrame()->getController(), UNO_QUERY ),
@@ -861,7 +862,7 @@ sal_Bool SAL_CALL NavElementToolBoxControl::supportsService( const OUString& Ser
 
 OUString SAL_CALL NavElementToolBoxControl::getImplementationName()
 {
-    return OUString("lo.writer.NavElementToolBoxController");
+    return "lo.writer.NavElementToolBoxController";
 }
 
 uno::Sequence< OUString > SAL_CALL NavElementToolBoxControl::getSupportedServiceNames()

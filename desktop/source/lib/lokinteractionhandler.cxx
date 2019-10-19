@@ -64,7 +64,7 @@ LOKInteractionHandler::~LOKInteractionHandler()
 
 OUString SAL_CALL LOKInteractionHandler::getImplementationName()
 {
-    return OUString("com.sun.star.comp.uui.LOKInteractionHandler");
+    return "com.sun.star.comp.uui.LOKInteractionHandler";
 }
 
 sal_Bool SAL_CALL LOKInteractionHandler::supportsService(OUString const & rServiceName)
@@ -74,13 +74,11 @@ sal_Bool SAL_CALL LOKInteractionHandler::supportsService(OUString const & rServi
 
 uno::Sequence< OUString > SAL_CALL LOKInteractionHandler::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aNames(3);
-    aNames[0] = "com.sun.star.task.InteractionHandler";
-    // added to indicate support for configuration.backend.MergeRecoveryRequest
-    aNames[1] = "com.sun.star.configuration.backend.InteractionHandler";
-    aNames[2] = "com.sun.star.uui.InteractionHandler";
-    // for backwards compatibility
-    return aNames;
+    return { "com.sun.star.task.InteractionHandler",
+             // added to indicate support for configuration.backend.MergeRecoveryRequest
+             "com.sun.star.configuration.backend.InteractionHandler",
+              // for backwards compatibility
+             "com.sun.star.uui.InteractionHandler" };
 }
 
 void SAL_CALL LOKInteractionHandler::initialize(uno::Sequence<uno::Any> const & /*rArguments*/)
@@ -118,7 +116,7 @@ void LOKInteractionHandler::postError(css::task::InteractionClassification class
     boost::property_tree::write_json(aStream, aTree);
 
     std::size_t nView = SfxViewShell::Current() ? SfxLokHelper::getView() : 0;
-    if (m_pLOKDocument && m_pLOKDocument->mpCallbackFlushHandlers.size() > nView && m_pLOKDocument->mpCallbackFlushHandlers[nView])
+    if (m_pLOKDocument && m_pLOKDocument->mpCallbackFlushHandlers.count(nView))
         m_pLOKDocument->mpCallbackFlushHandlers[nView]->queue(LOK_CALLBACK_ERROR, aStream.str().c_str());
     else if (m_pLOKit->mpCallback)
         m_pLOKit->mpCallback(LOK_CALLBACK_ERROR, aStream.str().c_str(), m_pLOKit->mpCallbackData);

@@ -235,17 +235,15 @@ private:
 
 struct ExCfRuleModel
 {
-    ExCfRuleModel() : mbGradient( false ), mnAxisColor( UNSIGNED_RGB_TRANSPARENT ), mnNegativeColor( UNSIGNED_RGB_TRANSPARENT ), mbIsLower( true ) {}
-    // DataBar
-    bool mbGradient;
-    OUString maAxisPosition;
+    ExCfRuleModel() : mnAxisColor( UNSIGNED_RGB_TRANSPARENT ), mnNegativeColor( UNSIGNED_RGB_TRANSPARENT ), mbGradient( false ), mbIsLower( true ) {}
     // AxisColor
     ::Color mnAxisColor;
     // NegativeFillColor
     ::Color mnNegativeColor;
-    // Cfvo
-    bool mbIsLower;
-    OUString maColorScaleType;
+    OUString maAxisPosition; // DataBar
+    OUString maColorScaleType; // Cfvo
+    bool mbGradient; // DataBar
+    bool mbIsLower; // Cfvo
 };
 
 class ExtCfDataBarRule : public WorksheetHelper
@@ -276,11 +274,11 @@ class ExtCfCondFormat
 {
 public:
     ExtCfCondFormat(const ScRangeList& aRange, std::vector< std::unique_ptr<ScFormatEntry> >& rEntries,
-                    std::vector<sal_Int32>* pPriorities = nullptr);
+                    const std::vector<sal_Int32>* pPriorities = nullptr);
     ~ExtCfCondFormat();
 
-    const ScRangeList& getRange();
-    const std::vector< std::unique_ptr<ScFormatEntry> >& getEntries();
+    const ScRangeList& getRange() const;
+    const std::vector< std::unique_ptr<ScFormatEntry> >& getEntries() const;
     const std::vector<sal_Int32>& getPriorities() const { return maPriorities; }
 
 private:

@@ -165,7 +165,7 @@ SwVbaApplication::RemoveSink( sal_uInt32 nNumber )
 OUString SAL_CALL
 SwVbaApplication::getName()
 {
-    return OUString("Microsoft Word" );
+    return "Microsoft Word";
 }
 
 uno::Reference< word::XDocument > SAL_CALL
@@ -184,7 +184,7 @@ SwVbaApplication::getActiveSwVbaWindow()
 }
 
 uno::Reference< css::uno::XComponentContext > const &
-SwVbaApplication::getContext()
+SwVbaApplication::getContext() const
 {
     return mxContext;
 }
@@ -372,7 +372,7 @@ void SAL_CALL SwVbaApplication::setTop( sal_Int32 _top )
 
 OUString SAL_CALL SwVbaApplication::getStatusBar()
 {
-    return OUString("");
+    return "";
 }
 
 uno::Any SAL_CALL SwVbaApplication::getCustomizationContext()
@@ -388,13 +388,13 @@ void SAL_CALL SwVbaApplication::setCustomizationContext(const uno::Any& /*_custo
 void SAL_CALL SwVbaApplication::setStatusBar( const OUString& _statusbar )
 {
     // ScVbaAppSettings::setStatusBar() also uses the XStatusIndicator to show this, so maybe that is OK?
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY );
+    uno::Reference< frame::XModel > xModel = getCurrentDocument();
     if (xModel.is())
     {
         uno::Reference< task::XStatusIndicatorSupplier > xStatusIndicatorSupplier( xModel->getCurrentController(), uno::UNO_QUERY );
         if (xStatusIndicatorSupplier.is())
         {
-            uno::Reference< task::XStatusIndicator > xStatusIndicator( xStatusIndicatorSupplier->getStatusIndicator(), uno::UNO_QUERY );
+            uno::Reference< task::XStatusIndicator > xStatusIndicator = xStatusIndicatorSupplier->getStatusIndicator();
             if (xStatusIndicator.is())
                 xStatusIndicator->start( _statusbar, 100 );
         }
@@ -443,7 +443,7 @@ void SAL_CALL SwVbaApplication::Move( sal_Int32 Left, sal_Int32 Top )
 OUString SAL_CALL
 SwVbaApplication::getIID()
 {
-    return OUString("{82154421-0FBF-11d4-8313-005004526AB4}");
+    return "{82154421-0FBF-11d4-8313-005004526AB4}";
 }
 
 // XConnectable
@@ -451,7 +451,7 @@ SwVbaApplication::getIID()
 OUString SAL_CALL
 SwVbaApplication::GetIIDForClassItselfNotCoclass()
 {
-    return OUString("{82154423-0FBF-11D4-8313-005004526AB4}");
+    return "{82154423-0FBF-11D4-8313-005004526AB4}";
 }
 
 TypeAndIID SAL_CALL
@@ -475,7 +475,7 @@ SwVbaApplication::FindConnectionPoint()
 OUString
 SwVbaApplication::getServiceImplName()
 {
-    return OUString("SwVbaApplication");
+    return "SwVbaApplication";
 }
 
 uno::Sequence< OUString >
@@ -653,7 +653,7 @@ SwWordBasic::FileClose( const css::uno::Any& Save )
     //
     // FIXME: Error handling. If there is no current document, return some kind of error? But for
     // now, just ignore errors. This code is written to work for a very specific customer use case
-    // ayway, not for an arbitrary sequence of COM calls to the "VBA" API.
+    // anyway, not for an arbitrary sequence of COM calls to the "VBA" API.
     dispatchRequests(xModel,".uno:CloseDoc");
 }
 

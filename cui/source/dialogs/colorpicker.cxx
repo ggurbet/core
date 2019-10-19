@@ -22,28 +22,19 @@
 #include <com/sun/star/beans/XPropertyAccess.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/datatransfer/XTransferable.hpp>
-#include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
 #include <com/sun/star/awt/XWindow.hpp>
 #include <cppuhelper/compbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/basemutex.hxx>
 #include <vcl/customweld.hxx>
-#include <vcl/bitmapaccess.hxx>
 #include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
-#include <sot/exchange.hxx>
-#include <sot/formats.hxx>
 #include <svx/hexcolorcontrol.hxx>
-#include <sax/tools/converter.hxx>
 #include <basegfx/color/bcolortools.hxx>
 #include <colorpicker.hxx>
-#include <bitmaps.hlst>
 #include <cmath>
-#include <limits>
 #include <o3tl/typed_flags_set.hxx>
 
 using namespace ::com::sun::star::uno;
@@ -218,8 +209,8 @@ public:
     void Modify();
 
     void SetValues(Color aColor, ColorMode eMode, double x, double y);
-    double GetX() { return mdX;}
-    double GetY() { return mdY;}
+    double GetX() const { return mdX;}
+    double GetY() const { return mdY;}
 
     void SetModifyHdl(const Link<ColorFieldControl&,void>& rLink) { maModifyHdl = rLink; }
 
@@ -1218,7 +1209,7 @@ private:
 
 OUString ColorPicker_getImplementationName()
 {
-    return OUString( "com.sun.star.cui.ColorPicker" );
+    return "com.sun.star.cui.ColorPicker";
 }
 
 Reference< XInterface > ColorPicker_createInstance( Reference< XComponentContext > const & )

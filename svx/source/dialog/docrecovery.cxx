@@ -75,7 +75,7 @@ RecoveryCore::~RecoveryCore()
 }
 
 
-const css::uno::Reference< css::uno::XComponentContext >& RecoveryCore::getComponentContext()
+const css::uno::Reference< css::uno::XComponentContext >& RecoveryCore::getComponentContext() const
 {
     return m_xContext;
 }
@@ -352,8 +352,6 @@ void SAL_CALL RecoveryCore::statusChanged(const css::frame::FeatureStateEvent& a
     //    FeatureDescriptor = "start" || "stop"
     if (aEvent.FeatureDescriptor == RECOVERY_OPERATIONSTATE_START)
     {
-        if (m_pListener)
-            m_pListener->start();
         return;
     }
 
@@ -366,7 +364,7 @@ void SAL_CALL RecoveryCore::statusChanged(const css::frame::FeatureStateEvent& a
 
     // b) normal notification about changed items
     //    FeatureDescriptor = "Update"
-    //    State             = Lits of information [seq< NamedValue >]
+    //    State             = List of information [seq< NamedValue >]
     if (aEvent.FeatureDescriptor != RECOVERY_OPERATIONSTATE_UPDATE)
         return;
 
@@ -632,10 +630,6 @@ void SaveProgressDialog::stepNext(TURLInfo* )
     */
 }
 
-void SaveProgressDialog::start()
-{
-}
-
 void SaveProgressDialog::end()
 {
     m_xDialog->response(DLG_RET_OK);
@@ -877,10 +871,6 @@ short RecoveryDialog::execute()
     return DLG_RET_OK;
 }
 
-void RecoveryDialog::start()
-{
-}
-
 void RecoveryDialog::updateItems()
 {
     int c = m_xFileListLB->n_children();
@@ -1065,12 +1055,12 @@ void BrokenRecoveryDialog::impl_refresh()
     m_xOkBtn->grab_focus();
 }
 
-bool BrokenRecoveryDialog::isExecutionNeeded()
+bool BrokenRecoveryDialog::isExecutionNeeded() const
 {
     return m_bExecutionNeeded;
 }
 
-const OUString& BrokenRecoveryDialog::getSaveDirURL()
+const OUString& BrokenRecoveryDialog::getSaveDirURL() const
 {
     return m_sSavePath;
 }

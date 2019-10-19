@@ -22,10 +22,8 @@
 #include <shellid.hxx>
 
 #include <tools/link.hxx>
-#include <vcl/timer.hxx>
 #include <sfx2/module.hxx>
 #include <sfx2/shell.hxx>
-#include <viewopt.hxx>
 
 #include <mdiexp.hxx>
 #include <set>
@@ -36,7 +34,7 @@ class SfxItemSet;
 class SwCursorShell;
 
 struct DBTextStruct_Impl;
-class SAL_DLLPUBLIC_RTTI SwBaseShell: public SfxShell
+class SW_DLLPUBLIC SwBaseShell: public SfxShell
 {
     SwView      &rView;
 

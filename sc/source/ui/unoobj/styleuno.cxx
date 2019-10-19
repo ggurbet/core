@@ -21,13 +21,10 @@
 #include <editeng/memberids.h>
 #include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
-#include <editeng/eeitem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <editeng/langitem.hxx>
-#include <editeng/lineitem.hxx>
 #include <editeng/numitem.hxx>
 #include <editeng/shaditem.hxx>
-#include <editeng/sizeitem.hxx>
 #include <svx/pageitem.hxx>
 #include <editeng/pbinitem.hxx>
 #include <svx/unomid.hxx>
@@ -35,8 +32,6 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/sfxsids.hrc>
-#include <svx/rotmodit.hxx>
-#include <svl/stritem.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/svapp.hxx>
 #include <svl/itempool.hxx>
@@ -47,7 +42,6 @@
 #include <osl/diagnose.h>
 
 #include <com/sun/star/table/BorderLine.hpp>
-#include <com/sun/star/table/CellVertJustify2.hpp>
 #include <com/sun/star/table/TableBorder.hpp>
 #include <com/sun/star/table/TableBorder2.hpp>
 #include <com/sun/star/table/ShadowFormat.hpp>
@@ -72,7 +66,6 @@
 #include <stlpool.hxx>
 #include <docpool.hxx>
 #include <miscuno.hxx>
-#include <convuno.hxx>
 #include <tablink.hxx>
 #include <unonames.hxx>
 #include <unowids.hxx>
@@ -581,11 +574,8 @@ void ScStyleFamiliesObj::loadStylesFromDocShell( ScDocShell* pSource,
         bool bLoadCellStyles = true;
         bool bLoadPageStyles = true;
 
-        const beans::PropertyValue* pPropArray = aOptions.getConstArray();
-        sal_Int32 nPropCount = aOptions.getLength();
-        for (sal_Int32 i = 0; i < nPropCount; i++)
+        for (const beans::PropertyValue& rProp : aOptions)
         {
-            const beans::PropertyValue& rProp = pPropArray[i];
             OUString aPropName(rProp.Name);
 
             if (aPropName == SC_UNONAME_OVERWSTL)
@@ -1198,11 +1188,9 @@ uno::Sequence<beans::PropertyState> SAL_CALL ScStyleObj::getPropertyStates( cons
     SolarMutexGuard aGuard;
     GetStyle_Impl();
 
-    const OUString* pNames = aPropertyNames.getConstArray();
     uno::Sequence<beans::PropertyState> aRet( aPropertyNames.getLength() );
-    beans::PropertyState* pStates = aRet.getArray();
-    for ( sal_Int32 i = 0; i < aPropertyNames.getLength(); i++ )
-        pStates[i] = getPropertyState_Impl( pNames[i] );
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aRet.begin(),
+        [this](const OUString& rName) -> beans::PropertyState { return getPropertyState_Impl(rName); });
     return aRet;
 }
 
@@ -1213,7 +1201,7 @@ void SAL_CALL ScStyleObj::setPropertyToDefault( const OUString& aPropertyName )
 
     const SfxItemPropertySimpleEntry* pEntry = pPropSet->getPropertyMap().getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     setPropertyValue_Impl( aPropertyName, pEntry, nullptr );
 }
@@ -1315,9 +1303,8 @@ uno::Sequence<uno::Any> SAL_CALL ScStyleObj::getPropertyDefaults( const uno::Seq
     GetStyle_Impl();
 
     uno::Sequence<uno::Any> aSequence( aPropertyNames.getLength() );
-    uno::Any* pValues = aSequence.getArray();
-    for ( sal_Int32 i = 0; i < aPropertyNames.getLength(); i++ )
-        pValues[i] = getPropertyDefault_Impl( aPropertyNames[i] );
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aSequence.begin(),
+        [this](const OUString& rName) -> uno::Any { return getPropertyDefault_Impl(rName); });
     return aSequence;
 }
 
@@ -1348,9 +1335,8 @@ uno::Sequence<uno::Any> SAL_CALL ScStyleObj::getPropertyValues( const uno::Seque
     GetStyle_Impl();
 
     uno::Sequence<uno::Any> aSequence( aPropertyNames.getLength() );
-    uno::Any* pValues = aSequence.getArray();
-    for ( sal_Int32 i = 0; i < aPropertyNames.getLength(); i++ )
-        pValues[i] = getPropertyValue_Impl( aPropertyNames[i] );
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aSequence.begin(),
+        [this](const OUString& rName) -> uno::Any { return getPropertyValue_Impl(rName); });
     return aSequence;
 }
 
@@ -1429,12 +1415,11 @@ void SAL_CALL ScStyleObj::setPropertiesToDefault( const uno::Sequence<OUString>&
     SolarMutexGuard aGuard;
     GetStyle_Impl();
 
-    const OUString* pNames = aPropertyNames.getConstArray();
     const SfxItemPropertyMap& rPropertyMap = pPropSet->getPropertyMap();
-    for ( sal_Int32 i = 0; i < aPropertyNames.getLength(); i++ )
+    for ( const OUString& rName : aPropertyNames )
     {
-        const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( pNames[i] );
-        setPropertyValue_Impl( pNames[i], pEntry, nullptr );
+        const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( rName );
+        setPropertyValue_Impl( rName, pEntry, nullptr );
     }
 }
 
@@ -1453,7 +1438,7 @@ void SAL_CALL ScStyleObj::setPropertyValue( const OUString& aPropertyName, const
 
     const SfxItemPropertySimpleEntry*  pEntry = pPropSet->getPropertyMap().getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     setPropertyValue_Impl( aPropertyName, pEntry, &aValue );
 }
@@ -1911,7 +1896,7 @@ SC_IMPL_DUMMY_PROPERTY_LISTENER( ScStyleObj )
 
 OUString SAL_CALL ScStyleObj::getImplementationName()
 {
-    return OUString("ScStyleObj" );
+    return "ScStyleObj";
 }
 
 sal_Bool SAL_CALL ScStyleObj::supportsService( const OUString& rServiceName )

@@ -20,56 +20,53 @@
 #include "abspage.hxx"
 #include "abspilot.hxx"
 
-
 namespace abp
 {
-
-
-    using namespace ::svt;
     using namespace ::com::sun::star::uno;
     using namespace ::com::sun::star::lang;
 
-    AddressBookSourcePage::AddressBookSourcePage(OAddressBookSourcePilot* _pParent, const OString& rID, const OUString& rUIXMLDescription)
-        :AddressBookSourcePage_Base(_pParent, rID, rUIXMLDescription)
+    AddressBookSourcePage::AddressBookSourcePage(weld::Container* pPage, OAddressBookSourcePilot* pDialog, const OUString& rUIXMLDescription, const OString& rID)
+        : AddressBookSourcePage_Base(pPage, pDialog, rUIXMLDescription, rID)
+        , m_pDialog(pDialog)
     {
     }
 
-    void AddressBookSourcePage::DeactivatePage()
+    void AddressBookSourcePage::Activate()
     {
-        AddressBookSourcePage_Base::DeactivatePage();
-        getDialog()->enableButtons(WizardButtonFlags::NEXT, true);
+        AddressBookSourcePage_Base::Activate();
+        m_pDialog->updateTravelUI();
     }
 
+    void AddressBookSourcePage::Deactivate()
+    {
+        AddressBookSourcePage_Base::Deactivate();
+        m_pDialog->enableButtons(WizardButtonFlags::NEXT, true);
+    }
 
     OAddressBookSourcePilot* AddressBookSourcePage::getDialog()
     {
-        return static_cast<OAddressBookSourcePilot*>(GetParent());
+        return m_pDialog;
     }
-
 
     const OAddressBookSourcePilot* AddressBookSourcePage::getDialog() const
     {
-        return static_cast<const OAddressBookSourcePilot*>(GetParent());
+        return m_pDialog;
     }
-
 
     AddressSettings& AddressBookSourcePage::getSettings()
     {
-        return getDialog()->getSettings();
+        return m_pDialog->getSettings();
     }
-
 
     const AddressSettings&  AddressBookSourcePage::getSettings() const
     {
-        return getDialog()->getSettings();
+        return m_pDialog->getSettings();
     }
 
-
-    const Reference< XComponentContext > & AddressBookSourcePage::getORB()
+    const Reference< XComponentContext > & AddressBookSourcePage::getORB() const
     {
-        return getDialog()->getORB();
+        return m_pDialog->getORB();
     }
-
 
 }   // namespace abp
 

@@ -1433,7 +1433,7 @@ void ScTable::GetNextPos( SCCOL& rCol, SCROW& rRow, SCCOL nMovX, SCROW nMovY,
         // Add some cols/rows to the print area (which is "content or
         // visually different from empty") to enable travelling through
         // protected forms with empty cells and no visual indicator.
-        // 42 might be good enough and not too much..
+        // 42 might be good enough and not too much...
         nEndCol = std::min<SCCOL>( nEndCol+42, MAXCOL);
         nEndRow = std::min<SCROW>( nEndRow+42, MAXROW);
     }
@@ -2468,19 +2468,30 @@ void ScTable::SetFormulaResults( SCCOL nCol, SCROW nRow, const double* pResults,
     aCol[nCol].SetFormulaResults(nRow, pResults, nLen);
 }
 
-void ScTable::CalculateInColumnInThread( ScInterpreterContext& rContext, SCCOL nCol, SCROW nRow, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal)
+void ScTable::CalculateInColumnInThread( ScInterpreterContext& rContext,
+                                         SCCOL nColStart, SCCOL nColEnd,
+                                         SCROW nRowStart, SCROW nRowEnd,
+                                         unsigned nThisThread, unsigned nThreadsTotal)
 {
-    if (!ValidCol(nCol))
+    if (!ValidCol(nColStart) || !ValidCol(nColEnd))
         return;
 
-    aCol[nCol].CalculateInThread( rContext, nRow, nLen, nThisThread, nThreadsTotal );
+    size_t nLen = nRowEnd - nRowStart + 1;
+    size_t nOffset = 0;
+    for (SCCOL nCurrCol = nColStart; nCurrCol <= nColEnd; ++nCurrCol)
+    {
+        aCol[nCurrCol].CalculateInThread( rContext, nRowStart, nLen, nOffset, nThisThread, nThreadsTotal );
+        nOffset += nLen;
+    }
 }
 
-void ScTable::HandleStuffAfterParallelCalculation( SCCOL nCol, SCROW nRow, size_t nLen)
+void ScTable::HandleStuffAfterParallelCalculation( SCCOL nColStart, SCCOL nColEnd, SCROW nRow, size_t nLen,
+                                                   ScInterpreter* pInterpreter)
 {
-    assert(ValidCol(nCol));
+    assert(ValidCol(nColStart) && ValidCol(nColEnd));
 
-    aCol[nCol].HandleStuffAfterParallelCalculation( nRow, nLen );
+    for (SCCOL nCurrCol = nColStart; nCurrCol <= nColEnd; ++nCurrCol)
+        aCol[nCurrCol].HandleStuffAfterParallelCalculation( nRow, nLen, pInterpreter );
 }
 
 #if DUMP_COLUMN_STORAGE

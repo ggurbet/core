@@ -21,14 +21,10 @@
 #include <ViewShellImplementation.hxx>
 
 #include <DrawController.hxx>
-#include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 
-#include <comphelper/anytostring.hxx>
 #include <comphelper/scopeguard.hxx>
-#include <cppuhelper/exc_hlp.hxx>
 #include <rtl/ref.hxx>
-#include <sal/log.hxx>
 
 #include <svx/svxids.hrc>
 #include <svx/svdpagv.hxx>
@@ -36,31 +32,21 @@
 #include <sfx2/bindings.hxx>
 #include <svx/svdoole2.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/module.hxx>
 #include <vcl/scrbar.hxx>
-#include <svx/svdograf.hxx>
 #include <svx/svdopage.hxx>
-#include <sot/storage.hxx>
 #include <svx/fmshell.hxx>
-#include <svx/globl3d.hxx>
-#include <svx/fmglob.hxx>
-#include <editeng/outliner.hxx>
-#include <svx/dialogs.hrc>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <view/viewoverlaymanager.hxx>
 
-#include <strings.hrc>
 #include <app.hrc>
 
-#include <sdmod.hxx>
 #include <fupoor.hxx>
-#include <sdresid.hxx>
 #include <unokywds.hxx>
-#include <fusel.hxx>
 #include <sdpage.hxx>
 #include <FrameView.hxx>
-#include <stlpool.hxx>
 #include <Window.hxx>
 #include <drawview.hxx>
 #include <drawdoc.hxx>
@@ -68,19 +54,18 @@
 #include <Ruler.hxx>
 #include <Client.hxx>
 #include <slideshow.hxx>
-#include <optsitem.hxx>
-#include <fusearch.hxx>
-#include <Outliner.hxx>
 #include <AnimationChildWindow.hxx>
-#include <SdUnoDrawView.hxx>
 #include <ToolBarManager.hxx>
 #include <FormShellManager.hxx>
 #include <ViewShellBase.hxx>
 #include <LayerTabBar.hxx>
 #include <ViewShellManager.hxx>
 #include <ViewShellHint.hxx>
+#include <SlideSorter.hxx>
+#include <SlideSorterViewShell.hxx>
+#include <controller/SlideSorterController.hxx>
+#include <controller/SlsPageSelector.hxx>
 
-#include <sfx2/request.hxx>
 #include <comphelper/lok.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <vcl/uitest/logger.hxx>
@@ -247,8 +232,7 @@ void DrawViewShell::SelectionHasChanged()
     }
     catch( css::uno::Exception& )
     {
-        SAL_WARN( "sd", "sd::DrawViewShell::SelectionHasChanged(), exception caught: "
-                << exceptionToString( cppu::getCaughtException() ) );
+        TOOLS_WARN_EXCEPTION( "sd", "sd::DrawViewShell::SelectionHasChanged()" );
     }
 
     if( HasCurrentFunction() )
@@ -437,6 +421,9 @@ void DrawViewShell::ChangeEditMode(EditMode eEMode, bool bIsLayerModeActive)
         GetViewFrame()->SetChildWindow(
             AnimationChildWindow::GetChildWindowId(), false );
 
+        if (comphelper::LibreOfficeKit::isActive())
+            GetViewShell()->libreOfficeKitViewCallback(LOK_CALLBACK_STATE_CHANGED,
+                                                       ".uno:SlideMasterPage=true");
         if (!mpActualPage)
         {
             // as long as there is no mpActualPage, take first
@@ -762,6 +749,48 @@ bool DrawViewShell::ActivateObject(SdrOle2Obj* pObj, long nVerb)
     }
 
     return bActivated;
+}
+
+/**
+ * Mark the desired page as selected (1), deselected (0), toggle (2).
+ * nPage refers to the page in question.
+ */
+bool DrawViewShell::SelectPage(sal_uInt16 nPage, sal_uInt16 nSelect)
+{
+    SdPage* pPage = GetDoc()->GetSdPage(nPage, PageKind::Standard);
+    if (pPage)
+    {
+        if (nSelect == 0)
+            pPage->SetSelected(false); // Deselect.
+        else if (nSelect == 1)
+            pPage->SetSelected(true); // Select.
+        else
+            pPage->SetSelected(!pPage->IsSelected()); // Toggle.
+
+        return true;
+    }
+
+    return false;
+}
+
+bool DrawViewShell::IsSelected(sal_uInt16 nPage)
+{
+    slidesorter::SlideSorterViewShell* pVShell
+        = slidesorter::SlideSorterViewShell::GetSlideSorter(GetViewShellBase());
+    if (pVShell != nullptr)
+        return pVShell->GetSlideSorter().GetController().GetPageSelector().IsPageSelected(nPage);
+
+    return false;
+}
+
+bool DrawViewShell::IsVisible(sal_uInt16 nPage)
+{
+    slidesorter::SlideSorterViewShell* pVShell
+        = slidesorter::SlideSorterViewShell::GetSlideSorter(GetViewShellBase());
+    if (pVShell != nullptr)
+        return pVShell->GetSlideSorter().GetController().GetPageSelector().IsPageVisible(nPage);
+
+    return false;
 }
 
 /**
@@ -1253,7 +1282,7 @@ void DrawViewShell::ResetActualLayer()
 sal_Int8 DrawViewShell::AcceptDrop (
     const AcceptDropEvent& rEvt,
     DropTargetHelper& rTargetHelper,
-    ::sd::Window* pTargetWindow,
+    ::sd::Window* /*pTargetWindow*/,
     sal_uInt16 nPage,
     SdrLayerID nLayer )
 {
@@ -1263,7 +1292,7 @@ sal_Int8 DrawViewShell::AcceptDrop (
     if( SlideShow::IsRunning( GetViewShellBase() ) )
         return DND_ACTION_NONE;
 
-    return mpDrawView->AcceptDrop( rEvt, rTargetHelper, pTargetWindow, nPage, nLayer );
+    return mpDrawView->AcceptDrop( rEvt, rTargetHelper, nLayer );
 }
 
 /**

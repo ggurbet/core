@@ -451,7 +451,7 @@ DdeService::~DdeService()
     }
 }
 
-const OUString DdeService::GetName() const
+OUString DdeService::GetName() const
 {
     return pName->toOUString();
 }
@@ -534,7 +534,7 @@ DdeTopic::~DdeTopic()
     delete pName;
 }
 
-const OUString DdeTopic::GetName() const
+OUString DdeTopic::GetName() const
 {
     return pName->toOUString();
 }
@@ -656,7 +656,7 @@ DdeItem::~DdeItem()
     delete pImpData;
 }
 
-const OUString DdeItem::GetName() const
+OUString DdeItem::GetName() const
 {
     return pName->toOUString();
 }
@@ -847,7 +847,7 @@ OUString DdeService::Formats()
 
 OUString DdeService::Status()
 {
-    return OUString("Ready\r\n");
+    return "Ready\r\n";
 }
 
 bool DdeTopic::MakeItem( const OUString& )

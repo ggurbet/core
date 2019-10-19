@@ -862,11 +862,10 @@ static oslFileError osl_getNextFileItem(
     if ( !pDirImpl )
         return osl_File_E_INVAL;
 
-    pItemImpl = static_cast<DirectoryItem_Impl*>(malloc(sizeof(DirectoryItem_Impl)));
+    pItemImpl = static_cast<DirectoryItem_Impl*>(calloc(1, sizeof(DirectoryItem_Impl)));
     if ( !pItemImpl )
         return osl_File_E_NOMEM;
 
-    memset( pItemImpl, 0, sizeof(DirectoryItem_Impl) );
     fFound = EnumDirectory( pDirImpl->hDirectory, &pItemImpl->FindData );
 
     if ( fFound )
@@ -1362,7 +1361,7 @@ static oslFileError get_filesystem_attributes(
             pInfo->uValidFields   |= osl_VolumeInfo_Mask_MaxNameLength;
             pInfo->uMaxNameLength  = mcl;
 
-            // Should the uMaxPathLength be set to 32767, "\\?\" prefix allowes it
+            // Should the uMaxPathLength be set to 32767, "\\?\" prefix allows it
             pInfo->uValidFields   |= osl_VolumeInfo_Mask_MaxPathLength;
             pInfo->uMaxPathLength  = MAX_PATH;
 

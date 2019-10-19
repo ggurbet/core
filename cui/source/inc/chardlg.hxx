@@ -35,12 +35,12 @@ class FontList;
 class SvxCharBasePage : public SfxTabPage
 {
 protected:
-    FontPrevWindow   m_aPreviewWin;
+    SvxFontPrevWindow   m_aPreviewWin;
     std::unique_ptr<weld::CustomWeld> m_xPreviewWin;
 
     bool                m_bPreviewBackgroundToCharacter;
 
-    SvxCharBasePage(TabPageParent pParent, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet& rAttrSet);
+    SvxCharBasePage(weld::Container* pPage, weld::DialogController* pController, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet& rAttrSet);
 
     void SetPrevFontWidthScale( const SfxItemSet& rSet );
     void SetPrevFontEscapement( sal_uInt8 nProp, sal_uInt8 nEscProp, short nEsc );
@@ -52,11 +52,7 @@ protected:
 public:
     virtual ~SvxCharBasePage() override;
 
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
-
     virtual void        ActivatePage( const SfxItemSet& rSet ) override;
-
 };
 
 // class SvxCharNamePage -------------------------------------------------
@@ -65,8 +61,6 @@ struct SvxCharNamePage_Impl;
 
 class SvxCharNamePage : public SvxCharBasePage
 {
-    friend class VclPtr<SvxCharNamePage>;
-
 private:
     static const sal_uInt16 pNameRanges[];
 
@@ -80,7 +74,7 @@ private:
     std::unique_ptr<weld::Label> m_xWestFontSizeFT;
     std::unique_ptr<SvtFontSizeBox> m_xWestFontSizeLB;
     std::unique_ptr<weld::Label> m_xWestFontLanguageFT;
-    std::unique_ptr<LanguageBox> m_xWestFontLanguageLB;
+    std::unique_ptr<SvxLanguageBox> m_xWestFontLanguageLB;
     std::unique_ptr<weld::Label> m_xWestFontTypeFT;
     std::unique_ptr<weld::Button> m_xWestFontFeaturesButton;
 
@@ -92,7 +86,7 @@ private:
     std::unique_ptr<weld::Label> m_xEastFontSizeFT;
     std::unique_ptr<SvtFontSizeBox> m_xEastFontSizeLB;
     std::unique_ptr<weld::Label> m_xEastFontLanguageFT;
-    std::unique_ptr<LanguageBox> m_xEastFontLanguageLB;
+    std::unique_ptr<SvxLanguageBox> m_xEastFontLanguageLB;
     std::unique_ptr<weld::Label> m_xEastFontTypeFT;
     std::unique_ptr<weld::Button> m_xEastFontFeaturesButton;
 
@@ -104,11 +98,9 @@ private:
     std::unique_ptr<weld::Label> m_xCTLFontSizeFT;
     std::unique_ptr<SvtFontSizeBox> m_xCTLFontSizeLB;
     std::unique_ptr<weld::Label> m_xCTLFontLanguageFT;
-    std::unique_ptr<LanguageBox> m_xCTLFontLanguageLB;
+    std::unique_ptr<SvxLanguageBox> m_xCTLFontLanguageLB;
     std::unique_ptr<weld::Label> m_xCTLFontTypeFT;
     std::unique_ptr<weld::Button> m_xCTLFontFeaturesButton;
-
-    SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rSet);
 
     void                Initialize();
     const FontList*     GetFontList() const;
@@ -142,17 +134,14 @@ private:
     void FontModifyHdl_Impl(const weld::Widget&);
 
 public:
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
-
     virtual void        ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
-                        virtual ~SvxCharNamePage() override;
-    virtual void        dispose() override;
+    SvxCharNamePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
+    virtual ~SvxCharNamePage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
     static const sal_uInt16* GetRanges() { return pNameRanges; }
 
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -171,8 +160,6 @@ public:
 
 class SvxCharEffectsPage : public SvxCharBasePage
 {
-    friend class VclPtr<SvxCharEffectsPage>;
-
 private:
     static const sal_uInt16 pEffectsRanges[];
     bool                       m_bOrigFontColor;
@@ -206,8 +193,6 @@ private:
     std::unique_ptr<weld::ComboBox> m_xPositionLB;
     std::unique_ptr<weld::Label> m_xA11yWarningFT;
 
-    SvxCharEffectsPage(TabPageParent pParent, const SfxItemSet& rSet);
-
     void                Initialize();
     void                UpdatePreview_Impl();
     void                SetCaseMap_Impl( SvxCaseMap eCaseMap );
@@ -224,14 +209,13 @@ private:
     DECL_LINK(ColorBoxSelectHdl_Impl, ColorListBox&, void);
 
 public:
+    SvxCharEffectsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
     virtual ~SvxCharEffectsPage() override;
-    virtual void dispose() override;
 
-    using SfxTabPage::DeactivatePage;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
     static const sal_uInt16* GetRanges() { return pEffectsRanges; }
 
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -243,11 +227,8 @@ public:
 };
 
 // class SvxCharPositionPage ---------------------------------------------
-
-
 class SvxCharPositionPage : public SvxCharBasePage
 {
-    friend class VclPtr<SvxCharPositionPage>;
     static const sal_uInt16 pPositionRanges[];
 
 private:
@@ -283,8 +264,6 @@ private:
     std::unique_ptr<weld::MetricSpinButton> m_xKerningMF;
     std::unique_ptr<weld::CheckButton> m_xPairKerningBtn;
 
-                        SvxCharPositionPage(TabPageParent pParent, const SfxItemSet& rSet);
-
     void                Initialize();
     void                UpdatePreview_Impl( sal_uInt8 nProp, sal_uInt8 nEscProp, short nEsc );
     void                SetEscapement_Impl( SvxEscapement nEsc );
@@ -300,14 +279,13 @@ private:
     void FontModifyHdl_Impl();
 
 public:
+    SvxCharPositionPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
     virtual ~SvxCharPositionPage() override;
-
-    using SfxTabPage::DeactivatePage;
 
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
     static const sal_uInt16*      GetRanges() { return pPositionRanges; }
 
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -321,7 +299,6 @@ public:
 
 class SvxCharTwoLinesPage : public SvxCharBasePage
 {
-    friend class VclPtr<SvxCharTwoLinesPage>;
 private:
     static const sal_uInt16 pTwoLinesRanges[];
     sal_uInt16              m_nStartBracketPosition;
@@ -332,8 +309,6 @@ private:
     std::unique_ptr<weld::TreeView> m_xStartBracketLB;
     std::unique_ptr<weld::TreeView> m_xEndBracketLB;
 
-    SvxCharTwoLinesPage(TabPageParent pParent, const SfxItemSet& rSet);
-
     void                UpdatePreview_Impl();
     void                Initialize();
     void                SelectCharacter(weld::TreeView* pBox);
@@ -343,15 +318,13 @@ private:
     DECL_LINK(CharacterMapHdl_Impl, weld::TreeView&, void);
 
 public:
+    SvxCharTwoLinesPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
     virtual ~SvxCharTwoLinesPage() override;
-
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
 
     virtual void        ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
     static const sal_uInt16*  GetRanges() { return pTwoLinesRanges; }
 
     virtual void        Reset( const SfxItemSet* rSet ) override;

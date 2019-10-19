@@ -22,6 +22,7 @@
 #include <mmconfigitem.hxx>
 #include <mailconfigpage.hxx>
 #include "mmgreetingspage.hxx"
+#include <printdata.hxx>
 #include <swmessdialog.hxx>
 #include <cmdid.h>
 #include <swtypes.hxx>
@@ -41,6 +42,7 @@
 #include <svtools/ehdl.hxx>
 #include <svtools/sfxecode.hxx>
 #include <vcl/layout.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/weld.hxx>
 #include <sfx2/dinfdlg.hxx>
 #include <sfx2/printer.hxx>
@@ -120,6 +122,35 @@ static OUString lcl_GetColumnValueOf(const OUString& rColumn, Reference < contai
     {
     }
     return sRet;
+}
+
+/**
+ * Replace email server settings in rConfigItem with those set in Writer's global
+ * mail merge config settings.
+ */
+static void lcl_UpdateEmailSettingsFromGlobalConfig(SwMailMergeConfigItem& rConfigItem)
+{
+    // newly created SwMailMergeConfigItem is initialized with values from (global) config
+    SwMailMergeConfigItem aConfigItem;
+
+    // take over email-related settings
+    rConfigItem.SetMailDisplayName(aConfigItem.GetMailDisplayName());
+    rConfigItem.SetMailAddress(aConfigItem.GetMailAddress());
+    rConfigItem.SetMailReplyTo(aConfigItem.GetMailReplyTo());
+    rConfigItem.SetMailReplyTo(aConfigItem.IsMailReplyTo());
+    rConfigItem.SetMailServer(aConfigItem.GetMailServer());
+    rConfigItem.SetMailPort(aConfigItem.GetMailPort());
+    rConfigItem.SetSecureConnection(aConfigItem.IsSecureConnection());
+    // authentication settings
+    rConfigItem.SetAuthentication(aConfigItem.IsAuthentication());
+    rConfigItem.SetSMTPAfterPOP(aConfigItem.IsSMTPAfterPOP());
+    rConfigItem.SetMailUserName(aConfigItem.GetMailUserName());
+    rConfigItem.SetMailPassword(aConfigItem.GetMailPassword());
+    rConfigItem.SetInServerName(aConfigItem.GetInServerName());
+    rConfigItem.SetInServerPort(aConfigItem.GetInServerPort());
+    rConfigItem.SetInServerPOP(aConfigItem.IsInServerPOP());
+    rConfigItem.SetInServerUserName(aConfigItem.GetInServerUserName());
+    rConfigItem.SetInServerPassword(aConfigItem.GetInServerPassword());
 }
 
 class SwSaveWarningBox_Impl : public SwMessageAndEditDialog
@@ -206,10 +237,10 @@ public:
     {
     }
 
-    OUString GetCC() {return m_xCCED->get_text();}
+    OUString GetCC() const {return m_xCCED->get_text();}
     void SetCC(const OUString& rSet) {m_xCCED->set_text(rSet);}
 
-    OUString GetBCC() {return m_xBCCED->get_text();}
+    OUString GetBCC() const {return m_xBCCED->get_text();}
     void SetBCC(const OUString& rSet) {m_xBCCED->set_text(rSet);}
 };
 
@@ -342,12 +373,11 @@ void SwMMResultPrintDialog::FillInPrinterSettings()
     {
         m_xPrinterLB->set_active_text(xConfigItem->GetSelectedPrinter());
     }
+    PrinterChangeHdl_Impl(*m_xPrinterLB);
 
     sal_Int32 count = xConfigItem->GetMergedDocumentCount();
     m_xToNF->set_value(count);
     m_xToNF->set_max(count);
-
-    m_xPrinterLB->set_active_text(xConfigItem->GetSelectedPrinter());
 }
 
 void SwMMResultEmailDialog::FillInEmailSettings()
@@ -387,7 +417,7 @@ void SwMMResultEmailDialog::FillInEmailSettings()
     uno::Sequence< OUString > aFields;
     if (xColAccess.is())
         aFields = xColAccess->getElementNames();
-    for (const OUString& rField : aFields)
+    for (const OUString& rField : std::as_const(aFields))
         m_xMailToLB->append_text(rField);
 
     m_xMailToLB->set_active(0);
@@ -751,7 +781,8 @@ IMPL_LINK_NOARG(SwMMResultPrintDialog, PrintHdl_Impl, weld::Button&, void)
 
     // If we skip autoinserted blanks, then the page numbers used in the print range string
     // refer to the non-blank pages as they appear in the document (see tdf#89708).
-    const bool bIgnoreEmptyPages = !officecfg::Office::Writer::Print::EmptyPages::get();
+    const bool bIgnoreEmptyPages =
+            !pTargetView->GetDocShell()->GetDoc()->getIDocumentDeviceAccess().getPrintData().IsPrintEmptyPages();
     const int nStartPage = documentStartPageNumber(xConfigItem.get(), nBegin, bIgnoreEmptyPages);
     const int nEndPage = documentEndPageNumber(xConfigItem.get(), nEnd - 1, bIgnoreEmptyPages);
 
@@ -784,8 +815,6 @@ IMPL_LINK_NOARG(SwMMResultPrintDialog, PrintHdl_Impl, weld::Button&, void)
 
 IMPL_LINK_NOARG(SwMMResultPrintDialog, PrinterSetupHdl_Impl, weld::Button&, void)
 {
-    if (!m_pTempPrinter)
-        PrinterChangeHdl_Impl(*m_xPrinterLB);
     if (m_pTempPrinter)
         m_pTempPrinter->Setup(m_xDialog.get());
 }
@@ -844,7 +873,7 @@ IMPL_LINK_NOARG(SwMMResultEmailDialog, SendDocumentsHdl_Impl, weld::Button&, voi
         std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(m_xDialog.get(),
                                                        VclMessageType::Question, VclButtonsType::YesNo,
                                                        m_sConfigureMail));
-        xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+        xQueryBox->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
         sal_uInt16 nRet = xQueryBox->run();
         if (RET_YES == nRet )
         {
@@ -856,6 +885,10 @@ IMPL_LINK_NOARG(SwMMResultEmailDialog, SendDocumentsHdl_Impl, weld::Button&, voi
 
         if(nRet != RET_OK && nRet != RET_YES)
             return; // back to the dialog
+
+        // SwMailConfigDlg writes mail merge email settings only to (global) config,
+        // so copy them to the existing config item
+        lcl_UpdateEmailSettingsFromGlobalConfig(*xConfigItem);
     }
     //add the documents
     sal_uInt32 nBegin = 0;
@@ -1017,9 +1050,11 @@ IMPL_LINK_NOARG(SwMMResultEmailDialog, SendDocumentsHdl_Impl, weld::Button&, voi
 
     //create the send dialog
     vcl::Window* pParent = Application::GetDefDialogParent();
-    VclPtr<SwSendMailDialog> pDlg = VclPtr<SwSendMailDialog>::Create(pParent, *xConfigItem);
+    std::shared_ptr<SwSendMailDialog> xDlg = std::make_shared<SwSendMailDialog>(pParent ? pParent->GetFrameWeld() : nullptr, *xConfigItem);
 
-    pDlg->ShowDialog(nEnd - nBegin);
+    xDlg->StartSend(nEnd - nBegin);
+    weld::DialogController::runAsync(xDlg, [](sal_Int32 /*nResult*/){});
+
     //help to force painting the dialog
     //TODO/CLEANUP
     //predetermined breaking point
@@ -1165,18 +1200,17 @@ IMPL_LINK_NOARG(SwMMResultEmailDialog, SendDocumentsHdl_Impl, weld::Button&, voi
         aDesc.sSubject = m_xSubjectED->get_text();
         aDesc.sCC = m_sCC;
         aDesc.sBCC = m_sBCC;
-        pDlg->AddDocument( aDesc );
+        xDlg->AddDocument( aDesc );
         //help to force painting the dialog
         Application::Reschedule( true );
         //stop creating of data when dialog has been closed
-        if(!pDlg->IsVisible())
+        if (!xDlg->getDialog()->get_visible())
         {
             break;
         }
     }
-    pDlg->EnableDestruction();
+    xDlg->EnableDestruction();
     ::osl::File::remove( sTargetTempURL );
-
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

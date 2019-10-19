@@ -249,7 +249,7 @@ SwTextBlocks::~SwTextBlocks()
 {
 }
 
-OUString SwTextBlocks::GetName()
+OUString SwTextBlocks::GetName() const
 {
     return pImp ? pImp->m_aName : OUString();
 }
@@ -258,17 +258,6 @@ void SwTextBlocks::SetName( const OUString& r )
 {
     if( pImp )
         pImp->SetName( r );
-}
-
-bool SwTextBlocks::IsOld() const
-{
-    if (pImp)
-    {
-        SwImpBlocks::FileType nType = pImp->GetFileType();
-        if (SwImpBlocks::FileType::SW3 == nType)
-            return true;
-    }
-    return false;
 }
 
 sal_uInt16 SwTextBlocks::GetCount() const
@@ -350,7 +339,7 @@ void SwTextBlocks::Rename( sal_uInt16 n, const OUString* s, const OUString* l )
         {
             // Set the new entry in the list before we do that!
             aNew = GetAppCharClass().uppercase( aNew );
-            nErr = pImp->Rename( n, aNew, aLong );
+            nErr = pImp->Rename( n, aNew );
             if( !nErr )
             {
                 bool bOnlyText = pImp->m_aNames[ n ]->bIsOnlyText;
@@ -563,7 +552,7 @@ bool SwTextBlocks::SetMacroTable( sal_uInt16 nIdx, const SvxMacroTableDtor& rMac
 bool SwTextBlocks::StartPutMuchBlockEntries()
 {
     bool bRet = false;
-    if( !IsOld() && pImp )
+    if( pImp )
         bRet = pImp->PutMuchEntries( true );
     return bRet;
 }

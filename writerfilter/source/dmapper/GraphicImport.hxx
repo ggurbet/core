@@ -92,10 +92,10 @@ public:
     virtual ~GraphicImport() override;
 
     // BinaryObj
-    virtual void data(const sal_uInt8* buffer, size_t len, writerfilter::Reference<Properties>::Pointer_t ref) override;
+    virtual void data(const sal_uInt8* buffer, size_t len) override;
 
     css::uno::Reference<css::text::XTextContent> GetGraphicObject();
-    const css::uno::Reference<css::drawing::XShape>& GetXShapeObject() { return m_xShape;}
+    const css::uno::Reference<css::drawing::XShape>& GetXShapeObject() const { return m_xShape;}
     bool IsGraphic() const;
 
  private:
@@ -104,7 +104,7 @@ public:
     virtual void lcl_sprm(Sprm & sprm) override;
 
     // Table
-    virtual void lcl_entry(int pos, writerfilter::Reference<Properties>::Pointer_t ref) override;
+    virtual void lcl_entry(writerfilter::Reference<Properties>::Pointer_t ref) override;
 
     // Stream
     virtual void lcl_startSectionGroup() override;
@@ -119,7 +119,6 @@ public:
     virtual void lcl_table(Id name,
                            writerfilter::Reference<Table>::Pointer_t ref) override;
     virtual void lcl_substream(Id name, writerfilter::Reference<Stream>::Pointer_t ref) override;
-    virtual void lcl_info(const std::string & info) override;
     virtual void lcl_startShape(css::uno::Reference<css::drawing::XShape> const& xShape) override;
     virtual void lcl_endShape() override;
 

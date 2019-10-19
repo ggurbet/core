@@ -37,6 +37,7 @@ class SwGlossaryHdl;
 class SwField;
 
 class SwAsciiOptions;
+class SwDoc;
 class SwDocShell;
 class SvStream;
 class SwWrtShell;
@@ -77,7 +78,7 @@ namespace com{namespace sun{namespace star{
 }}}
 
 
-namespace sw { namespace mark { class IFieldmark; } }
+namespace sw { namespace mark { class IFieldmark; class IDateFieldmark; } }
 
 typedef   void (*SwLabDlgMethod) (css::uno::Reference< css::frame::XModel> const & xModel, const SwLabItem& rItem);
 
@@ -145,7 +146,7 @@ protected:
 public:
     virtual DBManagerOptions GetMergeType() = 0;
     virtual const OUString& GetSaveFilter() const = 0;
-    virtual const css::uno::Sequence< css::uno::Any > GetSelection() const = 0;
+    virtual css::uno::Sequence< css::uno::Any > GetSelection() const = 0;
     virtual css::uno::Reference< css::sdbc::XResultSet> GetResultSet() const = 0;
     virtual bool IsSaveSingleDoc() const = 0;
     virtual bool IsGenerateFromDataBase() const = 0;
@@ -390,6 +391,9 @@ public:
     virtual VclPtr<AbstractDropDownFieldDialog> CreateDropDownFieldDialog(weld::Widget* pParent, SwWrtShell &rSh,
         SwField* pField, bool bPrevButton, bool bNextButton) = 0;
     virtual VclPtr<VclAbstractDialog> CreateDropDownFormFieldDialog(weld::Widget* pParent, sw::mark::IFieldmark* pDropDownField) = 0;
+
+    virtual VclPtr<VclAbstractDialog> CreateDateFormFieldDialog(weld::Widget* pParent, sw::mark::IDateFieldmark* pDateField, SwDoc* pDoc) = 0;
+
     virtual VclPtr<SfxAbstractTabDialog> CreateSwEnvDlg(weld::Window* pParent, const SfxItemSet& rSet, SwWrtShell* pWrtSh, Printer* pPrt, bool bInsert) = 0;
 
     virtual VclPtr<AbstractSwLabDlg> CreateSwLabDlg(weld::Window* pParent, const SfxItemSet& rSet,
@@ -457,7 +461,7 @@ public:
     virtual VclPtr<AbstractJavaEditDialog>     CreateJavaEditDialog(weld::Window* pParent,
         SwWrtShell* pWrtSh) = 0;
     virtual VclPtr<AbstractMailMergeDlg>       CreateMailMergeDlg(
-                                                vcl::Window* pParent, SwWrtShell& rSh,
+                                                weld::Window* pParent, SwWrtShell& rSh,
                                                 const OUString& rSourceName,
                                                 const OUString& rTableName,
                                                 sal_Int32 nCommandType,

@@ -18,7 +18,6 @@
  */
 
 #include <memory>
-#include <string.h>
 #include <com/sun/star/xml/AttributeData.hpp>
 #include <o3tl/any.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -99,8 +98,7 @@ const css::uno::Sequence< sal_Int8 > & SvUnoAttributeContainer::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SvUnoAttributeContainer::getSomething( const css::uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                                         rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SvUnoAttributeContainer>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
     }
@@ -236,14 +234,12 @@ void SAL_CALL SvUnoAttributeContainer::removeByName(const OUString& Name)
 //XServiceInfo
 OUString SAL_CALL SvUnoAttributeContainer::getImplementationName()
 {
-    return OUString( "SvUnoAttributeContainer" );
+    return "SvUnoAttributeContainer";
 }
 
 uno::Sequence< OUString > SvUnoAttributeContainer::getSupportedServiceNames()
 {
-    OUString aSN( "com.sun.star.xml.AttributeContainer" );
-    uno::Sequence< OUString > aNS( &aSN, 1 );
-    return aNS;
+    return { "com.sun.star.xml.AttributeContainer" };
 }
 
 sal_Bool SvUnoAttributeContainer::supportsService(const OUString& ServiceName)

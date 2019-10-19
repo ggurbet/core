@@ -99,8 +99,7 @@ IMPL_LINK_NOARG(SwMultiTOXTabDialog, CreateExample_Hdl, SwOneExampleFrame&, void
     try
     {
         uno::Reference< frame::XModel > & xModel = m_xExampleFrame->GetModel();
-        uno::Reference< lang::XUnoTunnel > xDocTunnel(xModel, uno::UNO_QUERY);
-        SwXTextDocument* pDoc = reinterpret_cast<SwXTextDocument*>(xDocTunnel->getSomething(SwXTextDocument::getUnoTunnelId()));
+        auto pDoc = comphelper::getUnoTunnelImplementation<SwXTextDocument>(xModel);
 
         if( pDoc )
             pDoc->GetDocShell()->LoadStyles_( *m_rWrtShell.GetView().GetDocShell(), true );
@@ -173,9 +172,8 @@ void SwMultiTOXTabDialog::CreateOrUpdateExample(
              OUString sIndexTypeName(OUString::createFromAscii( IndexServiceNames[
                     nTOXIndex <= TOX_AUTHORITIES ? nTOXIndex : TOX_USER] ));
              m_vTypeData[nTOXIndex].m_pxIndexSections->xDocumentIndex.set(xFact->createInstance(sIndexTypeName), uno::UNO_QUERY);
-             uno::Reference< text::XTextContent >  xContent(m_vTypeData[nTOXIndex].m_pxIndexSections->xDocumentIndex, uno::UNO_QUERY);
-             uno::Reference< text::XTextRange >  xRg(xCursor, uno::UNO_QUERY);
-             xCursor->getText()->insertTextContent(xRg, xContent, false);
+             uno::Reference< text::XTextContent >  xContent = m_vTypeData[nTOXIndex].m_pxIndexSections->xDocumentIndex;
+             xCursor->getText()->insertTextContent(xCursor, xContent, false);
         }
         for(sal_uInt16 i = 0 ; i <= TOX_AUTHORITIES; i++)
         {

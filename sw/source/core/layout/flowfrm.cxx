@@ -146,6 +146,7 @@ void SwFlowFrame::CheckKeep()
     // Kick off the "last" predecessor with a 'keep' attribute, because
     // it's possible for the whole troop to move back.
     SwFrame *pPre = m_rThis.GetIndPrev();
+    assert(pPre);
     if( pPre->IsSctFrame() )
     {
         SwFrame *pLast = static_cast<SwSectionFrame*>(pPre)->FindLastContent();
@@ -915,7 +916,7 @@ SwLayoutFrame *SwFrame::GetNextLeaf( MakePageType eMakePage )
     SwLayoutFrame *pLayLeaf = nullptr;
     if ( IsTabFrame() )
     {
-        SwContentFrame* pTmp = static_cast<SwTabFrame*>(this)->FindLastContent();
+        SwFrame *const pTmp = static_cast<SwTabFrame*>(this)->FindLastContentOrTable();
         if ( pTmp )
             pLayLeaf = pTmp->GetUpper();
     }
@@ -1461,7 +1462,7 @@ SwTwips SwFlowFrame::CalcUpperSpace( const SwBorderAttrs *pAttrs,
                         // #i102458#
                         // Correction:
                         // A proportional line spacing of the previous text frame
-                        // is added up to a own leading line spacing.
+                        // is added up to an own leading line spacing.
                         // Otherwise, the maximum of the leading line spacing
                         // of the previous text frame and the own leading line
                         // spacing is built.
@@ -1507,7 +1508,7 @@ SwTwips SwFlowFrame::CalcUpperSpace( const SwBorderAttrs *pAttrs,
                         // #i102458#
                         // Correction:
                         // A proportional line spacing of the previous text frame
-                        // is added up to a own leading line spacing.
+                        // is added up to an own leading line spacing.
                         // Otherwise, the maximum of the leading line spacing
                         // of the previous text frame and the own leading line
                         // spacing is built.
@@ -2086,13 +2087,23 @@ bool SwFlowFrame::MoveBwd( bool &rbReformat )
         // have to have a result != 0
         SwFrame* pRef = nullptr;
         const bool bEndnote = pFootnote->GetAttr()->GetFootnote().IsEndNote();
+        const IDocumentSettingAccess& rSettings
+            = pFootnote->GetAttrSet()->GetDoc()->getIDocumentSettingAccess();
         if( bEndnote && pFootnote->IsInSct() )
         {
             SwSectionFrame* pSect = pFootnote->FindSctFrame();
             if( pSect->IsEndnAtEnd() )
+                // Endnotes at the end of the section.
                 pRef = pSect->FindLastContent( SwFindMode::LastCnt );
         }
+        else if (bEndnote && rSettings.get(DocumentSettingId::CONTINUOUS_ENDNOTES))
+        {
+            // Endnotes at the end of the document.
+            SwPageFrame* pPage = m_rThis.getRootFrame()->GetLastPage();
+            pRef = pPage->FindLastBodyContent();
+        }
         if( !pRef )
+            // Endnotes on a separate page.
             pRef = pFootnote->GetRef();
 
         OSL_ENSURE( pRef, "MoveBwd: Endnote for an empty section?" );
@@ -2109,7 +2120,7 @@ bool SwFlowFrame::MoveBwd( bool &rbReformat )
     }
     else if ( IsPageBreak( true ) ) // Do we have to respect a PageBreak?
     {
-        // If the previous page doesn't have an Frame in the body,
+        // If the previous page doesn't have a Frame in the body,
         // flowing back makes sense despite the PageBreak (otherwise,
         // we'd get an empty page).
         // Of course we need to overlook empty pages!
@@ -2368,7 +2379,7 @@ bool SwFlowFrame::MoveBwd( bool &rbReformat )
                 pNewUpper = nullptr;
         }
     }
-    if ( pNewUpper && !ShouldBwdMoved( pNewUpper, true, rbReformat ) )
+    if ( pNewUpper && !ShouldBwdMoved( pNewUpper, rbReformat ) )
     {
         if( !pNewUpper->Lower() )
         {
@@ -2522,7 +2533,11 @@ bool SwFlowFrame::MoveBwd( bool &rbReformat )
 
         {
             auto const pOld = m_rThis.GetUpper();
+#if BOOST_VERSION < 105600
+            std::list<SwFrameDeleteGuard> g;
+#else
             ::boost::optional<SwFrameDeleteGuard> g;
+#endif
             if (m_rThis.GetUpper()->IsCellFrame())
             {
                 // note: IsFollowFlowRow() is never set for new-style tables
@@ -2532,7 +2547,11 @@ bool SwFlowFrame::MoveBwd( bool &rbReformat )
                     && pTabFrame->GetFirstNonHeadlineRow() == m_rThis.GetUpper()->GetUpper())
                 {
                     // lock follow-flow-row (similar to sections above)
+#if BOOST_VERSION < 105600
+                    g.emplace_back(m_rThis.GetUpper()->GetUpper());
+#else
                     g.emplace(m_rThis.GetUpper()->GetUpper());
+#endif
                     assert(m_rThis.GetUpper()->GetUpper()->IsDeleteForbidden());
                 }
             }

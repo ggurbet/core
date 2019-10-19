@@ -188,7 +188,6 @@ public:
 
     virtual void    StoreData();
     virtual void    UpdateData();
-    virtual bool    CanClose();
 
     // return number of pages to be printed
     virtual sal_Int32 countPages( Printer* pPrinter ) = 0;
@@ -206,7 +205,7 @@ public:
     virtual void    SetReadOnly (bool bReadOnly);
     virtual bool    IsReadOnly();
 
-    int GetStatus() { return nStatus; }
+    int GetStatus() const { return nStatus; }
     void SetStatus(int n) { nStatus = n; }
     void AddStatus(int n) { nStatus |= n; }
     void ClearStatus(int n) { nStatus &= ~n; }

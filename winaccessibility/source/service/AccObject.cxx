@@ -238,7 +238,7 @@ void AccObject::DeleteChild( AccObject* pChild )
 }
 
 /**
-   * In order to windows API WindowFromAccessibleObject,we sometimes to set a pure
+   * In order to windows API WindowFromAccessibleObject, we sometimes to set a pure
    * top window accessible object created by windows system as top ancestor.
    * @param.
    * @return
@@ -336,7 +336,7 @@ void AccObject::UpdateValue()
         return ;
     }
 
-    Reference< XAccessibleValue > pRValue(m_xAccContextRef.get(),UNO_QUERY);
+    Reference< XAccessibleValue > pRValue(m_xAccContextRef,UNO_QUERY);
     Any pAny;
     if( pRValue.is() )
     {
@@ -1056,7 +1056,7 @@ IAccSelectionList& AccObject::GetSelection()
 
 
 /**
-   * Set self to focus object in parant child list
+   * Set self to focus object in parent child list
    * @param
    * @return
    */
@@ -1072,7 +1072,7 @@ void AccObject::setFocus()
 }
 
 /**
-   * Unset self from focus object in parant child list.
+   * Unset self from focus object in parent child list.
    * @param
    * @return
    */

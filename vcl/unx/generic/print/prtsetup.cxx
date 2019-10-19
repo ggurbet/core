@@ -21,8 +21,6 @@
 #include <svdata.hxx>
 #include <strings.hrc>
 
-#include <osl/thread.h>
-
 #include <officecfg/Office/Common.hxx>
 
 using namespace psp;
@@ -76,7 +74,7 @@ RTSDialog::RTSDialog(const PrinterInfo& rJobData, weld::Window* pParent)
     , m_aJobData(rJobData)
     , m_aInvalidString(VclResId(SV_PRINT_INVALID_TXT))
     , m_bDataModified(false)
-    , m_xTabControl(m_xBuilder->weld_notebook("notebook"))
+    , m_xTabControl(m_xBuilder->weld_notebook("tabcontrol"))
     , m_xOKButton(m_xBuilder->weld_button("ok"))
     , m_xCancelButton(m_xBuilder->weld_button("cancel"))
     , m_xPaperPage(new RTSPaperPage(m_xTabControl->get_page("paper"), this))
@@ -378,7 +376,7 @@ RTSDevicePage::~RTSDevicePage()
 {
 }
 
-sal_uLong RTSDevicePage::getDepth()
+sal_uLong RTSDevicePage::getDepth() const
 {
     sal_uInt16 nSelectPos = m_xDepthBox->get_active();
     if (nSelectPos == 0)
@@ -387,7 +385,7 @@ sal_uLong RTSDevicePage::getDepth()
         return 24;
 }
 
-sal_uLong RTSDevicePage::getColorDevice()
+sal_uLong RTSDevicePage::getColorDevice() const
 {
     sal_uInt16 nSelectPos = m_xSpaceBox->get_active();
     switch (nSelectPos)
@@ -402,7 +400,7 @@ sal_uLong RTSDevicePage::getColorDevice()
     return 0;
 }
 
-sal_uLong RTSDevicePage::getLevel()
+sal_uLong RTSDevicePage::getLevel() const
 {
     auto nLevel = m_xLevelBox->get_active_id().toInt32();
     if (nLevel == 0)
@@ -410,7 +408,7 @@ sal_uLong RTSDevicePage::getLevel()
     return nLevel < 10 ? nLevel-1 : 0;
 }
 
-sal_uLong RTSDevicePage::getPDFDevice()
+sal_uLong RTSDevicePage::getPDFDevice() const
 {
     auto nLevel = m_xLevelBox->get_active_id().toInt32();
     if (nLevel > 9)

@@ -19,14 +19,10 @@
 
 #include <sal/config.h>
 
-#include <cstdlib>
-
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 
 #include <sfx2/app.hxx>
 #include <editeng/sizeitem.hxx>
-#include <svl/srchitem.hxx>
 #include <svx/zoomslideritem.hxx>
 #include <svx/svdview.hxx>
 #include <sfx2/dispatch.hxx>
@@ -48,7 +44,6 @@
 #include <prevwsh.hxx>
 #include <preview.hxx>
 #include <printfun.hxx>
-#include <attrib.hxx>
 #include <scmod.hxx>
 #include <inputhdl.hxx>
 #include <docsh.hxx>
@@ -59,11 +54,7 @@
 #include <scresid.hxx>
 #include <sc.hrc>
 #include <ViewSettingsSequenceDefines.hxx>
-#include <tpprint.hxx>
-#include <printopt.hxx>
 #include <viewuno.hxx>
-#include <sax/tools/converter.hxx>
-#include <rtl/ustrbuf.hxx>
 
 #include <svx/svxdlg.hxx>
 #include <svx/dialogs.hrc>
@@ -533,13 +524,13 @@ bool ScPreviewShell::HasPrintOptionsPage() const
     return true;
 }
 
-VclPtr<SfxTabPage> ScPreviewShell::CreatePrintOptionsPage(TabPageParent pParent, const SfxItemSet &rOptions)
+std::unique_ptr<SfxTabPage> ScPreviewShell::CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rOptions)
 {
     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
     ::CreateTabPage ScTpPrintOptionsCreate = pFact->GetTabPageCreatorFunc(RID_SC_TP_PRINT);
     if ( ScTpPrintOptionsCreate )
-        return ScTpPrintOptionsCreate(pParent, &rOptions);
-    return VclPtr<SfxTabPage>();
+        return ScTpPrintOptionsCreate(pPage, pController, &rOptions);
+    return nullptr;
 }
 
 void ScPreviewShell::Activate(bool bMDI)
@@ -550,7 +541,7 @@ void ScPreviewShell::Activate(bool bMDI)
 
     if (bMDI)
     {
-        // InputHdl is now mostly Null, no moreasssertion!
+        // InputHdl is now mostly Null, no more assertion!
         ScInputHandler* pInputHdl = SC_MOD()->GetInputHdl();
         if ( pInputHdl )
             pInputHdl->NotifyChange( nullptr );
@@ -908,7 +899,7 @@ void ScPreviewShell::WriteUserData(OUString& rData, bool /* bBrowse */)
     //  nPageNo
 
     rData = OUString::number(pPreview->GetZoom())
-        + OUStringLiteral1(SC_USERDATA_SEP)
+        + OUStringChar(SC_USERDATA_SEP)
         + OUString::number(pPreview->GetPageNo());
 }
 
@@ -1162,7 +1153,7 @@ void ScPreviewShell::BroadcastAccessibility( const SfxHint &rHint )
         pAccessibilityBroadcaster->Broadcast( rHint );
 }
 
-bool ScPreviewShell::HasAccessibilityObjects()
+bool ScPreviewShell::HasAccessibilityObjects() const
 {
     return pAccessibilityBroadcaster && pAccessibilityBroadcaster->HasListeners();
 }

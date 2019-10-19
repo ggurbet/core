@@ -22,6 +22,7 @@
 #include <vcl/help.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 
 #include <svl/whiter.hxx>
@@ -1123,7 +1124,7 @@ void SwPagePreview::Init()
     aOpt.SetHideWhitespaceMode( false );
 
     GetViewShell()->ApplyViewOptions( aOpt );
-    GetViewShell()->ApplyAccessiblityOptions(SW_MOD()->GetAccessibilityOptions());
+    GetViewShell()->ApplyAccessibilityOptions(SW_MOD()->GetAccessibilityOptions());
 
     // adjust view shell option to the same as for print
     SwPrintData const aPrintOptions = *SW_MOD()->GetPrtOptions(false);
@@ -1695,10 +1696,10 @@ bool SwPagePreview::HasPrintOptionsPage() const
     return true;
 }
 
-VclPtr<SfxTabPage> SwPagePreview::CreatePrintOptionsPage(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SwPagePreview::CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController,
                                                          const SfxItemSet &rOptions)
 {
-    return ::CreatePrintOptionsPage(pParent, rOptions, !m_bNormalPrint);
+    return ::CreatePrintOptionsPage(pPage, pController, rOptions, !m_bNormalPrint);
 }
 
 void SwPagePreviewWin::SetViewShell( SwViewShell* pShell )
@@ -1827,9 +1828,9 @@ uno::Reference< css::accessibility::XAccessible >
     return GetAccessible( false );
 }
 
-void SwPagePreview::ApplyAccessiblityOptions(SvtAccessibilityOptions const & rAccessibilityOptions)
+void SwPagePreview::ApplyAccessibilityOptions(SvtAccessibilityOptions const & rAccessibilityOptions)
 {
-    GetViewShell()->ApplyAccessiblityOptions(rAccessibilityOptions);
+    GetViewShell()->ApplyAccessibilityOptions(rAccessibilityOptions);
 }
 
 void SwPagePreview::ShowHScrollbar(bool bShow)

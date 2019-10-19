@@ -17,24 +17,14 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/table/XCell.hpp>
-#include <com/sun/star/table/XColumnRowRange.hpp>
-#include <com/sun/star/beans/XIntrospection.hpp>
-#include <com/sun/star/beans/XIntrospectionAccess.hpp>
-#include <com/sun/star/reflection/XIdlMethod.hpp>
-#include <com/sun/star/beans/MethodConcept.hpp>
-#include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/xml/AttributeData.hpp>
 
 #include <ooo/vba/excel/XlColorIndex.hpp>
 #include <ooo/vba/excel/XlPattern.hpp>
 
-#include <cppuhelper/queryinterface.hxx>
-
 #include <map>
 
 #include <sal/macros.h>
-#include <svx/xtable.hxx>
 
 #include "vbainterior.hxx"
 #include "vbapalette.hxx"
@@ -134,7 +124,7 @@ ScVbaInterior::SetMixedColor()
 }
 
 uno::Reference< container::XIndexAccess >
-ScVbaInterior::getPalette()
+ScVbaInterior::getPalette() const
 {
     if ( !m_pScDoc )
         throw uno::RuntimeException();
@@ -413,7 +403,7 @@ void SAL_CALL ScVbaInterior::setPatternTintAndShade(const uno::Any& /*rAny*/)
 OUString
 ScVbaInterior::getServiceImplName()
 {
-    return OUString("ScVbaInterior");
+    return "ScVbaInterior";
 }
 
 uno::Sequence< OUString >

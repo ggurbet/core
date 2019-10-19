@@ -54,13 +54,6 @@ namespace utl {
     class AccessibleStateSetHelper;
 }
 
-enum class SvLBoxButtonKind
-{
-    EnabledCheckbox,
-    DisabledCheckbox,
-    StaticImage
-};
-
 enum class SvButtonState { Unchecked, Checked, Tristate };
 
 // *********************************************************************
@@ -229,7 +222,6 @@ class VCL_DLLPUBLIC SvTreeListBox
     DragDropMode    nDragDropMode;
     DragDropMode    nOldDragMode;
     SelectionMode   eSelMode;
-    sal_Int8        nDragOptions;
     sal_Int32       nMinWidthInChars;
 
     SvTreeListEntry*        pEdEntry;
@@ -400,7 +392,7 @@ public:
         there mnemonic character is pressed. If there are multiple entries with the
         same mnemonic, the selection cycles between them.
 
-        Entries with an collapsed ancestor are not included in the calculation of
+        Entries with a collapsed ancestor are not included in the calculation of
         mnemonics. That is, if you press the accelerator key of an invisible
         entry, then this entry is *not* selected.
 
@@ -532,7 +524,7 @@ protected:
     SvLBoxTab*      GetTab( SvTreeListEntry const *, SvLBoxItem const * ) const;
     void            ClearTabList();
 
-    virtual void    InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&, SvLBoxButtonKind);
+    virtual void    InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&);
 
     virtual void    NotifyEndScroll();
     virtual void    NotifyScrolled();
@@ -590,16 +582,14 @@ public:
 
     virtual SvTreeListEntry*    InsertEntry( const OUString& rText, SvTreeListEntry* pParent = nullptr,
                                          bool bChildrenOnDemand = false,
-                                         sal_uLong nPos=TREELIST_APPEND, void* pUserData = nullptr,
-                                         SvLBoxButtonKind eButtonKind = SvLBoxButtonKind::EnabledCheckbox );
+                                         sal_uLong nPos=TREELIST_APPEND, void* pUserData = nullptr);
 
     virtual SvTreeListEntry*    InsertEntry( const OUString& rText,
                                          const Image& rExpandedEntryBmp,
                                          const Image& rCollapsedEntryBmp,
                                          SvTreeListEntry* pParent = nullptr,
                                          bool bChildrenOnDemand = false,
-                                         sal_uLong nPos = TREELIST_APPEND, void* pUserData = nullptr,
-                                         SvLBoxButtonKind eButtonKind = SvLBoxButtonKind::EnabledCheckbox );
+                                         sal_uLong nPos = TREELIST_APPEND, void* pUserData = nullptr );
 
     const Image&    GetDefaultExpandedEntryBmp( ) const;
     const Image&    GetDefaultCollapsedEntryBmp( ) const;
@@ -619,7 +609,6 @@ public:
     static const Image&    GetCollapsedEntryBmp(const SvTreeListEntry* _pEntry );
 
     void            SetCheckButtonHdl( const Link<SvTreeListBox*,void>& rLink )  { aCheckButtonHdl=rLink; }
-    const Link<SvTreeListBox*,void>& GetCheckButtonHdl() const { return aCheckButtonHdl; }
     virtual void    CheckButtonHdl();
 
     void            SetSublistOpenWithReturn();      // open/close sublist with return/enter
@@ -665,7 +654,6 @@ public:
     // Place the expander checkitem at the optimal indent for hierarchical lists
     void            SetOptimalImageIndent() { SetIndent(12); }
     void            SetSpaceBetweenEntries( short nSpace );
-    short           GetSpaceBetweenEntries() const {return nEntryHeightOffs;}
     Point           GetEntryPosition( SvTreeListEntry* ) const;
     void            MakeVisible( SvTreeListEntry* pEntry );
     void            MakeVisible( SvTreeListEntry* pEntry, bool bMoveToTop );
@@ -727,7 +715,6 @@ public:
     void            ScrollToAbsPos( long nPos );
 
     void            ShowFocusRect( const SvTreeListEntry* pEntry );
-    void            InitStartEntry();
 
     virtual VclPtr<PopupMenu> CreateContextMenu();
     virtual void    ExecuteContextMenuAction( sal_uInt16 nSelectedPopupEntry );

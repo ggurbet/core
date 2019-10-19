@@ -17,18 +17,15 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
 #include <svx/colorbox.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svtools/unitconv.hxx>
 
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xflgrit.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/xbtmpit.hxx>
-#include <svx/xpool.hxx>
 #include <svx/sdmetitm.hxx>
 #include <svx/sdooitm.hxx>
 #include <svx/sdprcitm.hxx>
@@ -41,8 +38,6 @@
 #include <cuitabarea.hxx>
 #include <svx/dlgutil.hxx>
 #include <cuitabline.hxx>
-#include <svx/xlineit0.hxx>
-#include <sfx2/request.hxx>
 
 using namespace com::sun::star;
 
@@ -57,8 +52,8 @@ const sal_uInt16 SvxShadowTabPage::pShadowRanges[] =
     0
 };
 
-SvxShadowTabPage::SvxShadowTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SvxTabPage(pParent, "cui/ui/shadowtabpage.ui", "ShadowTabPage", rInAttrs)
+SvxShadowTabPage::SvxShadowTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SvxTabPage(pPage, pController, "cui/ui/shadowtabpage.ui", "ShadowTabPage", rInAttrs)
     , m_rOutAttrs(rInAttrs)
     , m_pnColorListState(nullptr)
     , m_nPageType(PageType::Area)
@@ -69,7 +64,7 @@ SvxShadowTabPage::SvxShadowTabPage(TabPageParent pParent, const SfxItemSet& rInA
     , m_xTsbShowShadow(m_xBuilder->weld_check_button("TSB_SHOW_SHADOW"))
     , m_xGridShadow(m_xBuilder->weld_widget("gridSHADOW"))
     , m_xMtrDistance(m_xBuilder->weld_metric_spin_button("MTR_FLD_DISTANCE", FieldUnit::CM))
-    , m_xLbShadowColor(new ColorListBox(m_xBuilder->weld_menu_button("LB_SHADOW_COLOR"), pParent.GetFrameWeld()))
+    , m_xLbShadowColor(new ColorListBox(m_xBuilder->weld_menu_button("LB_SHADOW_COLOR"), pController->getDialog()))
     , m_xMtrTransparent(m_xBuilder->weld_metric_spin_button("MTR_SHADOW_TRANSPARENT", FieldUnit::PERCENT))
     , m_xCtlPosition(new weld::CustomWeld(*m_xBuilder, "CTL_POSITION", m_aCtlPosition))
     , m_xCtlXRectPreview(new weld::CustomWeld(*m_xBuilder, "CTL_COLOR_PREVIEW", m_aCtlXRectPreview))
@@ -162,15 +157,9 @@ SvxShadowTabPage::SvxShadowTabPage(TabPageParent pParent, const SfxItemSet& rInA
 
 SvxShadowTabPage::~SvxShadowTabPage()
 {
-    disposeOnce();
-}
-
-void SvxShadowTabPage::dispose()
-{
     m_xCtlXRectPreview.reset();
     m_xLbShadowColor.reset();
     m_xCtlPosition.reset();
-    SvxTabPage::dispose();
 }
 
 void SvxShadowTabPage::ActivatePage( const SfxItemSet& rSet )
@@ -189,14 +178,14 @@ void SvxShadowTabPage::ActivatePage( const SfxItemSet& rSet )
             {
                 if( *m_pnColorListState & ChangeType::CHANGED )
                 {
-                    SvxAreaTabDialog* pArea = dynamic_cast< SvxAreaTabDialog* >( GetParentDialog() );
+                    SvxAreaTabDialog* pArea = dynamic_cast<SvxAreaTabDialog*>(GetDialogController());
                     if( pArea )
                     {
                         m_pColorList = pArea->GetNewColorList();
                     }
                     else
                     {
-                        SvxLineTabDialog* pLine = dynamic_cast< SvxLineTabDialog* >( GetParentDialog() );
+                        SvxLineTabDialog* pLine = dynamic_cast<SvxLineTabDialog*>(GetDialogController());
                         if( pLine )
                             m_pColorList = pLine->GetNewColorList();
                     }
@@ -423,10 +412,10 @@ void SvxShadowTabPage::Reset( const SfxItemSet* rAttrs )
     ModifyShadowHdl_Impl(*m_xMtrTransparent);
 }
 
-VclPtr<SfxTabPage> SvxShadowTabPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SvxShadowTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                              const SfxItemSet* rAttrs )
 {
-    return VclPtr<SvxShadowTabPage>::Create( pParent, *rAttrs );
+    return std::make_unique<SvxShadowTabPage>(pPage, pController, *rAttrs);
 }
 
 IMPL_LINK_NOARG(SvxShadowTabPage, ClickShadowHdl_Impl, weld::ToggleButton&, void)

@@ -358,7 +358,7 @@ sal_Int32 ResultSetMetaData::getScale( sal_Int32 column )
 
 OUString ResultSetMetaData::getTableName( sal_Int32 )
 {
-// LEM TODO This is very fishy.. Should probably return the table to which that column belongs!
+// LEM TODO This is very fishy... Should probably return the table to which that column belongs!
     return m_tableName;
 }
 
@@ -418,7 +418,7 @@ sal_Bool ResultSetMetaData::isWritable( sal_Int32 column )
 
 sal_Bool ResultSetMetaData::isDefinitelyWritable( sal_Int32 column )
 {
-    return isWritable(column); // uhh, now it becomes really esoteric ....
+    return isWritable(column); // uhh, now it becomes really esoteric...
 }
 OUString ResultSetMetaData::getColumnServiceName( sal_Int32 )
 {

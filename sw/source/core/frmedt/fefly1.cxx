@@ -592,7 +592,7 @@ Point SwFEShell::FindAnchorPos( const Point& rAbsPos, bool bMoveIt )
                     // re-created. Thus, delete all fly frames except the <this> before the
                     // anchor attribute is change and re-create them afterwards.
                     {
-                        std::unique_ptr<SwHandleAnchorNodeChg> pHandleAnchorNodeChg;
+                        std::unique_ptr<SwHandleAnchorNodeChg, o3tl::default_delete<SwHandleAnchorNodeChg>> pHandleAnchorNodeChg;
                         SwFlyFrameFormat* pFlyFrameFormat( dynamic_cast<SwFlyFrameFormat*>(&rFormat) );
                         if ( pFlyFrameFormat )
                         {
@@ -895,7 +895,7 @@ SwFlyFrameFormat* SwFEShell::InsertObject( const svt::EmbeddedObjectRef&  xObj,
     SET_CURR_SHELL( this );
     StartAllAction();
     {
-        for(SwPaM& rPaM : GetCursor()->GetRingContainer())
+        for(const SwPaM& rPaM : GetCursor()->GetRingContainer())
         {
             pFormat = GetDoc()->getIDocumentContentOperations().InsertEmbObject(
                             rPaM, xObj, pFlyAttrSet );
@@ -1157,8 +1157,7 @@ void SwFEShell::ResetFlyFrameAttr( const SfxItemSet* pSet )
         StartAllAction();
 
         SfxItemIter aIter( *pSet );
-        const SfxPoolItem* pItem = aIter.FirstItem();
-        while( pItem )
+        for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
         {
             if( !IsInvalidItem( pItem ) )
             {
@@ -1166,7 +1165,6 @@ void SwFEShell::ResetFlyFrameAttr( const SfxItemSet* pSet )
                 if( RES_ANCHOR != nWhich && RES_CHAIN != nWhich && RES_CNTNT != nWhich )
                     pFly->GetFormat()->ResetFormatAttr( nWhich );
             }
-            pItem = aIter.NextItem();
         }
 
         EndAllActionAndCall();
@@ -1324,7 +1322,7 @@ Size SwFEShell::RequestObjectResize( const SwRect &rRect, const uno::Reference <
             {
                 const SfxPoolItem* pItem = &pHint->GetAttr();
                 if( RES_TXTATR_FIELD == pItem->Which()
-                    && TYP_SEQFLD == static_cast<const SwFormatField*>(pItem)->GetField()->GetTypeId() )
+                    && SwFieldTypesEnum::Sequence == static_cast<const SwFormatField*>(pItem)->GetField()->GetTypeId() )
                 {
                     // sequence field found
                     SwFlyFrame* pChgFly = const_cast<SwFlyFrame*>(static_cast<const SwFlyFrame*>(pAnchor->GetUpper()));
@@ -1453,7 +1451,7 @@ OUString SwFEShell::GetFlyName() const
     return OUString();
 }
 
-const uno::Reference < embed::XEmbeddedObject > SwFEShell::GetOleRef() const
+uno::Reference < embed::XEmbeddedObject > SwFEShell::GetOleRef() const
 {
     uno::Reference < embed::XEmbeddedObject > xObj;
     SwFlyFrame * pFly = GetSelectedFlyFrame();
@@ -1839,8 +1837,8 @@ void SwFEShell::GetConnectableFrameFormats(SwFrameFormat & rFormat,
     StartAction();
 
     SwFormatChain rChain = rFormat.GetChain();
-    SwFrameFormat * pOldChainNext = static_cast<SwFrameFormat *>(rChain.GetNext());
-    SwFrameFormat * pOldChainPrev = static_cast<SwFrameFormat *>(rChain.GetPrev());
+    SwFrameFormat * pOldChainNext = rChain.GetNext();
+    SwFrameFormat * pOldChainPrev = rChain.GetPrev();
 
     if (pOldChainNext)
         mxDoc->Unchain(rFormat);

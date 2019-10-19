@@ -15,7 +15,7 @@ namespace com { namespace sun { namespace star { namespace container { class XIn
 
 class ScCTBWrapper;
 // hmm I don't normally use these packed structures
-// but.. hey always good to do something different
+// but... hey always good to do something different
 class TBCCmd : public TBBase
 {
 public:
@@ -60,7 +60,7 @@ public:
     virtual void Print( FILE* ) override;
 #endif
     bool Read(SvStream &rS) override;
-    bool IsMenuToolbar();
+    bool IsMenuToolbar() const;
     bool ImportCustomToolBar( ScCTBWrapper&, CustomToolBarImportHelper& );
     bool ImportMenuTB( ScCTBWrapper&, const css::uno::Reference< css::container::XIndexContainer >&, CustomToolBarImportHelper& );
     const OUString& GetName() { return tb.getName().getString(); }

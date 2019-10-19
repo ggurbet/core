@@ -88,7 +88,7 @@ public:
 
     OUString AnimatedImagesControl::GetComponentServiceName()
     {
-        return OUString( "AnimatedImages" );
+        return "AnimatedImages";
     }
 
 
@@ -119,7 +119,7 @@ public:
 
     OUString SAL_CALL AnimatedImagesControl::getImplementationName(  )
     {
-        return OUString( "org.openoffice.comp.toolkit.AnimatedImagesControl" );
+        return "org.openoffice.comp.toolkit.AnimatedImagesControl";
     }
 
 
@@ -280,22 +280,19 @@ namespace toolkit {
 
     OUString SAL_CALL AnimatedImagesControlModel::getServiceName()
     {
-        return OUString("com.sun.star.awt.AnimatedImagesControlModel");
+        return "com.sun.star.awt.AnimatedImagesControlModel";
     }
 
 
     OUString SAL_CALL AnimatedImagesControlModel::getImplementationName(  )
     {
-        return OUString("org.openoffice.comp.toolkit.AnimatedImagesControlModel");
+        return "org.openoffice.comp.toolkit.AnimatedImagesControlModel";
     }
 
 
     Sequence< OUString > SAL_CALL AnimatedImagesControlModel::getSupportedServiceNames()
     {
-        Sequence< OUString > aServiceNames(2);
-        aServiceNames[0] = "com.sun.star.awt.AnimatedImagesControlModel";
-        aServiceNames[1] = "com.sun.star.awt.UnoControlModel";
-        return aServiceNames;
+        return { "com.sun.star.awt.AnimatedImagesControlModel", "com.sun.star.awt.UnoControlModel" };
     }
 
 

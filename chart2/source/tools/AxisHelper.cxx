@@ -73,7 +73,7 @@ ScaleData AxisHelper::createDefaultScale()
     ScaleData aScaleData;
     aScaleData.AxisType = chart2::AxisType::REALNUMBER;
     aScaleData.AutoDateAxis = true;
-    aScaleData.ShiftedCategoryPosition = false;//this is adapted in the view code currently
+    aScaleData.ShiftedCategoryPosition = false;
     Sequence< SubIncrement > aSubIncrements(1);
     aSubIncrements[0] = SubIncrement();
     aScaleData.IncrementData.SubIncrements = aSubIncrements;
@@ -507,7 +507,7 @@ void AxisHelper::hideAxisIfNoDataIsAttached( const Reference< XAxis >& xAxis, co
     std::vector< Reference< chart2::XDataSeries > > aSeriesVector( DiagramHelper::getDataSeriesFromDiagram( xDiagram ) );
     for (auto const& series : aSeriesVector)
     {
-        uno::Reference< chart2::XAxis > xCurrentAxis( DiagramHelper::getAttachedAxis(series, xDiagram ), uno::UNO_QUERY );
+        uno::Reference< chart2::XAxis > xCurrentAxis = DiagramHelper::getAttachedAxis(series, xDiagram );
         if( xCurrentAxis==xAxis )
         {
             bOtherSeriesAttachedToThisAxis = true;

@@ -20,19 +20,12 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_ACCCFG_HXX
 #define INCLUDED_CUI_SOURCE_INC_ACCCFG_HXX
 
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/container/XIndexContainer.hpp>
-#include <com/sun/star/ui/XUIConfigurationManager.hpp>
 #include <com/sun/star/ui/XAcceleratorConfiguration.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
-#include <com/sun/star/lang/XSingleComponentFactory.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/frame/XFrame.hpp>
 
-#include <algorithm>
-
 #include <sfx2/tabdlg.hxx>
-#include <sfx2/basedlgs.hxx>
 #include <i18nutil/searchopt.hxx>
 #include "cfgutil.hxx"
 
@@ -146,9 +139,8 @@ private:
     void                        ResetConfig();
 
 public:
-                                SfxAcceleratorConfigPage(TabPageParent pParent, const SfxItemSet& rItemSet);
+                                SfxAcceleratorConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rItemSet);
     virtual                     ~SfxAcceleratorConfigPage() override;
-    virtual void                dispose() override;
 
     virtual bool                FillItemSet( SfxItemSet* ) override;
     virtual void                Reset( const SfxItemSet* ) override;

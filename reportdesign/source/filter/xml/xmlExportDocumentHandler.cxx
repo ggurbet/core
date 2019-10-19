@@ -49,12 +49,11 @@ static void lcl_exportPrettyPrinting(const uno::Reference< xml::sax::XDocumentHa
 
 OUString lcl_createAttribute(const xmloff::token::XMLTokenEnum& _eNamespace,const xmloff::token::XMLTokenEnum& _eAttribute)
 {
-    OUStringBuffer sQName;
+    return
     // ...if it's in our map, make the prefix
-    sQName.append ( xmloff::token::GetXMLToken(_eNamespace) );
-    sQName.append ( ':' );
-    sQName.append ( xmloff::token::GetXMLToken(_eAttribute) );
-    return sQName.makeStringAndClear();
+        xmloff::token::GetXMLToken(_eNamespace) +
+        ":" +
+        xmloff::token::GetXMLToken(_eAttribute);
 }
 
 static void lcl_correctCellAddress(const OUString & _sName, const uno::Reference< xml::sax::XAttributeList > & xAttribs)
@@ -109,7 +108,7 @@ uno::Sequence< OUString > SAL_CALL ExportDocumentHandler::getSupportedServiceNam
 
 OUString ExportDocumentHandler::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.report.ExportDocumentHandler");
+    return "com.sun.star.comp.report.ExportDocumentHandler";
 }
 
 
@@ -321,14 +320,14 @@ void SAL_CALL ExportDocumentHandler::initialize( const uno::Sequence< uno::Any >
     if ( xDataProvider.is() )
     {
         m_aColumns.realloc(1);
-        uno::Sequence< OUString > aColumnNames = xDataProvider->getColumnDescriptions();
-        for(sal_Int32 i = 0 ; i < aColumnNames.getLength();++i)
+        const uno::Sequence< OUString > aColumnNames = xDataProvider->getColumnDescriptions();
+        for(const auto& rColumnName : aColumnNames)
         {
-            if ( !aColumnNames[i].isEmpty() )
+            if ( !rColumnName.isEmpty() )
             {
                 sal_Int32 nCount = m_aColumns.getLength();
                 m_aColumns.realloc(nCount+1);
-                m_aColumns[nCount] = aColumnNames[i];
+                m_aColumns[nCount] = rColumnName;
             }
         }
     }
@@ -388,9 +387,9 @@ void ExportDocumentHandler::exportTableRows()
             m_xDelegatee->endElement(sCell);
         }
     }
-    for(sal_Int32 i = 0; i < nCount ; ++i)
+    for(const auto& rColumn : std::as_const(m_aColumns))
     {
-        OUString sFormula = "field:[" + m_aColumns[i] + "]";
+        OUString sFormula = "field:[" + rColumn + "]";
         SvXMLAttributeList* pList = new SvXMLAttributeList();
         uno::Reference< xml::sax::XAttributeList > xAttribs = pList;
         pList->AddAttribute(sFormulaAttrib,sFormula);

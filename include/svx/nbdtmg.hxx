@@ -71,11 +71,11 @@ typedef std::vector< std::shared_ptr<NumSettings_Impl> > NumSettingsArr_Impl;
 class  SVX_DLLPUBLIC BulletsSettings
 {
 public:
-    bool            bIsCustomized;
+    vcl::Font       aFont;
     OUString        sDescription;
     sal_Unicode     cBulletChar;
-    vcl::Font       aFont;
-    BulletsSettings() : bIsCustomized(false), cBulletChar(0) {}
+    bool            bIsCustomized;
+    BulletsSettings() : cBulletChar(0), bIsCustomized(false)  {}
 };
 
 
@@ -136,9 +136,9 @@ class SVX_DLLPUBLIC NBOTypeMgrBase
         // store the attributes passed from pSet
         void SetItems(const SfxItemSet* pArg);
     protected:
-        const OUString& GetBulletCharFmtName() { return aBulletCharFmtName;}
-        const OUString& GetNumCharFmtName() { return aNumCharFmtName;}
-        MapUnit GetMapUnit() { return eCoreUnit;}
+        const OUString& GetBulletCharFmtName() const { return aBulletCharFmtName;}
+        const OUString& GetNumCharFmtName() const { return aNumCharFmtName;}
+        MapUnit GetMapUnit() const { return eCoreUnit;}
     protected:
         void    ImplLoad(const OUString& filename);
         void    ImplStore(const OUString& filename);

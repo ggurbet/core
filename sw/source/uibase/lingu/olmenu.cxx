@@ -41,6 +41,7 @@
 #include <wview.hxx>
 #include <textsh.hxx>
 
+#include <comphelper/lok.hxx>
 #include <comphelper/anytostring.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
@@ -162,7 +163,7 @@ void SwSpellPopup::fillLangPopupMenu(
 
     //6--all languages used in current document
     uno::Reference< css::frame::XModel > xModel;
-    uno::Reference< css::frame::XController > xController( pWrtSh->GetView().GetViewFrame()->GetFrame().GetFrameInterface()->getController(), uno::UNO_QUERY );
+    uno::Reference< css::frame::XController > xController = pWrtSh->GetView().GetViewFrame()->GetFrame().GetFrameInterface()->getController();
     if ( xController.is() )
         xModel = xController->getModel();
     uno::Reference< document::XDocumentLanguages > xDocumentLanguages( xModel, uno::UNO_QUERY );
@@ -174,7 +175,7 @@ void SwSpellPopup::fillLangPopupMenu(
     const sal_Int16 nMaxCount = 7;
     if (xDocumentLanguages.is())
     {
-        uno::Sequence< lang::Locale > rLocales( xDocumentLanguages->getDocumentLanguages( static_cast<sal_Int16>(nScriptType), nMaxCount ) );
+        const uno::Sequence< lang::Locale > rLocales( xDocumentLanguages->getDocumentLanguages( static_cast<sal_Int16>(nScriptType), nMaxCount ) );
         for (const lang::Locale& rLocale : rLocales)
         {
             if (aLangItems.size() == size_t(nMaxCount))
@@ -296,6 +297,11 @@ SwSpellPopup::SwSpellPopup(
         vcl::CommandInfoProvider::GetPopupLabelForCommand(".uno:SpellingAndGrammarDialog", aModuleName));
     m_xPopupMenu->SetItemText(m_nCorrectDialogId,
         vcl::CommandInfoProvider::GetPopupLabelForCommand(".uno:AutoCorrectDlg", aModuleName));
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        m_xPopupMenu->HideItem(m_nCorrectDialogId);
+        m_xPopupMenu->HideItem(m_nAddId);
+    }
     sal_uInt16 nItemPos = m_xPopupMenu->GetItemPos(m_nIgnoreWordId);
     m_xPopupMenu->InsertItem(MN_IGNORE_SELECTION, aIgnoreSelection, MenuItemBits::NONE, OString(), nItemPos);
     m_xPopupMenu->SetHelpId(MN_IGNORE_SELECTION, HID_LINGU_IGNORE_SELECTION);
@@ -334,9 +340,9 @@ SwSpellPopup::SwSpellPopup(
 
         m_aDics = xDicList->getDictionaries();
 
-        for( const uno::Reference< linguistic2::XDictionary >& rDic : m_aDics )
+        for( const uno::Reference< linguistic2::XDictionary >& rDic : std::as_const(m_aDics) )
         {
-            uno::Reference< linguistic2::XDictionary >  xDicTmp( rDic, uno::UNO_QUERY );
+            uno::Reference< linguistic2::XDictionary >  xDicTmp = rDic;
             if (!xDicTmp.is() || LinguMgr::GetIgnoreAllList() == xDicTmp)
                 continue;
 
@@ -452,7 +458,7 @@ SwSpellPopup::SwSpellPopup(
         m_xPopupMenu->SetItemImage(MN_SHORT_COMMENT, Image(StockImage::Yes, BMP_INFO_16));
 
     // Add an item to show detailed infos if the FullCommentURL property is defined
-    beans::PropertyValues  aProperties = rResult.aErrors[ nErrorInResult ].aProperties;
+    const beans::PropertyValues  aProperties = rResult.aErrors[ nErrorInResult ].aProperties;
     for ( const auto& rProp : aProperties )
     {
         if ( rProp.Name == "FullCommentURL" )
@@ -489,7 +495,7 @@ SwSpellPopup::SwSpellPopup(
         }
 
         sal_uInt16 nItemId = MN_SUGGESTION_START;
-        for (const OUString& aEntry : m_aSuggestions)
+        for (const OUString& aEntry : std::as_const(m_aSuggestions))
         {
             m_xPopupMenu->InsertItem(nItemId, aEntry, MenuItemBits::NONE, OString(), nPos++);
             m_xPopupMenu->SetHelpId(nItemId, HID_LINGU_REPLACE);
@@ -655,9 +661,8 @@ void SwSpellPopup::Execute( sal_uInt16 nId )
             aRewriter.AddRule(UndoArg1, m_pSh->GetCursorDescr());
             aRewriter.AddRule(UndoArg2, SwResId(STR_YIELDS));
 
-            OUString aTmpStr( SwResId(STR_START_QUOTE) );
-            aTmpStr += aTmp;
-            aTmpStr += SwResId(STR_END_QUOTE);
+            OUString aTmpStr = SwResId(STR_START_QUOTE) +
+                aTmp + SwResId(STR_END_QUOTE);
             aRewriter.AddRule(UndoArg3, aTmpStr);
 
             m_pSh->StartUndo(SwUndoId::UI_REPLACE, &aRewriter);
@@ -715,7 +720,7 @@ void SwSpellPopup::Execute( sal_uInt16 nId )
     }
     else if (nId == m_nIgnoreWordId)
     {
-        uno::Reference< linguistic2::XDictionary > xDictionary( LinguMgr::GetIgnoreAllList(), uno::UNO_QUERY );
+        uno::Reference< linguistic2::XDictionary > xDictionary = LinguMgr::GetIgnoreAllList();
         if (m_bGrammarResults) {
             try
             {
@@ -739,7 +744,7 @@ void SwSpellPopup::Execute( sal_uInt16 nId )
                     sWord, false, OUString() );
             if (linguistic::DictionaryError::NONE != nAddRes && !xDictionary->getEntry(sWord).is())
             {
-                SvxDicError(m_pSh->GetView().GetViewFrame()->GetWindow().GetFrameWeld(), nAddRes);
+                SvxDicError(m_pSh->GetView().GetFrameWeld(), nAddRes);
             }
         }
     }
@@ -771,7 +776,7 @@ void SwSpellPopup::Execute( sal_uInt16 nId )
 
             if (linguistic::DictionaryError::NONE != nAddRes && !xDic->getEntry(sWord).is())
             {
-                SvxDicError(m_pSh->GetView().GetViewFrame()->GetWindow().GetFrameWeld(), nAddRes);
+                SvxDicError(m_pSh->GetView().GetFrameWeld(), nAddRes);
             }
         }
     }
@@ -789,7 +794,7 @@ void SwSpellPopup::Execute( sal_uInt16 nId )
             uno::Any exc( ::cppu::getCaughtException() );
             OUString msg( ::comphelper::anyToString( exc ) );
             const SolarMutexGuard guard;
-            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(m_pSh->GetView().GetViewFrame()->GetWindow().GetFrameWeld(),
+            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(m_pSh->GetView().GetFrameWeld(),
                                                       VclMessageType::Warning, VclButtonsType::Ok, msg));
             xBox->set_title("Explanations");
             xBox->run();

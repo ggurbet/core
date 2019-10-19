@@ -22,29 +22,20 @@
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <unotools/pathoptions.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/dialoghelper.hxx>
-#include <sfx2/filedlghelper.hxx>
-#include <sfx2/module.hxx>
-#include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
 #include <strings.hrc>
+#include <svx/xfillit0.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/colorbox.hxx>
-#include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
-#include <svx/drawitem.hxx>
 #include <svx/xflbckit.hxx>
 #include <cuitabarea.hxx>
-#include <defdlgname.hxx>
-#include <dlgname.hxx>
 #include <svx/svxdlg.hxx>
 #include <dialmgr.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/dialmgr.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 #include <sal/log.hxx>
@@ -52,8 +43,8 @@
 
 using namespace com::sun::star;
 
-SvxHatchTabPage::SvxHatchTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/hatchpage.ui", "HatchPage", &rInAttrs)
+SvxHatchTabPage::SvxHatchTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/hatchpage.ui", "HatchPage", &rInAttrs)
     , m_rOutAttrs(rInAttrs)
     , m_pnHatchingListState(nullptr)
     , m_pnColorListState(nullptr)
@@ -63,16 +54,16 @@ SvxHatchTabPage::SvxHatchTabPage(TabPageParent pParent, const SfxItemSet& rInAtt
     , m_xMtrAngle(m_xBuilder->weld_metric_spin_button("anglemtr", FieldUnit::DEGREE))
     , m_xSliderAngle(m_xBuilder->weld_scale("angleslider"))
     , m_xLbLineType(m_xBuilder->weld_combo_box("linetypelb"))
-    , m_xLbLineColor(new ColorListBox(m_xBuilder->weld_menu_button("linecolorlb"), pParent.GetFrameWeld()))
+    , m_xLbLineColor(new ColorListBox(m_xBuilder->weld_menu_button("linecolorlb"), pController->getDialog()))
     , m_xCbBackgroundColor(m_xBuilder->weld_check_button("backgroundcolor"))
-    , m_xLbBackgroundColor(new ColorListBox(m_xBuilder->weld_menu_button("backgroundcolorlb"), pParent.GetFrameWeld()))
+    , m_xLbBackgroundColor(new ColorListBox(m_xBuilder->weld_menu_button("backgroundcolorlb"), pController->getDialog()))
     , m_xHatchLB(new SvxPresetListBox(m_xBuilder->weld_scrolled_window("hatchpresetlistwin")))
     , m_xBtnAdd(m_xBuilder->weld_button("add"))
     , m_xBtnModify(m_xBuilder->weld_button("modify"))
     , m_xHatchLBWin(new weld::CustomWeld(*m_xBuilder, "hatchpresetlist", *m_xHatchLB))
     , m_xCtlPreview(new weld::CustomWeld(*m_xBuilder, "previewctl", m_aCtlPreview))
 {
-    Size aSize = getDrawPreviewOptimalSize(this);
+    Size aSize = getDrawPreviewOptimalSize(m_aCtlPreview.GetDrawingArea()->get_ref_device());
     m_xHatchLBWin->set_size_request(aSize.Width(), aSize.Height());
     m_xCtlPreview->set_size_request(aSize.Width(), aSize.Height());
 
@@ -119,22 +110,16 @@ SvxHatchTabPage::SvxHatchTabPage(TabPageParent pParent, const SfxItemSet& rInAtt
     m_xBtnAdd->connect_clicked( LINK( this, SvxHatchTabPage, ClickAddHdl_Impl ) );
     m_xBtnModify->connect_clicked( LINK( this, SvxHatchTabPage, ClickModifyHdl_Impl ) );
 
-    m_aCtlPreview.SetDrawMode( GetSettings().GetStyleSettings().GetHighContrastMode() ? OUTPUT_DRAWMODE_CONTRAST : OUTPUT_DRAWMODE_COLOR );
+    m_aCtlPreview.SetDrawMode(Application::GetSettings().GetStyleSettings().GetHighContrastMode() ? OUTPUT_DRAWMODE_CONTRAST : OUTPUT_DRAWMODE_COLOR);
 }
 
 SvxHatchTabPage::~SvxHatchTabPage()
-{
-    disposeOnce();
-}
-
-void SvxHatchTabPage::dispose()
 {
     m_xCtlPreview.reset();
     m_xHatchLBWin.reset();
     m_xHatchLB.reset();
     m_xLbBackgroundColor.reset();
     m_xLbLineColor.reset();
-    SfxTabPage::dispose();
 }
 
 void SvxHatchTabPage::Construct()
@@ -151,7 +136,7 @@ void SvxHatchTabPage::ActivatePage( const SfxItemSet& rSet )
             *m_pnColorListState & ChangeType::MODIFIED )
         {
             SvxAreaTabDialog* pArea = (*m_pnColorListState & ChangeType::CHANGED) ?
-                dynamic_cast<SvxAreaTabDialog*>(GetParentDialog()) : nullptr;
+                dynamic_cast<SvxAreaTabDialog*>(GetDialogController()) : nullptr;
             if (pArea)
                 m_pColorList = pArea->GetNewColorList();
 
@@ -160,8 +145,7 @@ void SvxHatchTabPage::ActivatePage( const SfxItemSet& rSet )
 
         // determining (possibly cutting) the name
         // and displaying it in the GroupBox
-        OUString        aString( CuiResId( RID_SVXSTR_TABLE ) );
-        aString         += ": ";
+        OUString        aString = CuiResId( RID_SVXSTR_TABLE ) + ": ";
         INetURLObject   aURL( m_pHatchingList->GetPath() );
 
         aURL.Append( m_pHatchingList->GetName() );
@@ -281,10 +265,10 @@ void SvxHatchTabPage::Reset( const SfxItemSet* rSet )
     m_aCtlPreview.Invalidate();
 }
 
-VclPtr<SfxTabPage> SvxHatchTabPage::Create( TabPageParent pWindow,
+std::unique_ptr<SfxTabPage> SvxHatchTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                             const SfxItemSet* rSet )
 {
-    return VclPtr<SvxHatchTabPage>::Create(pWindow, *rSet);
+    return std::make_unique<SvxHatchTabPage>(pPage, pController, *rSet);
 }
 
 IMPL_LINK( SvxHatchTabPage, ModifiedListBoxHdl_Impl, weld::ComboBox&, rListBox, void )
@@ -429,7 +413,7 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickAddHdl_Impl, weld::Button&, void)
     }
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc));
+    ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
     sal_uInt16         nError   = 1;
 
     while( pDlg->Execute() == RET_OK )
@@ -443,7 +427,7 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickAddHdl_Impl, weld::Button&, void)
             break;
         }
 
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
         std::unique_ptr<weld::MessageDialog> xWarnBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
         if (xWarnBox->run() != RET_OK)
             break;
@@ -511,7 +495,7 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickDeleteHdl_Impl, SvxPresetListBox*, void)
 
     if( nPos != VALUESET_ITEM_NOTFOUND )
     {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querydeletehatchdialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querydeletehatchdialog.ui"));
         std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("AskDelHatchDialog"));
         if (xQueryBox->run() == RET_YES)
         {
@@ -541,7 +525,7 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickRenameHdl_Impl, SvxPresetListBox*, void )
         OUString aName( m_pHatchingList->GetHatch( nPos )->GetName() );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc));
+        ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
 
         bool bLoop = true;
         while( bLoop && pDlg->Execute() == RET_OK )
@@ -562,21 +546,13 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickRenameHdl_Impl, SvxPresetListBox*, void )
             }
             else
             {
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
                 std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
                 xBox->run();
             }
         }
     }
 
-}
-
-void SvxHatchTabPage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    if ( ( rDCEvt.GetType() == DataChangedEventType::SETTINGS ) && ( rDCEvt.GetFlags() & AllSettingsFlags::STYLE ) )
-        m_aCtlPreview.SetDrawMode( GetSettings().GetStyleSettings().GetHighContrastMode() ? OUTPUT_DRAWMODE_CONTRAST : OUTPUT_DRAWMODE_COLOR );
-
-    SfxTabPage::DataChanged( rDCEvt );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -100,16 +100,14 @@ ErrCode SmXMLImportWrapper::Import(SfxMedium &rMedium)
     uno::Reference<uno::XComponentContext> xContext( comphelper::getProcessComponentContext() );
 
     //Make a model component from our SmModel
-    uno::Reference< lang::XComponent > xModelComp( xModel, uno::UNO_QUERY );
+    uno::Reference< lang::XComponent > xModelComp = xModel;
     OSL_ENSURE( xModelComp.is(), "XMLReader::Read: got no model" );
 
     // try to get an XStatusIndicator from the Medium
     uno::Reference<task::XStatusIndicator> xStatusIndicator;
 
     bool bEmbedded = false;
-    uno::Reference <lang::XUnoTunnel> xTunnel(xModel,uno::UNO_QUERY);
-    SmModel *pModel = reinterpret_cast<SmModel *>
-        (xTunnel->getSomething(SmModel::getUnoTunnelId()));
+    SmModel *pModel = comphelper::getUnoTunnelImplementation<SmModel>(xModel);
 
     SmDocShell *pDocShell = pModel ?
             static_cast<SmDocShell*>(pModel->GetObjectShell()) : nullptr;
@@ -298,10 +296,7 @@ ErrCode SmXMLImportWrapper::ReadThroughComponent(
         else
             xParser->parseStream( aParserInput );
 
-        uno::Reference<lang::XUnoTunnel> xFilterTunnel( xFilter, uno::UNO_QUERY );
-        SmXMLImport *pFilter = reinterpret_cast< SmXMLImport * >(
-                sal::static_int_cast< sal_uIntPtr >(
-                xFilterTunnel->getSomething( SmXMLImport::getUnoTunnelId() )));
+        auto pFilter = comphelper::getUnoTunnelImplementation<SmXMLImport>(xFilter);
         if ( pFilter && pFilter->GetSuccess() )
             nError = ERRCODE_NONE;
     }
@@ -366,8 +361,7 @@ ErrCode SmXMLImportWrapper::ReadThroughComponent(
 
     // open stream (and set parser input)
     OUString sStreamName = OUString::createFromAscii(pStreamName);
-    uno::Reference < container::XNameAccess > xAccess( xStorage, uno::UNO_QUERY );
-    if ( !xAccess->hasByName(sStreamName) || !xStorage->isStreamElement(sStreamName) )
+    if ( !xStorage->hasByName(sStreamName) || !xStorage->isStreamElement(sStreamName) )
     {
         // stream name not found! Then try the compatibility name.
         // do we even have an alternative name?
@@ -459,9 +453,7 @@ Math_XMLOasisSettingsImporter_get_implementation(uno::XComponentContext* pCtx,
 sal_Int64 SAL_CALL SmXMLImport::getSomething(
     const uno::Sequence< sal_Int8 >&rId )
 {
-    if ( rId.getLength() == 16 &&
-        0 == memcmp( getUnoTunnelId().getConstArray(),
-        rId.getConstArray(), 16 ) )
+    if ( isUnoTunnelId<SmXMLImport>(rId) )
         return sal::static_int_cast< sal_Int64 >(reinterpret_cast< sal_uIntPtr >(this));
 
     return SvXMLImport::getSomething( rId );
@@ -474,9 +466,7 @@ void SmXMLImport::endDocument()
     if (pTree && pTree->GetType() == SmNodeType::Table)
     {
         uno::Reference <frame::XModel> xModel = GetModel();
-        uno::Reference <lang::XUnoTunnel> xTunnel(xModel,uno::UNO_QUERY);
-        SmModel *pModel = reinterpret_cast<SmModel *>
-            (xTunnel->getSomething(SmModel::getUnoTunnelId()));
+        SmModel *pModel = comphelper::getUnoTunnelImplementation<SmModel>(xModel);
 
         if (pModel)
         {
@@ -504,7 +494,7 @@ void SmXMLImport::endDocument()
 
             pDocShell->SetText( aText );
         }
-        OSL_ENSURE(pModel,"So there *was* a uno problem after all");
+        OSL_ENSURE(pModel,"So there *was* a UNO problem after all");
 
         bSuccess = true;
     }
@@ -891,7 +881,7 @@ public:
 };
 
 
-/*avert thy gaze from the proginator*/
+/*avert the gaze from the originator*/
 class SmXMLRowContext_Impl : public SmXMLDocContext_Impl
 {
 protected:
@@ -3066,9 +3056,7 @@ void SmXMLImport::SetViewSettings(const Sequence<PropertyValue>& aViewProps)
     if ( !xModel.is() )
         return;
 
-    uno::Reference <lang::XUnoTunnel> xTunnel(xModel,uno::UNO_QUERY);
-    SmModel *pModel = reinterpret_cast<SmModel *>
-        (xTunnel->getSomething(SmModel::getUnoTunnelId()));
+    SmModel *pModel = comphelper::getUnoTunnelImplementation<SmModel>(xModel);
 
     if ( !pModel )
         return;
@@ -3080,38 +3068,34 @@ void SmXMLImport::SetViewSettings(const Sequence<PropertyValue>& aViewProps)
 
     tools::Rectangle aRect( pDocShell->GetVisArea() );
 
-    sal_Int32 nCount = aViewProps.getLength();
-    const PropertyValue *pValue = aViewProps.getConstArray();
-
     long nTmp = 0;
 
-    for (sal_Int32 i = 0; i < nCount ; i++)
+    for (const PropertyValue& rValue : aViewProps)
     {
-        if (pValue->Name == "ViewAreaTop" )
+        if (rValue.Name == "ViewAreaTop" )
         {
-            pValue->Value >>= nTmp;
+            rValue.Value >>= nTmp;
             aRect.SaturatingSetY(nTmp);
         }
-        else if (pValue->Name == "ViewAreaLeft" )
+        else if (rValue.Name == "ViewAreaLeft" )
         {
-            pValue->Value >>= nTmp;
+            rValue.Value >>= nTmp;
             aRect.SaturatingSetX(nTmp);
         }
-        else if (pValue->Name == "ViewAreaWidth" )
+        else if (rValue.Name == "ViewAreaWidth" )
         {
-            pValue->Value >>= nTmp;
+            rValue.Value >>= nTmp;
             Size aSize( aRect.GetSize() );
             aSize.setWidth( nTmp );
             aRect.SaturatingSetSize(aSize);
         }
-        else if (pValue->Name == "ViewAreaHeight" )
+        else if (rValue.Name == "ViewAreaHeight" )
         {
-            pValue->Value >>= nTmp;
+            rValue.Value >>= nTmp;
             Size aSize( aRect.GetSize() );
             aSize.setHeight( nTmp );
             aRect.SaturatingSetSize(aSize);
         }
-        pValue++;
     }
 
     pDocShell->SetVisArea ( aRect );
@@ -3127,22 +3111,19 @@ void SmXMLImport::SetConfigurationSettings(const Sequence<PropertyValue>& aConfP
     if (!xInfo.is() )
         return;
 
-    sal_Int32 nCount = aConfProps.getLength();
-    const PropertyValue* pValues = aConfProps.getConstArray();
-
     const OUString sFormula ( "Formula" );
     const OUString sBasicLibraries ( "BasicLibraries" );
     const OUString sDialogLibraries ( "DialogLibraries" );
-    while ( nCount-- )
+    for ( const PropertyValue& rValue : aConfProps )
     {
-        if (pValues->Name != sFormula &&
-            pValues->Name != sBasicLibraries &&
-            pValues->Name != sDialogLibraries)
+        if (rValue.Name != sFormula &&
+            rValue.Name != sBasicLibraries &&
+            rValue.Name != sDialogLibraries)
         {
             try
             {
-                if ( xInfo->hasPropertyByName( pValues->Name ) )
-                    xProps->setPropertyValue( pValues->Name, pValues->Value );
+                if ( xInfo->hasPropertyByName( rValue.Name ) )
+                    xProps->setPropertyValue( rValue.Name, rValue.Value );
             }
             catch (const beans::PropertyVetoException &)
             {
@@ -3153,8 +3134,6 @@ void SmXMLImport::SetConfigurationSettings(const Sequence<PropertyValue>& aConfP
                 DBG_UNHANDLED_EXCEPTION("starmath");
             }
         }
-
-        pValues++;
     }
 }
 
@@ -3172,8 +3151,8 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportMML(SvStream &rStream)
     uno::Reference<io::XInputStream> xStream(new utl::OSeekableInputStreamWrapper(rStream));
 
     //SetLoading hack because the document properties will be re-initted
-    //by the xml filter and during the init, while its considered uninitialized,
-    //setting a property will inform the document its modified, which attempts
+    //by the xml filter and during the init, while it's considered uninitialized,
+    //setting a property will inform the document it's modified, which attempts
     //to update the properties, which throws cause the properties are uninitialized
     xDocSh->SetLoading(SfxLoadedFlags::NONE);
 

@@ -36,7 +36,7 @@ class SW_DLLPUBLIC SwAnchoredDrawObject : public SwAnchoredObject
         boost::optional<tools::Rectangle> maLastObjRect;
 
         // boolean, indicating that anchored drawing object hasn't been attached
-        // to a anchor frame yet. Once, it is attached to a anchor frame the
+        // to an anchor frame yet. Once, it is attached to an anchor frame the
         // boolean changes its state.
         bool mbNotYetAttachedToAnchorFrame;
 
@@ -51,13 +51,13 @@ class SW_DLLPUBLIC SwAnchoredDrawObject : public SwAnchoredObject
         // Needed for compatibility option <DoNotCaptureDrawObjsOnPage>
         bool mbCaptureAfterLayoutDirChange;
 
-        /** method for the intrinsic positioning of a at-paragraph|at-character
+        /** method for the intrinsic positioning of an at-paragraph|at-character
             anchored drawing object
 
             helper method for method <MakeObjPos> */
         void MakeObjPosAnchoredAtPara();
 
-        /** method for the intrinsic positioning of a at-page|at-frame anchored
+        /** method for the intrinsic positioning of an at-page|at-frame anchored
             drawing object
 
             helper method for method <MakeObjPos> */
@@ -99,7 +99,7 @@ class SW_DLLPUBLIC SwAnchoredDrawObject : public SwAnchoredObject
         virtual bool SetObjTop_( const SwTwips _nTop) override;
         virtual bool SetObjLeft_( const SwTwips _nLeft) override;
 
-        virtual const SwRect GetObjBoundRect() const override;
+        virtual SwRect GetObjBoundRect() const override;
 
     public:
 
@@ -119,7 +119,7 @@ class SW_DLLPUBLIC SwAnchoredDrawObject : public SwAnchoredObject
         virtual const SwFrameFormat& GetFrameFormat() const override;
 
         // accessors to the object area and its position
-        virtual const SwRect GetObjRect() const override;
+        virtual SwRect GetObjRect() const override;
 
         boost::optional<tools::Rectangle> const & GetLastObjRect() const { return maLastObjRect;}
         void SetLastObjRect( const tools::Rectangle& _rNewObjRect );

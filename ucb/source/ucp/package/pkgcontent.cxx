@@ -360,20 +360,14 @@ uno::Sequence< uno::Type > SAL_CALL Content::getTypes()
 // virtual
 OUString SAL_CALL Content::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.ucb.PackageContent" );
+    return "com.sun.star.comp.ucb.PackageContent";
 }
 
 
 // virtual
 uno::Sequence< OUString > SAL_CALL Content::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aSNS( 1 );
-    if ( isFolder() )
-        aSNS.getArray()[ 0 ] = "com.sun.star.ucb.PackageFolderContent";
-    else
-        aSNS.getArray()[ 0 ] = "com.sun.star.ucb.PackageStreamContent";
-
-    return aSNS;
+    return { isFolder()? OUString("com.sun.star.ucb.PackageFolderContent"):OUString("com.sun.star.ucb.PackageStreamContent") } ;
 }
 
 
@@ -811,10 +805,9 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
 
                 if ( !bTriedToGetAdditionalPropSet && !xAdditionalPropSet.is() )
                 {
-                    xAdditionalPropSet.set(
+                    xAdditionalPropSet =
                             rProvider->getAdditionalPropertySet( rContentId,
-                                                                 false ),
-                            uno::UNO_QUERY );
+                                                                 false );
                     bTriedToGetAdditionalPropSet = true;
                 }
 
@@ -932,9 +925,8 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
 
         // Append all Additional Core Properties.
 
-        uno::Reference< beans::XPropertySet > xSet(
-            rProvider->getAdditionalPropertySet( rContentId, false ),
-            uno::UNO_QUERY );
+        uno::Reference< beans::XPropertySet > xSet =
+            rProvider->getAdditionalPropertySet( rContentId, false );
         xRow->appendPropertySet( xSet );
     }
 

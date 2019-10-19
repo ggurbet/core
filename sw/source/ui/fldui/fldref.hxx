@@ -20,10 +20,6 @@
 #define INCLUDED_SW_SOURCE_UI_FLDUI_FLDREF_HXX
 
 #include <sfx2/tabdlg.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/button.hxx>
-#include <vcl/edit.hxx>
 
 #include "fldpage.hxx"
 #include <IDocumentOutlineNodes.hxx>
@@ -81,10 +77,10 @@ protected:
     virtual sal_uInt16      GetGroup() override;
 
 public:
-    SwFieldRefPage(TabPageParent pParent, const SfxItemSet* pSet);
+    SwFieldRefPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* pSet);
     virtual ~SwFieldRefPage() override;
 
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

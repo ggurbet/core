@@ -20,18 +20,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <sal/alloca.h>
 #include <osl/thread.h>
 
 #include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xlocale.h>
 
 #include <vcl/commandevent.hxx>
-#include <unx/salunx.h>
-#include <unx/XIM.h>
 #include <unx/i18n_cb.hxx>
-#include <unx/i18n_status.hxx>
 #include <unx/i18n_ic.hxx>
 #include <unx/i18n_im.hxx>
 #include <salframe.hxx>
@@ -498,7 +492,6 @@ StatusDrawCallback (XIC, XPointer, XIMStatusDrawCallbackStruct *call_data)
             if( nLength )
                 aText = OUString( pMBString, nLength, osl_getThreadTextEncoding() );
         }
-        vcl::I18NStatus::get().setStatusText( aText );
     }
 #if OSL_DEBUG_LEVEL > 1
     else

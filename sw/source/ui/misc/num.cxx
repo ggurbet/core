@@ -23,6 +23,7 @@
 #include <editeng/brushitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/numitem.hxx>
+#include <cmdid.h>
 #include <swmodule.hxx>
 #include <wrtsh.hxx>
 #include <docsh.hxx>
@@ -47,6 +48,7 @@
 #include <svl/stritem.hxx>
 #include <svl/aeitem.hxx>
 #include <svl/slstitm.hxx>
+#include <svl/intitem.hxx>
 
 static bool bLastRelative = false;
 
@@ -54,8 +56,8 @@ static bool bLastRelative = false;
 //dialog to this one, except with a different preview window impl.
 //TODO, determine if SwNumPositionTabPage and SvxNumPositionTabPage can be
 //merged
-SwNumPositionTabPage::SwNumPositionTabPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/outlinepositionpage.ui", "OutlinePositionPage", &rSet)
+SwNumPositionTabPage::SwNumPositionTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/outlinepositionpage.ui", "OutlinePositionPage", &rSet)
     , pSaveNum(nullptr)
     , pWrtSh(nullptr)
     , pOutlineDlg(nullptr)
@@ -124,8 +126,7 @@ SwNumPositionTabPage::SwNumPositionTabPage(TabPageParent pParent, const SfxItemS
     // insert levels
     for(sal_uInt16 i = 1; i <= MAXLEVEL; i++)
         m_xLevelLB->append_text(OUString::number(i));
-    OUString sEntry("1 - ");
-    sEntry += OUString::number(MAXLEVEL);
+    OUString sEntry = "1 - " + OUString::number(MAXLEVEL);
     m_xLevelLB->append_text(sEntry);
     m_xLevelLB->select_text(sEntry);
 
@@ -135,14 +136,8 @@ SwNumPositionTabPage::SwNumPositionTabPage(TabPageParent pParent, const SfxItemS
 
 SwNumPositionTabPage::~SwNumPositionTabPage()
 {
-    disposeOnce();
-}
-
-void SwNumPositionTabPage::dispose()
-{
     pActNum.reset();
     pOutlineDlg = nullptr;
-    SfxTabPage::dispose();
 }
 
 void SwNumPositionTabPage::InitControls()
@@ -496,10 +491,10 @@ void SwNumPositionTabPage::ShowControlsDependingOnPosAndSpaceMode()
     m_xIndentAtMF->set_visible( bLabelAlignmentPosAndSpaceModeActive );
 }
 
-VclPtr<SfxTabPage> SwNumPositionTabPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SwNumPositionTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                                  const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwNumPositionTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwNumPositionTabPage>(pPage, pController, *rAttrSet);
 }
 
 void SwNumPositionTabPage::SetWrtShell(SwWrtShell* pSh)
@@ -937,7 +932,7 @@ void SwSvxNumBulletTabDialog::PageCreated(const OString& rPageId, SfxTabPage& rP
         aSet.Put( SfxStringListItem( SID_CHAR_FMT_LIST_BOX,&aList ) ) ;
 
         FieldUnit eMetric = ::GetDfltMetric(dynamic_cast< const SwWebDocShell *>( pDocShell ) !=  nullptr);
-        aSet.Put ( SfxAllEnumItem(SID_METRIC_ITEM, static_cast< sal_uInt16 >(eMetric) ) );
+        aSet.Put ( SfxUInt16Item(SID_METRIC_ITEM, static_cast< sal_uInt16 >(eMetric) ) );
         rPage.PageCreated(aSet);
     }
     else if (rPageId == "position")
@@ -945,7 +940,7 @@ void SwSvxNumBulletTabDialog::PageCreated(const OString& rPageId, SfxTabPage& rP
         SwDocShell* pDocShell = rWrtSh.GetView().GetDocShell();
         FieldUnit eMetric = ::GetDfltMetric(dynamic_cast< const SwWebDocShell *>( pDocShell ) !=  nullptr);
         SfxAllItemSet aSet(*(GetInputSetImpl()->GetPool()));
-        aSet.Put ( SfxAllEnumItem(SID_METRIC_ITEM, static_cast< sal_uInt16 >(eMetric)) );
+        aSet.Put ( SfxUInt16Item(SID_METRIC_ITEM, static_cast< sal_uInt16 >(eMetric)) );
         rPage.PageCreated(aSet);
     }
 }

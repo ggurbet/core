@@ -22,7 +22,7 @@
 
 #include <com/sun/star/sheet/DataPilotOutputRangeType.hpp>
 #include <com/sun/star/sheet/DataPilotFieldOrientation.hpp>
-#include <comphelper/sequence.hxx>
+#include <com/sun/star/uno/Sequence.hxx>
 
 #include "address.hxx"
 
@@ -108,7 +108,7 @@ public:
 
     void            Output();           //! Refresh?
     ScRange GetOutputRange( sal_Int32 nRegionType = css::sheet::DataPilotOutputRangeType::WHOLE );
-    long            GetHeaderRows();
+    long            GetHeaderRows() const;
     bool            HasError();         // range overflow or exception from source
 
     void            GetPositionData(const ScAddress& rPos, css::sheet::DataPilotTablePositionData& rPosData);

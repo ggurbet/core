@@ -20,7 +20,6 @@
 #include "SlsLayeredDevice.hxx"
 #include <Window.hxx>
 
-#include <vcl/window.hxx>
 #include <vcl/virdev.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
@@ -141,8 +140,8 @@ public:
 
     const SharedLayer& back() const { return mvLayers.back(); }
 
-    const ::std::vector<SharedLayer>::const_iterator begin() const { return mvLayers.begin(); }
-    const ::std::vector<SharedLayer>::const_iterator end() const { return mvLayers.end(); }
+    ::std::vector<SharedLayer>::const_iterator begin() const { return mvLayers.begin(); }
+    ::std::vector<SharedLayer>::const_iterator end() const { return mvLayers.end(); }
 
     void clear() { mvLayers.clear(); }
 

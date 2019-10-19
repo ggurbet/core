@@ -111,7 +111,7 @@ public:
     inline Mapping( const Mapping & rMapping );
 
 #if defined LIBO_INTERNAL_ONLY
-    Mapping(Mapping && other): _pMapping(other._pMapping)
+    Mapping(Mapping && other) noexcept : _pMapping(other._pMapping)
     { other._pMapping = nullptr; }
 #endif
 
@@ -134,7 +134,7 @@ public:
         { return operator = ( rMapping._pMapping ); }
 
 #if defined LIBO_INTERNAL_ONLY
-    Mapping & operator =(Mapping && other) {
+    Mapping & operator =(Mapping && other) noexcept {
         if (_pMapping != nullptr) {
             (*_pMapping->release)(_pMapping);
         }
@@ -304,7 +304,7 @@ inline void * Mapping::mapInterface(
 /** Deprecated. This function DOES NOT WORK with Purpose Environments
     (http://wiki.openoffice.org/wiki/Uno/Binary/Spec/Purpose Environments)
 
-    Maps an binary C UNO interface to be used in the currently used compiler environment.
+    Maps a binary C UNO interface to be used in the currently used compiler environment.
 
     @tparam C interface type
     @param ppRet inout returned interface pointer

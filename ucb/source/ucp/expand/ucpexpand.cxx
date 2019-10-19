@@ -115,7 +115,7 @@ uno::Reference< uno::XInterface > create(
 
 OUString implName()
 {
-    return OUString("com.sun.star.comp.ucb.ExpandContentProvider");
+    return "com.sun.star.comp.ucb.ExpandContentProvider";
 }
 
 
@@ -202,8 +202,7 @@ sal_Int32 ExpandContentProviderImpl::compareContentIds(
     }
     catch (const ucb::IllegalIdentifierException &)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "ucb", exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "ucb", "" );
         return -1;
     }
 }

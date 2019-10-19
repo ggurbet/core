@@ -20,11 +20,6 @@
 #ifndef INCLUDED_SD_SOURCE_UI_INC_TPOPTION_HXX
 #define INCLUDED_SD_SOURCE_UI_INC_TPOPTION_HXX
 
-#include <vcl/layout.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/field.hxx>
-#include <vcl/button.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <svx/optgrid.hxx>
 
@@ -34,10 +29,10 @@
 class SdTpOptionsSnap : public SvxGridTabPage
 {
 public:
-    SdTpOptionsSnap(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SdTpOptionsSnap(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     virtual ~SdTpOptionsSnap() override;
 
-    static  VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 };
@@ -48,17 +43,16 @@ public:
 class SdTpOptionsContents : public SfxTabPage
 {
 private:
-    VclPtr<CheckBox>    m_pCbxRuler;
-    VclPtr<CheckBox>    m_pCbxDragStripes;
-    VclPtr<CheckBox>    m_pCbxHandlesBezier;
-    VclPtr<CheckBox>    m_pCbxMoveOutline;
+    std::unique_ptr<weld::CheckButton> m_xCbxRuler;
+    std::unique_ptr<weld::CheckButton> m_xCbxDragStripes;
+    std::unique_ptr<weld::CheckButton> m_xCbxHandlesBezier;
+    std::unique_ptr<weld::CheckButton> m_xCbxMoveOutline;
 
 public:
-            SdTpOptionsContents( vcl::Window* pParent, const SfxItemSet& rInAttrs  );
-            virtual ~SdTpOptionsContents() override;
-    virtual void dispose() override;
+    SdTpOptionsContents(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
+    static  std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
+    virtual ~SdTpOptionsContents() override;
 
-    static  VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 };
@@ -72,39 +66,6 @@ class SdTpOptionsMisc : public SfxTabPage
  friend class SdModule;
 
 private:
-    VclPtr<CheckBox>    m_pCbxQuickEdit;
-    VclPtr<CheckBox>    m_pCbxPickThrough;
-
-    VclPtr<VclFrame>    m_pNewDocumentFrame;
-    VclPtr<CheckBox>    m_pCbxStartWithTemplate;
-
-    VclPtr<CheckBox>    m_pCbxMasterPageCache;
-    VclPtr<CheckBox>    m_pCbxCopy;
-    VclPtr<CheckBox>    m_pCbxMarkedHitMovesAlways;
-    VclPtr<VclFrame>    m_pPresentationFrame;
-
-    VclPtr<ListBox>     m_pLbMetric;
-    VclPtr<MetricField> m_pMtrFldTabstop;
-
-    VclPtr<CheckBox>    m_pCbxEnableSdremote;
-    VclPtr<CheckBox>    m_pCbxEnablePresenterScreen;
-    VclPtr<CheckBox>    m_pCbxUsePrinterMetrics;
-    VclPtr<CheckBox>    m_pCbxCompatibility;
-
-    //Scale
-    VclPtr<VclFrame>    m_pScaleFrame;
-    VclPtr<ComboBox>    m_pCbScale;
-    VclPtr<FixedText>   m_pNewDocLb;
-    VclPtr<FixedText>   m_pFiInfo1;
-    VclPtr<MetricField> m_pMtrFldOriginalWidth;
-    VclPtr<FixedText>   m_pWidthLb;
-    VclPtr<FixedText>   m_pHeightLb;
-    VclPtr<FixedText>   m_pFiInfo2;
-    VclPtr<MetricField> m_pMtrFldOriginalHeight;
-    VclPtr<CheckBox>    m_pCbxDistrot;
-    VclPtr<MetricField> m_pMtrFldInfo1;
-    VclPtr<MetricField> m_pMtrFldInfo2;
-
     sal_uInt32          nWidth;
     sal_uInt32          nHeight;
     OUString aInfo1;
@@ -112,10 +73,43 @@ private:
 
     MapUnit             ePoolUnit;
 
+    std::unique_ptr<weld::CheckButton> m_xCbxQuickEdit;
+    std::unique_ptr<weld::CheckButton> m_xCbxPickThrough;
+
+    std::unique_ptr<weld::Frame> m_xNewDocumentFrame;
+    std::unique_ptr<weld::CheckButton> m_xCbxStartWithTemplate;
+
+    std::unique_ptr<weld::CheckButton> m_xCbxMasterPageCache;
+    std::unique_ptr<weld::CheckButton> m_xCbxCopy;
+    std::unique_ptr<weld::CheckButton> m_xCbxMarkedHitMovesAlways;
+    std::unique_ptr<weld::Frame> m_xPresentationFrame;
+
+    std::unique_ptr<weld::ComboBox> m_xLbMetric;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrFldTabstop;
+
+    std::unique_ptr<weld::CheckButton> m_xCbxEnableSdremote;
+    std::unique_ptr<weld::CheckButton> m_xCbxEnablePresenterScreen;
+    std::unique_ptr<weld::CheckButton> m_xCbxUsePrinterMetrics;
+    std::unique_ptr<weld::CheckButton> m_xCbxCompatibility;
+
+    //Scale
+    std::unique_ptr<weld::Frame> m_xScaleFrame;
+    std::unique_ptr<weld::ComboBox> m_xCbScale;
+    std::unique_ptr<weld::Label> m_xNewDocLb;
+    std::unique_ptr<weld::Label> m_xFiInfo1;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrFldOriginalWidth;
+    std::unique_ptr<weld::Label> m_xWidthLb;
+    std::unique_ptr<weld::Label> m_xHeightLb;
+    std::unique_ptr<weld::Label> m_xFiInfo2;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrFldOriginalHeight;
+    std::unique_ptr<weld::CheckButton> m_xCbxDistrot;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrFldInfo1;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrFldInfo2;
+
     static OUString        GetScale( sal_Int32 nX, sal_Int32 nY );
     static bool            SetScale( const OUString& aScale, sal_Int32& rX, sal_Int32& rY );
 
-    DECL_LINK( SelectMetricHdl_Impl, ListBox&, void );
+    DECL_LINK( SelectMetricHdl_Impl, weld::ComboBox&, void );
 
     /** Enable or disable the controls in the compatibility section of the
         'general' tab page depending on whether there is at least one
@@ -128,11 +122,10 @@ protected:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
-            SdTpOptionsMisc( vcl::Window* pParent, const SfxItemSet& rInAttrs  );
-            virtual ~SdTpOptionsMisc() override;
-    virtual void dispose() override;
+    SdTpOptionsMisc(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
+    virtual ~SdTpOptionsMisc() override;
 
-    static  VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -148,11 +141,6 @@ public:
     */
     void SetImpressMode();
     virtual void        PageCreated(const SfxAllItemSet& aSet) override;
-
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-    using OutputDevice::SetDrawMode;
-
 };
 
 #endif // INCLUDED_SD_SOURCE_UI_INC_TPOPTION_HXX

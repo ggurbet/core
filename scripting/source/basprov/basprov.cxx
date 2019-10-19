@@ -70,7 +70,7 @@ namespace basprov
 
     static OUString getImplementationName_BasicProviderImpl()
     {
-        return OUString( "com.sun.star.comp.scripting.ScriptProviderForBasic"  );
+        return "com.sun.star.comp.scripting.ScriptProviderForBasic";
     }
 
 
@@ -119,7 +119,7 @@ namespace basprov
                 Reference< uri::XUriReferenceFactory > xUriFac( uri::UriReferenceFactory::create( m_xContext ) );
 
                 OUString aLinkURL( xLibContainer->getLibraryLinkURL( rLibName ) );
-                Reference<  uri::XUriReference > xUriRef( xUriFac->parse( aLinkURL ), UNO_QUERY );
+                Reference<  uri::XUriReference > xUriRef = xUriFac->parse( aLinkURL );
 
                 if ( xUriRef.is() )
                 {
@@ -246,7 +246,7 @@ namespace basprov
             if ( xDocumentScripts.is() )
             {
                 m_pDocBasicManager = ::basic::BasicManagerRepository::getDocumentBasicManager( xModel );
-                m_xLibContainerDoc.set( xDocumentScripts->getBasicLibraries(), UNO_QUERY );
+                m_xLibContainerDoc = xDocumentScripts->getBasicLibraries();
                 OSL_ENSURE( m_pDocBasicManager && m_xLibContainerDoc.is(),
                     "BasicProviderImpl::initialize: invalid BasicManager, or invalid script container!" );
             }
@@ -278,7 +278,7 @@ namespace basprov
         }
 
         if ( !m_xLibContainerApp.is() )
-            m_xLibContainerApp.set( SfxGetpApp()->GetBasicContainer(), UNO_QUERY );
+            m_xLibContainerApp = SfxGetpApp()->GetBasicContainer();
     }
 
 
@@ -294,8 +294,7 @@ namespace basprov
         Reference< provider::XScript > xScript;
         Reference< uri::XUriReferenceFactory > xFac ( uri::UriReferenceFactory::create( m_xContext )  );
 
-        Reference<  uri::XUriReference > uriRef(
-            xFac->parse( scriptURI ), UNO_QUERY );
+        Reference<  uri::XUriReference > uriRef = xFac->parse( scriptURI );
 
         Reference < uri::XVndSunStarScriptUrl > sfUri( uriRef, UNO_QUERY );
 
@@ -400,7 +399,7 @@ namespace basprov
 
     OUString BasicProviderImpl::getName(  )
     {
-        return OUString("Basic");
+        return "Basic";
     }
 
 
@@ -426,19 +425,18 @@ namespace basprov
 
         if ( pBasicManager && xLibContainer.is() )
         {
-            Sequence< OUString > aLibNames = xLibContainer->getElementNames();
+            const Sequence< OUString > aLibNames = xLibContainer->getElementNames();
             sal_Int32 nLibCount = aLibNames.getLength();
-            const OUString* pLibNames = aLibNames.getConstArray();
             aChildNodes.realloc( nLibCount );
             Reference< browse::XBrowseNode >* pChildNodes = aChildNodes.getArray();
             sal_Int32 childrenFound = 0;
 
-            for ( sal_Int32 i = 0 ; i < nLibCount ; ++i )
+            for ( const OUString& rLibName : aLibNames )
             {
                 bool bCreate = false;
                 if ( m_bIsAppScriptCtx )
                 {
-                    const bool bShared = isLibraryShared( xLibContainer, pLibNames[i] );
+                    const bool bShared = isLibraryShared( xLibContainer, rLibName );
                     if (m_bIsUserCtx != bShared)
                         bCreate = true;
                 }
@@ -450,7 +448,7 @@ namespace basprov
                 {
                     pChildNodes[childrenFound++]
                         = new BasicLibraryNodeImpl(m_xContext, m_sScriptingContext, pBasicManager,
-                                                   xLibContainer, pLibNames[i], m_bIsAppScriptCtx);
+                                                   xLibContainer, rLibName, m_bIsAppScriptCtx);
                 }
             }
 

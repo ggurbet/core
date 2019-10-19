@@ -68,6 +68,7 @@ SvtValueSetItem::SvtValueSetItem( SvtValueSet& rParent )
     , mnId(0)
     , meType(VALUESETITEM_NONE)
     , mbVisible(true)
+    , mpData(nullptr)
     , mxAcc()
 {
 }
@@ -77,7 +78,7 @@ SvtValueSetItem::~SvtValueSetItem()
 {
     if( mxAcc.is() )
     {
-        mxAcc.get()->ParentDestroyed();
+        mxAcc->ParentDestroyed();
     }
 }
 
@@ -143,8 +144,7 @@ ValueSetAcc* ValueSetAcc::getImplementation( const uno::Reference< uno::XInterfa
 {
     try
     {
-        uno::Reference< lang::XUnoTunnel > xUnoTunnel( rxData, uno::UNO_QUERY );
-        return( xUnoTunnel.is() ? reinterpret_cast<ValueSetAcc*>(sal::static_int_cast<sal_IntPtr>(xUnoTunnel->getSomething( ValueSetAcc::getUnoTunnelId() ))) : nullptr );
+        return comphelper::getUnoTunnelImplementation<ValueSetAcc>(rxData);
     }
     catch(const css::uno::Exception&)
     {
@@ -261,7 +261,7 @@ sal_Int16 SAL_CALL ValueSetAcc::getAccessibleRole()
 OUString SAL_CALL ValueSetAcc::getAccessibleDescription()
 {
     ThrowIfDisposed();
-    return OUString( "ValueSet" );
+    return "ValueSet";
 }
 
 
@@ -295,7 +295,7 @@ uno::Reference< accessibility::XAccessibleRelationSet > SAL_CALL ValueSetAcc::ge
     ThrowIfDisposed();
     SolarMutexGuard g;
     uno::Reference< accessibility::XAccessibleRelationSet > xRelSet;
-    vcl::Window* pWindow = static_cast<vcl::Window*>(mpParent);
+    vcl::Window* pWindow = mpParent;
     if ( pWindow )
     {
         utl::AccessibleRelationSetHelper* pRelationSet = new utl::AccessibleRelationSetHelper;
@@ -601,7 +601,7 @@ sal_Int64 SAL_CALL ValueSetAcc::getSomething( const uno::Sequence< sal_Int8 >& r
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) && ( 0 == memcmp( ValueSetAcc::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<ValueSetAcc>(rId) )
         nRet = reinterpret_cast< sal_Int64 >( this );
     else
         nRet = 0;
@@ -746,8 +746,7 @@ ValueItemAcc* ValueItemAcc::getImplementation( const uno::Reference< uno::XInter
 {
     try
     {
-        uno::Reference< lang::XUnoTunnel > xUnoTunnel( rxData, uno::UNO_QUERY );
-        return( xUnoTunnel.is() ? reinterpret_cast<ValueItemAcc*>(sal::static_int_cast<sal_IntPtr>(xUnoTunnel->getSomething( ValueItemAcc::getUnoTunnelId() ))) : nullptr );
+        return comphelper::getUnoTunnelImplementation<ValueItemAcc>(rxData);
     }
     catch(const css::uno::Exception&)
     {
@@ -802,7 +801,7 @@ sal_Int32 SAL_CALL ValueItemAcc::getAccessibleIndexInParent()
         for (sal_uInt16 i=0; i<nCount && !bDone; i++)
         {
             // Guard the retrieval of the i-th child with a try/catch block
-            // just in case the number of children changes in the mean time.
+            // just in case the number of children changes in the meantime.
             try
             {
                 pItem = mpParent->mrParent.ImplGetItem(i);
@@ -1055,7 +1054,7 @@ sal_Int64 SAL_CALL ValueItemAcc::getSomething( const uno::Sequence< sal_Int8 >& 
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) && ( 0 == memcmp( ValueItemAcc::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<ValueItemAcc>(rId) )
         nRet = reinterpret_cast< sal_Int64 >( this );
     else
         nRet = 0;
@@ -1095,8 +1094,7 @@ SvtValueItemAcc* SvtValueItemAcc::getImplementation( const uno::Reference< uno::
 {
     try
     {
-        uno::Reference< lang::XUnoTunnel > xUnoTunnel( rxData, uno::UNO_QUERY );
-        return( xUnoTunnel.is() ? reinterpret_cast<SvtValueItemAcc*>(sal::static_int_cast<sal_IntPtr>(xUnoTunnel->getSomething( SvtValueItemAcc::getUnoTunnelId() ))) : nullptr );
+        return comphelper::getUnoTunnelImplementation<SvtValueItemAcc>(rxData);
     }
     catch(const css::uno::Exception&)
     {
@@ -1151,7 +1149,7 @@ sal_Int32 SAL_CALL SvtValueItemAcc::getAccessibleIndexInParent()
         for (sal_uInt16 i=0; i<nCount && !bDone; i++)
         {
             // Guard the retrieval of the i-th child with a try/catch block
-            // just in case the number of children changes in the mean time.
+            // just in case the number of children changes in the meantime.
             try
             {
                 pItem = mpParent->mrParent.ImplGetItem(i);
@@ -1404,7 +1402,7 @@ sal_Int64 SAL_CALL SvtValueItemAcc::getSomething( const uno::Sequence< sal_Int8 
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) && ( 0 == memcmp( SvtValueItemAcc::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<SvtValueItemAcc>(rId) )
         nRet = reinterpret_cast< sal_Int64 >( this );
     else
         nRet = 0;
@@ -1485,8 +1483,7 @@ SvtValueSetAcc* SvtValueSetAcc::getImplementation( const uno::Reference< uno::XI
 {
     try
     {
-        uno::Reference< lang::XUnoTunnel > xUnoTunnel( rxData, uno::UNO_QUERY );
-        return( xUnoTunnel.is() ? reinterpret_cast<SvtValueSetAcc*>(sal::static_int_cast<sal_IntPtr>(xUnoTunnel->getSomething( SvtValueSetAcc::getUnoTunnelId() ))) : nullptr );
+        return comphelper::getUnoTunnelImplementation<SvtValueSetAcc>(rxData);
     }
     catch(const css::uno::Exception&)
     {
@@ -1928,7 +1925,7 @@ sal_Int64 SAL_CALL SvtValueSetAcc::getSomething( const uno::Sequence< sal_Int8 >
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) && ( 0 == memcmp( SvtValueSetAcc::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<SvtValueSetAcc>(rId) )
         nRet = reinterpret_cast< sal_Int64 >( this );
     else
         nRet = 0;

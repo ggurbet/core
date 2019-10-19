@@ -203,7 +203,7 @@ void ScRTFParser::NewCellRow()
         // Not flush on the right? => new table
         if ( nLastWidth && !maDefaultList.empty() )
         {
-            const ScRTFCellDefault& rD = *maDefaultList.back().get();
+            const ScRTFCellDefault& rD = *maDefaultList.back();
             if (rD.nTwips != nLastWidth)
             {
                 SCCOL n1, n2;
@@ -218,7 +218,7 @@ void ScRTFParser::NewCellRow()
             }
         }
         // Build up TwipCols only after nLastWidth comparison!
-        for (std::unique_ptr<ScRTFCellDefault> & pCellDefault : maDefaultList)
+        for (const std::unique_ptr<ScRTFCellDefault> & pCellDefault : maDefaultList)
         {
             const ScRTFCellDefault& rD = *pCellDefault;
             SCCOL nCol;

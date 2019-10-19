@@ -120,7 +120,7 @@ namespace calc
     void SAL_CALL OCellValueBinding::getFastPropertyValue( Any& _rValue, sal_Int32 _nHandle ) const
     {
         OSL_ENSURE( _nHandle == PROP_HANDLE_BOUND_CELL, "OCellValueBinding::getFastPropertyValue: invalid handle!" );
-            // we only have this one property ....
+            // we only have this one property...
 
         _rValue.clear();
         Reference< XCellAddressable > xCellAddress( m_xCell, UNO_QUERY );
@@ -164,7 +164,7 @@ namespace calc
         checkInitialized( );
 
         // look up in our sequence
-        Sequence< Type > aSupportedTypes( getSupportedValueTypes() );
+        const Sequence< Type > aSupportedTypes( getSupportedValueTypes() );
         for ( auto const & i : aSupportedTypes )
             if ( aType == i )
                 return true;
@@ -417,7 +417,7 @@ namespace calc
 
     OUString SAL_CALL OCellValueBinding::getImplementationName(  )
     {
-        return OUString( "com.sun.star.comp.sheet.OCellValueBinding" );
+        return "com.sun.star.comp.sheet.OCellValueBinding";
     }
 
     sal_Bool SAL_CALL OCellValueBinding::supportsService( const OUString& _rServiceName )
@@ -495,17 +495,18 @@ namespace calc
         CellAddress aAddress;
         bool bFoundAddress = false;
 
-        const Any* pLoop = _rArguments.getConstArray();
-        const Any* pLoopEnd = _rArguments.getConstArray() + _rArguments.getLength();
-        for ( ; ( pLoop != pLoopEnd ) && !bFoundAddress; ++pLoop )
+        for ( const Any& rArg : _rArguments )
         {
             NamedValue aValue;
-            if ( *pLoop >>= aValue )
+            if ( rArg >>= aValue )
             {
                 if ( aValue.Name == "BoundCell" )
                 {
                     if ( aValue.Value >>= aAddress )
+                    {
                         bFoundAddress = true;
+                        break;
+                    }
                 }
             }
         }

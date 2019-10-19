@@ -21,6 +21,7 @@
 
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
 
@@ -263,7 +264,7 @@ namespace toolkit
 
     OUString SAL_CALL GridColumn::getImplementationName(  )
     {
-        return OUString( "org.openoffice.comp.toolkit.GridColumn" );
+        return "org.openoffice.comp.toolkit.GridColumn";
     }
 
     sal_Bool SAL_CALL GridColumn::supportsService( const OUString& i_serviceName )
@@ -273,9 +274,7 @@ namespace toolkit
 
     css::uno::Sequence< OUString > SAL_CALL GridColumn::getSupportedServiceNames(  )
     {
-        const OUString aServiceName("com.sun.star.awt.grid.GridColumn");
-        const Sequence< OUString > aSeq( &aServiceName, 1 );
-        return aSeq;
+        return { "com.sun.star.awt.grid.GridColumn" };
     }
 
 
@@ -287,7 +286,7 @@ namespace toolkit
 
     sal_Int64 SAL_CALL GridColumn::getSomething( const Sequence< sal_Int8 >& i_identifier )
     {
-        if ( ( i_identifier.getLength() == 16 ) && ( i_identifier == getUnoTunnelId() ) )
+        if ( isUnoTunnelId<GridColumn>(i_identifier) )
             return ::sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ) );
         return 0;
     }

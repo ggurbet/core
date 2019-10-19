@@ -42,11 +42,7 @@ namespace
     OUString str1("");
     OUString str2("a-b--c---");
 
-    OUStringBuffer str3Buf;
-    str3Buf.append(SVT_SOFT_HYPHEN);
-    str3Buf.append(SVT_HARD_HYPHEN);
-    str3Buf.append(SVT_HARD_HYPHEN);
-    OUString str3(str3Buf.makeStringAndClear());
+    OUString str3 = OUStringChar(SVT_SOFT_HYPHEN) + OUStringChar(SVT_HARD_HYPHEN) + OUStringChar(SVT_HARD_HYPHEN);
 
     OUString str4("asdf");
 

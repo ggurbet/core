@@ -19,6 +19,8 @@
 
 #include <memory>
 #include <config_features.h>
+#include <config_feature_desktop.h>
+#include <config_feature_opencl.h>
 #include <config_java.h>
 #include <config_folders.h>
 #include <config_extensions.h>
@@ -126,10 +128,6 @@
 #include <vcl/graphicfilter.hxx>
 #include <vcl/window.hxx>
 #include "langselect.hxx"
-
-#if HAVE_FEATURE_BREAKPAD
-#include <fstream>
-#endif
 
 #if defined MACOSX
 #include <errno.h>
@@ -577,7 +575,7 @@ void Desktop::DeInit()
             osl_removeSignalHandler( pSignalHandler );
     } catch (const RuntimeException&) {
         // someone threw an exception during shutdown
-        // this will leave some garbage behind..
+        // this will leave some garbage behind...
     }
 }
 
@@ -812,7 +810,7 @@ void Desktop::HandleBootstrapErrors(
     }
     else if ( aBootstrapError == BE_UNO_SERVICEMANAGER || aBootstrapError == BE_UNO_SERVICE_CONFIG_MISSING )
     {
-        // Uno service manager is not available. VCL needs a uno service manager to display a message box!!!
+        // UNO service manager is not available. VCL needs a UNO service manager to display a message box!!!
         // Currently we are not able to display a message box with a service manager due to this limitations inside VCL.
 
         // When UNO is not properly initialized, all kinds of things can fail
@@ -894,26 +892,6 @@ void Desktop::HandleBootstrapErrors(
 
 namespace {
 
-bool crashReportInfoExists()
-{
-#if HAVE_FEATURE_BREAKPAD
-    std::string path = CrashReporter::getIniFileName();
-    std::ifstream aFile(path);
-    while (aFile.good())
-    {
-        std::string line;
-        std::getline(aFile, line);
-        int sep = line.find('=');
-        if (sep >= 0)
-        {
-            std::string key = line.substr(0, sep);
-            if (key == "DumpFile")
-                return true;
-        }
-    }
-#endif
-    return false;
-}
 
 #if HAVE_FEATURE_BREAKPAD
 void handleCrashReport()
@@ -972,7 +950,12 @@ void impl_checkRecoveryState(bool& bCrashed           ,
                              bool& bRecoveryDataExists,
                              bool& bSessionDataExists )
 {
-    bCrashed = officecfg::Office::Recovery::RecoveryInfo::Crashed::get() || crashReportInfoExists();
+    bCrashed = officecfg::Office::Recovery::RecoveryInfo::Crashed::get()
+#if HAVE_FEATURE_BREAKPAD
+        || CrashReporter::crashReportInfoExists();
+#else
+        ;
+#endif
     bool elements = officecfg::Office::Recovery::RecoveryList::get()->
         hasElements();
     bool session
@@ -1165,7 +1148,7 @@ void Desktop::Exception(ExceptionCategory nCategory)
                                                     ( !rArgs.IsNoRestore()                    ) && // some use cases of office must work without recovery
                                                     ( !rArgs.IsHeadless()                     ) &&
                                                     ( nCategory != ExceptionCategory::UserInterface ) && // recovery can't work without UI ... but UI layer seems to be the reason for this crash
-                                                    ( Application::IsInExecute()               )    // crashes during startup and shutdown should be ignored (they indicates a corrupt installation ...)
+                                                    ( Application::IsInExecute()               )    // crashes during startup and shutdown should be ignored (they indicate a corrupted installation...)
                                                   );
     if ( bAllowRecoveryAndSessionManagement )
     {
@@ -1578,7 +1561,7 @@ int Desktop::Main()
         // In headless mode, reap the process started by fire_glxtest_process() early in soffice_main
         // (desktop/source/app/sofficemain.cxx), in a code block that needs to be covered by the same
         // #if condition as this code block:
-#if defined( UNX ) && !defined MACOSX && !defined IOS && !defined ANDROID && !defined(LIBO_HEADLESS) && HAVE_FEATURE_OPENGL
+#if defined( UNX ) && !defined MACOSX && !defined IOS && !defined ANDROID && HAVE_FEATURE_UI && HAVE_FEATURE_OPENGL
         if (rCmdLineArgs.IsHeadless()) {
             reap_glxtest_process();
         }
@@ -2005,7 +1988,7 @@ void Desktop::OpenClients()
 #endif
 
 #if HAVE_FEATURE_BREAKPAD
-    if (crashReportInfoExists())
+    if (officecfg::Office::Common::Misc::CrashReport::get() && CrashReporter::crashReportInfoExists())
         handleCrashReport();
 #endif
 
@@ -2083,11 +2066,9 @@ void Desktop::OpenClients()
             }
         }
     }
-#if HAVE_FEATURE_BREAKPAD
-    CrashReporter::writeCommonInfo();
+
     // write this information here to avoid depending on vcl in the crash reporter lib
-    CrashReporter::AddKeyValue("Language", Application::GetSettings().GetLanguageTag().getBcp47());
-#endif
+    CrashReporter::addKeyValue("Language", Application::GetSettings().GetLanguageTag().getBcp47(), CrashReporter::Create);
 
     RequestHandler::EnableRequests();
 
@@ -2291,7 +2272,7 @@ void Desktop::HandleAppEvent( const ApplicationEvent& rAppEvent )
             if ( !xTask.is() )
             {
                 // get any task if there is no active one
-                Reference< css::container::XIndexAccess > xList( xDesktop->getFrames(), css::uno::UNO_QUERY );
+                Reference< css::container::XIndexAccess > xList = xDesktop->getFrames();
                 if ( xList->getCount() > 0 )
                     xList->getByIndex(0) >>= xTask;
             }
@@ -2501,8 +2482,7 @@ IMPL_STATIC_LINK_NOARG(Desktop, AsyncInitFirstRun, Timer *, void)
     }
     catch(const css::uno::Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "desktop.app", "Desktop::DoFirstRunInitializations: caught an exception while trigger job executor ... " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "desktop.app", "Desktop::DoFirstRunInitializations: caught an exception while trigger job executor" );
     }
 }
 

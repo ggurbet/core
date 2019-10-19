@@ -57,13 +57,19 @@ namespace {
         sal_Int32 mnWeight;
         bool mbShowTitleBar;
 
-        LayoutItem()
-            : mpPanel(),maLayoutSize(0,0,0),mnDistributedHeight(0),mnWeight(0),mbShowTitleBar(true)
-        {}
+        LayoutItem(const VclPtr<Panel>& rPanel)
+            : mpPanel(rPanel)
+            , maLayoutSize(0, 0, 0)
+            , mnDistributedHeight(0)
+            , mnWeight(0)
+            , mbShowTitleBar(true)
+        {
+        }
     };
     tools::Rectangle LayoutPanels (
         const tools::Rectangle& rContentArea,
         sal_Int32& rMinimalWidth,
+        sal_Int32& rMinimalHeight,
         ::std::vector<LayoutItem>& rLayoutItems,
         vcl::Window& rScrollClipWindow,
         vcl::Window& rScrollContainer,
@@ -103,6 +109,7 @@ namespace {
 void DeckLayouter::LayoutDeck (
     const tools::Rectangle& rContentArea,
     sal_Int32& rMinimalWidth,
+    sal_Int32& rMinimalHeight,
     SharedPanelContainer& rPanels,
     vcl::Window& rDeckTitleBar,
     vcl::Window& rScrollClipWindow,
@@ -118,14 +125,14 @@ void DeckLayouter::LayoutDeck (
     {
         // Prepare the layout item container.
         ::std::vector<LayoutItem> aLayoutItems;
-        aLayoutItems.resize(rPanels.size());
-        for (sal_Int32 nIndex(0),nCount(rPanels.size()); nIndex<nCount; ++nIndex)
-        {
-            aLayoutItems[nIndex].mpPanel = rPanels[nIndex];
-        }
+        aLayoutItems.reserve(rPanels.size());
+        for (const auto& rPanel : rPanels)
+            aLayoutItems.emplace_back(rPanel);
+
         aBox = LayoutPanels(
             aBox,
             rMinimalWidth,
+            rMinimalHeight,
             aLayoutItems,
             rScrollClipWindow,
             rScrollContainer,
@@ -140,6 +147,7 @@ namespace {
 tools::Rectangle LayoutPanels (
     const tools::Rectangle& rContentArea,
     sal_Int32& rMinimalWidth,
+    sal_Int32& rMinimalHeight,
     ::std::vector<LayoutItem>& rLayoutItems,
     vcl::Window& rScrollClipWindow,
     vcl::Window& rScrollContainer,
@@ -178,6 +186,7 @@ tools::Rectangle LayoutPanels (
         return LayoutPanels(
             rContentArea,
             rMinimalWidth,
+            rMinimalHeight,
             rLayoutItems,
             rScrollClipWindow,
             rScrollContainer,
@@ -240,6 +249,7 @@ tools::Rectangle LayoutPanels (
 
     const sal_Int32 nUsedHeight (PlacePanels(rLayoutItems, nWidth, eMode, rScrollContainer));
     aBox.AdjustTop(nUsedHeight );
+    rMinimalHeight = nUsedHeight;
     return aBox;
 }
 
@@ -377,6 +387,17 @@ void GetRequestedSizes (
                 if (xPanel.is())
                 {
                     aLayoutSize = xPanel->getHeightForWidth(rContentBox.GetWidth());
+                    if (!(0 <= aLayoutSize.Minimum && aLayoutSize.Minimum <= aLayoutSize.Preferred
+                          && aLayoutSize.Preferred <= aLayoutSize.Maximum))
+                    {
+                        SAL_WARN("sfx.sidebar", "Please follow LayoutSize constraints: 0 ≤ "
+                                                "Minimum ≤ Preferred ≤ Maximum."
+                                                " Currently: Minimum: "
+                                                    << aLayoutSize.Minimum
+                                                    << " Preferred: " << aLayoutSize.Preferred
+                                                    << " Maximum: " << aLayoutSize.Maximum);
+                    }
+
                     sal_Int32 nWidth = xPanel->getMinimalWidth();
 
                     uno::Reference<frame::XDesktop2> xDesktop

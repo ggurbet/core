@@ -277,7 +277,7 @@ namespace svt
     }
 
 
-    Sequence< OUString > OControlAccess::getSupportedControls(  )
+    Sequence< OUString > OControlAccess::getSupportedControls(  ) const
     {
         Sequence< OUString > aControls( s_nControlCount );
         OUString* pControls = aControls.getArray();
@@ -616,7 +616,7 @@ namespace svt
                     static_cast< ListBox* >( _pControl )->Clear();
 
                     // add the new ones
-                    for ( auto const & item : aItems )
+                    for ( auto const & item : std::as_const(aItems) )
                     {
                         static_cast< ListBox* >( _pControl )->InsertEntry( item );
                     }

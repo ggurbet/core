@@ -27,6 +27,7 @@
 #include <new>
 
 #if defined LIBO_INTERNAL_ONLY
+#include <cassert>
 #include <initializer_list>
 #endif
 
@@ -150,6 +151,15 @@ public:
     */
     bool SAL_CALL hasElements() const
         { return (_pSequence->nElements > 0); }
+
+#if defined LIBO_INTERNAL_ONLY
+    /** This function allows to use Sequence in cases where  std::size is needed, and the like.
+
+        @since LibreOffice 6.4
+    */
+    sal_uInt32 size() const
+        { assert(getLength() >= 0); return static_cast<sal_uInt32>(getLength()); }
+#endif
 
     /** Gets a pointer to elements array for reading.
         If the sequence has a length of 0, then the returned pointer is

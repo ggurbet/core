@@ -25,12 +25,14 @@
 #include "anyrefdg.hxx"
 #include <sc.hrc>
 
-struct ScRefHandlerCaller : public virtual VclReferenceBase {
+struct  ScRefHandlerCaller{
+    virtual ~ScRefHandlerCaller(){}
 };
+
 class ScRefHandlerHelper
 {
 protected:
-    VclPtr<ScRefHandlerCaller>  m_pHandler;
+    ScRefHandlerCaller*  m_pHandler;
 // workaround VS2013 issue with pointers to things that contain virtual base class
 #ifdef _WIN32
     #pragma pack(push, 16)
@@ -75,10 +77,10 @@ class ScTPValidationValue : public ScRefHandlerCaller, public SfxTabPage
 {
     static const sal_uInt16 pValueRanges[];
 public:
-    explicit                    ScTPValidationValue(TabPageParent pParent, const SfxItemSet& rArgSet);
-    virtual void                dispose() override;
+    explicit                    ScTPValidationValue(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rArgSet );
     virtual                     ~ScTPValidationValue() override;
-    static VclPtr<SfxTabPage>   Create( TabPageParent pParent, const SfxItemSet* rArgSet );
+
     static const sal_uInt16*    GetRanges() { return pValueRanges; }
 
     virtual bool                FillItemSet( SfxItemSet* rArgSet ) override;
@@ -160,7 +162,7 @@ class ScValidationDlg
 public:
     explicit ScValidationDlg(weld::Window* pParent, const SfxItemSet* pArgSet, ScTabViewShell* pTabViewSh);
     virtual ~ScValidationDlg() override;
-    static std::shared_ptr<SfxDialogController> Find1AliveObject(weld::Window *pAncestor)
+    static std::shared_ptr<SfxDialogController> Find1AliveObject(const weld::Window *pAncestor)
     {
         return SC_MOD()->Find1RefWindow(SLOTID, pAncestor);
     }
@@ -186,7 +188,7 @@ public:
             (m_pHandler->*m_pSetActiveHdl)();
     }
 
-    bool IsRefInputting(){  return m_bRefInputting; }
+    bool IsRefInputting() const {  return m_bRefInputting; }
     weld::Container* get_refinput_shrink_parent() { return m_xHBox.get(); }
 
     virtual void        RefInputStart( formula::RefEdit* pEdit, formula::RefButton* pButton = nullptr ) override
@@ -212,7 +214,7 @@ public:
             (m_pHandler->*m_pRefInputDonePostHdl)();
     }
 
-    bool IsChildFocus();
+    bool IsChildFocus() const;
 
     enum { SLOTID = SID_VALIDITY_REFERENCE };
 
@@ -235,10 +237,10 @@ private:
     std::unique_ptr<weld::TextView> m_xEdInputHelp;
 
 public:
-    ScTPValidationHelp(TabPageParent pParent, const SfxItemSet& rArgSet);
+    ScTPValidationHelp(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rArgSet);
     virtual ~ScTPValidationHelp() override;
 
-    static  VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rArgSet);
     virtual bool        FillItemSet ( SfxItemSet* rArgSet ) override;
     virtual void        Reset       ( const SfxItemSet* rArgSet ) override;
 };
@@ -260,10 +262,10 @@ private:
     DECL_LINK(ClickSearchHdl, weld::Button&, void);
 
 public:
-    ScTPValidationError(TabPageParent pParent, const SfxItemSet& rArgSet);
+    ScTPValidationError(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rArgSet);
     virtual ~ScTPValidationError() override;
 
-    static  VclPtr<SfxTabPage> Create      ( TabPageParent pParent, const SfxItemSet* rArgSet );
     virtual bool        FillItemSet ( SfxItemSet* rArgSet ) override;
     virtual void        Reset       ( const SfxItemSet* rArgSet ) override;
 };

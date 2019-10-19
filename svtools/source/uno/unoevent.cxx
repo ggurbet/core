@@ -20,7 +20,6 @@
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <osl/diagnose.h>
-#include <rtl/ustrbuf.hxx>
 #include <sfx2/event.hxx>
 #include <svtools/unoevent.hxx>
 #include <svl/macitem.hxx>
@@ -151,10 +150,8 @@ void getMacroFromAny(
     OUString sScriptVal;
     OUString sMacroVal;
     OUString sLibVal;
-    sal_Int32 nCount = aSequence.getLength();
-    for (sal_Int32 i = 0; i < nCount; i++)
+    for (const PropertyValue& aValue : std::as_const(aSequence))
     {
-        PropertyValue& aValue = aSequence[i];
         if (aValue.Name == sEventType)
         {
             OUString sTmp;
@@ -408,7 +405,7 @@ sal_Int16 SvDetachedEventDescriptor::getIndex(const SvMacroItemId nID) const
 
 OUString SvDetachedEventDescriptor::getImplementationName()
 {
-    return OUString("SvDetachedEventDescriptor");
+    return "SvDetachedEventDescriptor";
 }
 
 
@@ -458,6 +455,7 @@ SvMacroTableEventDescriptor::SvMacroTableEventDescriptor(
     const SvEventDescription* pSupportedMacroItems) :
         SvDetachedEventDescriptor(pSupportedMacroItems)
 {
+    assert(mpSupportedMacroItems);
     for(sal_Int16 i = 0; mpSupportedMacroItems[i].mnEvent != SvMacroItemId::NONE; i++)
     {
         const SvMacroItemId nEvent = mpSupportedMacroItems[i].mnEvent;

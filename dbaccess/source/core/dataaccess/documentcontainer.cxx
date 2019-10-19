@@ -119,9 +119,7 @@ IMPLEMENT_PROPERTYCONTAINER_DEFAULTS(ODocumentContainer)
 
 Sequence< OUString > SAL_CALL ODocumentContainer::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSupported(1);
-    aSupported[0] = m_bFormsContainer ? OUString(SERVICE_NAME_FORM_COLLECTION) : OUString(SERVICE_NAME_REPORT_COLLECTION);
-    return aSupported;
+    return { m_bFormsContainer ? OUString(SERVICE_NAME_FORM_COLLECTION) : OUString(SERVICE_NAME_REPORT_COLLECTION) };
 }
 
 OUString ODocumentContainer::determineContentType() const
@@ -210,7 +208,7 @@ Reference< XInterface > SAL_CALL ODocumentContainer::createInstanceWithArguments
         if ( bNew )
         {
             sPersistentName = "Obj" + OUString::number(rDefinitions.size() + 1);
-            Reference<XNameAccess> xElements(getContainerStorage(),UNO_QUERY);
+            Reference<XNameAccess> xElements = getContainerStorage();
             if ( xElements.is() )
                 sPersistentName = ::dbtools::createUniqueName(xElements,sPersistentName);
 

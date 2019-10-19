@@ -119,15 +119,15 @@ OUString classificationTypeToString(svx::ClassificationType const & reType)
     switch(reType)
     {
         case svx::ClassificationType::CATEGORY:
-            return OUString("CATEGORY"); break;
+            return "CATEGORY"; break;
         case svx::ClassificationType::MARKING:
-            return OUString("MARKING"); break;
+            return "MARKING"; break;
         case svx::ClassificationType::TEXT:
-            return OUString("TEXT"); break;
+            return "TEXT"; break;
         case svx::ClassificationType::INTELLECTUAL_PROPERTY_PART:
-            return OUString("INTELLECTUAL_PROPERTY_PART"); break;
+            return "INTELLECTUAL_PROPERTY_PART"; break;
         case svx::ClassificationType::PARAGRAPH:
-            return OUString("PARAGRAPH"); break;
+            return "PARAGRAPH"; break;
     }
     return OUString();
 }
@@ -615,7 +615,7 @@ IMPL_LINK(ClassificationDialog, SelectClassificationHdl, weld::ComboBox&, rBox, 
     m_nCurrentSelectedCategory = nSelected;
 }
 
-IMPL_LINK(ClassificationDialog, SelectMarkingHdl, weld::TreeView&, rBox, void)
+IMPL_LINK(ClassificationDialog, SelectMarkingHdl, weld::TreeView&, rBox, bool)
 {
     sal_Int32 nSelected = rBox.get_selected_index();
     if (nSelected >= 0)
@@ -623,9 +623,10 @@ IMPL_LINK(ClassificationDialog, SelectMarkingHdl, weld::TreeView&, rBox, void)
         const OUString aString = maHelper.GetMarkings()[nSelected];
         insertField(ClassificationType::MARKING, aString, aString);
     }
+    return true;
 }
 
-IMPL_LINK(ClassificationDialog, SelectIPPartNumbersHdl, weld::TreeView&, rBox, void)
+IMPL_LINK(ClassificationDialog, SelectIPPartNumbersHdl, weld::TreeView&, rBox, bool)
 {
     sal_Int32 nSelected = rBox.get_selected_index();
     if (nSelected >= 0)
@@ -634,6 +635,7 @@ IMPL_LINK(ClassificationDialog, SelectIPPartNumbersHdl, weld::TreeView&, rBox, v
         m_xIntellectualPropertyPartEdit->replace_selection(sString);
         m_xIntellectualPropertyPartEdit->grab_focus();
     }
+    return true;
 }
 
 IMPL_LINK(ClassificationDialog, SelectRecentlyUsedHdl, weld::ComboBox&, rBox, void)
@@ -646,7 +648,7 @@ IMPL_LINK(ClassificationDialog, SelectRecentlyUsedHdl, weld::ComboBox&, rBox, vo
     }
 }
 
-IMPL_LINK(ClassificationDialog, SelectIPPartHdl, weld::TreeView&, rBox, void)
+IMPL_LINK(ClassificationDialog, SelectIPPartHdl, weld::TreeView&, rBox, bool)
 {
     const sal_Int32 nSelected = rBox.get_selected_index();
     if (nSelected >= 0)
@@ -655,6 +657,7 @@ IMPL_LINK(ClassificationDialog, SelectIPPartHdl, weld::TreeView&, rBox, void)
         m_xIntellectualPropertyPartEdit->replace_selection(sString);
         m_xIntellectualPropertyPartEdit->grab_focus();
     }
+    return true;
 }
 
 IMPL_LINK(ClassificationDialog, ButtonClicked, weld::Button&, rButton, void)

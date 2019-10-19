@@ -20,7 +20,6 @@
 #include <sax/fshelper.hxx>
 #include "fastserializer.hxx"
 #include <com/sun/star/xml/sax/XFastTokenHandler.hpp>
-#include <rtl/ustrbuf.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -79,6 +78,12 @@ void FastSerializerHelper::singleElement(sal_Int32 elementTokenId, const XFastAt
 FastSerializerHelper* FastSerializerHelper::write(const char* value)
 {
     mpSerializer->write(value, -1);
+    return this;
+}
+
+FastSerializerHelper* FastSerializerHelper::write(const OString& value)
+{
+    mpSerializer->write(value);
     return this;
 }
 

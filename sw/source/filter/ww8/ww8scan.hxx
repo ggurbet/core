@@ -176,7 +176,7 @@ struct WW8PLCFxDesc;
 class  WW8PLCFx_PCD;
 
 /**
- reads array of strings (see MS documentation: STring TaBle stored in File)
+ reads array of strings (see MS documentation: String Table stored in File)
  returns NOT the original pascal strings but an array of converted char*
 
  attention: the *extra data* of each string are SKIPPED and ignored
@@ -479,7 +479,7 @@ public:
         const WW8ScannerBase *pSBase);
     WW8PLCFpcd_Iter* GetPLCFIter() { return pPcdI.get(); }
     void SetClipStart(WW8_CP nIn) { nClipStart = nIn; }
-    WW8_CP GetClipStart() { return nClipStart; }
+    WW8_CP GetClipStart() const { return nClipStart; }
 
     static sal_Int32 TransformPieceAddress(long nfc, bool& bIsUnicodeAddress)
     {
@@ -1012,11 +1012,8 @@ public:
 
 struct WW8PLCFxSaveAll
 {
-    WW8PLCFxSave1 aS[WW8PLCFMan::MAN_PLCF_COUNT];
-    WW8PLCFxSaveAll()
-    {
-        memset(aS, 0, sizeof(aS));
-    }
+    WW8PLCFxSave1 aS[WW8PLCFMan::MAN_PLCF_COUNT] = {};
+    WW8PLCFxSaveAll() = default;
 };
 
 class WW8ScannerBase
@@ -1232,6 +1229,8 @@ public:
     sal_Int32  m_fcIslandFirst = 0;   // ?
     sal_Int32  m_fcIslandLim = 0;     // ?
     sal_uInt16 m_cfclcb = 0; // Number of fields in the array of FC/LCB pairs.
+    /// Specifies the count of 16-bit values corresponding to fibRgCswNew that follow.
+    sal_uInt16 m_cswNew = 0;
 
     // end of WW8 section
 

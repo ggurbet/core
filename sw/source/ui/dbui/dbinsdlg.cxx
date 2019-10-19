@@ -73,6 +73,7 @@
 #include <tblafmt.hxx>
 #include <cellatr.hxx>
 #include <swtable.hxx>
+#include <swtablerep.hxx>
 #include <dbfld.hxx>
 #include <fmtcol.hxx>
 #include <section.hxx>
@@ -199,7 +200,7 @@ SwInsertDBColAutoPilot::SwInsertDBColAutoPilot( SwView& rView,
     , m_xFormatFrame(m_xBuilder->weld_frame("formatframe"))
     , m_xRbDbFormatFromDb(m_xBuilder->weld_radio_button("fromdatabase"))
     , m_xRbDbFormatFromUsr(m_xBuilder->weld_radio_button("userdefined"))
-    , m_xLbDbFormatFromUsr(new SwNumFormatListBox(m_xBuilder->weld_combo_box("numformat")))
+    , m_xLbDbFormatFromUsr(new NumFormatListBox(m_xBuilder->weld_combo_box("numformat")))
     , m_xIbDbcolToEdit(m_xBuilder->weld_button("toedit"))
     , m_xEdDbText(m_xBuilder->weld_text_view("textview"))
     , m_xFtDbParaColl(m_xBuilder->weld_label("parastylelabel"))
@@ -246,7 +247,7 @@ SwInsertDBColAutoPilot::SwInsertDBColAutoPilot( SwView& rView,
             }
         }
         Reference <XNameAccess> xCols = xColSupp->getColumns();
-        Sequence<OUString> aColNames = xCols->getElementNames();
+        const Sequence<OUString> aColNames = xCols->getElementNames();
         for (const OUString& rColName : aColNames)
         {
             std::unique_ptr<SwInsDBColumn> pNew(new SwInsDBColumn( rColName ));
@@ -566,7 +567,7 @@ IMPL_LINK( SwInsertDBColAutoPilot, TableToFromHdl, weld::Button&, rButton, void 
                 // first delete the existing selection
                 aStr = aStr.replaceAt( nPos, nSel, "" );
 
-            aField = OUStringLiteral1(cDBFieldStart) + aField + OUStringLiteral1(cDBFieldEnd);
+            aField = OUStringChar(cDBFieldStart) + aField + OUStringChar(cDBFieldEnd);
             if( !aStr.isEmpty() )
             {
                 if( nPos )                          // one blank in front
@@ -604,7 +605,7 @@ IMPL_LINK( SwInsertDBColAutoPilot, TableToFromHdl, weld::Button&, rButton, void 
     }
 }
 
-IMPL_LINK(SwInsertDBColAutoPilot, DblClickHdl, weld::TreeView&, rBox, void)
+IMPL_LINK(SwInsertDBColAutoPilot, DblClickHdl, weld::TreeView&, rBox, bool)
 {
     weld::Button* pButton = nullptr;
     if( &rBox == m_xLbTextDbColumn.get() )
@@ -616,6 +617,8 @@ IMPL_LINK(SwInsertDBColAutoPilot, DblClickHdl, weld::TreeView&, rBox, void)
 
     if (pButton)
         TableToFromHdl(*pButton);
+
+    return true;
 }
 
 IMPL_LINK_NOARG(SwInsertDBColAutoPilot, TableFormatHdl, weld::Button&, void)
@@ -1481,7 +1484,7 @@ void SwInsertDBColAutoPilot::ImplCommit()
 {
     Sequence <OUString> aNames = GetNodeNames(OUString());
     //remove entries that contain this data source + table at first
-    for(OUString const & nodeName : aNames)
+    for(OUString const & nodeName : std::as_const(aNames))
     {
         Sequence<OUString> aSourceNames(2);
         OUString* pSourceNames = aSourceNames.getArray();
@@ -1551,7 +1554,7 @@ void SwInsertDBColAutoPilot::ImplCommit()
             sColumnInsertNode += "0";
         sColumnInsertNode += OUString::number(  nCol );
 
-        Sequence <OUString> aSubNodeNames = lcl_CreateSubNames(sColumnInsertNode);
+        const Sequence <OUString> aSubNodeNames = lcl_CreateSubNames(sColumnInsertNode);
         Sequence<PropertyValue> aSubValues(aSubNodeNames.getLength());
         PropertyValue* pSubValues = aSubValues.getArray();
         sal_Int32 i = 0;
@@ -1591,7 +1594,7 @@ void SwInsertDBColAutoPilot::ImplCommit()
 
 void SwInsertDBColAutoPilot::Load()
 {
-    Sequence<OUString> aNames = GetNodeNames(OUString());
+    const Sequence<OUString> aNames = GetNodeNames(OUString());
     SvNumberFormatter& rNFormatr = *pView->GetWrtShell().GetNumberFormatter();
     for(OUString const & nodeName : aNames)
     {
@@ -1623,7 +1626,7 @@ void SwInsertDBColAutoPilot::Load()
                  pNewData->bIsEmptyHeadln = *o3tl::doAccess<bool>(pDataSourceProps[10]);
 
             const OUString sSubNodeName(nodeName + "/ColumnSet/");
-            Sequence <OUString> aSubNames = GetNodeNames(sSubNodeName);
+            const Sequence <OUString> aSubNames = GetNodeNames(sSubNodeName);
             for(const OUString& rSubName : aSubNames)
             {
                 Sequence <OUString> aSubNodeNames =

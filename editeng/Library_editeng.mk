@@ -27,7 +27,7 @@ $(eval $(call gb_Library_set_include,editeng,\
 
 $(eval $(call gb_Library_use_custom_headers,editeng,editeng/generated))
 
-$(eval $(call gb_Library_set_precompiled_header,editeng,$(SRCDIR)/editeng/inc/pch/precompiled_editeng))
+$(eval $(call gb_Library_set_precompiled_header,editeng,editeng/inc/pch/precompiled_editeng))
 
 $(eval $(call gb_Library_add_defs,editeng,\
     -DEDITENG_DLLIMPLEMENTATION \
@@ -98,7 +98,7 @@ $(eval $(call gb_Library_add_exception_objects,editeng,\
     editeng/source/misc/swafopt \
     editeng/source/misc/txtrange \
     editeng/source/misc/unolingu \
-    editeng/source/misc/weldeditview \
+    editeng/source/misc/urlfieldhelper \
     editeng/source/outliner/outleeng \
     editeng/source/outliner/outlin2 \
     editeng/source/outliner/outliner \

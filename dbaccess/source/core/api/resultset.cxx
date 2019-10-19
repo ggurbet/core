@@ -169,7 +169,7 @@ void OResultSet::close()
 // XServiceInfo
 OUString OResultSet::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.OResultSet");
+    return "com.sun.star.sdb.OResultSet";
 }
 
 sal_Bool OResultSet::supportsService( const OUString& _rServiceName )
@@ -179,10 +179,7 @@ sal_Bool OResultSet::supportsService( const OUString& _rServiceName )
 
 Sequence< OUString > OResultSet::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = SERVICE_SDBC_RESULTSET;
-    aSNS[1] = SERVICE_SDB_RESULTSET;
-    return aSNS;
+    return { SERVICE_SDBC_RESULTSET, SERVICE_SDB_RESULTSET };
 }
 
 // css::beans::XPropertySet

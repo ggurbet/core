@@ -529,23 +529,32 @@ sal_uInt16 SwWW8ImplReader::End_Field()
         nRet = m_aFieldStack.back().mnFieldId;
         switch (nRet)
         {
-        case 70:
+        case ww::eFORMTEXT:
         if (bUseEnhFields && m_pPaM!=nullptr && m_pPaM->GetPoint()!=nullptr) {
             SwPosition aEndPos = *m_pPaM->GetPoint();
+            if (!::CheckNodesRange(m_aFieldStack.back().GetPtNode(),
+                        aEndPos.nNode, true))
+            {   // example ofz7322-1.doc
+                SAL_INFO("sw.ww8", "skipping field with invalid node range");
+                break;
+            }
             SwPaM aFieldPam( m_aFieldStack.back().GetPtNode(), m_aFieldStack.back().GetPtContent(), aEndPos.nNode, aEndPos.nContent.GetIndex());
             IDocumentMarkAccess* pMarksAccess = m_rDoc.getIDocumentMarkAccess( );
             IFieldmark *pFieldmark = pMarksAccess->makeFieldBookmark(
                         aFieldPam, m_aFieldStack.back().GetBookmarkName(), ODF_FORMTEXT );
             OSL_ENSURE(pFieldmark!=nullptr, "hmmm; why was the bookmark not created?");
             if (pFieldmark!=nullptr) {
+                // adapt redline positions to inserted field mark start
+                // dummy char (assume not necessary for end dummy char)
+                m_xRedlineStack->MoveAttrs(*aFieldPam.Start());
                 const IFieldmark::parameter_map_t& rParametersToAdd = m_aFieldStack.back().getParameters();
                 pFieldmark->GetParameters()->insert(rParametersToAdd.begin(), rParametersToAdd.end());
             }
         }
         break;
             // Doing corresponding status management for TOX field, index field, hyperlink field and page reference field
-            case 13://TOX
-            case 8://index
+            case ww::eTOC://TOX
+            case ww::eINDEX://index
                 if (m_bLoadingTOXCache)
                 {
                     if (m_nEmbeddedTOXLevel > 0)
@@ -576,23 +585,23 @@ sal_uInt16 SwWW8ImplReader::End_Field()
                     }
                 }
                 break;
-            case 37: //REF
+            case ww::ePAGEREF: //REF
                 if (m_bLoadingTOXCache && !m_bLoadingTOXHyperlink)
                 {
                     m_xCtrlStck->SetAttr(*m_pPaM->GetPoint(),RES_TXTATR_INETFMT);
                 }
                 break;
-            case 88:
+            case ww::eHYPERLINK:
                 if (m_bLoadingTOXHyperlink)
                     m_bLoadingTOXHyperlink = false;
                 m_xCtrlStck->SetAttr(*m_pPaM->GetPoint(), RES_TXTATR_INETFMT);
                 break;
-            case 36:
-            case 68:
+            case ww::eMERGEINC:
+            case ww::eINCLUDETEXT:
                 //Move outside the section associated with this type of field
                 *m_pPaM->GetPoint() = m_aFieldStack.back().maStartPos;
                 break;
-            case 7: // IF-field
+            case ww::eIF: // IF-field
             {
                 // conditional field parameters
                 const OUString& fieldDefinition = m_aFieldStack.back().GetBookmarkCode();
@@ -610,7 +619,7 @@ sal_uInt16 SwWW8ImplReader::End_Field()
                     paramCondition,
                     paramTrue,
                     paramFalse,
-                    static_cast<sal_uInt16>(TYP_CONDTXTFLD));
+                    SwFieldTypesEnum::ConditionalText);
 
                 // insert new field into document
                 m_rDoc.getIDocumentContentOperations().InsertPoolItem(*m_pPaM, SwFormatField(aHTField));
@@ -698,15 +707,15 @@ static bool AcceptableNestedField(sal_uInt16 nFieldCode)
 {
     switch (nFieldCode)
     {
-        case 8:  // allow recursive field in TOC...
-        case 13: // allow recursive field in TOC...
-        case 36:
-        case 68:
-        case 79:
-        case 88:
+        case ww::eINDEX:  // allow recursive field in TOC...
+        case ww::eTOC: // allow recursive field in TOC...
+        case ww::eMERGEINC:
+        case ww::eINCLUDETEXT:
+        case ww::eAUTOTEXT:
+        case ww::eHYPERLINK:
         // Accept AutoTextList field as nested field.
         // Thus, the field result is imported as plain text.
-        case 89:
+        case ww::eAUTOTEXTLIST:
             return true;
         default:
             return false;
@@ -1452,7 +1461,7 @@ eF_ResT SwWW8ImplReader::Read_F_Seq( WW8FieldDesc*, OUString& rStr )
             break;
 
         case 's':                       // Outline Level
-            //#i19682, what am I to do with this value
+            //#i19682, what I have to do with this value?
             break;
         }
     }
@@ -2272,6 +2281,8 @@ eF_ResT SwWW8ImplReader::Read_F_Macro( WW8FieldDesc*, OUString& rStr)
     if( aName.isEmpty() )
         return eF_ResT::TAGIGN;  // makes no sense without Macro-Name
 
+    NotifyMacroEventRead();
+
     //try converting macro symbol according to macro name
     bool bApplyWingdings = ConvertMacroSymbol( aName, aVText );
     aName = "StarOffice.Standard.Modul1." + aName;
@@ -2472,8 +2483,8 @@ eF_ResT SwWW8ImplReader::Read_F_IncludeText( WW8FieldDesc* /*pF*/, OUString& rSt
     {
         // Section from Source (no switch)?
         ConvertUFName(aBook);
-        aPara += OUStringLiteral1(sfx2::cTokenSeparator)
-            + OUStringLiteral1(sfx2::cTokenSeparator) + aBook;
+        aPara += OUStringChar(sfx2::cTokenSeparator)
+            + OUStringChar(sfx2::cTokenSeparator) + aBook;
     }
 
     /*
@@ -2863,7 +2874,7 @@ static void lcl_toxMatchTSwitch(SwWW8ImplReader const & rReader, SwTOXBase& rBas
 
                     OUString sStyles( rBase.GetStyleNames( nLevel ) );
                     if( !sStyles.isEmpty() )
-                        sStyles += OUStringLiteral1(TOX_STYLE_DELIMITER);
+                        sStyles += OUStringChar(TOX_STYLE_DELIMITER);
                     sStyles += sTemplate;
                     rBase.SetStyleNames( sStyles, nLevel );
                 }
@@ -3271,7 +3282,7 @@ eF_ResT SwWW8ImplReader::Read_F_Tox( WW8FieldDesc* pF, OUString& rStr )
                             // the entry correctly, but I currently have no clue how to obtain
                             // the tab stop position. It is _not_ set at the paragraph style.
                             std::unique_ptr<SwForm> pForm;
-                            for (SwWW8StyInf & rSI : m_vColl)
+                            for (const SwWW8StyInf & rSI : m_vColl)
                             {
                                 if (rSI.IsOutlineNumbered())
                                 {
@@ -3513,7 +3524,7 @@ eF_ResT SwWW8ImplReader::Read_F_Hyperlink( WW8FieldDesc* /*pF*/, OUString& rStr 
     OSL_ENSURE(!sURL.isEmpty() || !sMark.isEmpty(), "WW8: Empty URL");
 
     if( !sMark.isEmpty() )
-        sURL = sURL + "#" + sMark;
+        sURL += "#" + sMark;
 
     SwFormatINetFormat aURL(sURL, sTarget);
     // If on loading TOC field, change the default style into the "index link"

@@ -581,7 +581,7 @@ void SwFlyDrawContact::MoveObjToVisibleLayer( SdrObject* _pDrawObj )
     SwFlyFrame* pFlyFrame = static_cast<SwVirtFlyDrawObj*>(_pDrawObj)->GetFlyFrame();
 
     // #i44464# - consider, that Writer fly frame content
-    // already exists - (e.g. WW8 document is inserted into a existing document).
+    // already exists - (e.g. WW8 document is inserted into an existing document).
     if ( !pFlyFrame->Lower() )
     {
         pFlyFrame->InsertColumns();
@@ -882,7 +882,7 @@ SdrObject* SwDrawContact::GetDrawObjectByAnchorFrame( const SwFrame& _rAnchorFra
 
 void SwDrawContact::NotifyBackgrdOfAllVirtObjs(const tools::Rectangle* pOldBoundRect)
 {
-    for(auto& rpDrawVirtObj : maDrawVirtObjs)
+    for(const auto& rpDrawVirtObj : maDrawVirtObjs)
     {
         SwDrawVirtObj* pDrawVirtObj(rpDrawVirtObj.get());
         if ( pDrawVirtObj->GetAnchorFrame() )
@@ -1568,7 +1568,7 @@ void SwDrawContact::SwClientNotify(const SwModify& rMod, const SfxHint& rHint)
 // #i28701# - added parameter <_bUpdateSortedObjsList>
 void SwDrawContact::InvalidateObjs_( const bool _bUpdateSortedObjsList )
 {
-    for(auto& rpDrawVirtObj : maDrawVirtObjs)
+    for(const auto& rpDrawVirtObj : maDrawVirtObjs)
     // invalidate position of existing 'virtual' drawing objects
     {
         SwDrawVirtObj* pDrawVirtObj(rpDrawVirtObj.get());
@@ -2021,7 +2021,7 @@ namespace sdr
         class VCOfDrawVirtObj : public ViewContactOfVirtObj
         {
         protected:
-            /** Create a Object-Specific ViewObjectContact, set ViewContact and ObjectContact.
+            /** Create an Object-Specific ViewObjectContact, set ViewContact and ObjectContact.
              *
              * Always needs to return something. Default is to create a standard ViewObjectContact
              * containing the given ObjectContact and *this.
@@ -2293,7 +2293,7 @@ const tools::Rectangle& SwDrawVirtObj::GetLastBoundRect() const
     return aOutRect;
 }
 
-const Point SwDrawVirtObj::GetOffset() const
+Point SwDrawVirtObj::GetOffset() const
 {
     // do NOT use IsEmpty() here, there is already a useful offset
     // in the position

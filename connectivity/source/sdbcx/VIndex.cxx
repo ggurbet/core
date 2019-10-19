@@ -42,19 +42,13 @@ using namespace ::com::sun::star::lang;
 OUString SAL_CALL OIndex::getImplementationName(  )
 {
     if(isNew())
-        return OUString("com.sun.star.sdbcx.VIndexDescriptor");
-    return OUString("com.sun.star.sdbcx.VIndex");
+        return "com.sun.star.sdbcx.VIndexDescriptor";
+    return "com.sun.star.sdbcx.VIndex";
 }
 
 css::uno::Sequence< OUString > SAL_CALL OIndex::getSupportedServiceNames(  )
 {
-    css::uno::Sequence< OUString > aSupported(1);
-    if(isNew())
-        aSupported[0] = "com.sun.star.sdbcx.IndexDescriptor";
-    else
-        aSupported[0] = "com.sun.star.sdbcx.Index";
-
-    return aSupported;
+    return { isNew()?OUString("com.sun.star.sdbcx.IndexDescriptor"):OUString("com.sun.star.sdbcx.Index") };
 }
 
 sal_Bool SAL_CALL OIndex::supportsService( const OUString& _rServiceName )

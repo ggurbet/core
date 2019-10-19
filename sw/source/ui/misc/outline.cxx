@@ -63,7 +63,7 @@ class SwNumNamesDlg : public weld::GenericDialogController
 
     DECL_LINK( ModifyHdl, weld::Entry&, void );
     DECL_LINK( SelectHdl, weld::TreeView&, void );
-    DECL_LINK( DoubleClickHdl, weld::TreeView&, void );
+    DECL_LINK( DoubleClickHdl, weld::TreeView&, bool );
 
 public:
     explicit SwNumNamesDlg(weld::Window *pParent);
@@ -107,9 +107,10 @@ IMPL_LINK( SwNumNamesDlg, ModifyHdl, weld::Entry&, rBox, void )
 }
 
 // DoubleClickHdl
-IMPL_LINK_NOARG(SwNumNamesDlg, DoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SwNumNamesDlg, DoubleClickHdl, weld::TreeView&, bool)
 {
     m_xDialog->response(RET_OK);
+    return true;
 }
 
 SwNumNamesDlg::SwNumNamesDlg(weld::Window *pParent)
@@ -307,7 +308,7 @@ short SwOutlineTabDialog::Ok()
     // set levels for all created templates; has to be done in order to
     // delete possibly cancelled assignments again.
 
-    // encapsulate changes into a action to avoid effects on the current cursor
+    // encapsulate changes into an action to avoid effects on the current cursor
     // position during the changes.
     rWrtSh.StartAction();
 
@@ -383,9 +384,9 @@ short SwOutlineTabDialog::Ok()
     return RET_OK;
 }
 
-SwOutlineSettingsTabPage::SwOutlineSettingsTabPage(TabPageParent pPage,
+SwOutlineSettingsTabPage::SwOutlineSettingsTabPage(weld::Container* pPage, weld::DialogController* pController,
     const SfxItemSet& rSet)
-    : SfxTabPage(pPage, "modules/swriter/ui/outlinenumberingpage.ui", "OutlineNumberingPage", &rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/outlinenumberingpage.ui", "OutlineNumberingPage", &rSet)
     , aNoFormatName(SwResId(SW_STR_NONE))
     , pSh(nullptr)
     , pNumRule(nullptr)
@@ -739,8 +740,7 @@ void SwOutlineSettingsTabPage::SetWrtShell(SwWrtShell* pShell)
                                     static_cast< sal_uInt16 >(RES_POOLCOLL_HEADLINE1 + i), OUString()));
         m_xLevelLB->append_text( OUString::number(i + 1) );
     }
-    OUString sStr("1 - ");
-    sStr += OUString::number(MAXLEVEL);
+    OUString sStr = "1 - " + OUString::number(MAXLEVEL);
     m_xLevelLB->append_text(sStr);
 
     // query the texttemplates' outlining levels
@@ -801,10 +801,10 @@ void SwOutlineSettingsTabPage::Reset( const SfxItemSet* rSet )
     ActivatePage(*rSet);
 }
 
-VclPtr<SfxTabPage> SwOutlineSettingsTabPage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SwOutlineSettingsTabPage::Create(weld::Container* pPage, weld::DialogController* pController,
                                                     const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwOutlineSettingsTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwOutlineSettingsTabPage>(pPage, pController, *rAttrSet);
 }
 
 void SwOutlineSettingsTabPage::CheckForStartValue_Impl(sal_uInt16 nNumberingType)

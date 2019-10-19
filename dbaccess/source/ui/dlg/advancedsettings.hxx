@@ -22,9 +22,6 @@
 
 #include "adminpages.hxx"
 #include <dsmeta.hxx>
-
-#include <vcl/field.hxx>
-
 #include <vector>
 
 namespace dbaui
@@ -72,11 +69,10 @@ namespace dbaui
 
         virtual bool        FillItemSet ( SfxItemSet* _rCoreAttrs ) override;
 
-        SpecialSettingsPage(TabPageParent pParent, const SfxItemSet& _rCoreAttrs, const DataSourceMetaData& _rDSMeta);
-
-    private:
+        SpecialSettingsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs, const DataSourceMetaData& _rDSMeta);
         virtual ~SpecialSettingsPage() override;
 
+    private:
         // OGenericAdministrationPage overridables
         virtual void implInitControls (const SfxItemSet& _rSet, bool _bSaveValue ) override;
 
@@ -102,12 +98,11 @@ namespace dbaui
     public:
         virtual bool        FillItemSet (SfxItemSet* _rCoreAttrs) override;
 
-        GeneratedValuesPage(TabPageParent pParent, const SfxItemSet& _rCoreAttrs);
+        GeneratedValuesPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs);
+        virtual ~GeneratedValuesPage() override;
+
     private:
         DECL_LINK(OnAutoToggleHdl, weld::ToggleButton&, void);
-
-        // nControlFlags is a combination of the CBTP_xxx-constants
-        virtual ~GeneratedValuesPage() override;
 
         // subclasses must override this, but it isn't pure virtual
         virtual void        implInitControls(const SfxItemSet& _rSet, bool _bSaveValue) override;

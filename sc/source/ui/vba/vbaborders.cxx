@@ -89,7 +89,7 @@ private:
                 break;
             case XlBordersIndex::xlDiagonalDown:
             case XlBordersIndex::xlDiagonalUp:
-                // #TODO have to ignore at the momement, would be
+                // #TODO have to ignore at the moment, would be
                 // nice to investigate what we can do here
                 break;
             default:
@@ -132,7 +132,7 @@ private:
 
             case XlBordersIndex::xlDiagonalDown:
             case XlBordersIndex::xlDiagonalUp:
-                // #TODO have to ignore at the momement, would be
+                // #TODO have to ignore at the moment, would be
                 // nice to investigate what we can do here
                 break;
             default:
@@ -144,7 +144,7 @@ private:
 protected:
     virtual OUString getServiceImplName() override
     {
-        return OUString("ScVbaBorder");
+        return "ScVbaBorder";
     }
     virtual css::uno::Sequence<OUString> getServiceNames() override
     {
@@ -566,7 +566,7 @@ void SAL_CALL ScVbaBorders::setWeight( const uno::Any& _weight )
 OUString
 ScVbaBorders::getServiceImplName()
 {
-    return OUString("ScVbaBorders");
+    return "ScVbaBorders";
 }
 
 uno::Sequence< OUString >

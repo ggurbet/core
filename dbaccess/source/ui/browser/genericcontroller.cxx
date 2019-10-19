@@ -335,7 +335,7 @@ Reference<XSidebarProvider> SAL_CALL OGenericUnoController::getSidebar()
 
 OUString SAL_CALL OGenericUnoController::getViewControllerName()
 {
-    return OUString( "Default" );
+    return "Default";
 }
 
 Sequence< PropertyValue > SAL_CALL OGenericUnoController::getCreationArguments()
@@ -448,7 +448,7 @@ void OGenericUnoController::ImplBroadcastFeatureState(const OUString& _rFeature,
             if ( aFeatureCommands.find( elem.aURL.Complete ) != aFeatureCommands.end() )
             {
                 aEvent.FeatureURL = elem.aURL;
-                lcl_notifyMultipleStates( *elem.xListener.get(), aEvent, aStates );
+                lcl_notifyMultipleStates( *elem.xListener, aEvent, aStates );
             }
         }
     }
@@ -897,7 +897,7 @@ Reference< XConnection > OGenericUnoController::connect( const Reference< XDataS
 {
     WaitObject aWaitCursor( getView() );
 
-    ODatasourceConnector aConnector( getORB(), getView(), OUString() );
+    ODatasourceConnector aConnector( getORB(), getFrameWeld(), OUString() );
     Reference< XConnection > xConnection = aConnector.connect( _xDataSource, nullptr );
     startConnectionListening( xConnection );
 
@@ -909,7 +909,7 @@ Reference< XConnection > OGenericUnoController::connect( const OUString& _rDataS
 {
     WaitObject aWaitCursor( getView() );
 
-    ODatasourceConnector aConnector( getORB(), getView(), _rContextInformation );
+    ODatasourceConnector aConnector( getORB(), getFrameWeld(), _rContextInformation );
     Reference<XConnection> xConnection = aConnector.connect( _rDataSourceName, _pErrorInfo );
     startConnectionListening( xConnection );
 
@@ -1058,7 +1058,7 @@ Reference< awt::XWindow> OGenericUnoController::getTopMostContainerWindow() cons
 
         while ( xFrame.is() && !xFrame->isTop() )
         {
-            xFrame.set( xFrame->getCreator(), UNO_QUERY );
+            xFrame = xFrame->getCreator();
         }
         if ( xFrame.is() )
             xWindow = xFrame->getContainerWindow();

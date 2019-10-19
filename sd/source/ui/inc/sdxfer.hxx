@@ -21,6 +21,7 @@
 #define INCLUDED_SD_SOURCE_UI_INC_SDXFER_HXX
 
 #include <vcl/transfer.hxx>
+#include <vcl/vclptr.hxx>
 #include <sfx2/objsh.hxx>
 #include <svl/lstner.hxx>
 
@@ -106,7 +107,7 @@ protected:
     virtual void                    AddSupportedFormats() override;
     virtual bool                    GetData( const css::datatransfer::DataFlavor& rFlavor, const OUString& rDestDoc ) override;
     virtual bool                    WriteObject( tools::SvRef<SotStorageStream>& rxOStm, void* pUserObject, sal_uInt32 nUserObjectId, const css::datatransfer::DataFlavor& rFlavor ) override;
-    virtual void                    ObjectReleased() override;
+    virtual void                    ObjectReleased() override final;
 
     virtual sal_Int64 SAL_CALL      getSomething( const css::uno::Sequence< sal_Int8 >& rId ) override;
 

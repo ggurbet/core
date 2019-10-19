@@ -30,7 +30,6 @@
 #include <vcl/treelistbox.hxx>
 #include <vcl/svlbitm.hxx>
 #include <vcl/svimpbox.hxx>
-#include <rtl/instance.hxx>
 #include <tools/wintypes.hxx>
 #include <bitmaps.hlst>
 #include <comphelper/processfactory.hxx>
@@ -761,7 +760,7 @@ SvTreeListEntry* SvImpLBox::GetClickedEntry( const Point& rPoint ) const
     if ( !m_pView->GetModel() )
         // this is quite impossible. Nevertheless, stack traces from the crash reporter
         // suggest it isn't. Okay, make it safe, and wait for somebody to reproduce it
-        // reliably :-\ ....
+        // reliably :-\ ...
         // #122359# / 2005-05-23 / frank.schoenheit@sun.com
         return nullptr;
     if( m_pView->GetEntryCount() == 0 || !m_pStartEntry || !m_pView->GetEntryHeight())
@@ -2096,6 +2095,51 @@ void SvImpLBox::MouseMove( const MouseEvent& rMEvt)
         m_aSelEng.SelMouseMove( rMEvt );
 }
 
+void SvImpLBox::ExpandAll()
+{
+    sal_uInt16 nRefDepth = m_pTree->GetDepth(m_pCursor);
+    SvTreeListEntry* pCur = m_pTree->Next(m_pCursor);
+    while (pCur && m_pTree->GetDepth(pCur) > nRefDepth)
+    {
+        if (pCur->HasChildren() && !m_pView->IsExpanded(pCur))
+            m_pView->Expand(pCur);
+        pCur = m_pTree->Next(pCur);
+    }
+}
+
+void SvImpLBox::CollapseTo(SvTreeListEntry* pParentToCollapse)
+{
+    // collapse all parents until we get to the given parent to collapse
+    if (pParentToCollapse)
+    {
+        sal_uInt16 nRefDepth;
+        // special case explorer: if the root only has a single
+        // entry, don't collapse the root entry
+        if (m_pTree->GetChildList(nullptr).size() < 2)
+        {
+            nRefDepth = 1;
+            pParentToCollapse = m_pCursor;
+            while (m_pTree->GetParent(pParentToCollapse)
+                   && m_pTree->GetDepth(m_pTree->GetParent(pParentToCollapse)) > 0)
+            {
+                pParentToCollapse = m_pTree->GetParent(pParentToCollapse);
+            }
+        }
+        else
+            nRefDepth = m_pTree->GetDepth(pParentToCollapse);
+
+        if (m_pView->IsExpanded(pParentToCollapse))
+            m_pView->Collapse(pParentToCollapse);
+        SvTreeListEntry* pCur = m_pTree->Next(pParentToCollapse);
+        while (pCur && m_pTree->GetDepth(pCur) > nRefDepth)
+        {
+            if (pCur->HasChildren() && m_pView->IsExpanded(pCur))
+                m_pView->Collapse(pCur);
+            pCur = m_pTree->Next(pCur);
+        }
+    }
+}
+
 bool SvImpLBox::KeyInput( const KeyEvent& rKEvt)
 {
     m_aEditIdle.Stop();
@@ -2405,16 +2449,7 @@ bool SvImpLBox::KeyInput( const KeyEvent& rKEvt)
             if (!m_pView->IsExpanded(m_pCursor))
                 m_pView->Expand(m_pCursor);
             if (bMod1)
-            {
-                sal_uInt16 nRefDepth = m_pTree->GetDepth(m_pCursor);
-                SvTreeListEntry* pCur = m_pTree->Next(m_pCursor);
-                while (pCur && m_pTree->GetDepth(pCur) > nRefDepth)
-                {
-                    if (pCur->HasChildren() && !m_pView->IsExpanded(pCur))
-                        m_pView->Expand(pCur);
-                    pCur = m_pTree->Next(pCur);
-                }
-            }
+                ExpandAll();
             break;
 
         case KEY_A:
@@ -2428,38 +2463,27 @@ bool SvImpLBox::KeyInput( const KeyEvent& rKEvt)
             if (m_pView->IsExpanded(m_pCursor))
                 m_pView->Collapse(m_pCursor);
             if (bMod1)
+                CollapseTo(m_pTree->GetRootLevelParent(m_pCursor));
+            break;
+
+        case KEY_MULTIPLY:
+            if( bMod1 )
             {
-                // collapse all parents until we get to the root
-                SvTreeListEntry* pParentToCollapse = m_pTree->GetRootLevelParent(m_pCursor);
-                if (pParentToCollapse)
+                // only try to expand/collapse if sublist is expandable,
+                // otherwise ignore the key press
+                if( IsExpandable() )
                 {
-                    sal_uInt16 nRefDepth;
-                    // special case explorer: if the root only has a single
-                    // entry, don't collapse the root entry
-                    if (m_pTree->GetChildList(nullptr).size() < 2)
+                    if (!m_pView->IsExpanded(m_pCursor))
                     {
-                        nRefDepth = 1;
-                        pParentToCollapse = m_pCursor;
-                        while (m_pTree->GetParent(pParentToCollapse)
-                               && m_pTree->GetDepth(m_pTree->GetParent(pParentToCollapse)) > 0)
-                        {
-                            pParentToCollapse = m_pTree->GetParent(pParentToCollapse);
-                        }
+                        m_pView->Expand(m_pCursor);
+                        ExpandAll();
                     }
                     else
-                        nRefDepth = 0;
-
-                    if (m_pView->IsExpanded(pParentToCollapse))
-                        m_pView->Collapse(pParentToCollapse);
-                    SvTreeListEntry* pCur = m_pTree->Next(pParentToCollapse);
-                    while (pCur && m_pTree->GetDepth(pCur) > nRefDepth)
-                    {
-                        if (pCur->HasChildren() && m_pView->IsExpanded(pCur))
-                            m_pView->Collapse(pCur);
-                        pCur = m_pTree->Next(pCur);
-                    }
+                        CollapseTo(m_pCursor);
                 }
             }
+            else
+                bKeyUsed = false;
             break;
 
         case KEY_DIVIDE :

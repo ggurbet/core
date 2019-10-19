@@ -167,7 +167,7 @@ long ScColumn::GetNeededSize(
         // If a formula cell needs to be interpreted during aCell.hasNumeric()
         // to determine the type, the pattern may get invalidated because the
         // result may set a number format. In which case there's also the
-        // General format not set anymore..
+        // General format not set anymore...
         bool bMayInvalidatePattern = (aCell.meType == CELLTYPE_FORMULA);
         const ScPatternAttr* pOldPattern = pPattern;
         bool bNumeric = aCell.hasNumeric();
@@ -363,8 +363,9 @@ long ScColumn::GetNeededSize(
         MapMode aHMMMode( MapUnit::Map100thMM, Point(), rZoomX, rZoomY );
 
         // save in document ?
-        std::unique_ptr<ScFieldEditEngine> pEngine = pDocument->CreateFieldEditEngine(/*bUpdateMode*/false);
+        std::unique_ptr<ScFieldEditEngine> pEngine = pDocument->CreateFieldEditEngine();
 
+        pEngine->SetUpdateMode( false );
         bool bTextWysiwyg = ( pDev->GetOutDevType() == OUTDEV_PRINTER );
         EEControlBits nCtrl = pEngine->GetControlWord();
         if ( bTextWysiwyg )
@@ -455,6 +456,7 @@ long ScColumn::GetNeededSize(
 
         bool bEngineVertical = pEngine->IsVertical();
         pEngine->SetVertical( bAsianVertical );
+        pEngine->SetUpdateMode( true );
 
         bool bEdWidth = bWidth;
         if ( eOrient != SvxCellOrientation::Standard && eOrient != SvxCellOrientation::Stacked )
@@ -577,7 +579,7 @@ class MaxStrLenFinder
     OUString maMaxLenStr;
     sal_Int32 mnMaxLen;
 
-    void checkLength(ScRefCellValue& rCell)
+    void checkLength(const ScRefCellValue& rCell)
     {
         Color* pColor;
         OUString aValStr;
@@ -1345,7 +1347,7 @@ bool ScColumn::GetPrevDataPos(SCROW& rRow) const
         return true;
     }
 
-    // This is the first cell in an non-empty block. Move back to the previous block.
+    // This is the first cell in a non-empty block. Move back to the previous block.
     if (it == maCells.begin())
         // No more preceding block.
         return false;
@@ -2928,7 +2930,8 @@ void ScColumn::SetFormulaResults( SCROW nRow, const double* pResults, size_t nLe
     }
 }
 
-void ScColumn::CalculateInThread( ScInterpreterContext& rContext, SCROW nRow, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal)
+void ScColumn::CalculateInThread( ScInterpreterContext& rContext, SCROW nRow, size_t nLen, size_t nOffset,
+                                  unsigned nThisThread, unsigned nThreadsTotal)
 {
     assert(GetDoc()->IsThreadedGroupCalcInProgress());
 
@@ -2951,7 +2954,7 @@ void ScColumn::CalculateInThread( ScInterpreterContext& rContext, SCROW nRow, si
 
     for (size_t i = 0; i < nLen; ++i, ++itCell)
     {
-        if (nThreadsTotal > 0 && (i % nThreadsTotal) != nThisThread)
+        if (nThreadsTotal > 0 && ((i + nOffset) % nThreadsTotal) != nThisThread)
             continue;
 
         ScFormulaCell& rCell = **itCell;
@@ -2963,7 +2966,7 @@ void ScColumn::CalculateInThread( ScInterpreterContext& rContext, SCROW nRow, si
     }
 }
 
-void ScColumn::HandleStuffAfterParallelCalculation( SCROW nRow, size_t nLen )
+void ScColumn::HandleStuffAfterParallelCalculation( SCROW nRow, size_t nLen, ScInterpreter* pInterpreter )
 {
     sc::CellStoreType::position_type aPos = maCells.position(nRow);
     sc::CellStoreType::iterator it = aPos.first;
@@ -2985,7 +2988,7 @@ void ScColumn::HandleStuffAfterParallelCalculation( SCROW nRow, size_t nLen )
     for (size_t i = 0; i < nLen; ++i, ++itCell)
     {
         ScFormulaCell& rCell = **itCell;
-        rCell.HandleStuffAfterParallelCalculation();
+        rCell.HandleStuffAfterParallelCalculation(pInterpreter);
     }
 }
 

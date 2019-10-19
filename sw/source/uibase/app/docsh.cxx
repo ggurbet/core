@@ -47,6 +47,7 @@
 #include <editeng/flstitem.hxx>
 #include <sfx2/htmlmode.hxx>
 #include <svtools/soerr.hxx>
+#include <comphelper/lok.hxx>
 #include <comphelper/classids.hxx>
 #include <basic/basmgr.hxx>
 #include <basic/sbmod.hxx>
@@ -127,7 +128,6 @@
 #include <unotextrange.hxx>
 
 #include <sfx2/Metadatable.hxx>
-#include <calbck.hxx>
 #include <dbmgr.hxx>
 #include <iodetect.hxx>
 
@@ -649,9 +649,9 @@ bool SwDocShell::ConvertTo( SfxMedium& rMedium )
         SvxHtmlOptions& rHtmlOpt = SvxHtmlOptions::Get();
         if( !rHtmlOpt.IsStarBasic() && rHtmlOpt.IsStarBasicWarning() && HasBasic() )
         {
-            uno::Reference< XLibraryContainer > xLibCont(GetBasicContainer(), UNO_QUERY);
+            uno::Reference< XLibraryContainer > xLibCont = GetBasicContainer();
             uno::Reference< XNameAccess > xLib;
-            Sequence<OUString> aNames = xLibCont->getElementNames();
+            const Sequence<OUString> aNames = xLibCont->getElementNames();
             for(const OUString& rName : aNames)
             {
                 Any aLib = xLibCont->getByName(rName);
@@ -1042,6 +1042,10 @@ void SwDocShell::GetState(SfxItemSet& rSet)
             }
         }
         break;
+        case SID_AUTO_CORRECT_DLG:
+            if ( comphelper::LibreOfficeKit::isActive() )
+                rSet.DisableItem( SID_AUTO_CORRECT_DLG );
+        break;
         case SID_SOURCEVIEW:
         {
             SfxViewShell* pCurrView = GetView() ? static_cast<SfxViewShell*>(GetView())
@@ -1275,6 +1279,14 @@ void SwDocShell::CalcLayoutForOLEObjects()
 {
     if (!m_pWrtShell)
         return;
+
+    if (m_pView && m_pView->GetIPClient())
+    {
+        // We have an active OLE edit: allow link updates, so an up to date replacement graphic can
+        // be created.
+        comphelper::EmbeddedObjectContainer& rEmbeddedObjectContainer = getEmbeddedObjectContainer();
+        rEmbeddedObjectContainer.setUserAllowsLinkUpdate(true);
+    }
 
     SwIterator<SwContentNode,SwFormatColl> aIter( *m_xDoc->GetDfltGrfFormatColl() );
     for( SwContentNode* pNd = aIter.First(); pNd; pNd = aIter.Next() )

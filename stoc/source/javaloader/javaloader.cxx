@@ -68,15 +68,12 @@ static Mutex & getInitMutex();
 
 static Sequence< OUString > loader_getSupportedServiceNames()
 {
-    Sequence< OUString > seqNames(2);
-    seqNames.getArray()[0] = "com.sun.star.loader.Java";
-    seqNames.getArray()[1] = "com.sun.star.loader.Java2";
-    return seqNames;
+    return { "com.sun.star.loader.Java", "com.sun.star.loader.Java2" };
 }
 
 static OUString loader_getImplementationName()
 {
-    return OUString( "com.sun.star.comp.stoc.JavaComponentLoader" );
+    return "com.sun.star.comp.stoc.JavaComponentLoader";
 }
 
 class JavaComponentLoader : public WeakImplHelper<XImplementationLoader, XServiceInfo>
@@ -340,7 +337,7 @@ static css::uno::Reference<XInterface> JavaComponentLoader_CreateInstance(const 
     try {
         MutexGuard guard( getInitMutex() );
         // The javaloader is never destroyed and there can be only one!
-        // Note that the first context wins ....
+        // Note that the first context wins...
         static css::uno::Reference< XInterface > xStaticRef = *new JavaComponentLoader(xCtx);
         xRet = xStaticRef;
     }

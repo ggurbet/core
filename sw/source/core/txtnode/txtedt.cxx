@@ -314,7 +314,7 @@ static bool lcl_HaveCommonAttributes( IStyleAccess& rStyleAccess,
     {
         SfxItemIter aIter( *pSet1 );
         const SfxPoolItem* pItem = aIter.GetCurItem();
-        while( true )
+        do
         {
             if ( SfxItemState::SET == rSet2.GetItemState( pItem->Which(), false ) )
             {
@@ -323,11 +323,8 @@ static bool lcl_HaveCommonAttributes( IStyleAccess& rStyleAccess,
                 pNewSet->ClearItem( pItem->Which() );
             }
 
-            if( aIter.IsAtEnd() )
-                break;
-
             pItem = aIter.NextItem();
-        }
+        } while (pItem);
     }
 
     if ( pNewSet )
@@ -1203,7 +1200,7 @@ bool SwTextNode::Convert( SwConversionArgs &rArgs )
         } while (!bFound && aIter.Next());  /* loop while nothing was found and still sth is left to be searched */
 
         // Apply implicit changes, if any, now that aIter is no longer used
-        for (const std::pair<int,int> & rImplicitChange : aImplicitChanges)
+        for (const auto& rImplicitChange : aImplicitChanges)
         {
             SwPaM aPaM( *this, rImplicitChange.first );
             aPaM.SetMark();

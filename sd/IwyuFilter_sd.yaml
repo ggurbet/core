@@ -97,6 +97,9 @@ blacklist:
     # Needed on MACOSX
     - svl/intitem.hxx
     - app.hrc
+    sd/source/ui/dlg/sdtreelb.cxx:
+    # comphelper::ScopeGuard is actually used
+    - comphelper/scopeguard.hxx
     sd/source/ui/framework/configuration/ConfigurationTracer.hxx:
     # Needed for css shortcut
     - sal/types.h
@@ -121,8 +124,6 @@ blacklist:
     # base class has to be a complete type
     - com/sun/star/drawing/framework/XResourceFactory.hpp
     - com/sun/star/lang/XInitialization.hpp
-    # Don't stop on false positive while checking BasicViewFactory.cxx
-    - namespace vcl { class Window; }
     sd/source/ui/framework/factories/ChildWindowPane.hxx:
     # base class has to be a complete type
     - com/sun/star/lang/XEventListener.hpp
@@ -279,6 +280,9 @@ blacklist:
     sd/source/ui/sidebar/PanelFactory.hxx:
     # base class has to be a complete type
     - com/sun/star/ui/XUIElementFactory.hpp
+    sd/source/ui/sidebar/PageMarginUtils.hxx:
+    # Needed for std::abs
+    - cmath
     sd/source/ui/slideshow/slideshowimpl.hxx:
     # base class has to be a complete type
     - com/sun/star/presentation/XShapeEventListener.hpp
@@ -336,6 +340,11 @@ blacklist:
     sd/source/core/stlsheet.cxx:
     # Needed for UnoType
     - com/sun/star/table/BorderLine.hpp
+    # Needed for TypedWhichId macros
+    - svx/sdtaaitm.hxx
+    - svx/sdtacitm.hxx
+    - svx/sdtayitm.hxx
+    - svx/sdtaiitm.hxx
     sd/source/core/typemap.cxx:
     # Needed by sdslots.hxx to build
     - config_options.h
@@ -382,6 +391,7 @@ blacklist:
     - svx/sdooitm.hxx
     - svx/sdprcitm.hxx
     - svx/sdtfsitm.hxx
+    - svx/unomid.hxx
     - svx/xbtmpit.hxx
     - svx/xfillit0.hxx
     - svx/xflclit.hxx
@@ -411,6 +421,9 @@ blacklist:
     sd/source/filter/eppt/epptso.cxx:
     # Needed for direct member access
     - com/sun/star/table/XTable.hpp
+    sd/source/filter/eppt/pptx-animations.hxx:
+    # Needed for typedef
+    - sax/fshelper.hxx
     sd/source/filter/eppt/pptx-epptooxml.cxx:
     # Needed for direct member access
     - com/sun/star/task/XStatusIndicator.hpp
@@ -437,6 +450,8 @@ blacklist:
     sd/source/ui/framework/configuration/ConfigurationUpdater.cxx:
     # Needed for DEBUG_SD_CONFIGURATION_TRACE
     - ConfigurationTracer.hxx
+    # comphelper::ScopeGuard is actually used
+    - comphelper/scopeguard.hxx
     sd/source/ui/framework/configuration/ResourceFactoryManager.cxx:
     # Needed for VERBOSE mode
     - sal/log.hxx
@@ -449,6 +464,24 @@ blacklist:
     sd/source/ui/func/fuhhconv.cxx:
     # Needed for direct member access
     - com/sun/star/awt/XWindow.hpp
-    sd/source/ui/inc/fupoor.hxx:
-    # Don't stop on false positive while checking fupoor.cxx
-    - namespace sd { class Window; }
+    sd/source/ui/slidesorter/view/SlsInsertionIndicatorOverlay.cxx:
+    # Needed for instantiation of function template specialization
+    - Window.hxx
+    sd/source/ui/view/GraphicObjectBar.cxx:
+    # Needed by a sdslots.hxx constant
+    - svx/svxids.hrc
+    sd/source/ui/view/Outliner.cxx:
+    # comphelper::ScopeGuard is actually used
+    - comphelper/scopeguard.hxx
+    sd/source/ui/view/drviews1.cxx:
+    # comphelper::ScopeGuard is actually used
+    - comphelper/scopeguard.hxx
+    sd/source/ui/view/drviews2.cxx:
+    # comphelper::ScopeGuard is actually used
+    - comphelper/scopeguard.hxx
+    sd/source/ui/view/drvwshrg.cxx:
+    # Needed by a sdslots.hxx constant
+    - app.hrc
+    sd/source/ui/view/presvish.cxx:
+    # Needed by a sdslots.hxx constant
+    - svx/svxids.hrc

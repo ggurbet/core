@@ -26,14 +26,14 @@ void ScCorrelationDialog::Close()
     DoClose(ScCorrelationDialogWrapper::GetChildWindowId());
 }
 
-const OUString ScCorrelationDialog::getLabel()
+OUString ScCorrelationDialog::getLabel()
 {
     return ScResId(STR_CORRELATION_LABEL);
 }
 
-const OUString ScCorrelationDialog::getTemplate()
+OUString ScCorrelationDialog::getTemplate()
 {
-    return OUString("=CORREL(%VAR1%; %VAR2%)");
+    return "=CORREL(%VAR1%; %VAR2%)";
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

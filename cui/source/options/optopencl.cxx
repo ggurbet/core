@@ -17,62 +17,37 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/fixed.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/window.hxx>
-#include <vcl/settings.hxx>
 #include <vcl/weld.hxx>
-#include <svl/zforlist.hxx>
 #include <opencl/openclconfig.hxx>
 #include <opencl/openclwrapper.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <svtools/restartdialog.hxx>
-#include <svtools/simptabl.hxx>
-#include "optHeaderTabListbox.hxx"
 
-#include <com/sun/star/configuration/theDefaultProvider.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/ui/dialogs/FolderPicker.hpp>
-#include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
-#include <com/sun/star/util/XChangesBatch.hpp>
-
-#include <strings.hrc>
-#include <dialmgr.hxx>
 #include "optopencl.hxx"
 
-SvxOpenCLTabPage::SvxOpenCLTabPage(vcl::Window* pParent, const SfxItemSet& rSet) :
-    SfxTabPage(pParent, "OptOpenCLPage", "cui/ui/optopenclpage.ui", &rSet),
-    maConfig(OpenCLConfig::get())
+SvxOpenCLTabPage::SvxOpenCLTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/optopenclpage.ui", "OptOpenCLPage", &rSet)
+    , maConfig(OpenCLConfig::get())
+    , mxUseOpenCL(m_xBuilder->weld_check_button("useopencl"))
+    , mxOclUsed(m_xBuilder->weld_label("openclused"))
+    , mxOclNotUsed(m_xBuilder->weld_label("openclnotused"))
 {
-    get(mpUseOpenCL, "useopencl");
-    get(mpOclUsed,"openclused");
-    get(mpOclNotUsed,"openclnotused");
-
-    mpUseOpenCL->Check(maConfig.mbUseOpenCL);
-    mpUseOpenCL->Enable(!officecfg::Office::Common::Misc::UseOpenCL::isReadOnly());
+    mxUseOpenCL->set_active(maConfig.mbUseOpenCL);
+    mxUseOpenCL->set_sensitive(!officecfg::Office::Common::Misc::UseOpenCL::isReadOnly());
 
     bool bCLUsed = openclwrapper::GPUEnv::isOpenCLEnabled();
-    mpOclUsed->Show(bCLUsed);
-    mpOclNotUsed->Show(!bCLUsed);
+    mxOclUsed->set_visible(bCLUsed);
+    mxOclNotUsed->set_visible(!bCLUsed);
 }
 
 SvxOpenCLTabPage::~SvxOpenCLTabPage()
 {
-    disposeOnce();
 }
 
-void SvxOpenCLTabPage::dispose()
+std::unique_ptr<SfxTabPage> SvxOpenCLTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    mpUseOpenCL.clear();
-    mpOclUsed.clear();
-    mpOclNotUsed.clear();
-
-    SfxTabPage::dispose();
-}
-
-VclPtr<SfxTabPage> SvxOpenCLTabPage::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
-{
-    return VclPtr<SvxOpenCLTabPage>::Create(pParent.pParent, *rAttrSet);
+    return std::make_unique<SvxOpenCLTabPage>(pPage, pController, *rAttrSet);
 }
 
 bool SvxOpenCLTabPage::FillItemSet( SfxItemSet* )
@@ -80,8 +55,8 @@ bool SvxOpenCLTabPage::FillItemSet( SfxItemSet* )
     bool bModified = false;
     std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());
 
-    if (mpUseOpenCL->IsValueChangedFromSaved())
-        maConfig.mbUseOpenCL = mpUseOpenCL->IsChecked();
+    if (mxUseOpenCL->get_state_changed_from_saved())
+        maConfig.mbUseOpenCL = mxUseOpenCL->get_active();
 
     if (maConfig != OpenCLConfig::get())
     {
@@ -95,7 +70,7 @@ bool SvxOpenCLTabPage::FillItemSet( SfxItemSet* )
         SolarMutexGuard aGuard;
         if (svtools::executeRestartDialog(comphelper::getProcessComponentContext(), nullptr,
                                       svtools::RESTART_REASON_OPENCL))
-            GetParentDialog()->EndDialog(RET_OK);
+            GetDialogController()->response(RET_OK);
     }
 
     return bModified;
@@ -105,8 +80,8 @@ void SvxOpenCLTabPage::Reset( const SfxItemSet* )
 {
     maConfig = OpenCLConfig::get();
 
-    mpUseOpenCL->Check(maConfig.mbUseOpenCL);
-    mpUseOpenCL->SaveValue();
+    mxUseOpenCL->set_active(maConfig.mbUseOpenCL);
+    mxUseOpenCL->save_state();
 }
 
 

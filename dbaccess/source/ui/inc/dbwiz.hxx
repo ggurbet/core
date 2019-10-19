@@ -23,7 +23,7 @@
 #include <sfx2/tabdlg.hxx>
 #include <dsntypes.hxx>
 #include "IItemSetHelper.hxx"
-#include <svtools/wizardmachine.hxx>
+#include <vcl/wizardmachine.hxx>
 #include <memory>
 
 namespace com { namespace sun { namespace star {
@@ -38,6 +38,9 @@ namespace com { namespace sun { namespace star {
     }
 }}}
 
+using vcl::WizardTypes::WizardState;
+using vcl::WizardTypes::CommitPageReason;
+
 namespace dbaccess
 {
     class ODsnTypeCollection;
@@ -50,7 +53,7 @@ class OGeneralPage;
 class ODbDataSourceAdministrationHelper;
 /** tab dialog for administrating the office wide registered data sources
 */
-class ODbTypeWizDialog : public svt::OWizardMachine , public IItemSetHelper, public IDatabaseSettingsDialog
+class ODbTypeWizDialog : public vcl::WizardMachine , public IItemSetHelper, public IDatabaseSettingsDialog
 {
 private:
     std::unique_ptr<ODbDataSourceAdministrationHelper>  m_pImpl;
@@ -63,13 +66,12 @@ public:
     /** ctor. The itemset given should have been created by <method>createItemSet</method> and should be destroyed
         after the dialog has been destroyed
     */
-    ODbTypeWizDialog(vcl::Window* pParent
+    ODbTypeWizDialog(weld::Window* pParent
         ,SfxItemSet const * _pItems
         ,const css::uno::Reference< css::uno::XComponentContext >& _rxORB
         ,const css::uno::Any& _aDataSourceName
         );
     virtual ~ODbTypeWizDialog() override;
-    virtual void dispose() override;
 
     virtual const SfxItemSet* getOutputSet() const override;
     virtual SfxItemSet* getWriteOutputSet() override;
@@ -86,11 +88,10 @@ public:
 
 protected:
     /// to override to create new pages
-    virtual VclPtr<TabPage> createPage(WizardState _nState) override;
+    virtual std::unique_ptr<BuilderPage> createPage(WizardState _nState) override;
     virtual WizardState determineNextState(WizardState _nCurrentState) const override;
     virtual bool        leaveState(WizardState _nState) override;
-    virtual ::svt::IWizardPageController*
-                        getPageController( TabPage* _pCurrentPage ) const override;
+    virtual ::vcl::IWizardPageController* getPageController(BuilderPage* pCurrentPage) const override;
     virtual bool        onFinish() override;
 
 private:

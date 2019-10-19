@@ -23,7 +23,6 @@
 
 #include <SdShapeTypes.hxx>
 
-#include <svx/DescriptionGenerator.hxx>
 #include <svx/ShapeTypeHandler.hxx>
 
 using namespace ::com::sun::star;
@@ -49,7 +48,7 @@ AccessiblePresentationGraphicShape::~AccessiblePresentationGraphicShape()
 OUString SAL_CALL
     AccessiblePresentationGraphicShape::getImplementationName()
 {
-    return OUString("AccessiblePresentationGraphicShape");
+    return "AccessiblePresentationGraphicShape";
 }
 
 /// Set this object's name if is different to the current name.

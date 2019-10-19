@@ -35,7 +35,6 @@
 #include "ReportDefines.hxx"
 #include <svtools/colorcfg.hxx>
 #include <svx/svdedtv.hxx>
-#include <vcl/tabpage.hxx>
 #include <vcl/splitwin.hxx>
 #include "MarkedSection.hxx"
 #include "ScrollHelper.hxx"
@@ -213,7 +212,7 @@ namespace rptui
         */
         void fillCollapsedSections(::std::vector<sal_uInt16>& _rCollapsedPositions) const;
 
-        /** collpase all sections given by their position
+        /** collapse all sections given by their position
         *
         * \param _aCollpasedSections The position of the sections which should be collapsed.
         */

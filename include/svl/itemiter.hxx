@@ -36,22 +36,21 @@ public:
     ~SfxItemIter();
 
     /// get item, or null if no items
-    const SfxPoolItem* FirstItem()
-    {
-        m_nCurrent = m_nStart;
-        return m_rSet.m_nCount ? *(m_rSet.m_pItems.get() + m_nCurrent) : nullptr;
-    }
     const SfxPoolItem* GetCurItem() const
     {
         return m_rSet.m_nCount ? *(m_rSet.m_pItems.get() + m_nCurrent) : nullptr;
     }
-    const SfxPoolItem* NextItem();
+    const SfxPoolItem* NextItem() { return (m_nCurrent < m_nEnd) ? ImplNextItem() : nullptr; }
 
     bool       IsAtEnd()     const { return m_nCurrent == m_nEnd; }
 
     sal_uInt16 GetCurPos()   const { return m_nCurrent; }
     sal_uInt16 GetFirstPos() const { return m_nStart; }
     sal_uInt16 GetLastPos()  const { return m_nEnd; }
+
+private:
+    const SfxPoolItem* ImplNextItem();
+
 };
 
 #endif

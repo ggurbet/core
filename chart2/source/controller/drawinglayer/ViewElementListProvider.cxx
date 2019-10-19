@@ -45,7 +45,7 @@ ViewElementListProvider::ViewElementListProvider( DrawModelWrapper* pDrawModelWr
 {
 }
 
-ViewElementListProvider::ViewElementListProvider( ViewElementListProvider&& rOther )
+ViewElementListProvider::ViewElementListProvider(ViewElementListProvider&& rOther) noexcept
 {
     m_pDrawModelWrapper = rOther.m_pDrawModelWrapper;
     m_pFontList = std::move(rOther.m_pFontList);
@@ -116,8 +116,7 @@ SdrObjList* ViewElementListProvider::GetSymbolList() const
             m_pDrawModelWrapper->getShapeFactory());
 
         //get hidden draw page (target):
-        uno::Reference<drawing::XShapes> xTarget(m_pDrawModelWrapper->getHiddenDrawPage(),
-                                                 uno::UNO_QUERY);
+        uno::Reference<drawing::XShapes> xTarget = m_pDrawModelWrapper->getHiddenDrawPage();
 
         //create symbols via uno and convert to native sdr objects
         drawing::Direction3D aSymbolSize(220, 220, 0); // should be 250, but 250 -> 280 ??

@@ -26,7 +26,7 @@
 #include <com/sun/star/uno/Sequence.h>
 #include <com/sun/star/lang/XTypeProvider.hpp>
 #include <com/sun/star/sdbc/XResultSetMetaData.hpp>
-#include <cppuhelper/weak.hxx>
+#include <cppuhelper/implbase.hxx>
 #include <ucbhelper/ucbhelperdllapi.h>
 
 namespace com { namespace sun { namespace star {
@@ -71,9 +71,7 @@ ResultSetColumnData::ResultSetColumnData()
  * implementations of service com.sun.star.ucb.ContentResultSet.
  */
 class UCBHELPER_DLLPUBLIC ResultSetMetaData final :
-                public ::cppu::OWeakObject,
-                public css::lang::XTypeProvider,
-                public css::sdbc::XResultSetMetaData
+                public cppu::WeakImplHelper<css::sdbc::XResultSetMetaData>
 {
     std::unique_ptr<ucbhelper_impl::ResultSetMetaData_Impl> m_pImpl;
     css::uno::Reference< css::uno::XComponentContext >    m_xContext;
@@ -84,7 +82,7 @@ public:
     /**
       * Constructor. ResultSet is readonly by default.
       *
-      * @param rxSMgr is a Servive Manager.
+      * @param rxSMgr is a Service Manager.
       * @param rProps is a sequence of properties (partially) describing the
       *        columns of a resultset.
       */
@@ -95,7 +93,7 @@ public:
     /**
       * Constructor.
       *
-      * @param rxSMgr is a Servive Manager.
+      * @param rxSMgr is a Service Manager.
       * @param rProps is a sequence of properties (partially) describing the
       *        columns of a resultset.
       * @param rColumnData contains additional meta data for the columns of
@@ -114,19 +112,6 @@ public:
       * Destructor.
       */
     virtual ~ResultSetMetaData() override;
-
-    // XInterface
-    virtual css::uno::Any SAL_CALL queryInterface( const css::uno::Type & rType ) override;
-    virtual void SAL_CALL acquire()
-        throw() override;
-    virtual void SAL_CALL release()
-        throw() override;
-
-    // XTypeProvider
-    virtual css::uno::Sequence< sal_Int8 > SAL_CALL
-    getImplementationId() override;
-    virtual css::uno::Sequence< css::uno::Type > SAL_CALL
-    getTypes() override;
 
     // XResultSetMetaData
 
@@ -313,7 +298,7 @@ public:
       *
       * @param  column is the number of the column for that a value shall
       *         be returned. The first column is 1, the second is 2, ...
-      * @return true, if the column is definetely not writable.
+      * @return true, if the column is definitely not writable.
       */
     virtual sal_Bool SAL_CALL
     isReadOnly( sal_Int32 column ) override;
@@ -331,7 +316,7 @@ public:
       *
       * @param  column is the number of the column for that a value shall
       *         be returned. The first column is 1, the second is 2, ...
-      * @return true, if a write on the column will definetely succeed.
+      * @return true, if a write on the column will definitely succeed.
       */
     virtual sal_Bool SAL_CALL
     isDefinitelyWritable( sal_Int32 column ) override;

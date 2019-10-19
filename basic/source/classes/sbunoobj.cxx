@@ -1011,7 +1011,7 @@ static Any sbxToUnoValueImpl( const SbxValue* pVar, bool bBlockConversionToSmall
 
     if( !bBlockConversionToSmallestType )
     {
-        // #79615 Choose "smallest" represention for int values
+        // #79615 Choose "smallest" representation for int values
         // because up cast is allowed, downcast not
         switch( eType )
         {
@@ -2066,7 +2066,7 @@ void SbUnoObject::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
                         Any aRetAny;
                         if ( bCanBeConsideredAMethod && nParamCount )
                         {
-                            // Automation properties have methods, so.. we need to invoke this through
+                            // Automation properties have methods, so... we need to invoke this through
                             // XInvocation
                             Sequence<Any> args;
                             processAutomationParams( pParams, args, nParamCount );
@@ -4204,7 +4204,7 @@ void SAL_CALL ModuleInvocationProxy::setValue(const OUString& rProperty, const A
     {
         // TODO: Check vba behavior concerning missing function
         //StarBASIC::Error( ERRCODE_BASIC_NO_METHOD, aFunctionName );
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(aPropertyFunctionName);
     }
 
     // Setup parameter
@@ -4242,7 +4242,7 @@ Any SAL_CALL ModuleInvocationProxy::getValue(const OUString& rProperty)
     {
         // TODO: Check vba behavior concerning missing function
         //StarBASIC::Error( ERRCODE_BASIC_NO_METHOD, aFunctionName );
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(aPropertyFunctionName);
     }
 
     // Call method
@@ -4591,7 +4591,7 @@ void StructRefInfo::setValue( const Any& rValue )
        reinterpret_cast< uno_AcquireFunc >(cpp_acquire),
        reinterpret_cast< uno_ReleaseFunc >(cpp_release) );
     OSL_ENSURE(bSuccess,
-        "StructRefInfo::setValue: ooops .... the value could not be assigned!");
+        "StructRefInfo::setValue: ooops... the value could not be assigned!");
 }
 
 OUString StructRefInfo::getTypeName() const
@@ -4881,7 +4881,7 @@ StructRefInfo SbUnoStructRefObject::getStructMember( const OUString& rMemberName
     return aRet;
 }
 
-OUString SbUnoStructRefObject::getDbgObjectName()
+OUString SbUnoStructRefObject::getDbgObjectName() const
 {
     OUString aName = GetClassName();
     if( aName.isEmpty() )

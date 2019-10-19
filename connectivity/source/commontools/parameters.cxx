@@ -136,7 +136,7 @@ namespace dbtools
         try
         {
             // get a query composer for the 's settings
-            m_xComposer.reset( getCurrentSettingsComposer( _rxComponent, m_xContext ), SharedQueryComposer::TakeOwnership );
+            m_xComposer.reset( getCurrentSettingsComposer( _rxComponent, m_xContext, nullptr ), SharedQueryComposer::TakeOwnership );
 
             // see if the composer found parameters
             Reference< XParametersSupplier > xParamSupp( m_xComposer, UNO_QUERY );
@@ -200,8 +200,7 @@ namespace dbtools
             }
             catch( const Exception& )
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN( "connectivity.commontools", "ParameterManager::collectInnerParameters: caught an exception! " << exceptionToString(ex) );
+                TOOLS_WARN_EXCEPTION( "connectivity.commontools", "ParameterManager::collectInnerParameters" );
             }
         }
     }
@@ -430,8 +429,7 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "connectivity.commontools", "ParameterManager::analyzeFieldLinks: caught an exception! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "connectivity.commontools", "ParameterManager::analyzeFieldLinks" );
         }
     }
 
@@ -481,10 +479,10 @@ namespace dbtools
             if ( nAlreadyVisited == aParam.second.aInnerIndexes.size() )
                 continue;
 
-            // need a wrapper for this .... the "inner parameters" as supplied by a result set don't have a "Value"
+            // need a wrapper for this... the "inner parameters" as supplied by a result set don't have a "Value"
             // property, but the parameter listeners expect such a property. So we need an object "aggregating"
             // xParam and supplying an additional property ("Value")
-            // (it's no real aggregation of course ...)
+            // (it's no real aggregation of course...)
             m_pOuterParameters->push_back( new param::ParameterWrapper( aParam.second.xComposerColumn, m_xInnerParamUpdate, aParam.second.aInnerIndexes ) );
         }
 
@@ -669,8 +667,7 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "connectivity.commontools", "ParameterManager::completeParameters: caught an exception while calling the handler! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "connectivity.commontools", "ParameterManager::completeParameters: caught an exception while calling the handler" );
         }
 
         if ( !pParams->wasSelected() )
@@ -700,8 +697,7 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "connectivity.commontools", "ParameterManager::completeParameters: caught an exception while propagating the values! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "connectivity.commontools", "ParameterManager::completeParameters: caught an exception while propagating the values" );
         }
         return true;
     }
@@ -795,8 +791,7 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "connectivity.commontools", "ParameterManager::cacheConnectionInfo: caught an exception! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "connectivity.commontools", "ParameterManager::cacheConnectionInfo: caught an exception" );
         }
     }
 
@@ -838,7 +833,7 @@ namespace dbtools
                 // re-create the parent composer all the time. Else, we'd have to bother with
                 // being a listener at its properties, its loaded state, and event the parent-relationship.
                 m_xParentComposer.reset(
-                    getCurrentSettingsComposer( xParent, m_xContext ),
+                    getCurrentSettingsComposer( xParent, m_xContext, nullptr ),
                     SharedQueryComposer::TakeOwnership
                 );
                 xParentColSupp.set(m_xParentComposer, css::uno::UNO_QUERY);
@@ -852,8 +847,7 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "connectivity.commontools", "ParameterManager::getParentColumns: caught an exception! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "connectivity.commontools", "ParameterManager::getParentColumns" );
         }
         return _out_rxParentColumns.is();
     }
@@ -949,8 +943,7 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "connectivity.commontools", "ParameterManager::resetParameterValues: caught an exception! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "connectivity.commontools", "ParameterManager::resetParameterValues" );
         }
 
     }

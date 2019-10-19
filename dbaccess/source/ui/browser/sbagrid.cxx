@@ -132,16 +132,13 @@ OUString SAL_CALL SbaXGridControl::getImplementationName()
 
 OUString SbaXGridControl::getImplementationName_Static()
 {
-    return OUString("com.sun.star.comp.dbu.SbaXGridControl");
+    return "com.sun.star.comp.dbu.SbaXGridControl";
 }
 
 Sequence< OUString> SbaXGridControl::getSupportedServiceNames_Static()
 {
-    Sequence< OUString> aSupported(3);
-    aSupported[0] = "com.sun.star.form.control.InteractionGridControl";
-    aSupported[1] = "com.sun.star.form.control.GridControl";
-    aSupported[2] = "com.sun.star.awt.UnoControl";
-    return aSupported;
+    return { "com.sun.star.form.control.InteractionGridControl", "com.sun.star.form.control.GridControl",
+         "com.sun.star.awt.UnoControl" };
 }
 
 SbaXGridControl::SbaXGridControl(const Reference< XComponentContext >& _rM)
@@ -415,7 +412,7 @@ void SAL_CALL SbaXGridPeer::dispatch(const URL& aURL, const Sequence< PropertyVa
         // this saves us from keeping track of these events - as soon as the window dies,
         // the events are deleted automatically. For the application way, we would need to
         // do this ourself.
-        // As we use our grid as window, and the grid dies before we dy, this should be no problem.
+        // As we use our grid as window, and the grid dies before we die, this should be no problem.
         pGrid->PostUserEvent( LINK( this, SbaXGridPeer, OnDispatchEvent ) );
         return;
     }
@@ -694,6 +691,7 @@ void SbaGridControl::dispose()
 {
     if (m_nAsyncDropEvent)
         Application::RemoveUserEvent(m_nAsyncDropEvent);
+    m_nAsyncDropEvent = nullptr;
     FmGridControl::dispose();
 }
 
@@ -749,7 +747,7 @@ void SbaGridControl::SetColWidth(sal_uInt16 nColId)
 {
     // get the (UNO) column model
     sal_uInt16 nModelPos = GetModelColumnPos(nColId);
-    Reference< XIndexAccess >  xCols(GetPeer()->getColumns(), UNO_QUERY);
+    Reference< XIndexAccess >  xCols = GetPeer()->getColumns();
     Reference< XPropertySet >  xAffectedCol;
     if (xCols.is() && (nModelPos != sal_uInt16(-1)))
         xAffectedCol.set(xCols->getByIndex(nModelPos), css::uno::UNO_QUERY);
@@ -828,7 +826,7 @@ void SbaGridControl::SetColAttrs(sal_uInt16 nColId)
     sal_uInt16 nModelPos = GetModelColumnPos(nColId);
 
     // get the (UNO) column model
-    Reference< XIndexAccess >  xCols(GetPeer()->getColumns(), UNO_QUERY);
+    Reference< XIndexAccess >  xCols = GetPeer()->getColumns();
     Reference< XPropertySet >  xAffectedCol;
     if (xCols.is() && (nModelPos != sal_uInt16(-1)))
         xAffectedCol.set(xCols->getByIndex(nModelPos), css::uno::UNO_QUERY);
@@ -926,7 +924,7 @@ Reference< XPropertySet >  SbaGridControl::getField(sal_uInt16 nModelPos)
     try
     {
         // first get the name of the column
-        Reference< XIndexAccess >  xCols(GetPeer()->getColumns(), UNO_QUERY);
+        Reference< XIndexAccess >  xCols = GetPeer()->getColumns();
         if ( xCols.is() && xCols->getCount() > nModelPos )
         {
             Reference< XPropertySet >  xCol(xCols->getByIndex(nModelPos),UNO_QUERY);
@@ -956,7 +954,7 @@ bool SbaGridControl::IsReadOnlyDB() const
         if (xColumns.is())
         {
             Reference< XRowSet >  xDataSource(xColumns->getParent(), UNO_QUERY);
-            ::dbtools::ensureRowSetConnection( xDataSource, getContext() );
+            ::dbtools::ensureRowSetConnection( xDataSource, getContext(), nullptr );
             Reference< XChild >  xConn(::dbtools::getConnection(xDataSource),UNO_QUERY);
             if (xConn.is())
             {
@@ -1089,7 +1087,7 @@ void SbaGridControl::StartDrag( sal_Int8 _nAction, const Point& _rPosPixel )
 
 void SbaGridControl::DoColumnDrag(sal_uInt16 nColumnPos)
 {
-    Reference< XPropertySet >  xDataSource(getDataSource(), UNO_QUERY);
+    Reference< XPropertySet >  xDataSource = getDataSource();
     OSL_ENSURE(xDataSource.is(), "SbaGridControl::DoColumnDrag : invalid data source !");
 
     Reference< XPropertySet > xAffectedCol;
@@ -1103,7 +1101,7 @@ void SbaGridControl::DoColumnDrag(sal_uInt16 nColumnPos)
         xActiveConnection = ::dbtools::getConnection(Reference< XRowSet >(getDataSource(),UNO_QUERY));
 
         sal_uInt16 nModelPos = GetModelColumnPos(GetColumnIdFromViewPos(nColumnPos));
-        Reference< XIndexContainer >  xCols(GetPeer()->getColumns(), UNO_QUERY);
+        Reference< XIndexContainer >  xCols = GetPeer()->getColumns();
         xAffectedCol.set(xCols->getByIndex(nModelPos),UNO_QUERY);
         if (xAffectedCol.is())
         {
@@ -1130,7 +1128,7 @@ void SbaGridControl::CopySelectedRowsToClipboard()
 
 void SbaGridControl::implTransferSelectedRows( sal_Int16 nRowPos, bool _bTrueIfClipboardFalseIfDrag )
 {
-    Reference< XPropertySet > xForm( getDataSource(), UNO_QUERY );
+    Reference< XPropertySet > xForm = getDataSource();
     OSL_ENSURE( xForm.is(), "SbaGridControl::implTransferSelectedRows: invalid form!" );
 
     // build the sequence of numbers of selected rows

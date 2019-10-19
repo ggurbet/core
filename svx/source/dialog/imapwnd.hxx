@@ -84,7 +84,7 @@ class IMapWindow final : public GraphCtrl
     TargetList          aTargetList;
     Link<IMapWindow&,void> aInfoLink;
     SfxItemPool*        pIMapPool;
-    SfxItemInfo         maItemInfos[1];
+    SfxItemInfo         maItemInfos[1] = {};
     css::uno::Reference< css::frame::XFrame >
                         mxDocumentFrame;
     std::unique_ptr<IMapDropTargetHelper> mxDropTargetHelper;
@@ -95,7 +95,7 @@ class IMapWindow final : public GraphCtrl
     // GraphCtrl
     virtual bool        MouseButtonUp(const MouseEvent& rMEvt) override;
     virtual void        SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
-    virtual bool        ContextMenu(const CommandEvent& rCEvt) override;
+    virtual bool        Command(const CommandEvent& rCEvt) override;
     virtual OUString    RequestHelp(tools::Rectangle& rHelpArea) override;
     virtual void        SdrObjCreated( const SdrObject& rObj ) override;
     virtual void        SdrObjChanged( const SdrObject& rObj ) override;

@@ -46,6 +46,7 @@
 #include <oox/mathml/importutils.hxx>
 #include <oox/mathml/import.hxx>
 #include <oox/token/properties.hxx>
+#include "diagram/diagram.hxx"
 
 #include <comphelper/classids.hxx>
 #include <comphelper/propertysequence.hxx>
@@ -95,9 +96,11 @@
 #include <vcl/svapp.hxx>
 #include <vcl/wmfexternal.hxx>
 #include <sal/log.hxx>
+#include <svx/unoapi.hxx>
 #include <svx/unoshape.hxx>
 #include <svx/xfillit0.hxx>
 #include <svx/sdtaitm.hxx>
+#include <svx/DiagramDataInterface.hxx>
 
 #include <vcl/wmf.hxx>
 
@@ -186,6 +189,7 @@ Shape::Shape( const ShapePtr& pSourceShape )
 , mnZOrderOff(pSourceShape->mnZOrderOff)
 , mnDataNodeType(pSourceShape->mnDataNodeType)
 , mfAspectRatio(pSourceShape->mfAspectRatio)
+, mbUseBgFill(pSourceShape->mbUseBgFill)
 {}
 
 Shape::~Shape()
@@ -324,16 +328,16 @@ void Shape::applyShapeReference( const Shape& rReferencedShape, bool bUseText )
     SAL_INFO("oox.drawingml", "Shape::applyShapeReference: apply '" << rReferencedShape.msId << "' to '" << msId << "'");
 
     if ( rReferencedShape.mpTextBody.get() && bUseText )
-        mpTextBody = std::make_shared<TextBody>( *rReferencedShape.mpTextBody.get() );
+        mpTextBody = std::make_shared<TextBody>( *rReferencedShape.mpTextBody );
     else
         mpTextBody.reset();
     maShapeProperties = rReferencedShape.maShapeProperties;
     mpShapeRefLinePropPtr = std::make_shared<LineProperties>( rReferencedShape.getActualLineProperties(nullptr) );
     mpShapeRefFillPropPtr = std::make_shared<FillProperties>( rReferencedShape.getActualFillProperties(nullptr, nullptr) );
-    mpCustomShapePropertiesPtr = std::make_shared<CustomShapeProperties>( *rReferencedShape.mpCustomShapePropertiesPtr.get() );
-    mpTablePropertiesPtr = table::TablePropertiesPtr( rReferencedShape.mpTablePropertiesPtr.get() ? new table::TableProperties( *rReferencedShape.mpTablePropertiesPtr.get() ) : nullptr );
+    mpCustomShapePropertiesPtr = std::make_shared<CustomShapeProperties>( *rReferencedShape.mpCustomShapePropertiesPtr );
+    mpTablePropertiesPtr = table::TablePropertiesPtr( rReferencedShape.mpTablePropertiesPtr.get() ? new table::TableProperties( *rReferencedShape.mpTablePropertiesPtr ) : nullptr );
     mpShapeRefEffectPropPtr = std::make_shared<EffectProperties>( rReferencedShape.getActualEffectProperties(nullptr) );
-    mpMasterTextListStyle = std::make_shared<TextListStyle>( *rReferencedShape.mpMasterTextListStyle.get() );
+    mpMasterTextListStyle = std::make_shared<TextListStyle>( *rReferencedShape.mpMasterTextListStyle );
     maSize = rReferencedShape.maSize;
     maPosition = rReferencedShape.maPosition;
     mnRotation = rReferencedShape.mnRotation;
@@ -465,7 +469,7 @@ static void lcl_createPresetShape(const uno::Reference<drawing::XShape>& xShape,
         !aAdjGdList.empty() ? aAdjGdList.size() : 1 );
 
     int nIndex = 0;
-    for (auto& aEntry : aAdjGdList)
+    for (const auto& aEntry : aAdjGdList)
     {
         double fValue = aEntry.maFormula.toDouble();
         // then: polar-handle, else: XY-handle
@@ -887,7 +891,7 @@ Reference< XShape > const & Shape::createAndInsert(
         mxShape.set( xServiceFact->createInstance( aServiceName ), UNO_QUERY_THROW );
 
     Reference< XPropertySet > xSet( mxShape, UNO_QUERY );
-    if( mxShape.is() && xSet.is() )
+    if (xSet.is())
     {
         if( !msName.isEmpty() )
         {
@@ -971,6 +975,7 @@ Reference< XShape > const & Shape::createAndInsert(
                     {"Idx", uno::makeAny(pLineRef->mnThemedIdx)},
                     {"Color", uno::makeAny(nLinePhClr)},
                     {"LineStyle", uno::makeAny(aLineProperties.getLineStyle())},
+                    {"LineCap", uno::makeAny(aLineProperties.getLineCap())},
                     {"LineJoint", uno::makeAny(aLineProperties.getLineJoint())},
                     {"LineWidth", uno::makeAny(aLineProperties.getLineWidth())},
                     {"Transformations", uno::makeAny(pLineRef->maPhClr.getTransformations())}
@@ -979,7 +984,10 @@ Reference< XShape > const & Shape::createAndInsert(
             }
             if( const ShapeStyleRef* pFillRef = getShapeStyleRef( XML_fillRef ) )
             {
-                nFillPhClr = pFillRef->maPhClr.getColor( rGraphicHelper );
+                if (!mbUseBgFill)
+                {
+                    nFillPhClr = pFillRef->maPhClr.getColor(rGraphicHelper);
+                }
 
                 OUString sColorScheme = pFillRef->maPhClr.getSchemeName();
                 if( !sColorScheme.isEmpty() )
@@ -1099,7 +1107,7 @@ Reference< XShape > const & Shape::createAndInsert(
                     aShapeProps.setAnyProperty(PROP_BackColorTransparency, aShapeProps.getProperty(PROP_FillTransparence));
                     aShapeProps.erase(PROP_FillTransparence);
                 }
-                // TextFrames have BackGrahic, not FillBitmap
+                // TextFrames have BackGraphic, not FillBitmap
                 if (aShapeProps.hasProperty(PROP_FillBitmap))
                 {
                     aShapeProps.setAnyProperty(PROP_BackGraphic, aShapeProps.getProperty(PROP_FillBitmap));
@@ -1372,7 +1380,11 @@ Reference< XShape > const & Shape::createAndInsert(
                 mpCustomShapePropertiesPtr->setMirroredY( true );
             if( getTextBody() )
             {
+                sal_Int32 nTextCameraZRotation = static_cast< sal_Int32 >( get3DProperties().maCameraRotation.mnRevolution.get() );
+                mpCustomShapePropertiesPtr->setTextCameraZRotateAngle( nTextCameraZRotation / 60000 );
+
                 sal_Int32 nTextRotateAngle = static_cast< sal_Int32 >( getTextBody()->getTextProperties().moRotation.get( 0 ) );
+
                 nTextRotateAngle -= mnDiagramRotation;
                 /* OOX measures text rotation clockwise in 1/60000th degrees,
                    relative to the containing shape. setTextRotateAngle wants
@@ -1484,6 +1496,12 @@ void Shape::keepDiagramCompatibilityInfo()
         if ( !xSetInfo.is() )
             return;
 
+        if (mpDiagramData)
+        {
+            if (SdrObject* pObj = GetSdrObjectFromXShape(mxShape))
+                pObj->SetDiagramData(mpDiagramData);
+        }
+
         const OUString aGrabBagPropName = UNO_NAME_MISC_OBJ_INTEROPGRABBAG;
         if( !xSetInfo->hasPropertyByName( aGrabBagPropName ) )
             return;
@@ -1493,15 +1511,8 @@ void Shape::keepDiagramCompatibilityInfo()
 
         // We keep the previous items, if present
         if ( aGrabBag.hasElements() )
-        {
-            sal_Int32 length = aGrabBag.getLength();
-            aGrabBag.realloc( length+maDiagramDoms.getLength() );
-
-            for( sal_Int32 i = 0; i < maDiagramDoms.getLength(); ++i )
-                aGrabBag[length+i] = maDiagramDoms[i];
-
-            xSet->setPropertyValue( aGrabBagPropName, Any( aGrabBag ) );
-        } else
+            xSet->setPropertyValue( aGrabBagPropName, Any( comphelper::concatSequences(aGrabBag, maDiagramDoms) ) );
+        else
             xSet->setPropertyValue( aGrabBagPropName, Any( maDiagramDoms ) );
     }
     catch( const Exception& )
@@ -1703,7 +1714,7 @@ void Shape::finalizeXShape( XmlFilterBase& rFilter, const Reference< XShapes >& 
                     if( !xChartDoc->hasInternalDataProvider() )
                     {
                         Reference< chart2::data::XDataReceiver > xDataRec( xChartDoc, UNO_QUERY );
-                        Reference< chart2::data::XDataSource > xData( xDataRec->getUsedData(), UNO_QUERY );
+                        Reference< chart2::data::XDataSource > xData = xDataRec->getUsedData();
                         if( !xData->getDataSequences().hasElements() || !xData->getDataSequences()[0]->getValues().is() ||
                                 !xData->getDataSequences()[0]->getValues()->getData().hasElements() )
                         {
@@ -1761,20 +1772,21 @@ void Shape::putPropertiesToGrabBag( const Sequence< PropertyValue >& aProperties
         // get existing grab bag
         Sequence< PropertyValue > aGrabBag;
         xSet->getPropertyValue( aGrabBagPropName ) >>= aGrabBag;
-        sal_Int32 length = aGrabBag.getLength();
 
-        // update grab bag size to contain the new items
-        aGrabBag.realloc( length + aProperties.getLength() );
+        std::vector<PropertyValue> aVec;
+        aVec.reserve(aProperties.getLength());
 
         // put the new items
-        for( sal_Int32 i=0; i < aProperties.getLength(); ++i )
-        {
-            aGrabBag[length + i].Name = aProperties[i].Name;
-            aGrabBag[length + i].Value = aProperties[i].Value;
-        }
+        std::transform(aProperties.begin(), aProperties.end(), std::back_inserter(aVec),
+            [](const PropertyValue& rProp) {
+                PropertyValue aProp;
+                aProp.Name = rProp.Name;
+                aProp.Value = rProp.Value;
+                return aProp;
+            });
 
         // put it back to the shape
-        xSet->setPropertyValue( aGrabBagPropName, Any( aGrabBag ) );
+        xSet->setPropertyValue( aGrabBagPropName, Any( comphelper::concatSequences(aGrabBag, aVec) ) );
     }
 }
 

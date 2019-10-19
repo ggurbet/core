@@ -20,17 +20,13 @@
 #include <vcl/svapp.hxx>
 #include <vcl/image.hxx>
 #include <vcl/metaact.hxx>
-#include <vcl/msgbox.hxx>
 #include <vcl/imagerepository.hxx>
-#include <unotools/resmgr.hxx>
 #include <tools/fract.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <vcl/graphicfilter.hxx>
-#include <vcl/wmf.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/wmfexternal.hxx>
-#include <svl/solar.hrc>
 #include <vcl/virdev.hxx>
-#include <vcl/settings.hxx>
 #include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/graphic/XGraphicProvider2.hpp>
 #include <com/sun/star/io/XStream.hpp>
@@ -46,11 +42,9 @@
 #include <graphic/UnoGraphicDescriptor.hxx>
 #include <graphic/UnoGraphic.hxx>
 #include <rtl/ref.hxx>
-#include <vcl/GraphicObject.hxx>
 #include <vcl/dibtools.hxx>
 #include <comphelper/sequence.hxx>
 #include <memory>
-#include <svtools/ehdl.hxx>
 
 using namespace com::sun::star;
 
@@ -96,7 +90,7 @@ GraphicProvider::GraphicProvider()
 
 OUString SAL_CALL GraphicProvider::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.graphic.GraphicProvider" );
+    return "com.sun.star.comp.graphic.GraphicProvider";
 }
 
 sal_Bool SAL_CALL GraphicProvider::supportsService( const OUString& ServiceName )
@@ -347,7 +341,7 @@ uno::Reference< ::graphic::XGraphic > SAL_CALL GraphicProvider::queryGraphic( co
     sal_uInt16 nExtWidth = 0;
     sal_uInt16 nExtHeight = 0;
     sal_uInt16 nExtMapMode = 0;
-    for( const auto& rProp : aFilterData )
+    for( const auto& rProp : std::as_const(aFilterData) )
     {
         const OUString   aName( rProp.Name );
         const uno::Any          aValue( rProp.Value );
@@ -568,7 +562,7 @@ void ImplApplyBitmapResolution( ::Graphic& rGraphic, sal_Int32 nImageResolution,
         ImplApplyBitmapScaling( rGraphic, nDestPixelWidth, nDestPixelHeight );
 }
 
-void ImplApplyFilterData( ::Graphic& rGraphic, uno::Sequence< beans::PropertyValue >& rFilterData )
+void ImplApplyFilterData( ::Graphic& rGraphic, const uno::Sequence< beans::PropertyValue >& rFilterData )
 {
     /* this method applies following attributes to the graphic, in the first step the
        cropping area (logical size in 100thmm) is applied, in the second step the resolution

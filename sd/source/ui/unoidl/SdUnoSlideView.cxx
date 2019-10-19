@@ -27,7 +27,6 @@
 #include <controller/SlsPageSelector.hxx>
 #include <controller/SlsCurrentSlideManager.hxx>
 #include <model/SlsPageEnumerationProvider.hxx>
-#include <model/SlideSorterModel.hxx>
 #include <model/SlsPageDescriptor.hxx>
 #include <sdpage.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -58,10 +57,9 @@ sal_Bool SAL_CALL SdUnoSlideView::select (const Any& aSelection)
     rSelector.DeselectAllPages();
     Sequence<Reference<drawing::XDrawPage> > xPages;
     aSelection >>= xPages;
-    const sal_uInt32 nCount = xPages.getLength();
-    for (sal_uInt32 nIndex=0; nIndex<nCount; ++nIndex)
+    for (const auto& rPage : std::as_const(xPages))
     {
-        Reference<beans::XPropertySet> xSet (xPages[nIndex], UNO_QUERY);
+        Reference<beans::XPropertySet> xSet (rPage, UNO_QUERY);
         if (xSet.is())
         {
             try
@@ -155,7 +153,7 @@ Any SAL_CALL SdUnoSlideView::getFastPropertyValue (
 // XServiceInfo
 OUString SAL_CALL SdUnoSlideView::getImplementationName(  )
 {
-    return OUString( "com.sun.star.comp.sd.SdUnoSlideView" );
+    return "com.sun.star.comp.sd.SdUnoSlideView";
 }
 
 sal_Bool SAL_CALL SdUnoSlideView::supportsService( const OUString& ServiceName )
@@ -165,9 +163,7 @@ sal_Bool SAL_CALL SdUnoSlideView::supportsService( const OUString& ServiceName )
 
 Sequence< OUString > SAL_CALL SdUnoSlideView::getSupportedServiceNames(  )
 {
-    OUString aSN( "com.sun.star.presentation.SlidesView" );
-    uno::Sequence< OUString > aSeq( &aSN, 1 );
-    return aSeq;
+    return { "com.sun.star.presentation.SlidesView" };
 }
 
 } // end of namespace sd

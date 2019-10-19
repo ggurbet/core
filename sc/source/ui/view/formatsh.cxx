@@ -23,9 +23,7 @@
 
 #include <scitems.hxx>
 #include <editeng/borderline.hxx>
-#include <editeng/eeitem.hxx>
 
-#include <sfx2/app.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/newstyle.hxx>
@@ -41,10 +39,8 @@
 #include <editeng/langitem.hxx>
 #include <svx/numinf.hxx>
 #include <sfx2/dispatch.hxx>
-#include <sfx2/templdlg.hxx>
 #include <sfx2/tplpitem.hxx>
 #include <editeng/svxenum.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/postitem.hxx>
 #include <editeng/udlnitem.hxx>
@@ -53,7 +49,6 @@
 #include <editeng/brushitem.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <editeng/scripttypeitem.hxx>
-#include <svtools/colorcfg.hxx>
 #include <editeng/shaditem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <editeng/fhgtitem.hxx>
@@ -61,7 +56,6 @@
 
 #include <formatsh.hxx>
 #include <sc.hrc>
-#include <scres.hrc>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <docsh.hxx>
@@ -74,7 +68,6 @@
 #include <tabvwsh.hxx>
 #include <undostyl.hxx>
 #include <markdata.hxx>
-#include <markarr.hxx>
 #include <attrib.hxx>
 
 #define ShellClass_ScFormatShell
@@ -931,7 +924,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                         pStylePool->Remove( pStyleSheet );
                     else
                     {
-                        // If in the mean time something was painted with the
+                        // If in the meantime something was painted with the
                         // temporary changed item set
                         pDocSh->PostPaintGridAll();
                     }
@@ -2557,14 +2550,14 @@ void ScFormatShell::GetNumFormatState( SfxItemSet& rSet )
                         const OUString sPrecision = OUString::number(nPrecision);
                         const OUString sLeadZeroes = OUString::number(nLeadZeroes);
 
-                        aFormat += sThousand;
-                        aFormat += sBreak;
-                        aFormat += sNegRed;
-                        aFormat += sBreak;
-                        aFormat += sPrecision;
-                        aFormat += sBreak;
-                        aFormat += sLeadZeroes;
-                        aFormat += sBreak;
+                        aFormat += sThousand +
+                            sBreak +
+                            sNegRed +
+                            sBreak +
+                            sPrecision +
+                            sBreak +
+                            sLeadZeroes +
+                            sBreak;
 
                         rSet.Put(SfxStringItem(nWhich, aFormat));
                     }

@@ -55,7 +55,7 @@ void OEvoabDriver::disposing()
     ::osl::MutexGuard aGuard(m_aMutex);
 
     // when driver will be destroyed so all our connections have to be destroyed as well
-    for (auto& rxConnection : m_xConnections)
+    for (const auto& rxConnection : m_xConnections)
     {
         Reference< XComponent > xComp(rxConnection.get(), UNO_QUERY);
         if (xComp.is())
@@ -80,7 +80,7 @@ void OEvoabDriver::disposing()
 
 OUString OEvoabDriver::getImplementationName_Static(  )
 {
-    return OUString(EVOAB_DRIVER_IMPL_NAME);
+    return EVOAB_DRIVER_IMPL_NAME;
     // this name is referenced in the configuration and in the evoab.xml
     // Please take care when changing it.
 }

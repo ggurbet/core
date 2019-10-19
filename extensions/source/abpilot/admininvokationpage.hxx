@@ -27,30 +27,29 @@ namespace abp
 {
     class AdminDialogInvokationPage final : public AddressBookSourcePage
     {
-        VclPtr<PushButton> m_pInvokeAdminDialog;
-        VclPtr<FixedText>  m_pErrorMessage;
+        std::unique_ptr<weld::Button> m_xInvokeAdminDialog;
+        std::unique_ptr<weld::Label> m_xErrorMessage;
 
     public:
-        explicit AdminDialogInvokationPage(OAddressBookSourcePilot* _pParent);
+        explicit AdminDialogInvokationPage(weld::Container* pPage, OAddressBookSourcePilot* pDialog);
         virtual ~AdminDialogInvokationPage() override;
-        virtual void dispose() override;
     private:
-        // TabDialog overridables
-        virtual void        ActivatePage() override;
+        // BuilderPage overridables
+        virtual void        Activate() override;
+
+        // OWizard overridables
         virtual void        initializePage() override;
 
         // OImportPage overridables
         virtual bool        canAdvance() const override;
 
-        DECL_LINK( OnInvokeAdminDialog, Button*, void );
+        DECL_LINK( OnInvokeAdminDialog, weld::Button&, void );
 
         void implTryConnect();
         void implUpdateErrorMessage();
     };
 
-
 }   // namespace abp
-
 
 #endif // INCLUDED_EXTENSIONS_SOURCE_ABPILOT_ADMININVOKATIONPAGE_HXX
 

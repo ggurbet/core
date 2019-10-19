@@ -51,8 +51,8 @@ void FillFieldSelect(weld::TreeView& rListBox)
         rListBox.append_text(SwResId(FLD_SELECT[i]));
 }
 
-SwFieldDokInfPage::SwFieldDokInfPage(TabPageParent pParent, const SfxItemSet *const pCoreSet)
-    :  SwFieldPage(pParent, "modules/swriter/ui/flddocinfopage.ui", "FieldDocInfoPage", pCoreSet)
+SwFieldDokInfPage::SwFieldDokInfPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *const pCoreSet)
+    :  SwFieldPage(pPage, pController, "modules/swriter/ui/flddocinfopage.ui", "FieldDocInfoPage", pCoreSet)
     , nOldSel(0)
     , nOldFormat(0)
     , m_xTypeTLB(m_xBuilder->weld_tree_view("type"))
@@ -65,7 +65,7 @@ SwFieldDokInfPage::SwFieldDokInfPage(TabPageParent pParent, const SfxItemSet *co
     m_xTypeTLB->make_sorted();
     FillFieldSelect(*m_xSelectionLB);
 
-    auto nWidth = LogicToPixel(Size(FIELD_COLUMN_WIDTH, 0), MapMode(MapUnit::MapAppFont)).Width();
+    auto nWidth = m_xTypeTLB->get_approximate_digit_width() * FIELD_COLUMN_WIDTH;
     auto nHeight = m_xTypeTLB->get_height_rows(20);
     m_xTypeTLB->set_size_request(nWidth, nHeight);
     m_xFormatLB->get_widget().set_size_request(nWidth, nHeight);
@@ -83,7 +83,6 @@ SwFieldDokInfPage::SwFieldDokInfPage(TabPageParent pParent, const SfxItemSet *co
 
 SwFieldDokInfPage::~SwFieldDokInfPage()
 {
-    disposeOnce();
 }
 
 void SwFieldDokInfPage::Reset(const SfxItemSet* )
@@ -124,7 +123,7 @@ void SwFieldDokInfPage::Reset(const SfxItemSet* )
     }
 
     std::vector<OUString> aLst;
-    GetFieldMgr().GetSubTypes(TYP_DOCINFOFLD, aLst);
+    GetFieldMgr().GetSubTypes(SwFieldTypesEnum::DocumentInfo, aLst);
     std::unique_ptr<weld::TreeIter> xEntry(m_xTypeTLB->make_iterator());
     std::unique_ptr<weld::TreeIter> xExpandEntry;
     for(size_t i = 0; i < aLst.size(); ++i)
@@ -216,9 +215,9 @@ void SwFieldDokInfPage::Reset(const SfxItemSet* )
 IMPL_LINK_NOARG(SwFieldDokInfPage, TypeHdl, weld::TreeView&, void)
 {
     // current ListBoxPos
-    if (!m_xTypeTLB->get_selected(m_xSelEntry.get()))
+    if (!m_xTypeTLB->get_selected(m_xSelEntry.get()) &&
+        m_xTypeTLB->get_iter_first(*m_xSelEntry))
     {
-        m_xTypeTLB->get_iter_first(*m_xSelEntry);
         m_xTypeTLB->select(*m_xSelEntry);
     }
     FillSelectionLB(m_xTypeTLB->get_id(*m_xSelEntry).toUInt32());
@@ -357,7 +356,7 @@ IMPL_LINK_NOARG(SwFieldDokInfPage, SubTypeHdl, weld::TreeView&, void)
 sal_Int32 SwFieldDokInfPage::FillSelectionLB(sal_uInt16 nSubType)
 {
     // fill Format-Listbox
-    sal_uInt16 nTypeId = TYP_DOCINFOFLD;
+    SwFieldTypesEnum nTypeId = SwFieldTypesEnum::DocumentInfo;
 
     EnableInsert(nSubType != USHRT_MAX);
 
@@ -437,17 +436,17 @@ bool SwFieldDokInfPage::FillItemSet(SfxItemSet* )
         nOldFormat != nFormat || m_xFixedCB->get_state_changed_from_saved()
         || (DI_CUSTOM == nSubType && aName != m_sOldCustomFieldName ))
     {
-        InsertField(TYP_DOCINFOFLD, nSubType, aName, OUString(), nFormat,
+        InsertField(SwFieldTypesEnum::DocumentInfo, nSubType, aName, OUString(), nFormat,
                 ' ', m_xFormatLB->IsAutomaticLanguage());
     }
 
     return false;
 }
 
-VclPtr<SfxTabPage> SwFieldDokInfPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SwFieldDokInfPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                             const SfxItemSet *const pAttrSet)
 {
-    return VclPtr<SwFieldDokInfPage>::Create(pParent, pAttrSet);
+    return std::make_unique<SwFieldDokInfPage>(pPage, pController, pAttrSet);
 }
 
 sal_uInt16 SwFieldDokInfPage::GetGroup()

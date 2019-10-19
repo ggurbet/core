@@ -29,6 +29,7 @@
 #include <com/sun/star/text/XTextDocument.hpp>
 #include <com/sun/star/text/XFootnotesSupplier.hpp>
 #include <com/sun/star/text/XEndnotesSupplier.hpp>
+#include <com/sun/star/text/XPageCursor.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/container/XEnumeration.hpp>
@@ -374,7 +375,7 @@ uno::Reference< text::XTextRange > SwVbaView::getHFTextRange( sal_Int32 nType )
 OUString
 SwVbaView::getServiceImplName()
 {
-    return OUString("SwVbaView");
+    return "SwVbaView";
 }
 
 uno::Sequence< OUString >

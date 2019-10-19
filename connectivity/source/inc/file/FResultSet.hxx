@@ -163,7 +163,7 @@ namespace connectivity
             OResultSet( OStatement_Base* pStmt,connectivity::OSQLParseTreeIterator& _aSQLIterator);
 
             // ::cppu::OComponentHelper
-            virtual void SAL_CALL disposing() override;
+            virtual void SAL_CALL disposing() override final;
             // XInterface
             virtual css::uno::Any SAL_CALL queryInterface( const css::uno::Type & rType ) override;
             virtual void SAL_CALL acquire() throw() override;
@@ -250,7 +250,7 @@ namespace connectivity
             virtual sal_Int32 SAL_CALL findColumn( const OUString& columnName ) override;
             // css::lang::XUnoTunnel
             virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& aIdentifier ) override;
-            static css::uno::Sequence< sal_Int8 > getUnoTunnelImplementationId();
+            static css::uno::Sequence< sal_Int8 > getUnoTunnelId();
             //XEventlistener
             virtual void SAL_CALL disposing( const css::lang::EventObject& Source ) override;
 

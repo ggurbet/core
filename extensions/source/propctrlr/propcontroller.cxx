@@ -46,7 +46,6 @@
 #include <comphelper/property.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/tabpage.hxx>
 #include <osl/mutex.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/component_context.hxx>
@@ -510,9 +509,8 @@ namespace pcr
         // don't delete explicitly (this is done by the frame we reside in)
         m_pView = nullptr;
 
-        Reference< XComponent > xViewAsComp( m_xView, UNO_QUERY );
-        if ( xViewAsComp.is() )
-            xViewAsComp->removeEventListener( static_cast< XPropertyChangeListener* >( this ) );
+        if ( m_xView.is() )
+            m_xView->removeEventListener( static_cast< XPropertyChangeListener* >( this ) );
         m_xView.clear( );
 
         m_aInspectedObjects.clear();
@@ -551,7 +549,7 @@ namespace pcr
 
     OUString OPropertyBrowserController::getImplementationName_static(  )
     {
-        return OUString("org.openoffice.comp.extensions.ObjectInspector");
+        return "org.openoffice.comp.extensions.ObjectInspector";
     }
 
 
@@ -672,9 +670,8 @@ namespace pcr
         // and this disposal _deletes_ the view, so it would be deadly if we use our m_pView member
         // after that
         m_xView = VCLUnoHelper::GetInterface(m_pView);
-        Reference< XComponent > xViewAsComp(m_xView, UNO_QUERY);
-        if (xViewAsComp.is())
-            xViewAsComp->addEventListener( static_cast< XPropertyChangeListener* >( this ) );
+        if (m_xView.is())
+            m_xView->addEventListener( static_cast< XPropertyChangeListener* >( this ) );
 
         getPropertyBox().SetLineListener(this);
         getPropertyBox().SetControlObserver(this);
@@ -1415,7 +1412,7 @@ namespace pcr
         if ( m_xModel.is() )
             aHandlerFactories = m_xModel->getHandlerFactories();
 
-        for ( auto const & handlerFactory : aHandlerFactories )
+        for ( auto const & handlerFactory : std::as_const(aHandlerFactories) )
         {
             if ( _rObjects.size() == 1 )
             {   // we're inspecting only one object -> one handler

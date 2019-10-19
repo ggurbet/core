@@ -38,14 +38,6 @@ namespace unocontrols {
 class ProgressBar;
 
 #define PROGRESSMONITOR_FREEBORDER                      10                                                      // border around and between the controls
-#define FIXEDTEXT_SERVICENAME                           "com.sun.star.awt.UnoControlFixedText"
-#define BUTTON_SERVICENAME                              "com.sun.star.awt.UnoControlButton"
-#define FIXEDTEXT_MODELNAME                             "com.sun.star.awt.UnoControlFixedTextModel"
-#define BUTTON_MODELNAME                                "com.sun.star.awt.UnoControlButtonModel"
-#define CONTROLNAME_TEXT                                "Text"                                                  // identifier the control in container
-#define CONTROLNAME_BUTTON                              "Button"                                                //              -||-
-#define CONTROLNAME_PROGRESSBAR                         "ProgressBar"                                           //              -||-
-#define DEFAULT_BUTTONLABEL                             "Abbrechen"
 #define PROGRESSMONITOR_DEFAULT_TOPIC                   ""
 #define PROGRESSMONITOR_DEFAULT_TEXT                    ""
 #define PROGRESSMONITOR_LINECOLOR_BRIGHT                sal_Int32(Color( 0x00, 0xFF, 0xFF, 0xFF ))             // white
@@ -217,9 +209,9 @@ public:
 
     //  BaseControl
 
-    static const css::uno::Sequence< OUString > impl_getStaticSupportedServiceNames();
+    static css::uno::Sequence< OUString > impl_getStaticSupportedServiceNames();
 
-    static const OUString impl_getStaticImplementationName();
+    static OUString impl_getStaticImplementationName();
 
 protected:
     virtual void impl_paint( sal_Int32 nX ,

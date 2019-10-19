@@ -18,6 +18,7 @@
  */
 
 #include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <com/sun/star/document/EventObject.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
@@ -481,8 +482,7 @@ void SAL_CALL SvxDrawPage::ungroup( const Reference< drawing::XShapeGroup >& aGr
 
     SdrPageView* pPageView = mpView->ShowSdrPage( mpPage );
 
-    Reference< drawing::XShape > xShape( aGroup, UNO_QUERY );
-    SelectObjectInView( xShape, pPageView );
+    SelectObjectInView( aGroup, pPageView );
     mpView->UnGroupMarked();
 
     mpView->HideSdrPage();
@@ -786,7 +786,7 @@ SvxShape* SvxDrawPage::CreateShapeByTypeAndInventor( sal_uInt16 nType, SdrInvent
                     pRet = new SvxTableShape( pObj );
                     break;
                 default: // unknown 2D-object on page
-                    OSL_FAIL("Not implemented Starone-Shape created! [CL]");
+                    assert(false && "Not implemented Starone-Shape created");
                     pRet = new SvxShapeText( pObj );
                     break;
             }
@@ -794,7 +794,7 @@ SvxShape* SvxDrawPage::CreateShapeByTypeAndInventor( sal_uInt16 nType, SdrInvent
         }
         default: // unknown inventor
         {
-            OSL_FAIL("AW: Unknown Inventor in SvxDrawPage::CreateShape()");
+            assert(false && "Unknown Inventor in SvxDrawPage::CreateShape()");
             break;
         }
     }
@@ -855,7 +855,7 @@ SdrObject *SvxDrawPage::CreateSdrObject( const Reference< drawing::XShape > & xS
 // css::lang::XServiceInfo
 OUString SAL_CALL SvxDrawPage::getImplementationName()
 {
-    return OUString("SvxDrawPage");
+    return "SvxDrawPage";
 }
 
 sal_Bool SAL_CALL SvxDrawPage::supportsService( const OUString& ServiceName )

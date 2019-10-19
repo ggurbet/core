@@ -17,9 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <scitems.hxx>
-#include <svl/intitem.hxx>
-#include <svl/zforlist.hxx>
 #include <vcl/svapp.hxx>
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -27,9 +24,7 @@
 #include <cursuno.hxx>
 #include <cellsuno.hxx>
 #include <docsh.hxx>
-#include <hints.hxx>
 #include <markdata.hxx>
-#include <dociter.hxx>
 #include <miscuno.hxx>
 
 using namespace com::sun::star;
@@ -132,8 +127,8 @@ void SAL_CALL ScCellCursorObj::collapseToCurrentArray()
         }
     }
     // that's a Bug, that this assertion comes; the API Reference says, that
-    // if there is no Matrix, the Range is left unchanged; they says nothing
-    // about a exception
+    // if there is no Matrix, the Range is left unchanged; they say nothing
+    // about an exception
     /*if (!bFound)
     {
         OSL_FAIL("no matrix");
@@ -434,7 +429,7 @@ uno::Reference<table::XCellRange> SAL_CALL ScCellCursorObj::getCellRangeByName(
 
 OUString SAL_CALL ScCellCursorObj::getImplementationName()
 {
-    return OUString( "ScCellCursorObj" );
+    return "ScCellCursorObj";
 }
 
 sal_Bool SAL_CALL ScCellCursorObj::supportsService( const OUString& rServiceName )
@@ -444,22 +439,10 @@ sal_Bool SAL_CALL ScCellCursorObj::supportsService( const OUString& rServiceName
 
 uno::Sequence<OUString> SAL_CALL ScCellCursorObj::getSupportedServiceNames()
 {
-    //  get all service names from cell range
-    uno::Sequence<OUString> aParentSeq(ScCellRangeObj::getSupportedServiceNames());
-    sal_Int32 nParentLen = aParentSeq.getLength();
-    const OUString* pParentArr = aParentSeq.getConstArray();
-
     //  SheetCellCursor should be first (?)
-    uno::Sequence<OUString> aTotalSeq( nParentLen + 2 );
-    OUString* pTotalArr = aTotalSeq.getArray();
-    pTotalArr[0] = SCSHEETCELLCURSOR_SERVICE;
-    pTotalArr[1] = SCCELLCURSOR_SERVICE;
-
-    //  append cell range services
-    for (long i=0; i<nParentLen; i++)
-        pTotalArr[i+2] = pParentArr[i];
-
-    return aTotalSeq;
+    return comphelper::concatSequences<OUString>(
+        { SCSHEETCELLCURSOR_SERVICE, SCCELLCURSOR_SERVICE },
+        ScCellRangeObj::getSupportedServiceNames());
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

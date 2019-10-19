@@ -22,6 +22,7 @@
 #include <sal/config.h>
 #include <sfx2/dllapi.h>
 
+#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/util/Duration.hpp>
 #include <com/sun/star/document/CmisProperty.hpp>
@@ -199,14 +200,13 @@ private:
     void                ImplCheckPasswordState();
 
 protected:
-    virtual ~SfxDocumentPage() override;
-
     virtual bool        FillItemSet( SfxItemSet* ) override;
     virtual void        Reset( const SfxItemSet* ) override;
 
 public:
-    SfxDocumentPage(TabPageParent pParent, const SfxItemSet&);
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* );
+    SfxDocumentPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet&);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
+    virtual ~SfxDocumentPage() override;
 
     void                EnableUseUserData();
 };
@@ -223,14 +223,13 @@ private:
     std::unique_ptr<weld::TextView> m_xCommentEd;
 
 protected:
-    virtual ~SfxDocumentDescPage() override;
-
     virtual bool            FillItemSet( SfxItemSet* ) override;
     virtual void            Reset( const SfxItemSet* ) override;
 
 public:
-    SfxDocumentDescPage(TabPageParent pParent, const SfxItemSet&);
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* );
+    SfxDocumentDescPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet&);
+    virtual ~SfxDocumentDescPage() override;
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
 };
 
 // class SfxDocumentInfoDialog -------------------------------------------
@@ -339,7 +338,7 @@ struct CustomPropertyLine
     DECL_LINK(EditLoseFocusHdl, weld::Widget&, void);
     DECL_LINK(BoxLoseFocusHdl, weld::Widget&, void);
 
-    void DoTypeHdl(weld::ComboBox& rBox);
+    void DoTypeHdl(const weld::ComboBox& rBox);
 
     void Clear();
     void Hide();
@@ -400,7 +399,7 @@ public:
 
     void                BoxLoseFocus(CustomPropertyLine* pLine);
     void                EditLoseFocus(CustomPropertyLine* pLine);
-    void                Remove(CustomPropertyLine* pLine);
+    void                Remove(const CustomPropertyLine* pLine);
 };
 
 // class CustomPropertiesControl -----------------------------------------
@@ -412,8 +411,8 @@ private:
 
     std::unique_ptr<weld::Widget> m_xBox;
     std::unique_ptr<weld::Container> m_xBody;
-    std::unique_ptr<CustomPropertiesWindow> m_xPropertiesWin;
     std::unique_ptr<weld::ScrolledWindow> m_xVertScroll;
+    std::unique_ptr<CustomPropertiesWindow> m_xPropertiesWin;
     std::unique_ptr<weld::Label> m_xName;
     std::unique_ptr<weld::Label> m_xType;
     std::unique_ptr<weld::Label> m_xValue;
@@ -446,22 +445,18 @@ class SfxCustomPropertiesPage : public SfxTabPage
 private:
     DECL_LINK(AddHdl, weld::Button&, void);
 
-    using TabPage::DeactivatePage;
-
     std::unique_ptr<CustomPropertiesControl> m_xPropertiesCtrl;
     std::unique_ptr<weld::Button> m_xAdd;
 
 protected:
-    virtual ~SfxCustomPropertiesPage() override;
-    virtual void dispose() override;
-
     virtual bool        FillItemSet( SfxItemSet* ) override;
     virtual void        Reset( const SfxItemSet* ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
-    SfxCustomPropertiesPage(TabPageParent pParent, const SfxItemSet&);
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* );
+    SfxCustomPropertiesPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet&);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
+    virtual ~SfxCustomPropertiesPage() override;
 };
 
 struct CmisValue
@@ -568,7 +563,6 @@ class SfxCmisPropertiesPage : public SfxTabPage
 {
 private:
     std::unique_ptr<CmisPropertiesControl> m_xPropertiesCtrl;
-    using TabPage::DeactivatePage;
 
 protected:
     virtual bool        FillItemSet( SfxItemSet* ) override;
@@ -576,10 +570,9 @@ protected:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
-    SfxCmisPropertiesPage(TabPageParent pParent, const SfxItemSet&);
-    virtual void dispose() override;
+    SfxCmisPropertiesPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet&);
     virtual ~SfxCmisPropertiesPage() override;
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet*);
 };
 
 #endif // #ifndef _ INCLUDED_SFX2_DINFDLG_HXX

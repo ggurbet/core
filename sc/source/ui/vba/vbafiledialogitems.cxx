@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 #include "vbafiledialogitems.hxx"
-#include <com/sun/star/lang/XSingleComponentFactory.hpp>
-#include <com/sun/star/container/XIndexContainer.hpp>
 
 using namespace ::com::sun::star;
 using namespace ::ooo::vba;
@@ -67,7 +65,10 @@ uno::Any
 ScVbaFileDialogSelectedItems::createCollectionObject( const uno::Any& aSource )
 {
     sal_Int32 nPosition = -1;
-    aSource >>= nPosition;
+    if (!(aSource >>= nPosition))
+        throw uno::RuntimeException("not an sal_Int32");
+    if (nPosition < 0 || nPosition >= static_cast<sal_Int32>(m_sItems.size()))
+        throw uno::RuntimeException("out of range");
 
     OUString sPath = m_sItems[nPosition];
     return uno::makeAny( sPath );
@@ -99,7 +100,7 @@ sal_Int32 ScVbaFileDialogSelectedItems::getCount()
 OUString
 ScVbaFileDialogSelectedItems::getServiceImplName()
 {
-    return OUString("ScVbaFileDialogSelectedItems");
+    return "ScVbaFileDialogSelectedItems";
 }
 
 uno::Sequence<OUString>

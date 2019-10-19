@@ -19,9 +19,6 @@
 #ifndef INCLUDED_UCB_SOURCE_UCP_FILE_FILTASK_HXX
 #define INCLUDED_UCB_SOURCE_UCP_FILE_FILTASK_HXX
 
-#include <cppuhelper/weak.hxx>
-#include <cppuhelper/interfacecontainer.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <osl/file.hxx>
 #include <rtl/ustring.hxx>
 
@@ -32,32 +29,24 @@
 #include <com/sun/star/beans/Property.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/io/XStream.hpp>
-#include <com/sun/star/beans/XPropertyChangeListener.hpp>
-#include <com/sun/star/ucb/XCommandProcessor.hpp>
 #include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/io/XInputStream.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
-#include <com/sun/star/beans/XPropertiesChangeNotifier.hpp>
 #include <com/sun/star/ucb/NumberedSortingInfo.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
-#include <com/sun/star/ucb/XContentProvider.hpp>
 #include <com/sun/star/ucb/XDynamicResultSet.hpp>
 #include <com/sun/star/beans/XPropertyContainer.hpp>
 #include <com/sun/star/beans/XPropertyAccess.hpp>
-#include <com/sun/star/ucb/XPropertySetRegistryFactory.hpp>
-#include <com/sun/star/ucb/TransferInfo.hpp>
 #include <com/sun/star/ucb/ContentInfo.hpp>
-#include <com/sun/star/ucb/DuplicateCommandIdentifierException.hpp>
 #include <com/sun/star/ucb/XCommandEnvironment.hpp>
-#include <com/sun/star/ucb/XProgressHandler.hpp>
+#include <com/sun/star/ucb/XPersistentPropertySet.hpp>
+#include <com/sun/star/ucb/XPropertySetRegistry.hpp>
 #include <com/sun/star/task/XInteractionHandler.hpp>
 #include <com/sun/star/task/XInteractionRequest.hpp>
 #include "filerror.hxx"
 #include "filnot.hxx"
 #include <unordered_map>
-#include <functional>
 #include <unordered_set>
 #include <vector>
 
@@ -128,12 +117,12 @@ namespace fileaccess
                 m_nMinorCode = nMinorCode;
             }
 
-            sal_Int32 getInstalledError()
+            sal_Int32 getInstalledError() const
             {
                 return m_nErrorCode;
             }
 
-            sal_Int32 getMinorErrorCode()
+            sal_Int32 getMinorErrorCode() const
             {
                 return m_nMinorCode;
             }
@@ -148,7 +137,7 @@ namespace fileaccess
             }
 
             const css::uno::Reference< css::ucb::XCommandEnvironment >&
-            getCommandEnvironment()
+            getCommandEnvironment() const
             {
                 return m_xCommandEnvironment;
             }
@@ -577,8 +566,7 @@ namespace fileaccess
         // is returned by osl::DirectoryItem::getNextItem()
 
         bool
-        getv( Notifier* pNotifier,
-              const css::uno::Sequence< css::beans::Property >& properties,
+        getv( const css::uno::Sequence< css::beans::Property >& properties,
               osl::DirectoryItem& DirItem,
               OUString& aUnqPath,
               bool&      bIsRegular,
@@ -606,7 +594,7 @@ namespace fileaccess
 
         /**
          *  Given a Sequence of properties seq, this method determines the mask
-         *  used to instantiate a osl::FileStatus, so that a call to
+         *  used to instantiate an osl::FileStatus, so that a call to
          *  osl::DirectoryItem::getFileStatus fills the required fields.
          */
 

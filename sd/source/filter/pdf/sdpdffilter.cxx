@@ -24,7 +24,6 @@
 #include <drawdoc.hxx>
 #include <sdpdffilter.hxx>
 
-#include <vcl/bitmap.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/pdfread.hxx>
 
@@ -55,37 +54,28 @@ bool SdPdfFilter::Import()
     // Rendering resolution.
     const double dResolutionDPI = 96.;
 
-    uno::Sequence<sal_Int8> aPdfData;
-    std::vector<Bitmap> aBitmaps;
-    if (vcl::ImportPDF(aFileName, aBitmaps, aPdfData, dResolutionDPI) == 0)
+    std::vector<std::pair<Graphic, Size>> aGraphics;
+    if (vcl::ImportPDFUnloaded(aFileName, aGraphics, dResolutionDPI) == 0)
         return false;
 
-    // Prepare the link with the PDF stream.
-    const size_t nGraphicContentSize = aPdfData.getLength();
-    std::unique_ptr<sal_uInt8[]> pGraphicContent(new sal_uInt8[nGraphicContentSize]);
-    memcpy(pGraphicContent.get(), aPdfData.get(), nGraphicContentSize);
-    std::shared_ptr<GfxLink> pGfxLink(std::make_shared<GfxLink>(
-        std::move(pGraphicContent), nGraphicContentSize, GfxLinkType::NativePdf));
-    auto pPdfData = std::make_shared<uno::Sequence<sal_Int8>>(aPdfData);
-
+    // Add as many pages as we need up-front.
     mrDocument.CreateFirstPages();
-    for (size_t i = 0; i < aBitmaps.size() - 1; ++i)
+    for (size_t i = 0; i < aGraphics.size() - 1; ++i)
     {
         mrDocument.DuplicatePage(0);
     }
 
-    size_t nPageNumber = 0;
-    for (Bitmap& aBitmap : aBitmaps)
+    for (const std::pair<Graphic, Size>& aPair : aGraphics)
     {
-        // Create the Graphic and link the original PDF stream.
-        Graphic aGraphic(aBitmap);
-        aGraphic.setPdfData(pPdfData);
-        aGraphic.setPageNumber(nPageNumber);
-        aGraphic.SetGfxLink(pGfxLink);
+        const Graphic& rGraphic = aPair.first;
+        const Size& aSize = aPair.second;
+
+        const sal_Int32 nPageNumber = rGraphic.getPageNumber();
+        assert(nPageNumber >= 0 && static_cast<size_t>(nPageNumber) < aGraphics.size());
 
         // Create the page and insert the Graphic.
-        SdPage* pPage = mrDocument.GetSdPage(nPageNumber++, PageKind::Standard);
-        Size aGrfSize(OutputDevice::LogicToLogic(aGraphic.GetPrefSize(), aGraphic.GetPrefMapMode(),
+        SdPage* pPage = mrDocument.GetSdPage(nPageNumber, PageKind::Standard);
+        Size aGrfSize(OutputDevice::LogicToLogic(aSize, rGraphic.GetPrefMapMode(),
                                                  MapMode(MapUnit::Map100thMM)));
 
         // Resize to original size based on 72 dpi to preserve page size.
@@ -96,8 +86,14 @@ bool SdPdfFilter::Import()
         pPage->SetSize(aGrfSize);
         Point aPos(0, 0);
 
-        pPage->InsertObject(new SdrGrafObj(pPage->getSdrModelFromSdrPage(), aGraphic,
-                                           tools::Rectangle(aPos, aGrfSize)));
+        SdrGrafObj* pSdrGrafObj = new SdrGrafObj(pPage->getSdrModelFromSdrPage(), rGraphic,
+                                                 tools::Rectangle(aPos, aGrfSize));
+        pPage->InsertObject(pSdrGrafObj);
+
+        // we know that the initial bitmap we provided was just a placeholder,
+        // we need to swap it out, so that on the next swap in, we render the
+        // correct one
+        // const_cast<GraphicObject&>(pSdrGrafObj->GetGraphicObject()).SwapOut();
     }
 
     return true;

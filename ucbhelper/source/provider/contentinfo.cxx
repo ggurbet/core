@@ -56,35 +56,6 @@ PropertySetInfo::~PropertySetInfo()
 }
 
 
-// XInterface methods.
-
-void SAL_CALL PropertySetInfo::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL PropertySetInfo::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL PropertySetInfo::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< lang::XTypeProvider* >(this),
-                                               static_cast< beans::XPropertySetInfo* >(this)
-                                               );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-// XTypeProvider methods.
-XTYPEPROVIDER_IMPL_2( PropertySetInfo,
-                      lang::XTypeProvider,
-                      beans::XPropertySetInfo );
-
-
 // XPropertySetInfo methods.
 
 
@@ -156,7 +127,7 @@ beans::Property SAL_CALL PropertySetInfo::getPropertyByName(
     if ( queryProperty( aName, aProp ) )
         return aProp;
 
-    throw beans::UnknownPropertyException();
+    throw beans::UnknownPropertyException(aName);
 }
 
 
@@ -218,38 +189,6 @@ CommandProcessorInfo::CommandProcessorInfo(
 CommandProcessorInfo::~CommandProcessorInfo()
 {
 }
-
-
-// XInterface methods.
-
-
-void SAL_CALL CommandProcessorInfo::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL CommandProcessorInfo::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL CommandProcessorInfo::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< lang::XTypeProvider* >(this),
-                                               static_cast< css::ucb::XCommandInfo* >(this)
-                    );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-// XTypeProvider methods.
-
-
-XTYPEPROVIDER_IMPL_2( CommandProcessorInfo,
-                         lang::XTypeProvider,
-                         css::ucb::XCommandInfo );
 
 
 // XCommandInfo methods.

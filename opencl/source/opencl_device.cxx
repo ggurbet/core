@@ -271,7 +271,7 @@ ds_status evaluateScoreForDevice(ds_device& rDevice, std::unique_ptr<LibreOffice
     }
     else
     {
-        /* Evaluating an Native CPU device */
+        /* Evaluating a Native CPU device */
         SAL_INFO("opencl.device", "Device: \"CPU\" (Native) evaluation...");
         sal_uInt64 kernelTime = tools::Time::GetMonotonicTicks();
 
@@ -460,7 +460,7 @@ void writeDevicesLog(std::unique_ptr<ds_profile> const & rProfile, OUString cons
 
     int nIndex = 0;
 
-    for (ds_device& rDevice : rProfile->devices)
+    for (const ds_device& rDevice : rProfile->devices)
     {
         if (rDevice.eType == DeviceType::OpenCLDevice)
         {

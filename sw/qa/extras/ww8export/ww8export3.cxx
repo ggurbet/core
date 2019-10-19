@@ -13,6 +13,8 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
+#include <com/sun/star/drawing/LineDash.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/text/XFormField.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/text/XTextTablesSupplier.hpp>
@@ -43,7 +45,11 @@ DECLARE_WW8EXPORT_TEST(testTdf37778_readonlySection, "tdf37778_readonlySection.d
     // The problem was that section protection was being enabled in addition to being read-only.
     // This created an explicit section with protection. There should be just the default, non-explicit section.
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Number of Sections", sal_Int32(0), xSections->getCount());
-    }
+
+    // tdf#127862: page fill color (in this case white) was lost
+    uno::Reference<beans::XPropertySet> xStyle(getStyles("PageStyles")->getByName("Standard"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(drawing::FillStyle_NONE != getProperty<drawing::FillStyle>(xStyle, "FillStyle"));
+}
 
 DECLARE_WW8EXPORT_TEST(testTdf122429_header, "tdf122429_header.doc")
 {
@@ -159,12 +165,19 @@ DECLARE_WW8EXPORT_TEST(testTdf120225_textControlCrossRef, "tdf120225_textControl
 
     uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xBookmarksByIdx(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xBookmarksByName(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xBookmarksByName = xBookmarksSupplier->getBookmarks();
     // TextFields should not be turned into real bookmarks.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), xBookmarksByIdx->getCount());
 
     // The actual name isn't critical, but if it fails, it is worth asking why.
     CPPUNIT_ASSERT_EQUAL(OUString("Text1"), sTextFieldName);
+}
+
+DECLARE_WW8EXPORT_TEST(testTdf127316_autoEscapement, "tdf127316_autoEscapement.odt")
+{
+    uno::Reference<text::XTextRange> xPara = getParagraph(2);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL( 0.f, getProperty<float>(getRun(xPara, 1), "CharEscapement"), 0);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(-33.f, getProperty<float>(getRun(xPara, 2), "CharEscapement"), 3);
 }
 
 DECLARE_WW8EXPORT_TEST(testTdf121111_fillStyleNone, "tdf121111_fillStyleNone.docx")
@@ -201,6 +214,12 @@ DECLARE_WW8EXPORT_TEST(testTdf123433_fillStyleStop, "tdf123433_fillStyleStop.doc
     uno::Reference<text::XTextRange> xText(getParagraph(12));
     CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_NONE, getProperty<drawing::FillStyle>(xText, "FillStyle"));
     CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(xText, "ParaBackColor")));
+}
+
+DECLARE_WW8EXPORT_TEST(testTdf127862_pageFillStyle, "tdf127862_pageFillStyle.odt")
+{
+    uno::Reference<beans::XPropertySet> xStyle(getStyles("PageStyles")->getByName("Standard"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(drawing::FillStyle_NONE != getProperty<drawing::FillStyle>(xStyle, "FillStyle"));
 }
 
 DECLARE_WW8EXPORT_TEST(testTdf94009_zeroPgMargin, "tdf94009_zeroPgMargin.odt")
@@ -274,6 +293,72 @@ DECLARE_WW8EXPORT_TEST(testImageCommentAtChar, "image-comment-at-char.doc")
                          getProperty<OUString>(getRun(xPara, 4), "TextPortionType"));
     CPPUNIT_ASSERT_EQUAL(OUString("Text"),
                          getProperty<OUString>(getRun(xPara, 5), "TextPortionType"));
+}
+
+DECLARE_WW8EXPORT_TEST(testTdf126708emf, "tdf126708_containsemf.odt")
+{
+    auto xShape = getShape(1);
+    // First check the size of the EMF graphic contained in the shape.
+    auto xGraphic = getProperty< uno::Reference<graphic::XGraphic> >(
+        xShape, "Graphic");
+    auto xSize = getProperty<awt::Size>(xGraphic, "Size100thMM");
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(8501), xSize.Height);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(18939), xSize.Width);
+
+    // Now check that the shape itself has a decent size.
+    // This size varies slightly when round tripping through doc format.
+    xSize = getProperty<awt::Size>(xShape, "Size");
+    CPPUNIT_ASSERT(abs(xSize.Height - 7629) <= 6);
+    CPPUNIT_ASSERT(abs(xSize.Width - 17000) <= 6);
+}
+
+DECLARE_WW8EXPORT_TEST(testBtlrFrame, "btlr-frame.odt")
+{
+    if (!mbExported)
+    {
+        return;
+    }
+
+    // Without the accompanying fix in place, this test would have failed with a
+    // beans.UnknownPropertyException, as the writing direction was lost, so the default direction
+    // resulted in a conversion to a Writer text frame.
+    uno::Reference<beans::XPropertySet> xFrame(getShape(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(9000), getProperty<sal_Int32>(xFrame, "RotateAngle"));
+}
+
+DECLARE_WW8EXPORT_TEST(testPresetDash, "tdf127166_prstDash_Word97.doc")
+{
+    // Error was, that the 'sys' preset dash styles were neither imported not
+    // exported, the mixed styles had wrong dash-dot order, they were imported
+    // with absolute values.
+    const drawing::LineDash dashParams[] =
+    {
+        {drawing::DashStyle_RECTRELATIVE, 1, 400, 0, 0, 300}, // dash
+        {drawing::DashStyle_RECTRELATIVE, 1, 400, 1, 100, 300}, // dashDot
+        {drawing::DashStyle_RECTRELATIVE, 1, 100, 0, 0, 300}, // dot
+        {drawing::DashStyle_RECTRELATIVE, 1, 800, 0, 0, 300}, // lgDash
+        {drawing::DashStyle_RECTRELATIVE, 1, 800, 1, 100, 300}, // lgDashDot
+        {drawing::DashStyle_RECTRELATIVE, 1, 800, 2, 100, 300}, // lgDashDotDot
+        {drawing::DashStyle_RECTRELATIVE, 1, 300, 0, 0, 100}, // sysDash
+        {drawing::DashStyle_RECTRELATIVE, 1, 300, 1, 100, 100}, // sysDashDot
+        {drawing::DashStyle_RECTRELATIVE, 1, 300, 2, 100, 100}, // sysDashDotDot
+        {drawing::DashStyle_RECTRELATIVE, 1, 100, 0, 0, 100} // sysDot
+    };
+    drawing::LineDash aPresetLineDash;
+    drawing::LineDash aShapeLineDash;
+    for (sal_uInt16 i = 0; i < 10; i++)
+    {
+        aPresetLineDash = dashParams[i];
+        uno::Reference<drawing::XShape> xShape = getShape(i+1);
+        aShapeLineDash = getProperty<drawing::LineDash>(xShape, "LineDash");
+        bool bIsEqual = aPresetLineDash.Style == aShapeLineDash.Style
+                        && aPresetLineDash.Dots == aShapeLineDash.Dots
+                        && aPresetLineDash.DotLen == aShapeLineDash.DotLen
+                        && aPresetLineDash.Dashes == aShapeLineDash.Dashes
+                        && aPresetLineDash.DashLen == aShapeLineDash.DashLen
+                        && aPresetLineDash.Distance == aShapeLineDash.Distance;
+        CPPUNIT_ASSERT_MESSAGE("LineDash differ", bIsEqual);
+    }
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

@@ -128,7 +128,7 @@ namespace /* private */
 
         for (sal_uInt32 i = 0; i < env_vars_count; i++)
         {
-            OUString env_var = OUString(env_vars[i]);
+            OUString env_var(env_vars[i]);
 
             if (env_var.getLength() == 0)
                 return false;
@@ -264,7 +264,7 @@ namespace /* private */
             std::vector<sal_Unicode> vec(path.getLength() + 1);
             //GetShortPathNameW only works if the file can be found!
             const DWORD len = GetShortPathNameW(
-                o3tl::toW(path.getStr()), o3tl::toW(&vec[0]), path.getLength() + 1);
+                o3tl::toW(path.getStr()), o3tl::toW(vec.data()), path.getLength() + 1);
 
             if (!len && GetLastError() == ERROR_FILE_NOT_FOUND
                 && extension.getLength())
@@ -273,12 +273,12 @@ namespace /* private */
                 std::vector<sal_Unicode> vec2(
                     extPath.getLength() + 1);
                 const DWORD len2 = GetShortPathNameW(
-                    o3tl::toW(extPath.getStr()), o3tl::toW(&vec2[0]), extPath.getLength() + 1);
-                ret = OUString(&vec2[0], len2);
+                    o3tl::toW(extPath.getStr()), o3tl::toW(vec2.data()), extPath.getLength() + 1);
+                ret = OUString(vec2.data(), len2);
             }
             else
             {
-                ret = OUString(&vec[0], len);
+                ret = OUString(vec.data(), len);
             }
         }
         return ret;
@@ -456,7 +456,7 @@ oslProcessError SAL_CALL osl_executeProcess_WithRedirectedIO(
             return osl_Process_E_InvalidError;
 
         flags |= CREATE_UNICODE_ENVIRONMENT;
-        p_environment = &environment[0];
+        p_environment = environment.data();
     }
 
     OUString cwd;
@@ -468,9 +468,7 @@ oslProcessError SAL_CALL osl_executeProcess_WithRedirectedIO(
     if ((Options & osl_Process_DETACHED) && !(flags & CREATE_NEW_CONSOLE))
         flags |= DETACHED_PROCESS;
 
-    STARTUPINFOW startup_info;
-    memset(&startup_info, 0, sizeof(startup_info));
-
+    STARTUPINFOW startup_info = {};
     startup_info.cb        = sizeof(startup_info);
     startup_info.dwFlags   = STARTF_USESHOWWINDOW;
     startup_info.lpDesktop = const_cast<LPWSTR>(L"");

@@ -1974,7 +1974,7 @@ static OUString getFileNameFromDoc( const ScDocument* pDoc )
     if( nullptr != pDoc &&
         nullptr != (pShell = pDoc->GetDocumentShell() ) )
     {
-        uno::Reference< frame::XModel > xModel( pShell->GetModel(), uno::UNO_QUERY );
+        uno::Reference< frame::XModel > xModel = pShell->GetModel();
         if( xModel.is() )
         {
             if( !xModel->getURL().isEmpty() )
@@ -2442,7 +2442,7 @@ void ScRange::IncEndColSticky( SCCOL nDelta )
     if (nCol < MAXCOL)
         aEnd.SetCol( ::std::min( static_cast<SCCOL>(nCol + nDelta), MAXCOL));
     else
-        aEnd.IncCol( nDelta);   // was greater than MAXCOL, caller should know..
+        aEnd.IncCol( nDelta);   // was greater than MAXCOL, caller should know...
 }
 
 void ScRange::IncEndRowSticky( SCROW nDelta )
@@ -2462,7 +2462,7 @@ void ScRange::IncEndRowSticky( SCROW nDelta )
     if (nRow < MAXROW)
         aEnd.SetRow( ::std::min( static_cast<SCROW>(nRow + nDelta), MAXROW));
     else
-        aEnd.IncRow( nDelta);   // was greater than MAXROW, caller should know..
+        aEnd.IncRow( nDelta);   // was greater than MAXROW, caller should know...
 }
 
 OUString ScAddress::GetColRowString() const

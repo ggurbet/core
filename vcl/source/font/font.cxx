@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sal/macros.h>
 #include <tools/stream.hxx>
 #include <tools/vcompat.hxx>
 #include <tools/gen.hxx>
@@ -27,13 +26,13 @@
 #include <vcl/font.hxx>
 
 #include <impfont.hxx>
-#include <fontinstance.hxx>
 #include <fontattributes.hxx>
 #include <sft.hxx>
 
 #include <algorithm>
 
 #include <rtl/instance.hxx>
+#include <TypeSerializer.hxx>
 
 using namespace vcl;
 
@@ -51,7 +50,7 @@ Font::Font( const vcl::Font& rFont ) : mpImplFont( rFont.mpImplFont )
 {
 }
 
-Font::Font( vcl::Font&& rFont ) : mpImplFont( std::move(rFont.mpImplFont) )
+Font::Font( vcl::Font&& rFont ) noexcept : mpImplFont( std::move(rFont.mpImplFont) )
 {
 }
 
@@ -285,7 +284,7 @@ Font& Font::operator=( const vcl::Font& rFont )
     return *this;
 }
 
-Font& Font::operator=( vcl::Font&& rFont )
+Font& Font::operator=( vcl::Font&& rFont ) noexcept
 {
     mpImplFont = std::move(rFont.mpImplFont);
     return *this;
@@ -367,7 +366,8 @@ SvStream& ReadImplFont( SvStream& rIStm, ImplFont& rImplFont )
 
     rImplFont.SetFamilyName( rIStm.ReadUniOrByteString(rIStm.GetStreamCharSet()) );
     rImplFont.maStyleName = rIStm.ReadUniOrByteString(rIStm.GetStreamCharSet());
-    ReadPair( rIStm, rImplFont.maAverageFontSize );
+    TypeSerializer aSerializer(rIStm);
+    aSerializer.readSize(rImplFont.maAverageFontSize);
 
     rIStm.ReadUInt16( nTmp16 ); rImplFont.SetCharSet( static_cast<rtl_TextEncoding>(nTmp16) );
     rIStm.ReadUInt16( nTmp16 ); rImplFont.SetFamilyType( static_cast<FontFamily>(nTmp16) );
@@ -408,9 +408,10 @@ SvStream& ReadImplFont( SvStream& rIStm, ImplFont& rImplFont )
 SvStream& WriteImplFont( SvStream& rOStm, const ImplFont& rImplFont )
 {
     VersionCompat aCompat( rOStm, StreamMode::WRITE, 3 );
+    TypeSerializer aSerializer(rOStm);
     rOStm.WriteUniOrByteString( rImplFont.GetFamilyName(), rOStm.GetStreamCharSet() );
     rOStm.WriteUniOrByteString( rImplFont.GetStyleName(), rOStm.GetStreamCharSet() );
-    WritePair( rOStm, rImplFont.maAverageFontSize );
+    aSerializer.writeSize(rImplFont.maAverageFontSize);
 
     rOStm.WriteUInt16( GetStoreCharSet( rImplFont.GetCharSet() ) );
     rOStm.WriteUInt16( rImplFont.GetFamilyTypeNoAsk() );

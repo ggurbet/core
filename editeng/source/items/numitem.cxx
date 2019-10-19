@@ -233,9 +233,9 @@ SvxNumberFormat::SvxNumberFormat( SvStream &rStream )
         ReadFont( rStream, *pBulletFont );
     }
     else pBulletFont = nullptr;
-    ReadPair( rStream, aGraphicSize );
 
     tools::GenericTypeSerializer aSerializer(rStream);
+    aSerializer.readSize(aGraphicSize);
     aSerializer.readColor(nBulletColor);
 
     rStream.ReadUInt16( nBulletRelSize );
@@ -260,6 +260,8 @@ void SvxNumberFormat::Store(SvStream &rStream, FontToSubsFontConverter pConverte
         OUString sFontName = GetFontToSubsFontName(pConverter);
         pBulletFont->SetFamilyName(sFontName);
     }
+
+    tools::GenericTypeSerializer aSerializer(rStream);
 
     rStream.WriteUInt16( NUMITEM_VERSION_04 );
 
@@ -307,13 +309,13 @@ void SvxNumberFormat::Store(SvStream &rStream, FontToSubsFontConverter pConverte
     }
     else
         rStream.WriteUInt16( 0 );
-    WritePair( rStream, aGraphicSize );
+
+    aSerializer.writeSize(aGraphicSize);
 
     Color nTempColor = nBulletColor;
     if(COL_AUTO == nBulletColor)
         nTempColor = COL_BLACK;
 
-    tools::GenericTypeSerializer aSerializer(rStream);
     aSerializer.writeColor(nTempColor);
     rStream.WriteUInt16( nBulletRelSize );
     rStream.WriteUInt16( sal_uInt16(IsShowSymbol()) );
@@ -624,7 +626,6 @@ SvxNumRule::SvxNumRule(const SvxNumRule& rCopy)
     nFeatureFlags        = rCopy.nFeatureFlags       ;
     bContinuousNumbering = rCopy.bContinuousNumbering;
     eNumberingType       = rCopy.eNumberingType;
-    memset( aFmts, 0, sizeof( aFmts ));
     for(sal_uInt16 i = 0; i < SVX_MAX_NUM; i++)
     {
         if(rCopy.aFmts[i])
@@ -701,16 +702,16 @@ void SvxNumRule::Store( SvStream &rStream )
 void SvxNumRule::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("SvxNumRule"));
-    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("levelCount"), BAD_CAST(OUString::number(nLevelCount).getStr()));
-    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("continuousNumbering"), BAD_CAST(OUString::boolean(bContinuousNumbering).getStr()));
-    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("numberingType"), BAD_CAST(OUString::number(static_cast<int>(eNumberingType)).getStr()));
-    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("featureFlags"), BAD_CAST(OUString::number(static_cast<int>(nFeatureFlags)).getStr()));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("levelCount"), BAD_CAST(OString::number(nLevelCount).getStr()));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("continuousNumbering"), BAD_CAST(OString::boolean(bContinuousNumbering).getStr()));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("numberingType"), BAD_CAST(OString::number(static_cast<int>(eNumberingType)).getStr()));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("featureFlags"), BAD_CAST(OString::number(static_cast<int>(nFeatureFlags)).getStr()));
     for(sal_uInt16 i = 0; i < SVX_MAX_NUM; i++)
     {
         if(aFmts[i])
         {
             xmlTextWriterStartElement(pWriter, BAD_CAST("aFmts"));
-            xmlTextWriterWriteAttribute(pWriter, BAD_CAST("i"), BAD_CAST(OUString::number(i).getStr()));
+            xmlTextWriterWriteAttribute(pWriter, BAD_CAST("i"), BAD_CAST(OString::number(i).getStr()));
             xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("ptr"), "%p", aFmts[i].get());
             xmlTextWriterEndElement(pWriter);
         }
@@ -937,7 +938,8 @@ SvxNumBulletItem::~SvxNumBulletItem()
 
 bool SvxNumBulletItem::operator==( const SfxPoolItem& rCopy) const
 {
-    return *pNumRule == *static_cast<const SvxNumBulletItem&>(rCopy).pNumRule;
+    return SfxPoolItem::operator==(rCopy) &&
+        *pNumRule == *static_cast<const SvxNumBulletItem&>(rCopy).pNumRule;
 }
 
 SfxPoolItem*  SvxNumBulletItem::Clone( SfxItemPool * ) const

@@ -51,7 +51,7 @@ SwXDispatchProviderInterceptor::SwXDispatchProviderInterceptor(SwView& rVw) :
         osl_atomic_increment(&m_refCount);
         m_xIntercepted->registerDispatchProviderInterceptor(static_cast<frame::XDispatchProviderInterceptor*>(this));
         // this should make us the top-level dispatch-provider for the component, via a call to our
-        // setDispatchProvider we should have got an fallback for requests we (i.e. our master) cannot fulfill
+        // setDispatchProvider we should have got a fallback for requests we (i.e. our master) cannot fulfill
         uno::Reference< lang::XComponent> xInterceptedComponent(m_xIntercepted, uno::UNO_QUERY);
         if (xInterceptedComponent.is())
             xInterceptedComponent->addEventListener(static_cast<lang::XEventListener*>(this));
@@ -163,11 +163,9 @@ const uno::Sequence< sal_Int8 > & SwXDispatchProviderInterceptor::getUnoTunnelId
 sal_Int64 SwXDispatchProviderInterceptor::getSomething(
     const uno::Sequence< sal_Int8 >& aIdentifier )
 {
-    if( aIdentifier.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        aIdentifier.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXDispatchProviderInterceptor>(aIdentifier) )
     {
-            return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
+        return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
     }
     return 0;
 }
@@ -288,7 +286,7 @@ void SwXDispatch::addStatusListener(
     aEvent.Source = *static_cast<cppu::OWeakObject*>(this);
     aEvent.FeatureURL = aURL;
 
-    // one of the URLs requires a special state ....
+    // one of the URLs requires a special state...
     if (aURL.Complete == cURLDocumentDataSource)
     {
         const SwDBData& rData = m_pView->GetWrtShell().GetDBDesc();

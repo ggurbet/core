@@ -149,7 +149,7 @@ DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf121561_tocTitle, "tdf121456_tabsOffse
 DECLARE_OOXMLEXPORT_TEST(testTdf124106, "tdf121456.docx")
 {
     uno::Reference<text::XTextDocument> textDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XText> text(textDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XText> text = textDocument->getText();
     // -1 if the 'Y' character does not occur
     CPPUNIT_ASSERT_EQUAL(sal_Int32(-1), text->getString().indexOf('Y'));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(-1), text->getString().indexOf('y'));
@@ -161,7 +161,7 @@ DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf121561_tocTitleDocx, "tdf121456_tabsO
 
     // get TOC node
     uno::Reference<text::XDocumentIndexesSupplier> xIndexSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xIndexes(xIndexSupplier->getDocumentIndexes( ), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xIndexes = xIndexSupplier->getDocumentIndexes( );
     uno::Reference<text::XDocumentIndex> xTOCIndex(xIndexes->getByIndex(0), uno::UNO_QUERY);
 
     // ensure TOC title was set in TOC properties
@@ -510,7 +510,7 @@ DECLARE_OOXMLEXPORT_TEST(testTdf104354, "tdf104354.docx")
 DECLARE_OOXMLEXPORT_TEST(testTdf104354_firstParaInSection, "tdf104354_firstParaInSection.docx")
 {
     uno::Reference<text::XFootnotesSupplier> xFootnotesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xFootnotes(xFootnotesSupplier->getFootnotes(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xFootnotes = xFootnotesSupplier->getFootnotes();
     uno::Reference<text::XText> xText(xFootnotes->getByIndex(0), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(494),
                          getProperty<sal_Int32>(getParagraphOfText(1, xText), "ParaTopMargin"));
@@ -579,7 +579,7 @@ DECLARE_OOXMLEXPORT_TEST(testTdf112118_DOCX, "tdf112118.docx")
         for (const auto& side : style.sideParams)
         {
             const OUString sSide = OUString::createFromAscii(side.sideName);
-            const OString sStage = OString(style.styleName) + " " + side.sideName;
+            const OString sStage = style.styleName + OStringLiteral(" ") + side.sideName;
 
             sal_Int32 nMargin = getProperty<sal_Int32>(xStyle, sSide + "Margin");
             CPPUNIT_ASSERT_EQUAL_MESSAGE(OString(sStage + " margin width").getStr(),
@@ -869,6 +869,66 @@ DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf115212, "tdf115212.docx")
     assertXPath(pXmlDoc, "//w:p[2]/w:del[1]/w:r[1]/w:fldChar");
 }
 
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf126243, "tdf120338.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // export change tracking rejection data for tracked paragraph style change
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[11]/w:pPr/w:pPrChange/w:pPr/w:pStyle", "val", "Heading3");
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf126245, "tdf126245.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // export change tracking rejection data for tracked numbering change
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:pPr/w:pPrChange/w:pPr/w:numPr/w:numId", "val", "1");
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf124491, "tdf124491.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // import format change of empty lines, FIXME: change w:r with w:pPr in export
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/*/w:rPr/w:rPrChange");
+    // empty line without format change
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[4]/*/w:rPrChange", 0);
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[4]/*/*/w:rPrChange", 0);
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf105485, "tdf105485.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // import change tracking of deleted comments
+    assertXPath(pXmlDoc, "//w:del/w:r/w:commentReference");
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf125894, "tdf125894.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // import change tracking in frames
+    assertXPath(pXmlDoc, "//w:del", 2);
+    assertXPath(pXmlDoc, "//w:ins");
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf128156, "tdf128156.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // import change tracking in frames
+    assertXPath(pXmlDoc, "//w:ins");
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf125546, "tdf125546.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // compress redlines (it was 15)
+    assertXPath(pXmlDoc, "//w:rPrChange", 2);
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf124604, "tdf124604.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // If the numbering comes from a base style, indentation of the base style has also priority.
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[7]/w:pPr/w:ind", "start", "0");
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf118691, "tdf118691.docx")
 {
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
@@ -898,19 +958,6 @@ DECLARE_OOXMLEXPORT_TEST(testTdf64264, "tdf64264.docx")
                          parseDump("/root/page[2]/body/tab/row[2]/cell[1]/txt/text()"));
 }
 
-DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testLOPresetDashesConvert, "lo_preset_dashes.odt")
-{
-    // File asserting while saving in LO.
-    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[1]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDot");
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[2]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDash");
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[3]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDot");
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[6]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "dot");
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[8]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "dash");
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[9]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDashDotDot");
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[10]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDash");
-}
-
 DECLARE_OOXMLEXPORT_TEST(testTdf58944RepeatingTableHeader, "tdf58944-repeating-table-header.docx")
 {
     // DOCX tables with more than 10 repeating header lines imported without repeating header lines
@@ -926,6 +973,25 @@ DECLARE_OOXMLEXPORT_TEST(testTdf58944RepeatingTableHeader, "tdf58944-repeating-t
                          parseDump("/root/page[2]/body/tab/row[1]/cell[1]/txt/text()"));
     CPPUNIT_ASSERT_EQUAL(OUString("Test2"),
                          parseDump("/root/page[2]/body/tab/row[2]/cell[1]/txt/text()"));
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf81100, "tdf81100.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/styles.xml");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // keep "repeat table header" setting of table styles
+    assertXPath(pXmlDoc, "/w:styles/w:style/w:tblStylePr/w:trPr/w:tblHeader", 4);
+
+    xmlDocPtr pDump = parseLayoutDump();
+    CPPUNIT_ASSERT_EQUAL(3, getPages());
+
+    // table starts on page 1 and finished on page 2
+    // and it has got only a single repeating header line
+    assertXPath(pDump, "/root/page[2]/body/tab[1]", 1);
+    assertXPath(pDump, "/root/page[2]/body/tab[1]/row", 2);
+    assertXPath(pDump, "/root/page[3]/body/tab", 1);
+    if (!mbExported) // TODO export tblHeader=false
+        assertXPath(pDump, "/root/page[3]/body/tab/row", 1);
 }
 
 DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf121597TrackedDeletionOfMultipleParagraphs, "tdf121597.odt")

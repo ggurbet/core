@@ -44,20 +44,14 @@ using namespace ::com::sun::star::lang;
 OUString SAL_CALL OTable::getImplementationName(  )
 {
     if(isNew())
-        return OUString("com.sun.star.sdbcx.VTableDescriptor");
-    return OUString("com.sun.star.sdbcx.Table");
+        return "com.sun.star.sdbcx.VTableDescriptor";
+    return "com.sun.star.sdbcx.Table";
 }
 
 
 css::uno::Sequence< OUString > SAL_CALL OTable::getSupportedServiceNames(  )
 {
-    css::uno::Sequence< OUString > aSupported(1);
-    if(isNew())
-        aSupported[0] = "com.sun.star.sdbcx.TableDescriptor";
-    else
-        aSupported[0] = "com.sun.star.sdbcx.Table";
-
-    return aSupported;
+    return { isNew()?OUString("com.sun.star.sdbcx.TableDescriptor"):OUString("com.sun.star.sdbcx.Table") };
 }
 
 sal_Bool SAL_CALL OTable::supportsService( const OUString& _rServiceName )

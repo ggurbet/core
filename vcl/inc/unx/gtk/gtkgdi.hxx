@@ -29,8 +29,6 @@
 #include <unx/gtk/gtkframe.hxx>
 #include <ControlCacheKey.hxx>
 
-#if GTK_CHECK_VERSION(3,0,0)
-
 #include <headless/svpgdi.hxx>
 #include <textrender.hxx>
 
@@ -130,9 +128,6 @@ public:
 #endif
 
     void WidgetQueueDraw() const;
-
-    static void refreshFontconfig( GtkSettings *pSettings );
-    static void signalSettingsNotify( GObject*, GParamSpec *pSpec, gpointer );
 
     virtual void GetResolution(sal_Int32& rDPIX, sal_Int32& rDPIY) override;
 
@@ -393,8 +388,6 @@ protected:
                             const tools::Rectangle& rControlRectangle,
                             ControlState nState, const ImplControlValue& aValue );
 };
-
-#endif // !gtk3
 
 #endif // INCLUDED_VCL_INC_UNX_GTK_GTKGDI_HXX
 

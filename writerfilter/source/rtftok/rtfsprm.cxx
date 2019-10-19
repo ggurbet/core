@@ -12,6 +12,7 @@
 #include <ooxml/QNameToString.hxx>
 #include <rtl/strbuf.hxx>
 #include "rtfdocumentimpl.hxx"
+#include <algorithm>
 
 namespace writerfilter
 {
@@ -56,65 +57,91 @@ std::string RTFSprm::toString() const
 }
 #endif
 
+namespace
+{
+class RTFSprms_compare
+{
+    Id keyword;
+
+public:
+    RTFSprms_compare(Id kw)
+        : keyword{ kw }
+    {
+    }
+    bool operator()(const std::pair<Id, RTFValue::Pointer_t>& raPair) const
+    {
+        return raPair.first == keyword;
+    }
+};
+}
+
 RTFValue::Pointer_t RTFSprms::find(Id nKeyword, bool bFirst, bool bForWrite)
 {
-    RTFValue::Pointer_t pValue;
-
     if (bForWrite)
         ensureCopyBeforeWrite();
 
-    for (auto& rSprm : *m_pSprms)
-        if (rSprm.first == nKeyword)
-        {
-            if (bFirst)
-                return rSprm.second;
+    RTFSprms_compare cmp{ nKeyword };
 
-            pValue = rSprm.second;
-        }
-    return pValue;
+    if (bFirst)
+    {
+        auto it = std::find_if(m_pSprms->begin(), m_pSprms->end(), cmp);
+        if (it != m_pSprms->end())
+            return it->second;
+    }
+    else
+    // find last
+    {
+        auto rit = std::find_if(m_pSprms->rbegin(), m_pSprms->rend(), cmp);
+        if (rit != m_pSprms->rend())
+            return rit->second;
+    }
+
+    return RTFValue::Pointer_t{};
 }
 
 void RTFSprms::set(Id nKeyword, const RTFValue::Pointer_t& pValue, RTFOverwrite eOverwrite)
 {
     ensureCopyBeforeWrite();
 
-    if (eOverwrite == RTFOverwrite::YES_PREPEND)
+    switch (eOverwrite)
     {
-        auto it = std::remove_if(
-            m_pSprms->begin(), m_pSprms->end(),
-            [nKeyword](const RTFSprms::Entry_t& rSprm) { return rSprm.first == nKeyword; });
-        m_pSprms->erase(it, m_pSprms->end());
-        m_pSprms->insert(m_pSprms->begin(), std::make_pair(nKeyword, pValue));
-        return;
+        case RTFOverwrite::YES_PREPEND:
+        {
+            m_pSprms->erase(
+                std::remove_if(m_pSprms->begin(), m_pSprms->end(), RTFSprms_compare{ nKeyword }),
+                m_pSprms->end());
+            m_pSprms->emplace(m_pSprms->cbegin(), nKeyword, pValue);
+            break;
+        }
+        case RTFOverwrite::YES:
+        {
+            auto it
+                = std::find_if(m_pSprms->begin(), m_pSprms->end(), RTFSprms_compare{ nKeyword });
+            if (it != m_pSprms->end())
+                it->second = pValue;
+            else
+                m_pSprms->emplace_back(nKeyword, pValue);
+            break;
+        }
+        case RTFOverwrite::NO_IGNORE:
+        {
+            if (std::none_of(m_pSprms->cbegin(), m_pSprms->cend(), RTFSprms_compare{ nKeyword }))
+                m_pSprms->emplace_back(nKeyword, pValue);
+            break;
+        }
+        case RTFOverwrite::NO_APPEND:
+        {
+            m_pSprms->emplace_back(nKeyword, pValue);
+            break;
+        }
     }
-
-    bool bFound = false;
-    if (eOverwrite == RTFOverwrite::YES || eOverwrite == RTFOverwrite::NO_IGNORE)
-    {
-        for (auto& rSprm : *m_pSprms)
-            if (rSprm.first == nKeyword)
-            {
-                if (eOverwrite == RTFOverwrite::YES)
-                {
-                    rSprm.second = pValue;
-                    return;
-                }
-
-                bFound = true;
-                break;
-            }
-    }
-    if (eOverwrite == RTFOverwrite::NO_APPEND || !bFound)
-        m_pSprms->push_back(std::make_pair(nKeyword, pValue));
 }
 
 bool RTFSprms::erase(Id nKeyword)
 {
     ensureCopyBeforeWrite();
 
-    auto i = std::find_if(
-        m_pSprms->begin(), m_pSprms->end(),
-        [&nKeyword](RTFSprmsImpl::value_type& rEntry) { return rEntry.first == nKeyword; });
+    auto i = std::find_if(m_pSprms->begin(), m_pSprms->end(), RTFSprms_compare{ nKeyword });
     if (i != m_pSprms->end())
     {
         m_pSprms->erase(i);
@@ -127,9 +154,7 @@ void RTFSprms::eraseLast(Id nKeyword)
 {
     ensureCopyBeforeWrite();
 
-    auto i = std::find_if(
-        m_pSprms->rbegin(), m_pSprms->rend(),
-        [&nKeyword](RTFSprmsImpl::value_type& rEntry) { return rEntry.first == nKeyword; });
+    auto i = std::find_if(m_pSprms->rbegin(), m_pSprms->rend(), RTFSprms_compare{ nKeyword });
     if (i != m_pSprms->rend())
         m_pSprms->erase(std::next(i).base());
 }
@@ -193,7 +218,7 @@ static bool isSPRMDeduplicateBlacklist(Id nId)
     }
 }
 
-/// Should this SPRM be removed if all its children is removed?
+/// Should this SPRM be removed if all its children are removed?
 static bool isSPRMChildrenExpected(Id nId)
 {
     switch (nId)
@@ -356,7 +381,7 @@ RTFSprms RTFSprms::cloneAndDeduplicate(RTFSprms& rReference, Id const nStyleType
         // addition of direct formatting sprms at the paragraph level.
         if (bImplicitPPr && rSprm.first == NS_ooxml::LN_CT_Style_pPr)
         {
-            for (auto& i : rSprm.second->getSprms())
+            for (const auto& i : rSprm.second->getSprms())
                 cloneAndDeduplicateSprm(i, ret, nStyleType);
         }
         else
@@ -365,12 +390,12 @@ RTFSprms RTFSprms::cloneAndDeduplicate(RTFSprms& rReference, Id const nStyleType
     return ret;
 }
 
-bool RTFSprms::equals(RTFValue& rOther)
+bool RTFSprms::equals(const RTFValue& rOther) const
 {
-    for (auto& rSprm : *m_pSprms)
-        if (!rSprm.second->equals(rOther))
-            return false;
-    return true;
+    return std::all_of(m_pSprms->cbegin(), m_pSprms->cend(),
+                       [&](const std::pair<Id, RTFValue::Pointer_t>& raPair) -> bool {
+                           return raPair.second->equals(rOther);
+                       });
 }
 
 void RTFSprms::ensureCopyBeforeWrite()

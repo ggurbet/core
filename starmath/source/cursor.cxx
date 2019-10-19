@@ -40,7 +40,7 @@ void SmCursor::Move(OutputDevice* pDev, SmMovementDirection direction, bool bMov
                             best_line,  //Best approximated line found so far
                             curr_line;  //Current line
                 long dbp_sq = 0;        //Distance squared to best line
-                for(auto &pEntry : *mpGraph)
+                for(const auto &pEntry : *mpGraph)
                 {
                     //Reject it if it's the current position
                     if(pEntry->CaretPos == mpPosition->CaretPos) continue;
@@ -84,7 +84,7 @@ void SmCursor::MoveTo(OutputDevice* pDev, const Point& pos, bool bMoveAnchor)
     SmCaretPosGraphEntry* NewPos = nullptr;
     long dp_sq = 0,     //Distance to current line squared
          dbp_sq = 1;    //Distance to best line squared
-    for(auto &pEntry : *mpGraph)
+    for(const auto &pEntry : *mpGraph)
     {
         OSL_ENSURE(pEntry->CaretPos.IsValid(), "The caret position graph may not have invalid positions!");
         //Compute current line
@@ -129,7 +129,7 @@ void SmCursor::BuildGraph(){
 
     //Restore anchor and position pointers
     if(_anchor.IsValid() || _position.IsValid()){
-        for(auto &pEntry : *mpGraph)
+        for(const auto &pEntry : *mpGraph)
         {
             if(_anchor == pEntry->CaretPos)
                 mpAnchor = pEntry.get();
@@ -152,7 +152,7 @@ void SmCursor::BuildGraph(){
 }
 
 bool SmCursor::SetCaretPosition(SmCaretPos pos){
-    for(auto &pEntry : *mpGraph)
+    for(const auto &pEntry : *mpGraph)
     {
         if(pEntry->CaretPos == pos)
         {
@@ -743,7 +743,8 @@ bool SmCursor::InsertRow() {
     if(pTable) {
         std::unique_ptr<SmNodeList> pNewLineList(new SmNodeList);
         //Move elements from pLineList to pNewLineList
-        pNewLineList->splice(pNewLineList->begin(), *pLineList, it, pLineList->end());
+        SmNodeList& rLineList = *pLineList;
+        pNewLineList->splice(pNewLineList->begin(), rLineList, it, rLineList.end());
         //Make sure it is valid again
         it = pLineList->end();
         if(it != pLineList->begin())
@@ -1298,7 +1299,7 @@ void SmCursor::EndEdit(){
     //I think this notifies people around us that we've modified this document...
     mpDocShell->SetModified();
     //I think SmDocShell uses this value when it sends an update graphics event
-    //Anyway comments elsewhere suggests it need to be updated...
+    //Anyway comments elsewhere suggests it needs to be updated...
     mpDocShell->mnModifyCount++;
 
     //TODO: Consider copying the update accessibility code from SmDocShell::SetText in here...

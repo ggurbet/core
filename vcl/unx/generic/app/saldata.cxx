@@ -21,13 +21,8 @@
 #include <fcntl.h>
 
 #include <cstdio>
-#include <cstring>
 #include <cstdlib>
-#include <stdio.h>
-#include <limits.h>
 #include <errno.h>
-#include <pthread.h>
-#include <sys/resource.h>
 #ifdef SUN
 #include <sys/systeminfo.h>
 #endif
@@ -46,10 +41,8 @@
 #include <unx/salunxtime.h>
 #include <unx/sm.hxx>
 #include <unx/i18n_im.hxx>
-#include <unx/i18n_xkb.hxx>
 
 #include <X11/Xlib.h>
-#include <X11/Xutil.h>
 #include <X11/Xproto.h>
 
 #include <salinst.hxx>
@@ -58,11 +51,8 @@
 #include <osl/diagnose.h>
 #include <osl/signal.h>
 #include <osl/thread.h>
-#include <rtl/strbuf.hxx>
-#include <rtl/bootstrap.hxx>
 #include <sal/log.hxx>
 
-#include <tools/debug.hxx>
 #include <vcl/svapp.hxx>
 
 X11SalData* GetX11SalData()
@@ -264,7 +254,6 @@ X11SalData::~X11SalData()
 
 void X11SalData::Dispose()
 {
-    deInitNWF();
     delete GetDisplay();
     SetSalData( nullptr );
 }
@@ -280,14 +269,6 @@ void X11SalData::Init()
 {
     pXLib_.reset(new SalXLib());
     pXLib_->Init();
-}
-
-void X11SalData::initNWF()
-{
-}
-
-void X11SalData::deInitNWF()
-{
 }
 
 void X11SalData::ErrorTrapPush()

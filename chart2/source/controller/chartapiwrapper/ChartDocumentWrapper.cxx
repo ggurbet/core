@@ -47,6 +47,7 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <vcl/settings.hxx>
 
 #include <com/sun/star/drawing/ShapeCollection.hpp>
@@ -646,7 +647,7 @@ Reference< drawing::XShape > SAL_CALL ChartDocumentWrapper::getTitle()
 {
     if( !m_xTitle.is()  )
     {
-        ControllerLockGuardUNO aCtrlLockGuard( Reference< frame::XModel >( m_spChart2ModelContact->getChart2Document(), uno::UNO_QUERY ));
+        ControllerLockGuardUNO aCtrlLockGuard( m_spChart2ModelContact->getChart2Document() );
         m_xTitle = new TitleWrapper( TitleHelper::MAIN_TITLE, m_spChart2ModelContact );
     }
     return m_xTitle;
@@ -656,7 +657,7 @@ Reference< drawing::XShape > SAL_CALL ChartDocumentWrapper::getSubTitle()
 {
     if( !m_xSubTitle.is() )
     {
-        ControllerLockGuardUNO aCtrlLockGuard( Reference< frame::XModel >( m_spChart2ModelContact->getChart2Document(), uno::UNO_QUERY ));
+        ControllerLockGuardUNO aCtrlLockGuard( m_spChart2ModelContact->getChart2Document() );
         m_xSubTitle = new TitleWrapper( TitleHelper::SUB_TITLE, m_spChart2ModelContact );
     }
     return m_xSubTitle;
@@ -747,7 +748,7 @@ void SAL_CALL ChartDocumentWrapper::attachData( const Reference< XChartData >& x
     if( !xNewData.is() )
         return;
 
-    ControllerLockGuardUNO aCtrlLockGuard( Reference< frame::XModel >( m_spChart2ModelContact->getChart2Document(), uno::UNO_QUERY ));
+    ControllerLockGuardUNO aCtrlLockGuard( m_spChart2ModelContact->getChart2Document() );
     m_xChartData.set( new ChartDataWrapper( m_spChart2ModelContact, xNewData ) );
 }
 
@@ -961,8 +962,7 @@ Reference< drawing::XShapes > ChartDocumentWrapper::getAdditionalShapes() const
     uno::Reference< drawing::XShapes > xFoundShapes;
     uno::Reference< drawing::XDrawPage > xDrawPage( impl_getDrawPage() );
 
-    uno::Reference< drawing::XShapes > xDrawPageShapes( xDrawPage, uno::UNO_QUERY );
-    if( !xDrawPageShapes.is() )
+    if( !xDrawPage.is() )
         return xFoundShapes;
 
     uno::Reference<drawing::XShapes> xChartRoot( DrawModelWrapper::getChartRootShape( xDrawPage ) );
@@ -970,11 +970,11 @@ Reference< drawing::XShapes > ChartDocumentWrapper::getAdditionalShapes() const
     // iterate 'flat' over all top-level objects
     // and determine all that are no chart objects
     std::vector< uno::Reference< drawing::XShape > > aShapeVector;
-    sal_Int32 nSubCount = xDrawPageShapes->getCount();
+    sal_Int32 nSubCount = xDrawPage->getCount();
     uno::Reference< drawing::XShape > xShape;
     for( sal_Int32 nS = 0; nS < nSubCount; nS++ )
     {
-        if( xDrawPageShapes->getByIndex( nS ) >>= xShape )
+        if( xDrawPage->getByIndex( nS ) >>= xShape )
         {
             if( xShape.is() && xChartRoot!=xShape )
                 aShapeVector.push_back( xShape );
@@ -984,8 +984,8 @@ Reference< drawing::XShapes > ChartDocumentWrapper::getAdditionalShapes() const
     if( !aShapeVector.empty() )
     {
         // create a shape collection
-        xFoundShapes.set( drawing::ShapeCollection::create(
-                    comphelper::getProcessComponentContext()), uno::UNO_QUERY );
+        xFoundShapes = drawing::ShapeCollection::create(
+                    comphelper::getProcessComponentContext());
 
         OSL_ENSURE( xFoundShapes.is(), "Couldn't create a shape collection!" );
         if( xFoundShapes.is())
@@ -1027,15 +1027,10 @@ namespace {
 
 uno::Reference< lang::XMultiServiceFactory > getShapeFactory(const uno::Reference<uno::XInterface>& xChartView)
 {
-    Reference< lang::XUnoTunnel> xUnoTunnel(xChartView,uno::UNO_QUERY);
-    if(xUnoTunnel.is())
-    {
-        ExplicitValueProvider* pProvider = reinterpret_cast<ExplicitValueProvider*>(xUnoTunnel->getSomething(
-                    ExplicitValueProvider::getUnoTunnelId() ));
-        if( pProvider )
-            return pProvider->getDrawModelWrapper()->getShapeFactory();
+    auto pProvider = comphelper::getUnoTunnelImplementation<ExplicitValueProvider>(xChartView);
+    if( pProvider )
+        return pProvider->getDrawModelWrapper()->getShapeFactory();
 
-    }
     return uno::Reference< lang::XMultiServiceFactory >();
 }
 
@@ -1188,9 +1183,8 @@ uno::Reference< uno::XInterface > SAL_CALL ChartDocumentWrapper::createInstance(
                 if( xDia.is())
                 {
                     // locked controllers
-                    Reference< frame::XModel > xModel( xChartDoc, uno::UNO_QUERY );
-                    ControllerLockGuardUNO aCtrlLockGuard( xModel );
-                    Reference< chart2::XDiagram > xDiagram = ChartModelHelper::findDiagram( xModel );
+                    ControllerLockGuardUNO aCtrlLockGuard( xChartDoc );
+                    Reference< chart2::XDiagram > xDiagram = ChartModelHelper::findDiagram( xChartDoc );
                     ThreeDLookScheme e3DScheme = ThreeDHelper::detectScheme( xDiagram );
                     Reference< lang::XMultiServiceFactory > xTemplateManager( xChartDoc->getChartTypeManager(), uno::UNO_QUERY );
                     DiagramHelper::tTemplateWithServiceName aTemplateWithService(
@@ -1205,7 +1199,7 @@ uno::Reference< uno::XInterface > SAL_CALL ChartDocumentWrapper::createInstance(
                 else
                 {
                     // locked controllers
-                    ControllerLockGuardUNO aCtrlLockGuard( Reference< frame::XModel >( xChartDoc, uno::UNO_QUERY ));
+                    ControllerLockGuardUNO aCtrlLockGuard( xChartDoc );
                     xDia.set( xTemplate->createDiagramByDataSource(
                                   uno::Reference< chart2::data::XDataSource >(),
                                   uno::Sequence< beans::PropertyValue >()));
@@ -1412,7 +1406,7 @@ std::vector< std::unique_ptr<WrappedProperty> > ChartDocumentWrapper::createWrap
 
 OUString SAL_CALL ChartDocumentWrapper::getImplementationName()
 {
-    return OUString(CHART_CHARTAPIWRAPPER_IMPLEMENTATION_NAME);
+    return CHART_CHARTAPIWRAPPER_IMPLEMENTATION_NAME;
 }
 
 sal_Bool SAL_CALL ChartDocumentWrapper::supportsService( const OUString& rServiceName )

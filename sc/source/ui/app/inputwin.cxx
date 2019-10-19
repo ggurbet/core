@@ -66,15 +66,16 @@
 #include <editeng/fontitem.hxx>
 #include <AccessibleEditObject.hxx>
 #include <AccessibleText.hxx>
+#include <comphelper/lok.hxx>
 #include <comphelper/string.hxx>
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <helpids.h>
+#include <output.hxx>
 
 namespace com::sun::star::accessibility { class XAccessible; }
 
 const long THESIZE = 1000000;            // Should be more than enough!
 const long INPUTLINE_INSET_MARGIN = 2;   // Space between border and interior widgets of input line
-const long MIN_FONT_SIZE = 16;           // Minimum font size of input line in pixels
 const long LEFT_OFFSET = 5;              // Left offset of input line
 const long BUTTON_OFFSET = 2;            // Space between input line and button to expand/collapse
 const long MULTILINE_BUTTON_WIDTH = 20;  // Width of the button which opens multiline dropdown
@@ -245,7 +246,11 @@ ScInputWindow::ScInputWindow( vcl::Window* pParent, const SfxBindings* pBind ) :
             pInputHdl->SetMode( SC_INPUT_TABLE ); // Focus ends up at the bottom anyways
     }
     else if (pViewSh)
-        pViewSh->UpdateInputHandler(true); // Absolutely necessary update
+    {
+        // Don't stop editing in LOK a remote user might be editing.
+        const bool bStopEditing = !comphelper::LibreOfficeKit::isActive();
+        pViewSh->UpdateInputHandler(true, bStopEditing); // Absolutely necessary update
+    }
 
     SetToolbarLayoutMode( ToolBoxLayoutMode::Locked );
 
@@ -310,7 +315,7 @@ void ScInputWindow::Select()
             {
                 //! new method at ScModule to query if function autopilot is open
                 SfxViewFrame* pViewFrm = SfxViewFrame::Current();
-                if ( pViewFrm && !pViewFrm->GetChildWindow( SID_OPENDLG_FUNCTION ) )
+                if ( pViewFrm && ( comphelper::LibreOfficeKit::isActive() || !pViewFrm->GetChildWindow( SID_OPENDLG_FUNCTION ) ) )
                 {
                     pViewFrm->GetDispatcher()->Execute( SID_OPENDLG_FUNCTION,
                                               SfxCallMode::SYNCHRON | SfxCallMode::RECORD );
@@ -999,9 +1004,9 @@ ScTextWndGroup::ScTextWndGroup(vcl::Window* pParent, ScTabViewShell* pViewSh)
       maTextWnd(VclPtr<ScTextWnd>::Create(this, pViewSh)),
       maScrollBar(VclPtr<ScrollBar>::Create(this, WB_TABSTOP | WB_VERT | WB_DRAG))
 {
-    maTextWnd->SetPosPixel(Point(gnBorderWidth, gnBorderHeight));
+    maTextWnd->SetPosPixel(Point(2 * gnBorderWidth, gnBorderHeight));
     Size aSize = GetSizePixel();
-    maTextWnd->SetSizePixel(Size(aSize.Width() - 2 * gnBorderWidth, aSize.Height() - 2 * gnBorderHeight));
+    maTextWnd->SetSizePixel(Size(aSize.Width() - 4 * gnBorderWidth, aSize.Height() - 2 * gnBorderHeight));
     maTextWnd->Show();
     maTextWnd->SetQuickHelpText(ScResId(SCSTR_QHELP_INPUTWND));
     maTextWnd->SetHelpId(HID_INSWIN_INPUT);
@@ -1033,12 +1038,12 @@ EditView* ScTextWndGroup::GetEditView()
     return maTextWnd->GetEditView();
 }
 
-long ScTextWndGroup::GetLastNumExpandedLines()
+long ScTextWndGroup::GetLastNumExpandedLines() const
 {
     return maTextWnd->GetLastNumExpandedLines();
 }
 
-long ScTextWndGroup::GetNumLines()
+long ScTextWndGroup::GetNumLines() const
 {
     return maTextWnd->GetNumLines();
 }
@@ -1111,13 +1116,13 @@ void ScTextWndGroup::Resize()
         maScrollBar->SetLineSize(maTextWnd->GetTextHeight());
         maScrollBar->Resize();
         maScrollBar->Show();
-        maTextWnd->SetSizePixel(Size(aSize.Width() - aScrollBarSize.Width() - gnBorderWidth - 1,
+        maTextWnd->SetSizePixel(Size(aSize.Width() - aScrollBarSize.Width() - 3 * gnBorderWidth - 1,
                                      aSize.Height() - 2 * gnBorderHeight));
     }
     else
     {
         maScrollBar->Hide();
-        maTextWnd->SetSizePixel(Size(aSize.Width() - 2 * gnBorderWidth, aSize.Height() - 2 * gnBorderHeight));
+        maTextWnd->SetSizePixel(Size(aSize.Width() - 4 * gnBorderWidth, aSize.Height() - 2 * gnBorderHeight));
     }
     maTextWnd->Resize();
     Invalidate();
@@ -1225,7 +1230,7 @@ void ScTextWnd::Resize()
     SetScrollBarRange();
 }
 
-long ScTextWnd::GetEditEngTxtHeight()
+long ScTextWnd::GetEditEngTxtHeight() const
 {
     return mpEditView ? mpEditView->GetEditEngine()->GetTextHeight() : 0;
 }
@@ -1435,8 +1440,6 @@ ScTextWnd::ScTextWnd(ScTextWndGroup* pParent, ScTabViewShell* pViewSh)
     vcl::Font aAppFont = GetFont();
     aTextFont = aAppFont;
     Size aFontSize = aAppFont.GetFontSize();
-    if (aFontSize.Height() < MIN_FONT_SIZE)
-        aFontSize.setHeight(MIN_FONT_SIZE);
     aTextFont.SetFontSize(PixelToLogic(aFontSize, MapMode(MapUnit::MapTwip)));
 
     const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
@@ -1745,6 +1748,13 @@ void ScTextWnd::StopEditEngine( bool bAll )
         if (bSelection)
             Invalidate(); // So that the Selection is not left there
     }
+
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        // Clear
+        std::vector<ReferenceMark> aReferenceMarks;
+        ScInputHandler::SendReferenceMarks( mpViewShell, aReferenceMarks );
+    }
 }
 
 static sal_Int32 findFirstNonMatchingChar(const OUString& rStr1, const OUString& rStr2)
@@ -2018,11 +2028,7 @@ namespace {
 
 OUString createLocalRangeName(const OUString& rName, const OUString& rTableName)
 {
-    OUStringBuffer aString (rName);
-    aString.append(" (");
-    aString.append(rTableName);
-    aString.append(")");
-    return aString.makeStringAndClear();
+    return rName + " (" + rTableName + ")";
 }
 
 }

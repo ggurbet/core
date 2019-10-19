@@ -124,7 +124,7 @@ Impl3DMirrorConstructOverlay::Impl3DMirrorConstructOverlay(const E3dView& rView)
                     {
                         // use the view-independent primitive representation (without
                         // evtl. GridOffset, that may be applied to the DragEntry individually)
-                        const drawinglayer::primitive2d::Primitive2DContainer aNewSequence(
+                        const drawinglayer::primitive2d::Primitive2DContainer& aNewSequence(
                             pObject->GetViewContact().getViewIndependentPrimitive2DContainer());
                         maFullOverlay.append(aNewSequence);
                     }
@@ -531,7 +531,7 @@ bool E3dView::ImpCloneAll3DObjectsToDestScene(E3dScene const * pSrcScene, E3dSce
                     basegfx::B3DRange aObjectRange(pNewCompoundObj->GetBoundVolume());
                     aObjectRange.transform(aObjectToWorldTrans);
 
-                    // get scale adaption
+                    // get scale adaptation
                     const basegfx::B3DVector aSceneScale(aSceneRange.getRange());
                     const basegfx::B3DVector aObjectScale(aObjectRange.getRange());
                     double fScale(1.0);
@@ -561,7 +561,7 @@ bool E3dView::ImpCloneAll3DObjectsToDestScene(E3dScene const * pSrcScene, E3dSce
                         fScale *= fFactor;
                     }
 
-                    // get translation adaption
+                    // get translation adaptation
                     const basegfx::B3DPoint aSceneCenter(aSceneRange.getCenter());
                     const basegfx::B3DPoint aObjectCenter(aObjectRange.getCenter());
 
@@ -789,7 +789,7 @@ void E3dView::ImpCreate3DObject(E3dScene* pScene, SdrObject* pObj, bool bExtrude
             ImpChangeSomeAttributesFor3DConversion(pObj);
 
         // convert completely to path objects
-        SdrObject* pNewObj1 = pObj->ConvertToPolyObj(false, false);
+        SdrObject* pNewObj1 = pObj->ConvertToPolyObj(false, false).release();
 
         if(pNewObj1)
         {
@@ -1560,11 +1560,13 @@ void E3dView::BreakSingle3DObj(E3dObject* pObj)
     else
     {
         SdrAttrObj* pNewObj = pObj->GetBreakObj().release();
-        if(pNewObj)
+        if (pNewObj)
         {
-            InsertObjectAtView(pNewObj, *GetSdrPageView(), SdrInsertFlags::DONTMARK);
-            pNewObj->SetChanged();
-            pNewObj->BroadcastObjectChange();
+            if (InsertObjectAtView(pNewObj, *GetSdrPageView(), SdrInsertFlags::DONTMARK))
+            {
+                pNewObj->SetChanged();
+                pNewObj->BroadcastObjectChange();
+            }
         }
     }
 }

@@ -19,7 +19,7 @@
 #ifndef INCLUDED_CHART2_SOURCE_CONTROLLER_DIALOGS_TP_DATASOURCE_HXX
 #define INCLUDED_CHART2_SOURCE_CONTROLLER_DIALOGS_TP_DATASOURCE_HXX
 
-#include <svtools/wizardmachine.hxx>
+#include <vcl/wizardmachine.hxx>
 
 #include <RangeSelectionListener.hxx>
 
@@ -47,28 +47,26 @@ public:
 };
 
 class DataSourceTabPage final :
-        public ::svt::OWizardPage,
+        public ::vcl::OWizardPage,
         public RangeSelectionListenerParent
 {
 public:
-    explicit DataSourceTabPage(TabPageParent pParent,
+    explicit DataSourceTabPage(weld::Container* pPage, weld::DialogController* pController,
                                DialogModel & rDialogModel,
                                ChartTypeTemplateProvider* pTemplateProvider,
-                               Dialog * pParentDialog,
                                bool bHideDescription = false);
     virtual ~DataSourceTabPage() override;
 
-    virtual void ActivatePage() override;
+    virtual void Activate() override;
 
     void commitPage();
 
 private:
     // OWizardPage
-    virtual void dispose() override;
-    virtual bool commitPage( ::svt::WizardTypes::CommitPageReason eReason ) override;
+    virtual bool commitPage( ::vcl::WizardTypes::CommitPageReason eReason ) override;
 
     //TabPage
-    virtual void DeactivatePage() override;
+    virtual void Deactivate() override;
 
     virtual void        initializePage() override;
 
@@ -123,8 +121,6 @@ private:
     weld::Entry*                m_pCurrentRangeChoosingField;
     bool                        m_bIsDirty;
 
-    VclPtr<Dialog>              m_pParentDialog;
-    weld::DialogController*     m_pParentController;
     TabPageNotifiable *         m_pTabPageNotifiable;
 
     std::unique_ptr<weld::Label> m_xFT_CAPTION;

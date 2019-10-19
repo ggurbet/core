@@ -70,7 +70,7 @@ bool SvxRotateModeItem::GetPresentation(
             [[fallthrough]]; // break; // FALL THROUGH!!!
 
         case SfxItemPresentation::Nameless:
-            rText += OUStringLiteral1( GetValue() );
+            rText += OUString::number( GetValue() );
             return true;
             break;
         default: ;//prevent warning

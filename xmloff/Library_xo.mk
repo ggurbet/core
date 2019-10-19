@@ -21,7 +21,7 @@ $(eval $(call gb_Library_Library,xo))
 
 $(eval $(call gb_Library_set_componentfile,xo,xmloff/util/xo))
 
-$(eval $(call gb_Library_set_precompiled_header,xo,$(SRCDIR)/xmloff/inc/pch/precompiled_xo))
+$(eval $(call gb_Library_set_precompiled_header,xo,xmloff/inc/pch/precompiled_xo))
 
 $(eval $(call gb_Library_set_include,xo,\
     -I$(SRCDIR)/xmloff/inc \
@@ -142,6 +142,7 @@ $(eval $(call gb_Library_add_exception_objects,xo,\
     xmloff/source/draw/shapeexport \
     xmloff/source/draw/shapeimport \
     xmloff/source/draw/SignatureLineContext \
+    xmloff/source/draw/QRCodeContext \
     xmloff/source/draw/xexptran \
     xmloff/source/draw/ximp3dobject \
     xmloff/source/draw/ximp3dscene \

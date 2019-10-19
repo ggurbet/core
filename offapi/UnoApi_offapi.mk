@@ -352,7 +352,6 @@ $(eval $(call gb_UnoApi_add_idlfiles_nohdl,offapi,com/sun/star/sdb,\
 ))
 $(eval $(call gb_UnoApi_add_idlfiles_nohdl,offapi,com/sun/star/sdb/application,\
 	CopyTableWizard \
-	MacroMigrationWizard \
 ))
 $(eval $(call gb_UnoApi_add_idlfiles_nohdl,offapi,com/sun/star/sdb/tools,\
 	ConnectionTools \
@@ -2246,6 +2245,8 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/document,\
 	XOOXMLDocumentPropertiesImporter \
 	XRedlinesSupplier \
 	XScriptInvocationContext \
+	XShapeEventBroadcaster \
+	XShapeEventListener \
 	XStorageBasedDocument \
 	XStorageChangeListener \
 	XTypeDetection \
@@ -2323,6 +2324,8 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/drawing,\
 	PolygonKind \
 	Position3D \
 	ProjectionMode \
+	QRCode \
+	QRCodeErrorCorrection \
 	RectanglePoint \
 	ShadeMode \
 	ShadingPattern \

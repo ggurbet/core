@@ -636,7 +636,7 @@ void ScContentTree::Command( const CommandEvent& rCEvt )
                         else
                             aEntry += pParentWindow->aStrNotActive;
                         ++i;
-                        aDocMenu->InsertItem(i, aEntry, MenuItemBits::AUTOCHECK | MenuItemBits::RADIOCHECK, OString("document") + OString::number(i));
+                        aDocMenu->InsertItem(i, aEntry, MenuItemBits::AUTOCHECK | MenuItemBits::RADIOCHECK, "document" + OString::number(i));
                         if ( !bHiddenDoc && aName == aManualDoc )
                             nPos = i;
                     }
@@ -644,7 +644,7 @@ void ScContentTree::Command( const CommandEvent& rCEvt )
                 }
                 //  "active window"
                 ++i;
-                aDocMenu->InsertItem(i, pParentWindow->aStrActiveWin, MenuItemBits::AUTOCHECK | MenuItemBits::RADIOCHECK, OString("document") + OString::number(i));
+                aDocMenu->InsertItem(i, pParentWindow->aStrActiveWin, MenuItemBits::AUTOCHECK | MenuItemBits::RADIOCHECK, "document" + OString::number(i));
                 if (!bHiddenDoc && aManualDoc.isEmpty())
                     nPos = i;
                 //  hidden document
@@ -653,7 +653,7 @@ void ScContentTree::Command( const CommandEvent& rCEvt )
                     OUString aEntry = aHiddenTitle;
                     aEntry += pParentWindow->aStrHidden;
                     ++i;
-                    aDocMenu->InsertItem(i, aEntry, MenuItemBits::AUTOCHECK | MenuItemBits::RADIOCHECK, OString("document") + OString::number(i));
+                    aDocMenu->InsertItem(i, aEntry, MenuItemBits::AUTOCHECK | MenuItemBits::RADIOCHECK, "document" + OString::number(i));
                     if (bHiddenDoc)
                         nPos = i;
                 }
@@ -863,11 +863,7 @@ namespace {
 
 OUString createLocalRangeName(const OUString& rName, const OUString& rTableName)
 {
-    OUStringBuffer aString (rName);
-    aString.append(" (");
-    aString.append(rTableName);
-    aString.append(")");
-    return aString.makeStringAndClear();
+    return rName + " (" + rTableName + ")";
 }
 }
 
@@ -1695,10 +1691,10 @@ void ScContentTree::StoreNavigatorSettings() const
 }
 
 void ScContentTree::InitEntry(SvTreeListEntry* pEntry,
-    const OUString& rStr, const Image& rImg1, const Image& rImg2, SvLBoxButtonKind eButtonKind)
+    const OUString& rStr, const Image& rImg1, const Image& rImg2)
 {
     sal_uInt16 nColToHilite = 1; //0==Bitmap;1=="Spalte1";2=="Spalte2"
-    SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2, eButtonKind );
+    SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2 );
     SvLBoxString& rCol = static_cast<SvLBoxString&>(pEntry->GetItem( nColToHilite ));
     pEntry->ReplaceItem(std::make_unique<SvLBoxString>(rCol.GetText()), nColToHilite);
 }

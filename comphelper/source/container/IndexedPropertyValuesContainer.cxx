@@ -133,7 +133,7 @@ sal_Bool SAL_CALL IndexedPropertyValuesContainer::hasElements(  )
 //XServiceInfo
 OUString SAL_CALL IndexedPropertyValuesContainer::getImplementationName(  )
 {
-    return OUString( "IndexedPropertyValuesContainer" );
+    return "IndexedPropertyValuesContainer";
 }
 
 sal_Bool SAL_CALL IndexedPropertyValuesContainer::supportsService( const OUString& ServiceName )
@@ -143,9 +143,7 @@ sal_Bool SAL_CALL IndexedPropertyValuesContainer::supportsService( const OUStrin
 
 css::uno::Sequence< OUString > SAL_CALL IndexedPropertyValuesContainer::getSupportedServiceNames(  )
 {
-    const OUString aServiceName( "com.sun.star.document.IndexedPropertyValues" );
-    const uno::Sequence< OUString > aSeq( &aServiceName, 1 );
-    return aSeq;
+    return { "com.sun.star.document.IndexedPropertyValues" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface *

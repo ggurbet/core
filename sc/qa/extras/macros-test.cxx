@@ -9,23 +9,12 @@
 
 #include <sal/config.h>
 #include <test/unoapi_test.hxx>
-#include <rtl/strbuf.hxx>
 #include <osl/file.hxx>
 #include <sal/log.hxx>
 
 #include <vcl/svapp.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/docfilt.hxx>
-#include <sfx2/docfile.hxx>
-#include <sfx2/sfxmodelfactory.hxx>
-#include <svl/intitem.hxx>
-#include <com/sun/star/frame/Desktop.hpp>
-
-#include <basic/sbxdef.hxx>
 
 #include <docsh.hxx>
-#include <patattr.hxx>
-#include <scitems.hxx>
 #include <document.hxx>
 
 using namespace ::com::sun::star;
@@ -38,28 +27,21 @@ class ScMacrosTest : public UnoApiTest
 public:
     ScMacrosTest();
 
-#if !defined MACOSX
     void testStarBasic();
     void testVba();
     void testMSP();
     void testPasswordProtectedStarBasic();
     void testRowColumn();
-#endif
+
     CPPUNIT_TEST_SUITE(ScMacrosTest);
-#if !defined(MACOSX)
-    //enable this test if you want to play with star basic macros in unit tests
-    //works but does nothing useful yet
     CPPUNIT_TEST(testStarBasic);
     CPPUNIT_TEST(testMSP);
     CPPUNIT_TEST(testVba);
     CPPUNIT_TEST(testPasswordProtectedStarBasic);
     CPPUNIT_TEST(testRowColumn);
-#endif
 
     CPPUNIT_TEST_SUITE_END();
 };
-
-#if !defined MACOSX
 
 // I suppose you could say this test doesn't really belong here, OTOH
 // we need a full document to run the test ( it related originally to an
@@ -296,7 +278,7 @@ void ScMacrosTest::testVba()
     OUString sTempDirURL;
     osl::FileBase:: getTempDirURL( sTempDirURL );
     osl::FileBase::getSystemPathFromFileURL( sTempDirURL, sTempDir );
-    sTempDir += OUStringLiteral1(SAL_PATHDELIMITER);
+    sTempDir += OUStringChar(SAL_PATHDELIMITER);
     OUString sTestFileName("My Test WorkBook.xls");
     Sequence< uno::Any > aParams;
     for ( size_t  i=0; i<SAL_N_ELEMENTS( testInfo ); ++i )
@@ -388,8 +370,6 @@ void ScMacrosTest::testRowColumn()
 
     pDocSh->DoClose();
 }
-
-#endif
 
 ScMacrosTest::ScMacrosTest()
       : UnoApiTest("/sc/qa/extras/testdocuments")

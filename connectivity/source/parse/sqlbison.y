@@ -4535,7 +4535,7 @@ static OUString delComment( const OUString& rQuery )
             }
             else
             {
-                // comment can't close anymore, actually an error, but..
+                // comment can't close anymore, actually an error, but...
             }
             continue;
         }
@@ -4597,6 +4597,7 @@ std::unique_ptr<OSQLParseNode> OSQLParser::parseTree(OUString& rErrorMessage,
 
 		// clear the garbage collector
 		(*s_pGarbageCollector)->clearAndDelete();
+		m_pParseTree.release(); // because the garbage collector deleted it
 		return nullptr;
 	}
 	else

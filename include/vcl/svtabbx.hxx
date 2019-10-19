@@ -55,7 +55,7 @@ protected:
     static OUString             GetToken( const OUString &sStr, sal_Int32 &nIndex );
 
     virtual void                SetTabs() override;
-    virtual void                InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&, SvLBoxButtonKind) override;
+    virtual void                InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&) override;
 
     OUString                    GetTabEntryText( sal_uLong nPos, sal_uInt16 nCol ) const;
     SvTreeListEntry*            GetEntryOnPos( sal_uLong _nEntryPos ) const;
@@ -66,27 +66,21 @@ public:
     virtual ~SvTabListBox() override;
     virtual void dispose() override;
     void            SetTabs(sal_uInt16 nTabs, long const pTabPositions[], MapUnit = MapUnit::MapAppFont);
-    sal_uInt16      TabCount() const { return mvTabList.size(); }
     using SvTreeListBox::GetTab;
-    long            GetTab( sal_uInt16 nTab ) const;
     void            SetTab( sal_uInt16 nTab, long nValue, MapUnit = MapUnit::MapAppFont );
     long            GetLogicTab( sal_uInt16 nTab );
 
     virtual SvTreeListEntry*    InsertEntry( const OUString& rText, SvTreeListEntry* pParent = nullptr,
                                          bool bChildrenOnDemand = false,
-                                         sal_uLong nPos=TREELIST_APPEND, void* pUserData = nullptr,
-                                         SvLBoxButtonKind eButtonKind = SvLBoxButtonKind::EnabledCheckbox ) override;
+                                         sal_uLong nPos=TREELIST_APPEND, void* pUserData = nullptr ) override;
 
     virtual SvTreeListEntry*    InsertEntry( const OUString& rText,
                                          const Image& rExpandedEntryBmp,
                                          const Image& rCollapsedEntryBmp,
                                          SvTreeListEntry* pParent = nullptr,
                                          bool bChildrenOnDemand = false,
-                                         sal_uLong nPos = TREELIST_APPEND, void* pUserData = nullptr,
-                                         SvLBoxButtonKind eButtonKind = SvLBoxButtonKind::EnabledCheckbox ) override;
+                                         sal_uLong nPos = TREELIST_APPEND, void* pUserData = nullptr ) override;
 
-    virtual SvTreeListEntry* InsertEntryToColumn( const OUString&, sal_uLong nPos = TREELIST_APPEND,
-                                 sal_uInt16 nCol = 0xffff, void* pUserData = nullptr );
     virtual SvTreeListEntry* InsertEntryToColumn( const OUString&, SvTreeListEntry* pParent,
                                  sal_uLong nPos, sal_uInt16 nCol, void* pUserData = nullptr );
     virtual SvTreeListEntry* InsertEntryToColumn( const OUString&, const Image& rExpandedEntryBmp,
@@ -97,20 +91,12 @@ public:
     static OUString  GetEntryText( SvTreeListEntry*, sal_uInt16 nCol );
     OUString         GetEntryText( sal_uLong nPos, sal_uInt16 nCol = 0xffff ) const;
     using SvTreeListBox::SetEntryText;
-    void             SetEntryText(const OUString&, sal_uLong, sal_uInt16 nCol);
     void             SetEntryText(const OUString&, SvTreeListEntry*, sal_uInt16 nCol=0xffff);
     OUString         GetCellText( sal_uLong nPos, sal_uInt16 nCol ) const;
-    sal_uLong        GetEntryPos( const OUString&, sal_uInt16 nCol = 0xffff );
     sal_uLong        GetEntryPos( const SvTreeListEntry* pEntry ) const;
 
     void             SetTabJustify( sal_uInt16 nTab, SvTabJustify );
 };
-
-inline long SvTabListBox::GetTab( sal_uInt16 nTab ) const
-{
-    DBG_ASSERT( nTab < mvTabList.size(), "GetTabPos:Invalid Tab" );
-    return mvTabList[nTab].GetPos();
-}
 
 // class SvHeaderTabListBox ---------------------------------------------------
 
@@ -145,8 +131,6 @@ public:
     HeaderBar*      GetHeaderBar();
     static bool     IsItemChecked( SvTreeListEntry* pEntry, sal_uInt16 nCol );
 
-    virtual SvTreeListEntry* InsertEntryToColumn( const OUString&, sal_uLong nPos = TREELIST_APPEND,
-                                 sal_uInt16 nCol = 0xffff, void* pUserData = nullptr ) override;
     virtual SvTreeListEntry* InsertEntryToColumn( const OUString&, SvTreeListEntry* pParent,
                                  sal_uLong nPos, sal_uInt16 nCol, void* pUserData = nullptr ) override;
     virtual SvTreeListEntry* InsertEntryToColumn( const OUString&, const Image& rExpandedEntryBmp,
@@ -159,7 +143,6 @@ public:
 
     // Accessible -------------------------------------------------------------
 
-    void     DisableTransientChildren()          { SetChildrenNotTransient(); }
     bool     IsTransientChildrenDisabled() const { return !AreChildrenTransient(); }
 
     bool            IsCellCheckBox( long _nRow, sal_uInt16 _nColumn, TriState& _rState );

@@ -146,6 +146,7 @@ class AttributeOutputBase
 {
 private:
     SvtSaveOptions const m_aSaveOpt;
+    OUString m_sBaseURL; // To be used in ConvertURL
 
     OUString ConvertURL( const OUString& rUrl, bool bAbsoluteOut );
 
@@ -344,6 +345,10 @@ public:
 
     /// Definition of a numbering instance.
     virtual void NumberingDefinition( sal_uInt16 nId, const SwNumRule &rRule ) = 0;
+
+    /// Numbering definition that overrides abstract numbering definition
+    virtual void OverrideNumberingDefinition(SwNumRule const&, sal_uInt16 /*nNum*/, sal_uInt16 /*nAbstractNum*/)
+    { assert(false); } // TODO implement for WW8/RTF
 
     /// Start of the abstract numbering definition instance.
     virtual void StartAbstractNumbering( sal_uInt16 /*nId*/ ) {}
@@ -636,7 +641,10 @@ protected:
     ww8::WidthsPtr   GetColumnWidths( ww8::WW8TableNodeInfoInner::Pointer_t const & pTableTextNodeInfoInner );
 
 public:
-    AttributeOutputBase() {}
+    AttributeOutputBase(const OUString& sBaseURL)
+        : m_sBaseURL(sBaseURL)
+    {
+    }
     virtual ~AttributeOutputBase() {}
 
     /// Return the right export class.
@@ -675,11 +683,11 @@ class WW8Ruby
 
 public:
     WW8Ruby(const SwTextNode& rNode, const SwFormatRuby& rRuby, const MSWordExportBase& rExport );
-    sal_Int32   GetJC() { return m_nJC; }
-    sal_Char    GetDirective() { return m_cDirective; }
-    sal_uInt32   GetRubyHeight() { return m_nRubyHeight; }
-    sal_uInt32   GetBaseHeight() { return m_nBaseHeight; }
-    OUString const & GetFontFamily() { return m_sFontFamily; }
+    sal_Int32   GetJC() const { return m_nJC; }
+    sal_Char    GetDirective() const { return m_cDirective; }
+    sal_uInt32   GetRubyHeight() const { return m_nRubyHeight; }
+    sal_uInt32   GetBaseHeight() const { return m_nBaseHeight; }
+    OUString const & GetFontFamily() const { return m_sFontFamily; }
 };
 #endif // INCLUDED_SW_SOURCE_FILTER_WW8_ATTRIBUTEOUTPUTBASE_HXX
 

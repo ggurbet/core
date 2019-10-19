@@ -80,6 +80,7 @@ class VCL_DLLPUBLIC PDFExtOutDevData : public ExtOutDevData
     bool                        mbExportFormFields;
     bool                        mbExportBookmarks;
     bool                        mbExportHiddenSlides;
+    bool                        mbSinglePageSheets;
     bool                        mbExportNDests; //i56629
     sal_Int32                   mnPage;
     sal_Int32                   mnCompressionQuality;
@@ -122,6 +123,8 @@ public:
     bool    GetIsExportHiddenSlides() const { return mbExportHiddenSlides;}
     void        SetIsExportHiddenSlides( const bool bExportHiddenSlides );
 
+    void        SetIsSinglePageSheets( const bool bSinglePageSheets );
+
     bool    GetIsExportNamedDestinations() const { return mbExportNDests;} //i56629
     void        SetIsExportNamedDestinations( const bool bExportNDests ); //i56629
 
@@ -141,7 +144,7 @@ public:
     void        SetDocumentLocale( const css::lang::Locale& rLoc );
 
     std::vector< PDFExtOutDevBookmarkEntry >& GetBookmarks() { return maBookmarks;}
-    const std::vector<OUString>& GetChapterNames() { return maChapterNames; }
+    const std::vector<OUString>& GetChapterNames() const { return maChapterNames; }
 
     const Graphic& GetCurrentGraphic() const;
 
@@ -387,7 +390,7 @@ public:
     @returns
     the id of the current structure element
     */
-    sal_Int32 GetCurrentStructureElement();
+    sal_Int32 GetCurrentStructureElement() const;
 
     /** set a structure attribute on the current structural element
 

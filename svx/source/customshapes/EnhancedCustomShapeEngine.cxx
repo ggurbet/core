@@ -117,16 +117,14 @@ void SAL_CALL EnhancedCustomShapeEngine::release() throw()
 // XInitialization
 void SAL_CALL EnhancedCustomShapeEngine::initialize( const Sequence< Any >& aArguments )
 {
-    sal_Int32 i;
     Sequence< beans::PropertyValue > aParameter;
-    for ( i = 0; i < aArguments.getLength(); i++ )
+    for ( const auto& rArgument : aArguments )
     {
-        if ( aArguments[ i ] >>= aParameter )
+        if ( rArgument >>= aParameter )
             break;
     }
-    for ( i = 0; i < aParameter.getLength(); i++ )
+    for ( const beans::PropertyValue& rProp : std::as_const(aParameter) )
     {
-        const beans::PropertyValue& rProp = aParameter[ i ];
         if ( rProp.Name == "CustomShape" )
             rProp.Value >>= mxShape;
         else if ( rProp.Name == "ForceGroupWithText" )
@@ -137,7 +135,7 @@ void SAL_CALL EnhancedCustomShapeEngine::initialize( const Sequence< Any >& aArg
 // XServiceInfo
 OUString SAL_CALL EnhancedCustomShapeEngine::getImplementationName()
 {
-    return OUString( "com.sun.star.drawing.EnhancedCustomShapeEngine" );
+    return "com.sun.star.drawing.EnhancedCustomShapeEngine";
 }
 sal_Bool SAL_CALL EnhancedCustomShapeEngine::supportsService( const OUString& rServiceName )
 {
@@ -461,7 +459,6 @@ drawing::PolyPolygonBezierCoords SAL_CALL EnhancedCustomShapeEngine::getLineGeom
 
             while ( aIter.IsMore() )
             {
-                SdrObject* pNewObj = nullptr;
                 basegfx::B2DPolyPolygon aPP;
                 const SdrObject* pNext = aIter.Next();
 
@@ -471,16 +468,14 @@ drawing::PolyPolygonBezierCoords SAL_CALL EnhancedCustomShapeEngine::getLineGeom
                 }
                 else
                 {
-                    pNewObj = pNext->ConvertToPolyObj( false, false );
-                    SdrPathObj* pPath = dynamic_cast<SdrPathObj*>( pNewObj  );
+                    SdrObjectUniquePtr pNewObj = pNext->ConvertToPolyObj( false, false );
+                    SdrPathObj* pPath = dynamic_cast<SdrPathObj*>( pNewObj.get() );
                     if ( pPath )
                         aPP = pPath->GetPathPoly();
                 }
 
                 if ( aPP.count() )
                     aPolyPolygon.append(aPP);
-
-                SdrObject::Free( pNewObj );
             }
             SdrObject::Free( pObj );
             basegfx::utils::B2DPolyPolygonToUnoPolyPolygonBezierCoords( aPolyPolygon,

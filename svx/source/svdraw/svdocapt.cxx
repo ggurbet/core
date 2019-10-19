@@ -43,6 +43,7 @@
 #include <svx/svdhdl.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/svdocapt.hxx>
+#include <svx/svdopath.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdpool.hxx>
@@ -400,18 +401,14 @@ OUString SdrCaptionObj::getSpecialDragComment(const SdrDragStat& rDrag) const
         }
         else
         {
-            OUString aStr;
-
             if(!pHdl)
             {
-                ImpTakeDescriptionStr(STR_DragCaptFram, aStr);
+                return ImpGetDescriptionStr(STR_DragCaptFram);
             }
             else
             {
-                ImpTakeDescriptionStr(STR_DragCaptTail, aStr);
+                return ImpGetDescriptionStr(STR_DragCaptTail);
             }
-
-            return aStr;
         }
     }
 }
@@ -693,26 +690,34 @@ void SdrCaptionObj::RestGeoData(const SdrObjGeoData& rGeo)
     aTailPoly=rCGeo.aTailPoly;
 }
 
-SdrObject* SdrCaptionObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
+SdrObjectUniquePtr SdrCaptionObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 {
-    SdrObject* pRect=SdrRectObj::DoConvertToPolyObj(bBezier, bAddText);
-    SdrObject* pTail = ImpConvertMakeObj(basegfx::B2DPolyPolygon(aTailPoly.getB2DPolygon()), false, bBezier);
-    SdrObject* pRet=(pTail!=nullptr) ? pTail : pRect;
-    if (pTail!=nullptr && pRect!=nullptr) {
-        bool bInsRect = true;
-        bool bInsTail = true;
-        SdrObjList* pOL=pTail->GetSubList();
-        if (pOL!=nullptr) { pRet=pRect; bInsTail = false; }
-        if (pOL==nullptr) pOL=pRect->GetSubList();
-        if (pOL!=nullptr) { pRet=pRect; bInsRect = false; }
-        if (pOL==nullptr)
+    SdrObjectUniquePtr pRect = SdrRectObj::DoConvertToPolyObj(bBezier, bAddText);
+    SdrObjectUniquePtr pTail = ImpConvertMakeObj(basegfx::B2DPolyPolygon(aTailPoly.getB2DPolygon()), false, bBezier);
+    SdrObjectUniquePtr pRet;
+    if (pTail && !pRect)
+        pRet = std::move(pTail);
+    else if (pRect && !pTail)
+        pRet = std::move(pRect);
+    else if (pTail && pRect)
+    {
+        if (pTail->GetSubList())
+        {
+            pTail->GetSubList()->NbcInsertObject(pRect.release());
+            pRet = std::move(pTail);
+        }
+        else if (pRect->GetSubList())
+        {
+            pRect->GetSubList()->NbcInsertObject(pTail.release(),0);
+            pRet = std::move(pRect);
+        }
+        else
         {
             SdrObjGroup* pGrp = new SdrObjGroup(getSdrModelFromSdrObject());
-            pOL=pGrp->GetSubList();
-            pRet=pGrp;
+            pGrp->GetSubList()->NbcInsertObject(pRect.release());
+            pGrp->GetSubList()->NbcInsertObject(pTail.release(),0);
+            pRet.reset(pGrp);
         }
-        if (bInsRect) pOL->NbcInsertObject(pRect);
-        if (bInsTail) pOL->NbcInsertObject(pTail,0);
     }
     return pRet;
 }

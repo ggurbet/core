@@ -18,10 +18,7 @@
  */
 
 #include <editeng/unolingu.hxx>
-#include <svx/dlgutil.hxx>
 #include <svx/dialmgr.hxx>
-#include <sfx2/sfxuno.hxx>
-#include <svl/eitem.hxx>
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/linguistic2/XDictionary.hpp>
 #include <com/sun/star/linguistic2/XSearchableDictionaryList.hpp>
@@ -32,9 +29,6 @@
 #include <unotools/syslocale.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/settings.hxx>
-#include <vcl/event.hxx>
-#include <svx/dialogs.hrc>
 
 #include <linguistic/misc.hxx>
 #include <strings.hrc>
@@ -96,7 +90,7 @@ static CDE_RESULT cmpDicEntry_Impl( const OUString &rText1, const OUString &rTex
 SvxNewDictionaryDialog::SvxNewDictionaryDialog(weld::Window* pParent)
     : GenericDialogController(pParent, "cui/ui/optnewdictionarydialog.ui", "OptNewDictionaryDialog")
     , m_xNameEdit(m_xBuilder->weld_entry("nameedit"))
-    , m_xLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box("language")))
+    , m_xLanguageLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("language")))
     , m_xExceptBtn(m_xBuilder->weld_check_button("except"))
     , m_xOKBtn(m_xBuilder->weld_button("ok"))
 {
@@ -132,6 +126,17 @@ IMPL_LINK_NOARG(SvxNewDictionaryDialog, OKHdl_Impl, weld::Button&, void)
         if ( sDict.equalsIgnoreAsciiCase( pDic[i]->getName()) )
             bFound = true;
 
+    if ( sDict.indexOf("/") != -1 || sDict.indexOf("\\") != -1 )
+    {
+        // Detected an invalid character.
+        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(m_xDialog.get(),
+                                                      VclMessageType::Info, VclButtonsType::Ok,
+                                                      CuiResId(RID_SVXSTR_OPT_INVALID_DICT_NAME)));
+        xInfoBox->run();
+        m_xNameEdit->grab_focus();
+        return;
+    }
+
     if ( bFound )
     {
         // duplicate names?
@@ -154,7 +159,7 @@ IMPL_LINK_NOARG(SvxNewDictionaryDialog, OKHdl_Impl, weld::Button&, void)
         {
             lang::Locale aLocale( LanguageTag::convertToLocale(nLang) );
             OUString aURL( linguistic::GetWritableDictionaryURL( sDict ) );
-            m_xNewDic.set(xDicList->createDictionary(sDict, aLocale, eType, aURL) , UNO_QUERY);
+            m_xNewDic = xDicList->createDictionary(sDict, aLocale, eType, aURL);
             m_xNewDic->setActive(true);
         }
         DBG_ASSERT(m_xNewDic.is(), "NULL pointer");
@@ -172,7 +177,7 @@ IMPL_LINK_NOARG(SvxNewDictionaryDialog, OKHdl_Impl, weld::Button&, void)
 
     if (xDicList.is() && m_xNewDic.is())
     {
-        xDicList->addDictionary(Reference<XDictionary>(m_xNewDic, UNO_QUERY));
+        xDicList->addDictionary(m_xNewDic);
 
         // refresh list of dictionaries
         //! dictionaries may have been added/removed elsewhere too.
@@ -197,7 +202,7 @@ SvxEditDictionaryDialog::SvxEditDictionaryDialog(weld::Window* pParent, const OU
     , bDicIsReadonly(false)
     , m_xAllDictsLB(m_xBuilder->weld_combo_box("book"))
     , m_xLangFT(m_xBuilder->weld_label("lang_label"))
-    , m_xLangLB(new LanguageBox(m_xBuilder->weld_combo_box("lang")))
+    , m_xLangLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("lang")))
     , m_xWordED(m_xBuilder->weld_entry("word"))
     , m_xReplaceFT(m_xBuilder->weld_label("replace_label"))
     , m_xReplaceED(m_xBuilder->weld_entry("replace"))
@@ -253,7 +258,7 @@ SvxEditDictionaryDialog::SvxEditDictionaryDialog(weld::Window* pParent, const OU
     OUString aLookUpEntry;
     for ( sal_Int32 i = 0; i < nCount; ++i )
     {
-        Reference< XDictionary >  xDic( pDic[i], UNO_QUERY );
+        Reference< XDictionary >  xDic = pDic[i];
         if (xDic.is())
         {
             bool bNegative = xDic->getDictionaryType() == DictionaryType_NEGATIVE;

@@ -190,7 +190,7 @@ void JobData::setService( const OUString& sService )
                 Because the caller must have the configuration already open to
                 get the values for sEvent and sAlias! And doing so it can perform
                 only, if the time stamp values are read outside too.
-                Further it make no sense to initialize and start a disabled job.
+                Further it makes no sense to initialize and start a disabled job.
                 So this initialization method will be called for enabled jobs only.)
 
     @param      sEvent
@@ -504,7 +504,7 @@ std::vector< OUString > JobData::getEnabledJobsForEvent( const css::uno::Referen
     // We create an additional job name list with the same size, then the original list...
     // step over all job entries... check her timestamps... and put only job names to the
     // destination list, which represent an enabled job.
-    css::uno::Sequence< OUString > lAllJobs = xJobList->getElementNames();
+    const css::uno::Sequence< OUString > lAllJobs = xJobList->getElementNames();
     sal_Int32 c = lAllJobs.getLength();
 
     std::vector< OUString > lEnabledJobs(c);

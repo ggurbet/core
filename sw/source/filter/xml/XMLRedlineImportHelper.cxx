@@ -101,7 +101,7 @@ public:
     void CopyPositionInto(SwPosition& rPos, SwDoc & rDoc);
     SwDoc* GetDoc();
 
-    bool IsValid();
+    bool IsValid() const;
 };
 
 XTextRangeOrNodeIndexPosition::XTextRangeOrNodeIndexPosition()
@@ -171,7 +171,7 @@ SwDoc* XTextRangeOrNodeIndexPosition::GetDoc()
     return (nullptr != pIndex) ? pIndex->GetNodes().GetDoc() : lcl_GetDocViaTunnel(xRange);
 }
 
-bool XTextRangeOrNodeIndexPosition::IsValid()
+bool XTextRangeOrNodeIndexPosition::IsValid() const
 {
     return ( xRange.is() || (pIndex != nullptr) );
 }
@@ -287,7 +287,7 @@ XMLRedlineImportHelper::XMLRedlineImportHelper(
 XMLRedlineImportHelper::~XMLRedlineImportHelper()
 {
     // delete all left over (and obviously incomplete) RedlineInfos (and map)
-    for( auto& rEntry : m_aRedlineMap )
+    for( const auto& rEntry : m_aRedlineMap )
     {
         RedlineInfo* pInfo = rEntry.second;
 
@@ -562,7 +562,7 @@ void XMLRedlineImportHelper::AdjustStartNodeCursor(
     // else: can't find redline -> ignore
 }
 
-inline bool XMLRedlineImportHelper::IsReady(RedlineInfo* pRedline)
+inline bool XMLRedlineImportHelper::IsReady(const RedlineInfo* pRedline)
 {
     // we can insert a redline if we have start & end, and we don't
     // expect adjustments for either of these

@@ -7,6 +7,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#ifndef LO_CLANG_SHARED_PLUGINS
+
 #include <cassert>
 #include <string>
 #include <iostream>
@@ -31,7 +33,7 @@ public:
     {
     }
 
-    virtual void run() override { TraverseDecl(compiler.getASTContext().getTranslationUnitDecl()); }
+    void run() override { TraverseDecl(compiler.getASTContext().getTranslationUnitDecl()); }
 
     bool VisitFunctionDecl(FunctionDecl const*);
     bool VisitCXXMethodDecl(CXXMethodDecl const*);
@@ -102,7 +104,7 @@ bool TypedefParam::VisitCXXMethodDecl(CXXMethodDecl const* methodDecl)
     if (methodDecl->getCanonicalDecl() != methodDecl)
         return true;
 
-    StringRef aFileName = getFileNameOfSpellingLoc(
+    StringRef aFileName = getFilenameOfLocation(
         compiler.getSourceManager().getSpellingLoc(compat::getBeginLoc(methodDecl)));
     // seems to be using typedefs as a form of documentation for method params
     if (loplugin::hasPathnamePrefix(aFileName, SRCDIR "/sw/source/filter/ww8/ww8scan.hxx"))
@@ -321,7 +323,10 @@ static bool areTypesEqual(QualType lhs, QualType rhs)
     return lhsType == rhsType;
 }
 
-loplugin::Plugin::Registration<TypedefParam> X("typedefparam", true);
-}
+loplugin::Plugin::Registration<TypedefParam> typedefparam("typedefparam");
+
+} // namespace
+
+#endif // LO_CLANG_SHARED_PLUGINS
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

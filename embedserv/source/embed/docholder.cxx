@@ -509,8 +509,7 @@ static void CopyToOLEMenu(HMENU hOrig,WORD origPos,HMENU hDest,WORD destPos)
     InsertMenuW(hDest,destPos,MF_BYPOSITION | MF_POPUP,
                reinterpret_cast<UINT_PTR>(subMenu),buffer);
 
-    MENUITEMINFOW mi;
-    memset(&mi,0,sizeof(mi));
+    MENUITEMINFOW mi = {};
     mi.cbSize = sizeof(mi);
     mi.fMask = MIIM_DATA;
     if(GetMenuItemInfoW(hOrig,origPos,TRUE,&mi))
@@ -679,11 +678,8 @@ void DocumentHolder::CloseFrame()
         }
         catch( const uno::Exception& ) {
         }
-    else {
-        uno::Reference<lang::XComponent> xComp(m_xFrame, uno::UNO_QUERY);
-        if (xComp.is())
-            xComp->dispose();
-    }
+    else if (m_xFrame.is())
+        m_xFrame->dispose();
 
     m_xFrame.clear();
 }
@@ -758,13 +754,10 @@ uno::Reference< frame::XFrame2 > DocumentHolder::DocumentFrame()
     {
         uno::Reference<frame::XDesktop2> xDesktop = frame::Desktop::create(comphelper::getComponentContext(m_xFactory));
 
-        uno::Reference<frame::XFrame> xFrame(xDesktop,uno::UNO_QUERY);
-
         // the frame will be registered on desktop here, later when the document
         // is loaded into the frame in ::show() method the terminate listener will be removed
         // this is so only for outplace activation
-        if( xFrame.is() )
-            m_xFrame.set( xFrame->findFrame( "_blank", 0 ), uno::UNO_QUERY );
+        m_xFrame.set( xDesktop->findFrame( "_blank", 0 ), uno::UNO_QUERY );
 
         uno::Reference< util::XCloseBroadcaster > xBroadcaster(
             m_xFrame, uno::UNO_QUERY );
@@ -871,8 +864,7 @@ void DocumentHolder::resizeWin( const SIZEL& rNewSize )
 
     if ( m_xFrame.is() && aDocLock.GetEmbedDocument() )
     {
-        uno::Reference< awt::XWindow > xWindow(
-            m_xFrame->getContainerWindow(), uno::UNO_QUERY );
+        uno::Reference< awt::XWindow > xWindow = m_xFrame->getContainerWindow();
         uno::Reference< awt::XView > xView( xWindow, uno::UNO_QUERY );
 
         if ( xWindow.is() && xView.is() )
@@ -1147,8 +1139,7 @@ HRESULT DocumentHolder::GetExtent( SIZEL *pSize )
 HRESULT DocumentHolder::SetContRects(LPCRECT aRect)
 {
     if(m_xContainerWindow.is()) {
-        RECT wi;
-        memset(&wi,0,sizeof(wi));
+        RECT wi = {};
         if(m_pIOleIPFrame) {
             m_pIOleIPFrame->GetBorder(&wi);
             m_xContainerWindow->setPosSize(
@@ -1223,8 +1214,7 @@ css::uno::Reference< css::awt::XWindow> SAL_CALL DocumentHolder::getContainerWin
                 lang::SystemDependent::SYSTEM_WIN32),
             uno::UNO_QUERY);
 
-        RECT wi;
-        memset(&wi,0,sizeof(wi));
+        RECT wi = {};
         if(xWin.is() && m_pIOleIPFrame->GetBorder(&wi) == NOERROR) {
             xWin->setVisible(true);
             xWin->setPosSize(

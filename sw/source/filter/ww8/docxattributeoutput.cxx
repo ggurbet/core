@@ -96,7 +96,6 @@
 #include <svl/grabbagitem.hxx>
 #include <sfx2/sfxbasemodel.hxx>
 #include <tools/datetimeutils.hxx>
-#include <tools/urlobj.hxx>
 #include <svl/whiter.hxx>
 #include <rtl/tencinfo.h>
 #include <sal/log.hxx>
@@ -175,7 +174,7 @@ static const sal_Int32 Tag_EndRun_1 = 9;
 static const sal_Int32 Tag_EndRun_2 = 10;
 static const sal_Int32 Tag_StartRunProperties = 11;
 static const sal_Int32 Tag_InitCollectedRunProperties = 12;
-static const sal_Int32 Tag_Redline_1 = 13;
+//static const sal_Int32 Tag_Redline_1 = 13;
 static const sal_Int32 Tag_Redline_2 = 14;
 static const sal_Int32 Tag_TableDefinition = 15;
 static const sal_Int32 Tag_OutputFlyFrame = 16;
@@ -239,6 +238,7 @@ public:
         m_pSerializer->endElementNS( XML_w, XML_checkBox );
         writeFinish();
     }
+
     void WriteFormText(  const OUString& rName,
                          const OUString& rEntryMacro,
                          const OUString& rExitMacro,
@@ -275,7 +275,7 @@ class FieldMarkParamsHelper
     const sw::mark::IFieldmark& mrFieldmark;
     public:
     explicit FieldMarkParamsHelper( const sw::mark::IFieldmark& rFieldmark ) : mrFieldmark( rFieldmark ) {}
-    OUString const & getName() { return mrFieldmark.GetName(); }
+    OUString const & getName() const { return mrFieldmark.GetName(); }
     template < typename T >
     bool extractParam( const OUString& rKey, T& rResult )
     {
@@ -486,15 +486,15 @@ static OString convertToOOXMLVertOrient(sal_Int16 nOrient)
     {
         case text::VertOrientation::CENTER:
         case text::VertOrientation::LINE_CENTER:
-            return OString( "center" );
+            return "center";
         case text::VertOrientation::BOTTOM:
-            return OString( "bottom" );
+            return "bottom";
         case text::VertOrientation::LINE_BOTTOM:
-            return OString( "outside" );
+            return "outside";
         case text::VertOrientation::TOP:
-            return OString( "top" );
+            return "top";
         case text::VertOrientation::LINE_TOP:
-            return OString( "inside" );
+            return "inside";
         default:
             return OString();
     }
@@ -505,16 +505,16 @@ static OString convertToOOXMLHoriOrient(sal_Int16 nOrient, bool bIsPosToggle)
     switch( nOrient )
     {
         case text::HoriOrientation::LEFT:
-            return OString( bIsPosToggle ? "inside" : "left" );
+            return bIsPosToggle ? "inside" : "left";
         case text::HoriOrientation::INSIDE:
-            return OString( "inside" );
+            return "inside";
         case text::HoriOrientation::RIGHT:
-            return OString( bIsPosToggle ? "outside" : "right" );
+            return bIsPosToggle ? "outside" : "right";
         case text::HoriOrientation::OUTSIDE:
-            return OString( "outside" );
+            return "outside";
         case text::HoriOrientation::CENTER:
         case text::HoriOrientation::FULL:
-            return OString( "center" );
+            return "center";
         default:
             return OString();
     }
@@ -525,13 +525,13 @@ static OString convertToOOXMLVertOrientRel(sal_Int16 nOrientRel)
     switch (nOrientRel)
     {
         case text::RelOrientation::PAGE_PRINT_AREA:
-            return OString("margin");
+            return "margin";
         case text::RelOrientation::PAGE_FRAME:
-            return OString("page");
+            return "page";
         case text::RelOrientation::FRAME:
         case text::RelOrientation::TEXT_LINE:
         default:
-            return OString("text");
+            return "text";
     }
 }
 
@@ -540,14 +540,14 @@ static OString convertToOOXMLHoriOrientRel(sal_Int16 nOrientRel)
     switch (nOrientRel)
     {
         case text::RelOrientation::PAGE_PRINT_AREA:
-            return OString("margin");
+            return "margin";
         case text::RelOrientation::PAGE_FRAME:
-            return OString("page");
+            return "page";
         case text::RelOrientation::CHAR:
         case text::RelOrientation::PAGE_RIGHT:
         case text::RelOrientation::FRAME:
         default:
-            return OString("text");
+            return "text";
     }
 }
 
@@ -616,15 +616,10 @@ bool DocxAttributeOutput::TextBoxIsFramePr(const SwFrameFormat& rFrameFormat)
     {
         uno::Sequence< beans::PropertyValue > propList;
         xPropertySet->getPropertyValue("FrameInteropGrabBag") >>= propList;
-        for (sal_Int32 nProp=0; nProp < propList.getLength(); ++nProp)
-        {
-            OUString propName = propList[nProp].Name;
-            if (propName == "ParaFrameProperties")
-            {
-                aFrameProperties = propList[nProp].Value ;
-                break;
-            }
-        }
+        auto pProp = std::find_if(propList.begin(), propList.end(),
+            [](const beans::PropertyValue& rProp) { return rProp.Name == "ParaFrameProperties"; });
+        if (pProp != propList.end())
+            aFrameProperties = pProp->Value;
     }
     bool bFrameProperties = false;
     aFrameProperties >>= bFrameProperties;
@@ -818,10 +813,10 @@ void DocxAttributeOutput::WriteSdtBlock( sal_Int32& nSdtPrToken,
         }
 
         if (nSdtPrToken ==  FSNS( XML_w, XML_date ) || nSdtPrToken ==  FSNS( XML_w, XML_docPartObj ) || nSdtPrToken ==  FSNS( XML_w, XML_docPartList ) || nSdtPrToken ==  FSNS( XML_w14, XML_checkbox )) {
-            uno::Sequence<xml::FastAttribute> aChildren = pSdtPrTokenChildren->getFastAttributes();
-            for( sal_Int32 i=0; i < aChildren.getLength(); ++i )
-                m_pSerializer->singleElement( aChildren[i].Token,
-                                              FSNS(XML_w, XML_val), aChildren[i].Value.toUtf8() );
+            const uno::Sequence<xml::FastAttribute> aChildren = pSdtPrTokenChildren->getFastAttributes();
+            for( const auto& rChild : aChildren )
+                m_pSerializer->singleElement( rChild.Token,
+                                              FSNS(XML_w, XML_val), rChild.Value.toUtf8() );
         }
 
         m_pSerializer->endElement( nSdtPrToken );
@@ -1841,6 +1836,9 @@ void DocxAttributeOutput::WriteFFData(  const FieldInfos& rInfos )
         OUString sName, sSelected;
 
         params.extractParam( ODF_FORMDROPDOWN_LISTENTRY, vListEntries );
+        if (vListEntries.getLength() > ODF_FORMDROPDOWN_ENTRY_COUNT_LIMIT)
+            vListEntries = uno::Sequence< OUString>(vListEntries.getArray(), ODF_FORMDROPDOWN_ENTRY_COUNT_LIMIT);
+
         sName = params.getName();
         sal_Int32 nSelectedIndex = 0;
 
@@ -1882,12 +1880,74 @@ void DocxAttributeOutput::WriteFFData(  const FieldInfos& rInfos )
     }
 }
 
+void DocxAttributeOutput::WriteFormDateStart(const OUString& sFullDate, const OUString& sDateFormat, const OUString& sLang)
+{
+    m_pSerializer->startElementNS(XML_w, XML_sdt);
+    m_pSerializer->startElementNS(XML_w, XML_sdtPr);
+
+    if(!sFullDate.isEmpty())
+        m_pSerializer->startElementNS(XML_w, XML_date, FSNS(XML_w, XML_fullDate), sFullDate.toUtf8());
+    else
+        m_pSerializer->startElementNS(XML_w, XML_date);
+
+    // Replace quotation mark used for marking static strings in date format
+    OString sUTF8DateFormat = sDateFormat.toUtf8();
+    sUTF8DateFormat = sUTF8DateFormat.replaceAll("\"", "'");
+    m_pSerializer->singleElementNS(XML_w, XML_dateFormat,
+                                   FSNS(XML_w, XML_val), sUTF8DateFormat);
+    m_pSerializer->singleElementNS(XML_w, XML_lid,
+                                   FSNS(XML_w, XML_val), sLang.toUtf8());
+    m_pSerializer->singleElementNS(XML_w, XML_storeMappedDataAs,
+                                   FSNS(XML_w, XML_val), "dateTime");
+    m_pSerializer->singleElementNS(XML_w, XML_calendar,
+                                   FSNS(XML_w, XML_val), "gregorian");
+
+    m_pSerializer->endElementNS(XML_w, XML_date);
+    m_pSerializer->endElementNS(XML_w, XML_sdtPr);
+
+    m_pSerializer->startElementNS(XML_w, XML_sdtContent);
+}
+
+void DocxAttributeOutput::WriteFormDateEnd()
+{
+    m_pSerializer->endElementNS(XML_w, XML_sdtContent);
+    m_pSerializer->endElementNS(XML_w, XML_sdt);
+}
+
 void DocxAttributeOutput::StartField_Impl( const SwTextNode* pNode, sal_Int32 nPos, FieldInfos const & rInfos, bool bWriteRun )
 {
     if ( rInfos.pField && rInfos.eType == ww::eUNKNOWN )
     {
         // Expand unsupported fields
         RunText( rInfos.pField->GetFieldName() );
+    }
+    else if ( rInfos.eType == ww::eFORMDATE )
+    {
+        const sw::mark::IDateFieldmark& rFieldmark = dynamic_cast<const sw::mark::IDateFieldmark&>(*rInfos.pFieldmark);
+        FieldMarkParamsHelper params(rFieldmark);
+
+        OUString sFullDate;
+        OUString sCurrentDate;
+        params.extractParam( ODF_FORMDATE_CURRENTDATE, sCurrentDate );
+        if(!sCurrentDate.isEmpty())
+        {
+            sFullDate = sCurrentDate + "T00:00:00Z";
+        }
+        else
+        {
+            std::pair<bool, double> aResult = rFieldmark.GetCurrentDate();
+            if(aResult.first)
+            {
+                sFullDate = rFieldmark.GetDateInStandardDateFormat(aResult.second) + "T00:00:00Z";
+            }
+        }
+
+        OUString sDateFormat;
+        params.extractParam( ODF_FORMDATE_DATEFORMAT, sDateFormat );
+        OUString sLang;
+        params.extractParam( ODF_FORMDATE_DATEFORMAT_LANGUAGE, sLang );
+
+        WriteFormDateStart( sFullDate, sDateFormat, sLang );
     }
     else if ( rInfos.eType != ww::eNONE ) // HYPERLINK fields are just commands
     {
@@ -2120,6 +2180,12 @@ void DocxAttributeOutput::DoWriteFieldRunProperties( const SwTextNode * pNode, s
 
 void DocxAttributeOutput::EndField_Impl( const SwTextNode* pNode, sal_Int32 nPos, FieldInfos& rInfos )
 {
+    if ( rInfos.eType == ww::eFORMDATE )
+    {
+        WriteFormDateEnd();
+        return;
+    }
+
     // The command has to be written before for the hyperlinks
     if ( rInfos.pField )
     {
@@ -2411,17 +2477,17 @@ void lclProcessRecursiveGrabBag(sal_Int32 aElementId, const css::uno::Sequence<c
     css::uno::Sequence<css::beans::PropertyValue> aAttributes;
     FastAttributeList* pAttributes = FastSerializerHelper::createAttrList();
 
-    for (sal_Int32 j=0; j < rElements.getLength(); ++j)
+    for (const auto& rElement : rElements)
     {
-        if (rElements[j].Name == "attributes")
+        if (rElement.Name == "attributes")
         {
-            rElements[j].Value >>= aAttributes;
+            rElement.Value >>= aAttributes;
         }
     }
 
-    for (sal_Int32 j=0; j < aAttributes.getLength(); ++j)
+    for (const auto& rAttribute : std::as_const(aAttributes))
     {
-        uno::Any aAny = aAttributes[j].Value;
+        uno::Any aAny = rAttribute.Value;
         OString aValue;
 
         if(aAny.getValueType() == cppu::UnoType<sal_Int32>::get())
@@ -2433,7 +2499,7 @@ void lclProcessRecursiveGrabBag(sal_Int32 aElementId, const css::uno::Sequence<c
             aValue =  OUStringToOString(aAny.get<OUString>(), RTL_TEXTENCODING_ASCII_US);
         }
 
-        boost::optional<sal_Int32> aSubElementId = lclGetElementIdForName(aAttributes[j].Name);
+        boost::optional<sal_Int32> aSubElementId = lclGetElementIdForName(rAttribute.Name);
         if(aSubElementId)
             pAttributes->add(*aSubElementId, aValue.getStr());
     }
@@ -2442,14 +2508,14 @@ void lclProcessRecursiveGrabBag(sal_Int32 aElementId, const css::uno::Sequence<c
 
     pSerializer->startElement(aElementId, xAttributesList);
 
-    for (sal_Int32 j=0; j < rElements.getLength(); ++j)
+    for (const auto& rElement : rElements)
     {
         css::uno::Sequence<css::beans::PropertyValue> aSumElements;
 
-        boost::optional<sal_Int32> aSubElementId = lclGetElementIdForName(rElements[j].Name);
+        boost::optional<sal_Int32> aSubElementId = lclGetElementIdForName(rElement.Name);
         if(aSubElementId)
         {
-            rElements[j].Value >>= aSumElements;
+            rElement.Value >>= aSumElements;
             lclProcessRecursiveGrabBag(*aSubElementId, aSumElements, pSerializer);
         }
     }
@@ -2491,7 +2557,7 @@ void DocxAttributeOutput::WriteCollectedRunProperties()
         m_pSerializer->singleElementNS( XML_w, XML_lang, xAttrList );
     }
 
-    for (beans::PropertyValue & i : m_aTextEffectsGrabBag)
+    for (const beans::PropertyValue & i : m_aTextEffectsGrabBag)
     {
         boost::optional<sal_Int32> aElementId = lclGetElementIdForName(i.Name);
         if(aElementId)
@@ -2557,14 +2623,11 @@ void DocxAttributeOutput::GetSdtEndBefore(const SdrObject* pSdrObj)
                 xPropSet->getPropertyValue("InteropGrabBag") >>= aGrabBag;
             }
 
-            for (sal_Int32 nProp=0; nProp < aGrabBag.getLength(); ++nProp)
-            {
-                if ("SdtEndBefore" == aGrabBag[nProp].Name && m_bStartedCharSdt && !m_bEndCharSdt)
-                {
-                    aGrabBag[nProp].Value >>= m_bEndCharSdt;
-                    break;
-                }
-            }
+            auto pProp = std::find_if(aGrabBag.begin(), aGrabBag.end(),
+                [this](const beans::PropertyValue& rProp) {
+                    return "SdtEndBefore" == rProp.Name && m_bStartedCharSdt && !m_bEndCharSdt; });
+            if (pProp != aGrabBag.end())
+                pProp->Value >>= m_bEndCharSdt;
         }
     }
 }
@@ -2851,6 +2914,8 @@ bool DocxAttributeOutput::StartURL( const OUString& rUrl, const OUString& rTarge
                     }
                 }
             }
+            // Spaces are prohibited in bookmark name.
+            sMark = sMark.replace(' ', '_');
             m_pHyperlinkAttrList->add( FSNS( XML_w, XML_anchor ),
                     OUStringToOString( sMark, RTL_TEXTENCODING_UTF8 ).getStr( ) );
         }
@@ -2907,55 +2972,6 @@ void DocxAttributeOutput::Redline( const SwRedlineData* pRedlineData)
                 FSNS( XML_w, XML_author ), aAuthor,
                 FSNS( XML_w, XML_date ), aDate );
 
-        // Check if there is any extra data stored in the redline object
-        if (pRedlineData->GetExtraData())
-        {
-            const SwRedlineExtraData* pExtraData = pRedlineData->GetExtraData();
-            const SwRedlineExtraData_FormattingChanges* pFormattingChanges = dynamic_cast<const SwRedlineExtraData_FormattingChanges*>(pExtraData);
-
-            // Check if the extra data is of type 'formatting changes'
-            if (pFormattingChanges)
-            {
-                // Get the item set that holds all the changes properties
-                const SfxItemSet *pChangesSet = pFormattingChanges->GetItemSet();
-                if (pChangesSet)
-                {
-                    m_pSerializer->mark(Tag_Redline_1);
-
-                    m_pSerializer->startElementNS(XML_w, XML_rPr);
-
-                    // The 'm_pFontsAttrList', 'm_pEastAsianLayoutAttrList', 'm_pCharLangAttrList' are used to hold information
-                    // that should be collected by different properties in the core, and are all flushed together
-                    // to the DOCX when the function 'WriteCollectedRunProperties' gets called.
-                    // So we need to store the current status of these lists, so that we can revert back to them when
-                    // we are done exporting the redline attributes.
-                    rtl::Reference<sax_fastparser::FastAttributeList> pFontsAttrList_Original(m_pFontsAttrList);
-                    m_pFontsAttrList.clear();
-                    rtl::Reference<sax_fastparser::FastAttributeList> pColorAttrList_Original(m_pColorAttrList);
-                    m_pColorAttrList.clear();
-                    rtl::Reference<sax_fastparser::FastAttributeList> pEastAsianLayoutAttrList_Original(m_pEastAsianLayoutAttrList);
-                    m_pEastAsianLayoutAttrList.clear();
-                    rtl::Reference<sax_fastparser::FastAttributeList> pCharLangAttrList_Original(m_pCharLangAttrList);
-                    m_pCharLangAttrList.clear();
-
-                    // Output the redline item set
-                    m_rExport.OutputItemSet( *pChangesSet, false, true, i18n::ScriptType::LATIN, m_rExport.m_bExportModeRTF );
-
-                    // Write the collected run properties that are stored in 'm_pFontsAttrList', 'm_pEastAsianLayoutAttrList', 'm_pCharLangAttrList'
-                    WriteCollectedRunProperties();
-
-                    // Revert back the original values that were stored in 'm_pFontsAttrList', 'm_pEastAsianLayoutAttrList', 'm_pCharLangAttrList'
-                    m_pFontsAttrList = pFontsAttrList_Original;
-                    m_pColorAttrList = pColorAttrList_Original;
-                    m_pEastAsianLayoutAttrList = pEastAsianLayoutAttrList_Original;
-                    m_pCharLangAttrList = pCharLangAttrList_Original;
-
-                    m_pSerializer->endElementNS( XML_w, XML_rPr );
-
-                    m_pSerializer->mergeTopMarks(Tag_Redline_1, sax_fastparser::MergeMarks::PREPEND);
-                }
-            }
-        }
         m_pSerializer->endElementNS( XML_w, XML_rPrChange );
         break;
 
@@ -2969,18 +2985,23 @@ void DocxAttributeOutput::Redline( const SwRedlineData* pRedlineData)
         if (pRedlineData->GetExtraData())
         {
             const SwRedlineExtraData* pExtraData = pRedlineData->GetExtraData();
-            const SwRedlineExtraData_FormattingChanges* pFormattingChanges = dynamic_cast<const SwRedlineExtraData_FormattingChanges*>(pExtraData);
+            const SwRedlineExtraData_FormatColl* pFormattingChanges = dynamic_cast<const SwRedlineExtraData_FormatColl*>(pExtraData);
 
             // Check if the extra data is of type 'formatting changes'
             if (pFormattingChanges)
             {
                 // Get the item set that holds all the changes properties
                 const SfxItemSet *pChangesSet = pFormattingChanges->GetItemSet();
-                if (pChangesSet)
+                const OUString & sParaStyleName = pFormattingChanges->GetFormatName();
+                if (pChangesSet || !sParaStyleName.isEmpty())
                 {
                     m_pSerializer->mark(Tag_Redline_2);
 
                     m_pSerializer->startElementNS(XML_w, XML_pPr);
+
+                    OString sStyleName = MSWordStyles::CreateStyleId( sParaStyleName );
+                    if ( !sStyleName.isEmpty() )
+                        m_pSerializer->singleElementNS(XML_w, XML_pStyle, FSNS(XML_w, XML_val), sStyleName);
 
                     // The 'm_rExport.SdrExporter().getFlyAttrList()', 'm_pParagraphSpacingAttrList' are used to hold information
                     // that should be collected by different properties in the core, and are all flushed together
@@ -2993,7 +3014,8 @@ void DocxAttributeOutput::Redline( const SwRedlineData* pRedlineData)
                     m_pParagraphSpacingAttrList.clear();
 
                     // Output the redline item set
-                    m_rExport.OutputItemSet( *pChangesSet, true, false, i18n::ScriptType::LATIN, m_rExport.m_bExportModeRTF );
+                    if (pChangesSet)
+                        m_rExport.OutputItemSet( *pChangesSet, true, false, i18n::ScriptType::LATIN, m_rExport.m_bExportModeRTF );
 
                     // Write the collected paragraph properties that are stored in 'm_rExport.SdrExporter().getFlyAttrList()', 'm_pParagraphSpacingAttrList'
                     WriteCollectedParagraphProperties();
@@ -3518,7 +3540,7 @@ void DocxAttributeOutput::StartTableRow( ww8::WW8TableNodeInfoInner::Pointer_t c
     // Header row: tblHeader
     const SwTable *pTable = pTableTextNodeInfoInner->getTable( );
     if ( pTable->GetRowsToRepeat( ) > pTableTextNodeInfoInner->getRow( ) )
-        m_pSerializer->singleElementNS(XML_w, XML_tblHeader, FSNS(XML_w, XML_val), "true");
+        m_pSerializer->singleElementNS(XML_w, XML_tblHeader, FSNS(XML_w, XML_val), "true"); // TODO to overwrite table style may need explicit false
 
     TableRowRedline( pTableTextNodeInfoInner );
     TableHeight( pTableTextNodeInfoInner );
@@ -3612,27 +3634,27 @@ sal_Int32 lcl_getWordCompatibilityMode( const SwDoc& rDoc )
         uno::Sequence< beans::PropertyValue > propList;
         xPropSet->getPropertyValue( UNO_NAME_MISC_OBJ_INTEROPGRABBAG ) >>= propList;
 
-        for ( sal_Int32 i = 0; i < propList.getLength(); ++i )
+        for ( const auto& rProp : std::as_const(propList) )
         {
-            if ( propList[i].Name == "CompatSettings" )
+            if ( rProp.Name == "CompatSettings" )
             {
                 css::uno::Sequence< css::beans::PropertyValue > aCurrentCompatSettings;
-                propList[i].Value >>= aCurrentCompatSettings;
+                rProp.Value >>= aCurrentCompatSettings;
 
-                for ( sal_Int32 j = 0; j < aCurrentCompatSettings.getLength(); ++j )
+                for ( const auto& rCurrentCompatSetting : std::as_const(aCurrentCompatSettings) )
                 {
                     uno::Sequence< beans::PropertyValue > aCompatSetting;
-                    aCurrentCompatSettings[j].Value >>= aCompatSetting;
+                    rCurrentCompatSetting.Value >>= aCompatSetting;
 
                     OUString sName;
                     OUString sUri;
                     OUString sVal;
 
-                    for ( sal_Int32 k = 0; k < aCompatSetting.getLength(); ++k )
+                    for ( const auto& rPropVal : std::as_const(aCompatSetting) )
                     {
-                        if ( aCompatSetting[k].Name == "name" ) aCompatSetting[k].Value >>= sName;
-                        if ( aCompatSetting[k].Name == "uri" )  aCompatSetting[k].Value >>= sUri;
-                        if ( aCompatSetting[k].Name == "val" )  aCompatSetting[k].Value >>= sVal;
+                        if ( rPropVal.Name == "name" ) rPropVal.Value >>= sName;
+                        if ( rPropVal.Name == "uri" )  rPropVal.Value >>= sUri;
+                        if ( rPropVal.Name == "val" )  rPropVal.Value >>= sVal;
                     }
 
                     if ( sName == "compatibilityMode" && sUri == "http://schemas.microsoft.com/office/word" )
@@ -3756,12 +3778,12 @@ void DocxAttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t
         else if (rGrabBagElement.first == "TableStyleLook")
         {
             FastAttributeList* pAttributeList = FastSerializerHelper::createAttrList();
-            uno::Sequence<beans::PropertyValue> aAttributeList = rGrabBagElement.second.get< uno::Sequence<beans::PropertyValue> >();
+            const uno::Sequence<beans::PropertyValue> aAttributeList = rGrabBagElement.second.get< uno::Sequence<beans::PropertyValue> >();
 
-            for (sal_Int32 i = 0; i < aAttributeList.getLength(); ++i)
+            for (const auto& rAttribute : aAttributeList)
             {
-                if (aAttributeList[i].Name == "val")
-                    pAttributeList->add(FSNS(XML_w, XML_val), lcl_padStartToLength(OString::number(aAttributeList[i].Value.get<sal_Int32>(), 16), 4, '0'));
+                if (rAttribute.Name == "val")
+                    pAttributeList->add(FSNS(XML_w, XML_val), lcl_padStartToLength(OString::number(rAttribute.Value.get<sal_Int32>(), 16), 4, '0'));
                 else
                 {
                     static DocxStringTokenMap const aTokens[] =
@@ -3775,8 +3797,8 @@ void DocxAttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t
                         {nullptr, 0}
                     };
 
-                    if (sal_Int32 nToken = DocxStringGetToken(aTokens, aAttributeList[i].Name))
-                        pAttributeList->add(FSNS(XML_w, nToken), (aAttributeList[i].Value.get<sal_Int32>() ? "1" : "0"));
+                    if (sal_Int32 nToken = DocxStringGetToken(aTokens, rAttribute.Name))
+                        pAttributeList->add(FSNS(XML_w, nToken), (rAttribute.Value.get<sal_Int32>() ? "1" : "0"));
                 }
             }
 
@@ -3786,7 +3808,7 @@ void DocxAttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t
         else if (rGrabBagElement.first == "TablePosition" )
         {
             FastAttributeList *attrListTablePos = FastSerializerHelper::createAttrList( );
-            uno::Sequence<beans::PropertyValue> aTablePosition = rGrabBagElement.second.get<uno::Sequence<beans::PropertyValue> >();
+            const uno::Sequence<beans::PropertyValue> aTablePosition = rGrabBagElement.second.get<uno::Sequence<beans::PropertyValue> >();
             // look for a surrounding frame and take it's position values
             const ww8::Frame* pFrame = m_rExport.GetFloatingTableFrame();
             if( pFrame )
@@ -3859,56 +3881,56 @@ void DocxAttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t
             else // ( pFrame = 0 )
             {
                 // we export the values from the grabBag
-                for (sal_Int32 i = 0; i < aTablePosition.getLength(); ++i)
+                for (const auto& rProp : aTablePosition)
                 {
-                    if (aTablePosition[i].Name == "vertAnchor" && !aTablePosition[i].Value.get<OUString>().isEmpty())
+                    if (rProp.Name == "vertAnchor" && !rProp.Value.get<OUString>().isEmpty())
                     {
-                        OString sOrientation = OUStringToOString( aTablePosition[i].Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
+                        OString sOrientation = OUStringToOString( rProp.Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
                         attrListTablePos->add( FSNS( XML_w, XML_vertAnchor ), sOrientation.getStr() );
                     }
-                    else if (aTablePosition[i].Name == "tblpYSpec" && !aTablePosition[i].Value.get<OUString>().isEmpty())
+                    else if (rProp.Name == "tblpYSpec" && !rProp.Value.get<OUString>().isEmpty())
                     {
-                        OString sOrientation = OUStringToOString( aTablePosition[i].Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
+                        OString sOrientation = OUStringToOString( rProp.Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
                         attrListTablePos->add( FSNS( XML_w, XML_tblpYSpec ), sOrientation.getStr() );
                     }
-                    else if (aTablePosition[i].Name == "horzAnchor" && !aTablePosition[i].Value.get<OUString>().isEmpty())
+                    else if (rProp.Name == "horzAnchor" && !rProp.Value.get<OUString>().isEmpty())
                     {
-                        OString sOrientation = OUStringToOString( aTablePosition[i].Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
+                        OString sOrientation = OUStringToOString( rProp.Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
                         attrListTablePos->add( FSNS( XML_w, XML_horzAnchor ), sOrientation.getStr() );
                     }
-                    else if (aTablePosition[i].Name == "tblpXSpec" && !aTablePosition[i].Value.get<OUString>().isEmpty())
+                    else if (rProp.Name == "tblpXSpec" && !rProp.Value.get<OUString>().isEmpty())
                     {
-                        OString sOrientation = OUStringToOString( aTablePosition[i].Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
+                        OString sOrientation = OUStringToOString( rProp.Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
                         attrListTablePos->add( FSNS( XML_w, XML_tblpXSpec ), sOrientation.getStr() );
                     }
-                    else if (aTablePosition[i].Name == "bottomFromText")
+                    else if (rProp.Name == "bottomFromText")
                     {
-                        sal_Int32 nValue = aTablePosition[i].Value.get<sal_Int32>();
+                        sal_Int32 nValue = rProp.Value.get<sal_Int32>();
                         attrListTablePos->add( FSNS( XML_w, XML_bottomFromText ), OString::number( nValue ) );
                     }
-                    else if (aTablePosition[i].Name == "leftFromText")
+                    else if (rProp.Name == "leftFromText")
                     {
-                        sal_Int32 nValue = aTablePosition[i].Value.get<sal_Int32>();
+                        sal_Int32 nValue = rProp.Value.get<sal_Int32>();
                         attrListTablePos->add( FSNS( XML_w, XML_leftFromText ), OString::number( nValue ) );
                     }
-                    else if (aTablePosition[i].Name == "rightFromText")
+                    else if (rProp.Name == "rightFromText")
                     {
-                        sal_Int32 nValue = aTablePosition[i].Value.get<sal_Int32>();
+                        sal_Int32 nValue = rProp.Value.get<sal_Int32>();
                         attrListTablePos->add( FSNS( XML_w, XML_rightFromText ), OString::number( nValue ) );
                     }
-                    else if (aTablePosition[i].Name == "topFromText")
+                    else if (rProp.Name == "topFromText")
                     {
-                        sal_Int32 nValue = aTablePosition[i].Value.get<sal_Int32>();
+                        sal_Int32 nValue = rProp.Value.get<sal_Int32>();
                         attrListTablePos->add( FSNS( XML_w, XML_topFromText ), OString::number( nValue ) );
                     }
-                    else if (aTablePosition[i].Name == "tblpX")
+                    else if (rProp.Name == "tblpX")
                     {
-                        sal_Int32 nValue = aTablePosition[i].Value.get<sal_Int32>();
+                        sal_Int32 nValue = rProp.Value.get<sal_Int32>();
                         attrListTablePos->add( FSNS( XML_w, XML_tblpX ), OString::number( nValue ) );
                     }
-                    else if (aTablePosition[i].Name == "tblpY")
+                    else if (rProp.Name == "tblpY")
                     {
-                        sal_Int32 nValue = aTablePosition[i].Value.get<sal_Int32>();
+                        sal_Int32 nValue = rProp.Value.get<sal_Int32>();
                         attrListTablePos->add( FSNS( XML_w, XML_tblpY ), OString::number( nValue ) );
                     }
                 }
@@ -4061,9 +4083,12 @@ void DocxAttributeOutput::TableBackgrounds( ww8::WW8TableNodeInfoInner::Pointer_
     if ( sOriginalColor != sColor )
     {
         // color changed by the user, or no grab bag: write sColor
-        m_pSerializer->singleElementNS( XML_w, XML_shd,
+        if ( sColor != "auto" )
+        {
+            m_pSerializer->singleElementNS( XML_w, XML_shd,
                 FSNS( XML_w, XML_fill ), sColor,
                 FSNS( XML_w, XML_val ), "clear" );
+        }
     }
     else
     {
@@ -4350,26 +4375,22 @@ void DocxAttributeOutput::LatentStyles()
     uno::Sequence<beans::PropertyValue> aInteropGrabBag;
     xPropertySet->getPropertyValue("InteropGrabBag") >>= aInteropGrabBag;
     uno::Sequence<beans::PropertyValue> aLatentStyles;
-    for (sal_Int32 i = 0; i < aInteropGrabBag.getLength(); ++i)
-    {
-        if (aInteropGrabBag[i].Name == "latentStyles")
-        {
-            aInteropGrabBag[i].Value >>= aLatentStyles;
-            break;
-        }
-    }
+    auto pProp = std::find_if(aInteropGrabBag.begin(), aInteropGrabBag.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "latentStyles"; });
+    if (pProp != aInteropGrabBag.end())
+        pProp->Value >>= aLatentStyles;
     if (!aLatentStyles.hasElements())
         return;
 
     // Extract default attributes first.
     sax_fastparser::FastAttributeList* pAttributeList = FastSerializerHelper::createAttrList();
     uno::Sequence<beans::PropertyValue> aLsdExceptions;
-    for (sal_Int32 i = 0; i < aLatentStyles.getLength(); ++i)
+    for (const auto& rLatentStyle : std::as_const(aLatentStyles))
     {
-        if (sal_Int32 nToken = DocxStringGetToken(aDefaultTokens, aLatentStyles[i].Name))
-            pAttributeList->add(FSNS(XML_w, nToken), OUStringToOString(aLatentStyles[i].Value.get<OUString>(), RTL_TEXTENCODING_UTF8));
-        else if (aLatentStyles[i].Name == "lsdExceptions")
-            aLatentStyles[i].Value >>= aLsdExceptions;
+        if (sal_Int32 nToken = DocxStringGetToken(aDefaultTokens, rLatentStyle.Name))
+            pAttributeList->add(FSNS(XML_w, nToken), OUStringToOString(rLatentStyle.Value.get<OUString>(), RTL_TEXTENCODING_UTF8));
+        else if (rLatentStyle.Name == "lsdExceptions")
+            rLatentStyle.Value >>= aLsdExceptions;
     }
 
     XFastAttributeListRef xAttributeList(pAttributeList);
@@ -4377,15 +4398,15 @@ void DocxAttributeOutput::LatentStyles()
     pAttributeList = nullptr;
 
     // Then handle the exceptions.
-    for (sal_Int32 i = 0; i < aLsdExceptions.getLength(); ++i)
+    for (const auto& rLsdException : std::as_const(aLsdExceptions))
     {
         pAttributeList = FastSerializerHelper::createAttrList();
 
         uno::Sequence<beans::PropertyValue> aAttributes;
-        aLsdExceptions[i].Value >>= aAttributes;
-        for (sal_Int32 j = 0; j < aAttributes.getLength(); ++j)
-            if (sal_Int32 nToken = DocxStringGetToken(aExceptionTokens, aAttributes[j].Name))
-                pAttributeList->add(FSNS(XML_w, nToken), OUStringToOString(aAttributes[j].Value.get<OUString>(), RTL_TEXTENCODING_UTF8));
+        rLsdException.Value >>= aAttributes;
+        for (const auto& rAttribute : std::as_const(aAttributes))
+            if (sal_Int32 nToken = DocxStringGetToken(aExceptionTokens, rAttribute.Name))
+                pAttributeList->add(FSNS(XML_w, nToken), OUStringToOString(rAttribute.Value.get<OUString>(), RTL_TEXTENCODING_UTF8));
 
         xAttributeList = pAttributeList;
         m_pSerializer->singleElementNS(XML_w, XML_lsdException, xAttributeList);
@@ -4822,7 +4843,6 @@ void DocxAttributeOutput::FlyFrameGraphic( const SwGrfNode* pGrfNode, const Size
     XFastAttributeListRef docPrAttrListRef( docPrattrList );
     m_pSerializer->startElementNS( XML_wp, XML_docPr, docPrAttrListRef );
 
-    //TODO: internal hyperlink
     OUString sURL, sRelId;
     if(pSdrObj)
     {
@@ -4831,9 +4851,15 @@ void DocxAttributeOutput::FlyFrameGraphic( const SwGrfNode* pGrfNode, const Size
         xPropSet->getPropertyValue("HyperLinkURL") >>= sURL;
         if(!sURL.isEmpty())
         {
+            if (sURL.startsWith("#") && sURL.indexOf(' ') != -1 && !sURL.endsWith("|outline") && !sURL.endsWith("|table") &&
+                !sURL.endsWith("|frame") && !sURL.endsWith("|graphic") && !sURL.endsWith("|ole") && !sURL.endsWith("|region"))
+            {
+                // Spaces are prohibited in bookmark name.
+                sURL = sURL.replace(' ', '_');
+            }
             sRelId = GetExport().GetFilter().addRelation( m_pSerializer->getOutputStream(),
                         oox::getRelationship(Relationship::HYPERLINK),
-                        sURL, true );
+                        sURL, !sURL.startsWith("#") );
             m_pSerializer->singleElementNS( XML_a, XML_hlinkClick,
                 FSNS( XML_xmlns, XML_a ), "http://schemas.openxmlformats.org/drawingml/2006/main",
                 FSNS( XML_r, XML_id ), sRelId.toUtf8());
@@ -4880,7 +4906,7 @@ void DocxAttributeOutput::FlyFrameGraphic( const SwGrfNode* pGrfNode, const Size
 /* At this point we are certain that, WriteImage returns empty RelId
    for unhandled graphic type. Therefore we write the picture description
    and not the relation( coz there ain't any), so that the user knows
-   there is a image/graphic in the doc but it is broken instead of
+   there is an image/graphic in the doc but it is broken instead of
    completely discarding it.
 */
     if ( aRelId.isEmpty() )
@@ -5028,8 +5054,7 @@ void DocxAttributeOutput::WritePostponedChart()
 
             OString aRelId;
             m_nChartCount++;
-            uno::Reference< frame::XModel > xModel( xChartDoc, uno::UNO_QUERY );
-            aRelId = m_rExport.OutputChart( xModel, m_nChartCount, m_pSerializer );
+            aRelId = m_rExport.OutputChart( xChartDoc, m_nChartCount, m_pSerializer );
 
             m_pSerializer->singleElementNS( XML_c, XML_chart,
                     FSNS( XML_xmlns, XML_c ), GetExport().GetFilter().getNamespaceURL(OOX_NS(dmlChart)).toUtf8(),
@@ -5105,34 +5130,7 @@ void DocxAttributeOutput::WritePostponedFormControl(const SdrObject* pObject)
     {
         // gather component properties
 
-        Date aOriginalDate(Date::EMPTY);
-        OUString sOriginalContent, sDateFormat, sAlias;
-        OUString sLocale("en-US");
-        uno::Sequence<beans::PropertyValue> aGrabBag;
-        uno::Reference<beans::XPropertySet> xShapePropertySet(pFormObj->getUnoShape(), uno::UNO_QUERY);
-        uno::Sequence<beans::PropertyValue> aCharFormat;
-        if (xShapePropertySet->getPropertyValue(UNO_NAME_MISC_OBJ_INTEROPGRABBAG) >>= aGrabBag)
-        {
-            for (sal_Int32 i=0; i < aGrabBag.getLength(); ++i)
-            {
-                if (aGrabBag[i].Name == "DateFormat")
-                    aGrabBag[i].Value >>= sDateFormat;
-                else if (aGrabBag[i].Name == "Locale")
-                    aGrabBag[i].Value >>= sLocale;
-                else if (aGrabBag[i].Name == "OriginalContent")
-                    aGrabBag[i].Value >>= sOriginalContent;
-                else if (aGrabBag[i].Name == "OriginalDate")
-                {
-                    css::util::Date aUNODate;
-                    aGrabBag[i].Value >>= aUNODate;
-                    aOriginalDate = aUNODate;
-                }
-                else if (aGrabBag[i].Name == "CharFormat")
-                    aGrabBag[i].Value >>= aCharFormat;
-                else if (aGrabBag[i].Name == "ooxml:CT_SdtPr_alias")
-                    aGrabBag[i].Value >>= sAlias;
-            }
-        }
+        OUString sDateFormat;
         uno::Reference<beans::XPropertySet> xPropertySet(xControlModel, uno::UNO_QUERY);
 
         OString sDate;
@@ -5144,23 +5142,12 @@ void DocxAttributeOutput::WritePostponedFormControl(const SdrObject* pObject)
             bHasDate = true;
             Date aDate(aUNODate.Day, aUNODate.Month, aUNODate.Year);
             sDate = DateToOString(aDate);
-
-            if (aOriginalDate == aDate)
-            {
-                aContentText = sOriginalContent;
-                // sDateFormat was extracted from the grab bag
-            }
-            else
-            {
-                aContentText = OUString::createFromAscii(DateToDDMMYYYYOString(aDate).getStr());
-                sDateFormat = "dd/MM/yyyy";
-            }
+            aContentText = OUString::createFromAscii(DateToDDMMYYYYOString(aDate).getStr());
+            sDateFormat = "dd/MM/yyyy";
         }
         else
         {
             aContentText = xPropertySet->getPropertyValue("HelpText").get<OUString>();
-            if(aContentText.isEmpty())
-                aContentText = " "; // Need to write out something to have it imported by MS Word
             if(sDateFormat.isEmpty())
                 sDateFormat = "dd/MM/yyyy"; // Need to set date format even if there is no date set
         }
@@ -5170,10 +5157,6 @@ void DocxAttributeOutput::WritePostponedFormControl(const SdrObject* pObject)
         m_pSerializer->startElementNS(XML_w, XML_sdt);
         m_pSerializer->startElementNS(XML_w, XML_sdtPr);
 
-        if (!sAlias.isEmpty())
-            m_pSerializer->singleElementNS(XML_w, XML_alias,
-                                           FSNS(XML_w, XML_val), OUStringToOString(sAlias, RTL_TEXTENCODING_UTF8));
-
         if (bHasDate)
             m_pSerializer->startElementNS(XML_w, XML_date, FSNS(XML_w, XML_fullDate), sDate);
         else
@@ -5182,7 +5165,7 @@ void DocxAttributeOutput::WritePostponedFormControl(const SdrObject* pObject)
         m_pSerializer->singleElementNS(XML_w, XML_dateFormat,
                                        FSNS(XML_w, XML_val), sDateFormat.toUtf8());
         m_pSerializer->singleElementNS(XML_w, XML_lid,
-                                       FSNS(XML_w, XML_val), sLocale.toUtf8());
+                                       FSNS(XML_w, XML_val), "en-US");
         m_pSerializer->singleElementNS(XML_w, XML_storeMappedDataAs,
                                        FSNS(XML_w, XML_val), "dateTime");
         m_pSerializer->singleElementNS(XML_w, XML_calendar,
@@ -5193,12 +5176,6 @@ void DocxAttributeOutput::WritePostponedFormControl(const SdrObject* pObject)
 
         m_pSerializer->startElementNS(XML_w, XML_sdtContent);
         m_pSerializer->startElementNS(XML_w, XML_r);
-
-        if (aCharFormat.hasElements())
-        {
-            m_pTableStyleExport->SetSerializer(m_pSerializer);
-            m_pTableStyleExport->CharFormat(aCharFormat);
-        }
 
         RunText(aContentText);
         m_pSerializer->endElementNS(XML_w, XML_r);
@@ -5212,7 +5189,7 @@ void DocxAttributeOutput::WritePostponedFormControl(const SdrObject* pObject)
 
         uno::Reference<beans::XPropertySet> xPropertySet(xControlModel, uno::UNO_QUERY);
         OUString sText = xPropertySet->getPropertyValue("Text").get<OUString>();
-        uno::Sequence<OUString> aItems = xPropertySet->getPropertyValue("StringItemList").get< uno::Sequence<OUString> >();
+        const uno::Sequence<OUString> aItems = xPropertySet->getPropertyValue("StringItemList").get< uno::Sequence<OUString> >();
 
         // output component
 
@@ -5221,11 +5198,11 @@ void DocxAttributeOutput::WritePostponedFormControl(const SdrObject* pObject)
 
         m_pSerializer->startElementNS(XML_w, XML_dropDownList);
 
-        for (sal_Int32 i=0; i < aItems.getLength(); ++i)
+        for (const auto& rItem : aItems)
         {
             m_pSerializer->singleElementNS(XML_w, XML_listItem,
-                                           FSNS(XML_w, XML_displayText), aItems[i].toUtf8(),
-                                           FSNS(XML_w, XML_value), aItems[i].toUtf8());
+                                           FSNS(XML_w, XML_displayText), rItem.toUtf8(),
+                                           FSNS(XML_w, XML_value), rItem.toUtf8());
         }
 
         m_pSerializer->endElementNS(XML_w, XML_dropDownList);
@@ -5378,12 +5355,10 @@ void DocxAttributeOutput::WriteOLE( SwOLENode& rNode, const Size& rSize, const S
     uno::Reference< beans::XPropertySet > xPropSet( m_rExport.m_pDoc->GetDocShell()->GetBaseModel(), uno::UNO_QUERY_THROW );
     uno::Sequence< beans::PropertyValue > aGrabBag, aObjectsInteropList,aObjectInteropAttributes;
     xPropSet->getPropertyValue( UNO_NAME_MISC_OBJ_INTEROPGRABBAG ) >>= aGrabBag;
-    for( sal_Int32 i=0; i < aGrabBag.getLength(); ++i )
-        if ( aGrabBag[i].Name == "EmbeddedObjects" )
-        {
-            aGrabBag[i].Value >>= aObjectsInteropList;
-            break;
-        }
+    auto pProp = std::find_if(aGrabBag.begin(), aGrabBag.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "EmbeddedObjects"; });
+    if (pProp != aGrabBag.end())
+        pProp->Value >>= aObjectsInteropList;
 
     SwOLEObj& aObject = rNode.GetOLEObj();
     uno::Reference < embed::XEmbeddedObject > xObj( aObject.GetOleRef() );
@@ -5392,23 +5367,21 @@ void DocxAttributeOutput::WriteOLE( SwOLENode& rNode, const Size& rSize, const S
 
     // set some attributes according to the type of the embedded object
     OUString sProgID, sDrawAspect = "Content";
-    for( sal_Int32 i=0; i < aObjectsInteropList.getLength(); ++i )
-        if ( aObjectsInteropList[i].Name == sObjectName )
-        {
-            aObjectsInteropList[i].Value >>= aObjectInteropAttributes;
-            break;
-        }
+    auto pObjectsInterop = std::find_if(aObjectsInteropList.begin(), aObjectsInteropList.end(),
+        [&sObjectName](const beans::PropertyValue& rProp) { return rProp.Name == sObjectName; });
+    if (pObjectsInterop != aObjectsInteropList.end())
+        pObjectsInterop->Value >>= aObjectInteropAttributes;
 
-    for( sal_Int32 i=0; i < aObjectInteropAttributes.getLength(); ++i )
+    for( const auto& rObjectInteropAttribute : std::as_const(aObjectInteropAttributes) )
     {
-            if ( aObjectInteropAttributes[i].Name == "ProgID" )
-            {
-                aObjectInteropAttributes[i].Value >>= sProgID;
-            }
-            else if ( aObjectInteropAttributes[i].Name == "DrawAspect" )
-            {
-                aObjectInteropAttributes[i].Value >>= sDrawAspect;
-            }
+        if ( rObjectInteropAttribute.Name == "ProgID" )
+        {
+            rObjectInteropAttribute.Value >>= sProgID;
+        }
+        else if ( rObjectInteropAttribute.Name == "DrawAspect" )
+        {
+            rObjectInteropAttribute.Value >>= sDrawAspect;
+        }
     }
 
     // write embedded file
@@ -5452,11 +5425,10 @@ void DocxAttributeOutput::WriteOLE( SwOLENode& rNode, const Size& rSize, const S
         m_pSerializer->startElementNS(XML_w, XML_object);
     }
 
-    OStringBuffer sShapeStyle, sShapeId;
-    sShapeStyle.append( "width:" ).append( double( rSize.Width() ) / 20 )
-                        .append( "pt;height:" ).append( double( rSize.Height() ) / 20 )
-                        .append( "pt" ); //from VMLExport::AddRectangleDimensions(), it does: value/20
-    sShapeId.append( "ole_" ).append( sId );
+    OString sShapeStyle = "width:" + OString::number( double( rSize.Width() ) / 20 ) +
+                        "pt;height:" + OString::number( double( rSize.Height() ) / 20 ) +
+                        "pt"; //from VMLExport::AddRectangleDimensions(), it does: value/20
+    OString sShapeId = "ole_" + sId;
 
     // shape definition
     m_pSerializer->startElementNS( XML_v, XML_shape,
@@ -5833,28 +5805,28 @@ void DocxAttributeOutput::StartStyle( const OUString& rName, StyleType eType,
     }
     const uno::Sequence<beans::PropertyValue>& rGrabBag = aAny.get< uno::Sequence<beans::PropertyValue> >();
 
-    for (sal_Int32 i = 0; i < rGrabBag.getLength(); ++i)
+    for (const auto& rProp : rGrabBag)
     {
-        if (rGrabBag[i].Name == "uiPriority")
-            aUiPriority = rGrabBag[i].Value.get<OUString>();
-        else if (rGrabBag[i].Name == "qFormat")
+        if (rProp.Name == "uiPriority")
+            aUiPriority = rProp.Value.get<OUString>();
+        else if (rProp.Name == "qFormat")
             bQFormat = true;
-        else if (rGrabBag[i].Name == "link")
-            aLink = rGrabBag[i].Value.get<OUString>();
-        else if (rGrabBag[i].Name == "rsid")
-            aRsid = rGrabBag[i].Value.get<OUString>();
-        else if (rGrabBag[i].Name == "unhideWhenUsed")
+        else if (rProp.Name == "link")
+            aLink = rProp.Value.get<OUString>();
+        else if (rProp.Name == "rsid")
+            aRsid = rProp.Value.get<OUString>();
+        else if (rProp.Name == "unhideWhenUsed")
             bUnhideWhenUsed = true;
-        else if (rGrabBag[i].Name == "semiHidden")
+        else if (rProp.Name == "semiHidden")
             bSemiHidden = true;
-        else if (rGrabBag[i].Name == "locked")
+        else if (rProp.Name == "locked")
             bLocked = true;
-        else if (rGrabBag[i].Name == "default")
-            bDefault = rGrabBag[i].Value.get<bool>();
-        else if (rGrabBag[i].Name == "customStyle")
-            bCustomStyle = rGrabBag[i].Value.get<bool>();
+        else if (rProp.Name == "default")
+            bDefault = rProp.Value.get<bool>();
+        else if (rProp.Name == "customStyle")
+            bCustomStyle = rProp.Value.get<bool>();
         else
-            SAL_WARN("sw.ww8", "Unhandled style property: " << rGrabBag[i].Name);
+            SAL_WARN("sw.ww8", "Unhandled style property: " << rProp.Name);
     }
 
     // MSO exports English names and writerfilter only recognize them.
@@ -6294,6 +6266,7 @@ static OString impl_LevelNFC( sal_uInt16 nNumberingType , const SfxItemSet *pOut
         case style::NumberingType::TEXT_NUMBER: aType="ordinal"; break;
         case style::NumberingType::TEXT_CARDINAL: aType="cardinalText"; break;
         case style::NumberingType::TEXT_ORDINAL: aType="ordinalText"; break;
+        case style::NumberingType::SYMBOL_CHICAGO: aType="chicago"; break;
 /*
         Fallback the rest to decimal.
         case style::NumberingType::NATIVE_NUMBERING:
@@ -6407,7 +6380,7 @@ void DocxAttributeOutput::FontCharset( sal_uInt8 nCharSet, rtl_TextEncoding nEnc
 
     OString aCharSet( OString::number( nCharSet, 16 ) );
     if ( aCharSet.getLength() == 1 )
-        aCharSet = OString( "0" ) + aCharSet;
+        aCharSet = "0" + aCharSet;
     pAttr->add( FSNS( XML_w, XML_val ), aCharSet.getStr());
 
     if( GetExport().GetFilter().getVersion( ) != oox::core::ECMA_DIALECT )
@@ -6525,6 +6498,7 @@ void DocxAttributeOutput::EmbedFontStyle( const OUString& name, int tag, FontFam
             }
             if( readSize == 0 )
                 break;
+            // coverity[overrun-buffer-arg : FALSE] - coverity has difficulty with css::uno::Sequence
             xOutStream->writeBytes( uno::Sequence< sal_Int8 >( reinterpret_cast< const sal_Int8* >( buffer ), readSize ));
         }
         xOutStream->closeOutput();
@@ -6546,22 +6520,22 @@ OString DocxAttributeOutput::TransHighlightColor( sal_uInt8 nIco )
 {
     switch (nIco)
     {
-        case 1: return OString("black"); break;
-        case 2: return OString("blue"); break;
-        case 3: return OString("cyan"); break;
-        case 4: return OString("green"); break;
-        case 5: return OString("magenta"); break;
-        case 6: return OString("red"); break;
-        case 7: return OString("yellow"); break;
-        case 8: return OString("white"); break;
-        case 9: return OString("darkBlue"); break;
-        case 10: return OString("darkCyan"); break;
-        case 11: return OString("darkGreen"); break;
-        case 12: return OString("darkMagenta"); break;
-        case 13: return OString("darkRed"); break;
-        case 14: return OString("darkYellow"); break;
-        case 15: return OString("darkGray"); break;
-        case 16: return OString("lightGray"); break;
+        case 1: return "black"; break;
+        case 2: return "blue"; break;
+        case 3: return "cyan"; break;
+        case 4: return "green"; break;
+        case 5: return "magenta"; break;
+        case 6: return "red"; break;
+        case 7: return "yellow"; break;
+        case 8: return "white"; break;
+        case 9: return "darkBlue"; break;
+        case 10: return "darkCyan"; break;
+        case 11: return "darkGreen"; break;
+        case 12: return "darkMagenta"; break;
+        case 13: return "darkRed"; break;
+        case 14: return "darkYellow"; break;
+        case 15: return "darkGray"; break;
+        case 16: return "lightGray"; break;
         default: return OString(); break;
     }
 }
@@ -6584,6 +6558,33 @@ void DocxAttributeOutput::NumberingDefinition( sal_uInt16 nId, const SwNumRule &
 #else
     (void) rRule; // to quiet the warning...
 #endif
+
+    m_pSerializer->endElementNS( XML_w, XML_num );
+}
+
+void DocxAttributeOutput::OverrideNumberingDefinition(
+        SwNumRule const& rRule,
+        sal_uInt16 const nNum, sal_uInt16 const nAbstractNum)
+{
+    m_pSerializer->startElementNS(XML_w, XML_num, FSNS(XML_w, XML_numId), OString::number(nNum));
+
+    m_pSerializer->singleElementNS(XML_w, XML_abstractNumId, FSNS(XML_w, XML_val), OString::number(nAbstractNum));
+
+    SwNumRule const& rAbstractRule = *(*m_rExport.m_pUsedNumTable)[nAbstractNum - 1];
+    sal_uInt8 const nLevels = static_cast<sal_uInt8>(rRule.IsContinusNum()
+        ? WW8ListManager::nMinLevel : WW8ListManager::nMaxLevel);
+    for (sal_uInt8 nLevel = 0; nLevel < nLevels; ++nLevel)
+    {
+        // only export it if it differs from abstract numbering definition
+        if (rRule.Get(nLevel) != rAbstractRule.Get(nLevel))
+        {
+            m_pSerializer->startElementNS(XML_w, XML_lvlOverride, FSNS(XML_w, XML_ilvl), OString::number(nLevel));
+
+            GetExport().NumberingLevel(rRule, nLevel);
+
+            m_pSerializer->endElementNS(XML_w, XML_lvlOverride);
+        }
+    }
 
     m_pSerializer->endElementNS( XML_w, XML_num );
 }
@@ -6674,7 +6675,7 @@ void DocxAttributeOutput::NumberingLevel( sal_uInt8 nLevel,
         aBuffer.append( pPrev, pIt - pPrev );
 
     // If bullet char is empty, set lvlText as empty
-    if ( rNumberingString == OUStringLiteral1(0) && nNumberingType == SVX_NUM_CHAR_SPECIAL )
+    if ( rNumberingString == OUStringChar(0) && nNumberingType == SVX_NUM_CHAR_SPECIAL )
     {
         m_pSerializer->singleElementNS(XML_w, XML_lvlText, FSNS(XML_w, XML_val), "");
     }
@@ -6829,6 +6830,10 @@ void DocxAttributeOutput::CharEscapement( const SvxEscapementItem& rEscapement )
         else if ( DFLT_ESC_SUPER == nEsc || DFLT_ESC_AUTO_SUPER == nEsc )
             sIss = OString( "superscript" );
     }
+    else if ( DFLT_ESC_AUTO_SUPER == nEsc )
+        nEsc = DFLT_ESC_SUPER;
+    else if ( DFLT_ESC_AUTO_SUB == nEsc )
+        nEsc = DFLT_ESC_SUB;
 
     if ( !sIss.isEmpty() )
         m_pSerializer->singleElementNS(XML_w, XML_vertAlign, FSNS(XML_w, XML_val), sIss);
@@ -7090,8 +7095,8 @@ void DocxAttributeOutput::CharIdctHint( const SfxPoolItem& )
 
 void DocxAttributeOutput::CharRotate( const SvxCharRotateItem& rRotate)
 {
-    // Not rotated or we the rotation already handled?
-    if ( !rRotate.GetValue() || m_rExport.SdrExporter().getFrameBtLr())
+    // Not rotated?
+    if ( !rRotate.GetValue())
         return;
 
     AddToAttrList( m_pEastAsianLayoutAttrList, FSNS( XML_w, XML_vert ), "true" );
@@ -7195,10 +7200,7 @@ void DocxAttributeOutput::CharHighlight( const SvxBrushItem& rHighlight )
 
 void DocxAttributeOutput::TextINetFormat( const SwFormatINetFormat& rLink )
 {
-    const SwTextINetFormat* pINetFormat = rLink.GetTextINetFormat();
-    const SwCharFormat* pCharFormat = pINetFormat->GetCharFormat();
-
-    OString aStyleId(m_rExport.m_pStyles->GetStyleId(m_rExport.GetId(pCharFormat)));
+    OString aStyleId = MSWordStyles::CreateStyleId(rLink.GetINetFormat());
 
     m_pSerializer->singleElementNS(XML_w, XML_rStyle, FSNS(XML_w, XML_val), aStyleId);
 }
@@ -7263,7 +7265,7 @@ void DocxAttributeOutput::WritePostitFieldReference()
 
 void DocxAttributeOutput::WritePostitFields()
 {
-    for (const std::pair<const SwPostItField*,int> & rPair : m_postitFields)
+    for (const auto& rPair : m_postitFields)
     {
         OString idstr = OString::number( rPair.second);
         const SwPostItField* f = rPair.first;
@@ -8733,42 +8735,41 @@ void DocxAttributeOutput::ParaGrabBag(const SfxGrabBagItem& rItem)
             uno::Sequence<beans::PropertyValue> aGrabBagSeq;
             rGrabBagElement.second >>= aGrabBagSeq;
 
-            for (sal_Int32 j=0; j < aGrabBagSeq.getLength(); ++j)
+            for (const auto& rProp : std::as_const(aGrabBagSeq))
             {
-                OString sVal = OUStringToOString(aGrabBagSeq[j].Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
+                OString sVal = OUStringToOString(rProp.Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
 
                 if (sVal.isEmpty())
                     continue;
 
-                if (aGrabBagSeq[j].Name == "val")
+                if (rProp.Name == "val")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_val), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "color")
+                else if (rProp.Name == "color")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_color), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "themeColor")
+                else if (rProp.Name == "themeColor")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_themeColor), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "themeTint")
+                else if (rProp.Name == "themeTint")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_themeTint), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "themeShade")
+                else if (rProp.Name == "themeShade")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_themeShade), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "fill")
+                else if (rProp.Name == "fill")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_fill), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "themeFill")
+                else if (rProp.Name == "themeFill")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_themeFill), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "themeFillTint")
+                else if (rProp.Name == "themeFillTint")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_themeFillTint), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "themeFillShade")
+                else if (rProp.Name == "themeFillShade")
                     AddToAttrList(m_pBackgroundAttrList, FSNS(XML_w, XML_themeFillShade), sVal.getStr());
-                else if (aGrabBagSeq[j].Name == "originalColor")
-                    aGrabBagSeq[j].Value >>= m_sOriginalBackgroundColor;
+                else if (rProp.Name == "originalColor")
+                    rProp.Value >>= m_sOriginalBackgroundColor;
             }
         }
         else if (rGrabBagElement.first == "SdtPr")
         {
-            uno::Sequence<beans::PropertyValue> aGrabBagSdt =
+            const uno::Sequence<beans::PropertyValue> aGrabBagSdt =
                     rGrabBagElement.second.get< uno::Sequence<beans::PropertyValue> >();
-            for (sal_Int32 k=0; k < aGrabBagSdt.getLength(); ++k)
+            for (const beans::PropertyValue& aPropertyValue : aGrabBagSdt)
             {
-                beans::PropertyValue aPropertyValue = aGrabBagSdt[k];
                 if (aPropertyValue.Name == "ooxml:CT_SdtPr_docPartObj" ||
                         aPropertyValue.Name == "ooxml:CT_SdtPr_docPartList")
                 {
@@ -8779,18 +8780,18 @@ void DocxAttributeOutput::ParaGrabBag(const SfxGrabBagItem& rItem)
 
                     uno::Sequence<beans::PropertyValue> aGrabBag;
                     aPropertyValue.Value >>= aGrabBag;
-                    for (sal_Int32 j=0; j < aGrabBag.getLength(); ++j)
+                    for (const auto& rProp : std::as_const(aGrabBag))
                     {
-                        OUString sValue = aGrabBag[j].Value.get<OUString>();
-                        if (aGrabBag[j].Name == "ooxml:CT_SdtDocPart_docPartGallery")
+                        OUString sValue = rProp.Value.get<OUString>();
+                        if (rProp.Name == "ooxml:CT_SdtDocPart_docPartGallery")
                             AddToAttrList( m_pParagraphSdtPrTokenChildren,
                                            FSNS( XML_w, XML_docPartGallery ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtDocPart_docPartCategory")
+                        else if (rProp.Name == "ooxml:CT_SdtDocPart_docPartCategory")
                             AddToAttrList( m_pParagraphSdtPrTokenChildren,
                                            FSNS( XML_w, XML_docPartCategory ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtDocPart_docPartUnique")
+                        else if (rProp.Name == "ooxml:CT_SdtDocPart_docPartUnique")
                         {
                             if (sValue.isEmpty())
                                 sValue = "true";
@@ -8813,18 +8814,18 @@ void DocxAttributeOutput::ParaGrabBag(const SfxGrabBagItem& rItem)
                 {
                     uno::Sequence<beans::PropertyValue> aGrabBag;
                     aPropertyValue.Value >>= aGrabBag;
-                    for (sal_Int32 j = 0; j < aGrabBag.getLength(); ++j)
+                    for (const auto& rProp : std::as_const(aGrabBag))
                     {
-                        OUString sValue = aGrabBag[j].Value.get<OUString>();
-                        if (aGrabBag[j].Name == "ooxml:CT_DataBinding_prefixMappings")
+                        OUString sValue = rProp.Value.get<OUString>();
+                        if (rProp.Name == "ooxml:CT_DataBinding_prefixMappings")
                             AddToAttrList( m_pParagraphSdtPrDataBindingAttrs,
                                            FSNS( XML_w, XML_prefixMappings ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_DataBinding_xpath")
+                        else if (rProp.Name == "ooxml:CT_DataBinding_xpath")
                             AddToAttrList( m_pParagraphSdtPrDataBindingAttrs,
                                            FSNS( XML_w, XML_xpath ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_DataBinding_storeItemID")
+                        else if (rProp.Name == "ooxml:CT_DataBinding_storeItemID")
                             AddToAttrList( m_pParagraphSdtPrDataBindingAttrs,
                                            FSNS( XML_w, XML_storeItemID ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
@@ -8841,18 +8842,18 @@ void DocxAttributeOutput::ParaGrabBag(const SfxGrabBagItem& rItem)
                     m_nParagraphSdtPrToken = FSNS( XML_w14, XML_checkbox );
                     uno::Sequence<beans::PropertyValue> aGrabBag;
                     aPropertyValue.Value >>= aGrabBag;
-                    for (sal_Int32 j=0; j < aGrabBag.getLength(); ++j)
+                    for (const auto& rProp : std::as_const(aGrabBag))
                     {
-                        OUString sValue = aGrabBag[j].Value.get<OUString>();
-                        if (aGrabBag[j].Name == "ooxml:CT_SdtCheckbox_checked")
+                        OUString sValue = rProp.Value.get<OUString>();
+                        if (rProp.Name == "ooxml:CT_SdtCheckbox_checked")
                             AddToAttrList( m_pParagraphSdtPrTokenChildren,
                                            FSNS( XML_w14, XML_checked ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtCheckbox_checkedState")
+                        else if (rProp.Name == "ooxml:CT_SdtCheckbox_checkedState")
                             AddToAttrList( m_pParagraphSdtPrTokenChildren,
                                            FSNS( XML_w14, XML_checkedState ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtCheckbox_uncheckedState")
+                        else if (rProp.Name == "ooxml:CT_SdtCheckbox_uncheckedState")
                             AddToAttrList( m_pParagraphSdtPrTokenChildren,
                                            FSNS( XML_w14, XML_uncheckedState ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
@@ -8860,28 +8861,6 @@ void DocxAttributeOutput::ParaGrabBag(const SfxGrabBagItem& rItem)
                 }
                 else if (aPropertyValue.Name == "ooxml:CT_SdtPr_id")
                     m_bParagraphSdtHasId = true;
-                else if (aPropertyValue.Name == "ooxml:CT_SdtPr_date")
-                {
-                    m_nParagraphSdtPrToken = FSNS(XML_w, XML_date);
-                    uno::Sequence<beans::PropertyValue> aGrabBag = aPropertyValue.Value.get< uno::Sequence<beans::PropertyValue> >();
-                    for (sal_Int32 j=0; j < aGrabBag.getLength(); ++j)
-                    {
-                        OString sValue = OUStringToOString(aGrabBag[j].Value.get<OUString>(), RTL_TEXTENCODING_UTF8);
-
-                        if (aGrabBag[j].Name == "ooxml:CT_SdtDate_fullDate")
-                            AddToAttrList(m_pParagraphSdtPrTokenAttributes, FSNS(XML_w, XML_fullDate), sValue.getStr());
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtDate_dateFormat")
-                            AddToAttrList(m_pParagraphSdtPrTokenChildren, FSNS(XML_w, XML_dateFormat), sValue.getStr());
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtDate_lid")
-                            AddToAttrList(m_pParagraphSdtPrTokenChildren, FSNS(XML_w, XML_lid), sValue.getStr());
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtDate_storeMappedDataAs")
-                            AddToAttrList(m_pParagraphSdtPrTokenChildren, FSNS(XML_w, XML_storeMappedDataAs), sValue.getStr());
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtDate_calendar")
-                            AddToAttrList(m_pParagraphSdtPrTokenChildren, FSNS(XML_w, XML_calendar), sValue.getStr());
-                        else
-                            SAL_WARN("sw.ww8", "DocxAttributeOutput::ParaGrabBag: unhandled SdtPr / ooxml:CT_SdtPr_date grab bag property " << aGrabBag[j].Name);
-                    }
-                }
                 else
                     SAL_WARN("sw.ww8", "DocxAttributeOutput::ParaGrabBag: unhandled SdtPr grab bag property " << aPropertyValue.Name);
             }
@@ -9020,28 +8999,27 @@ void DocxAttributeOutput::CharGrabBag( const SfxGrabBagItem& rItem )
         }
         else if (rGrabBagElement.first == "SdtPr" && FLY_NOT_PROCESSED != m_nStateOfFlyFrame )
         {
-            uno::Sequence<beans::PropertyValue> aGrabBagSdt =
+            const uno::Sequence<beans::PropertyValue> aGrabBagSdt =
                     rGrabBagElement.second.get< uno::Sequence<beans::PropertyValue> >();
-            for (sal_Int32 k=0; k < aGrabBagSdt.getLength(); ++k)
+            for (const beans::PropertyValue& aPropertyValue : aGrabBagSdt)
             {
-                beans::PropertyValue aPropertyValue = aGrabBagSdt[k];
                 if (aPropertyValue.Name == "ooxml:CT_SdtPr_checkbox")
                 {
                     m_nRunSdtPrToken = FSNS( XML_w14, XML_checkbox );
                     uno::Sequence<beans::PropertyValue> aGrabBag;
                     aPropertyValue.Value >>= aGrabBag;
-                    for (sal_Int32 j=0; j < aGrabBag.getLength(); ++j)
+                    for (const auto& rProp : std::as_const(aGrabBag))
                     {
-                        OUString sValue = aGrabBag[j].Value.get<OUString>();
-                        if (aGrabBag[j].Name == "ooxml:CT_SdtCheckbox_checked")
+                        OUString sValue = rProp.Value.get<OUString>();
+                        if (rProp.Name == "ooxml:CT_SdtCheckbox_checked")
                             AddToAttrList( m_pRunSdtPrTokenChildren,
                                            FSNS( XML_w14, XML_checked ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtCheckbox_checkedState")
+                        else if (rProp.Name == "ooxml:CT_SdtCheckbox_checkedState")
                             AddToAttrList( m_pRunSdtPrTokenChildren,
                                            FSNS( XML_w14, XML_checkedState ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_SdtCheckbox_uncheckedState")
+                        else if (rProp.Name == "ooxml:CT_SdtCheckbox_uncheckedState")
                             AddToAttrList( m_pRunSdtPrTokenChildren,
                                            FSNS( XML_w14, XML_uncheckedState ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
@@ -9051,18 +9029,18 @@ void DocxAttributeOutput::CharGrabBag( const SfxGrabBagItem& rItem )
                 {
                     uno::Sequence<beans::PropertyValue> aGrabBag;
                     aPropertyValue.Value >>= aGrabBag;
-                    for (sal_Int32 j=0; j < aGrabBag.getLength(); ++j)
+                    for (const auto& rProp : std::as_const(aGrabBag))
                     {
-                        OUString sValue = aGrabBag[j].Value.get<OUString>();
-                        if (aGrabBag[j].Name == "ooxml:CT_DataBinding_prefixMappings")
+                        OUString sValue = rProp.Value.get<OUString>();
+                        if (rProp.Name == "ooxml:CT_DataBinding_prefixMappings")
                             AddToAttrList( m_pRunSdtPrDataBindingAttrs,
                                            FSNS( XML_w, XML_prefixMappings ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_DataBinding_xpath")
+                        else if (rProp.Name == "ooxml:CT_DataBinding_xpath")
                             AddToAttrList( m_pRunSdtPrDataBindingAttrs,
                                            FSNS( XML_w, XML_xpath ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
-                        else if (aGrabBag[j].Name == "ooxml:CT_DataBinding_storeItemID")
+                        else if (rProp.Name == "ooxml:CT_DataBinding_storeItemID")
                             AddToAttrList( m_pRunSdtPrDataBindingAttrs,
                                            FSNS( XML_w, XML_storeItemID ),
                                            OUStringToOString( sValue, RTL_TEXTENCODING_UTF8 ).getStr() );
@@ -9089,7 +9067,8 @@ void DocxAttributeOutput::CharGrabBag( const SfxGrabBagItem& rItem )
 }
 
 DocxAttributeOutput::DocxAttributeOutput( DocxExport &rExport, const FSHelperPtr& pSerializer, oox::drawingml::DrawingML* pDrawingML )
-    : m_rExport( rExport ),
+    : AttributeOutputBase(rExport.GetFilter().getFileUrl()),
+      m_rExport( rExport ),
       m_pSerializer( pSerializer ),
       m_rDrawingML( *pDrawingML ),
       m_bEndCharSdt(false),

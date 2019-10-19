@@ -19,24 +19,14 @@
 
 #include <strings.hrc>
 #include <dialmgr.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
-#include <sfx2/request.hxx>
-#include <vcl/settings.hxx>
 
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svx/dlgutil.hxx>
 #include <svx/measctrl.hxx>
 #include <svx/ofaitem.hxx>
 #include <svx/strarray.hxx>
-#include <svx/svdomeas.hxx>
 #include <svx/svdview.hxx>
-#include <svx/sxekitm.hxx>
-#include <svx/sxelditm.hxx>
-#include <svx/sxenditm.hxx>
 #include <svx/sxmbritm.hxx>
-#include <svx/sxmfsitm.hxx>
 #include <svx/sxmlhitm.hxx>
 #include <svx/sxmtfitm.hxx>
 #include <svx/sxmtpitm.hxx>
@@ -58,18 +48,16 @@ const sal_uInt16 SvxMeasurePage::pRanges[] =
 |* Dialog to change measure-attributes
 |*
 \************************************************************************/
-
 SvxMeasureDialog::SvxMeasureDialog(weld::Window* pParent, const SfxItemSet& rInAttrs,
                                 const SdrView* pSdrView)
     : SfxSingleTabDialogController(pParent, &rInAttrs)
 {
-    TabPageParent pPageParent(get_content_area(), this);
-    VclPtrInstance<SvxMeasurePage> pPage(pPageParent, rInAttrs);
+    auto xPage = std::make_unique<SvxMeasurePage>(get_content_area(), this, rInAttrs);
 
-    pPage->SetView(pSdrView);
-    pPage->Construct();
+    xPage->SetView(pSdrView);
+    xPage->Construct();
 
-    SetTabPage(pPage);
+    SetTabPage(std::move(xPage));
     m_xDialog->set_title(CuiResId(RID_SVXSTR_DIMENSION_LINE));
 }
 
@@ -79,8 +67,8 @@ SvxMeasureDialog::SvxMeasureDialog(weld::Window* pParent, const SfxItemSet& rInA
 |*
 \************************************************************************/
 
-SvxMeasurePage::SvxMeasurePage(TabPageParent pWindow, const SfxItemSet& rInAttrs)
-    : SvxTabPage(pWindow, "cui/ui/dimensionlinestabpage.ui", "DimensionLinesTabPage", rInAttrs)
+SvxMeasurePage::SvxMeasurePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SvxTabPage(pPage, pController, "cui/ui/dimensionlinestabpage.ui", "DimensionLinesTabPage", rInAttrs)
     , rOutAttrs(rInAttrs)
     , aAttrSet(*rInAttrs.GetPool())
     , pView(nullptr)
@@ -140,14 +128,8 @@ SvxMeasurePage::SvxMeasurePage(TabPageParent pWindow, const SfxItemSet& rInAttrs
 
 SvxMeasurePage::~SvxMeasurePage()
 {
-    disposeOnce();
-}
-
-void SvxMeasurePage::dispose()
-{
     m_xCtlPreview.reset();
     m_xCtlPosition.reset();
-    SvxTabPage::dispose();
 }
 
 /*************************************************************************
@@ -537,10 +519,10 @@ void SvxMeasurePage::Construct()
     m_aCtlPreview.Invalidate();
 }
 
-VclPtr<SfxTabPage> SvxMeasurePage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SvxMeasurePage::Create(weld::Container* pPage, weld::DialogController* pController,
                                           const SfxItemSet* rAttrs)
 {
-    return VclPtr<SvxMeasurePage>::Create(pParent, *rAttrs);
+    return std::make_unique<SvxMeasurePage>(pPage, pController, *rAttrs);
 }
 
 void SvxMeasurePage::PointChanged(weld::DrawingArea* pDrawingArea, RectPoint /*eRP*/)

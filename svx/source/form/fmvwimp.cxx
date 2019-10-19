@@ -43,6 +43,7 @@
 #include <svx/svdogrp.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/xmlexchg.hxx>
+#include <toolkit/helper/vclunohelper.hxx>
 
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
@@ -378,7 +379,7 @@ void FormViewPageWindowAdapter::updateTabOrder( const Reference< XForm >& _rxFor
             // there is a parent form -> look for the respective controller
             Reference< XFormController > xParentController;
             if ( xParentForm.is() )
-                xParentController.set( getController( xParentForm ), UNO_QUERY );
+                xParentController = getController( xParentForm );
 
             setController( _rxForm, xParentController );
         }
@@ -661,16 +662,15 @@ namespace
             if(xController == xActiveController && isActivableDatabaseForm(xController))
                 return xController;
 
-            Reference< XIndexAccess > xSubControllers( xController, UNO_QUERY );
-            if ( !xSubControllers.is() )
+            if ( !xController.is() )
             {
                 SAL_WARN( "svx.form", "FmXFormView::OnActivate: a form controller which does not have children?" );
                 return nullptr;
             }
 
-            for(sal_Int32 i = 0; i < xSubControllers->getCount(); ++i)
+            for(sal_Int32 i = 0; i < xController->getCount(); ++i)
             {
-                const Any a(xSubControllers->getByIndex(i));
+                const Any a(xController->getByIndex(i));
                 Reference < XFormController > xI;
                 if ((a >>= xI) && xI.is())
                 {
@@ -692,7 +692,7 @@ IMPL_LINK_NOARG(FmXFormView, OnActivate, void*, void)
 
     if ( !m_pView )
     {
-        OSL_FAIL( "FmXFormView::OnActivate: well .... seems we have a timing problem (the view already died)!" );
+        OSL_FAIL( "FmXFormView::OnActivate: well... seems we have a timing problem (the view already died)!" );
         return;
     }
 
@@ -920,7 +920,7 @@ IMPL_LINK_NOARG(FmXFormView, OnAutoFocus, void*, void)
     SdrPage *pSdrPage = pPageView ? pPageView->GetPage() : nullptr;
     // get the forms collection of the page we belong to
     FmFormPage* pPage = dynamic_cast<FmFormPage*>( pSdrPage  );
-    Reference< XIndexAccess > xForms( pPage ? Reference< XIndexAccess >( pPage->GetForms(), UNO_QUERY ) : Reference< XIndexAccess >() );
+    Reference< XIndexAccess > xForms( pPage ? Reference< XIndexAccess >( pPage->GetForms() ) : Reference< XIndexAccess >() );
 
     const PFormViewPageWindowAdapter pAdapter = m_aPageWindowAdapters.empty() ? nullptr : m_aPageWindowAdapters[0];
     const vcl::Window* pWindow = pAdapter.get() ? pAdapter->getWindow() : nullptr;
@@ -1059,7 +1059,9 @@ IMPL_LINK_NOARG( FmXFormView, OnStartControlWizard, void*, void )
     {
         // build the argument list
         ::comphelper::NamedValueCollection aWizardArgs;
-        aWizardArgs.put( "ObjectModel", m_xLastCreatedControlModel );
+        aWizardArgs.put("ObjectModel", m_xLastCreatedControlModel);
+        const vcl::Window* pCurrentWindow = m_pView ? dynamic_cast<const vcl::Window*>(m_pView->GetActualOutDev()) : nullptr;
+        aWizardArgs.put("ParentWindow", VCLUnoHelper::GetInterface(const_cast<vcl::Window*>(pCurrentWindow)));
 
         // create the wizard object
         Reference< XExecutableDialog > xWizard;
@@ -1167,7 +1169,8 @@ SdrObjectUniquePtr FmXFormView::implCreateFieldControl( const svx::ODataAccessDe
                 sDataSource,
                 OUString(),
                 OUString(),
-                comphelper::getProcessComponentContext()
+                comphelper::getProcessComponentContext(),
+                nullptr
             ) );
     }
     catch (const SQLException&)

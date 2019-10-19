@@ -103,10 +103,8 @@ void writeSort(ScXMLExport& mrExport, const ScSortParam& aParam, const ScRange& 
 
         if (aParam.bUserDef)
         {
-            OUStringBuffer aBuf;
-            aBuf.append(SC_USERLIST);
-            aBuf.append(static_cast<sal_Int32>(aParam.nUserIndex));
-            mrExport.AddAttribute(XML_NAMESPACE_TABLE, XML_DATA_TYPE, aBuf.makeStringAndClear());
+            OUString aBuf = SC_USERLIST + OUString::number(static_cast<sal_Int32>(aParam.nUserIndex));
+            mrExport.AddAttribute(XML_NAMESPACE_TABLE, XML_DATA_TYPE, aBuf);
         }
         else
         {
@@ -141,11 +139,9 @@ ScMyEmptyDatabaseRangesContainer ScXMLExportDatabaseRanges::GetEmptyDatabaseRang
             rExport.CheckAttrList();
             if (xDatabaseRanges.is())
             {
-                uno::Sequence <OUString> aRanges(xDatabaseRanges->getElementNames());
-                sal_Int32 nDatabaseRangesCount = aRanges.getLength();
-                for (sal_Int32 i = 0; i < nDatabaseRangesCount; ++i)
+                const uno::Sequence <OUString> aRanges(xDatabaseRanges->getElementNames());
+                for (const OUString& sDatabaseRangeName : aRanges)
                 {
-                    OUString sDatabaseRangeName(aRanges[i]);
                     uno::Reference <sheet::XDatabaseRange> xDatabaseRange(xDatabaseRanges->getByName(sDatabaseRangeName), uno::UNO_QUERY);
                     if (xDatabaseRange.is())
                     {
@@ -153,12 +149,11 @@ ScMyEmptyDatabaseRangesContainer ScXMLExportDatabaseRanges::GetEmptyDatabaseRang
                         if (xDatabaseRangePropertySet.is() &&
                             ::cppu::any2bool(xDatabaseRangePropertySet->getPropertyValue(SC_UNONAME_STRIPDAT)))
                         {
-                            uno::Sequence <beans::PropertyValue> aImportProperties(xDatabaseRange->getImportDescriptor());
-                            sal_Int32 nLength = aImportProperties.getLength();
+                            const uno::Sequence <beans::PropertyValue> aImportProperties(xDatabaseRange->getImportDescriptor());
                             sheet::DataImportMode nSourceType = sheet::DataImportMode_NONE;
-                            for (sal_Int32 j = 0; j < nLength; ++j)
-                                if ( aImportProperties[j].Name == SC_UNONAME_SRCTYPE )
-                                    aImportProperties[j].Value >>= nSourceType;
+                            for (const auto& rProp : aImportProperties)
+                                if ( rProp.Name == SC_UNONAME_SRCTYPE )
+                                    rProp.Value >>= nSourceType;
                             if (nSourceType != sheet::DataImportMode_NONE)
                             {
                                 table::CellRangeAddress aArea = xDatabaseRange->getDataArea();
@@ -201,11 +196,10 @@ public:
             return;
 
         // name
-        OUStringBuffer aBuf;
-        aBuf.append(STR_DB_LOCAL_NONAME);
-        aBuf.append(static_cast<sal_Int32>(r.first)); // appended number equals sheet index on import.
+        OUString aBuf = STR_DB_LOCAL_NONAME +
+            OUString::number(static_cast<sal_Int32>(r.first)); // appended number equals sheet index on import.
 
-        write(aBuf.makeStringAndClear(), *r.second);
+        write(aBuf, *r.second);
     }
 
     void operator() (const ScDBData& rData)
@@ -394,21 +388,21 @@ private:
                 if (eSearchType == utl::SearchParam::SearchType::Regexp)
                     return GetXMLToken(XML_MATCH);
                 else
-                    return OUString("=");
+                    return "=";
             }
             case SC_GREATER:
-                return OUString(">");
+                return ">";
             case SC_GREATER_EQUAL:
-                return OUString(">=");
+                return ">=";
             case SC_LESS:
-                return OUString("<");
+                return "<";
             case SC_LESS_EQUAL:
-                return OUString("<=");
+                return "<=";
             case SC_NOT_EQUAL:
                 if (eSearchType == utl::SearchParam::SearchType::Regexp)
                     return GetXMLToken(XML_NOMATCH);
                 else
-                    return OUString("!=");
+                    return "!=";
             case SC_TOPPERC:
                 return GetXMLToken(XML_TOP_PERCENT);
             case SC_TOPVAL:
@@ -416,7 +410,7 @@ private:
             default:
                 ;
         }
-        return OUString("=");
+        return "=";
     }
 
     class WriteSetItem
@@ -642,10 +636,8 @@ private:
 
             if (aParam.bUserDef)
             {
-                OUStringBuffer aBuf;
-                aBuf.append(SC_USERLIST);
-                aBuf.append(static_cast<sal_Int32>(aParam.nUserIndex));
-                mrExport.AddAttribute(XML_NAMESPACE_TABLE, XML_DATA_TYPE, aBuf.makeStringAndClear());
+                OUString aBuf = SC_USERLIST + OUString::number(static_cast<sal_Int32>(aParam.nUserIndex));
+                mrExport.AddAttribute(XML_NAMESPACE_TABLE, XML_DATA_TYPE, aBuf);
             }
             SvXMLElementExport aElemSGs(mrExport, XML_NAMESPACE_TABLE, XML_SORT_GROUPS, true, true);
         }

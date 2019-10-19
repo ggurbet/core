@@ -43,10 +43,10 @@ using namespace ::com::sun::star;
 
 static void aBasicErrorFunc( const OUString &rErr, const OUString &rAction )
 {
-    OStringBuffer aErr( "Unexpected dialog: " );
-    aErr.append( OUStringToOString( rAction, RTL_TEXTENCODING_ASCII_US ) );
-    aErr.append( " Error: " );
-    aErr.append( OUStringToOString( rErr, RTL_TEXTENCODING_ASCII_US ) );
+    OString aErr = "Unexpected dialog: " +
+        OUStringToOString( rAction, RTL_TEXTENCODING_ASCII_US ) +
+        " Error: " +
+        OUStringToOString( rErr, RTL_TEXTENCODING_ASCII_US );
     CPPUNIT_ASSERT_MESSAGE( aErr.getStr(), false);
 }
 
@@ -194,9 +194,6 @@ void test::BootstrapFixture::validate(const OUString& rPath, test::ValidationFor
     OUString aCommand = aValidator + " " + rPath + " > " + aOutputFile;
 
     int returnValue = system(OUStringToOString(aCommand, RTL_TEXTENCODING_UTF8).getStr());
-    CPPUNIT_ASSERT_EQUAL_MESSAGE(
-        OUStringToOString("failed to execute: " + aCommand,
-            RTL_TEXTENCODING_UTF8).getStr(), 0, returnValue);
 
     OString aContentString = loadFile(aOutput.GetURL());
     OUString aContentOUString = OStringToOUString(aContentString, RTL_TEXTENCODING_UTF8);
@@ -214,8 +211,7 @@ void test::BootstrapFixture::validate(const OUString& rPath, test::ValidationFor
             sal_Int32 nStartOfNumber = nIndex + std::strlen("Grand total of errors in submitted package: ");
             OUString aNumber = aContentOUString.copy(nStartOfNumber);
             sal_Int32 nErrors = aNumber.toInt32();
-            OString aMsg("validation error in OOXML export: Errors: ");
-            aMsg = aMsg + OString::number(nErrors);
+            OString aMsg = "validation error in OOXML export: Errors: " + OString::number(nErrors);
             if(nErrors)
             {
                 SAL_WARN("test", aContentOUString);
@@ -231,6 +227,9 @@ void test::BootstrapFixture::validate(const OUString& rPath, test::ValidationFor
             CPPUNIT_FAIL(aContentString.getStr());
         }
     }
+    CPPUNIT_ASSERT_EQUAL_MESSAGE(
+        OUStringToOString("failed to execute: " + aCommand + "\n" + aContentOUString,
+            RTL_TEXTENCODING_UTF8).getStr(), 0, returnValue);
 #else
     (void)rPath;
     (void)eFormat;

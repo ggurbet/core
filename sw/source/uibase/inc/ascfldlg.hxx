@@ -18,9 +18,7 @@
  */
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_ASCFLDLG_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_ASCFLDLG_HXX
-#include <vcl/fixed.hxx>
 
-#include <vcl/button.hxx>
 #include <sfx2/basedlgs.hxx>
 #include <svx/txencbox.hxx>
 #include <svx/langbox.hxx>
@@ -35,11 +33,11 @@ class SwAsciiFilterDlg : public SfxDialogController
     bool m_bSaveLineStatus;
     OUString m_sExtraData;
 
-    std::unique_ptr<TextEncodingBox> m_xCharSetLB;
+    std::unique_ptr<SvxTextEncodingBox> m_xCharSetLB;
     std::unique_ptr<weld::Label> m_xFontFT;
     std::unique_ptr<weld::ComboBox> m_xFontLB;
     std::unique_ptr<weld::Label> m_xLanguageFT;
-    std::unique_ptr<LanguageBox>     m_xLanguageLB;
+    std::unique_ptr<SvxLanguageBox>     m_xLanguageLB;
     std::unique_ptr<weld::RadioButton> m_xCRLF_RB;
     std::unique_ptr<weld::RadioButton> m_xCR_RB;
     std::unique_ptr<weld::RadioButton> m_xLF_RB;

@@ -48,11 +48,27 @@
 #include <mdiexp.hxx>
 #include <unochart.hxx>
 #include <itabenum.hxx>
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
+namespace {
 
-//Added for bug #i119954# Application crashed if undo/redo covert nest table to text
+void collectUIInformation(const OUString& rAction, const OUString& aParameters)
+{
+    EventDescription aDescription;
+    aDescription.aAction = rAction;
+    aDescription.aParameters = {{"parameters", aParameters}};
+    aDescription.aID = "writer_edit";
+    aDescription.aKeyWord = "SwEditWinUIObject";
+    aDescription.aParent = "MainWindow";
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
+}
+
+//Added for bug #i119954# Application crashed if undo/redo convert nest table to text
 static bool ConvertTableToText( const SwTableNode *pTableNode, sal_Unicode cCh );
 
 static void    ConvertNestedTablesToText( const SwTableLines &rTableLines, sal_Unicode cCh )
@@ -113,6 +129,10 @@ const SwTable& SwEditShell::InsertTable( const SwInsertTableOptions& rInsTableOp
         EndUndo( SwUndoId::END );
 
     EndAllAction();
+
+    OUString parameter = " Columns : " + OUString::number( nCols ) + " , Rows : " + OUString::number( nRows ) + " ";
+    collectUIInformation("CREATE_TABLE", parameter);
+
     return *pTable;
 }
 
@@ -123,7 +143,7 @@ bool SwEditShell::TextToTable( const SwInsertTableOptions& rInsTableOpts,
     SwWait aWait( *GetDoc()->GetDocShell(), true );
     bool bRet = false;
     StartAllAction();
-    for(SwPaM& rPaM : GetCursor()->GetRingContainer())
+    for(const SwPaM& rPaM : GetCursor()->GetRingContainer())
     {
         if( rPaM.HasMark() )
             bRet |= nullptr != GetDoc()->TextToTable( rInsTableOpts, rPaM, cCh,
@@ -163,7 +183,7 @@ bool SwEditShell::TableToText( sal_Unicode cCh )
     pCursor->SetMark();
     pCursor->DeleteMark();
 
-    //Modified for bug #i119954# Application crashed if undo/redo covert nest table to text
+    //Modified for bug #i119954# Application crashed if undo/redo convert nest table to text
     StartUndo();
     bRet = ConvertTableToText( pTableNd, cCh );
     EndUndo();

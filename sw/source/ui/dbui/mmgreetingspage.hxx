@@ -19,17 +19,19 @@
 #ifndef INCLUDED_SW_SOURCE_UI_DBUI_MMGREETINGSPAGE_HXX
 #define INCLUDED_SW_SOURCE_UI_DBUI_MMGREETINGSPAGE_HXX
 
-#include <svtools/wizardmachine.hxx>
+#include <vcl/wizardmachine.hxx>
 #include <sfx2/basedlgs.hxx>
 #include <mailmergehelper.hxx>
 #include <vcl/weld.hxx>
+
+#include <mailmergewizard.hxx>
 
 class SwMailMergeWizard;
 
 class SwGreetingsHandler
 {
 protected:
-    VclPtr<SwMailMergeWizard>  m_pWizard;
+    SwMailMergeWizard*  m_pWizard;
     /// The mail merge state, available even when m_pWizard is nullptr.
     SwMailMergeConfigItem& m_rConfigItem;
     bool m_bIsTabPage;
@@ -51,7 +53,8 @@ protected:
     std::unique_ptr<weld::ComboBox> m_xNeutralCB;
 
     SwGreetingsHandler(SwMailMergeConfigItem& rConfigItem, weld::Builder& rBuilder)
-        : m_rConfigItem(rConfigItem)
+        : m_pWizard(nullptr)
+        , m_rConfigItem(rConfigItem)
         , m_bIsTabPage(false)
         , m_xGreetingLineCB(rBuilder.weld_check_button("greeting"))
         , m_xPersonalizedCB(rBuilder.weld_check_button("personalized"))
@@ -80,10 +83,10 @@ protected:
     virtual void    UpdatePreview();
 };
 
-class SwMailMergeGreetingsPage : public svt::OWizardPage
+class SwMailMergeGreetingsPage : public vcl::OWizardPage
                                , public SwGreetingsHandler
 {
-    std::unique_ptr<AddressPreview> m_xPreview;
+    std::unique_ptr<SwAddressPreview> m_xPreview;
     std::unique_ptr<weld::Label> m_xPreviewFI;
     std::unique_ptr<weld::Button> m_xAssignPB;
     std::unique_ptr<weld::Label> m_xDocumentIndexFI;
@@ -100,12 +103,11 @@ class SwMailMergeGreetingsPage : public svt::OWizardPage
     DECL_LINK(AssignHdl_Impl, weld::Button&, void);
 
     virtual void        UpdatePreview() override;
-    virtual void        ActivatePage() override;
-    virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+    virtual void        Activate() override;
+    virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
 public:
-    SwMailMergeGreetingsPage(SwMailMergeWizard* pWizard, TabPageParent pParent);
+    SwMailMergeGreetingsPage(weld::Container* pPage, SwMailMergeWizard* pWizard);
     virtual ~SwMailMergeGreetingsPage() override;
-    virtual void dispose() override;
 };
 
 class SwMailBodyDialog : public SfxDialogController, public SwGreetingsHandler

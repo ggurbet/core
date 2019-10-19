@@ -28,6 +28,7 @@
 #include <tools/urlobj.hxx>
 #include <ucbhelper/content.hxx>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <unotools/streamwrap.hxx>
 #include <unotools/ucbstreamhelper.hxx>
@@ -257,8 +258,7 @@ void ConvDic::Save()
         xSaxWriter->setOutputStream( xStream->getOutputStream() );
 
         // prepare arguments (prepend doc handler to given arguments)
-        uno::Reference< xml::sax::XDocumentHandler > xDocHandler( xSaxWriter, UNO_QUERY );
-        rtl::Reference<ConvDicXMLExport> pExport = new ConvDicXMLExport( *this, aMainURL, xDocHandler );
+        rtl::Reference<ConvDicXMLExport> pExport = new ConvDicXMLExport( *this, aMainURL, xSaxWriter );
         bool bRet = pExport->Export();     // write entries to file
         DBG_ASSERT( !pStream->GetError(), "I/O error while writing to stream" );
         if (bRet)
@@ -406,38 +406,16 @@ uno::Sequence< OUString > SAL_CALL ConvDic::getConversions(
     pair< ConvMap::iterator, ConvMap::iterator > aRange =
             rConvMap.equal_range( aLookUpText );
 
-    sal_Int32 nCount = 0;
-    ConvMap::iterator aIt;
-    for (aIt = aRange.first;  aIt != aRange.second;  ++aIt)
-        ++nCount;
+    std::vector<OUString> aRes;
+    auto nCount = static_cast<size_t>(std::distance(aRange.first, aRange.second));
+    aRes.reserve(nCount);
 
-    uno::Sequence< OUString > aRes( nCount );
-    OUString *pRes = aRes.getArray();
-    sal_Int32 i = 0;
-    for (aIt = aRange.first;  aIt != aRange.second;  ++aIt)
-        pRes[i++] = (*aIt).second;
+    std::transform(aRange.first, aRange.second, std::back_inserter(aRes),
+        [](ConvMap::const_reference rEntry) { return rEntry.second; });
 
-    return aRes;
+    return comphelper::containerToSequence(aRes);
 }
 
-
-static bool lcl_SeqHasEntry(
-    const OUString *pSeqStart,  // first element to check
-    sal_Int32 nToCheck,             // number of elements to check
-    const OUString &rText)
-{
-    bool bRes = false;
-    if (pSeqStart && nToCheck > 0)
-    {
-        const OUString *pDone = pSeqStart + nToCheck;   // one behind last to check
-        while (!bRes && pSeqStart != pDone)
-        {
-            if (*pSeqStart++ == rText)
-                bRes = true;
-        }
-    }
-    return bRes;
-}
 
 uno::Sequence< OUString > SAL_CALL ConvDic::getConversionEntries(
         ConversionDirection eDirection )
@@ -452,9 +430,8 @@ uno::Sequence< OUString > SAL_CALL ConvDic::getConversionEntries(
 
     ConvMap &rConvMap = eDirection == ConversionDirection_FROM_LEFT ?
                                 aFromLeft : *pFromRight;
-    uno::Sequence< OUString > aRes( rConvMap.size() );
-    OUString *pRes = aRes.getArray();
-    sal_Int32 nIdx = 0;
+    std::vector<OUString> aRes;
+    aRes.reserve(rConvMap.size());
     for (auto const& elem : rConvMap)
     {
         OUString aCurEntry( elem.first );
@@ -462,12 +439,11 @@ uno::Sequence< OUString > SAL_CALL ConvDic::getConversionEntries(
         // respective to the evaluated side (FROM_LEFT or FROM_RIGHT).
         // Thus if FROM_LEFT is evaluated for pairs (A,B) and (A,C)
         // only one entry for A will be returned in the result)
-        if (nIdx == 0 || !lcl_SeqHasEntry( pRes, nIdx, aCurEntry ))
-            pRes[ nIdx++ ] = aCurEntry;
+        if (std::find(aRes.begin(), aRes.end(), aCurEntry) == aRes.end())
+            aRes.push_back(aCurEntry);
     }
-    aRes.realloc( nIdx );
 
-    return aRes;
+    return comphelper::containerToSequence(aRes);
 }
 
 
@@ -614,7 +590,7 @@ void SAL_CALL ConvDic::removeFlushListener(
 
 OUString SAL_CALL ConvDic::getImplementationName(  )
 {
-    return OUString( "com.sun.star.lingu2.ConvDic" );
+    return "com.sun.star.lingu2.ConvDic";
 }
 
 sal_Bool SAL_CALL ConvDic::supportsService( const OUString& rServiceName )

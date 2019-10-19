@@ -21,8 +21,7 @@
 
 #include <unx/cpdmgr.hxx>
 
-#include <osl/diagnose.h>
-#include <osl/file.hxx>
+#include <osl/file.h>
 #include <osl/thread.h>
 
 #include <rtl/ustrbuf.hxx>
@@ -30,8 +29,6 @@
 
 #include <config_dbus.h>
 #include <config_gio.h>
-
-#include <algorithm>
 
 using namespace psp;
 using namespace osl;
@@ -189,7 +186,7 @@ void CPDManager::addTempBackend(const std::pair<std::string, gchar*>& pair)
     m_tBackends.push_back(pair);
 }
 
-std::vector<std::pair<std::string, gchar*>> const & CPDManager::getTempBackends() {
+std::vector<std::pair<std::string, gchar*>> const & CPDManager::getTempBackends() const {
     return m_tBackends;
 }
 
@@ -209,9 +206,6 @@ void CPDManager::addNewPrinter(const OUString& aPrinterName, const OUString& aUn
     rtl_TextEncoding aEncoding = osl_getThreadTextEncoding();
     aPrinter.m_aInfo.m_aComment = OStringToOUString(pDest->info, aEncoding);
     aPrinter.m_aInfo.m_aLocation = OStringToOUString(pDest->location, aEncoding);
-    OUStringBuffer aBuf( 256 );
-    aBuf.append( "CPD:" );
-    aBuf.append( aUniqueName );
     // note: the parser that goes with the PrinterInfo
     // is created implicitly by the JobData::operator=()
     // when it detects the NULL ptr m_pParser.
@@ -228,7 +222,7 @@ void CPDManager::addNewPrinter(const OUString& aPrinterName, const OUString& aUn
         aPrinter.m_aInfo.m_aContext = c_it->second;
     }
     aPrinter.m_aInfo.setDefaultBackend(true);
-    aPrinter.m_aInfo.m_aDriverName = aBuf.makeStringAndClear();
+    aPrinter.m_aInfo.m_aDriverName = "CPD:" + aUniqueName;
     m_aPrinters[ aUniqueName ] = aPrinter;
 }
 #endif

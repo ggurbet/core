@@ -808,6 +808,7 @@
 #define UNO_NAME_STREAM_NAME "StreamName"
 #define UNO_NAME_PARA_CONTINUEING_PREVIOUS_SUB_TREE "ContinueingPreviousSubTree"
 #define UNO_NAME_PARA_LIST_LABEL_STRING "ListLabelString"
+#define UNO_NAME_PARA_LIST_AUTO_FORMAT "ListAutoFormat"
 #define UNO_NAME_CHAR_OVERLINE "CharOverline"
 #define UNO_NAME_CHAR_OVERLINE_COLOR "CharOverlineColor"
 #define UNO_NAME_CHAR_OVERLINE_HAS_COLOR "CharOverlineHasColor"
@@ -866,6 +867,9 @@
 #define UNO_NAME_TABLE_FIRST_ROW_START_COLUMN "FirstRowStartColumn"
 #define UNO_NAME_TABLE_LAST_ROW_END_COLUMN "LastRowEndColumn"
 #define UNO_NAME_TABLE_LAST_ROW_START_COLUMN "LastRowStartColumn"
+
+#define UNO_NAME_RESOLVED "Resolved"
+#define UNO_NAME_ALLOW_OVERLAP "AllowOverlap"
 #endif
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

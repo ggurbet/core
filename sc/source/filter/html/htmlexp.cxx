@@ -183,7 +183,7 @@ static OString lcl_makeHTMLColorTriplet(const Color& rColor)
     // <font COLOR="#00FF40">hello</font>
     snprintf( buf, 24, "\"#%02X%02X%02X\"", rColor.GetRed(), rColor.GetGreen(), rColor.GetBlue() );
 
-    return OString(buf);
+    return buf;
 }
 
 ScHTMLExport::ScHTMLExport( SvStream& rStrmP, const OUString& rBaseURL, ScDocument* pDocP,
@@ -323,7 +323,7 @@ void ScHTMLExport::WriteHeader()
         if (!xDocProps->getPrintedBy().isEmpty())
         {
             OUT_COMMENT( GLOBSTR( STR_DOC_INFO ) );
-            OUString aStrOut = ( GLOBSTR( STR_DOC_PRINTED ) ) + ": ";
+            OUString aStrOut = GLOBSTR( STR_DOC_PRINTED ) + ": ";
             lcl_AddStamp( aStrOut, xDocProps->getPrintedBy(),
                 xDocProps->getPrintDate(), *ScGlobal::pLocaleData );
             OUT_COMMENT( aStrOut );
@@ -415,7 +415,7 @@ void ScHTMLExport::WriteOverview()
             {
                 pDoc->GetName( nTab, aStr );
                 rStrm.WriteCharPtr( "<A HREF=\"#table" )
-                   .WriteCharPtr( OString::number(nTab).getStr() )
+                   .WriteOString( OString::number(nTab) )
                    .WriteCharPtr( "\">" );
                 OUT_STR( aStr );
                 rStrm.WriteCharPtr( "</A>" );
@@ -676,7 +676,7 @@ void ScHTMLExport::WriteTables()
 
                 // Write anchor
                 rStrm.WriteCharPtr( "<A NAME=\"table" )
-                   .WriteCharPtr( OString::number(nTab).getStr() )
+                   .WriteOString( OString::number(nTab) )
                    .WriteCharPtr( "\">" );
                 TAG_ON( OOO_STRING_SVTOOLS_HTML_head1 );
                 OUT_STR( aStrOut );
@@ -1060,15 +1060,13 @@ void ScHTMLExport::WriteCell( sc::ColumnBlockPosition& rBlockPos, SCCOL nCol, SC
     TAG_ON(aStrTD.makeStringAndClear().getStr());
 
     //write the note for this as the first thing in the tag
-    if (pDoc->HasNote(aPos))
+    ScPostIt* pNote = pDoc->HasNote(aPos) ? pDoc->GetNote(aPos) : nullptr;
+    if (pNote)
     {
-        ScPostIt* pNote = pDoc->GetNote(aPos);
-
         //create the comment indicator
-        OStringBuffer aStr(OOO_STRING_SVTOOLS_HTML_anchor);
-        aStr.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_class)
-           .append("=\"").append("comment-indicator").append("\"");
-        TAG_ON(aStr.makeStringAndClear().getStr());
+        OString aStr = OOO_STRING_SVTOOLS_HTML_anchor " "
+            OOO_STRING_SVTOOLS_HTML_O_class "=\"comment-indicator\"";
+        TAG_ON(aStr.getStr());
         TAG_OFF(OOO_STRING_SVTOOLS_HTML_anchor);
         OUT_LF();
 

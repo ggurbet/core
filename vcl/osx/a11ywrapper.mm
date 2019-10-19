@@ -115,7 +115,7 @@ static std::ostream &operator<<(std::ostream &s, NSObject *obj) {
 
            FIXME:
            Unfortunately this can increase memory consumption drastically until the non transient parent
-           is destroyed an finally all the transients are released.
+           is destroyed and finally all the transients are released.
         */
         if ( ! rxAccessibleContext -> getAccessibleStateSet() -> contains ( AccessibleStateType::TRANSIENT ) )
         #endif
@@ -177,7 +177,7 @@ static std::ostream &operator<<(std::ostream &s, NSObject *obj) {
         }
         // step 2: create selector
         selector = NSSelectorFromString ( methodName );
-    } @catch ( id exception ) {
+    } @catch ( id  ) {
         selector = static_cast<SEL>(nil);
     }
     [ pool release ];
@@ -209,7 +209,7 @@ static std::ostream &operator<<(std::ostream &s, NSObject *obj) {
 
 /*
     Radiobutton grouping is done differently in NSAccessibility and the UNO-API. In UNO related radio buttons share an entry in their
-    RelationSet. In NSAccessibility the relationship is axpressed through the hierarchy. A AXRadioGroup contains two or more AXRadioButton
+    RelationSet. In NSAccessibility the relationship is expressed through the hierarchy. An AXRadioGroup contains two or more AXRadioButton
     objects. Since this group is not available in the UNO hierarchy, an extra wrapper is used for it. This wrapper shares almost all
     attributes with the first radio button of the group, except for the role, subrole, role description, parent and children attributes.
     So in this five methods there is a special treatment for radio buttons and groups.
@@ -368,7 +368,7 @@ static std::ostream &operator<<(std::ostream &s, NSObject *obj) {
 
             [ children autorelease ];
             return NSAccessibilityUnignoredChildren( children );
-        } catch (const Exception &e) {
+        } catch (const Exception &) {
             // TODO: Log
             return nil;
         }
@@ -690,11 +690,11 @@ static std::ostream &operator<<(std::ostream &s, NSObject *obj) {
             if ( [ self respondsToSelector: methodSelector ] ) {
                 value = [ self performSelector: methodSelector ];
             }
-        } catch ( const DisposedException & e ) {
+        } catch ( const DisposedException & ) {
             mIsTableCell = NO; // just to be sure
             [ AquaA11yFactory removeFromWrapperRepositoryFor: [ self accessibleContext ] ];
             return nil;
-        } catch ( const Exception & e ) {
+        } catch ( const Exception & ) {
             // empty
         }
     }
@@ -794,7 +794,7 @@ static std::ostream &operator<<(std::ostream &s, NSObject *obj) {
         [ nativeSubrole release ];
         [ title release ];
         return attributeNames;
-    } catch ( DisposedException & e ) { // Object is no longer available
+    } catch ( DisposedException & ) { // Object is no longer available
         if ( nativeSubrole ) {
             [ nativeSubrole release ];
         }

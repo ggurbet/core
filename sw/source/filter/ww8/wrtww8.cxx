@@ -783,7 +783,7 @@ const SfxPoolItem* MSWordExportBase::HasItem( sal_uInt16 nWhich ) const
     const SfxPoolItem* pItem=nullptr;
     if (m_pISet)
     {
-        // if write a EditEngine text, then the WhichIds are greater as
+        // if write an EditEngine text, then the WhichIds are greater than
         // our own Ids. So the Id have to translate from our into the
         // EditEngine Range
         nWhich = sw::hack::GetSetWhichFromSwDocWhich(*m_pISet, *m_pDoc, nWhich);
@@ -805,7 +805,7 @@ const SfxPoolItem& MSWordExportBase::GetItem(sal_uInt16 nWhich) const
     assert((m_pISet || m_pChpIter) && "Where is my ItemSet / pChpIter ?");
     if (m_pISet)
     {
-        // if write a EditEngine text, then the WhichIds are greater as
+        // if write an EditEngine text, then the WhichIds are greater than
         // our own Ids. So the Id have to translate from our into the
         // EditEngine Range
         nWhich = sw::hack::GetSetWhichFromSwDocWhich(*m_pISet, *m_pDoc, nWhich);
@@ -1825,7 +1825,7 @@ void MSWordExportBase::WriteSpecialText( sal_uLong nStart, sal_uLong nEnd, sal_u
 {
     sal_uInt8 nOldTyp = m_nTextTyp;
     m_nTextTyp = nTTyp;
-    SwPaM* pOldPam = m_pCurPam;       //!! Simply shifting the PaM without restoring should do the job too
+    auto const pOldPam = m_pCurPam;       //!! Simply shifting the PaM without restoring should do the job too
     sal_uLong nOldStart = m_nCurStart;
     sal_uLong nOldEnd = m_nCurEnd;
     SwPaM* pOldEnd = m_pOrigPam;
@@ -1850,8 +1850,7 @@ void MSWordExportBase::WriteSpecialText( sal_uLong nStart, sal_uLong nEnd, sal_u
     m_pTableInfo = pOldTableInfo;
 
     m_bOutPageDescs = bOldPageDescs;
-    delete m_pCurPam;                    // delete Pam
-    m_pCurPam = pOldPam;
+    m_pCurPam = pOldPam; // delete Pam
     m_nCurStart = nOldStart;
     m_nCurEnd = nOldEnd;
     m_pOrigPam = pOldEnd;
@@ -1904,7 +1903,7 @@ void MSWordExportBase::SetCurPam(sal_uLong nStt, sal_uLong nEnd)
 {
     m_nCurStart = nStt;
     m_nCurEnd = nEnd;
-    m_pCurPam = Writer::NewSwPaM( *m_pDoc, nStt, nEnd );
+    m_pCurPam = Writer::NewUnoCursor( *m_pDoc, nStt, nEnd );
 
     // Recognize tables in special cases
     if ( nStt != m_pCurPam->GetMark()->nNode.GetIndex() &&
@@ -1913,7 +1912,7 @@ void MSWordExportBase::SetCurPam(sal_uLong nStt, sal_uLong nEnd)
         m_pCurPam->GetMark()->nNode = nStt;
     }
 
-    m_pOrigPam = m_pCurPam;
+    m_pOrigPam = m_pCurPam.get(); // ???
     m_pCurPam->Exchange();
 }
 
@@ -1953,7 +1952,6 @@ void MSWordExportBase::RestoreData()
 {
     MSWordSaveData &rData = m_aSaveData.top();
 
-    delete m_pCurPam;
     m_pCurPam = rData.pOldPam;
     m_nCurStart = rData.nOldStart;
     m_nCurEnd = rData.nOldEnd;
@@ -2711,7 +2709,7 @@ public:
 
 void MSWordExportBase::WriteText()
 {
-    TrackContentToExport aContentTracking(m_pCurPam, m_nCurStart, m_nCurEnd);
+    TrackContentToExport aContentTracking(m_pCurPam.get(), m_nCurStart, m_nCurEnd);
     while (aContentTracking.contentRemainsToExport(m_pTableInfo.get()))
     {
         SwNode& rNd = m_pCurPam->GetNode();
@@ -2758,12 +2756,13 @@ void MSWordExportBase::WriteText()
                 ;
             else if ( aIdx.GetNode().IsSectionNode() )
                 ;
-            else if ( !IsInTable()
-                && (rSect.GetType() != TOX_CONTENT_SECTION && rSect.GetType() != TOX_HEADER_SECTION )) //No sections in table
+            else if ( !IsInTable() )    //No sections in table
             {
                 //#120140# Do not need to insert a page/section break after a section end. Check this case first
                 bool bNeedExportBreakHere = true;
-                if ( aIdx.GetNode().IsTextNode() )
+                if ( rSect.GetType() == TOX_CONTENT_SECTION || rSect.GetType() == TOX_HEADER_SECTION )
+                    bNeedExportBreakHere = false;
+                else if ( aIdx.GetNode().IsTextNode() )
                 {
                     SwTextNode *pTempNext = aIdx.GetNode().GetTextNode();
                     if ( pTempNext )
@@ -3048,7 +3047,7 @@ void WW8Export::StoreDoc1()
 
     pFib->m_fcMac = Strm().Tell();        // End of all texts
 
-    WriteFkpPlcUsw();                   // FKP, PLC, .....
+    WriteFkpPlcUsw();                   // FKP, PLC, ...
 }
 
 void MSWordExportBase::AddLinkTarget(const OUString& rURL)
@@ -3067,22 +3066,90 @@ void MSWordExportBase::AddLinkTarget(const OUString& rURL)
         return;
 
     sCmp = sCmp.toAsciiLowerCase();
+    sal_uLong nIdx = 0;
+    bool noBookmark = false;
 
     if( sCmp == "outline" )
     {
-        SwPosition aPos( *m_pCurPam->GetPoint() );
-        OUString aOutline( BookmarkToWriter(aURL.copy( 0, nPos )) );
+        SwPosition aPos(*m_pCurPam->GetPoint());
+        OUString aName(BookmarkToWriter(aURL.copy(0, nPos)));
         // If we can find the outline this bookmark refers to
         // save the name of the bookmark and the
         // node index number of where it points to
-        if( m_pDoc->GotoOutline( aPos, aOutline ) )
+        if( m_pDoc->GotoOutline( aPos, aName ) )
         {
-            sal_uLong nIdx = aPos.nNode.GetIndex();
-            aBookmarkPair aImplicitBookmark;
-            aImplicitBookmark.first = aOutline;
-            aImplicitBookmark.second = nIdx;
-            m_aImplicitBookmarks.push_back(aImplicitBookmark);
+            nIdx = aPos.nNode.GetIndex();
+            noBookmark = true;
         }
+    }
+    else if( sCmp == "graphic" )
+    {
+        SwNodeIndex* pIdx;
+        OUString aName(BookmarkToWriter(aURL.copy(0, nPos)));
+        const SwFlyFrameFormat* pFormat = m_pDoc->FindFlyByName(aName, SwNodeType::Grf);
+        if (pFormat && nullptr != (pIdx = const_cast<SwNodeIndex*>(pFormat->GetContent().GetContentIdx())))
+        {
+            nIdx = pIdx->GetNext()->GetIndex();
+            noBookmark = true;
+        }
+    }
+    else if( sCmp == "frame" )
+    {
+        SwNodeIndex* pIdx;
+        OUString aName(BookmarkToWriter(aURL.copy(0, nPos)));
+        const SwFlyFrameFormat* pFormat = m_pDoc->FindFlyByName(aName, SwNodeType::Text);
+        if (pFormat && nullptr != (pIdx = const_cast<SwNodeIndex*>(pFormat->GetContent().GetContentIdx())))
+        {
+            nIdx = pIdx->GetIndex() + 1;
+            noBookmark = true;
+        }
+    }
+    else if( sCmp == "ole" )
+    {
+        SwNodeIndex* pIdx;
+        OUString aName(BookmarkToWriter(aURL.copy(0, nPos)));
+        const SwFlyFrameFormat* pFormat = m_pDoc->FindFlyByName(aName, SwNodeType::Ole);
+        if (pFormat && nullptr != (pIdx = const_cast<SwNodeIndex*>(pFormat->GetContent().GetContentIdx())))
+        {
+            nIdx = pIdx->GetNext()->GetIndex();
+            noBookmark = true;
+        }
+    }
+    else if( sCmp == "region" )
+    {
+        SwNodeIndex* pIdx;
+        OUString aName(BookmarkToWriter(aURL.copy(0, nPos)));
+        for (const SwSectionFormat* pFormat : m_pDoc->GetSections())
+        {
+            if (aName == pFormat->GetSection()->GetSectionName()
+                && nullptr != (pIdx = const_cast<SwNodeIndex*>(pFormat->GetContent().GetContentIdx())))
+            {
+                nIdx = pIdx->GetIndex() + 1;
+                noBookmark = true;
+                break;
+            }
+        }
+    }
+    else if( sCmp == "table" )
+    {
+        OUString aName(BookmarkToWriter(aURL.copy(0, nPos)));
+        const SwTable* pTable = SwTable::FindTable(m_pDoc->FindTableFormatByName(aName));
+        if (pTable)
+        {
+            SwTableNode* pTableNode = const_cast<SwTableNode*>(pTable->GetTabSortBoxes()[1]->GetSttNd()->FindTableNode());
+            if (pTableNode)
+            {
+                nIdx = pTableNode->GetIndex() + 2;
+                noBookmark = true;
+            }
+        }
+    }
+    if (noBookmark)
+    {
+        aBookmarkPair aImplicitBookmark;
+        aImplicitBookmark.first = aURL;
+        aImplicitBookmark.second = nIdx;
+        m_aImplicitBookmarks.push_back(aImplicitBookmark);
     }
 }
 
@@ -3194,7 +3261,7 @@ ErrCode MSWordExportBase::ExportDocument( bool bWriteAll )
     }
 
     if ( !m_pOCXExp && m_pDoc->GetDocShell() )
-        m_pOCXExp.reset(new SwMSConvertControls( m_pDoc->GetDocShell(), m_pCurPam ));
+        m_pOCXExp.reset(new SwMSConvertControls(m_pDoc->GetDocShell(), m_pCurPam.get()));
 
     // #i81405# - Collect anchored objects before changing the redline mode.
     m_aFrames = GetFrames( *m_pDoc, bWriteAll? nullptr : m_pOrigPam );
@@ -3234,7 +3301,7 @@ ErrCode MSWordExportBase::ExportDocument( bool bWriteAll )
     // park m_pOrigPam as well, as needed for exporting abi9915-1.odt to doc
     m_pOrigPam->DeleteMark();
     *m_pOrigPam->GetPoint() = SwPosition(m_pDoc->GetNodes().GetEndOfContent());
-    *m_pCurPam = *m_pOrigPam;
+    static_cast<SwPaM&>(*m_pCurPam) = *m_pOrigPam;
 
     m_pDoc->getIDocumentRedlineAccess().SetRedlineFlags(m_nOrigRedlineFlags);
 
@@ -3267,8 +3334,7 @@ bool SwWW8Writer::InitStd97CodecUpdateMedium( ::msfilter::MSCodec_Std97& rCodec 
 
                 rtl_random_destroyPool( aRandomPool );
 
-                sal_uInt16 aPassword[16];
-                memset( aPassword, 0, sizeof( aPassword ) );
+                sal_uInt16 aPassword[16] = {};
 
                 const OUString& sPassword(pPasswordItem->GetValue());
                 for ( sal_Int32 nChar = 0; nChar < sPassword.getLength(); ++nChar )
@@ -3586,7 +3652,7 @@ ErrCode SwWW8Writer::Write( SwPaM& rPaM, SfxMedium& rMed,
     return nRet;
 }
 
-MSWordExportBase::MSWordExportBase( SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM *pOriginalPam )
+MSWordExportBase::MSWordExportBase( SwDoc *pDocument, std::shared_ptr<SwUnoCursor> & pCurrentPam, SwPaM *pOriginalPam )
     : m_aMainStg(sMainStream)
     , m_pISet(nullptr)
     , m_pPiece(nullptr)
@@ -3663,7 +3729,7 @@ MSWordExportBase::~MSWordExportBase()
 }
 
 WW8Export::WW8Export( SwWW8Writer *pWriter,
-        SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM *pOriginalPam,
+        SwDoc *pDocument, std::shared_ptr<SwUnoCursor> & pCurrentPam, SwPaM *pOriginalPam,
         bool bDot )
     : MSWordExportBase( pDocument, pCurrentPam, pOriginalPam )
     , pTableStrm(nullptr)

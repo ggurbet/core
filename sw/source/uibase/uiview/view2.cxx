@@ -70,6 +70,7 @@
 #include <svl/whiter.hxx>
 #include <svl/ptitem.hxx>
 #include <sfx2/linkmgr.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <vcl/errinf.hxx>
 #include <tools/urlobj.hxx>
 #include <svx/svdview.hxx>
@@ -81,6 +82,8 @@
 #include <uivwimp.hxx>
 #include <docsh.hxx>
 #include <doc.hxx>
+#include <printdata.hxx>
+#include <IDocumentDeviceAccess.hxx>
 #include <IDocumentUndoRedo.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <IDocumentDrawModelAccess.hxx>
@@ -94,6 +97,7 @@
 #include <fmtinfmt.hxx>
 #include <mdiexp.hxx>
 #include <drawbase.hxx>
+#include <frmatr.hxx>
 #include <frmmgr.hxx>
 #include <pagedesc.hxx>
 #include <section.hxx>
@@ -109,6 +113,8 @@
 #include <tabsh.hxx>
 #include <listsh.hxx>
 #include <cmdid.h>
+#include <sfx2/strings.hrc>
+#include <sfx2/sfxresid.hxx>
 #include <strings.hrc>
 #include <swerror.h>
 #include <globals.hrc>
@@ -193,7 +199,7 @@ static void lcl_SetAllTextToDefaultLanguage( SwWrtShell &rWrtSh, sal_uInt16 nWhi
  * @param nVirtNum The logical page number (user-assigned)
  * @param rPgStr   User-defined page name (will be shown if different from logical page number)
  *
- * @return OUString Formatted string: Page 1/10 (Page nVirtNumv/rPgStr)
+ * @return OUString Formatted string: Page 1 of 10 (Page 1 of 8 to print OR Page nVirtNumv/rPgStr)
  **/
 OUString SwView::GetPageStr(sal_uInt16 nPhyNum, sal_uInt16 nVirtNum, const OUString& rPgStr)
 {
@@ -204,10 +210,25 @@ OUString SwView::GetPageStr(sal_uInt16 nPhyNum, sal_uInt16 nVirtNum, const OUStr
     else if (nPhyNum != nVirtNum)
         extra = OUString::number(nVirtNum);
 
-    OUString aStr(extra.isEmpty() ? SwResId(STR_PAGE_COUNT) : SwResId(STR_PAGE_COUNT_CUSTOM));
+    sal_uInt16 nPageCount = GetWrtShell().GetPageCnt();
+    sal_uInt16 nPrintedPhyNum = nPhyNum;
+    sal_uInt16 nPrintedPageCount = nPageCount;
+    if (!GetWrtShell().getIDocumentDeviceAccess().getPrintData().IsPrintEmptyPages())
+        SwDoc::CalculateNonBlankPages(*m_pWrtShell->GetLayout(), nPrintedPageCount, nPrintedPhyNum);
+    // Show printed page numbers only, when they are different
+    OUString aStr( nPageCount != nPrintedPageCount
+                    ? SwResId(STR_PAGE_COUNT_PRINTED)
+                    : (extra.isEmpty() ? SwResId(STR_PAGE_COUNT) : SwResId(STR_PAGE_COUNT_CUSTOM)));
     aStr = aStr.replaceFirst("%1", OUString::number(nPhyNum));
-    aStr = aStr.replaceFirst("%2", OUString::number(GetWrtShell().GetPageCnt()));
-    aStr = aStr.replaceFirst("%3", extra);
+    aStr = aStr.replaceFirst("%2", OUString::number(nPageCount));
+    if (nPageCount != nPrintedPageCount)
+    {
+        aStr = aStr.replaceFirst("%3", OUString::number(nPrintedPhyNum));
+        aStr = aStr.replaceFirst("%4", OUString::number(nPrintedPageCount));
+    }
+    else
+        aStr = aStr.replaceFirst("%3", extra);
+
     return aStr;
 }
 
@@ -575,20 +596,36 @@ void SwView::Execute(SfxRequest &rReq)
                 Sequence <sal_Int8> aPasswd = rIDRA.GetRedlinePassword();
                 if( aPasswd.hasElements() )
                 {
-                    OSL_ENSURE( !static_cast<const SfxBoolItem*>(pItem)->GetValue(), "SwView::Execute(): password set an redlining off doesn't match!" );
-                    // xmlsec05:    new password dialog
-                    SfxPasswordDialog aPasswdDlg(GetFrameWeld());
-                    aPasswdDlg.SetMinLen(1);
-                    //#i69751# the result of Execute() can be ignored
-                    (void)aPasswdDlg.run();
-                    OUString sNewPasswd(aPasswdDlg.GetPassword());
-                    Sequence <sal_Int8> aNewPasswd = rIDRA.GetRedlinePassword();
-                    SvPasswordHelper::GetHashPassword( aNewPasswd, sNewPasswd );
-                    if(SvPasswordHelper::CompareHashPassword(aPasswd, sNewPasswd))
-                        rIDRA.SetRedlinePassword(Sequence <sal_Int8> ());
+                    OSL_ENSURE( !static_cast<const SfxBoolItem*>(pItem)->GetValue(), "SwView::Execute(): password set and redlining off doesn't match!" );
+
+                    // dummy password from OOXML import: only confirmation dialog
+                    if (aPasswd.getLength() == 1 && aPasswd[0] == 1)
+                    {
+                        std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(m_pWrtShell->GetView().GetFrameWeld(),
+                                                   VclMessageType::Warning, VclButtonsType::YesNo,
+                                                   SfxResId(RID_SVXSTR_END_REDLINING_WARNING)));
+                        xWarn->set_default_response(RET_NO);
+                        if (xWarn->run() == RET_YES)
+                            rIDRA.SetRedlinePassword(Sequence <sal_Int8> ());
+                        else
+                            break;
+                    }
                     else
-                    {   // xmlsec05: message box for wrong password
-                        break;
+                    {
+                        // xmlsec05:    new password dialog
+                        SfxPasswordDialog aPasswdDlg(GetFrameWeld());
+                        aPasswdDlg.SetMinLen(1);
+                        //#i69751# the result of Execute() can be ignored
+                        (void)aPasswdDlg.run();
+                        OUString sNewPasswd(aPasswdDlg.GetPassword());
+                        Sequence <sal_Int8> aNewPasswd = rIDRA.GetRedlinePassword();
+                        SvPasswordHelper::GetHashPassword( aNewPasswd, sNewPasswd );
+                        if(SvPasswordHelper::CompareHashPassword(aPasswd, sNewPasswd))
+                            rIDRA.SetRedlinePassword(Sequence <sal_Int8> ());
+                        else
+                        {   // xmlsec05: message box for wrong password
+                            break;
+                        }
                     }
                 }
 
@@ -666,6 +703,8 @@ void SwView::Execute(SfxRequest &rReq)
         break;
         case FN_REDLINE_ACCEPT_DIRECT:
         case FN_REDLINE_REJECT_DIRECT:
+        case FN_REDLINE_ACCEPT_TONEXT:
+        case FN_REDLINE_REJECT_TONEXT:
         {
             SwDoc *pDoc = m_pWrtShell->GetDoc();
             SwPaM *pCursor = m_pWrtShell->GetCursor();
@@ -683,7 +722,7 @@ void SwView::Execute(SfxRequest &rReq)
 
             if( pCursor->HasMark() && nRedline == SwRedlineTable::npos)
             {
-                if (FN_REDLINE_ACCEPT_DIRECT == nSlot)
+                if (FN_REDLINE_ACCEPT_DIRECT == nSlot || FN_REDLINE_ACCEPT_TONEXT == nSlot)
                     m_pWrtShell->AcceptRedlinesInSelection();
                 else
                     m_pWrtShell->RejectRedlinesInSelection();
@@ -709,11 +748,16 @@ void SwView::Execute(SfxRequest &rReq)
                 assert(pRedline != nullptr);
                 if (pRedline)
                 {
-                    if (FN_REDLINE_ACCEPT_DIRECT == nSlot)
+                    if (FN_REDLINE_ACCEPT_DIRECT == nSlot || FN_REDLINE_ACCEPT_TONEXT == nSlot)
                         m_pWrtShell->AcceptRedline(nRedline);
                     else
                         m_pWrtShell->RejectRedline(nRedline);
                 }
+            }
+            if (FN_REDLINE_ACCEPT_TONEXT == nSlot || FN_REDLINE_REJECT_TONEXT == nSlot)
+            {
+                // Go to next change after accepting or rejecting one (tdf#101977)
+                GetViewFrame()->GetDispatcher()->Execute(FN_REDLINE_NEXT_CHANGE, SfxCallMode::ASYNCHRON);
             }
         }
         break;
@@ -821,7 +865,7 @@ void SwView::Execute(SfxRequest &rReq)
             else if ( m_pWrtShell->IsDrawCreate() )
             {
                 GetDrawFuncPtr()->BreakCreate();
-                AttrChangedNotify(m_pWrtShell.get()); // shell change if needed
+                AttrChangedNotify(nullptr); // shell change if needed
             }
             else if ( m_pWrtShell->HasSelection() || IsDrawMode() )
             {
@@ -843,7 +887,7 @@ void SwView::Execute(SfxRequest &rReq)
                         rBind.Invalidate( SID_ATTR_SIZE );
                     }
                     m_pWrtShell->EnterStdMode();
-                    AttrChangedNotify(m_pWrtShell.get()); // shell change if necessary
+                    AttrChangedNotify(nullptr); // shell change if necessary
                 }
             }
             else if ( GetEditWin().GetApplyTemplate() )
@@ -1098,7 +1142,7 @@ void SwView::Execute(SfxRequest &rReq)
                 {
                     SwDBData aData = rSh.GetDBData();
                     rSh.EnterStdMode(); // force change in text shell; necessary for mixing DB fields
-                    AttrChangedNotify( &rSh );
+                    AttrChangedNotify(nullptr);
 
                     Sequence<PropertyValue> aProperties(3);
                     PropertyValue* pValues = aProperties.getArray();
@@ -1145,7 +1189,7 @@ void SwView::Execute(SfxRequest &rReq)
             // reset ignore lists
             pDoc->SpellItAgainSam( true, false, false );
             // clear ignore dictionary
-            uno::Reference< linguistic2::XDictionary > xDictionary( LinguMgr::GetIgnoreAllList(), uno::UNO_QUERY );
+            uno::Reference< linguistic2::XDictionary > xDictionary = LinguMgr::GetIgnoreAllList();
             if( xDictionary.is() )
                 xDictionary->clear();
             // put cursor to the start of the document
@@ -1571,8 +1615,7 @@ void SwView::StateStatusLine(SfxItemSet &rSet)
                         }
                         if (!sStr.isEmpty())
                             sStr += sStatusDelim;
-                        sStr += SwResId(STR_NUM_LEVEL);
-                        sStr += OUString::number( nNumLevel + 1 );
+                        sStr += SwResId(STR_NUM_LEVEL) + OUString::number( nNumLevel + 1 );
 
                     }
                 }
@@ -1583,9 +1626,8 @@ void SwView::StateStatusLine(SfxItemSet &rSet)
                         sStr += " , ";
                     if( bOutlineNum )
                     {
-                        sStr += SwResId(STR_OUTLINE_NUMBERING);
-                        sStr += sStatusDelim;
-                        sStr += SwResId(STR_NUM_LEVEL);
+                        sStr += SwResId(STR_OUTLINE_NUMBERING) +
+                            sStatusDelim + SwResId(STR_NUM_LEVEL);
                     }
                     else
                         sStr += SwResId(STR_NUM_OUTLINE);
@@ -2398,7 +2440,7 @@ void SwView::GenerateFormLetter(bool bUseCurrentDocument)
             aData.nCommandType = sDBName.getToken(0, DB_DELIM, nIdx).toInt32();
         }
         rSh.EnterStdMode(); // force change in text shell; necessary for mixing DB fields
-        AttrChangedNotify( &rSh );
+        AttrChangedNotify(nullptr);
 
         if (pDBManager)
         {

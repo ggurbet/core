@@ -718,7 +718,7 @@ QAccessibleInterface* Qt5AccessibleWidget::customFactory(const QString& classnam
     if (classname == QLatin1String("Qt5Widget") && object && object->isWidgetType())
     {
         Qt5Widget* pWidget = static_cast<Qt5Widget*>(object);
-        vcl::Window* pWindow = pWidget->getFrame().GetWindow();
+        vcl::Window* pWindow = pWidget->frame().GetWindow();
 
         if (pWindow)
             return new Qt5AccessibleWidget(pWindow->GetAccessible());
@@ -803,24 +803,24 @@ namespace
 OUString lcl_convertFontWeight(double fontWeight)
 {
     if (fontWeight == awt::FontWeight::THIN || fontWeight == awt::FontWeight::ULTRALIGHT)
-        return OUString("100");
+        return "100";
     if (fontWeight == awt::FontWeight::LIGHT)
-        return OUString("200");
+        return "200";
     if (fontWeight == awt::FontWeight::SEMILIGHT)
-        return OUString("300");
+        return "300";
     if (fontWeight == awt::FontWeight::NORMAL)
-        return OUString("normal");
+        return "normal";
     if (fontWeight == awt::FontWeight::SEMIBOLD)
-        return OUString("500");
+        return "500";
     if (fontWeight == awt::FontWeight::BOLD)
-        return OUString("bold");
+        return "bold";
     if (fontWeight == awt::FontWeight::ULTRABOLD)
-        return OUString("800");
+        return "800";
     if (fontWeight == awt::FontWeight::BLACK)
-        return OUString("900");
+        return "900";
 
     // awt::FontWeight::DONTKNOW || fontWeight == awt::FontWeight::NORMAL
-    return OUString("normal");
+    return "normal";
 }
 }
 

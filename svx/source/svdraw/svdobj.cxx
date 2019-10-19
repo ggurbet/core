@@ -210,6 +210,8 @@ struct SdrObject::Impl
     boost::optional<double> mnRelativeHeight;
     sal_Int16               meRelativeHeightRelation;
 
+    std::shared_ptr<DiagramDataInterface> mpDiagramData;
+
     Impl() :
         meRelativeWidthRelation(text::RelOrientation::PAGE_FRAME),
         meRelativeHeightRelation(text::RelOrientation::PAGE_FRAME) {}
@@ -558,6 +560,16 @@ sal_Int16 SdrObject::GetRelativeHeightRelation() const
     return mpImpl->meRelativeHeightRelation;
 }
 
+void SdrObject::SetDiagramData(std::shared_ptr<DiagramDataInterface> pDiagramData)
+{
+    mpImpl->mpDiagramData = pDiagramData;
+}
+
+std::shared_ptr<DiagramDataInterface> SdrObject::GetDiagramData() const
+{
+    return mpImpl->mpDiagramData;
+}
+
 SfxItemPool& SdrObject::GetObjectItemPool() const
 {
     return getSdrModelFromSdrObject().GetItemPool();
@@ -843,7 +855,7 @@ void SdrObject::SetGrabBagItem(const css::uno::Any& rVal)
     BroadcastObjectChange();
 }
 
-sal_uInt32 SdrObject::GetNavigationPosition()
+sal_uInt32 SdrObject::GetNavigationPosition() const
 {
     if (nullptr != getParentSdrObjListFromSdrObject() && getParentSdrObjListFromSdrObject()->RecalcNavigationPositions())
     {
@@ -894,7 +906,7 @@ void SdrObject::RecalcBoundRect()
     {
         // Use view-independent data - we do not want any connections
         // to e.g. GridOffset in SdrObject-level
-        const drawinglayer::primitive2d::Primitive2DContainer xPrimitives(GetViewContact().getViewIndependentPrimitive2DContainer());
+        const drawinglayer::primitive2d::Primitive2DContainer& xPrimitives(GetViewContact().getViewIndependentPrimitive2DContainer());
 
         if(!xPrimitives.empty())
         {
@@ -1048,21 +1060,22 @@ OUString SdrObject::TakeObjNamePlural() const
     return SvxResId(STR_ObjNamePluralNONE);
 }
 
-void SdrObject::ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rStr) const
+OUString SdrObject::ImpGetDescriptionStr(const char* pStrCacheID) const
 {
-    rStr = SvxResId(pStrCacheID);
-    sal_Int32 nPos = rStr.indexOf("%1");
+    OUString aStr = SvxResId(pStrCacheID);
+    sal_Int32 nPos = aStr.indexOf("%1");
     if (nPos >= 0)
     {
         // Replace '%1' with the object name.
         OUString aObjName(TakeObjNameSingul());
-        rStr = rStr.replaceAt(nPos, 2, aObjName);
+        aStr = aStr.replaceAt(nPos, 2, aObjName);
     }
 
-    nPos = rStr.indexOf("%2");
+    nPos = aStr.indexOf("%2");
     if (nPos >= 0)
         // Replace '%2' with the passed value.
-        rStr = rStr.replaceAt(nPos, 2, "0");
+        aStr = aStr.replaceAt(nPos, 2, "0");
+    return aStr;
 }
 
 void SdrObject::ImpForcePlusData()
@@ -1288,10 +1301,10 @@ bool SdrObject::supportsFullDrag() const
     return true;
 }
 
-SdrObject* SdrObject::getFullDragClone() const
+SdrObjectUniquePtr SdrObject::getFullDragClone() const
 {
     // default uses simple clone
-    return CloneSdrObject(getSdrModelFromSdrObject());
+    return SdrObjectUniquePtr(CloneSdrObject(getSdrModelFromSdrObject()));
 }
 
 bool SdrObject::beginSpecialDrag(SdrDragStat& rDrag) const
@@ -1725,6 +1738,11 @@ void SdrObject::dumpAsXml(xmlTextWriterPtr pWriter) const
     xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("description"), "%s", BAD_CAST(GetDescription().toUtf8().getStr()));
     xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("nOrdNum"), "%" SAL_PRIuUINT32, GetOrdNumDirect());
     xmlTextWriterWriteAttribute(pWriter, BAD_CAST("aOutRect"), BAD_CAST(aOutRect.toString().getStr()));
+
+    if (mpProperties)
+    {
+        mpProperties->dumpAsXml(pWriter);
+    }
 
     if (const OutlinerParaObject* pOutliner = GetOutlinerParaObject())
         pOutliner->dumpAsXml(pWriter);
@@ -2165,11 +2183,6 @@ void SdrObject::NbcSetStyleSheet(SfxStyleSheet* pNewStyleSheet, bool bDontRemove
 // Broadcasting while setting attributes is managed by the AttrObj.
 
 
-bool SdrObject::IsNode() const
-{
-    return true;
-}
-
 SdrGluePoint SdrObject::GetVertexGluePoint(sal_uInt16 nPosNum) const
 {
     // #i41936# Use SnapRect for default GluePoints
@@ -2311,7 +2324,7 @@ SdrObject* SdrObject::ImpConvertToContourObj(bool bForceLineDash)
     {
         basegfx::B2DPolyPolygon aMergedLineFillPolyPolygon;
         basegfx::B2DPolyPolygon aMergedHairlinePolyPolygon;
-        const drawinglayer::primitive2d::Primitive2DContainer xSequence(GetViewContact().getViewIndependentPrimitive2DContainer());
+        const drawinglayer::primitive2d::Primitive2DContainer & xSequence(GetViewContact().getViewIndependentPrimitive2DContainer());
 
         if(!xSequence.empty())
         {
@@ -2321,7 +2334,7 @@ SdrObject* SdrObject::ImpConvertToContourObj(bool bForceLineDash)
             extractLineContourFromPrimitive2DSequence(xSequence, aExtractedHairlines, aExtractedLineFills);
 
             // for SdrObject creation, just copy all to a single Hairline-PolyPolygon
-            for(basegfx::B2DPolygon & rExtractedHairline : aExtractedHairlines)
+            for(const basegfx::B2DPolygon & rExtractedHairline : aExtractedHairlines)
             {
                 aMergedHairlinePolyPolygon.append(rExtractedHairline);
             }
@@ -2514,15 +2527,14 @@ SdrObject* SdrObject::ConvertToContourObj(SdrObject* pRet, bool bForceLineDash) 
 }
 
 
-SdrObject* SdrObject::ConvertToPolyObj(bool bBezier, bool bLineToArea) const
+SdrObjectUniquePtr SdrObject::ConvertToPolyObj(bool bBezier, bool bLineToArea) const
 {
-    SdrObject* pRet = DoConvertToPolyObj(bBezier, true);
+    SdrObjectUniquePtr pRet = DoConvertToPolyObj(bBezier, true);
 
     if(pRet && bLineToArea)
     {
-        SdrObject* pNewRet = ConvertToContourObj(pRet);
-        delete pRet;
-        pRet = pNewRet;
+        SdrObject* pNewRet = ConvertToContourObj(pRet.get());
+        pRet.reset(pNewRet);
     }
 
     // #i73441# preserve LayerID
@@ -2535,7 +2547,7 @@ SdrObject* SdrObject::ConvertToPolyObj(bool bBezier, bool bLineToArea) const
 }
 
 
-SdrObject* SdrObject::DoConvertToPolyObj(bool /*bBezier*/, bool /*bAddText*/) const
+SdrObjectUniquePtr SdrObject::DoConvertToPolyObj(bool /*bBezier*/, bool /*bAddText*/) const
 {
     return nullptr;
 }
@@ -3096,19 +3108,15 @@ SdrObject* SdrObjFactory::MakeNewObject(
             case OBJ_CARC:
             case OBJ_CCUT:
             {
+                SdrCircKind eCircKind = ToSdrCircKind(static_cast<SdrObjKind>(nIdentifier));
                 if(nullptr != pSnapRect)
                 {
-                    pObj = new SdrCircObj(
-                        rSdrModel,
-                        static_cast<SdrObjKind>(nIdentifier),
-                        *pSnapRect);
+                    pObj = new SdrCircObj(rSdrModel, eCircKind, *pSnapRect);
                     bSetSnapRect = false;
                 }
                 else
                 {
-                    pObj = new SdrCircObj(
-                        rSdrModel,
-                        static_cast<SdrObjKind>(nIdentifier));
+                    pObj = new SdrCircObj(rSdrModel, eCircKind);
                 }
             }
             break;

@@ -38,11 +38,10 @@
 #include <vcl/floatwin.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/idle.hxx>
+#include <vcl/lineinfo.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/lineinfo.hxx>
-#include <vcl/button.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 #include <sfx2/strings.hrc>
@@ -69,7 +68,7 @@ static uno::Sequence< OUString > getServiceNames()
 
 static OUString getImplementationName()
 {
-    return OUString("vnd.sun.UpdateCheckUI");
+    return "vnd.sun.UpdateCheckUI";
 }
 
 
@@ -406,7 +405,7 @@ void UpdateCheckUI::setPropertyValue(const OUString& rPropertyName,
         }
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
 
     if ( mbBubbleChanged && mpBubbleWin )
         mpBubbleWin->Show( false );
@@ -432,7 +431,7 @@ uno::Any UpdateCheckUI::getPropertyValue(const OUString& rPropertyName)
     else if( rPropertyName == PROPERTY_SHOW_MENUICON )
         aRet <<= mbShowMenuIcon;
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
 
     return aRet;
 }

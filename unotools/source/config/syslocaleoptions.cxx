@@ -18,7 +18,6 @@
  */
 
 #include <com/sun/star/uno/Sequence.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <rtl/instance.hxx>
 #include <sal/log.hxx>
 #include <i18nlangtag/mslangid.hxx>
@@ -75,7 +74,7 @@ class SvtSysLocaleOptions_Impl : public utl::ConfigItem
         bool                    m_bRODecimalSeparator;
         bool                    m_bROIgnoreLanguageChange;
 
-        static  const Sequence< /* const */ OUString >  GetPropertyNames();
+        static Sequence<OUString>  GetPropertyNames();
         void                    MakeRealLocale();
         void                    MakeRealUILocale();
 
@@ -128,7 +127,7 @@ public:
 #define PROPERTYHANDLE_DATEPATTERNS     4
 #define PROPERTYHANDLE_IGNORELANGCHANGE 5
 
-const Sequence< OUString > SvtSysLocaleOptions_Impl::GetPropertyNames()
+Sequence< OUString > SvtSysLocaleOptions_Impl::GetPropertyNames()
 {
     return Sequence< OUString >
     {
@@ -660,11 +659,7 @@ OUString SvtSysLocaleOptions::CreateCurrencyConfigString(
     OUString aIsoStr( LanguageTag::convertToBcp47( eLang ) );
     if ( !aIsoStr.isEmpty() )
     {
-        OUStringBuffer aStr( rAbbrev.getLength() + 1 + aIsoStr.getLength() );
-        aStr.append( rAbbrev );
-        aStr.append( '-' );
-        aStr.append( aIsoStr );
-        return aStr.makeStringAndClear();
+        return rAbbrev + "-" + aIsoStr;
     }
     else
         return rAbbrev;

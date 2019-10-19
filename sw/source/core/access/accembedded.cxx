@@ -19,7 +19,6 @@
 
 #include <vcl/svapp.hxx>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
-#include <com/sun/star/uno/RuntimeException.hpp>
 #include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <flyfrm.hxx>
@@ -27,8 +26,6 @@
 #include <cntfrm.hxx>
 #include <notxtfrm.hxx>
 #include <ndole.hxx>
-#include <doc.hxx>
-#include <docsh.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::lang;
@@ -74,7 +71,7 @@ void SAL_CALL
 
 OUString SAL_CALL SwAccessibleEmbeddedObject::getImplementationName()
 {
-    return OUString(sImplementationName);
+    return sImplementationName;
 }
 
 sal_Bool SAL_CALL SwAccessibleEmbeddedObject::supportsService(const OUString& sTestServiceName)
@@ -84,11 +81,7 @@ sal_Bool SAL_CALL SwAccessibleEmbeddedObject::supportsService(const OUString& sT
 
 uno::Sequence< OUString > SAL_CALL SwAccessibleEmbeddedObject::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.text.AccessibleTextEmbeddedObject";
-    pArray[1] = sAccessibleServiceName;
-    return aRet;
+    return { "com.sun.star.text.AccessibleTextEmbeddedObject", sAccessibleServiceName };
 }
 
 uno::Sequence< sal_Int8 > SAL_CALL SwAccessibleEmbeddedObject::getImplementationId()

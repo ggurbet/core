@@ -50,12 +50,12 @@ SVT_DLLPUBLIC bool isSupportedURL(OUString const & rURL);
     the image must be copied), so you are strongly encouraged to only use it
     when you know that the image is small enough.
 */
-SVT_DLLPUBLIC SvStream* getImageStream(
+SVT_DLLPUBLIC std::unique_ptr<SvStream> getImageStream(
             css::uno::Reference<css::uno::XComponentContext> const & rxContext,
             OUString const & rImageResourceURL);
 
 /** for a given URL of an image within a resource, this method retrieves
-    an css::io::XInputStream for this image.
+    a css::io::XInputStream for this image.
 */
 SVT_DLLPUBLIC css::uno::Reference<css::io::XInputStream> getImageXStream(
             css::uno::Reference<css::uno::XComponentContext> const & rxContext,

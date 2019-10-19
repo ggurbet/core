@@ -19,8 +19,6 @@
 
 #undef SC_DLLIMPLEMENTATION
 
-#include <vcl/waitobj.hxx>
-
 #include <viewdata.hxx>
 #include <document.hxx>
 #include <uiitems.hxx>
@@ -128,11 +126,8 @@ void ScPivotFilterDlg::Init( const SfxItemSet& rArgSet )
                 theDbName = pDBData->GetName();
         }
 
-        OUStringBuffer aBuf;
-        aBuf.append(" (");
-        aBuf.append(theDbName);
-        aBuf.append(')');
-        m_xFtDbArea->set_label(aBuf.makeStringAndClear());
+        OUString sLabel = " (" + theDbName + ")";
+        m_xFtDbArea->set_label(sLabel);
     }
     else
     {

@@ -19,12 +19,10 @@
 
 #include <table/tablecontrol.hxx>
 
-#include "tablegeometry.hxx"
 #include "tablecontrol_impl.hxx"
 #include "tabledatawindow.hxx"
 
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
-#include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 
 #include <sal/log.hxx>
@@ -381,23 +379,11 @@ namespace svt { namespace table
     }
 
 
-    OUString TableControl::GetRowDescription( sal_Int32) const
-    {
-        return OUString( "row description" );
-    }
-
-
     OUString TableControl::GetRowName( sal_Int32 _nIndex) const
     {
         OUString sRowName;
         GetModel()->getRowHeading( _nIndex ) >>= sRowName;
         return sRowName;
-    }
-
-
-    OUString TableControl::GetColumnDescription( sal_uInt16) const
-    {
-        return OUString( "col description" );
     }
 
 

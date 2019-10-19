@@ -34,7 +34,7 @@ void
 VbaTextFrame::setAsMSObehavior()
 {
     //set property TextWordWrap default as False.
-    // TextFitToSize control the text content. it seems we should set the default as False.
+    // TextFitToSize control the text content. It seems we should set the default as False.
     // com.sun.star.drawing.TextFitToSizeType.NONE
     m_xPropertySet->setPropertyValue( "TextWordWrap", uno::makeAny( false ) );
     m_xPropertySet->setPropertyValue( "TextFitToSize", uno::makeAny( drawing::TextFitToSizeType_NONE ) );
@@ -141,7 +141,7 @@ VbaTextFrame::Characters()
 OUString
 VbaTextFrame::getServiceImplName()
 {
-    return OUString("VbaTextFrame");
+    return "VbaTextFrame";
 }
 
 uno::Sequence< OUString >

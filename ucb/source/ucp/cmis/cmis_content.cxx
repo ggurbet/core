@@ -46,9 +46,11 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/exc_hlp.hxx>
+#include <cppuhelper/queryinterface.hxx>
 #include <config_oauth2.h>
 #include <o3tl/runtimetooustring.hxx>
 #include <sal/log.hxx>
+#include <tools/urlobj.hxx>
 #include <ucbhelper/cancelcommandexecution.hxx>
 #include <ucbhelper/content.hxx>
 #include <ucbhelper/contentidentifier.hxx>
@@ -140,9 +142,9 @@ namespace
                     uno::Sequence< sal_Bool > aBools( aCmisBools.size( ) );
                     sal_Bool* aBoolsArr = aBools.getArray( );
                     sal_Int32 i = 0;
-                    for ( const auto& rCmisBool : aCmisBools )
+                    for ( bool bCmisBool : aCmisBools )
                     {
-                        aBoolsArr[i++] = rCmisBool;
+                        aBoolsArr[i++] = bCmisBool;
                     }
                     aValue <<= aBools;
                 }
@@ -589,7 +591,7 @@ namespace cmis
         iCmisProps >>= aPropsSeq;
         map< string, libcmis::PropertyPtr > aProperties;
 
-        for ( const auto& rProp : aPropsSeq )
+        for ( const auto& rProp : std::as_const(aPropsSeq) )
         {
             std::string id = OUSTR_TO_STDSTR( rProp.Id );
             libcmis::PropertyPtr prop = lcl_unoToCmisProperty( rProp );
@@ -1703,7 +1705,7 @@ namespace cmis
 
     OUString SAL_CALL Content::getImplementationName()
     {
-       return OUString("com.sun.star.comp.CmisContent");
+       return "com.sun.star.comp.CmisContent";
     }
 
     uno::Sequence< OUString > SAL_CALL Content::getSupportedServiceNames()

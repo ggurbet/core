@@ -140,7 +140,7 @@ namespace
         css::uno::Reference<css::container::XEnumerationAccess > xEnumerationAccess(rAnimationNode, UNO_QUERY);
         if (!xEnumerationAccess.is())
             return;
-        css::uno::Reference<css::container::XEnumeration> xEnumeration(xEnumerationAccess->createEnumeration(), UNO_QUERY);
+        css::uno::Reference<css::container::XEnumeration> xEnumeration = xEnumerationAccess->createEnumeration();
         if (!xEnumeration.is())
             return;
         while (xEnumeration->hasMoreElements())
@@ -691,8 +691,8 @@ SdStyleSheet* SdPage::getPresentationStyle( sal_uInt32 nHelpId ) const
     aStyleName += OUString::createFromAscii(pNameId);
     if (bOutline)
     {
-        aStyleName += " ";
-        aStyleName += OUString::number( sal_Int32( nHelpId - HID_PSEUDOSHEET_OUTLINE ));
+        aStyleName += " " +
+            OUString::number( sal_Int32( nHelpId - HID_PSEUDOSHEET_OUTLINE ));
     }
 
     SfxStyleSheetBasePool* pStShPool = getSdrModelFromSdrPage().GetStyleSheetPool();
@@ -917,7 +917,7 @@ void getPresObjProp( const SdPage& rPage, const char* sObjKind, const char* sPag
                     Reference<XNode> obj = objectChildren->item(j);
                     OUString nodename = obj->getNodeName();
 
-                    //check whether children is blank 'text-node' or 'object-prop' node
+                    //check whether child is blank 'text-node' or 'object-prop' node
                     if(nodename == "object-prop")
                     {
                         Reference<XNamedNodeMap> ObjAttributes = obj->getAttributes();
@@ -1192,7 +1192,7 @@ void SdPage::DestroyDefaultPresObj(PresObjKind eObjKind)
 
 /**************************************************************************
 |*
-|* assign a AutoLayout
+|* assign an AutoLayout
 |*
 \*************************************************************************/
 
@@ -1383,7 +1383,7 @@ static void CalcAutoLayoutRectangles( SdPage const & rPage,::tools::Rectangle* r
         Reference<XNode> presobj = layoutChildren->item(j);
         nodename=presobj->getNodeName();
 
-        //check whether children is blank 'text-node' or 'presobj' node
+        //check whether child is blank 'text-node' or 'presobj' node
         if(nodename == "presobj")
         {
             // TODO: rework sd to permit arbitrary number of presentation objects
@@ -2308,7 +2308,7 @@ SdrObject* SdPage::InsertAutoLayoutShape(SdrObject* pObj, PresObjKind eObjKind, 
 
 /*************************************************************************
 |*
-|* Returns the PresObjKind of a object
+|* Returns the PresObjKind of an object
 |*
 \************************************************************************/
 
@@ -2356,7 +2356,7 @@ void SdPage::InsertPresObj(SdrObject* pObj, PresObjKind eKind )
 
 /*************************************************************************
 |*
-|* Set the text of a object
+|* Set the text of an object
 |*
 \************************************************************************/
 
@@ -2400,29 +2400,23 @@ void SdPage::SetObjText(SdrTextObj* pObj, SdrOutliner* pOutliner, PresObjKind eO
         {
             pOutl->Init( OutlinerMode::OutlineObject );
 
-            aString += "\t";
-            aString += rString;
+            aString += "\t" + rString;
 
             if (mbMaster)
             {
                 pOutl->SetStyleSheet( 0, GetStyleSheetForPresObj(eObjKind) );
-                aString += "\n\t\t";
-                aString += SdResId(STR_PRESOBJ_MPOUTLLAYER2);
-
-                aString += "\n\t\t\t";
-                aString += SdResId(STR_PRESOBJ_MPOUTLLAYER3);
-
-                aString += "\n\t\t\t\t";
-                aString += SdResId(STR_PRESOBJ_MPOUTLLAYER4);
-
-                aString += "\n\t\t\t\t\t";
-                aString += SdResId(STR_PRESOBJ_MPOUTLLAYER5);
-
-                aString += "\n\t\t\t\t\t\t";
-                aString += SdResId(STR_PRESOBJ_MPOUTLLAYER6);
-
-                aString += "\n\t\t\t\t\t\t\t";
-                aString += SdResId(STR_PRESOBJ_MPOUTLLAYER7);
+                aString += "\n\t\t" +
+                    SdResId(STR_PRESOBJ_MPOUTLLAYER2) +
+                    "\n\t\t\t" +
+                    SdResId(STR_PRESOBJ_MPOUTLLAYER3) +
+                    "\n\t\t\t\t" +
+                    SdResId(STR_PRESOBJ_MPOUTLLAYER4) +
+                    "\n\t\t\t\t\t" +
+                    SdResId(STR_PRESOBJ_MPOUTLLAYER5) +
+                    "\n\t\t\t\t\t\t" +
+                    SdResId(STR_PRESOBJ_MPOUTLLAYER6) +
+                    "\n\t\t\t\t\t\t\t" +
+                    SdResId(STR_PRESOBJ_MPOUTLLAYER7);
 
             }
         }
@@ -2526,8 +2520,7 @@ const OUString& SdPage::GetName() const
             // default name for handout pages
             sal_uInt16  nNum = (GetPageNum() + 1) / 2;
 
-            aCreatedPageName = SdResId(STR_PAGE);
-            aCreatedPageName += " ";
+            aCreatedPageName = SdResId(STR_PAGE) + " ";
             if( getSdrModelFromSdrPage().GetPageNumType() == css::style::NumberingType::NUMBER_NONE )
             {
                 // if the document has number none as a formatting
@@ -2555,14 +2548,11 @@ const OUString& SdPage::GetName() const
 
     if (mePageKind == PageKind::Notes)
     {
-        aCreatedPageName += " ";
-        aCreatedPageName += SdResId(STR_NOTES);
+        aCreatedPageName += " " + SdResId(STR_NOTES);
     }
     else if (mePageKind == PageKind::Handout && mbMaster)
     {
-        aCreatedPageName += " (";
-        aCreatedPageName += SdResId(STR_HANDOUT);
-        aCreatedPageName += ")";
+        aCreatedPageName += " (" + SdResId(STR_HANDOUT) + ")";
     }
 
     const_cast< SdPage* >(this)->maCreatedPageName = aCreatedPageName;
@@ -2675,13 +2665,9 @@ SdPage* SdPage::getImplementation( const css::uno::Reference< css::drawing::XDra
 {
     try
     {
-        css::uno::Reference< css::lang::XUnoTunnel > xUnoTunnel( xPage, css::uno::UNO_QUERY );
-        if( xUnoTunnel.is() )
-        {
-            SvxDrawPage* pUnoPage = reinterpret_cast<SvxDrawPage*>(sal::static_int_cast<sal_uIntPtr>(xUnoTunnel->getSomething( SvxDrawPage::getUnoTunnelId()) ) );
-            if( pUnoPage )
-                return static_cast< SdPage* >( pUnoPage->GetSdrPage() );
-        }
+        auto pUnoPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>(xPage);
+        if( pUnoPage )
+            return static_cast< SdPage* >( pUnoPage->GetSdrPage() );
     }
     catch( css::uno::Exception& )
     {

@@ -209,7 +209,7 @@ void RtfExport::BuildNumbering()
 
     SwNumRule* pOutlineRule = m_pDoc->GetOutlineNumRule();
     if (IsExportNumRule(*pOutlineRule))
-        GetId(*pOutlineRule);
+        GetNumberingId(*pOutlineRule);
 
     for (auto n = rListTable.size(); n;)
     {
@@ -218,7 +218,7 @@ void RtfExport::BuildNumbering()
             continue;
 
         if (IsExportNumRule(*pRule))
-            GetId(*pRule);
+            GetNumberingId(*pRule);
     }
 }
 
@@ -330,7 +330,7 @@ void RtfExport::WriteHyperlinkData(const ::sw::mark::IFieldmark& /*rFieldmark*/)
 
 void RtfExport::DoComboBox(const OUString& /*rName*/, const OUString& /*rHelp*/,
                            const OUString& /*rToolTip*/, const OUString& /*rSelected*/,
-                           uno::Sequence<OUString>& /*rListItems*/)
+                           const uno::Sequence<OUString>& /*rListItems*/)
 {
     // this is handled in RtfAttributeOutput::OutputFlyFrame_Impl
 }
@@ -433,13 +433,13 @@ void RtfExport::WriteMainText()
         aProperties.push_back(std::make_pair<OString, OString>("shapeType", "1"));
         aProperties.push_back(std::make_pair<OString, OString>(
             "fillColor", OString::number(wwUtility::RGBToBGR(oBrush->GetColor()))));
-        for (std::pair<OString, OString>& rPair : aProperties)
+        for (const std::pair<OString, OString>& rPair : aProperties)
         {
             Strm().WriteCharPtr("{" OOO_STRING_SVTOOLS_RTF_SP "{");
             Strm().WriteCharPtr(OOO_STRING_SVTOOLS_RTF_SN " ");
-            Strm().WriteCharPtr(rPair.first.getStr());
+            Strm().WriteOString(rPair.first);
             Strm().WriteCharPtr("}{" OOO_STRING_SVTOOLS_RTF_SV " ");
-            Strm().WriteCharPtr(rPair.second.getStr());
+            Strm().WriteOString(rPair.second);
             Strm().WriteCharPtr("}}");
         }
         Strm().WriteChar('}'); // shpinst
@@ -470,7 +470,7 @@ void RtfExport::WriteInfo()
         = OUStringToOString(utl::DocInfoHelper::GetGeneratorString(), RTL_TEXTENCODING_UTF8);
     Strm()
         .WriteCharPtr("{" OOO_STRING_SVTOOLS_RTF_IGNORE LO_STRING_SVTOOLS_RTF_GENERATOR " ")
-        .WriteCharPtr(aGenerator.getStr())
+        .WriteOString(aGenerator)
         .WriteChar('}');
     Strm().WriteChar('{').WriteCharPtr(OOO_STRING_SVTOOLS_RTF_INFO);
 
@@ -531,7 +531,7 @@ void RtfExport::WriteUserPropType(int nType)
 void RtfExport::WriteUserPropValue(const OUString& rValue)
 {
     Strm().WriteCharPtr("{" OOO_STRING_SVTOOLS_RTF_STATICVAL " ");
-    Strm().WriteCharPtr(msfilter::rtfutil::OutString(rValue, m_eDefaultEncoding).getStr());
+    Strm().WriteOString(msfilter::rtfutil::OutString(rValue, m_eDefaultEncoding));
     Strm().WriteChar('}');
 }
 
@@ -564,7 +564,7 @@ void RtfExport::WriteUserProps()
         {
             uno::Reference<beans::XPropertySet> xPropertySet(xUserDefinedProperties,
                                                              uno::UNO_QUERY);
-            uno::Sequence<beans::Property> aProperties
+            const uno::Sequence<beans::Property> aProperties
                 = xPropertySet->getPropertySetInfo()->getProperties();
 
             for (const beans::Property& rProperty : aProperties)
@@ -615,16 +615,13 @@ void RtfExport::WriteUserProps()
                 {
                     WriteUserPropType(64);
                     // Format is 'YYYY. MM. DD.'.
-                    aValue += OUString::number(aDate.Year);
-                    aValue += ". ";
+                    aValue += OUString::number(aDate.Year) + ". ";
                     if (aDate.Month < 10)
                         aValue += "0";
-                    aValue += OUString::number(aDate.Month);
-                    aValue += ". ";
+                    aValue += OUString::number(aDate.Month) + ". ";
                     if (aDate.Day < 10)
                         aValue += "0";
-                    aValue += OUString::number(aDate.Day);
-                    aValue += ".";
+                    aValue += OUString::number(aDate.Day) + ".";
                     WriteUserPropValue(aValue);
                 }
             }
@@ -710,7 +707,7 @@ ErrCode RtfExport::ExportDocument_Impl()
     WriteUserProps();
     // Default TabSize
     Strm()
-        .WriteCharPtr(m_pAttrOutput->GetTabStop().makeStringAndClear().getStr())
+        .WriteOString(m_pAttrOutput->GetTabStop().makeStringAndClear())
         .WriteCharPtr(SAL_NEWLINE_STRING);
 
     // Automatic hyphenation: it's a global setting in Word, it's a paragraph setting in Writer.
@@ -1036,8 +1033,9 @@ void RtfExport::AppendSection(const SwPageDesc* pPageDesc, const SwSectionFormat
     AttrOutput().SectionBreak(msword::PageBreak, m_pSections->CurrentSectionInfo());
 }
 
-RtfExport::RtfExport(RtfExportFilter* pFilter, SwDoc* pDocument, SwPaM* pCurrentPam,
-                     SwPaM* pOriginalPam, Writer* pWriter, bool bOutOutlineOnly)
+RtfExport::RtfExport(RtfExportFilter* pFilter, SwDoc* pDocument,
+                     std::shared_ptr<SwUnoCursor>& pCurrentPam, SwPaM* pOriginalPam,
+                     Writer* pWriter, bool bOutOutlineOnly)
     : MSWordExportBase(pDocument, pCurrentPam, pOriginalPam)
     , m_pFilter(pFilter)
     , m_pWriter(pWriter)
@@ -1460,8 +1458,10 @@ SwRTFWriter::SwRTFWriter(const OUString& rFilterName, const OUString& rBaseURL)
 
 ErrCode SwRTFWriter::WriteStream()
 {
-    SwPaM aPam(*m_pCurrentPam->End(), *m_pCurrentPam->Start());
-    RtfExport aExport(nullptr, m_pDoc, &aPam, m_pCurrentPam, this, m_bOutOutlineOnly);
+    std::shared_ptr<SwUnoCursor> pCurPam(m_pDoc->CreateUnoCursor(*m_pCurrentPam->End(), false));
+    pCurPam->SetMark();
+    *pCurPam->GetPoint() = *m_pCurrentPam->Start();
+    RtfExport aExport(nullptr, m_pDoc, pCurPam, m_pCurrentPam.get(), this, m_bOutOutlineOnly);
     aExport.ExportDocument(true);
     return ERRCODE_NONE;
 }

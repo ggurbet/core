@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_feature_desktop.h>
 #include <sal/log.hxx>
 #include <osl/module.hxx>
 
@@ -66,7 +66,6 @@
 #include <openflag.hxx>
 #include <sfx2/module.hxx>
 #include <sfx2/event.hxx>
-#include "imestatuswindow.hxx"
 #include <workwin.hxx>
 #include <sfx2/sidebar/Theme.hxx>
 #include <sfx2/tbxctrl.hxx>
@@ -173,8 +172,6 @@ SfxApplication::SfxApplication()
     SetName( "StarOffice" );
     if (!utl::ConfigManager::IsFuzzing())
         SvtViewOptions::AcquireOptions();
-
-    pImpl->m_xImeStatusWindow->init();
 
     SAL_INFO( "sfx.appl", "{ initialize DDE" );
 
@@ -414,13 +411,13 @@ void SfxApplication::Invalidate( sal_uInt16 nId )
 #ifndef DISABLE_DYNLOADING
 
 typedef long (*basicide_handle_basic_error)(void const *);
-typedef void (*basicide_macro_organizer)(void const *, sal_Int16);
+typedef void (*basicide_macro_organizer)(void *, sal_Int16);
 
 extern "C" { static void thisModule() {} }
 
 #else
 
-extern "C" long basicide_handle_basic_error(void*);
+extern "C" long basicide_handle_basic_error(void const*);
 extern "C" void basicide_macro_organizer(void*, sal_Int16);
 
 #endif
@@ -523,6 +520,7 @@ SfxApplication::ChooseScript(weld::Window *pParent)
 void SfxApplication::MacroOrganizer(weld::Window* pParent, sal_Int16 nTabId)
 {
 #if !HAVE_FEATURE_SCRIPTING
+    (void) pParent;
     (void) nTabId;
 #else
 

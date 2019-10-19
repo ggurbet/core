@@ -20,6 +20,7 @@
 #include <memory>
 #include <sal/config.h>
 
+#include <cstdint>
 #include <cstdlib>
 
 #include <i18nlangtag/mslangid.hxx>
@@ -67,8 +68,6 @@ using namespace ::com::sun::star;
 SwFntCache *pFntCache = nullptr;
 // last Font set by ChgFntCache
 SwFntObj *pLastFont = nullptr;
-// "MagicNumber" used to identify Fonts
-sal_uInt8* mnFontCacheIdCounter = nullptr;
 
 static constexpr Color gWaveCol(COL_GRAY);
 
@@ -173,8 +172,8 @@ void SwFntCache::Flush( )
     SwCache::Flush( );
 }
 
-SwFntObj::SwFntObj(const SwSubFont &rFont, const void* nFontCacheId, SwViewShell const *pSh)
-    : SwCacheObj(nFontCacheId)
+SwFntObj::SwFntObj(const SwSubFont &rFont, std::uintptr_t nFontCacheId, SwViewShell const *pSh)
+    : SwCacheObj(reinterpret_cast<void *>(nFontCacheId))
     , m_aFont(rFont)
     , m_pScrFont(nullptr)
     , m_pPrtFont(&m_aFont)
@@ -1203,28 +1202,20 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
                     }
                     else
                     {
-                        Point aTmpPos( aTextOriginPos );
                         sal_Int32 i;
-                        sal_Int32 j = 0;
                         long nSpaceSum = 0;
-                        for (i = 0; i < sal_Int32(rInf.GetLen()); i++ )
+                        for (i = 0; i < sal_Int32(rInf.GetLen()); i++)
                         {
-                            if( CH_BLANK == rInf.GetText()[ sal_Int32(rInf.GetIdx()) + i ] )
-                            {
-                                nSpaceSum += nSpaceAdd;
-                                if( j < i)
-                                    rInf.GetOut().DrawTextArray( aTmpPos, rInf.GetText(),
-                                    pKernArray.get() + j,
-                                    sal_Int32(rInf.GetIdx()) + j, i - j );
-                                j = i + 1;
-                                pKernArray[i] = pKernArray[i] + nSpaceSum;
-                                aTmpPos.setX( aTextOriginPos.X() + pKernArray[ i ] + nKernSum );
-                            }
+                            if(CH_BLANK == rInf.GetText()[sal_Int32(rInf.GetIdx()) + i])
+                                nSpaceSum += nSpaceAdd + nKernSum;
+
+                            pKernArray[i] += nSpaceSum;
                         }
-                        if( j < i )
-                            rInf.GetOut().DrawTextArray( aTmpPos, rInf.GetText(),
-                                pKernArray.get() + j,
-                                sal_Int32(rInf.GetIdx()) + j, i - j );
+
+                        rInf.GetOut().DrawTextArray(aTextOriginPos,
+                                rInf.GetText(), pKernArray.get(),
+                                sal_Int32(rInf.GetIdx()),
+                                sal_Int32(rInf.GetLen()));
                     }
                 }
             }
@@ -2283,7 +2274,7 @@ SwFntAccess::SwFntAccess( const void* & rnFontCacheId,
   m_pShell( pSh )
 {
     // the used ctor of SwCacheAccess searches for rnFontCacheId+rIndex in the cache
-    if ( IsAvail() )
+    if ( m_pObj )
     {
         // fast case: known Font (rnFontCacheId), no need to check printer and zoom
         if ( !bCheck )
@@ -2382,8 +2373,10 @@ SwFntAccess::SwFntAccess( const void* & rnFontCacheId,
 
 SwCacheObj *SwFntAccess::NewObj( )
 {
+    // "MagicNumber" used to identify Fonts
+    static std::uintptr_t fontCacheIdCounter = 0;
     // a new Font, a new "MagicNumber".
-    return new SwFntObj( *static_cast<SwSubFont const *>(m_pOwner), ++mnFontCacheIdCounter, m_pShell );
+    return new SwFntObj( *static_cast<SwSubFont const *>(m_pOwner), ++fontCacheIdCounter, m_pShell );
 }
 
 TextFrameIndex SwFont::GetTextBreak(SwDrawTextInfo const & rInf, long nTextWidth)

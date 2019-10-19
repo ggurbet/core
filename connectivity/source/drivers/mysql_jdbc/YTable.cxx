@@ -30,6 +30,7 @@
 #include <com/sun/star/sdbc/ColumnValue.hpp>
 #include <com/sun/star/sdbcx/Privilege.hpp>
 #include <comphelper/property.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/types.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/sdbcx/VColumn.hxx>
@@ -57,7 +58,7 @@ namespace mysql
 class OMySQLKeysHelper : public OKeysHelper
 {
 protected:
-    virtual OUString getDropForeignKey() const override { return OUString(" DROP FOREIGN KEY "); }
+    virtual OUString getDropForeignKey() const override { return " DROP FOREIGN KEY "; }
 
 public:
     OMySQLKeysHelper(OTableHelper* _pTable, ::osl::Mutex& _rMutex,
@@ -125,7 +126,7 @@ sdbcx::OCollection* OMySQLTable::createIndexes(const ::std::vector<OUString>& _r
     return new OIndexesHelper(this, m_aMutex, _rNames);
 }
 
-Sequence<sal_Int8> OMySQLTable::getUnoTunnelImplementationId()
+Sequence<sal_Int8> OMySQLTable::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 
@@ -136,10 +137,8 @@ Sequence<sal_Int8> OMySQLTable::getUnoTunnelImplementationId()
 
 sal_Int64 OMySQLTable::getSomething(const Sequence<sal_Int8>& rId)
 {
-    return (rId.getLength() == 16
-            && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(), rId.getConstArray(), 16))
-               ? reinterpret_cast<sal_Int64>(this)
-               : OTable_TYPEDEF::getSomething(rId);
+    return (isUnoTunnelId<OMySQLTable>(rId)) ? reinterpret_cast<sal_Int64>(this)
+                                             : OTable_TYPEDEF::getSomething(rId);
 }
 
 // XAlterTable
@@ -208,8 +207,7 @@ void SAL_CALL OMySQLTable::alterColumnByName(const OUString& colName,
                 {
                     if (sTypeName.indexOf(s_sAutoIncrement) == -1)
                     {
-                        sTypeName += " ";
-                        sTypeName += s_sAutoIncrement;
+                        sTypeName += OUStringLiteral(" ") + s_sAutoIncrement;
                     }
                 }
                 else
@@ -286,7 +284,7 @@ void OMySQLTable::alterColumnType(sal_Int32 nNewType, const OUString& _rColName,
     executeStatement(sSql);
 }
 
-OUString OMySQLTable::getTypeCreatePattern() const { return OUString("(M,D)"); }
+OUString OMySQLTable::getTypeCreatePattern() const { return "(M,D)"; }
 
 void OMySQLTable::alterDefaultValue(const OUString& _sNewDefault, const OUString& _rColName)
 {
@@ -306,7 +304,7 @@ void OMySQLTable::dropDefaultValue(const OUString& _rColName)
     executeStatement(sSql);
 }
 
-OUString OMySQLTable::getAlterTableColumnPart()
+OUString OMySQLTable::getAlterTableColumnPart() const
 {
     OUString sSql("ALTER TABLE ");
 
@@ -332,6 +330,6 @@ void OMySQLTable::executeStatement(const OUString& _rStatement)
     }
 }
 
-OUString OMySQLTable::getRenameStart() const { return OUString("RENAME TABLE "); }
+OUString OMySQLTable::getRenameStart() const { return "RENAME TABLE "; }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -58,7 +58,7 @@ public:
 
     /** Create a new cache for bitmap objects.
         The default value from the configuration is used.
-        When that does not exist then a internal default value is
+        When that does not exist then an internal default value is
         used.
     */
     explicit BitmapCache ();
@@ -80,7 +80,7 @@ public:
     /** Return the memory size that is occupied by all non-precious bitmaps
         in the cache.
     */
-    sal_Int32 GetSize() { return mnNormalCacheSize;}
+    sal_Int32 GetSize() const { return mnNormalCacheSize;}
 
     /** Return <TRUE/> when a preview bitmap exists for the given key.
     */

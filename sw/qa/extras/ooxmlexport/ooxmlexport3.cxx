@@ -24,8 +24,6 @@
 #include <com/sun/star/style/BreakType.hpp>
 #include <ftninfo.hxx>
 
-#if !defined(_WIN32)
-
 class Test : public SwModelTestBase
 {
 public:
@@ -334,6 +332,11 @@ DECLARE_OOXMLEXPORT_TEST(testTcBorders, "testTcBorders.docx")
     assertXPath(pXmlDocument, "/w:document[1]/w:body[1]/w:tbl[1]/w:tr[1]/w:tc[1]/w:tcPr[1]/w:tcBorders[1]/w:bottom[1][@w:sz = 4]", 1);
     assertXPath(pXmlDocument, "/w:document[1]/w:body[1]/w:tbl[1]/w:tr[1]/w:tc[1]/w:tcPr[1]/w:tcBorders[1]/w:bottom[1][@w:space = 0]", 1);
     assertXPath(pXmlDocument, "/w:document[1]/w:body[1]/w:tbl[1]/w:tr[1]/w:tc[1]/w:tcPr[1]/w:tcBorders[1]/w:bottom[1][@w:color = 808080]", 1);
+
+    uno::Reference<beans::XPropertySet> xStyle(
+        getStyles("CharacterStyles")->getByName("Code Featured Element"),
+        uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Bold", float(150), getProperty<float>(xStyle, "CharWeight"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testQuicktables, "quicktables.docx")
@@ -399,7 +402,7 @@ DECLARE_OOXMLEXPORT_TEST(testSmartart, "smartart.docx")
     CPPUNIT_ASSERT(bTheme); // Grab Bag has all the expected elements
 
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDraws->getCount()); // One groupshape in the doc
 
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
@@ -575,9 +578,15 @@ DECLARE_OOXMLEXPORT_TEST(testTdf106974_int32Crop, "tdf106974_int32Crop.docx")
 
     imageProperties->getPropertyValue( "GraphicCrop" ) >>= aGraphicCropStruct;
 
+    // The crop is constructed in GraphicProperties::pushToPropMap, where
+    // GraphicHelper::getOriginalSize tries to get graphic size in mm, then falls back to pixels,
+    // which are then converted to mm taking screen DPI scaling into account. Thus, the resulting
+    // values are DPI-dependent.
+    const double fXScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIX();
+
     CPPUNIT_ASSERT_MESSAGE(
         OString::number(aGraphicCropStruct.Right).getStr(),
-        sal_Int32( 40470 ) < aGraphicCropStruct.Right );
+        40470 * fXScaleFactor < aGraphicCropStruct.Right);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testLineSpacingexport, "test_line_spacing.docx")
@@ -603,7 +612,7 @@ DECLARE_OOXMLEXPORT_TEST(testLineSpacingexport, "test_line_spacing.docx")
 DECLARE_OOXMLEXPORT_TEST(testTextBoxGradientAngle, "fdo65295.docx")
 {
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xIndexAccess(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xIndexAccess = xDrawPageSupplier->getDrawPage();
     CPPUNIT_ASSERT_EQUAL(sal_Int32(8), xIndexAccess->getCount());
 
     // Angle of frame#1 is 135 degrees, but 'aGradient.Angle' holds value in 1/10 of a degree
@@ -697,25 +706,27 @@ DECLARE_OOXMLEXPORT_TEST(testParaAutoSpacing, "para-auto-spacing.docx")
 
 DECLARE_OOXMLEXPORT_TEST(testGIFImageCrop, "test_GIF_ImageCrop.docx")
 {
-    // FIXME why does this fail on Mac?
-#if !defined(MACOSX)
     uno::Reference<drawing::XShape> image = getShape(1);
     uno::Reference<beans::XPropertySet> imageProperties(image, uno::UNO_QUERY);
     css::text::GraphicCrop aGraphicCropStruct;
 
     imageProperties->getPropertyValue( "GraphicCrop" ) >>= aGraphicCropStruct;
 
-    CPPUNIT_ASSERT_EQUAL( sal_Int32( 1085 ), aGraphicCropStruct.Left );
-    CPPUNIT_ASSERT_EQUAL( sal_Int32( 3651 ), aGraphicCropStruct.Right );
-    CPPUNIT_ASSERT_EQUAL( sal_Int32( 953 ), aGraphicCropStruct.Top );
-    CPPUNIT_ASSERT_EQUAL( sal_Int32( 1244 ), aGraphicCropStruct.Bottom );
-#endif
+    // The crop is constructed in GraphicProperties::pushToPropMap, where
+    // GraphicHelper::getOriginalSize tries to get graphic size in mm, then falls back to pixels,
+    // which are then converted to mm taking screen DPI scaling into account. Thus, the resulting
+    // values are DPI-dependent.
+    const double fXScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIX();
+    const double fYScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIY();
+
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(1085 * fXScaleFactor, aGraphicCropStruct.Left, 1);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(3651 * fXScaleFactor, aGraphicCropStruct.Right, 1);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(953 * fYScaleFactor, aGraphicCropStruct.Top, 1);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(1244 * fYScaleFactor, aGraphicCropStruct.Bottom, 1);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testPNGImageCrop, "test_PNG_ImageCrop.docx")
 {
-    // FIXME why does this fail on Mac?
-#if !defined(MACOSX)
     /* The problem was image cropping information was not getting saved
      * after roundtrip.
      * Check for presence of cropping parameters in exported file.
@@ -726,11 +737,17 @@ DECLARE_OOXMLEXPORT_TEST(testPNGImageCrop, "test_PNG_ImageCrop.docx")
 
     imageProperties->getPropertyValue( "GraphicCrop" ) >>= aGraphicCropStruct;
 
-    CPPUNIT_ASSERT_EQUAL( sal_Int32( 1058 ), aGraphicCropStruct.Left );
-    CPPUNIT_ASSERT_EQUAL( sal_Int32( 1111 ), aGraphicCropStruct.Right );
-    CPPUNIT_ASSERT_EQUAL( sal_Int32( 1164 ), aGraphicCropStruct.Top );
-    CPPUNIT_ASSERT_EQUAL( sal_Int32( 635 ), aGraphicCropStruct.Bottom );
-#endif
+    // The crop is constructed in GraphicProperties::pushToPropMap, where
+    // GraphicHelper::getOriginalSize tries to get graphic size in mm, then falls back to pixels,
+    // which are then converted to mm taking screen DPI scaling into account. Thus, the resulting
+    // values are DPI-dependent.
+    const double fXScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIX();
+    const double fYScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIY();
+
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(1058 * fXScaleFactor, aGraphicCropStruct.Left, 1);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(1111 * fXScaleFactor, aGraphicCropStruct.Right, 1);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(1164 * fYScaleFactor, aGraphicCropStruct.Top, 1);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(635 * fYScaleFactor, aGraphicCropStruct.Bottom, 1);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf41542_imagePadding, "tdf41542_imagePadding.odt")
@@ -921,7 +938,7 @@ DECLARE_OOXMLEXPORT_TEST(testDontSplitTable, "tdf101589_dontSplitTable.odt")
     uno::Reference<text::XTextTable> xTable (xTables->getByIndex(0), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(false, getProperty<bool>(xTable, "Split"));
 
-    uno::Reference<table::XTableRows> xTableRows(xTable->getRows(), uno::UNO_QUERY);
+    uno::Reference<table::XTableRows> xTableRows = xTable->getRows();
     CPPUNIT_ASSERT_EQUAL(false, getProperty<bool>(xTableRows->getByIndex(0), "IsSplitAllowed"));
 }
 
@@ -935,6 +952,11 @@ DECLARE_OOXMLEXPORT_TEST(testExtraSectionBreak, "1_page.docx")
     uno::Reference<text::XPageCursor> xCursor(xTextViewCursorSupplier->getViewCursor(), uno::UNO_QUERY);
     xCursor->jumpToLastPage();
     CPPUNIT_ASSERT_EQUAL(sal_Int16(1), xCursor->getPage());
+
+    // tdf126544 Styles were being added before their base/parent/inherited-from style existed, and so were using default settings.
+    uno::Reference<container::XNameAccess> xParaStyles(getStyles("ParagraphStyles"));
+    uno::Reference<style::XStyle> xStyle(xParaStyles->getByName("Heading 1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL( OUString("Heading Base"), xStyle->getParentStyle() );
 }
 
 DECLARE_OOXMLEXPORT_TEST(testcolumnbreak, "columnbreak.docx")
@@ -978,8 +1000,6 @@ DECLARE_OOXMLEXPORT_TEST(testFileOpenInputOutputError,"floatingtbl_with_formula.
     // let's also assert that the formula was exported properly
     assertXPathContent(pXmlDoc, "//w:tbl/w:tr/w:tc[2]/w:p/m:oMath/m:sSubSup/m:e/m:r/m:t", u"\u03C3");
 }
-
-#endif
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

@@ -19,31 +19,19 @@
 
 #include <memory>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <stdlib.h>
 #include <osl/thread.h>
-#include <config_gio.h>
 
 #include <unx/fontmanager.hxx>
 #include <fontsubset.hxx>
 #include <impfontcharmap.hxx>
-#include <svdata.hxx>
-#include <unx/geninst.h>
 #include <unx/gendata.hxx>
 #include <unx/helper.hxx>
-#include <vcl/strhelper.hxx>
-#include <vcl/ppdparser.hxx>
-#include <vcl/embeddedfontshelper.hxx>
 #include <vcl/fontcharmap.hxx>
 
 #include <tools/urlobj.hxx>
-#include <tools/stream.hxx>
 
 #include <osl/file.hxx>
-#include <osl/process.h>
 
-#include <rtl/tencinfo.h>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/strbuf.hxx>
 
@@ -51,7 +39,6 @@
 #include <sal/log.hxx>
 
 #include <i18nlangtag/applelangid.hxx>
-#include <i18nlangtag/mslangid.hxx>
 
 #include <sft.hxx>
 
@@ -68,7 +55,6 @@
 #endif
 
 #include <com/sun/star/beans/XMaterialHolder.hpp>
-#include <com/sun/star/beans/NamedValue.hpp>
 
 using namespace vcl;
 using namespace utl;
@@ -163,10 +149,10 @@ int PrintFontManager::getDirectoryAtom( const OString& rDirectory )
     return nAtom;
 }
 
-std::vector<fontID> PrintFontManager::addFontFile( const OString& rFileName )
+std::vector<fontID> PrintFontManager::addFontFile( const OUString& rFileUrl )
 {
     rtl_TextEncoding aEncoding = osl_getThreadTextEncoding();
-    INetURLObject aPath( OStringToOUString( rFileName, aEncoding ), FSysStyle::Detect );
+    INetURLObject aPath( rFileUrl );
     OString aName(OUStringToOString(aPath.GetLastName(INetURLObject::DecodeMechanism::WithCharset, aEncoding), aEncoding));
     OString aDir( OUStringToOString(
         INetURLObject::decode( aPath.GetPath(), INetURLObject::DecodeMechanism::WithCharset, aEncoding ), aEncoding ) );
@@ -193,9 +179,7 @@ std::vector<std::unique_ptr<PrintFontManager::PrintFont>> PrintFontManager::anal
 
     OString aDir( getDirectory( nDirID ) );
 
-    OString aFullPath( aDir );
-    aFullPath += "/";
-    aFullPath += rFontFile;
+    OString aFullPath = aDir + "/" + rFontFile;
 
     // #i1872# reject unreadable files
     if( access( aFullPath.getStr(), R_OK ) )
@@ -236,10 +220,12 @@ std::vector<std::unique_ptr<PrintFontManager::PrintFont>> PrintFontManager::anal
                 if (aFile.open(osl_File_OpenFlag_Read | osl_File_OpenFlag_NoLock) == osl::File::E_None)
                 {
                     osl::DirectoryItem aItem;
-                    osl::DirectoryItem::get( aURL, aItem );
-                    osl::FileStatus aFileStatus( osl_FileStatus_Mask_FileSize );
-                    aItem.getFileStatus( aFileStatus );
-                    fileSize = aFileStatus.getFileSize();
+                    if (osl::DirectoryItem::get(aURL, aItem) == osl::File::E_None)
+                    {
+                        osl::FileStatus aFileStatus( osl_FileStatus_Mask_FileSize );
+                        if (aItem.getFileStatus(aFileStatus) == osl::File::E_None)
+                            fileSize = aFileStatus.getFileSize();
+                    }
                 }
             }
 
@@ -924,9 +910,7 @@ OString PrintFontManager::getFontFile(const PrintFont* pFont) const
     if (pFont)
     {
         std::unordered_map< int, OString >::const_iterator it = m_aAtomToDir.find(pFont->m_nDirectory);
-        aPath = it->second;
-        aPath += "/";
-        aPath += pFont->m_aFontFile;
+        aPath = it->second + "/" + pFont->m_aFontFile;
     }
     return aPath;
 }

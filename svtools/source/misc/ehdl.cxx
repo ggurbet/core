@@ -18,20 +18,16 @@
  */
 
 #include <unotools/resmgr.hxx>
-#include <vcl/button.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/settings.hxx>
 #include <sal/log.hxx>
 
 #include <svtools/ehdl.hxx>
-#include <svtools/soerr.hxx>
 #include <svtools/svtresid.hxx>
-#include <svtools/strings.hrc>
 #include <svtools/sfxecode.hxx>
 #include <memory>
 #include <errtxt.hrc>
-#include <strings.hxx>
 
 static DialogMask aWndFunc(
     weld::Window *pWin,            // Parent of the dialog
@@ -98,7 +94,7 @@ static DialogMask aWndFunc(
                                               eMessageType, eButtonsType, aErr));
 
     if (bAddRetry)
-        xBox->add_button(Button::GetStandardText(StandardButtonType::Retry), RET_RETRY);
+        xBox->add_button(GetStandardText(StandardButtonType::Retry), RET_RETRY);
 
     switch(nFlags & DialogMask(0x0f00))
     {
@@ -265,7 +261,7 @@ bool SfxErrorContext::GetString(ErrCode nErrId, OUString &rStr)
 
 /*  [Description]
 
-    Constructs the description of a error context
+    Constructs the description of an error context
     */
 
 {

@@ -15,6 +15,7 @@
 #include <vcl/lok.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/commandevent.hxx>
+#include <sal/log.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/request.hxx>
@@ -143,11 +144,26 @@ void SfxLokHelper::setViewLanguage(int nId, const OUString& rBcp47LanguageTag)
     }
 }
 
+static OString lcl_escapeQuotes(const OString &rStr)
+{
+    if (rStr.getLength() < 1)
+        return rStr;
+    // FIXME: need an optimized 'escape' method for O[U]String.
+    OStringBuffer aBuf(rStr.getLength() + 8);
+    for (sal_Int32 i = 0; i < rStr.getLength(); ++i)
+    {
+        if (rStr[i] == '"' || rStr[i] == '\\')
+            aBuf.append('\\');
+        aBuf.append(rStr[i]);
+    }
+    return aBuf.makeStringAndClear();
+}
+
 void SfxLokHelper::notifyOtherView(SfxViewShell* pThisView, SfxViewShell const* pOtherView, int nType, const OString& rKey, const OString& rPayload)
 {
-    OString aPayload = OString("{ \"viewId\": \"") + OString::number(SfxLokHelper::getView(pThisView)) +
+    OString aPayload = OStringLiteral("{ \"viewId\": \"") + OString::number(SfxLokHelper::getView(pThisView)) +
                        "\", \"part\": \"" + OString::number(pThisView->getPart()) +
-                       "\", \"" + rKey + "\": \"" + rPayload + "\" }";
+                       "\", \"" + rKey + "\": \"" + lcl_escapeQuotes(rPayload) + "\" }";
 
     pOtherView->libreOfficeKitViewCallback(nType, aPayload.getStr());
 }
@@ -207,12 +223,45 @@ void SfxLokHelper::notifyInvalidation(SfxViewShell const* pThisView, const OStri
     pThisView->libreOfficeKitViewCallback(LOK_CALLBACK_INVALIDATE_TILES, aBuf.makeStringAndClear().getStr());
 }
 
+void SfxLokHelper::notifyDocumentSizeChanged(SfxViewShell const* pThisView, const OString& rPayload, vcl::ITiledRenderable* pDoc, bool bInvalidateAll)
+{
+    if (!comphelper::LibreOfficeKit::isActive())
+        return;
+
+    if (!pDoc)
+        return;
+
+    if (bInvalidateAll)
+    {
+        for (int i = 0; i < pDoc->getParts(); ++i)
+        {
+            tools::Rectangle aRectangle(0, 0, 1000000000, 1000000000);
+            OString sPayload = aRectangle.toString() + ", " + OString::number(i);
+            pThisView->libreOfficeKitViewCallback(LOK_CALLBACK_INVALIDATE_TILES, sPayload.getStr());
+        }
+    }
+    pThisView->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, rPayload.getStr());
+}
+
+void SfxLokHelper::notifyDocumentSizeChangedAllViews(vcl::ITiledRenderable* pDoc, bool bInvalidateAll)
+{
+    if (!comphelper::LibreOfficeKit::isActive())
+        return;
+
+    SfxViewShell* pViewShell = SfxViewShell::GetFirst();
+    while (pViewShell)
+    {
+        SfxLokHelper::notifyDocumentSizeChanged(pViewShell, "", pDoc, bInvalidateAll);
+        pViewShell = SfxViewShell::GetNext(*pViewShell);
+    }
+}
+
 void SfxLokHelper::notifyVisCursorInvalidation(OutlinerViewShell const* pThisView, const OString& rRectangle)
 {
     OString sPayload;
     if (comphelper::LibreOfficeKit::isViewIdForVisCursorInvalidation())
     {
-        sPayload = OString("{ \"viewId\": \"") + OString::number(SfxLokHelper::getView()) +
+        sPayload = OStringLiteral("{ \"viewId\": \"") + OString::number(SfxLokHelper::getView()) +
             "\", \"rectangle\": \"" + rRectangle + "\" }";
     }
     else
@@ -235,11 +284,11 @@ void SfxLokHelper::notifyAllViews(int nType, const OString& rPayload)
 
 void SfxLokHelper::notifyContextChange(SfxViewShell const* pViewShell, const OUString& aApplication, const OUString& aContext)
 {
-    OStringBuffer aBuffer;
-    aBuffer.append(OUStringToOString(aApplication.replace(' ', '_'), RTL_TEXTENCODING_UTF8));
-    aBuffer.append(' ');
-    aBuffer.append(OUStringToOString(aContext.replace(' ', '_'), RTL_TEXTENCODING_UTF8));
-    pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_CONTEXT_CHANGED, aBuffer.makeStringAndClear().getStr());
+    OString aBuffer =
+        OUStringToOString(aApplication.replace(' ', '_'), RTL_TEXTENCODING_UTF8) +
+        " " +
+        OUStringToOString(aContext.replace(' ', '_'), RTL_TEXTENCODING_UTF8);
+    pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_CONTEXT_CHANGED, aBuffer.getStr());
 }
 
 
@@ -252,6 +301,7 @@ namespace
         VclEventId mnEvent;
         MouseEvent maMouseEvent;
         KeyEvent maKeyEvent;
+        OUString maText;
     };
 
     void LOKPostAsyncEvent(void* pEv, void*)
@@ -267,13 +317,29 @@ namespace
             SfxLokHelper::setView(pLOKEv->mnView);
         }
 
+        if (!pLOKEv->mpWindow->HasChildPathFocus(true))
+        {
+            SAL_INFO("sfx.view", "LOK - focus mismatch, switching focus");
+            pLOKEv->mpWindow->GrabFocus();
+        }
+
+        VclPtr<vcl::Window> pFocusWindow = pLOKEv->mpWindow->GetFocusedWindow();
+        if (!pFocusWindow)
+            pFocusWindow = pLOKEv->mpWindow;
+
         switch (pLOKEv->mnEvent)
         {
         case VclEventId::WindowKeyInput:
-            pLOKEv->mpWindow->KeyInput(pLOKEv->maKeyEvent);
+        {
+            sal_uInt16 nRepeat = pLOKEv->maKeyEvent.GetRepeat();
+            KeyEvent singlePress(pLOKEv->maKeyEvent.GetCharCode(),
+                                 pLOKEv->maKeyEvent.GetKeyCode());
+            for (sal_uInt16 i = 0; i <= nRepeat; ++i)
+                pFocusWindow->KeyInput(singlePress);
             break;
+        }
         case VclEventId::WindowKeyUp:
-            pLOKEv->mpWindow->KeyUp(pLOKEv->maKeyEvent);
+            pFocusWindow->KeyUp(pLOKEv->maKeyEvent);
             break;
         case VclEventId::WindowMouseButtonDown:
             pLOKEv->mpWindow->LogicMouseButtonDown(pLOKEv->maMouseEvent);
@@ -295,6 +361,10 @@ namespace
             break;
         case VclEventId::WindowMouseMove:
             pLOKEv->mpWindow->LogicMouseMove(pLOKEv->maMouseEvent);
+            break;
+        case VclEventId::ExtTextInput:
+        case VclEventId::EndExtTextInput:
+            pLOKEv->mpWindow->PostExtTextInputEvent(pLOKEv->mnEvent, pLOKEv->maText);
             break;
         default:
             assert(false);
@@ -326,7 +396,7 @@ namespace
 }
 
 void SfxLokHelper::postKeyEventAsync(const VclPtr<vcl::Window> &xWindow,
-                                     int nType, int nCharCode, int nKeyCode)
+                                     int nType, int nCharCode, int nKeyCode, int nRepeat)
 {
     LOKAsyncEventData* pLOKEv = new LOKAsyncEventData;
     switch (nType)
@@ -340,7 +410,28 @@ void SfxLokHelper::postKeyEventAsync(const VclPtr<vcl::Window> &xWindow,
     default:
         assert(false);
     }
-    pLOKEv->maKeyEvent = KeyEvent(nCharCode, nKeyCode, 0);
+    pLOKEv->maKeyEvent = KeyEvent(nCharCode, nKeyCode, nRepeat);
+    pLOKEv->mpWindow = xWindow;
+    postEventAsync(pLOKEv);
+}
+
+void SfxLokHelper::postExtTextEventAsync(const VclPtr<vcl::Window> &xWindow,
+                                         int nType, const OUString &rText)
+{
+    LOKAsyncEventData* pLOKEv = new LOKAsyncEventData;
+    switch (nType)
+    {
+    case LOK_EXT_TEXTINPUT:
+        pLOKEv->mnEvent = VclEventId::ExtTextInput;
+        pLOKEv->maText = rText;
+        break;
+    case LOK_EXT_TEXTINPUT_END:
+        pLOKEv->mnEvent = VclEventId::EndExtTextInput;
+        pLOKEv->maText = "";
+        break;
+    default:
+        assert(false);
+    }
     pLOKEv->mpWindow = xWindow;
     postEventAsync(pLOKEv);
 }

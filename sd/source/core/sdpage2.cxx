@@ -79,9 +79,7 @@ void SdPage::SetPresentationLayout(const OUString& rLayoutName,
     |* Name of the layout of the page
     \********************************************************************/
     OUString aOldLayoutName(maLayoutName);    // memorize
-    OUStringBuffer aBuf(rLayoutName);
-    aBuf.append(SD_LT_SEPARATOR).append(STR_LAYOUT_OUTLINE);
-    maLayoutName = aBuf.makeStringAndClear();
+    maLayoutName = rLayoutName + SD_LT_SEPARATOR STR_LAYOUT_OUTLINE;
 
     /*********************************************************************
     |* search and replace master page if necessary
@@ -194,7 +192,7 @@ void SdPage::SetPresentationLayout(const OUString& rLayoutName,
 
             std::vector<SfxStyleSheetBase*>::iterator iterOldOut = aOldOutlineStyles.begin();
 
-            for (auto& rpOut : aOutlineStyles)
+            for (const auto& rpOut : aOutlineStyles)
             {
                 SfxStyleSheet* pSheet = static_cast<SfxStyleSheet*>(rpOut);
                 SfxStyleSheet* pOldSheet = static_cast<SfxStyleSheet*>(*iterOldOut);
@@ -264,7 +262,7 @@ void SdPage::EndListenOutlineText()
     std::vector<SfxStyleSheetBase*> aOutlineStyles;
     pSPool->CreateOutlineSheetList(aTrueLayoutName,aOutlineStyles);
 
-    for (auto& rpStyle : aOutlineStyles)
+    for (const auto& rpStyle : aOutlineStyles)
     {
         SfxStyleSheet *pSheet = static_cast<SfxStyleSheet*>(rpStyle);
         pOutlineTextObj->EndListening(*pSheet);

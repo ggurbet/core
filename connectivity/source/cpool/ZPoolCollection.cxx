@@ -46,27 +46,27 @@ using namespace connectivity;
 
 static OUString getConnectionPoolNodeName()
 {
-    return OUString(  "org.openoffice.Office.DataAccess/ConnectionPool" );
+    return "org.openoffice.Office.DataAccess/ConnectionPool";
 }
 
 static OUString getEnablePoolingNodeName()
 {
-    return OUString(  "EnablePooling" );
+    return "EnablePooling";
 }
 
 static OUString getDriverNameNodeName()
 {
-    return OUString(  "DriverName" );
+    return "DriverName";
 }
 
 static OUString getDriverSettingsNodeName()
 {
-    return OUString(  "DriverSettings" );
+    return "DriverSettings";
 }
 
 static OUString getEnableNodeName()
 {
-    return OUString(  "Enable" );
+    return "Enable";
 }
 
 
@@ -159,7 +159,7 @@ Reference< XInterface > OPoolCollection::CreateInstance(const Reference< XMultiS
 
 OUString OPoolCollection::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.sdbc.OConnectionPool");
+    return "com.sun.star.sdbc.OConnectionPool";
 }
 
 
@@ -358,10 +358,9 @@ Reference<XInterface> OPoolCollection::openNode(const OUString& _rPath,const Ref
         SAL_WARN("connectivity.cpool", "::openNode: there is no element named " <<
                  _rPath << "!");
     }
-    catch(Exception&)
+    catch(const Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("connectivity.cpool", "OConfigurationNode::openNode: caught an exception while retrieving the node! " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("connectivity.cpool", "OConfigurationNode::openNode: caught an exception while retrieving the node");
     }
     return xNode;
 }

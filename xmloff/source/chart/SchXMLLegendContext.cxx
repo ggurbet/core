@@ -20,15 +20,13 @@
 #include "SchXMLLegendContext.hxx"
 #include "SchXMLEnumConverter.hxx"
 
+#include <xmloff/xmlimp.hxx>
 #include <xmloff/xmlnmspe.hxx>
-#include <xmloff/xmlement.hxx>
-#include <xmloff/prstylei.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmluconv.hxx>
 
 #include <sal/log.hxx>
 
-#include <com/sun/star/chart/ChartLegendPosition.hpp>
 #include <com/sun/star/chart/ChartLegendExpansion.hpp>
 #include <com/sun/star/chart/XChartDocument.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
@@ -106,7 +104,7 @@ void SchXMLLegendContext::StartElement( const uno::Reference< xml::sax::XAttribu
         }
     }
 
-    uno::Reference< drawing::XShape > xLegendShape( xDoc->getLegend(), uno::UNO_QUERY );
+    uno::Reference< drawing::XShape > xLegendShape = xDoc->getLegend();
     uno::Reference< beans::XPropertySet > xLegendProps( xLegendShape, uno::UNO_QUERY );
     if( !xLegendShape.is() || !xLegendProps.is() )
     {

@@ -363,7 +363,7 @@ void SmElementsControl::LayoutOrPaintContents(vcl::RenderContext *pContext)
         boxX = nControlWidth / perLine;
 
     const SmElement* pCurrentElement = current();
-    for (std::unique_ptr<SmElement> & i : maElementList)
+    for (const std::unique_ptr<SmElement> & i : maElementList)
     {
         SmElement* element = i.get();
         if (element->isSeparator())
@@ -798,7 +798,7 @@ void SmElementsControl::KeyInput(const KeyEvent& rKEvt)
         case KEY_SPACE:
             assert(m_nCurrentElement < maElementList.size());
             assert(maSelectHdlLink.IsSet());
-            maSelectHdlLink.Call(*maElementList[m_nCurrentElement].get());
+            maSelectHdlLink.Call(*maElementList[m_nCurrentElement]);
             collectUIInformation(OUString::number(m_nCurrentElement));
             break;
 
@@ -1044,7 +1044,7 @@ bool SmElementsControl::itemIsSeparator(sal_uInt16 nPos) const
 {
     if (nPos < m_nCurrentOffset || (nPos -= m_nCurrentOffset) >= maElementList.size())
         return true;
-    return maElementList[nPos].get()->isSeparator();
+    return maElementList[nPos]->isSeparator();
 }
 
 css::uno::Reference<css::accessibility::XAccessible> SmElementsControl::CreateAccessible()
@@ -1062,7 +1062,7 @@ bool SmElementsControl::itemTrigger(sal_uInt16 nPos)
     if (nPos < m_nCurrentOffset || (nPos -= m_nCurrentOffset) >= maElementList.size())
         return false;
 
-    maSelectHdlLink.Call(*maElementList[nPos].get());
+    maSelectHdlLink.Call(*maElementList[nPos]);
     collectUIInformation(OUString::number(nPos));
     return true;
 }

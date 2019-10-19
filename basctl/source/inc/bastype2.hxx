@@ -179,7 +179,6 @@ public:
 class TreeListBox : public SvTreeListBox, public DocumentEventListener
 {
 private:
-    BrowseMode            nMode;
     DocumentEventNotifier m_aNotifier;
     void            SetEntryBitmaps( SvTreeListEntry * pEntry, const Image& rImage );
     virtual void    MouseButtonDown(const MouseEvent& rMEvt) override;
@@ -236,13 +235,10 @@ public:
     void            RemoveEntry (SvTreeListEntry const *);
     void            RemoveEntry (ScriptDocument const&);
 
-    OUString        GetRootEntryName( const ScriptDocument& rDocument, LibraryLocation eLocation ) const;
+    static OUString GetRootEntryName( const ScriptDocument& rDocument, LibraryLocation eLocation );
     static void     GetRootEntryBitmaps( const ScriptDocument& rDocument, Image& rImage );
 
     void            SetCurrentEntry (EntryDescriptor const &);
-
-private:
-    LibraryType     GetLibraryType() const;
 };
 
 class SbTreeListBox : public DocumentEventListener
@@ -257,7 +253,7 @@ private:
 
 protected:
     DECL_LINK(RequestingChildrenHdl, const weld::TreeIter&, bool);
-    DECL_LINK(OpenCurrentHdl, weld::TreeView&, void);
+    DECL_LINK(OpenCurrentHdl, weld::TreeView&, bool);
     void                    ImpCreateLibEntries(const weld::TreeIter& rShellRootEntry, const ScriptDocument& rDocument, LibraryLocation eLocation);
     void                    ImpCreateLibSubEntries(const weld::TreeIter& rLibRootEntry, const ScriptDocument& rDocument, const OUString& rLibName);
     void                    ImpCreateLibSubEntriesInVBAMode(const weld::TreeIter& rLibRootEntry, const ScriptDocument& rDocument, const OUString& rLibName );
@@ -319,7 +315,7 @@ public:
     bool iter_parent(weld::TreeIter& rIter) const { return m_xControl->iter_parent(rIter); }
     int get_iter_depth(const weld::TreeIter& rIter) const { return m_xControl->get_iter_depth(rIter); }
     bool get_row_expanded(const weld::TreeIter& rIter) const { return m_xControl->get_row_expanded(rIter); }
-    void expand_row(weld::TreeIter& rIter) { m_xControl->expand_row(rIter); }
+    void expand_row(const weld::TreeIter& rIter) { m_xControl->expand_row(rIter); }
     void set_size_request(int nWidth, int nHeight) { m_xControl->set_size_request(nWidth, nHeight); }
     float get_approximate_digit_width() const { return m_xControl->get_approximate_digit_width(); }
     int get_height_rows(int nRows) const { return m_xControl->get_height_rows(nRows); }
@@ -331,6 +327,28 @@ public:
     void connect_editing_done(const Link<const std::pair<const weld::TreeIter&, OUString>&, bool>& rLink)
     {
         m_xControl->connect_editing_done(rLink);
+    }
+
+    void make_sorted() { m_xControl->make_sorted(); };
+    void make_unsorted() { m_xControl->make_unsorted(); }
+    bool get_sort_order() const { return m_xControl->get_sort_order(); }
+    void set_sort_order(bool bAscending) { m_xControl->set_sort_order(bAscending); }
+
+    void set_sort_indicator(TriState eState, int nColumn = -1)
+    {
+        m_xControl->set_sort_indicator(eState, nColumn);
+    }
+    TriState get_sort_indicator(int nColumn = -1)
+    {
+        return m_xControl->get_sort_indicator(nColumn);
+    }
+
+    int get_sort_column() const { return m_xControl->get_sort_column(); }
+    void set_sort_column(int nColumn) { m_xControl->set_sort_column(nColumn); }
+
+    void set_sort_func(const std::function<int(const weld::TreeIter&, const weld::TreeIter&)>& func)
+    {
+        m_xControl->set_sort_func(func);
     }
 
     void            RemoveEntry(const weld::TreeIter& rIter);

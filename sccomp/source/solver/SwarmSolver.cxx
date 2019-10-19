@@ -253,7 +253,7 @@ public:
     // XServiceInfo
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.Calc.SwarmSolver");
+        return "com.sun.star.comp.Calc.SwarmSolver";
     }
 
     sal_Bool SAL_CALL supportsService(const OUString& rServiceName) override
@@ -273,7 +273,7 @@ private:
 
 public:
     double calculateFitness(std::vector<double> const& rVariables);
-    size_t getDimensionality();
+    size_t getDimensionality() const;
     void initializeVariables(std::vector<double>& rVariables, std::mt19937& rGenerator);
     double clampVariable(size_t nVarIndex, double fValue);
     double boundVariable(size_t nVarIndex, double fValue);
@@ -396,11 +396,11 @@ double SwarmSolver::boundVariable(size_t nVarIndex, double fValue)
     return fResult;
 }
 
-size_t SwarmSolver::getDimensionality() { return maVariables.getLength(); }
+size_t SwarmSolver::getDimensionality() const { return maVariables.getLength(); }
 
 bool SwarmSolver::doesViolateConstraints()
 {
-    for (sheet::SolverConstraint& rConstraint : maNonBoundedConstraints)
+    for (const sheet::SolverConstraint& rConstraint : maNonBoundedConstraints)
     {
         double fLeftValue = getValue(rConstraint.Left);
         double fRightValue = 0.0;
@@ -513,14 +513,14 @@ void SAL_CALL SwarmSolver::solve()
     }
 
     // Determine variable bounds
-    for (sheet::SolverConstraint const& rConstraint : maConstraints)
+    for (sheet::SolverConstraint const& rConstraint : std::as_const(maConstraints))
     {
         table::CellAddress aLeftCellAddress = rConstraint.Left;
         sheet::SolverConstraintOperator eOp = rConstraint.Operator;
 
         size_t index = 0;
         bool bFoundVariable = false;
-        for (table::CellAddress& rVariableCell : maVariables)
+        for (const table::CellAddress& rVariableCell : std::as_const(maVariables))
         {
             if (aLeftCellAddress == rVariableCell)
             {

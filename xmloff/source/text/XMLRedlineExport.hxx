@@ -20,7 +20,6 @@
 #ifndef INCLUDED_XMLOFF_SOURCE_TEXT_XMLREDLINEEXPORT_HXX
 #define INCLUDED_XMLOFF_SOURCE_TEXT_XMLREDLINEEXPORT_HXX
 
-#include <rtl/ustrbuf.hxx>
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/uno/Sequence.h>
 
@@ -143,11 +142,11 @@ private:
     void ExportChangedRegion(
         const css::uno::Reference<css::beans::XPropertySet> & rPropSet);
 
-    /// export an change-info element (from a PropertySet)
+    /// export a change-info element (from a PropertySet)
     void ExportChangeInfo(
         const css::uno::Reference<css::beans::XPropertySet> & rPropSet);
 
-    /// export an change-info element (from PropertyValues)
+    /// export a change-info element (from PropertyValues)
     void ExportChangeInfo(
         const css::uno::Sequence<css::beans::PropertyValue> & rValues);
 

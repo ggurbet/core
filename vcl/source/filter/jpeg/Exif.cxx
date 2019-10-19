@@ -19,6 +19,7 @@
 
 #include "Exif.hxx"
 #include <memory>
+#include <osl/endian.h>
 #include <tools/stream.hxx>
 
 Exif::Exif() :
@@ -49,7 +50,7 @@ Orientation Exif::convertToOrientation(sal_Int32 value)
     return TOP_LEFT;
 }
 
-sal_Int32 Exif::getRotation()
+sal_Int32 Exif::getRotation() const
 {
     switch(maOrientation) {
         case TOP_LEFT:

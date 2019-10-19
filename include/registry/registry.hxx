@@ -90,7 +90,7 @@ public:
     /// Copy constructor
     inline Registry(const Registry& toCopy);
 
-    Registry(Registry && other): m_pApi(other.m_pApi), m_hImpl(other.m_hImpl)
+    Registry(Registry && other) noexcept : m_pApi(other.m_pApi), m_hImpl(other.m_hImpl)
     { other.m_hImpl = nullptr; }
 
     /// Destructor. The Destructor close the registry if it is open.
@@ -464,7 +464,7 @@ public:
                                            sal_Char** pValueList,
                                            sal_uInt32 len);
 
-    /** sets an unicode string list value of a key.
+    /** sets a unicode string list value of a key.
 
         @param  keyName specifies the name of the key which value will be set.
                         If keyName is an empty string, the value will be set for the key
@@ -551,7 +551,7 @@ public:
 public:
     /// @cond INTERNAL
 
-    /** Constructor, which initialize a RegistryKey with registry and an valid key handle.
+    /** Constructor, which initialize a RegistryKey with registry and a valid key handle.
 
         This constructor is internal only.
     */

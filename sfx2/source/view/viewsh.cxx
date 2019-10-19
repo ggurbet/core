@@ -39,11 +39,13 @@
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/container/XContainerQuery.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboardListener.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboardNotifier.hpp>
 #include <com/sun/star/view/XRenderable.hpp>
+#include <com/sun/star/uno/Reference.hxx>
 #include <cppuhelper/implbase.hxx>
 
 #include <osl/file.hxx>
@@ -60,6 +62,7 @@
 #include <basic/sbuno.hxx>
 #include <framework/actiontriggerhelper.hxx>
 #include <comphelper/lok.hxx>
+#include <comphelper/namedvaluecollection.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -151,7 +154,7 @@ private:
 SfxClipboardChangeListener::SfxClipboardChangeListener( SfxViewShell* pView, const uno::Reference< datatransfer::clipboard::XClipboardNotifier >& xClpbrdNtfr )
   : m_pViewShell( nullptr ), m_xClpbrdNtfr( xClpbrdNtfr )
 {
-    m_xCtrl.set( pView->GetController(), uno::UNO_QUERY );
+    m_xCtrl = pView->GetController();
     if ( m_xCtrl.is() )
     {
         m_xCtrl->addEventListener( uno::Reference < lang::XEventListener > ( static_cast < lang::XEventListener* >( this ) ) );
@@ -392,9 +395,8 @@ void SfxViewShell::ExecMisc_Impl( SfxRequest &rReq )
         }
         case SID_ACTIVATE_STYLE_APPLY:
         {
-            uno::Reference< frame::XFrame > xFrame(
-                GetViewFrame()->GetFrame().GetFrameInterface(),
-                uno::UNO_QUERY);
+            uno::Reference< frame::XFrame > xFrame =
+                GetViewFrame()->GetFrame().GetFrameInterface();
 
             Reference< beans::XPropertySet > xPropSet( xFrame, UNO_QUERY );
             Reference< frame::XLayoutManager > xLayoutManager;
@@ -762,7 +764,7 @@ void SfxViewShell::OutplaceActivated( bool bActive )
 void SfxViewShell::UIActivating( SfxInPlaceClient* /*pClient*/ )
 {
     uno::Reference < frame::XFrame > xOwnFrame( pFrame->GetFrame().GetFrameInterface() );
-    uno::Reference < frame::XFramesSupplier > xParentFrame( xOwnFrame->getCreator(), uno::UNO_QUERY );
+    uno::Reference < frame::XFramesSupplier > xParentFrame = xOwnFrame->getCreator();
     if ( xParentFrame.is() )
         xParentFrame->setActiveFrame( xOwnFrame );
 
@@ -1306,37 +1308,6 @@ void SfxViewShell::WriteUserDataSequence ( uno::Sequence < beans::PropertyValue 
 }
 
 
-// returns the number of current available shells of spec. type viewing the specified doc.
-size_t SfxViewShell::GetActiveShells ( bool bOnlyVisible )
-{
-    size_t nShells = 0;
-
-    // search for a SfxViewShell of the specified type
-    SfxViewShellArr_Impl &rShells = SfxGetpApp()->GetViewShells_Impl();
-    SfxViewFrameArr_Impl &rFrames = SfxGetpApp()->GetViewFrames_Impl();
-    for (SfxViewShell* pShell : rShells)
-    {
-        if ( pShell )
-        {
-            // sometimes dangling SfxViewShells exist that point to a dead SfxViewFrame
-            // these ViewShells shouldn't be accessible anymore
-            // a destroyed ViewFrame is not in the ViewFrame array anymore, so checking this array helps
-            for (SfxViewFrame* pFrame : rFrames)
-            {
-                if ( pFrame == pShell->GetViewFrame() )
-                {
-                    // only ViewShells with a valid ViewFrame will be returned
-                    if ( !bOnlyVisible || pFrame->IsVisible() )
-                        ++nShells;
-                }
-            }
-        }
-    }
-
-    return nShells;
-}
-
-
 // returns the first shell of spec. type viewing the specified doc.
 SfxViewShell* SfxViewShell::GetFirst
 (
@@ -1765,6 +1736,15 @@ void SfxViewShell::SetController( SfxBaseController* pController )
     pImpl->xClipboardListener = new SfxClipboardChangeListener( this, GetClipboardNotifier() );
 }
 
+bool SfxViewShell::isContentExtractionLocked()
+{
+    Reference<XModel> xModel = GetCurrentDocument();
+    if (!xModel.is())
+        return false;
+    comphelper::NamedValueCollection aArgs(xModel->getArgs());
+    return aArgs.getOrDefault("LockContentExtraction", false);
+}
+
 Reference < XController > SfxViewShell::GetController() const
 {
     return pImpl->m_pController.get();
@@ -1954,13 +1934,13 @@ bool SfxViewShell::HandleNotifyEvent_Impl( NotifyEvent const & rEvent )
     return false;
 }
 
-bool SfxViewShell::HasKeyListeners_Impl()
+bool SfxViewShell::HasKeyListeners_Impl() const
 {
     return (pImpl->m_pController.is())
         && pImpl->m_pController->HasKeyListeners_Impl();
 }
 
-bool SfxViewShell::HasMouseClickListeners_Impl()
+bool SfxViewShell::HasMouseClickListeners_Impl() const
 {
     return (pImpl->m_pController.is())
         && pImpl->m_pController->HasMouseClickListeners_Impl();
@@ -1989,7 +1969,7 @@ void SfxViewShell::notifyWindow(vcl::LOKWindowId nDialogId, const OUString& rAct
     SfxLokHelper::notifyWindow(this, nDialogId, rAction, rPayload);
 }
 
-uno::Reference< datatransfer::clipboard::XClipboardNotifier > SfxViewShell::GetClipboardNotifier()
+uno::Reference< datatransfer::clipboard::XClipboardNotifier > SfxViewShell::GetClipboardNotifier() const
 {
     uno::Reference< datatransfer::clipboard::XClipboardNotifier > xClipboardNotifier;
     if ( GetViewFrame() )

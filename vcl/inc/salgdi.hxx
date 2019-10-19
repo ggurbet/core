@@ -73,7 +73,7 @@ class VCL_PLUGIN_PUBLIC SalGraphics : protected vcl::WidgetDrawInterface
 {
 public:
     SalGraphics();
-    ~SalGraphics() override;
+    ~SalGraphics() COVERITY_NOEXCEPT_FALSE override;
 
     virtual SalGraphicsImpl*    GetImpl() const = 0;
 
@@ -133,7 +133,7 @@ public:
     virtual void                GetFontMetric( ImplFontMetricDataRef&, int nFallbackLevel ) = 0;
 
     // get the repertoire of the current font
-    virtual const FontCharMapRef GetFontCharMap() const = 0;
+    virtual FontCharMapRef      GetFontCharMap() const = 0;
 
     // get the layout capabilities of the current font
     virtual bool                GetFontCapabilities(vcl::FontCapabilities &rFontCapabilities) const = 0;
@@ -152,7 +152,7 @@ public:
     // CreateFontSubset: a method to get a subset of glyhps of a font
     // inside a new valid font file
     // returns true if creation of subset was successful
-    // parameters: rToFile: contains a osl file URL to write the subset to
+    // parameters: rToFile: contains an osl file URL to write the subset to
     //             pFont: describes from which font to create a subset
     //             pGlyphIDs: the glyph ids to be extracted
     //             pEncoding: the character code corresponding to each glyph

@@ -35,7 +35,6 @@
 
 #include <filtdlg.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/waitobj.hxx>
 #include <vcl/weld.hxx>
 #include <svl/sharedstringpool.hxx>
 
@@ -1073,7 +1072,7 @@ void ScFilterDlg::SliderMoved()
     RefreshEditRow( nOffset);
 }
 
-size_t ScFilterDlg::GetSliderPos()
+size_t ScFilterDlg::GetSliderPos() const
 {
     return static_cast<size_t>(m_xScrollBar->vadjustment_get_value());
 }

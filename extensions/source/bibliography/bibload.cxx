@@ -105,7 +105,7 @@ public:
 
                             {
                                 //!
-                                return OUString("com.sun.star.extensions.Bibliography");
+                                return "com.sun.star.extensions.Bibliography";
                                 //!
                             }
 
@@ -182,12 +182,7 @@ Sequence< OUString > BibliographyLoader::getSupportedServiceNames()
 // ORegistryServiceManager_Static
 Sequence< OUString > BibliographyLoader::getSupportedServiceNames_Static() throw(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS.getArray()[0] = "com.sun.star.frame.FrameLoader";
-    //!
-    aSNS.getArray()[1] = "com.sun.star.frame.Bibliography";
-    //!
-    return aSNS;
+    return { "com.sun.star.frame.FrameLoader", "com.sun.star.frame.Bibliography" };
 }
 
 extern "C"
@@ -624,7 +619,7 @@ Any BibliographyLoader::getPropertyValue(const OUString& rPropertyName)
         ISBN_POS                    //BibliographyDataField_ISBN
     };
     if(rPropertyName != "BibliographyDataFieldNames")
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     Sequence<PropertyValue> aSeq(COLUMN_COUNT);
     PropertyValue* pArray = aSeq.getArray();
     BibConfig* pConfig = BibModul::GetConfig();

@@ -40,9 +40,8 @@ namespace dbaui
         bool            m_bUserGrabFocus;
 
     public:
-        OConnectionHelper(TabPageParent pParent, const OUString& _rUIXMLDescription, const OString& _rId, const SfxItemSet& _rCoreAttrs);
+        OConnectionHelper(weld::Container* pPage, weld::DialogController* pController, const OUString& _rUIXMLDescription, const OString& _rId, const SfxItemSet& _rCoreAttrs);
         virtual ~OConnectionHelper() override;
-        virtual void dispose() override;
 
         OUString     m_eType;          // the type can't be changed in this class, so we hold it as member.
         // setting/retrieving the current connection URL

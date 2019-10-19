@@ -724,11 +724,11 @@ public:
 
     // PaintArea is the area where content might be displayed.
     // The margin of a page or the space between columns belongs to it.
-    const SwRect GetPaintArea() const;
+    SwRect GetPaintArea() const;
 
     // UnionFrame is the union of Frame- and PrtArea, normally identical
     // to the FrameArea except in case of negative Prt margins.
-    const SwRect UnionFrame( bool bBorder = false ) const;
+    SwRect UnionFrame( bool bBorder = false ) const;
 
     virtual Size ChgSize( const Size& aNewSize );
 
@@ -1237,8 +1237,23 @@ public:
     //Flag pFrame for SwFrameDeleteGuard lifetime that we shouldn't delete
     //it in e.g. SwSectionFrame::MergeNext etc because we will need it
     //again after the SwFrameDeleteGuard dtor
-    explicit SwFrameDeleteGuard(SwFrame* pFrame);
-    ~SwFrameDeleteGuard();
+    explicit SwFrameDeleteGuard(SwFrame* pFrame)
+        : m_pForbidFrame((pFrame && !pFrame->IsDeleteForbidden()) ?
+            pFrame : nullptr)
+    {
+        if (m_pForbidFrame)
+            m_pForbidFrame->ForbidDelete();
+    }
+
+    SwFrameDeleteGuard(const SwFrameDeleteGuard&) =delete;
+
+    ~SwFrameDeleteGuard()
+    {
+        if (m_pForbidFrame)
+            m_pForbidFrame->AllowDelete();
+    }
+
+    SwFrameDeleteGuard& operator=(const SwFrameDeleteGuard&) =delete;
 };
 
 typedef long (SwFrame:: *SwFrameGet)() const;

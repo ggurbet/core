@@ -287,7 +287,7 @@ SwVbaDocument::PageSetup( )
 OUString
 SwVbaDocument::getServiceImplName()
 {
-    return OUString("SwVbaDocument");
+    return "SwVbaDocument";
 }
 
 uno::Any SAL_CALL
@@ -460,6 +460,8 @@ SwVbaDocument::Frames( const uno::Any& index )
 void SAL_CALL
 SwVbaDocument::SaveAs2000( const uno::Any& FileName, const uno::Any& FileFormat, const uno::Any& /*LockComments*/, const uno::Any& /*Password*/, const uno::Any& /*AddToRecentFiles*/, const uno::Any& /*WritePassword*/, const uno::Any& /*ReadOnlyRecommended*/, const uno::Any& /*EmbedTrueTypeFonts*/, const uno::Any& /*SaveNativePictureFormat*/, const uno::Any& /*SaveFormsData*/, const uno::Any& /*SaveAsAOCELetter*/ )
 {
+    SAL_INFO("sw.vba", "Document.SaveAs2000(FileName:=" << FileName << ",FileFormat:=" << FileFormat << ")");
+
     // Based on ScVbaWorkbook::SaveAs.
     OUString sFileName;
     FileName >>= sFileName;
@@ -603,7 +605,7 @@ SwVbaDocument::hasProperty( const OUString& aName )
 }
 
 uno::Reference< container::XNameAccess >
-SwVbaDocument::getFormControls()
+SwVbaDocument::getFormControls() const
 {
     uno::Reference< container::XNameAccess > xFormControls;
     try
@@ -627,7 +629,7 @@ SwVbaDocument::getFormControls()
 OUString SAL_CALL
 SwVbaDocument::getIID()
 {
-    return OUString("{82154424-0FBF-11d4-8313-005004526AB4}");
+    return "{82154424-0FBF-11d4-8313-005004526AB4}";
 }
 
 // XConnectable
@@ -635,7 +637,7 @@ SwVbaDocument::getIID()
 OUString SAL_CALL
 SwVbaDocument::GetIIDForClassItselfNotCoclass()
 {
-    return OUString("{82154428-0FBF-11D4-8313-005004526AB4}");
+    return "{82154428-0FBF-11D4-8313-005004526AB4}";
 }
 
 TypeAndIID SAL_CALL

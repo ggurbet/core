@@ -176,7 +176,7 @@ SmFontFormat::SmFontFormat( const vcl::Font &rFont )
 }
 
 
-const vcl::Font SmFontFormat::GetFont() const
+vcl::Font SmFontFormat::GetFont() const
 {
     vcl::Font aRes;
     aRes.SetFamilyName( aName );
@@ -280,7 +280,7 @@ const SmFontFormat * SmFontFormatList::GetFontFormat( size_t nPos ) const
 }
 
 
-const OUString SmFontFormatList::GetFontFormatId( const SmFontFormat &rFntFmt ) const
+OUString SmFontFormatList::GetFontFormatId( const SmFontFormat &rFntFmt ) const
 {
     OUString aRes;
 
@@ -297,7 +297,7 @@ const OUString SmFontFormatList::GetFontFormatId( const SmFontFormat &rFntFmt ) 
 }
 
 
-const OUString SmFontFormatList::GetFontFormatId( const SmFontFormat &rFntFmt, bool bAdd )
+OUString SmFontFormatList::GetFontFormatId( const SmFontFormat &rFntFmt, bool bAdd )
 {
     OUString aRes( GetFontFormatId( rFntFmt) );
     if (aRes.isEmpty()  &&  bAdd)
@@ -309,7 +309,7 @@ const OUString SmFontFormatList::GetFontFormatId( const SmFontFormat &rFntFmt, b
 }
 
 
-const OUString SmFontFormatList::GetFontFormatId( size_t nPos ) const
+OUString SmFontFormatList::GetFontFormatId( size_t nPos ) const
 {
     OUString aRes;
     if (nPos < aEntries.size())
@@ -318,7 +318,7 @@ const OUString SmFontFormatList::GetFontFormatId( size_t nPos ) const
 }
 
 
-const OUString SmFontFormatList::GetNewFontFormatId() const
+OUString SmFontFormatList::GetNewFontFormatId() const
 {
     // returns first unused FormatId
 
@@ -373,17 +373,8 @@ void SmMathConfig::ReadSymbol( SmSym &rSymbol,
     sal_Int32 nProps = aNames.getLength();
 
     OUString aDelim( "/" );
-    OUString *pName = aNames.getArray();
-    for (sal_Int32 i = 0;  i < nProps;  ++i)
-    {
-        OUString &rName = pName[i];
-        OUString aTmp( rName );
-        rName = rBaseNode;
-        rName += aDelim;
-        rName += rSymbolName;
-        rName += aDelim;
-        rName += aTmp;
-    }
+    for (auto& rName : aNames)
+        rName = rBaseNode + aDelim + rSymbolName + aDelim + rName;
 
     const Sequence< Any > aValues = const_cast<SmMathConfig*>(this)->GetProperties(aNames);
 
@@ -509,8 +500,8 @@ void SmMathConfig::SetSymbols( const std::vector< SmSym > &rNewSymbols )
     OUString aDelim( "/" );
     for (const SmSym& rSymbol : rNewSymbols)
     {
-        OUString  aNodeNameDelim( SYMBOL_LIST );
-        aNodeNameDelim += aDelim;
+        OUString  aNodeNameDelim = SYMBOL_LIST +
+            aDelim;
         aNodeNameDelim += rSymbol.GetExportName();
         aNodeNameDelim += aDelim;
 
@@ -568,16 +559,14 @@ void SmMathConfig::LoadFontFormatList()
     else
         pFontFormatList->Clear();
 
-    Sequence< OUString > aNodes( GetNodeNames( FONT_FORMAT_LIST ) );
-    const OUString *pNode = aNodes.getConstArray();
-    sal_Int32 nNodes = aNodes.getLength();
+    const Sequence< OUString > aNodes( GetNodeNames( FONT_FORMAT_LIST ) );
 
-    for (sal_Int32 i = 0;  i < nNodes;  ++i)
+    for (const OUString& rNode : aNodes)
     {
         SmFontFormat aFntFmt;
-        ReadFontFormat( aFntFmt, pNode[i], FONT_FORMAT_LIST );
-        if (!pFontFormatList->GetFontFormat( pNode[i] ))
-            pFontFormatList->AddFontFormat( pNode[i], aFntFmt );
+        ReadFontFormat( aFntFmt, rNode, FONT_FORMAT_LIST );
+        if (!pFontFormatList->GetFontFormat( rNode ))
+            pFontFormatList->AddFontFormat( rNode, aFntFmt );
     }
     pFontFormatList->SetModified( false );
 }
@@ -590,17 +579,8 @@ void SmMathConfig::ReadFontFormat( SmFontFormat &rFontFormat,
     sal_Int32 nProps = aNames.getLength();
 
     OUString aDelim( "/" );
-    OUString *pName = aNames.getArray();
-    for (sal_Int32 i = 0;  i < nProps;  ++i)
-    {
-        OUString &rName = pName[i];
-        OUString aTmp( rName );
-        rName = rBaseNode;
-        rName += aDelim;
-        rName += rSymbolName;
-        rName += aDelim;
-        rName += aTmp;
-    }
+    for (auto& rName : aNames)
+        rName = rBaseNode + aDelim + rSymbolName + aDelim + rName;
 
     const Sequence< Any > aValues = const_cast<SmMathConfig*>(this)->GetProperties(aNames);
 
@@ -672,10 +652,10 @@ void SmMathConfig::SaveFontFormatList()
         assert(pFntFmt);
         const SmFontFormat aFntFmt(*pFntFmt);
 
-        OUString  aNodeNameDelim( FONT_FORMAT_LIST );
-        aNodeNameDelim += aDelim;
-        aNodeNameDelim += aFntFmtId;
-        aNodeNameDelim += aDelim;
+        OUString  aNodeNameDelim = FONT_FORMAT_LIST +
+            aDelim +
+            aFntFmtId +
+            aDelim;
 
         const OUString *pName = aNames.getConstArray();
 

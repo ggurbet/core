@@ -232,7 +232,7 @@ void SAL_CALL TitleWrapper::setSize( const awt::Size& /*aSize*/ )
 // ____ XShapeDescriptor (base of XShape) ____
 OUString SAL_CALL TitleWrapper::getShapeType()
 {
-    return OUString( "com.sun.star.chart.ChartTitle" );
+    return "com.sun.star.chart.ChartTitle";
 }
 
 // ____ XComponent ____
@@ -277,7 +277,7 @@ void TitleWrapper::getFastCharacterPropertyValue( sal_Int32 nHandle, Any& rValue
     OSL_ASSERT( FAST_PROPERTY_ID_START_CHAR_PROP <= nHandle &&
                 nHandle < CharacterProperties::FAST_PROPERTY_ID_END_CHAR_PROP );
 
-    Reference< beans::XPropertySet > xProp( getFirstCharacterPropertySet(), uno::UNO_QUERY );
+    Reference< beans::XPropertySet > xProp = getFirstCharacterPropertySet();
     Reference< beans::XFastPropertySet > xFastProp( xProp, uno::UNO_QUERY );
     if(xProp.is())
     {
@@ -404,7 +404,7 @@ void SAL_CALL TitleWrapper::addPropertyChangeListener( const OUString& rProperty
     sal_Int32 nHandle = getInfoHelper().getHandleByName( rPropertyName );
     if( CharacterProperties::IsCharacterPropertyHandle( nHandle ) )
     {
-        Reference< beans::XPropertySet > xPropSet( getFirstCharacterPropertySet(), uno::UNO_QUERY );
+        Reference< beans::XPropertySet > xPropSet = getFirstCharacterPropertySet();
         if( xPropSet.is() )
             xPropSet->addPropertyChangeListener( rPropertyName, xListener );
     }
@@ -416,7 +416,7 @@ void SAL_CALL TitleWrapper::removePropertyChangeListener( const OUString& rPrope
     sal_Int32 nHandle = getInfoHelper().getHandleByName( rPropertyName );
     if( CharacterProperties::IsCharacterPropertyHandle( nHandle ) )
     {
-        Reference< beans::XPropertySet > xPropSet( getFirstCharacterPropertySet(), uno::UNO_QUERY );
+        Reference< beans::XPropertySet > xPropSet = getFirstCharacterPropertySet();
         if( xPropSet.is() )
             xPropSet->removePropertyChangeListener( rPropertyName, xListener );
     }
@@ -482,7 +482,7 @@ std::vector< std::unique_ptr<WrappedProperty> > TitleWrapper::createWrappedPrope
 
 OUString SAL_CALL TitleWrapper::getImplementationName()
 {
-    return OUString("com.sun.star.comp.chart.Title");
+    return "com.sun.star.comp.chart.Title";
 }
 
 sal_Bool SAL_CALL TitleWrapper::supportsService( const OUString& rServiceName )

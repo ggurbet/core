@@ -315,7 +315,7 @@ namespace svx
         if ( _rEvent.PopupTrigger )
         {
             if ( m_pObserver )
-                m_pObserver->contextMenuRequested( _rEvent );
+                m_pObserver->contextMenuRequested();
         }
     }
 
@@ -434,8 +434,7 @@ namespace svx
 
             if ( pAsciiUnoName )
             {
-                sSlotUnoName = ".uno:";
-                sSlotUnoName += OUString::createFromAscii( pAsciiUnoName );
+                sSlotUnoName = ".uno:" + OUString::createFromAscii( pAsciiUnoName );
             }
             else
             {
@@ -1075,12 +1074,9 @@ namespace svx
             m_aControlObservers.resize( 0 );
             m_aControlObservers.reserve( aControls.getLength() );
 
-            const Reference< css::awt::XControl >* pControls = aControls.getConstArray();
-            const Reference< css::awt::XControl >* pControlsEnd = pControls + aControls.getLength();
-            for ( ; pControls != pControlsEnd; ++pControls )
-            {
-                m_aControlObservers.push_back( FocusListenerAdapter( new FmFocusListenerAdapter( *pControls, this ) ) );
-            }
+            std::transform(aControls.begin(), aControls.end(), std::back_inserter(m_aControlObservers),
+                [this](const Reference< css::awt::XControl >& rControl) -> FocusListenerAdapter {
+                    return FocusListenerAdapter( new FmFocusListenerAdapter( rControl, this ) ); });
         }
         catch( const Exception& )
         {
@@ -1312,7 +1308,7 @@ namespace svx
     }
 
 
-    void FmTextControlShell::contextMenuRequested( const css::awt::MouseEvent& /*_rEvent*/ )
+    void FmTextControlShell::contextMenuRequested()
     {
         m_rBindings.GetDispatcher()->ExecutePopup( "formrichtext" );
     }

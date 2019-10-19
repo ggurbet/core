@@ -22,6 +22,7 @@
 #include "SchXMLAxisContext.hxx"
 #include "SchXMLChartContext.hxx"
 #include "SchXMLTools.hxx"
+#include <xmloff/xmlimp.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmlement.hxx>
 #include <xmloff/xmlstyle.hxx>
@@ -41,6 +42,7 @@
 #include <com/sun/star/chart/TimeUnit.hpp>
 #include <com/sun/star/chart/XAxis.hpp>
 #include <com/sun/star/chart/XAxisSupplier.hpp>
+#include <com/sun/star/chart/XChartDocument.hpp>
 #include <com/sun/star/chart2/AxisType.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
@@ -137,7 +139,7 @@ static Reference< chart::XAxis > lcl_getChartAxis(const SchXMLAxis& rCurrentAxis
 /* returns a shape for the current axis's title. The property
    "Has...AxisTitle" is set to "True" to get the shape
  */
-Reference< drawing::XShape > SchXMLAxisContext::getTitleShape()
+Reference< drawing::XShape > SchXMLAxisContext::getTitleShape() const
 {
     Reference< drawing::XShape > xResult;
     Reference< beans::XPropertySet > xDiaProp( m_rImportHelper.GetChartDocument()->getDiagram(), uno::UNO_QUERY );
@@ -391,9 +393,7 @@ void SchXMLAxisContext::CreateAxis()
             break;
         case SCH_XML_AXIS_Z:
             if( m_aCurrentAxis.nAxisIndex == 0 )
-                aPropName = "HasXAxis";
-            else
-                aPropName = "HasSecondaryXAxis";
+                aPropName = "HasZAxis";
             break;
         case SCH_XML_AXIS_UNDEF:
             SAL_INFO("xmloff.chart", "Invalid axis" );

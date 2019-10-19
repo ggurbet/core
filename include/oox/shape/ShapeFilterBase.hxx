@@ -21,7 +21,6 @@
 #define INCLUDED_OOX_SHAPE_SHAPEFILTERBASE_HXX
 
 #include <memory>
-#include <rtl/ref.hxx>
 #include <oox/dllapi.h>
 #include <oox/vml/vmldrawing.hxx>
 #include <oox/core/xmlfilterbase.hxx>
@@ -57,7 +56,7 @@ public:
     virtual ::oox::vml::Drawing* getVmlDrawing() override;
 
     /** Has to be implemented by each filter to return TableStyles. */
-    virtual const ::oox::drawingml::table::TableStyleListPtr getTableStyles() override;
+    virtual ::oox::drawingml::table::TableStyleListPtr getTableStyles() override;
 
     virtual ::oox::drawingml::chart::ChartConverter* getChartConverter() override;
 

@@ -104,11 +104,11 @@ public:
 public:
     /**
      * @descr   Set layout for the paragraph. When such property was set, this paragraph will
-     *          start at an new page.
+     *          start at a new page.
      */
     void    SetMasterPage(const OUString& master);
 
-    const OUString& GetMasterPage();
+    const OUString& GetMasterPage() const;
 
     /**
      * @descr   set the paragraph default font.
@@ -120,7 +120,7 @@ public:
     /**
      * @descr   get the font object.
      */
-    const rtl::Reference<XFFont>& GetFont(){ return m_pFont; }
+    const rtl::Reference<XFFont>& GetFont() const { return m_pFont; }
 
     /**
      * @descr   Set the indent of the paragraph. This is the indent for
@@ -160,9 +160,9 @@ public:
 
     /**
      * @descr   The borders is complex, so you have to create one before use.
-                Very few paragraphs will readly have borders property,this way
+                Very few paragraphs will already have borders property, this way
                 we can save much memory.
-     * @param   pBorders borders of the paragraph,please reference the XFBorders.
+     * @param   pBorders borders of the paragraph, please reference the XFBorders.
      */
     void    SetBorders(XFBorders *pBorders);
 
@@ -216,7 +216,7 @@ public:
     virtual void    ToXml(IXFStream *strm) override;
 
     void SetNumberRight(bool bFlag){m_bNumberRight = bFlag;}
-    bool GetNumberRight(){return m_bNumberRight;}
+    bool GetNumberRight() const {return m_bNumberRight;}
 
 protected:
     OUString   m_strMasterPage;
@@ -276,7 +276,7 @@ inline void XFParaStyle::ClearTabStyles()
     m_aTabs.Reset();
 }
 
-inline const OUString& XFParaStyle::GetMasterPage()
+inline const OUString& XFParaStyle::GetMasterPage() const
 {
     return m_strMasterPage;
 }

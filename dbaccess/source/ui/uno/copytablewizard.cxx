@@ -70,7 +70,7 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/diagnose_ex.h>
 #include <unotools/sharedunocomponent.hxx>
-#include <vcl/waitobj.hxx>
+#include <vcl/svapp.hxx>
 
 namespace dbaui
 {
@@ -193,7 +193,7 @@ namespace dbaui
         virtual ~CopyTableWizard() override;
 
         // OGenericUnoDialog overridables
-        virtual svt::OGenericUnoDialog::Dialog createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override;
+        virtual std::unique_ptr<weld::DialogController> createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override;
         virtual void executedDialog( sal_Int16 _nExecutionResult ) override;
 
     private:
@@ -420,7 +420,7 @@ OUString SAL_CALL CopyTableWizard::getImplementationName()
 
 OUString CopyTableWizard::getImplementationName_Static()
 {
-    return OUString( "org.openoffice.comp.dbu.CopyTableWizard" );
+    return "org.openoffice.comp.dbu.CopyTableWizard";
 }
 
 css::uno::Sequence<OUString> SAL_CALL CopyTableWizard::getSupportedServiceNames()
@@ -547,7 +547,7 @@ void SAL_CALL CopyTableWizard::setTitle( const OUString& _rTitle )
 
 OCopyTableWizard& CopyTableWizard::impl_getDialog_throw()
 {
-    OCopyTableWizard* pWizard = dynamic_cast< OCopyTableWizard* >(m_aDialog.m_xVclDialog.get());
+    OCopyTableWizard* pWizard = dynamic_cast<OCopyTableWizard*>(m_xDialog.get());
     if ( !pWizard )
         throw DisposedException( OUString(), *this );
     return *pWizard;
@@ -1096,7 +1096,6 @@ void CopyTableWizard::impl_copyRows_throw( const Reference< XResultSet >& _rxSou
 
     const OCopyTableWizard& rWizard             = impl_getDialog_throw();
     ODatabaseExport::TPositions aColumnPositions = rWizard.GetColumnPositions();
-    bool bAutoIncrement                         = rWizard.shouldCreatePrimaryKey();
 
     Reference< XRow > xRow              ( _rxSourceResultSet, UNO_QUERY_THROW );
     Reference< XRowLocate > xRowLocate  ( _rxSourceResultSet, UNO_QUERY_THROW );
@@ -1168,7 +1167,6 @@ void CopyTableWizard::impl_copyRows_throw( const Reference< XResultSet >& _rxSou
         aCopyEvent.Error.clear();
         try
         {
-            bool bInsertAutoIncrement = true;
             // notify listeners
             m_aCopyTableListeners.notifyEach( &XCopyTableListener::copyingRow, aCopyEvent );
 
@@ -1183,13 +1181,6 @@ void CopyTableWizard::impl_copyRows_throw( const Reference< XResultSet >& _rxSou
                 {
                     ++nSourceColumn;
                     // otherwise we don't get the correct value when only the 2nd source column was selected
-                    continue;
-                }
-
-                if ( bAutoIncrement && bInsertAutoIncrement )
-                {
-                    xStatementParams->setInt( 1, nRowCount );
-                    bInsertAutoIncrement = false;
                     continue;
                 }
 
@@ -1311,7 +1302,7 @@ void CopyTableWizard::impl_doCopy_nothrow()
     {
         OCopyTableWizard& rWizard( impl_getDialog_throw() );
 
-        WaitObject aWO( rWizard.GetParent() );
+        weld::WaitObject aWO(rWizard.getDialog());
         Reference< XPropertySet > xTable;
 
         switch ( rWizard.getOperation() )
@@ -1469,7 +1460,7 @@ void SAL_CALL CopyTableWizard::initialize( const Sequence< Any >& _rArguments )
                 );
         }
         if ( !m_xInteractionHandler.is() )
-            m_xInteractionHandler.set( InteractionHandler::createWithParent(m_xContext, nullptr), UNO_QUERY );
+            m_xInteractionHandler = InteractionHandler::createWithParent(m_xContext, nullptr);
 
         Reference< XInteractionHandler > xSourceDocHandler;
         Reference< XPropertySet > xSourceDescriptor( impl_ensureDataAccessDescriptor_throw( _rArguments, 0, m_xSourceConnection, xSourceDocHandler ) );
@@ -1482,6 +1473,13 @@ void SAL_CALL CopyTableWizard::initialize( const Sequence< Any >& _rArguments )
 
         if ( xDestDocHandler.is() && !m_xInteractionHandler.is() )
             m_xInteractionHandler = xDestDocHandler;
+
+        Reference< XPropertySet > xInteractionHandler(m_xInteractionHandler, UNO_QUERY);
+        if (xInteractionHandler.is())
+        {
+            Any aParentWindow(xInteractionHandler->getPropertyValue("ParentWindow"));
+            aParentWindow >>= m_xParent;
+        }
     }
     catch( const RuntimeException& ) { throw; }
     catch( const SQLException& ) { throw; }
@@ -1507,25 +1505,24 @@ void SAL_CALL CopyTableWizard::initialize( const Sequence< Any >& _rArguments )
     return new ::cppu::OPropertyArrayHelper( aProps );
 }
 
-svt::OGenericUnoDialog::Dialog CopyTableWizard::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
+std::unique_ptr<weld::DialogController> CopyTableWizard::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
 {
     OSL_PRECOND( isInitialized(), "CopyTableWizard::createDialog: not initialized!" );
         // this should have been prevented in ::execute already
 
-    VclPtrInstance<OCopyTableWizard> pWizard(
-        VCLUnoHelper::GetWindow(rParent),
+    auto xWizard = std::make_unique<OCopyTableWizard>(
+        Application::GetFrameWeld(rParent),
         m_sDestinationTable,
         m_nOperation,
         *m_pSourceObject,
         m_xSourceConnection.getTyped(),
         m_xDestConnection.getTyped(),
         m_xContext,
-        m_xInteractionHandler
-    );
+        m_xInteractionHandler);
 
-    impl_attributesToDialog_nothrow( *pWizard );
+    impl_attributesToDialog_nothrow(*xWizard);
 
-    return svt::OGenericUnoDialog::Dialog(pWizard);
+    return xWizard;
 }
 
 void CopyTableWizard::executedDialog( sal_Int16 _nExecutionResult )

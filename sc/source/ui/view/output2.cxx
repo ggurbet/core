@@ -33,12 +33,10 @@
 #include <editeng/emphasismarkitem.hxx>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/forbiddenruleitem.hxx>
-#include <editeng/forbiddencharacterstable.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <svx/rotmodit.hxx>
-#include <editeng/scripttypeitem.hxx>
 #include <editeng/udlnitem.hxx>
 #include <editeng/unolingu.hxx>
 #include <editeng/fontitem.hxx>
@@ -46,6 +44,7 @@
 #include <editeng/shdditem.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/wrlmitem.hxx>
+#include <formula/errorcodes.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <vcl/svapp.hxx>
@@ -66,10 +65,6 @@
 #include <progress.hxx>
 #include <scmod.hxx>
 #include <fillinfo.hxx>
-#include <viewdata.hxx>
-#include <tabvwsh.hxx>
-#include <docsh.hxx>
-#include <markdata.hxx>
 #include <stlsheet.hxx>
 #include <spellcheckcontext.hxx>
 #include <scopetools.hxx>
@@ -143,7 +138,7 @@ public:
 
     void        SetPatternSimple( const ScPatternAttr* pNew, const SfxItemSet* pSet );
 
-    bool SetText( ScRefCellValue& rCell );   // TRUE -> drop pOldPattern
+    bool SetText( const ScRefCellValue& rCell );   // TRUE -> drop pOldPattern
     void        SetHashText();
     void SetTextToWidthOrHash( ScRefCellValue& rCell, long nWidth );
     void        SetAutoText( const OUString& rAutoText );
@@ -492,7 +487,7 @@ static bool SameValue( const ScRefCellValue& rCell, const ScRefCellValue& rOldCe
         rCell.mfValue == rOldCell.mfValue;
 }
 
-bool ScDrawStringsVars::SetText( ScRefCellValue& rCell )
+bool ScDrawStringsVars::SetText( const ScRefCellValue& rCell )
 {
     bool bChanged = false;
 
@@ -820,7 +815,7 @@ bool ScDrawStringsVars::HasEditCharacters() const
     return false;
 }
 
-double ScOutputData::GetStretch()
+double ScOutputData::GetStretch() const
 {
     if ( mpRefDevice->IsMapModeEnabled() )
     {
@@ -4270,7 +4265,7 @@ void ScOutputData::DrawEdit(bool bPixelToLogic)
             nLastContentCol - mpDoc->GetEmptyLinesInBlock( nX2+1, nY1, nTab, MAXCOL, nY2, nTab, DIR_RIGHT ) );
 
     long nRowPosY = nScrY;
-    for (SCSIZE nArrY=0; nArrY+1<nArrCount; nArrY++)            // 0 fo the rest of the merged
+    for (SCSIZE nArrY=0; nArrY+1<nArrCount; nArrY++)            // 0 of the rest of the merged
     {
         RowInfo* pThisRowInfo = &pRowInfo[nArrY];
 

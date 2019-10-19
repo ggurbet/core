@@ -54,7 +54,7 @@ VCLXAccessibleCheckBox::VCLXAccessibleCheckBox( VCLXWindow* pVCLWindow )
 }
 
 
-bool VCLXAccessibleCheckBox::IsChecked()
+bool VCLXAccessibleCheckBox::IsChecked() const
 {
     bool bChecked = false;
 
@@ -66,7 +66,7 @@ bool VCLXAccessibleCheckBox::IsChecked()
 }
 
 
-bool VCLXAccessibleCheckBox::IsIndeterminate()
+bool VCLXAccessibleCheckBox::IsIndeterminate() const
 {
     bool bIndeterminate = false;
 
@@ -155,7 +155,7 @@ IMPLEMENT_FORWARD_XTYPEPROVIDER2( VCLXAccessibleCheckBox, VCLXAccessibleTextComp
 
 OUString VCLXAccessibleCheckBox::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.toolkit.AccessibleCheckBox" );
+    return "com.sun.star.comp.toolkit.AccessibleCheckBox";
 }
 
 

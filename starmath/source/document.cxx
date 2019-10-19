@@ -120,7 +120,7 @@ void SmDocShell::LoadSymbols()
 }
 
 
-const OUString SmDocShell::GetComment() const
+OUString SmDocShell::GetComment() const
 {
     uno::Reference<document::XDocumentPropertiesSupplier> xDPS(
         GetModel(), uno::UNO_QUERY_THROW);
@@ -304,7 +304,7 @@ void SmDocShell::UpdateEditEngineDefaultFonts(const Color& aTextColor)
     aTable[1].nLang = maLinguOptions.nDefaultLanguage_CJK;
     aTable[2].nLang = maLinguOptions.nDefaultLanguage_CTL;
 
-    for (FontDta & rFntDta : aTable)
+    for (const FontDta & rFntDta : aTable)
     {
         LanguageType nLang = (LANGUAGE_NONE == rFntDta.nLang) ?
                 rFntDta.nFallbackLang : rFntDta.nLang;
@@ -394,7 +394,7 @@ void SmDocShell::DrawFormula(OutputDevice &rDev, Point &rPosition, bool bDrawSel
     rPosition.AdjustY(maFormat.GetDistance( DIS_TOPSPACE  ) );
 
     //! in case of high contrast-mode (accessibility option!)
-    //! the draw mode needs to be set to default, because when imbedding
+    //! the draw mode needs to be set to default, because when embedding
     //! Math for example in Calc in "a over b" the fraction bar may not
     //! be visible else. More generally: the FillColor may have been changed.
     DrawModeFlags nOldDrawMode = DrawModeFlags::Default;
@@ -468,7 +468,7 @@ SmCursor& SmDocShell::GetCursor(){
     return *mpCursor;
 }
 
-bool SmDocShell::HasCursor() { return mpCursor != nullptr; }
+bool SmDocShell::HasCursor() const { return mpCursor != nullptr; }
 
 SmPrinterAccess::SmPrinterAccess( SmDocShell &rDocShell )
 {
@@ -717,14 +717,13 @@ bool SmDocShell::Load( SfxMedium& rMedium )
     if( SfxObjectShell::Load( rMedium ))
     {
         uno::Reference < embed::XStorage > xStorage = GetMedium()->GetStorage();
-        uno::Reference < container::XNameAccess > xAccess (xStorage, uno::UNO_QUERY);
         if (
             (
-             xAccess->hasByName( "content.xml" ) &&
+             xStorage->hasByName( "content.xml" ) &&
              xStorage->isStreamElement( "content.xml" )
             ) ||
             (
-             xAccess->hasByName( "Content.xml" ) &&
+             xStorage->hasByName( "Content.xml" ) &&
              xStorage->isStreamElement( "Content.xml" )
             )
            )

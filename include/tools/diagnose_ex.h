@@ -54,7 +54,7 @@ inline css::uno::Any DbgGetCaughtException()
 /** reports a caught UNO exception via OSL diagnostics
 
     Note that whenever you use this, it might be an indicator that your error
-    handling is not correct ....
+    handling is not correct...
     This takes two optional parameters: area and explanatory
 */
 #define DBG_UNHANDLED_EXCEPTION_0_ARGS() \
@@ -91,7 +91,7 @@ inline css::uno::Any DbgGetCaughtException()
                                                arg ); }
 
 /** This macro asserts the given condition (in debug mode), and throws
-    an RuntimeException afterwards.
+    a RuntimeException afterwards.
  */
 #define ENSURE_OR_THROW(c, m) \
     if( !(c) ){ \
@@ -140,7 +140,7 @@ TOOLS_DLLPUBLIC OString exceptionToString(css::uno::Any const & caughtEx);
 */
 #define TOOLS_WARN_EXCEPTION(area, stream) \
     do { \
-        css::uno::Any tools_warn_exception( cppu::getCaughtException() ); \
+        css::uno::Any tools_warn_exception( DbgGetCaughtException() ); \
         SAL_WARN(area, stream << " " << exceptionToString(tools_warn_exception)); \
     } while (false)
 
@@ -150,7 +150,7 @@ TOOLS_DLLPUBLIC OString exceptionToString(css::uno::Any const & caughtEx);
 */
 #define TOOLS_WARN_EXCEPTION_IF(cond, area, stream) \
     do { \
-        css::uno::Any tools_warn_exception( cppu::getCaughtException() ); \
+        css::uno::Any tools_warn_exception( DbgGetCaughtException() ); \
         SAL_WARN_IF(cond, area, stream << " " << exceptionToString(tools_warn_exception)); \
     } while (false)
 
@@ -160,7 +160,7 @@ TOOLS_DLLPUBLIC OString exceptionToString(css::uno::Any const & caughtEx);
 */
 #define TOOLS_INFO_EXCEPTION(area, stream) \
     do { \
-        css::uno::Any tools_warn_exception( cppu::getCaughtException() ); \
+        css::uno::Any tools_warn_exception( DbgGetCaughtException() ); \
         SAL_INFO(area, stream << " " << exceptionToString(tools_warn_exception)); \
     } while (false)
 

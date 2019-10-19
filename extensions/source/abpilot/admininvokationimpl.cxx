@@ -24,14 +24,11 @@
 #include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/sdbc/DriverManager.hpp>
 #include <comphelper/propertysequence.hxx>
-#include <vcl/stdtext.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
 #include <strings.hrc>
 #include <componentmodule.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/waitobj.hxx>
 #include <osl/diagnose.h>
-
 
 namespace abp
 {
@@ -45,8 +42,8 @@ namespace abp
     using namespace ::com::sun::star::sdbc;
 
     OAdminDialogInvokation::OAdminDialogInvokation(const Reference< XComponentContext >& _rxContext,
-                    const css::uno::Reference< css::beans::XPropertySet >& _rxDataSource
-                    , vcl::Window* _pMessageParent)
+                    const css::uno::Reference< css::beans::XPropertySet >& _rxDataSource,
+                    weld::Window* _pMessageParent)
         :m_xContext(_rxContext)
         ,m_xDataSource(_rxDataSource)
         ,m_pMessageParent(_pMessageParent)
@@ -71,7 +68,7 @@ namespace abp
             // the parameters for the call
             Sequence<Any> aArguments(comphelper::InitAnyPropertySequence(
             {
-                {"ParentWindow", Any(VCLUnoHelper::GetInterface(m_pMessageParent))},
+                {"ParentWindow", Any(m_pMessageParent->GetXWindow())},
                 {"Title", Any(compmodule::ModuleRes(RID_STR_ADMINDIALOGTITLE))},
                 {"InitialSelection", Any(m_xDataSource)}, // the name of the new data source
             }));
@@ -82,7 +79,7 @@ namespace abp
             {
                 // creating the dialog service is potentially expensive (if all the libraries invoked need to be loaded)
                 // so we display a wait cursor
-                WaitObject aWaitCursor(m_pMessageParent);
+                weld::WaitObject aWaitCursor(m_pMessageParent);
                 Reference<XInterface> x = m_xContext->getServiceManager()->createInstanceWithArgumentsAndContext(s_sDataSourceTypeChangeDialog, aArguments, m_xContext);
                 xDialog.set( x, UNO_QUERY );
 
@@ -93,7 +90,7 @@ namespace abp
                 // As this wizard is intended to run on the first office start, it is very likely that the
                 // context needs to be freshly created
                 // Thus, we access the context here (within the WaitCursor), which means the user sees a waitcursor
-                // while his/her office blocks a few seconds ....
+                // while his/her office blocks a few seconds...
                 DriverManager::create( m_xContext );
             }
 
@@ -103,7 +100,7 @@ namespace abp
                     return true;
             }
             else
-                ShowServiceNotAvailableError(m_pMessageParent->GetFrameWeld(), s_sAdministrationServiceName, true);
+                ShowServiceNotAvailableError(m_pMessageParent, s_sAdministrationServiceName, true);
         }
         catch(const Exception&)
         {

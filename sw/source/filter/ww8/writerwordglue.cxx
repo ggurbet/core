@@ -296,7 +296,7 @@ namespace myImplHelpers
         {
             //If the style collides first stick WW- in front of it, unless
             //it already has it and then successively add a larger and
-            //larger number after it, its got to work at some stage!
+            //larger number after it, it's got to work at some stage!
             if (!aName.startsWith("WW-"))
                 aName = "WW-" + aName;
 
@@ -317,7 +317,7 @@ namespace myImplHelpers
     static OUString FindBestMSSubstituteFont(const OUString &rFont)
     {
         if (IsStarSymbol(rFont))
-            return OUString("Arial Unicode MS");
+            return "Arial Unicode MS";
         return GetSubsFontName(rFont, SubsFontFlags::ONLYONE | SubsFontFlags::MS);
     }
 
@@ -841,7 +841,7 @@ namespace sw
             // Force to Japanese when finding one of 'geE'.
             // XXX This actually may not be correct, all era keywords could be
             // used in other locales as well. I just don't know about Word. But
-            // this is how it was for 10 years..
+            // this is how it was for 10 years...
             bool bForceJapanese = (-1 != findUnquoted( rParams, 'g', 0));
             // XXX Why replace? The number formatter does handle them and this
             // effectively changes from Gengou to Gregorian calendar. Legacy

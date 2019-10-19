@@ -20,6 +20,7 @@
 #include <vbahelper/vbahelper.hxx>
 #include <tools/diagnose_ex.h>
 #include <ooo/vba/word/WdHeaderFooterIndex.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/text/XText.hpp>
 #include <com/sun/star/text/XTextDocument.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
@@ -86,7 +87,7 @@ SwVbaHeaderFooter::Shapes( const uno::Any& index )
 OUString
 SwVbaHeaderFooter::getServiceImplName()
 {
-    return OUString("SwVbaHeaderFooter");
+    return "SwVbaHeaderFooter";
 }
 
 uno::Sequence< OUString >

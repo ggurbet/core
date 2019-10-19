@@ -253,7 +253,7 @@ public:
     void        CollapseAll();
 
     void        SetBackgroundColor( const Color& rColor );
-    Color const & GetBackgroundColor();
+    Color const & GetBackgroundColor() const;
 
     /// Informs this edit view about which view shell contains it.
     void RegisterViewShell(OutlinerViewShell* pViewShell);
@@ -286,7 +286,7 @@ public:
 
     void            TransliterateText( TransliterationFlags nTransliterationMode );
 
-    ESelection      GetSelection();
+    ESelection      GetSelection() const;
 
     SvtScriptType   GetSelectedScriptType() const;
 
@@ -301,6 +301,10 @@ public:
     void                InsertField( const SvxFieldItem& rFld );
     const SvxFieldItem* GetFieldUnderMousePointer() const;
     const SvxFieldItem* GetFieldAtSelection() const;
+    /// Return the field at the current cursor position or nullptr if no field found
+    const SvxFieldData* GetFieldAtCursor() const;
+    /// Select the field at the current cursor position
+    void SelectFieldAtCursor();
 
     /** enables bullets for the selected paragraphs if the bullets/numbering of the first paragraph is off
         or disables bullets/numbering for the selected paragraphs if the bullets/numbering of the first paragraph is on
@@ -674,7 +678,7 @@ public:
 
     Paragraph*      Insert( const OUString& rText, sal_Int32 nAbsPos = EE_PARA_APPEND, sal_Int16 nDepth = 0 );
     void            SetText( const OutlinerParaObject& );
-    void            AddText( const OutlinerParaObject& );
+    void            AddText( const OutlinerParaObject&, bool bAppend = false );
     void            SetText( const OUString& rText, Paragraph* pParagraph );
     OUString        GetText( Paragraph const * pPara, sal_Int32 nParaCount=1 ) const;
 
@@ -717,7 +721,7 @@ public:
     void            UndoActionStart( sal_uInt16 nId );
     void            UndoActionEnd();
     void            InsertUndo( std::unique_ptr<EditUndo> pUndo );
-    bool            IsInUndo();
+    bool            IsInUndo() const;
 
     void            ClearModifyFlag();
     bool            IsModified() const;
@@ -729,8 +733,8 @@ public:
     void            SetParaRemovingHdl(const Link<ParagraphHdlParam,void>& rLink){aParaRemovingHdl=rLink;}
     const Link<ParagraphHdlParam,void>& GetParaRemovingHdl() const { return aParaRemovingHdl; }
 
-    NonOverflowingText *GetNonOverflowingText() const;
-    OverflowingText *GetOverflowingText() const;
+    std::unique_ptr<NonOverflowingText> GetNonOverflowingText() const;
+    std::unique_ptr<OverflowingText> GetOverflowingText() const;
     void ClearOverflowingParaNum();
     bool IsPageOverflow();
 

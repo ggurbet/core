@@ -53,7 +53,7 @@ extern const OUString S_PAGE_DELI;
 
 class SW_DLLPUBLIC SwTOXMark
     : public SfxPoolItem
-    , public SwModify
+    , public sw::BroadcastingModify
 {
     friend void InitCore();
     friend class SwTextTOXMark;
@@ -146,7 +146,7 @@ public:
 };
 
 // index types
-class SwTOXType : public SwModify
+class SwTOXType final: public sw::BroadcastingModify
 {
 public:
     SwTOXType(TOXTypes eTyp, const OUString& aName);
@@ -167,7 +167,7 @@ private:
 
 // Structure of the index lines
 #define FORM_TITLE              0
-#define FORM_ALPHA_DELIMITTER   1
+#define FORM_ALPHA_DELIMITER   1
 #define FORM_PRIMARY_KEY        2
 #define FORM_SECONDARY_KEY      3
 #define FORM_ENTRY              4
@@ -431,7 +431,7 @@ public:
     virtual bool GetInfo( SfxPoolItem& rInfo ) const override;
 
     // a kind of CopyCtor - check if the TOXBase is at TOXType of the doc.
-    // If not, so create it an copy all other used things.
+    // If not, so create it and copy all other used things.
     void                CopyTOXBase( SwDoc*, const SwTOXBase& );
 
     const SwTOXType*    GetTOXType() const;

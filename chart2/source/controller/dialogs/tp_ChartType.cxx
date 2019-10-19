@@ -398,7 +398,7 @@ void SteppedPropertiesDialog::fillParameter( ChartTypeParameter& rParameter, boo
 class SplineResourceGroup : public ChangingResource
 {
 public:
-    explicit SplineResourceGroup(weld::Builder* pBuilder, TabPageParent pParent);
+    explicit SplineResourceGroup(weld::Builder* pBuilder, weld::Window* pParent);
 
     void showControls( bool bShow );
 
@@ -413,7 +413,7 @@ private:
     SteppedPropertiesDialog& getSteppedPropertiesDialog();
 
 private:
-    TabPageParent m_pParent;
+    weld::Window* m_pParent;
     std::unique_ptr<weld::Label> m_xFT_LineType;
     std::unique_ptr<weld::ComboBox> m_xLB_LineType;
     std::unique_ptr<weld::Button> m_xPB_DetailsDialog;
@@ -421,7 +421,7 @@ private:
     std::unique_ptr<SteppedPropertiesDialog> m_xSteppedPropertiesDialog;
 };
 
-SplineResourceGroup::SplineResourceGroup(weld::Builder* pBuilder, TabPageParent pParent)
+SplineResourceGroup::SplineResourceGroup(weld::Builder* pBuilder, weld::Window* pParent)
     : ChangingResource()
     , m_pParent(pParent)
     , m_xFT_LineType(pBuilder->weld_label("linetypeft"))
@@ -435,7 +435,7 @@ SplinePropertiesDialog& SplineResourceGroup::getSplinePropertiesDialog()
 {
     if (!m_xSplinePropertiesDialog)
     {
-        m_xSplinePropertiesDialog.reset(new SplinePropertiesDialog(m_pParent.GetFrameWeld()));
+        m_xSplinePropertiesDialog.reset(new SplinePropertiesDialog(m_pParent));
     }
     return *m_xSplinePropertiesDialog;
 }
@@ -444,7 +444,7 @@ SteppedPropertiesDialog& SplineResourceGroup::getSteppedPropertiesDialog()
 {
     if (!m_xSteppedPropertiesDialog)
     {
-        m_xSteppedPropertiesDialog.reset(new SteppedPropertiesDialog(m_pParent.GetFrameWeld()));
+        m_xSteppedPropertiesDialog.reset(new SteppedPropertiesDialog(m_pParent));
     }
     return *m_xSteppedPropertiesDialog;
 }
@@ -601,19 +601,19 @@ IMPL_LINK_NOARG(GeometryResourceGroup, GeometryChangeHdl, weld::TreeView&, void)
         m_pChangeListener->stateChanged(this);
 }
 
-ChartTypeTabPage::ChartTypeTabPage(TabPageParent pParent , const uno::Reference< XChartDocument >& xChartModel,
+ChartTypeTabPage::ChartTypeTabPage(weld::Container* pPage, weld::DialogController* pController, const uno::Reference< XChartDocument >& xChartModel,
                                    bool bShowDescription)
-    : OWizardPage(pParent, "modules/schart/ui/tp_ChartType.ui", "tp_ChartType")
+    : OWizardPage(pPage, pController, "modules/schart/ui/tp_ChartType.ui", "tp_ChartType")
     , m_pDim3DLookResourceGroup( new Dim3DLookResourceGroup(m_xBuilder.get()) )
     , m_pStackingResourceGroup( new StackingResourceGroup(m_xBuilder.get()) )
-    , m_pSplineResourceGroup( new SplineResourceGroup(m_xBuilder.get(), pParent) )
+    , m_pSplineResourceGroup( new SplineResourceGroup(m_xBuilder.get(), pController->getDialog()) )
     , m_pGeometryResourceGroup( new GeometryResourceGroup(m_xBuilder.get()) )
     , m_pSortByXValuesResourceGroup( new SortByXValuesResourceGroup(m_xBuilder.get()) )
     , m_xChartModel( xChartModel )
     , m_aChartTypeDialogControllerList(0)
     , m_pCurrentMainType(nullptr)
     , m_nChangingCalls(0)
-    , m_aTimerTriggeredControllerLock( uno::Reference< frame::XModel >( m_xChartModel, uno::UNO_QUERY ) )
+    , m_aTimerTriggeredControllerLock( m_xChartModel )
     , m_xFT_ChooseType(m_xBuilder->weld_label("FT_CAPTION_FOR_WIZARD"))
     , m_xMainTypeList(m_xBuilder->weld_tree_view("charttype"))
     , m_xSubTypeList(new SvtValueSet(m_xBuilder->weld_scrolled_window("subtypewin")))
@@ -631,7 +631,7 @@ ChartTypeTabPage::ChartTypeTabPage(TabPageParent pParent , const uno::Reference<
         m_xFT_ChooseType->hide();
     }
 
-    SetText( SchResId(STR_PAGE_CHARTTYPE) );
+    SetPageTitle(SchResId(STR_PAGE_CHARTTYPE));
 
     m_xMainTypeList->connect_changed(LINK(this, ChartTypeTabPage, SelectMainTypeHdl));
     m_xSubTypeList->SetSelectHdl( LINK( this, ChartTypeTabPage, SelectSubTypeHdl ) );
@@ -691,11 +691,6 @@ ChartTypeTabPage::ChartTypeTabPage(TabPageParent pParent , const uno::Reference<
 
 ChartTypeTabPage::~ChartTypeTabPage()
 {
-    disposeOnce();
-}
-
-void ChartTypeTabPage::dispose()
-{
     //delete all dialog controller
     m_aChartTypeDialogControllerList.clear();
 
@@ -707,7 +702,6 @@ void ChartTypeTabPage::dispose()
     m_pSortByXValuesResourceGroup.reset();
     m_xSubTypeListWin.reset();
     m_xSubTypeList.reset();
-    svt::OWizardPage::dispose();
 }
 
 ChartTypeParameter ChartTypeTabPage::getCurrentParamter() const
@@ -836,7 +830,7 @@ void ChartTypeTabPage::showAllControls( ChartTypeDialogController& rTypeControll
     bool bShow = rTypeController.shouldShow_3DLookControl();
     m_pDim3DLookResourceGroup->showControls( bShow );
     bShow = rTypeController.shouldShow_StackingControl();
-    m_pStackingResourceGroup->showControls( bShow, rTypeController.shouldShow_DeepStackingControl() );
+    m_pStackingResourceGroup->showControls( bShow, false );
     bShow = rTypeController.shouldShow_SplineControl();
     m_pSplineResourceGroup->showControls( bShow );
     bShow = rTypeController.shouldShow_GeometryControl();
@@ -867,8 +861,7 @@ void ChartTypeTabPage::initializePage()
     if( !m_xChartModel.is() )
         return;
     uno::Reference< lang::XMultiServiceFactory > xTemplateManager( m_xChartModel->getChartTypeManager(), uno::UNO_QUERY );
-    uno::Reference< frame::XModel > xModel( m_xChartModel, uno::UNO_QUERY);
-    uno::Reference< XDiagram > xDiagram( ChartModelHelper::findDiagram( xModel ) );
+    uno::Reference< XDiagram > xDiagram( ChartModelHelper::findDiagram( m_xChartModel ) );
     DiagramHelper::tTemplateWithServiceName aTemplate =
         DiagramHelper::getTemplateForDiagram( xDiagram, xTemplateManager );
     OUString aServiceName( aTemplate.second );
@@ -922,7 +915,7 @@ void ChartTypeTabPage::initializePage()
     }
 }
 
-bool ChartTypeTabPage::commitPage( ::svt::WizardTypes::CommitPageReason /*eReason*/ )
+bool ChartTypeTabPage::commitPage( ::vcl::WizardTypes::CommitPageReason /*eReason*/ )
 {
     return true; // return false if this page should not be left
 }

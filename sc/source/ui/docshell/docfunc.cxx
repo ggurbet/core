@@ -22,11 +22,13 @@
 #include <comphelper/lok.hxx>
 #include <sfx2/app.hxx>
 #include <editeng/editobj.hxx>
+#include <editeng/justifyitem.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/bindings.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/weld.hxx>
 #include <vcl/waitobj.hxx>
+#include <vcl/weld.hxx>
+#include <vcl/stdtext.hxx>
+#include <vcl/svapp.hxx>
 #include <svx/svdocapt.hxx>
 #include <sal/log.hxx>
 #include <unotools/charclass.hxx>
@@ -4927,7 +4929,7 @@ bool ScDocFunc::MergeCells( const ScCellMergeOption& rOption, bool bContents, bo
                              : rDoc.IsBlockEmpty( nTab, nStartCol,nStartRow+1, nStartCol,nEndRow, true ) &&
                                rDoc.IsBlockEmpty( nTab, nStartCol+1,nStartRow, nEndCol,nEndRow, true );
         bool bNeedContents = bContents && !bIsBlockEmpty;
-        bool bNeedEmpty = bEmptyMergedCells && !bIsBlockEmpty && !bNeedContents; // if DoMergeContents then cells are emptyed
+        bool bNeedEmpty = bEmptyMergedCells && !bIsBlockEmpty && !bNeedContents; // if DoMergeContents then cells are emptied
 
         if (bRecord)
         {
@@ -5183,7 +5185,7 @@ void ScDocFunc::CreateOneName( ScRangeName& rList,
                         std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(ScDocShell::GetActiveDialogParent(),
                                                                        VclMessageType::Question, VclButtonsType::YesNo,
                                                                        aMessage));
-                        xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+                        xQueryBox->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
                         xQueryBox->set_default_response(RET_YES);
 
                         short nResult = xQueryBox->run();

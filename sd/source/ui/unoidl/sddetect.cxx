@@ -19,15 +19,12 @@
 
 #include "sddetect.hxx"
 
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <cppuhelper/supportsservice.hxx>
-#include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/io/XInputStream.hpp>
 #include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <vcl/graphicfilter.hxx>
-#include <rtl/ustring.h>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/fcontnr.hxx>
@@ -104,7 +101,7 @@ OUString SAL_CALL SdFilterDetect::detect( Sequence< beans::PropertyValue >& lDes
                 if ( ( n8 & 0xf0 ) == 0 )
                     // we are supporting binary cgm format only, so
                     // this is a small test to exclude cgm text
-                    return OUString("impress_CGM_Computer_Graphics_Metafile");
+                    return "impress_CGM_Computer_Graphics_Metafile";
             }
         }
         else
@@ -137,7 +134,7 @@ OUString SAL_CALL SdFilterDetect::detect( Sequence< beans::PropertyValue >& lDes
 // XServiceInfo
 OUString SAL_CALL SdFilterDetect::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.draw.FormatDetector" );
+    return "com.sun.star.comp.draw.FormatDetector";
 }
 
 // XServiceInfo

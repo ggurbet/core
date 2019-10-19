@@ -141,7 +141,7 @@ void FuncPage::UpdateFunctionList(const OUString& aStr)
 
         const sal_uInt32 nCategoryCount = m_pFunctionManager->getCount();
         // Category listbox holds additional entries for Last Used and All, so
-        // the offset should be two but hard coded numbers are ugly..
+        // the offset should be two but hard coded numbers are ugly...
         const sal_Int32 nCategoryOffset = m_xLbCategory->get_count() - nCategoryCount;
         // If a real category (not Last Used or All) is selected, list only
         // functions of that category. Else list all, LRU is handled above.
@@ -203,9 +203,10 @@ IMPL_LINK_NOARG(FuncPage, SelTreeViewHdl, weld::TreeView&, void)
     aSelectionLink.Call(*this);
 }
 
-IMPL_LINK_NOARG(FuncPage, DblClkHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(FuncPage, DblClkHdl, weld::TreeView&, bool)
 {
     aDoubleClickLink.Call(*this);
+    return true;
 }
 
 IMPL_LINK_NOARG(FuncPage, ModifyHdl, weld::Entry&, void)
@@ -240,17 +241,17 @@ void FuncPage::SetFocus()
     m_xLbFunction->grab_focus();
 }
 
-sal_Int32 FuncPage::GetCategory()
+sal_Int32 FuncPage::GetCategory() const
 {
     return m_xLbCategory->get_active();
 }
 
-sal_Int32 FuncPage::GetFunction()
+sal_Int32 FuncPage::GetFunction() const
 {
     return m_xLbFunction->get_selected_index();
 }
 
-sal_Int32 FuncPage::GetFunctionEntryCount()
+sal_Int32 FuncPage::GetFunctionEntryCount() const
 {
     return m_xLbFunction->n_children();
 }

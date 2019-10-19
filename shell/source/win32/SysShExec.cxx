@@ -315,7 +315,9 @@ void SAL_CALL CSysShExec::execute( const OUString& aCommand, const OUString& aPa
         }
         if (uri->getScheme().equalsIgnoreAsciiCase("file")) {
             OUString pathname;
-            auto const e1 = osl::FileBase::getSystemPathFromFileURL(aCommand, pathname);
+            uri->clearFragment(); // getSystemPathFromFileURL fails for URLs with fragment
+            auto const e1
+                = osl::FileBase::getSystemPathFromFileURL(uri->getUriReference(), pathname);
             if (e1 != osl::FileBase::E_None) {
                 throw css::lang::IllegalArgumentException(
                     ("XSystemShellExecute.execute, getSystemPathFromFileURL <" + aCommand
@@ -482,7 +484,7 @@ void SAL_CALL CSysShExec::execute( const OUString& aCommand, const OUString& aPa
 
 OUString SAL_CALL CSysShExec::getImplementationName(  )
 {
-    return OUString(SYSSHEXEC_IMPL_NAME );
+    return SYSSHEXEC_IMPL_NAME;
 }
 
 sal_Bool SAL_CALL CSysShExec::supportsService( const OUString& ServiceName )

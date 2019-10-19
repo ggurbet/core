@@ -24,18 +24,12 @@
 #include <toolkit/awt/vclxwindows.hxx>
 #include <toolkit/helper/listenermultiplexer.hxx>
 
-#include <cppuhelper/typeprovider.hxx>
-
 #include <com/sun/star/awt/XProgressBar.hpp>
 #include <com/sun/star/awt/XTextArea.hpp>
 #include <com/sun/star/awt/XTextComponent.hpp>
 #include <com/sun/star/awt/XTextLayoutConstrains.hpp>
-#include <com/sun/star/beans/XPropertyChangeListener.hpp>
 #include <tools/lineend.hxx>
-#include <vcl/fmtfield.hxx>
-
-#include <cppuhelper/implbase.hxx>
-#include <com/sun/star/awt/XItemEventBroadcaster.hpp>
+#include <vcl/edit.hxx>
 
 
 namespace com { namespace sun { namespace star { namespace util {
@@ -188,19 +182,19 @@ protected:
     void    setFormatKey(sal_Int32 nKey);
 
     void    SetValue(const css::uno::Any& rValue);
-    css::uno::Any  GetValue();
+    css::uno::Any  GetValue() const;
 
     void    SetTreatAsNumber(bool bSet);
-    bool    GetTreatAsNumber();
+    bool    GetTreatAsNumber() const;
 
     void    SetDefaultValue(const css::uno::Any& rValue);
-    css::uno::Any  GetDefaultValue();
+    css::uno::Any  GetDefaultValue() const;
 
     void    SetMinValue(const css::uno::Any& rValue);
-    css::uno::Any  GetMinValue();
+    css::uno::Any  GetMinValue() const;
 
     void    SetMaxValue(const css::uno::Any& rValue);
-    css::uno::Any  GetMaxValue();
+    css::uno::Any  GetMaxValue() const;
 
     void    NotifyTextListeners();
     css::uno::Any  convertEffectiveValue(const css::uno::Any& rValue);
@@ -209,68 +203,6 @@ protected:
 
     static void     ImplGetPropertyIds( std::vector< sal_uInt16 > &aIds );
     virtual void    GetPropertyIds( std::vector< sal_uInt16 > &aIds ) override { return ImplGetPropertyIds( aIds ); }
-};
-
-
-//  class SVTXRoadmap
-
-
-namespace svt
-{
-    class ORoadmap;
-}
-
-struct RMItemData
-{
-    bool            b_Enabled;
-    sal_Int32           n_ID;
-    OUString     Label;
-};
-
-typedef ::cppu::ImplInheritanceHelper  <   VCLXGraphicControl
-                                        ,   css::container::XContainerListener
-                                        ,   css::beans::XPropertyChangeListener
-                                        ,   css::awt::XItemEventBroadcaster
-                                        >   SVTXRoadmap_Base;
-class SVTXRoadmap final : public SVTXRoadmap_Base
-{
-public:
-    SVTXRoadmap();
-
-    void SAL_CALL disposing( const css::lang::EventObject& Source ) override { VCLXWindow::disposing( Source ); }
-
-    // css::awt::XVclWindowPeer
-    void SAL_CALL setProperty( const OUString& PropertyName, const css::uno::Any& Value ) override;
-
-    css::uno::Any SAL_CALL getProperty( const OUString& PropertyName ) override;
-
-    // XContainerListener
-    void SAL_CALL elementInserted( const css::container::ContainerEvent& rEvent ) override;
-    void SAL_CALL elementRemoved( const css::container::ContainerEvent& rEvent ) override;
-    void SAL_CALL elementReplaced( const css::container::ContainerEvent& rEvent ) override;
-
-    // XItemEventBroadcaster
-    virtual void SAL_CALL addItemListener( const css::uno::Reference< css::awt::XItemListener >& l ) override;
-    virtual void SAL_CALL removeItemListener( const css::uno::Reference< css::awt::XItemListener >& l ) override;
-
-    // XPropertyChangeListener
-    virtual void SAL_CALL propertyChange( const css::beans::PropertyChangeEvent& evt ) override;
-
-private:
-
-    // VCLXGraphicControl overridables
-    virtual void    ImplSetNewImage() override;
-
-    static void     ImplGetPropertyIds( std::vector< sal_uInt16 > &aIds );
-    virtual void    GetPropertyIds( std::vector< sal_uInt16 > &aIds ) override { return ImplGetPropertyIds( aIds ); }
-
-    static RMItemData GetRMItemData( const css::container::ContainerEvent& _rEvent );
-
-    virtual void ProcessWindowEvent( const VclWindowEvent& rVclWindowEvent ) override;
-
-    virtual ~SVTXRoadmap() override;
-
-    ItemListenerMultiplexer     maItemListeners;
 };
 
 

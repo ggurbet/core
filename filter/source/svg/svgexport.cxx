@@ -88,6 +88,7 @@ static const char    aOOOAttrSlide[] = NSPREFIX "slide";
 static const char    aOOOAttrMaster[] = NSPREFIX "master";
 static const char    aOOOAttrBackgroundVisibility[] = NSPREFIX "background-visibility";
 static const char    aOOOAttrMasterObjectsVisibility[] = NSPREFIX "master-objects-visibility";
+static const char    aOOOAttrSlideDuration[] = NSPREFIX "slide-duration";
 static const OUString aOOOAttrDateTimeField = NSPREFIX "date-time-field";
 static const char    aOOOAttrFooterField[] = NSPREFIX "footer-field";
 static const char    aOOOAttrHasTransition[] = NSPREFIX "has-transition";
@@ -115,7 +116,7 @@ public:
 
     virtual OUString getClassName() const
     {
-        return OUString( "TextField" );
+        return "TextField";
     }
     virtual bool equalTo( const TextField & aTextField ) const = 0;
     virtual void growCharSet( SVGFilter::UCharSetMapMap & aTextFieldCharSets ) const = 0;
@@ -152,7 +153,7 @@ public:
 
     virtual OUString getClassName() const override
     {
-        return OUString( "FixedTextField" );
+        return "FixedTextField";
     }
     virtual bool equalTo( const TextField & aTextField ) const override
     {
@@ -177,7 +178,7 @@ public:
     FixedDateTimeField() {}
     virtual OUString getClassName() const override
     {
-        return OUString( "FixedDateTimeField" );
+        return "FixedDateTimeField";
     }
     virtual void growCharSet( SVGFilter::UCharSetMapMap & aTextFieldCharSets ) const override
     {
@@ -192,7 +193,7 @@ public:
     FooterField() {}
     virtual OUString getClassName() const override
     {
-        return OUString( "FooterField" );
+        return "FooterField";
     }
     virtual void growCharSet( SVGFilter::UCharSetMapMap & aTextFieldCharSets ) const override
     {
@@ -207,7 +208,7 @@ class VariableTextField : public TextField
 public:
     virtual OUString getClassName() const override
     {
-        return OUString( "VariableTextField" );
+        return "VariableTextField";
     }
 };
 
@@ -223,7 +224,7 @@ public:
     }
     virtual OUString getClassName() const override
     {
-        return OUString( "VariableDateTimeField" );
+        return "VariableDateTimeField";
     }
     virtual bool equalTo( const TextField & aTextField ) const override
     {
@@ -553,7 +554,7 @@ bool SVGFilter::implExportImpressOrDraw( const Reference< XOutputStream >& rxOSt
     {
         if( !mSelectedPages.empty() && !mMasterPageTargets.empty() )
         {
-            Reference< XDocumentHandler > xDocHandler( implCreateExportDocumentHandler( rxOStm ), UNO_QUERY );
+            Reference< XDocumentHandler > xDocHandler = implCreateExportDocumentHandler( rxOStm );
 
             if( xDocHandler.is() )
             {
@@ -568,11 +569,11 @@ bool SVGFilter::implExportImpressOrDraw( const Reference< XOutputStream >& rxOSt
                 Reference< XInterface > xSVGExport = static_cast< css::document::XFilter* >( mpSVGExport );
 
                 // create an id for each draw page
-                for( auto& rPage : mSelectedPages )
+                for( const auto& rPage : mSelectedPages )
                     implRegisterInterface( rPage );
 
                 // create an id for each master page
-                for(uno::Reference<drawing::XDrawPage> & mMasterPageTarget : mMasterPageTargets)
+                for(const uno::Reference<drawing::XDrawPage> & mMasterPageTarget : mMasterPageTargets)
                     implRegisterInterface( mMasterPageTarget );
 
                 SdrModel* pSdrModel(nullptr);
@@ -643,7 +644,7 @@ bool SVGFilter::implExportWriterOrCalc( const Reference< XOutputStream >& rxOStm
 
     if( rxOStm.is() )
     {
-        Reference< XDocumentHandler > xDocHandler( implCreateExportDocumentHandler( rxOStm ), UNO_QUERY );
+        Reference< XDocumentHandler > xDocHandler = implCreateExportDocumentHandler( rxOStm );
 
         if( xDocHandler.is() )
         {
@@ -984,8 +985,8 @@ void SVGFilter::implExportDocumentHeaderWriterOrCalc(sal_Int32 nDocX, sal_Int32 
     aAttr = OUString::number( nDocHeight * 0.01 ) + "mm";
     mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "height", aAttr );
 
-    aAttr = OUString::number(nDocX) + " " + OUString::number(nDocY) + " ";
-    aAttr += OUString::number(nDocWidth) + " " + OUString::number(nDocHeight);
+    aAttr = OUString::number(nDocX) + " " + OUString::number(nDocY) + " " +
+        OUString::number(nDocWidth) + " " + OUString::number(nDocHeight);
 
     mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "viewBox", aAttr );
     mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "preserveAspectRatio", "xMidYMid" );
@@ -1114,7 +1115,7 @@ void SVGFilter::implGenerateMetaData()
             {
                 const Reference< css::drawing::XDrawPage > & xDrawPage = mSelectedPages[i];
                 Reference< css::drawing::XMasterPageTarget > xMasterPageTarget( xDrawPage, UNO_QUERY );
-                Reference< css::drawing::XDrawPage > xMasterPage( xMasterPageTarget->getMasterPage(), UNO_QUERY );
+                Reference< css::drawing::XDrawPage > xMasterPage = xMasterPageTarget->getMasterPage();
                 OUString aSlideId(aId + "_" + OUString::number( i ));
 
                 mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", aSlideId );
@@ -1205,6 +1206,18 @@ void SVGFilter::implGenerateMetaData()
                             mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, aOOOAttrMasterObjectsVisibility, "hidden" );
                         }
 
+                        sal_Int32 nChange(0);
+                        double fSlideDuration(0);
+
+                        if( xPropSet->getPropertySetInfo()->hasPropertyByName( "Change" ) &&
+                            (xPropSet->getPropertyValue( "Change" ) >>= nChange ) && nChange == 1 )
+                        {
+                            if( xPropSet->getPropertySetInfo()->hasPropertyByName( "HighResDuration" ) &&
+                                (xPropSet->getPropertyValue( "HighResDuration" ) >>= fSlideDuration) )
+                            {
+                                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, aOOOAttrSlideDuration, OUString::number(fSlideDuration) );
+                            }
+                        }
                         // We look for a slide transition.
                         // Transition properties are exported together with animations.
                         sal_Int16 nTransitionType(0);
@@ -1237,7 +1250,7 @@ void SVGFilter::implGenerateMetaData()
                 }
                 if( mpSVGExport->IsEmbedFonts() && mpSVGExport->IsUsePositionedCharacters() )
                 {
-                    for(std::unique_ptr<TextField>& i : aFieldSet)
+                    for(const std::unique_ptr<TextField>& i : aFieldSet)
                     {
                         i->growCharSet( mTextFieldCharSets );
                     }
@@ -1256,7 +1269,7 @@ void SVGFilter::implExportAnimations()
     mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", "presentation-animations" );
     SvXMLElementExport aDefsContainerElem( *mpSVGExport, XML_NAMESPACE_NONE, "defs", true, true );
 
-    for(uno::Reference<drawing::XDrawPage> & mSelectedPage : mSelectedPages)
+    for(const uno::Reference<drawing::XDrawPage> & mSelectedPage : mSelectedPages)
     {
         Reference< XPropertySet > xProps( mSelectedPage, UNO_QUERY );
 
@@ -1651,8 +1664,7 @@ void SVGFilter::implExportDrawPages( const std::vector< Reference< css::drawing:
                     // inserted before or after a slide: that is used for some
                     // when switching from the last to the first slide.
                     const OUString & sPageId = implGetValidIDFromInterface( rxPages[i] );
-                    OUString sContainerId = "container-";
-                    sContainerId += sPageId;
+                    OUString sContainerId = "container-" + sPageId;
                     mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", sContainerId );
                     SvXMLElementExport aContainerExp( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
 
@@ -1725,8 +1737,7 @@ bool SVGFilter::implExportPage( const OUString & sPageId,
             if( rMtf.GetActionSize() )
             {
                 // background id = "bg-" + page id
-                OUString sBackgroundId = "bg-";
-                sBackgroundId += sPageId;
+                OUString sBackgroundId = "bg-" + sPageId;
                 mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", sBackgroundId );
 
                 // At present (LibreOffice 3.4.0) the 'IsBackgroundVisible' property is not handled
@@ -1760,8 +1771,7 @@ bool SVGFilter::implExportPage( const OUString & sPageId,
         if( bMaster )
         {
             // background objects id = "bo-" + page id
-            OUString sBackgroundObjectsId = "bo-";
-            sBackgroundObjectsId += sPageId;
+            OUString sBackgroundObjectsId = "bo-" + sPageId;
             mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", sBackgroundObjectsId );
             if( !mbPresentation )
             {
@@ -2473,12 +2483,10 @@ void SVGExport::writeMtf( const GDIMetaFile& rMtf )
     if( xExtDocHandler.is() && IsUseDTDString() )
         xExtDocHandler->unknown( SVG_DTD_STRING );
 
-    aAttr = OUString::number( aSize.Width() );
-    aAttr += "mm";
+    aAttr = OUString::number( aSize.Width() ) + "mm";
     AddAttribute( XML_NAMESPACE_NONE, "width", aAttr );
 
-    aAttr = OUString::number( aSize.Height() );
-    aAttr += "mm";
+    aAttr = OUString::number( aSize.Height() ) + "mm";
     AddAttribute( XML_NAMESPACE_NONE, "height", aAttr );
 
     aAttr = "0 0 ";

@@ -244,6 +244,8 @@
 #define STR_BOOKMARK_TEXT                       NC_("STR_BOOKMARK_TEXT", "Text")
 #define STR_BOOKMARK_HIDDEN                     NC_("STR_BOOKMARK_HIDDEN", "Hidden")
 #define STR_BOOKMARK_CONDITION                  NC_("STR_BOOKMARK_CONDITION", "Condition")
+#define STR_BOOKMARK_YES                        NC_("STR_BOOKMARK_YES", "Yes")
+#define STR_BOOKMARK_NO                         NC_("STR_BOOKMARK_NO", "No")
 #define SW_STR_NONE                             NC_("SW_STR_NONE", "[None]")
 #define STR_CAPTION_BEGINNING                   NC_("STR_CAPTION_BEGINNING", "Start")
 #define STR_CAPTION_END                         NC_("STR_CAPTION_END", "End")
@@ -523,6 +525,7 @@
 #define STR_UNDO_INDEX_ENTRY_INSERT             NC_("STR_UNDO_INDEX_ENTRY_INSERT", "Insert index entry")
 #define STR_UNDO_INDEX_ENTRY_DELETE             NC_("STR_UNDO_INDEX_ENTRY_DELETE", "Delete index entry")
 #define STR_FIELD                               NC_("STR_FIELD", "field")
+#define STR_UNDO_INSERT_TEXTBOX                 NC_("STR_UNDO_INSERT_TEXTBOX", "text box")
 /*undo: STR_PARAGRAPHS, string.text*/
 #define STR_PARAGRAPHS                          NC_("STR_PARAGRAPHS", "Paragraphs")
 #define STR_FRAME                               NC_("STR_FRAME", "frame")
@@ -547,6 +550,7 @@
 #define STR_UNDO_TBLSTYLE_UPDATE                NC_("STR_UNDO_TBLSTYLE_UPDATE", "Update table style: $1")
 #define STR_UNDO_TABLE_DELETE                   NC_("STR_UNDO_TABLE_DELETE", "Delete table")
 #define STR_UNDO_INSERT_FORM_FIELD              NC_("STR_UNDO_INSERT_FORM_FIELD", "Insert form field")
+#define STR_DROP_DOWN_FIELD_ITEM_LIMIT          NC_("STR_DROP_DOWN_FIELD_ITEM_LIMIT", "You can specify maximum of 25 items for a drop-down form field.")
 
 #define STR_ACCESS_DOC_NAME                     NC_("STR_ACCESS_DOC_NAME", "Document view")
 #define STR_ACCESS_DOC_DESC                     NC_("STR_ACCESS_DOC_DESC", "Document view")
@@ -563,6 +567,7 @@
 #define STR_ACCESS_PAGE_DESC                    NC_("STR_ACCESS_PAGE_DESC", "Page: $(ARG1)")
 #define STR_ACCESS_ANNOTATION_AUTHOR_NAME       NC_("STR_ACCESS_ANNOTATION_AUTHOR_NAME", "Author")
 #define STR_ACCESS_ANNOTATION_DATE_NAME         NC_("STR_ACCESS_ANNOTATION_DATE_NAME", "Date")
+#define STR_ACCESS_ANNOTATION_RESOLVED_NAME     NC_("STR_ACCESS_ANNOTATION_RESOLVED_NAME", "Resolved")
 #define STR_ACCESS_ANNOTATION_BUTTON_NAME       NC_("STR_ACCESS_ANNOTATION_BUTTON_NAME", "Actions")
 #define STR_ACCESS_ANNOTATION_BUTTON_DESC       NC_("STR_ACCESS_ANNOTATION_BUTTON_DESC", "Activate this button to open a list of actions which can be performed on this comment and other comments")
 #define STR_ACCESS_PREVIEW_DOC_NAME             NC_("STR_ACCESS_PREVIEW_DOC_NAME", "Document preview")
@@ -659,6 +664,7 @@
 #define STR_POSTIT_SHOW                         NC_("STR_POSTIT_SHOW", "Show All")
 #define STR_POSTIT_HIDE                         NC_("STR_POSTIT_HIDE", "Hide All")
 #define STR_POSTIT_DELETE                       NC_("STR_POSTIT_DELETE", "Delete All")
+#define STR_RESOLVED                            NC_("STR_RESOLVED", "RESOLVED")
 
 #define STR_MARGIN_TOOLTIP_LEFT                 NC_("STR_MARGIN_TOOLTIP_LEFT", "Left: ")
 #define STR_MARGIN_TOOLTIP_RIGHT                NC_("STR_MARGIN_TOOLTIP_RIGHT", ". Right: ")
@@ -690,8 +696,6 @@
 #define STR_TOX_TBL                             NC_("STR_TOX_TBL", "Index of Tables")
 #define STR_TOX_OBJ                             NC_("STR_TOX_OBJ", "Table of Objects")
 #define STR_TOX_ILL                             NC_("STR_TOX_ILL", "Table of Figures")
-#define STR_LINK_CTRL_CLICK                     NC_("STR_LINK_CTRL_CLICK", "%s-Click to follow link")
-#define STR_LINK_CLICK                          NC_("STR_LINK_CLICK", "Click to follow link")
 // SubType DocInfo
 #define FLD_DOCINFO_TITEL                       NC_("FLD_DOCINFO_TITEL", "Title")
 #define FLD_DOCINFO_THEMA                       NC_("FLD_DOCINFO_THEMA", "Subject")
@@ -809,6 +813,7 @@
 #define ST_SALUTATIONELEMENT                    NC_("ST_SALUTATIONELEMENT", "Salutation elements")
 #define ST_MATCHESTO                            NC_("ST_MATCHESTO", "Matches to field:")
 #define ST_PREVIEW                              NC_("ST_PREVIEW", "Preview")
+#define ST_DELETE_CONFIRM                       NC_("ST_DELETE_CONFIRM", "Do you want to delete this registered data source?")
 
 #define STR_NOTASSIGNED                         NC_("STR_NOTASSIGNED", " not yet matched ")
 #define STR_FILTER_ALL                          NC_("STR_FILTER_ALL", "All files")
@@ -1226,6 +1231,7 @@
 #define STR_PAGE                                NC_("STR_PAGE", "Page ")
 #define STR_PAGE_COUNT                          NC_("STR_PAGE_COUNT", "Page %1 of %2")
 #define STR_PAGE_COUNT_CUSTOM                   NC_("STR_PAGE_COUNT_CUSTOM", "Page %1 of %2 (Page %3)")
+#define STR_PAGE_COUNT_PRINTED                  NC_("STR_PAGE_COUNT_PRINTED", "Page %1 of %2 (Page %3 of %4 to print)")
 //Strings for gallery/background
 #define STR_SWBG_PARAGRAPH                      NC_("STR_SWBG_PARAGRAPH", "Paragraph")
 #define STR_SWBG_GRAPHIC                        NC_("STR_SWBG_GRAPHIC", "Image")
@@ -1321,8 +1327,6 @@
 #define STR_SAVEACOPY_SRC                       NC_("STR_SAVEACOPY_SRC", "~Export copy of source...")
 
 #define ST_CONTINUE                             NC_("ST_CONTINUE", "~Continue")
-#define ST_TASK                                 NC_("ST_TASK", "Task")
-#define ST_STATUS                               NC_("ST_STATUS", "Status")
 #define ST_SENDINGTO                            NC_("ST_SENDINGTO", "Sending to: %1")
 #define ST_COMPLETED                            NC_("ST_COMPLETED", "Successfully sent")
 #define ST_FAILED                               NC_("ST_FAILED", "Sending failed")
@@ -1356,6 +1360,20 @@
 #define STR_BUSINESS_CARDS                      NC_("labeldialog|cards", "Business Cards")
 
 #define STR_MAILCONFIG_DLG_TITLE                NC_("STR_MAILCONFIG_DLG_TITLE", "Email settings")
+
+#define STR_OPT_PREVIEW_INSERTED                NC_("optredlinepage|insertedpreview", "Insert")
+#define STR_OPT_PREVIEW_DELETED                 NC_("optredlinepage|deletedpreview", "Delete")
+#define STR_OPT_PREVIEW_CHANGED                 NC_("optredlinepage|changedpreview", "Attributes")
+
+#define STR_AUTOMARK_SEARCHTERM                 NC_("createautomarkdialog|searchterm", "Search term")
+#define STR_AUTOMARK_ALTERNATIVE                NC_("createautomarkdialog|alternative", "Alternative entry")
+#define STR_AUTOMARK_KEY1                       NC_("createautomarkdialog|key1", "1st key")
+#define STR_AUTOMARK_KEY2                       NC_("createautomarkdialog|key2", "2nd key")
+#define STR_AUTOMARK_COMMENT                    NC_("createautomarkdialog|comment", "Comment")
+#define STR_AUTOMARK_CASESENSITIVE              NC_("createautomarkdialog|casesensitive", "Match case")
+#define STR_AUTOMARK_WORDONLY                   NC_("createautomarkdialog|wordonly", "Word only")
+#define STR_AUTOMARK_YES                        NC_("createautomarkdialog|yes", "Yes")
+#define STR_AUTOMARK_NO                         NC_("createautomarkdialog|no", "No")
 
 #endif
 

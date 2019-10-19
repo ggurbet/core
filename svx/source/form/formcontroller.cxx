@@ -457,7 +457,7 @@ public:
     {
     }
 
-    virtual OUString GetComponentServiceName() override {return OUString("Edit");}
+    virtual OUString GetComponentServiceName() override {return "Edit";}
     virtual void SAL_CALL createPeer( const Reference< XToolkit > & rxToolkit, const Reference< XWindowPeer >  & rParentPeer ) override;
 
 protected:
@@ -647,7 +647,7 @@ sal_Bool SAL_CALL FormController::supportsService(const OUString& ServiceName)
 
 OUString SAL_CALL FormController::getImplementationName()
 {
-    return OUString("org.openoffice.comp.svx.FormController");
+    return "org.openoffice.comp.svx.FormController";
 }
 
 Sequence< OUString> SAL_CALL FormController::getSupportedServiceNames()
@@ -1273,16 +1273,13 @@ bool FormController::replaceControl( const Reference< XControl >& _rxExistentCon
         {
             // look up the ID of _rxExistentControl
             Sequence< sal_Int32 > aIdentifiers( xContainer->getIdentifiers() );
-            const sal_Int32* pIdentifiers = aIdentifiers.getConstArray();
-            const sal_Int32* pIdentifiersEnd = aIdentifiers.getConstArray() + aIdentifiers.getLength();
-            for ( ; pIdentifiers != pIdentifiersEnd; ++pIdentifiers )
-            {
-                Reference< XControl > xCheck( xContainer->getByIdentifier( *pIdentifiers ), UNO_QUERY );
-                if ( xCheck == _rxExistentControl )
-                    break;
-            }
-            DBG_ASSERT( pIdentifiers != pIdentifiersEnd, "FormController::replaceControl: did not find the control in the container!" );
-            if ( pIdentifiers != pIdentifiersEnd )
+            const sal_Int32* pIdentifiers = std::find_if(aIdentifiers.begin(), aIdentifiers.end(),
+                [&xContainer, &_rxExistentControl](const sal_Int32 nId) {
+                    Reference< XControl > xCheck( xContainer->getByIdentifier( nId ), UNO_QUERY );
+                    return xCheck == _rxExistentControl;
+                });
+            DBG_ASSERT( pIdentifiers != aIdentifiers.end(), "FormController::replaceControl: did not find the control in the container!" );
+            if ( pIdentifiers != aIdentifiers.end() )
             {
                 bool bReplacedWasActive = ( m_xActiveControl.get() == _rxExistentControl.get() );
                 bool bReplacedWasCurrent = ( m_xCurrentControl.get() == _rxExistentControl.get() );
@@ -1349,7 +1346,7 @@ void FormController::toggleAutoFields(bool bAutoFields)
                     Reference< XPropertySet >  xField;
                     xSet->getPropertyValue(FM_PROP_BOUNDFIELD) >>= xField;
 
-                    // is it a autofield?
+                    // is it an autofield?
                     if  (   xField.is()
                         &&  ::comphelper::hasProperty( FM_PROP_AUTOINCREMENT, xField )
                         &&  ::comphelper::getBOOL( xField->getPropertyValue( FM_PROP_AUTOINCREMENT ) )
@@ -1377,7 +1374,7 @@ void FormController::toggleAutoFields(bool bAutoFields)
                     Reference< XPropertySet >  xField;
                     xSet->getPropertyValue(FM_PROP_BOUNDFIELD) >>= xField;
 
-                    // is it a autofield?
+                    // is it an autofield?
                     if  (   xField.is()
                         &&  ::comphelper::hasProperty( FM_PROP_AUTOINCREMENT, xField )
                         &&  ::comphelper::getBOOL( xField->getPropertyValue(FM_PROP_AUTOINCREMENT ) )
@@ -1988,10 +1985,8 @@ void FormController::setContainer(const Reference< XControlContainer > & xContai
         m_aFilterComponents.clear();
 
         // collecting the controls
-        const Reference< XControl >* pControls = m_aControls.getConstArray();
-        const Reference< XControl >* pControlsEnd = pControls + m_aControls.getLength();
-        while ( pControls != pControlsEnd )
-            implControlRemoved( *pControls++, true );
+        for ( const Reference< XControl >& rControl : std::as_const(m_aControls) )
+            implControlRemoved( rControl, true );
 
         // make database-specific things
         if (m_bDBConnection && isListeningForChanges())
@@ -2006,8 +2001,7 @@ void FormController::setContainer(const Reference< XControlContainer > & xContai
     // What controls belong to the container?
     if (xContainer.is() && xTabModel.is())
     {
-        Sequence< Reference< XControlModel > > aModels = xTabModel->getControlModels();
-        const Reference< XControlModel > * pModels = aModels.getConstArray();
+        const Sequence< Reference< XControlModel > > aModels = xTabModel->getControlModels();
         Sequence< Reference< XControl > > aAllControls = xContainer->getControls();
 
         sal_Int32 nCount = aModels.getLength();
@@ -2015,10 +2009,10 @@ void FormController::setContainer(const Reference< XControlContainer > & xContai
         Reference< XControl > * pControls = m_aControls.getArray();
 
         // collecting the controls
-        sal_Int32 i, j;
-        for (i = 0, j = 0; i < nCount; ++i, ++pModels )
+        sal_Int32 j = 0;
+        for (const Reference< XControlModel >& rModel : aModels )
         {
-            Reference< XControl > xControl = findControl( aAllControls, *pModels, false, true );
+            Reference< XControl > xControl = findControl( aAllControls, rModel, false, true );
             if ( xControl.is() )
             {
                 pControls[j++] = xControl;
@@ -2027,7 +2021,7 @@ void FormController::setContainer(const Reference< XControlContainer > & xContai
         }
 
         // not every model had an associated control
-        if (j != i)
+        if (j != nCount)
             m_aControls.realloc(j);
 
         // listen at the container
@@ -2072,8 +2066,7 @@ Sequence< Reference< XControl > > FormController::getControls()
         if (!xModel.is())
             return m_aControls;
 
-        Sequence< Reference< XControlModel > > aControlModels = xModel->getControlModels();
-        const Reference< XControlModel > * pModels = aControlModels.getConstArray();
+        const Sequence< Reference< XControlModel > > aControlModels = xModel->getControlModels();
         sal_Int32 nModels = aControlModels.getLength();
 
         Sequence< Reference< XControl > > aNewControls(nModels);
@@ -2083,9 +2076,9 @@ Sequence< Reference< XControl > > FormController::getControls()
 
         // rearrange the controls according to the tab order sequence
         sal_Int32 j = 0;
-        for (sal_Int32 i = 0; i < nModels; ++i, ++pModels )
+        for ( const Reference< XControlModel >& rModel : aControlModels )
         {
-            xControl = findControl( m_aControls, *pModels, true, true );
+            xControl = findControl( m_aControls, rModel, true, true );
             if ( xControl.is() )
                 pControls[j++] = xControl;
         }
@@ -2182,10 +2175,8 @@ void FormController::setLocks()
 {
     OSL_ENSURE( !impl_isDisposed_nofail(), "FormController: already disposed!" );
     // lock/unlock all controls connected to a data source
-    const Reference< XControl >* pControls = m_aControls.getConstArray();
-    const Reference< XControl >* pControlsEnd = pControls + m_aControls.getLength();
-    while ( pControls != pControlsEnd )
-        setControlLock( *pControls++ );
+    for ( const Reference< XControl >& rControl : std::as_const(m_aControls) )
+        setControlLock( rControl );
 }
 
 
@@ -2322,10 +2313,8 @@ void FormController::startListening()
     m_bModified  = false;
 
     // now register at bound fields
-    const Reference< XControl >* pControls = m_aControls.getConstArray();
-    const Reference< XControl >* pControlsEnd = pControls + m_aControls.getLength();
-    while ( pControls != pControlsEnd )
-        startControlModifyListening( *pControls++ );
+    for ( const Reference< XControl >& rControl : std::as_const(m_aControls) )
+        startControlModifyListening( rControl );
 }
 
 
@@ -2335,10 +2324,8 @@ void FormController::stopListening()
     m_bModified  = false;
 
     // now register at bound fields
-    const Reference< XControl >* pControls = m_aControls.getConstArray();
-    const Reference< XControl >* pControlsEnd = pControls + m_aControls.getLength();
-    while ( pControls != pControlsEnd )
-        stopControlModifyListening( *pControls++ );
+    for ( const Reference< XControl >& rControl : std::as_const(m_aControls) )
+        stopControlModifyListening( rControl );
 }
 
 
@@ -2347,23 +2334,20 @@ Reference< XControl >  FormController::findControl(Sequence< Reference< XControl
     OSL_ENSURE( !impl_isDisposed_nofail(), "FormController: already disposed!" );
     DBG_ASSERT( xCtrlModel.is(), "findControl - which ?!" );
 
-    Reference< XControl >* pControls = _rControls.getArray();
-    Reference< XControlModel >  xModel;
-    for ( sal_Int32 i = 0, nCount = _rControls.getLength(); i < nCount; ++i, ++pControls )
+    Reference< XControl >* pControls = std::find_if(_rControls.begin(), _rControls.end(),
+        [&xCtrlModel](const Reference< XControl >& rControl) {
+            return rControl.is() && rControl->getModel().get() == xCtrlModel.get(); });
+    if (pControls != _rControls.end())
     {
-        if ( pControls->is() )
+        Reference< XControl > xControl( *pControls );
+        if ( _bRemove )
         {
-            xModel = (*pControls)->getModel();
-            if ( xModel.get() == xCtrlModel.get() )
-            {
-                Reference< XControl > xControl( *pControls );
-                if ( _bRemove )
-                    ::comphelper::removeElementAt( _rControls, i );
-                else if ( _bOverWrite )
-                    pControls->clear();
-                return xControl;
-            }
+            auto i = static_cast<sal_Int32>(std::distance(_rControls.begin(), pControls));
+            ::comphelper::removeElementAt( _rControls, i );
         }
+        else if ( _bOverWrite )
+            pControls->clear();
+        return xControl;
     }
     return Reference< XControl > ();
 }
@@ -2479,15 +2463,12 @@ void FormController::insertControl(const Reference< XControl > & xControl)
 void FormController::removeControl(const Reference< XControl > & xControl)
 {
     OSL_ENSURE( !impl_isDisposed_nofail(), "FormController: already disposed!" );
-    const Reference< XControl >* pControls = m_aControls.getConstArray();
-    const Reference< XControl >* pControlsEnd = pControls + m_aControls.getLength();
-    while ( pControls != pControlsEnd )
+    auto pControl = std::find_if(m_aControls.begin(), m_aControls.end(),
+        [&xControl](const Reference< XControl >& rControl) { return xControl.get() == rControl.get(); });
+    if (pControl != m_aControls.end())
     {
-        if ( xControl.get() == (*pControls++).get() )
-        {
-            ::comphelper::removeElementAt( m_aControls, pControls - m_aControls.getConstArray() - 1 );
-            break;
-        }
+        auto nIndex = static_cast<sal_Int32>(std::distance(m_aControls.begin(), pControl));
+        ::comphelper::removeElementAt( m_aControls, nIndex );
     }
 
     FilterComponents::iterator componentPos = ::std::find( m_aFilterComponents.begin(), m_aFilterComponents.end(), xControl );
@@ -2654,11 +2635,9 @@ void FormController::unload()
 
 void FormController::removeBoundFieldListener()
 {
-    const Reference< XControl >* pControls = m_aControls.getConstArray();
-    const Reference< XControl >* pControlsEnd = pControls + m_aControls.getLength();
-    while ( pControls != pControlsEnd )
+    for ( const Reference< XControl >& rControl : std::as_const(m_aControls) )
     {
-        Reference< XPropertySet > xProp( *pControls++, UNO_QUERY );
+        Reference< XPropertySet > xProp( rControl, UNO_QUERY );
         if ( xProp.is() )
             xProp->removePropertyChangeListener( FM_PROP_BOUNDFIELD, this );
     }
@@ -3026,11 +3005,11 @@ void FormController::setFilter(::std::vector<FmFieldInfo>& rFieldInfos)
 
     if (m_xComposer.is())
     {
-        Sequence< Sequence < PropertyValue > > aFilterRows = m_xComposer->getStructuredFilter();
+        const Sequence< Sequence < PropertyValue > > aFilterRows = m_xComposer->getStructuredFilter();
 
         // ok, we receive the list of filters as sequence of fieldnames, value
         // now we have to transform the fieldname into UI names, that could be a label of the field or
-        // a aliasname or the fieldname itself
+        // an aliasname or the fieldname itself
 
         // first adjust the field names if necessary
         Reference< XNameAccess > xQueryColumns =
@@ -3055,23 +3034,15 @@ void FormController::setFilter(::std::vector<FmFieldInfo>& rFieldInfos)
         xFormatter->attachNumberFormatsSupplier(xFormatSupplier);
         Locale aAppLocale = Application::GetSettings().GetUILanguageTag().getLocale();
         const LocaleDataWrapper& rLocaleWrapper( Application::GetSettings().GetUILocaleDataWrapper() );
-        /* FIXME: casting this to sal_Char is plain wrong and of course only
-         * works for ASCII separators, but
-         * pParseNode->parseNodeToPredicateStr() expects a sal_Char. Fix it
-         * there. */
-        sal_Char cDecimalSeparator = static_cast<sal_Char>(rLocaleWrapper.getNumDecimalSep()[0]);
-        SAL_WARN_IF( static_cast<sal_Unicode>(cDecimalSeparator) != rLocaleWrapper.getNumDecimalSep()[0],
-                "svx.form", "FormController::setFilter: wrong cast of decimal separator to sal_Char!");
+        OUString strDecimalSeparator = rLocaleWrapper.getNumDecimalSep();
 
         // retrieving the filter
-        const Sequence < PropertyValue >* pRow = aFilterRows.getConstArray();
-        for (sal_Int32 i = 0, nLen = aFilterRows.getLength(); i < nLen; ++i)
+        for (const Sequence < PropertyValue >& rRow : aFilterRows)
         {
             FmFilterRow aRow;
 
             // search a field for the given name
-            const PropertyValue* pRefValues = pRow[i].getConstArray();
-            for (sal_Int32 j = 0, nLen1 = pRow[i].getLength(); j < nLen1; j++)
+            for (const PropertyValue& rRefValue : rRow)
             {
                 // look for the text component
                 Reference< XPropertySet > xField;
@@ -3081,15 +3052,15 @@ void FormController::setFilter(::std::vector<FmFieldInfo>& rFieldInfos)
                     OUString aRealName;
 
                     // first look with the given name
-                    if (xQueryColumns->hasByName(pRefValues[j].Name))
+                    if (xQueryColumns->hasByName(rRefValue.Name))
                     {
-                        xQueryColumns->getByName(pRefValues[j].Name) >>= xSet;
+                        xQueryColumns->getByName(rRefValue.Name) >>= xSet;
 
                         // get the RealName
                         xSet->getPropertyValue("RealName") >>= aRealName;
 
                         // compare the condition field name and the RealName
-                        if (aCompare(aRealName, pRefValues[j].Name))
+                        if (aCompare(aRealName, rRefValue.Name))
                             xField = xSet;
                     }
                     if (!xField.is())
@@ -3100,7 +3071,7 @@ void FormController::setFilter(::std::vector<FmFieldInfo>& rFieldInfos)
                         {
                             xColumnsByIndex->getByIndex(n) >>= xSet;
                             xSet->getPropertyValue("RealName") >>= aRealName;
-                            if (aCompare(aRealName, pRefValues[j].Name))
+                            if (aCompare(aRealName, rRefValue.Name))
                             {
                                 // get the column by its alias
                                 xField = xSet;
@@ -3130,18 +3101,18 @@ void FormController::setFilter(::std::vector<FmFieldInfo>& rFieldInfos)
                             OString aVal = m_pParser->getContext().getIntlKeywordAscii(IParseContext::InternationalKeyCode::And);
                             aCompText += OUString(aVal.getStr(),aVal.getLength(),RTL_TEXTENCODING_ASCII_US);
                             aCompText += " ";
-                            aCompText += ::comphelper::getString(pRefValues[j].Value);
+                            aCompText += ::comphelper::getString(rRefValue.Value);
                             aRow[rFieldInfo.xText] = aCompText;
                         }
                         else
                         {
                             OUString sPredicate,sErrorMsg;
-                            pRefValues[j].Value >>= sPredicate;
+                            rRefValue.Value >>= sPredicate;
                             std::shared_ptr< OSQLParseNode > pParseNode = predicateTree(sErrorMsg, sPredicate, xFormatter, xField);
                             if ( pParseNode != nullptr )
                             {
                                 OUString sCriteria;
-                                switch (pRefValues[j].Handle)
+                                switch (rRefValue.Handle)
                                 {
                                     case css::sdb::SQLFilterOperator::EQUAL:
                                         sCriteria += "=";
@@ -3180,7 +3151,7 @@ void FormController::setFilter(::std::vector<FmFieldInfo>& rFieldInfos)
                                                                     ,xField
                                                                     ,OUString()
                                                                     ,aAppLocale
-                                                                    ,cDecimalSeparator
+                                                                    ,strDecimalSeparator
                                                                     ,getParseContext());
                                 aRow[rFieldInfo.xText] = sCriteria;
                             }
@@ -3482,13 +3453,7 @@ sal_Bool SAL_CALL FormController::supportsMode(const OUString& Mode)
     impl_checkDisposed_throw();
 
     Sequence< OUString > aModes(getSupportedModes());
-    const OUString* pModes = aModes.getConstArray();
-    for (sal_Int32 i = aModes.getLength(); i > 0; )
-    {
-        if (pModes[--i] == Mode)
-            return true;
-    }
-    return false;
+    return comphelper::findValue(aModes, Mode) != -1;
 }
 
 
@@ -3555,7 +3520,7 @@ Reference< XControl > FormController::locateControl( const Reference< XControlMo
 {
     try
     {
-        Sequence< Reference< XControl > > aControls( getControls() );
+        const Sequence< Reference< XControl > > aControls( getControls() );
 
         for ( auto const & control : aControls )
         {
@@ -4014,7 +3979,7 @@ sal_Bool SAL_CALL FormController::confirmDelete(const RowChangeEvent& aEvent)
 void SAL_CALL FormController::invalidateFeatures( const Sequence< ::sal_Int16 >& Features )
 {
     ::osl::MutexGuard aGuard( m_aMutex );
-    // for now, just copy the ids of the features, because ....
+    // for now, just copy the ids of the features, because...
     ::std::copy( Features.begin(), Features.end(),
         ::std::insert_iterator< ::std::set< sal_Int16 > >( m_aInvalidFeatures, m_aInvalidFeatures.begin() )
     );
@@ -4147,7 +4112,7 @@ Reference< XDispatchProviderInterceptor >  FormController::createInterceptor(con
 {
     OSL_ENSURE( !impl_isDisposed_nofail(), "FormController: already disposed!" );
 #ifdef DBG_UTIL
-    // check if we already have a interceptor for the given object
+    // check if we already have an interceptor for the given object
     for ( const auto & it : m_aControlDispatchInterceptors )
     {
         if (it->getIntercepted() == _xInterception)

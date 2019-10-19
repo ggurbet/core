@@ -33,3 +33,41 @@ blacklist:
     - desktop/exithelper.h
     vcl/source/filter/ipdf/pdfdocument.cxx:
     - comphelper/scopeguard.hxx
+    vcl/source/filter/jpeg/JpegWriter.hxx:
+    # Needed for direct member access
+    - vcl/bitmapaccess.hxx
+    vcl/source/fontsubset/sft.cxx:
+    # OSL_BIGENDIAN is being checked
+    - osl/endian.h
+    # Needed on WIN32 / MAC / IOS
+    - xlat.hxx
+    vcl/source/gdi/configsettings.cxx:
+    # Needed for OSL_DEBUG_LEVEL > 2
+    - sal/log.hxx
+    vcl/source/gdi/salgdilayout.cxx:
+    # Needed on WIN32
+    - desktop/exithelper.h
+    vcl/source/window/dialog.cxx:
+    # comphelper::ScopeGuard is actually used
+    - comphelper/scopeguard.hxx
+    vcl/source/window/event.cxx:
+    # comphelper::ScopeGuard is actually used
+    - comphelper/scopeguard.hxx
+    vcl/unx/generic/app/saldisp.cxx:
+    # needed for transitive cursor includes
+    - unx/x11_cursors/salcursors.h
+    vcl/unx/generic/gdi/font.cxx:
+    # Complete type needed for implicit dtor
+    - vcl/fontcharmap.hxx
+    vcl/unx/generic/gdi/salbmp.cxx:
+    # OSL_BIGENDIAN is being checked
+    - osl/endian.h
+    vcl/unx/generic/glyphs/freetype_glyphcache.cxx:
+    # Needed for FreeType header macros
+    - ft2build.h
+    vcl/unx/generic/print/genpspgraphics.cxx:
+    # Complete type needed for implicit dtor
+    - vcl/fontcharmap.hxx
+    vcl/source/app/svdata.cxx:
+    # Needed on WIN32
+    - salframe.hxx

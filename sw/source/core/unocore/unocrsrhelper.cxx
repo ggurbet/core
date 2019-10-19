@@ -90,6 +90,8 @@
 #include <fmtmeta.hxx>
 #include <txtfld.hxx>
 #include <unoparagraph.hxx>
+#include <poolfmt.hxx>
+#include <paratr.hxx>
 #include <sal/log.hxx>
 
 using namespace ::com::sun::star;
@@ -545,7 +547,7 @@ bool getCursorPropertyValue(const SfxItemPropertySimpleEntry& rEntry
                 if( pAny )
                 {
                     const SwTableNode* pTableNode = pSttNode->FindTableNode();
-                    SwFrameFormat* pTableFormat = static_cast<SwFrameFormat*>(pTableNode->GetTable().GetFrameFormat());
+                    SwFrameFormat* pTableFormat = pTableNode->GetTable().GetFrameFormat();
                     //SwTable& rTable = static_cast<SwTableNode*>(pSttNode)->GetTable();
                     if(FN_UNO_TEXT_TABLE == rEntry.nWID)
                     {
@@ -770,15 +772,7 @@ void setNumberingProperty(const Any& rValue, SwPaM& rPam)
     uno::Reference<XIndexReplace> xIndexReplace;
     if(rValue >>= xIndexReplace)
     {
-        SwXNumberingRules* pSwNum = nullptr;
-
-        uno::Reference<XUnoTunnel> xNumTunnel(xIndexReplace, UNO_QUERY);
-        if(xNumTunnel.is())
-        {
-            pSwNum = reinterpret_cast< SwXNumberingRules * >(
-                sal::static_int_cast< sal_IntPtr >( xNumTunnel->getSomething( SwXNumberingRules::getUnoTunnelId() )));
-        }
-
+        auto pSwNum = comphelper::getUnoTunnelImplementation<SwXNumberingRules>(xIndexReplace);
         if(pSwNum)
         {
             SwDoc* pDoc = rPam.GetDoc();
@@ -916,7 +910,10 @@ void GetCurPageStyle(SwPaM const & rPaM, OUString &rString)
 {
     if (!rPaM.GetContentNode())
         return; // TODO: is there an easy way to get it for tables/sections?
-    SwContentFrame* pFrame = rPaM.GetContentNode()->getLayoutFrame(rPaM.GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout());
+    SwRootFrame* pLayout = rPaM.GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout();
+    // Consider the position inside the content node, since the node may span over multiple pages
+    // with different page styles.
+    SwContentFrame* pFrame = rPaM.GetContentNode()->getLayoutFrame(pLayout, rPaM.GetPoint());
     if(pFrame)
     {
         const SwPageFrame* pPage = pFrame->FindPageFrame();
@@ -1199,7 +1196,7 @@ void makeRedline( SwPaM const & rPaM,
         aRedlineData.SetTimeStamp( DateTime( aStamp));
     }
 
-    SwRedlineExtraData_FormattingChanges* pRedlineExtraData = nullptr;
+    std::unique_ptr<SwRedlineExtraData_FormatColl> xRedlineExtraData;
 
     // Read the 'Redline Revert Properties' from the parameters
     uno::Sequence< beans::PropertyValue > aRevertProperties;
@@ -1209,7 +1206,14 @@ void makeRedline( SwPaM const & rPaM,
         int nMap = 0;
         // Make sure that paragraph format gets its own map, otherwise e.g. fill attributes are not preserved.
         if (eType == RedlineType::ParagraphFormat)
+        {
             nMap = PROPERTY_MAP_PARAGRAPH;
+            if (!aRevertProperties.hasElements())
+            {
+                // to reject the paragraph style change, use standard style
+                xRedlineExtraData.reset(new SwRedlineExtraData_FormatColl( "",  RES_POOLCOLL_STANDARD, nullptr ));
+            }
+        }
         else
             nMap = PROPERTY_MAP_TEXTPORTION_EXTENSIONS;
         SfxItemPropertySet const& rPropSet = *aSwMapProvider.GetPropertySet(nMap);
@@ -1222,10 +1226,13 @@ void makeRedline( SwPaM const & rPaM,
             // Build set of attributes we want to fetch
             std::vector<sal_uInt16> aWhichPairs;
             std::vector<SfxItemPropertySimpleEntry const*> aEntries;
+            std::vector<uno::Any> aValues;
             aEntries.reserve(aRevertProperties.getLength());
-            for (sal_Int32 i = 0; i < aRevertProperties.getLength(); ++i)
+            sal_uInt16 nStyleId = USHRT_MAX;
+            sal_uInt16 nNumId = USHRT_MAX;
+            for (const auto& rRevertProperty : std::as_const(aRevertProperties))
             {
-                const OUString &rPropertyName = aRevertProperties[i].Name;
+                const OUString &rPropertyName = rRevertProperty.Name;
                 SfxItemPropertySimpleEntry const* pEntry = rPropSet.getPropertyMap().getByName(rPropertyName);
 
                 if (!pEntry)
@@ -1237,38 +1244,71 @@ void makeRedline( SwPaM const & rPaM,
                 {
                     break;
                 }
+                else if (rPropertyName == "NumberingRules")
+                {
+                    aWhichPairs.push_back(RES_PARATR_NUMRULE);
+                    aWhichPairs.push_back(RES_PARATR_NUMRULE);
+                    nNumId = aEntries.size();
+                }
                 else
                 {
                     // FIXME: we should have some nice way of merging ranges surely ?
                     aWhichPairs.push_back(pEntry->nWID);
                     aWhichPairs.push_back(pEntry->nWID);
+                    if (rPropertyName == "ParaStyleName")
+                        nStyleId = aEntries.size();
                 }
                 aEntries.push_back(pEntry);
+                aValues.push_back(rRevertProperty.Value);
             }
 
             if (!aWhichPairs.empty())
             {
+                sal_uInt16 nStylePoolId = USHRT_MAX;
+                OUString sParaStyleName;
                 aWhichPairs.push_back(0); // terminate
                 SfxItemSet aItemSet(pDoc->GetAttrPool(), aWhichPairs.data());
 
                 for (size_t i = 0; i < aEntries.size(); ++i)
                 {
                     SfxItemPropertySimpleEntry const*const pEntry = aEntries[i];
-                    const uno::Any &rValue = aRevertProperties[i].Value;
-                    rPropSet.setPropertyValue(*pEntry, rValue, aItemSet);
+                    const uno::Any &rValue = aValues[i];
+                    if (i == nNumId)
+                    {
+                        uno::Reference<container::XNamed> xNumberingRules;
+                        rValue >>= xNumberingRules;
+                        if (xNumberingRules.is())
+                        {
+                            aItemSet.Put( SwNumRuleItem( xNumberingRules->getName() ));
+                            // keep it during export
+                            SwNumRule* pRule = pDoc->FindNumRulePtr(
+                                        xNumberingRules->getName());
+                            if (pRule)
+                                pRule->SetUsedByRedline(true);
+                        }
+                    }
+                    else
+                    {
+                        rPropSet.setPropertyValue(*pEntry, rValue, aItemSet);
+                        if (i == nStyleId)
+                            rValue >>= sParaStyleName;
+                    }
                 }
-                pRedlineExtraData = new SwRedlineExtraData_FormattingChanges( &aItemSet );
-            }
-        }
 
-        // to finalize DOCX import
-        if ( eType == RedlineType::Delete && !pRedlineAccess->IsFinalizeImport() )
-            pRedlineAccess->SetFinalizeImport( true );
+                if (eType == RedlineType::ParagraphFormat && sParaStyleName.isEmpty())
+                    nStylePoolId = RES_POOLCOLL_STANDARD;
+
+                xRedlineExtraData.reset(new SwRedlineExtraData_FormatColl( sParaStyleName, nStylePoolId, &aItemSet ));
+            }
+            else if (eType == RedlineType::ParagraphFormat)
+                xRedlineExtraData.reset(new SwRedlineExtraData_FormatColl( "", RES_POOLCOLL_STANDARD, nullptr ));
+        }
     }
 
     SwRangeRedline* pRedline = new SwRangeRedline( aRedlineData, rPaM );
     RedlineFlags nPrevMode = pRedlineAccess->GetRedlineFlags( );
-    pRedline->SetExtraData( pRedlineExtraData );
+    // xRedlineExtraData is copied here
+    pRedline->SetExtraData( xRedlineExtraData.get() );
 
     pRedlineAccess->SetRedlineFlags_intern(RedlineFlags::On);
     auto const result(pRedlineAccess->AppendRedline(pRedline, false));
@@ -1320,7 +1360,7 @@ void makeTableRowRedline( SwTableLine& rTableLine,
     pRedline->SetExtraData( nullptr );
 
     pRedlineAccess->SetRedlineFlags_intern(RedlineFlags::On);
-    bool bRet = pRedlineAccess->AppendTableRowRedline( pRedline, false );
+    bool bRet = pRedlineAccess->AppendTableRowRedline( pRedline );
     pRedlineAccess->SetRedlineFlags_intern( nPrevMode );
     if( !bRet )
         throw lang::IllegalArgumentException();
@@ -1369,7 +1409,7 @@ void makeTableCellRedline( SwTableBox& rTableBox,
     pRedline->SetExtraData( nullptr );
 
     pRedlineAccess->SetRedlineFlags_intern(RedlineFlags::On);
-    bool bRet = pRedlineAccess->AppendTableCellRedline( pRedline, false );
+    bool bRet = pRedlineAccess->AppendTableCellRedline( pRedline );
     pRedlineAccess->SetRedlineFlags_intern( nPrevMode );
     if( !bRet )
         throw lang::IllegalArgumentException();

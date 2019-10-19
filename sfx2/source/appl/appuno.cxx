@@ -169,6 +169,7 @@ static char const sFailOnWarning[] = "FailOnWarning";
 static char const sDocumentService[] = "DocumentService";
 static char const sFilterProvider[] = "FilterProvider";
 static char const sImageFilter[] = "ImageFilter";
+static char const sLockContentExtraction[] = "LockContentExtraction";
 
 static bool isMediaDescriptor( sal_uInt16 nSlotId )
 {
@@ -250,15 +251,13 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
 #endif
             // complex property; collect sub items from the parameter set and reconstruct complex item
             sal_uInt16 nFound=0;
-            for ( sal_Int32 n=0; n<nCount; n++ )
+            for ( const beans::PropertyValue& rPropValue : rArgs )
             {
-                const beans::PropertyValue& rPropValue = pPropsVal[n];
                 sal_uInt16 nSub;
                 for ( nSub=0; nSub<nSubCount; nSub++ )
                 {
                     // search sub item by name
-                    OStringBuffer aStr;
-                    aStr.append(pSlot->pUnoName).append('.').append(pType->aAttrib[nSub].pName);
+                    OString aStr = rtl::OStringView(pSlot->pUnoName) + "." + pType->aAttrib[nSub].pName;
                     if ( rPropValue.Name.equalsAsciiL(aStr.getStr(), aStr.getLength()) )
                     {
                         sal_uInt8 nSubId = static_cast<sal_uInt8>(static_cast<sal_Int8>(pType->aAttrib[nSub].nAID));
@@ -313,23 +312,20 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
         if ( nSubCount == 0 )
         {
             // "simple" (base type) argument
-            for ( sal_Int32 n=0; n<nCount; n++ )
+            auto aName = OUString( rArg.pName, strlen(rArg.pName), RTL_TEXTENCODING_UTF8 );
+            auto pProp = std::find_if(rArgs.begin(), rArgs.end(),
+                [&aName](const beans::PropertyValue& rProp) { return rProp.Name == aName; });
+            if (pProp != rArgs.end())
             {
-                const beans::PropertyValue& rProp = pPropsVal[n];
-                const OUString& rName = rProp.Name;
-                if ( rName == OUString( rArg.pName, strlen(rArg.pName), RTL_TEXTENCODING_UTF8 )  )
-                {
 #ifdef DBG_UTIL
-                    ++nFoundArgs;
+                ++nFoundArgs;
 #endif
-                    if( pItem->PutValue( rProp.Value, 0 ) )
-                        // only use successfully converted items
-                        rSet.Put( *pItem );
-                    else
-                    {
-                        SAL_WARN( "sfx", "Property not convertible: " << rArg.pName );
-                    }
-                    break;
+                if( pItem->PutValue( pProp->Value, 0 ) )
+                    // only use successfully converted items
+                    rSet.Put( *pItem );
+                else
+                {
+                    SAL_WARN( "sfx", "Property not convertible: " << rArg.pName );
                 }
             }
         }
@@ -337,9 +333,8 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
         {
             // complex argument, could be passed in one struct
             bool bAsWholeItem = false;
-            for ( sal_Int32 n=0; n<nCount; n++ )
+            for ( const beans::PropertyValue& rProp : rArgs )
             {
-                const beans::PropertyValue& rProp = pPropsVal[n];
                 const OUString& rName = rProp.Name;
                 if ( rName == OUString(rArg.pName, strlen(rArg.pName), RTL_TEXTENCODING_UTF8) )
                 {
@@ -363,14 +358,12 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
                 // only put item if at least one member was found and had the correct type
                 // (is this a good idea?! Should we ask for *all* members?)
                 bool bRet = false;
-                for ( sal_Int32 n=0; n<nCount; n++ )
+                for ( const beans::PropertyValue& rProp : rArgs )
                 {
-                    const beans::PropertyValue& rProp = pPropsVal[n];
                     for ( sal_uInt16 nSub=0; nSub<nSubCount; nSub++ )
                     {
                         // search sub item by name
-                        OStringBuffer aStr;
-                        aStr.append(rArg.pName).append('.').append(pType->aAttrib[nSub].pName);
+                        OString aStr = rtl::OStringView(rArg.pName) + "." + pType->aAttrib[nSub].pName;
                         if ( rProp.Name.equalsAsciiL(aStr.getStr(), aStr.getLength()) )
                         {
                             // at least one member found ...
@@ -408,9 +401,8 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
     // f.e. "SaveAs" shouldn't support parameters not in the slot definition!)
     if ( nSlotId == SID_NEWWINDOW )
     {
-        for ( sal_Int32 n=0; n<nCount; n++ )
+        for ( const beans::PropertyValue& rProp : rArgs )
         {
-            const beans::PropertyValue& rProp = pPropsVal[n];
             const OUString& rName = rProp.Name;
             if ( rName == sFrame )
             {
@@ -429,12 +421,11 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
     }
     else if ( bIsMediaDescriptor )
     {
-        for ( sal_Int32 n=0; n<nCount; n++ )
+        for ( const beans::PropertyValue& rProp : rArgs )
         {
 #ifdef DBG_UTIL
             ++nFoundArgs;
 #endif
-            const beans::PropertyValue& rProp = pPropsVal[n];
             const OUString& aName = rProp.Name;
             if ( aName == sModel )
                 rSet.Put( SfxUnoAnyItem( SID_DOCUMENT, rProp.Value ) );
@@ -853,6 +844,14 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
                 if (bOK)
                     rSet.Put(SfxStringItem(SID_FILTER_PROVIDER, aVal));
             }
+            else if (aName == sLockContentExtraction)
+            {
+                bool bVal = false;
+                bool bOK = (rProp.Value >>= bVal);
+                DBG_ASSERT( bOK, "invalid type for LockContentExtraction" );
+                if (bOK)
+                    rSet.Put( SfxBoolItem( SID_LOCK_CONTENT_EXTRACTION, bVal ) );
+            }
 #ifdef DBG_UTIL
             else
                 --nFoundArgs;
@@ -865,17 +864,13 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
         // transform parameter "OptionsPageURL" of slot "OptionsTreeDialog"
         if ( "OptionsTreeDialog" == OUString( pSlot->pUnoName, strlen(pSlot->pUnoName), RTL_TEXTENCODING_UTF8 ) )
         {
-            for ( sal_Int32 n = 0; n < nCount; ++n )
+            auto pProp = std::find_if(rArgs.begin(), rArgs.end(),
+                [](const PropertyValue& rProp) { return rProp.Name == "OptionsPageURL"; });
+            if (pProp != rArgs.end())
             {
-                const PropertyValue& rProp = pPropsVal[n];
-                OUString sName( rProp.Name );
-                if ( sName == "OptionsPageURL" )
-                {
-                    OUString sURL;
-                    if ( rProp.Value >>= sURL )
-                        rSet.Put( SfxStringItem( SID_OPTIONS_PAGEURL, sURL ) );
-                    break;
-                }
+                OUString sURL;
+                if ( pProp->Value >>= sURL )
+                    rSet.Put( SfxStringItem( SID_OPTIONS_PAGEURL, sURL ) );
             }
         }
     }
@@ -1233,8 +1228,7 @@ void TransformItems( sal_uInt16 nSlotId, const SfxItemSet& rSet, uno::Sequence<b
                         continue;
                }
 
-                OStringBuffer aDbg("Unknown item detected: ");
-                aDbg.append(static_cast<sal_Int32>(nId));
+                OString aDbg = "Unknown item detected: " + OString::number(static_cast<sal_Int32>(nId));
                 DBG_ASSERT(nArg<nFormalArgs, aDbg.getStr());
             }
         }
@@ -1276,10 +1270,9 @@ void TransformItems( sal_uInt16 nSlotId, const SfxItemSet& rSet, uno::Sequence<b
                         nSubId |= CONVERT_TWIPS;
 
                     DBG_ASSERT(( pType->aAttrib[n-1].nAID ) <= 127, "Member ID out of range" );
-                    OUString aName( OUString::createFromAscii( pSlot->pUnoName ) ) ;
-                    aName += ".";
-                    aName += OUString::createFromAscii( pType->aAttrib[n-1].pName ) ;
-                    pValue[nActProp].Name = aName;
+                    pValue[nActProp].Name = OUString::createFromAscii( pSlot->pUnoName ) +
+                        "." +
+                        OUString::createFromAscii( pType->aAttrib[n-1].pName );
                     if ( !pItem->QueryValue( pValue[nActProp++].Value, nSubId ) )
                     {
                         SAL_WARN( "sfx", "Sub item " << pType->aAttrib[n-1].nAID
@@ -1322,10 +1315,9 @@ void TransformItems( sal_uInt16 nSlotId, const SfxItemSet& rSet, uno::Sequence<b
                         nSubId |= CONVERT_TWIPS;
 
                     DBG_ASSERT((rArg.pType->aAttrib[n-1].nAID) <= 127, "Member ID out of range" );
-                    OUString aName( OUString::createFromAscii( rArg.pName ) ) ;
-                    aName += ".";
-                    aName += OUString::createFromAscii( rArg.pType->aAttrib[n-1].pName ) ;
-                    pValue[nActProp].Name = aName;
+                    pValue[nActProp].Name = OUString::createFromAscii( rArg.pName ) +
+                        "." +
+                        OUString::createFromAscii( rArg.pType->aAttrib[n-1].pName ) ;
                     if ( !pItem->QueryValue( pValue[nActProp++].Value, nSubId ) )
                     {
                         SAL_WARN( "sfx", "Sub item "
@@ -1626,6 +1618,11 @@ void TransformItems( sal_uInt16 nSlotId, const SfxItemSet& rSet, uno::Sequence<b
             pValue[nActProp].Name = sImageFilter;
             pValue[nActProp++].Value <<= static_cast<const SfxStringItem*>(pItem)->GetValue();
         }
+        if ( rSet.GetItemState( SID_LOCK_CONTENT_EXTRACTION, false, &pItem ) == SfxItemState::SET )
+        {
+            pValue[nActProp].Name = sLockContentExtraction;
+            pValue[nActProp++].Value <<= static_cast<const SfxBoolItem*>(pItem)->GetValue() ;
+        }
     }
 
     rArgs = aSequ;
@@ -1679,7 +1676,7 @@ class RequestPackageReparation_Impl : public ::cppu::WeakImplHelper< task::XInte
 
 public:
     explicit RequestPackageReparation_Impl( const OUString& aName );
-    bool    isApproved();
+    bool    isApproved() const;
     virtual uno::Any SAL_CALL getRequest() override;
     virtual uno::Sequence< uno::Reference< task::XInteractionContinuation > > SAL_CALL getContinuations() override;
 };
@@ -1693,7 +1690,7 @@ RequestPackageReparation_Impl::RequestPackageReparation_Impl( const OUString& aN
     m_xDisapprove = new comphelper::OInteractionDisapprove;
 }
 
-bool RequestPackageReparation_Impl::isApproved()
+bool RequestPackageReparation_Impl::isApproved() const
 {
     return m_xApprove->wasSelected();
 }
@@ -1718,7 +1715,7 @@ RequestPackageReparation::~RequestPackageReparation()
 {
 }
 
-bool RequestPackageReparation::isApproved()
+bool RequestPackageReparation::isApproved() const
 {
     return mxImpl->isApproved();
 }

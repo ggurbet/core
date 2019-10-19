@@ -124,7 +124,7 @@ public:
                             SalFrame();
     virtual                 ~SalFrame() override;
 
-    SalFrameGeometry        maGeometry; ///< absolute, unmirrored values
+    SalFrameGeometry        maGeometry = {}; ///< absolute, unmirrored values
 
     // SalGeometryProvider
     virtual long GetWidth() const override { return maGeometry.nWidth; }
@@ -161,7 +161,7 @@ public:
     virtual void            GetWorkArea( tools::Rectangle& rRect ) = 0;
     virtual SalFrame*       GetParent() const = 0;
     // Note: x will be mirrored at parent if UI mirroring is active
-    SalFrameGeometry        GetGeometry();
+    SalFrameGeometry        GetGeometry() const;
     const SalFrameGeometry& GetUnmirroredGeometry() const { return maGeometry; }
 
     virtual void            SetWindowState( const SalFrameState* pState ) = 0;
@@ -282,7 +282,7 @@ public:
 
     virtual weld::Window*   GetFrameWeld() const;
 
-    // Callbacks (indepent part in vcl/source/window/winproc.cxx)
+    // Callbacks (independent part in vcl/source/window/winproc.cxx)
     // for default message handling return 0
     void                    SetCallback( vcl::Window* pWindow, SALFRAMEPROC pProc );
 

@@ -310,24 +310,19 @@ namespace sfx2
                 {
                     const OUString aStdLibName( "Standard" );
                     const OUString aVBAProject( "VBAProject" );
-                    Sequence< OUString > aElements = xContainer->getElementNames();
-                    if ( aElements.hasElements() )
+                    const Sequence< OUString > aElements = xContainer->getElementNames();
+                    for( const OUString& aElement : aElements )
                     {
-                        sal_Int32 nElements = aElements.getLength();
-                        for( sal_Int32 i = 0; i < nElements; ++i )
+                        if( aElement == aStdLibName || aElement == aVBAProject )
                         {
-                            const OUString aElement = aElements[i];
-                            if( aElement == aStdLibName || aElement == aVBAProject )
-                            {
-                                Reference < XNameAccess > xLib;
-                                Any aAny = xContainer->getByName( aElement );
-                                aAny >>= xLib;
-                                if ( xLib.is() && xLib->hasElements() )
-                                    return true;
-                            }
-                            else
+                            Reference < XNameAccess > xLib;
+                            Any aAny = xContainer->getByName( aElement );
+                            aAny >>= xLib;
+                            if ( xLib.is() && xLib->hasElements() )
                                 return true;
                         }
+                        else
+                            return true;
                     }
                 }
             }
@@ -399,7 +394,7 @@ namespace sfx2
         }
         else
         {
-            if ( m_xData->m_rDocumentAccess.documentStorageHasMacros() || hasMacroLibrary() )
+            if (m_xData->m_rDocumentAccess.documentStorageHasMacros() || hasMacroLibrary() || m_xData->m_rDocumentAccess.macroCallsSeenWhileLoading())
             {
                 bAllow = adjustMacroMode( rxInteraction );
             }

@@ -10,7 +10,6 @@
 #include "BluetoothServer.hxx"
 
 #include <iostream>
-#include <iomanip>
 #include <memory>
 #include <new>
 
@@ -22,7 +21,7 @@
   #include <dbus/dbus.h>
   #include <errno.h>
   #include <fcntl.h>
-  #include <sys/unistd.h>
+  #include <unistd.h>
   #include <sys/socket.h>
   #include <bluetooth/bluetooth.h>
   #include <bluetooth/rfcomm.h>
@@ -40,6 +39,7 @@
 #endif
 
 #ifdef MACOSX
+  #include <iomanip>
   #include <osl/conditn.hxx>
   #include <premac.h>
   #import <CoreFoundation/CoreFoundation.h>
@@ -1329,8 +1329,7 @@ void SAL_CALL BluetoothServer::run()
     int aNameSize = sizeof(aName);
     getsockname( aSocket, reinterpret_cast<SOCKADDR*>(&aName), &aNameSize ); // Retrieve the local address and port
 
-    CSADDR_INFO aAddrInfo;
-    memset( &aAddrInfo, 0, sizeof(aAddrInfo) );
+    CSADDR_INFO aAddrInfo = {};
     aAddrInfo.LocalAddr.lpSockaddr = reinterpret_cast<SOCKADDR*>(&aName);
     aAddrInfo.LocalAddr.iSockaddrLength = sizeof( SOCKADDR_BTH );
     aAddrInfo.iSocketType = SOCK_STREAM;
@@ -1345,8 +1344,7 @@ void SAL_CALL BluetoothServer::run()
 //    ULONGLONG aData4 = 0x800000805F9B34FB;
 //    memcpy( uuid.Data4, &aData4, sizeof(uuid.Data4) );
 
-    WSAQUERYSETW aRecord;
-    memset( &aRecord, 0, sizeof(aRecord));
+    WSAQUERYSETW aRecord = {};
     aRecord.dwSize = sizeof(aRecord);
     aRecord.lpszServiceInstanceName = const_cast<wchar_t *>(
         L"LibreOffice Impress Remote Control");

@@ -37,11 +37,18 @@ void ShapeCreationVisitor::visit(ConstraintAtom& /*rAtom*/)
 
 void ShapeCreationVisitor::visit(AlgAtom& rAtom)
 {
-    mpParentShape->setAspectRatio(rAtom.getAspectRatio());
+    if (meLookFor == ALGORITHM)
+    {
+        mpParentShape->setAspectRatio(rAtom.getAspectRatio());
+        mpParentShape->setVerticalShapesCount(rAtom.getVerticalShapesCount(mpParentShape));
+    }
 }
 
 void ShapeCreationVisitor::visit(LayoutNode& rAtom)
 {
+    if (meLookFor != LAYOUT_NODE)
+        return;
+
     // stop processing if it's not a child of previous LayoutNode
 
     const DiagramData::PointsNameMap::const_iterator aDataNode = mrDgm.getData()->getPointsPresNameMap().find(rAtom.getName());
@@ -69,7 +76,7 @@ void ShapeCreationVisitor::visit(LayoutNode& rAtom)
         if (rAtom.setupShape(pShape, pNewNode))
         {
             pShape->setInternalName(rAtom.getName());
-            rAtom.addNodeShape(pShape, mnCurrLevel);
+            rAtom.addNodeShape(pShape);
             mrDgm.getLayout()->getPresPointShapeMap()[pNewNode] = pShape;
         }
     }
@@ -83,15 +90,14 @@ void ShapeCreationVisitor::visit(LayoutNode& rAtom)
         {
             SAL_INFO(
                 "oox.drawingml",
-                "processing shape type " << (pShape->getCustomShapeProperties()->getShapePresetType())
-                << " level " << mnCurrLevel);
+                "processing shape type " << (pShape->getCustomShapeProperties()->getShapePresetType()));
 
             if (rAtom.setupShape(pShape, pNewNode))
             {
                 pShape->setInternalName(rAtom.getName());
                 pCurrParent->addChild(pShape);
                 pCurrParent = pShape;
-                rAtom.addNodeShape(pShape, mnCurrLevel);
+                rAtom.addNodeShape(pShape);
                 mrDgm.getLayout()->getPresPointShapeMap()[pNewNode] = pShape;
             }
         }
@@ -107,21 +113,24 @@ void ShapeCreationVisitor::visit(LayoutNode& rAtom)
     // set new parent for children
     ShapePtr pPreviousParent(mpParentShape);
     mpParentShape=pCurrParent;
-    mnCurrLevel++;
 
     // process children
+    meLookFor = LAYOUT_NODE;
     defaultVisit(rAtom);
-
-    // restore parent
-    mnCurrLevel--;
-    mpParentShape=pPreviousParent;
-    mpCurrentNode = pPreviousNode;
 
     // remove unneeded empty group shapes
     pCurrParent->getChildren().erase(
         std::remove_if(pCurrParent->getChildren().begin(), pCurrParent->getChildren().end(),
             [] (const ShapePtr & aChild) { return aChild->getServiceName() == "com.sun.star.drawing.GroupShape" && aChild->getChildren().empty(); }),
         pCurrParent->getChildren().end());
+
+    meLookFor = ALGORITHM;
+    defaultVisit(rAtom);
+    meLookFor = LAYOUT_NODE;
+
+    // restore parent
+    mpParentShape=pPreviousParent;
+    mpCurrentNode = pPreviousNode;
 }
 
 void ShapeCreationVisitor::visit(ShapeAtom& /*rAtom*/)
@@ -180,7 +189,7 @@ void ShapeLayoutingVisitor::visit(AlgAtom& rAtom)
         const PresPointShapeMap aMap = rAtom.getLayoutNode().getDiagram().getLayout()->getPresPointShapeMap();
         auto pShape = aMap.find(mpCurrentNode);
         if (pShape != aMap.end())
-            rAtom.layoutShape(pShape->second, maConstraints, mnCurrLevel);
+            rAtom.layoutShape(pShape->second, maConstraints);
     }
 }
 
@@ -220,11 +229,9 @@ void ShapeLayoutingVisitor::visit(LayoutNode& rAtom)
     defaultVisit(rAtom);
     meLookFor = ALGORITHM;
     defaultVisit(rAtom);
-
-    mnCurrLevel++;
     meLookFor = LAYOUT_NODE;
     defaultVisit(rAtom);
-    mnCurrLevel--;
+
     mpCurrentNode = pPreviousNode;
 
     // delete added constraints, keep parent constraints

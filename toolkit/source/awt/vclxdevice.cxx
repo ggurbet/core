@@ -27,10 +27,7 @@
 #include <toolkit/awt/vclxbitmap.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <toolkit/helper/macros.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/queryinterface.hxx>
-
-#include <rtl/uuid.h>
 
 #include <vcl/svapp.hxx>
 #include <vcl/outdev.hxx>
@@ -38,7 +35,6 @@
 #include <vcl/print.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/bitmapex.hxx>
-#include <vcl/font.hxx>
 #include <vcl/metric.hxx>
 
 //  class VCLXDevice
@@ -54,33 +50,8 @@ VCLXDevice::~VCLXDevice()
     mpOutputDevice.reset();
 }
 
-// css::uno::XInterface
-css::uno::Any VCLXDevice::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = ::cppu::queryInterface( rType,
-                                        static_cast< css::awt::XDevice* >(this),
-                                        static_cast< css::lang::XUnoTunnel* >(this),
-                                        static_cast< css::lang::XTypeProvider* >(this),
-                                        static_cast< css::awt::XUnitConversion* >(this) );
-    return (aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType ));
-}
-
 // css::lang::XUnoTunnel
 UNO3_GETIMPLEMENTATION_IMPL( VCLXDevice );
-
-IMPL_IMPLEMENTATION_ID( VCLXDevice )
-
-// css::lang::XTypeProvider
-css::uno::Sequence< css::uno::Type > VCLXDevice::getTypes()
-{
-    static const css::uno::Sequence< css::uno::Type > aTypeList {
-        cppu::UnoType<css::lang::XTypeProvider>::get(),
-        cppu::UnoType<css::awt::XDevice>::get(),
-        cppu::UnoType<css::awt::XUnitConversion>::get()
-    };
-    return aTypeList;
-}
-
 
 // css::awt::XDevice,
 css::uno::Reference< css::awt::XGraphics > VCLXDevice::createGraphics(  )

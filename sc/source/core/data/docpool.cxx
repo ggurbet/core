@@ -400,9 +400,8 @@ static bool lcl_HFPresentation
     }
 
     SfxItemIter aIter( rSet );
-    pItem = aIter.FirstItem();
 
-    while( pItem )
+    for (pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
     {
         sal_uInt16 nWhich = pItem->Which();
 
@@ -430,7 +429,7 @@ static bool lcl_HFPresentation
                 aText = EditResId(RID_SVXITEMS_LRSPACE_LEFT);
                 if ( 100 != nPropLeftMargin )
                 {
-                    aText = aText + unicode::formatPercent(nPropLeftMargin,
+                    aText += unicode::formatPercent(nPropLeftMargin,
                         Application::GetSettings().GetUILanguageTag());
                 }
                 else
@@ -439,13 +438,12 @@ static bool lcl_HFPresentation
                                            eCoreMetric, ePresentationMetric, &rIntl );
                     aText += " " + EditResId(GetMetricId(ePresentationMetric));
                 }
-                aText += cpDelim;
-
-                // We don't have a nPropFirstLineOfst
-                aText += EditResId(RID_SVXITEMS_LRSPACE_RIGHT);
+                aText += cpDelim +
+                    // We don't have a nPropFirstLineOfst
+                    EditResId(RID_SVXITEMS_LRSPACE_RIGHT);
                 if ( 100 != nPropRightMargin )
                 {
-                    aText = aText + unicode::formatPercent(nPropLeftMargin,
+                    aText += unicode::formatPercent(nPropLeftMargin,
                         Application::GetSettings().GetUILanguageTag());
                 }
                 else
@@ -464,10 +462,8 @@ static bool lcl_HFPresentation
 
         if ( aText.getLength() )
         {
-            rText = rText + aText + " + ";
+            rText += aText + " + ";
         }
-
-        pItem = aIter.NextItem();
     }
 
     rText = comphelper::string::stripEnd(rText, ' ');
@@ -563,7 +559,7 @@ bool ScDocumentPool::GetPresentation(
             if( nPercent )
             {
                 rText = ScResId(STR_SCATTR_PAGE_SCALE) + aStrSep;
-                rText = rText + unicode::formatPercent(nPercent,
+                rText += unicode::formatPercent(nPercent,
                     Application::GetSettings().GetUILanguageTag());
             }
             else

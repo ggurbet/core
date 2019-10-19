@@ -21,7 +21,6 @@
 
 #include <o3tl/any.hxx>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
-#include <tools/debug.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/types.h>
 #include <sal/log.hxx>
@@ -34,7 +33,6 @@
 #include <com/sun/star/beans/XMultiPropertySet.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
-#include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/text/XTextDocument.hpp>
 #include <com/sun/star/text/XTextSectionsSupplier.hpp>
 #include <com/sun/star/text/XTextTablesSupplier.hpp>
@@ -45,7 +43,6 @@
 #include <com/sun/star/text/XTextContent.hpp>
 #include <com/sun/star/text/XTextRange.hpp>
 #include <com/sun/star/text/XTextField.hpp>
-#include <com/sun/star/text/XFootnote.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/container/XContentEnumerationAccess.hpp>
 #include <com/sun/star/text/XTextFrame.hpp>
@@ -61,17 +58,12 @@
 #include <com/sun/star/document/XEmbeddedObjectSupplier.hpp>
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/document/XRedlinesSupplier.hpp>
-#include <com/sun/star/text/XBookmarksSupplier.hpp>
 #include <com/sun/star/text/XFormField.hpp>
 #include <com/sun/star/text/XTextSection.hpp>
-#include <com/sun/star/text/SectionFileLink.hpp>
 #include <com/sun/star/drawing/XShape.hpp>
-#include <com/sun/star/text/XTextShapesSupplier.hpp>
 #include <com/sun/star/style/XAutoStylesSupplier.hpp>
 #include <com/sun/star/style/XAutoStyleFamily.hpp>
 #include <com/sun/star/text/XTextFieldsSupplier.hpp>
-#include <com/sun/star/text/XFootnotesSupplier.hpp>
-#include <com/sun/star/text/XEndnotesSupplier.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/util/DateTime.hpp>
 
@@ -81,8 +73,6 @@
 #include <xmloff/xmlaustp.hxx>
 #include <xmloff/families.hxx>
 #include "txtexppr.hxx"
-#include <xmloff/xmlnumfe.hxx>
-#include <xmloff/xmlnume.hxx>
 #include <xmloff/xmluconv.hxx>
 #include "XMLAnchorTypePropHdl.hxx"
 #include <xexptran.hxx>
@@ -461,7 +451,7 @@ void FieldParamExporter::Export()
     const Type aBoolType = cppu::UnoType<sal_Bool>::get();
     const Type aSeqType = cppu::UnoType<Sequence<OUString>>::get();
     const Type aIntType = ::cppu::UnoType<sal_Int32>::get();
-    Sequence<OUString> vParameters(m_xFieldParams->getElementNames());
+    const Sequence<OUString> vParameters(m_xFieldParams->getElementNames());
     for(const auto & rParameter : vParameters)
     {
         const Any aValue = m_xFieldParams->getByName(rParameter);
@@ -476,20 +466,24 @@ void FieldParamExporter::Export()
             {
                 // Save the OLE object
                 Reference< embed::XStorage > xTargetStg = m_pExport->GetTargetStorage();
-                Reference< embed::XStorage > xDstStg = xTargetStg->openStorageElement(
+                if (xTargetStg.is()) {
+                    Reference< embed::XStorage > xDstStg = xTargetStg->openStorageElement(
                         "OLELinks", embed::ElementModes::WRITE );
 
-                if ( !xDstStg->hasByName( sValue ) ) {
-                    Reference< XStorageBasedDocument > xStgDoc (
+                    if ( !xDstStg->hasByName( sValue ) ) {
+                        Reference< XStorageBasedDocument > xStgDoc (
                             m_pExport->GetModel( ), UNO_QUERY );
-                    Reference< embed::XStorage > xDocStg = xStgDoc->getDocumentStorage();
-                    Reference< embed::XStorage > xOleStg = xDocStg->openStorageElement(
+                        Reference< embed::XStorage > xDocStg = xStgDoc->getDocumentStorage();
+                        Reference< embed::XStorage > xOleStg = xDocStg->openStorageElement(
                             "OLELinks", embed::ElementModes::READ );
 
-                    xOleStg->copyElementTo( sValue, xDstStg, sValue );
-                    Reference< embed::XTransactedObject > xTransact( xDstStg, UNO_QUERY );
-                    if ( xTransact.is( ) )
-                        xTransact->commit( );
+                        xOleStg->copyElementTo( sValue, xDstStg, sValue );
+                        Reference< embed::XTransactedObject > xTransact( xDstStg, UNO_QUERY );
+                        if ( xTransact.is( ) )
+                            xTransact->commit( );
+                    }
+                } else {
+                    SAL_WARN("xmloff", "no target storage");
                 }
             }
         }
@@ -503,7 +497,7 @@ void FieldParamExporter::Export()
         {
             Sequence<OUString> vValue;
             aValue >>= vValue;
-            for(const OUString & i : vValue)
+            for(const OUString & i : std::as_const(vValue))
             {
                 ExportParameter(rParameter, i);
             }
@@ -1092,11 +1086,9 @@ void XMLTextParagraphExport::exportListChange(
                     }
                     else if (bRestartNumberingAtContinuedList)
                     {
-                        OUStringBuffer aBuffer;
-                        aBuffer.append( nRestartValueForContinuedList );
                         GetExport().AddAttribute( XML_NAMESPACE_TEXT,
                                                   XML_START_VALUE,
-                                                  aBuffer.makeStringAndClear() );
+                                                  OUString::number(nRestartValueForContinuedList) );
                         bRestartNumberingAtContinuedList = false;
                     }
                 }
@@ -1978,11 +1970,9 @@ void XMLTextParagraphExport::exportParagraph(
 
                 if( 0 < nOutlineLevel )
                 {
-                    OUStringBuffer sTmp;
-                    sTmp.append( sal_Int32( nOutlineLevel) );
                     GetExport().AddAttribute( XML_NAMESPACE_TEXT,
                                               XML_OUTLINE_LEVEL,
-                                  sTmp.makeStringAndClear() );
+                                  OUString::number( sal_Int32( nOutlineLevel) ) );
 
                     if( rPropSetHelper.hasProperty( NUMBERING_IS_NUMBER ) )
                     {
@@ -2057,15 +2047,10 @@ void XMLTextParagraphExport::exportParagraph(
                                 xPropSet->getPropertyValue("NumberingStartValue")
                                     >>= nStartValue;
 
-                                OUStringBuffer sTmpStartValue;
-
-                                sTmpStartValue.append(nStartValue);
-
                                 GetExport().
                                     AddAttribute(XML_NAMESPACE_TEXT,
                                                  XML_START_VALUE,
-                                                 sTmpStartValue.
-                                                 makeStringAndClear());
+                                                 OUString::number(nStartValue));
                             }
                         }
                     }
@@ -2272,7 +2257,7 @@ void XMLTextParagraphExport::exportTextRangeEnumeration(
                         if (xFormField.is())
                         {
                             OUString sName;
-                            Reference< css::container::XNameAccess > xParameters(xFormField->getParameters(), UNO_QUERY);
+                            Reference< css::container::XNameAccess > xParameters = xFormField->getParameters();
                             if (xParameters.is() && xParameters->hasByName("Name"))
                             {
                                 const Any aValue = xParameters->getByName("Name");
@@ -2323,7 +2308,7 @@ void XMLTextParagraphExport::exportTextRangeEnumeration(
                         if (xFormField.is())
                         {
                             OUString sName;
-                            Reference< css::container::XNameAccess > xParameters(xFormField->getParameters(), UNO_QUERY);
+                            Reference< css::container::XNameAccess > xParameters = xFormField->getParameters();
                             if (xParameters.is() && xParameters->hasByName("Name"))
                             {
                                 const Any aValue = xParameters->getByName("Name");
@@ -2503,7 +2488,7 @@ void XMLTextParagraphExport::exportTextMark(
         if (nElement == 1)
         {
             Reference<XPropertySet> bkmkProps(rPropSet->getPropertyValue(rProperty), UNO_QUERY);
-            Reference<XPropertySetInfo> bkmkPropInfo(bkmkProps->getPropertySetInfo(), UNO_QUERY);
+            Reference<XPropertySetInfo> bkmkPropInfo = bkmkProps->getPropertySetInfo();
             OUString sHidden("BookmarkHidden");
             if (bkmkPropInfo->hasPropertyByName(sHidden))
             {
@@ -3549,10 +3534,8 @@ void XMLTextParagraphExport::exportCharacterData(const OUString& rText,
 
             if( nSpaceChars > 1 )
             {
-                OUStringBuffer sTmp;
-                sTmp.append( nSpaceChars );
                 GetExport().AddAttribute( XML_NAMESPACE_TEXT, XML_C,
-                              sTmp.makeStringAndClear() );
+                              OUString::number(nSpaceChars) );
             }
 
             SvXMLElementExport aElem( GetExport(), XML_NAMESPACE_TEXT,
@@ -3612,10 +3595,8 @@ void XMLTextParagraphExport::exportCharacterData(const OUString& rText,
     {
         if( nSpaceChars > 1 )
         {
-            OUStringBuffer sTmp;
-            sTmp.append( nSpaceChars );
             GetExport().AddAttribute( XML_NAMESPACE_TEXT, XML_C,
-                          sTmp.makeStringAndClear() );
+                          OUString::number(nSpaceChars) );
         }
 
         SvXMLElementExport aElem( GetExport(), XML_NAMESPACE_TEXT, XML_S,

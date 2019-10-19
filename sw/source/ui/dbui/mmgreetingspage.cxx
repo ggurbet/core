@@ -108,7 +108,7 @@ void SwGreetingsHandler::UpdatePreview()
 IMPL_LINK_NOARG(SwMailMergeGreetingsPage, AssignHdl_Impl, weld::Button&, void)
 {
     const OUString sPreview(m_xFemaleLB->get_active_text() + "\n" + m_xMaleLB->get_active_text());
-    SwAssignFieldsDialog aDlg(GetFrameWeld(), m_rConfigItem, sPreview, false);
+    SwAssignFieldsDialog aDlg(m_pWizard->getDialog(), m_rConfigItem, sPreview, false);
     if (RET_OK == aDlg.run())
     {
         UpdatePreview();
@@ -196,10 +196,10 @@ void SwGreetingsHandler::Contains(bool bContainsGreeting)
     m_xNeutralCB->set_sensitive(bContainsGreeting);
 }
 
-SwMailMergeGreetingsPage::SwMailMergeGreetingsPage(SwMailMergeWizard* pWizard, TabPageParent pParent)
-    : svt::OWizardPage(pParent, "modules/swriter/ui/mmsalutationpage.ui", "MMSalutationPage")
+SwMailMergeGreetingsPage::SwMailMergeGreetingsPage(weld::Container* pPage, SwMailMergeWizard* pWizard)
+    : vcl::OWizardPage(pPage, pWizard, "modules/swriter/ui/mmsalutationpage.ui", "MMSalutationPage")
     , SwGreetingsHandler(pWizard->GetConfigItem(), *m_xBuilder)
-    , m_xPreview(new AddressPreview(m_xBuilder->weld_scrolled_window("previewwin")))
+    , m_xPreview(new SwAddressPreview(m_xBuilder->weld_scrolled_window("previewwin")))
     , m_xPreviewFI(m_xBuilder->weld_label("previewft"))
     , m_xAssignPB(m_xBuilder->weld_button("assign"))
     , m_xDocumentIndexFI(m_xBuilder->weld_label("documentindex"))
@@ -247,17 +247,11 @@ SwMailMergeGreetingsPage::SwMailMergeGreetingsPage(SwMailMergeWizard* pWizard, T
 
 SwMailMergeGreetingsPage::~SwMailMergeGreetingsPage()
 {
-    disposeOnce();
-}
-
-void SwMailMergeGreetingsPage::dispose()
-{
     m_xPreviewWIN.reset();
     m_xPreview.reset();
-    svt::OWizardPage::dispose();
 }
 
-void SwMailMergeGreetingsPage::ActivatePage()
+void SwMailMergeGreetingsPage::Activate()
 {
     //try to find the gender setting
     m_xFemaleColumnLB->clear();
@@ -265,7 +259,7 @@ void SwMailMergeGreetingsPage::ActivatePage()
     if(xColsSupp.is())
     {
         Reference < container::XNameAccess> xColAccess = xColsSupp->getColumns();
-        Sequence< OUString > aColumns = xColAccess->getElementNames();
+        const Sequence< OUString > aColumns = xColAccess->getElementNames();
         for(const auto& rColumn : aColumns)
             m_xFemaleColumnLB->append_text(rColumn);
     }
@@ -280,7 +274,7 @@ void SwMailMergeGreetingsPage::ActivatePage()
     m_pWizard->enableButtons(WizardButtonFlags::NEXT, m_pWizard->isStateEnabled(MM_LAYOUTPAGE));
 }
 
-bool SwMailMergeGreetingsPage::commitPage( ::svt::WizardTypes::CommitPageReason )
+bool SwMailMergeGreetingsPage::commitPage( ::vcl::WizardTypes::CommitPageReason )
 {
     if (m_xFemaleColumnLB->get_value_changed_from_saved())
     {
@@ -377,7 +371,7 @@ SwMailBodyDialog::SwMailBodyDialog(weld::Window* pParent)
     if(xColsSupp.is())
     {
         Reference < container::XNameAccess> xColAccess = xColsSupp->getColumns();
-        Sequence< OUString > aColumns = xColAccess->getElementNames();
+        const Sequence< OUString > aColumns = xColAccess->getElementNames();
         for(const auto& rColumn : aColumns)
             m_xFemaleColumnLB->append_text(rColumn);
     }

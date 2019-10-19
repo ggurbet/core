@@ -22,8 +22,6 @@
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <unotools/pathoptions.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
@@ -33,19 +31,15 @@
 #include <svx/xlnwtit.hxx>
 #include <svx/xlndsit.hxx>
 #include <svx/xlnclit.hxx>
-#include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
 
 #include <svx/dlgctrl.hxx>
-#include <svx/drawitem.hxx>
 #include <cuitabline.hxx>
-#include <dlgname.hxx>
 #include <defdlgname.hxx>
 #include <svx/svxdlg.hxx>
 #include <dialmgr.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/dialmgr.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 #include <cuitabarea.hxx>
@@ -56,8 +50,8 @@
 using namespace com::sun::star;
 
 
-SvxLineDefTabPage::SvxLineDefTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/linestyletabpage.ui", "LineStylePage", &rInAttrs)
+SvxLineDefTabPage::SvxLineDefTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/linestyletabpage.ui", "LineStylePage", &rInAttrs)
     , rOutAttrs(rInAttrs)
     , aXLineAttr(rInAttrs.GetPool())
     , rXLSet(aXLineAttr.GetItemSet())
@@ -143,14 +137,8 @@ SvxLineDefTabPage::SvxLineDefTabPage(TabPageParent pParent, const SfxItemSet& rI
 
 SvxLineDefTabPage::~SvxLineDefTabPage()
 {
-    disposeOnce();
-}
-
-void SvxLineDefTabPage::dispose()
-{
     m_xCtlPreview.reset();
     m_xLbLineStyles.reset();
-    SfxTabPage::dispose();
 }
 
 void SvxLineDefTabPage::Construct()
@@ -213,7 +201,7 @@ void SvxLineDefTabPage::CheckChanges_Impl()
         m_xLbType2->get_value_changed_from_saved() ||
         m_xMtrDistance->get_value_changed_from_saved() )
     {
-        std::unique_ptr<weld::MessageDialog> xMessDlg(Application::CreateMessageDialog(GetDialogFrameWeld(),
+        std::unique_ptr<weld::MessageDialog> xMessDlg(Application::CreateMessageDialog(GetFrameWeld(),
                                                       VclMessageType::Warning, VclButtonsType::Cancel,
                                                       CuiResId(RID_SVXSTR_ASK_CHANGE_LINESTYLE)));
         xMessDlg->set_title(SvxResId(RID_SVXSTR_LINESTYLE));
@@ -308,9 +296,9 @@ void SvxLineDefTabPage::Reset( const SfxItemSet* rAttrs )
     }
 }
 
-VclPtr<SfxTabPage> SvxLineDefTabPage::Create(TabPageParent pParent, const SfxItemSet* rOutAttrs )
+std::unique_ptr<SfxTabPage> SvxLineDefTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rOutAttrs )
 {
-    return VclPtr<SvxLineDefTabPage>::Create(pParent, *rOutAttrs);
+    return std::make_unique<SvxLineDefTabPage>(pPage, pController, *rOutAttrs);
 }
 
 IMPL_LINK(SvxLineDefTabPage, SelectLinestyleListBoxHdl_Impl, weld::ComboBox&, rListBox, void)
@@ -414,6 +402,11 @@ void SvxLineDefTabPage::ChangeMetricHdl_Impl(const weld::ToggleButton* p)
         m_xMtrLength2->set_unit(eFUnit);
         m_xMtrDistance->set_unit(eFUnit);
 
+        // tdf#126736 max 5cm
+        m_xMtrLength1->set_range(0, 500, FieldUnit::CM);
+        m_xMtrLength2->set_range(0, 500, FieldUnit::CM);
+        m_xMtrDistance->set_range(0, 500, FieldUnit::CM);
+
         SetMetricValue( *m_xMtrLength1, nTmp1, ePoolUnit );
         SetMetricValue( *m_xMtrLength2, nTmp2, ePoolUnit );
         SetMetricValue( *m_xMtrDistance, nTmp3, ePoolUnit );
@@ -444,10 +437,14 @@ void SvxLineDefTabPage::ChangeMetricHdl_Impl(const weld::ToggleButton* p)
         m_xMtrLength2->set_unit(FieldUnit::PERCENT);
         m_xMtrDistance->set_unit(FieldUnit::PERCENT);
 
-        SetMetricValue( *m_xMtrLength1, nTmp1, ePoolUnit );
-        SetMetricValue( *m_xMtrLength2, nTmp2, ePoolUnit );
-        SetMetricValue( *m_xMtrDistance, nTmp3, ePoolUnit );
+        // tdf#126736 800%
+        m_xMtrLength1->set_range(0, 800, FieldUnit::PERCENT);
+        m_xMtrLength2->set_range(0, 800, FieldUnit::PERCENT);
+        m_xMtrDistance->set_range(0, 800, FieldUnit::PERCENT);
 
+        m_xMtrLength1->set_value(nTmp1, FieldUnit::PERCENT);
+        m_xMtrLength2->set_value(nTmp2, FieldUnit::PERCENT);
+        m_xMtrDistance->set_value(nTmp3, FieldUnit::PERCENT);
     }
     SelectTypeHdl_Impl( nullptr );
 }
@@ -510,7 +507,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickAddHdl_Impl, weld::Button&, void)
     }
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc));
+    ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
     bool bLoop = true;
 
     while ( bLoop && pDlg->Execute() == RET_OK )
@@ -550,7 +547,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickAddHdl_Impl, weld::Button&, void)
         }
         else
         {
-            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
             std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
             xBox->run();
         }
@@ -576,7 +573,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickModifyHdl_Impl, weld::Button&, void)
         OUString aOldName = aName;
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc));
+        ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
 
         long nCount = pDashList->Count();
         bool bLoop = true;
@@ -618,7 +615,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickModifyHdl_Impl, weld::Button&, void)
             }
             else
             {
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
                 std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
                 xBox->run();
             }
@@ -631,7 +628,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickDeleteHdl_Impl, weld::Button&, void)
     int nPos = m_xLbLineStyles->get_active();
     if (nPos != -1)
     {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querydeletelinestyledialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querydeletelinestyledialog.ui"));
         std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("AskDelLineStyleDialog"));
         if (xQueryBox->run() == RET_YES)
         {
@@ -663,7 +660,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickLoadHdl_Impl, weld::Button&, void)
 
     if ( *pnDashListState & ChangeType::MODIFIED )
     {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querysavelistdialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querysavelistdialog.ui"));
         std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("AskSaveList"));
 
         nReturn = xBox->run();
@@ -675,7 +672,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickLoadHdl_Impl, weld::Button&, void)
     if ( nReturn != RET_CANCEL )
     {
         ::sfx2::FileDialogHelper aDlg(css::ui::dialogs::TemplateDescription::FILEOPEN_SIMPLE,
-                                      FileDialogFlags::NONE, GetDialogFrameWeld());
+                                      FileDialogFlags::NONE, GetFrameWeld());
         OUString aStrFilterType( "*.sod" );
         aDlg.AddFilter( aStrFilterType, aStrFilterType );
         OUString aPalettePath(SvtPathOptions().GetPalettePath());
@@ -717,7 +714,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickLoadHdl_Impl, weld::Button&, void)
             }
             else
             {
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querynoloadedfiledialog.ui"));
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querynoloadedfiledialog.ui"));
                 std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("NoLoadedFileDialog"));
                 xBox->run();
             }
@@ -741,7 +738,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickLoadHdl_Impl, weld::Button&, void)
 
 IMPL_LINK_NOARG(SvxLineDefTabPage, ClickSaveHdl_Impl, weld::Button&, void)
 {
-    ::sfx2::FileDialogHelper aDlg(css::ui::dialogs::TemplateDescription::FILESAVE_SIMPLE, FileDialogFlags::NONE, GetDialogFrameWeld());
+    ::sfx2::FileDialogHelper aDlg(css::ui::dialogs::TemplateDescription::FILESAVE_SIMPLE, FileDialogFlags::NONE, GetFrameWeld());
     OUString aStrFilterType( "*.sod" );
     aDlg.AddFilter( aStrFilterType, aStrFilterType );
 
@@ -783,7 +780,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickSaveHdl_Impl, weld::Button&, void)
         }
         else
         {
-            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querynosavefiledialog.ui"));
+            std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querynosavefiledialog.ui"));
             std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("NoSaveFileDialog"));
             xBox->run();
         }
@@ -838,19 +835,6 @@ void SvxLineDefTabPage::FillDialog_Impl()
     m_xMtrLength2->save_value();
     m_xLbType2->save_value();
     m_xMtrDistance->save_value();
-}
-
-void SvxLineDefTabPage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    SfxTabPage::DataChanged( rDCEvt );
-
-    if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
-    {
-        auto nOldSelect = m_xLbLineStyles->get_active();
-        m_xLbLineStyles->clear();
-        m_xLbLineStyles->Fill(pDashList);
-        m_xLbLineStyles->set_active(nOldSelect);
-    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

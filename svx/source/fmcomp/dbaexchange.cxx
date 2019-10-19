@@ -95,7 +95,7 @@ namespace svx
             OSL_FAIL("OColumnTransferable::OColumnTransferable: could not collect essential data source attributes !");
         }
 
-        // If the data source is an SQL-statement and simple enough (means "select <field list> from <table> where ....")
+        // If the data source is an SQL-statement and simple enough (means "select <field list> from <table> where...")
         // we are able to fake the drag information we are about to create.
         if (bTryToParse && (CommandType::COMMAND == nCommandType))
         {
@@ -309,7 +309,7 @@ namespace svx
             return true;
         }
 
-        // check if we have a (string) format we can use ....
+        // check if we have a (string) format we can use...
         SotClipboardFormatId   nRecognizedFormat = SotClipboardFormatId::NONE;
         if (_rData.HasFormat(SotClipboardFormatId::SBA_FIELDDATAEXCHANGE))
             nRecognizedFormat = SotClipboardFormatId::SBA_FIELDDATAEXCHANGE;
@@ -484,12 +484,10 @@ namespace svx
         const sal_Unicode       cSeparator(11);
         const OUString   sSeparator(&cSeparator, 1);
 
-        const Any* pSelRows = _rSelRows.getConstArray();
-        const Any* pSelRowsEnd = pSelRows + _rSelRows.getLength();
-        for ( ; pSelRows < pSelRowsEnd; ++pSelRows )
+        for ( const Any& rSelRow : _rSelRows )
         {
             sal_Int32 nSelectedRow( 0 );
-            OSL_VERIFY( *pSelRows >>= nSelectedRow );
+            OSL_VERIFY( rSelRow >>= nSelectedRow );
 
             m_sCompatibleObjectDescription += OUString::number(nSelectedRow);
             m_sCompatibleObjectDescription += sSeparator;

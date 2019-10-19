@@ -82,27 +82,27 @@ void error(YYLTYPE location, yyscan_t yyscanner, OUString const & message) {
 OUString flagName(unoidl::detail::SourceProviderFlags flag) {
     switch (flag) {
     case unoidl::detail::FLAG_ATTRIBUTE:
-        return OUString("attribute");
+        return "attribute";
     case unoidl::detail::FLAG_BOUND:
-        return OUString("bound");
+        return "bound";
     case unoidl::detail::FLAG_CONSTRAINED:
-        return OUString("constrained");
+        return "constrained";
     case unoidl::detail::FLAG_MAYBEAMBIGUOUS:
-        return OUString("maybeambiguous");
+        return "maybeambiguous";
     case unoidl::detail::FLAG_MAYBEDEFAULT:
-        return OUString("maybedefault");
+        return "maybedefault";
     case unoidl::detail::FLAG_MAYBEVOID:
-        return OUString("maybevoid");
+        return "maybevoid";
     case unoidl::detail::FLAG_OPTIONAL:
-        return OUString("optional");
+        return "optional";
     case unoidl::detail::FLAG_PROPERTY:
-        return OUString("property");
+        return "property";
     case unoidl::detail::FLAG_READONLY:
-        return OUString("readonly");
+        return "readonly";
     case unoidl::detail::FLAG_REMOVABLE:
-        return OUString("removable");
+        return "removable";
     case unoidl::detail::FLAG_TRANSIENT:
-        return OUString("transient");
+        return "transient";
     default:
         assert(false && "this cannot happen"); for (;;) { std::abort(); }
     }
@@ -203,8 +203,11 @@ bool coerce(
             }
             break;
         case unoidl::detail::SourceProviderExpr::TYPE_FLOAT:
-            lhs->fval = lhs->ival;
-            ok = true;
+            {
+                auto tmp = lhs->ival;
+                lhs->fval = tmp;
+                ok = true;
+            }
             break;
         }
         break;
@@ -228,8 +231,11 @@ bool coerce(
             ok = true;
             break;
         case unoidl::detail::SourceProviderExpr::TYPE_FLOAT:
-            lhs->fval = lhs->uval;
-            ok = true;
+            {
+                auto nTmp = lhs->uval;
+                lhs->fval = nTmp;
+                ok = true;
+            }
             break;
         }
         break;
@@ -239,12 +245,18 @@ bool coerce(
             ok = false;
             break;
         case unoidl::detail::SourceProviderExpr::TYPE_INT:
-            rhs->fval = rhs->ival;
-            ok = true;
+            {
+                auto tmp = rhs->ival;
+                rhs->fval = tmp;
+                ok = true;
+            }
             break;
         case unoidl::detail::SourceProviderExpr::TYPE_UINT:
-            rhs->fval = rhs->uval;
-            ok = true;
+            {
+                auto tmp = rhs->uval;
+                rhs->fval = tmp;
+                ok = true;
+            }
             break;
         case unoidl::detail::SourceProviderExpr::TYPE_FLOAT:
             ok = true;
@@ -1322,7 +1334,7 @@ structMember:
           dynamic_cast<unoidl::detail::SourceProviderPlainStructTypeEntityPad *>(
               ent->pad.get());
       if (p1 != nullptr) {
-          for (auto & i: p1->members) {
+          for (const auto & i: p1->members) {
               if (id == i.name) {
                   error(
                       @3, yyscanner,
@@ -1389,7 +1401,7 @@ structMember:
               p2 = dynamic_cast<unoidl::detail::SourceProviderPolymorphicStructTypeTemplateEntityPad *>(
                   ent->pad.get());
           if (p2 != nullptr) {
-              for (auto & i: p2->members) {
+              for (const auto & i: p2->members) {
                   if (id == i.name) {
                       error(
                           @3, yyscanner,
@@ -1408,7 +1420,7 @@ structMember:
                   = dynamic_cast<unoidl::detail::SourceProviderExceptionTypeEntityPad *>(
                       ent->pad.get());
               assert(p3 != nullptr);
-              for (auto & i: p3->members) {
+              for (const auto & i: p3->members) {
                   if (id == i.name) {
                       error(
                           @3, yyscanner,
@@ -1857,7 +1869,7 @@ methodParam:
       default:
           break;
       }
-      for (auto & i: pad->directMethods.back().parameters) {
+      for (const auto & i: pad->directMethods.back().parameters) {
           if (id == i.name) {
               error(
                   @5, yyscanner,
@@ -2341,7 +2353,7 @@ singleInterfaceBasedServiceDefn:
       assert(pad != nullptr);
       std::vector<unoidl::SingleInterfaceBasedServiceEntity::Constructor> ctors;
       if ($7) {
-          for (auto & i: pad->constructors) {
+          for (const auto & i: pad->constructors) {
               std::vector<unoidl::SingleInterfaceBasedServiceEntity::Constructor::Parameter> parms;
               for (auto & j: i.parameters) {
                   parms.emplace_back(j.name, j.type.getName(), j.rest);
@@ -2380,7 +2392,7 @@ ctor:
       rtl::Reference<unoidl::detail::SourceProviderSingleInterfaceBasedServiceEntityPad>
           pad(getCurrentPad<unoidl::detail::SourceProviderSingleInterfaceBasedServiceEntityPad>(
                   data));
-      for (auto & i: pad->constructors) {
+      for (const auto & i: pad->constructors) {
           if (id == i.name) {
               error(
                   @2, yyscanner,
@@ -2506,7 +2518,7 @@ ctorParam:
                + " rest parameter must be last parameter"));
           YYERROR;
       }
-      for (auto & i: pad->constructors.back().parameters) {
+      for (const auto & i: pad->constructors.back().parameters) {
           if (id == i.name) {
               error(
                   @6, yyscanner,
@@ -2618,7 +2630,7 @@ serviceBase:
       std::vector<unoidl::AnnotatedReference> & v(
           opt
           ? pad->directOptionalBaseServices : pad->directMandatoryBaseServices);
-      for (auto & i: v) {
+      for (const auto & i: v) {
           if (name == i.name) {
               error(
                   @4, yyscanner,
@@ -2695,7 +2707,7 @@ serviceInterfaceBase:
           opt
           ? pad->directOptionalBaseInterfaces
           : pad->directMandatoryBaseInterfaces);
-      for (auto & i: v) {
+      for (const auto & i: v) {
           if (name == i.name) {
               error(
                   @4, yyscanner,
@@ -2782,7 +2794,7 @@ serviceProperty:
       rtl::Reference<unoidl::detail::SourceProviderAccumulationBasedServiceEntityPad>
           pad(getCurrentPad<unoidl::detail::SourceProviderAccumulationBasedServiceEntityPad>(
                   data));
-      for (auto & i: pad->directProperties) {
+      for (const auto & i: pad->directProperties) {
           if (id == i.name) {
               error(
                   @4, yyscanner,
@@ -3465,7 +3477,7 @@ primaryExpr:
           unoidl::detail::SourceProviderEnumTypeEntityPad * p1 = dynamic_cast<
               unoidl::detail::SourceProviderEnumTypeEntityPad *>(pad.get());
           if (p1 != nullptr) {
-              for (auto & j: p1->members) {
+              for (const auto & j: p1->members) {
                   if (j.name == name) {
                       v = unoidl::ConstantValue(j.value);
                       found = true;
@@ -3478,7 +3490,7 @@ primaryExpr:
                       unoidl::detail::SourceProviderConstantGroupEntityPad *>(
                           pad.get());
               if (p2 != nullptr) {
-                  for (auto & j: p2->members) {
+                  for (const auto & j: p2->members) {
                       if (j.name == name) {
                           v = j.value;
                           found = true;
@@ -3526,7 +3538,7 @@ primaryExpr:
                           unoidl::detail::SourceProviderConstantGroupEntityPad *>(
                               ent->pad.get());
                   if (pad != nullptr) {
-                      for (auto & j: pad->members) {
+                      for (const auto & j: pad->members) {
                           if (j.name == id) {
                               v = j.value;
                               found = true;
@@ -3976,35 +3988,35 @@ OUString SourceProviderType::getName() const {
     }
     switch (type) {
     case unoidl::detail::SourceProviderType::TYPE_VOID:
-        return OUString("void");
+        return "void";
     case unoidl::detail::SourceProviderType::TYPE_BOOLEAN:
-        return OUString("boolean");
+        return "boolean";
     case unoidl::detail::SourceProviderType::TYPE_BYTE:
-        return OUString("byte");
+        return "byte";
     case unoidl::detail::SourceProviderType::TYPE_SHORT:
-        return OUString("short");
+        return "short";
     case unoidl::detail::SourceProviderType::TYPE_UNSIGNED_SHORT:
-        return OUString("unsigned short");
+        return "unsigned short";
     case unoidl::detail::SourceProviderType::TYPE_LONG:
-        return OUString("long");
+        return "long";
     case unoidl::detail::SourceProviderType::TYPE_UNSIGNED_LONG:
-        return OUString("unsigned long");
+        return "unsigned long";
     case unoidl::detail::SourceProviderType::TYPE_HYPER:
-        return OUString("hyper");
+        return "hyper";
     case unoidl::detail::SourceProviderType::TYPE_UNSIGNED_HYPER:
-        return OUString("unsigned hyper");
+        return "unsigned hyper";
     case unoidl::detail::SourceProviderType::TYPE_FLOAT:
-        return OUString("float");
+        return "float";
     case unoidl::detail::SourceProviderType::TYPE_DOUBLE:
-        return OUString("double");
+        return "double";
     case unoidl::detail::SourceProviderType::TYPE_CHAR:
-        return OUString("char");
+        return "char";
     case unoidl::detail::SourceProviderType::TYPE_STRING:
-        return OUString("string");
+        return "string";
     case unoidl::detail::SourceProviderType::TYPE_TYPE:
-        return OUString("type");
+        return "type";
     case unoidl::detail::SourceProviderType::TYPE_ANY:
-        return OUString("any");
+        return "any";
     case unoidl::detail::SourceProviderType::TYPE_SEQUENCE:
         assert(subtypes.size() == 1);
         return "[]" + subtypes.front().getName();

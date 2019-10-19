@@ -17,17 +17,16 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sddll.hxx>
-
-#include <com/sun/star/beans/XMultiPropertyStates.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/drawing/XDrawView.hpp>
 #include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <com/sun/star/style/XStyle.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 
+#include <comphelper/sequence.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <vcl/virdev.hxx>
-#include <vcl/layout.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
 
@@ -50,10 +49,8 @@
 #include "TableDesignPane.hxx"
 #include <createtabledesignpanel.hxx>
 
-#include <DrawDocShell.hxx>
+#include <ViewShell.hxx>
 #include <ViewShellBase.hxx>
-#include <DrawViewShell.hxx>
-#include <DrawController.hxx>
 #include <EventMultiplexer.hxx>
 
 using namespace ::com::sun::star;
@@ -377,14 +374,9 @@ void TableDesignWidget::updateControls()
             if( xNames.is() )
             {
                 Sequence< OUString > aNames( xNames->getElementNames() );
-                for( sal_Int32 nIndex = 0; nIndex < aNames.getLength(); nIndex++ )
-                {
-                    if( aNames[nIndex] == sStyleName )
-                    {
-                        nSelection = static_cast<sal_uInt16>(nIndex)+1;
-                        break;
-                    }
-                }
+                sal_Int32 nIndex = comphelper::findValue(aNames, sStyleName);
+                if (nIndex != -1)
+                    nSelection = static_cast<sal_uInt16>(nIndex) + 1;
             }
         }
     }
@@ -581,7 +573,7 @@ static void FillCellInfoMatrix( const CellInfoVector& rStyle, const TableStyleSe
     }
 }
 
-static const BitmapEx CreateDesignPreview( const Reference< XIndexAccess >& xTableStyle, const TableStyleSettings& rSettings, bool bIsPageDark )
+static BitmapEx CreateDesignPreview( const Reference< XIndexAccess >& xTableStyle, const TableStyleSettings& rSettings, bool bIsPageDark )
 {
     CellInfoVector aCellInfoVector(sdr::table::style_count);
     FillCellInfoVector( xTableStyle, aCellInfoVector );

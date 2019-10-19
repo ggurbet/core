@@ -322,8 +322,8 @@ private:
     mutable std::shared_ptr<PhysicalFontCollection> mxFontCollection;
     mutable std::unique_ptr<ImplDeviceFontList>     mpDeviceFontList;
     mutable std::unique_ptr<ImplDeviceFontSizeList> mpDeviceFontSizeList;
-    std::unique_ptr<OutDevStateStack>               mpOutDevStateStack;
-    std::unique_ptr<ImplOutDevData>                 mpOutDevData;
+    std::vector<OutDevState>        maOutDevStateStack;
+    std::unique_ptr<ImplOutDevData> mpOutDevData;
     std::vector< VCLXGraphics* >*   mpUnoGraphicsList;
     vcl::ExtOutDevData*             mpExtOutDevData;
 
@@ -539,6 +539,7 @@ public:
     ///@{
 
 public:
+    virtual void                Flush() {}
 
     virtual void                DrawOutDev(
                                     const Point& rDestPt, const Size& rDestSize,
@@ -624,8 +625,12 @@ public:
 
     void                        SetBackground();
     void                        SetBackground( const Wallpaper& rBackground );
+    virtual void                SaveBackground(VirtualDevice& rSaveDevice,
+                                               const Point& rPos, const Size& rSize, const Size& rBackgroundSize) const;
 
     const Wallpaper&            GetBackground() const { return maBackground; }
+    virtual Color               GetBackgroundColor() const;
+    virtual Color               GetReadableFontColor(const Color& rFontColor, const Color& rBgColor) const;
     bool                        IsBackground() const { return mbBackground; }
 
     void                        SetFont( const vcl::Font& rNewFont );
@@ -1286,8 +1291,11 @@ protected:
     virtual long                GetFontExtLeading() const;
 
     virtual void ImplClearFontData(bool bNewFontLists);
+    virtual void ImplRefreshFontData(bool bNewFontLists);
     void ReleaseFontCache();
     void ReleaseFontCollection();
+    void SetFontCollectionFromSVData();
+    void ResetNewFontCache();
 
 private:
 
@@ -1295,7 +1303,6 @@ private:
 
     SAL_DLLPRIVATE bool         ImplNewFont() const;
 
-    SAL_DLLPRIVATE void         ImplRefreshFontData( bool bNewFontLists );
     SAL_DLLPRIVATE static void  ImplUpdateFontDataForAllFrames( FontUpdateHandler_t pHdl, bool bNewFontLists );
 
     static
@@ -1468,7 +1475,9 @@ public:
                                     const basegfx::B2DHomMatrix& rTransformation,
                                     const BitmapEx& rBitmapEx);
 
-
+    void                        DrawShadowBitmapEx(
+                                    const BitmapEx& rBitmapEx,
+                                    ::Color aShadowColor);
 protected:
 
     virtual void                DrawDeviceBitmap(

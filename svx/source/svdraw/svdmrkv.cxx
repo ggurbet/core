@@ -24,6 +24,7 @@
 #include <svx/svdview.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdpage.hxx>
+#include <svx/svdotable.hxx>
 #include "svddrgm1.hxx"
 
 #ifdef DBG_UTIL
@@ -46,6 +47,7 @@
 #include <svx/svdovirt.hxx>
 #include <sdr/overlay/overlayrollingrectangle.hxx>
 #include <svx/sdr/overlay/overlaymanager.hxx>
+#include <svx/sdr/table/tablecontroller.hxx>
 #include <svx/sdr/contact/viewcontact.hxx>
 #include <svx/sdrpaintwindow.hxx>
 #include <svx/sdrpagewindow.hxx>
@@ -738,6 +740,8 @@ void SdrMarkView::SetMarkHandles(SfxViewShell* pOtherShell)
         }
     }
 
+    SfxViewShell* pViewShell = GetSfxViewShell();
+
     // check if text edit or ole is active and handles need to be suppressed. This may be the case
     // when a single object is selected
     // Using a strict return statement is okay here; no handles means *no* handles.
@@ -753,18 +757,10 @@ void SdrMarkView::SetMarkHandles(SfxViewShell* pOtherShell)
         {
             const SdrTextObj* pSdrTextObj = dynamic_cast< const SdrTextObj* >(mpMarkedObj);
 
-            if(pSdrTextObj && pSdrTextObj->IsInEditMode())
+            if (pSdrTextObj && pSdrTextObj->IsInEditMode())
             {
-                if (bTiledRendering)
-                {
-                    // Suppress handles -> empty graphic selection.
-                    if(SfxViewShell* pViewShell = GetSfxViewShell())
-                    {
-                        pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_GRAPHIC_SELECTION, "EMPTY");
-                        SfxLokHelper::notifyOtherViews(pViewShell, LOK_CALLBACK_GRAPHIC_VIEW_SELECTION, "selection", "EMPTY");
-                    }
-                }
-                return;
+                if (!bTiledRendering)
+                    return;
             }
         }
 
@@ -773,55 +769,43 @@ void SdrMarkView::SetMarkHandles(SfxViewShell* pOtherShell)
 
         if(pSdrOle2Obj && (pSdrOle2Obj->isInplaceActive() || pSdrOle2Obj->isUiActive()))
         {
-            return;
-        }
-
-        if (bTiledRendering && mpMarkedObj->GetObjIdentifier() == OBJ_TABLE)
-        {
-            rtl::Reference<sdr::SelectionController> xController = static_cast<SdrView*>(this)->getSelectionController();
-            if (xController.is() && xController->hasSelectedCells())
+            if(pViewShell)
             {
-                // The table shape has selected cells, which provide text selection already -> no graphic selection.
-                if(SfxViewShell* pViewShell = GetSfxViewShell())
-                {
-                    pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_GRAPHIC_SELECTION, "EMPTY");
-                    SfxLokHelper::notifyOtherViews(pViewShell, LOK_CALLBACK_GRAPHIC_VIEW_SELECTION, "selection", "EMPTY");
-                }
+                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_GRAPHIC_SELECTION, "INPLACE");
+                SfxLokHelper::notifyOtherViews(pViewShell, LOK_CALLBACK_GRAPHIC_VIEW_SELECTION, "selection", "INPLACE");
                 return;
             }
         }
     }
 
     tools::Rectangle aRect(GetMarkedObjRect());
-    tools::Rectangle aSelection(aRect);
 
-    bool bIsChart = false;
-    if (bTiledRendering && !aRect.IsEmpty())
+    if (bTiledRendering && pViewShell)
     {
-        sal_uInt32 nTotalPaintWindows = this->PaintWindowCount();
-        if (nTotalPaintWindows == 1)
+        tools::Rectangle aSelection(aRect);
+        bool bIsChart = false;
+
+        if (!aRect.IsEmpty())
         {
-            const vcl::Window* pWin = dynamic_cast<const vcl::Window*>(this->GetFirstOutputDevice());
-            if (pWin && pWin->IsChart())
+            sal_uInt32 nTotalPaintWindows = this->PaintWindowCount();
+            if (nTotalPaintWindows == 1)
             {
-                bIsChart = true;
-                const vcl::Window* pViewShellWindow = GetSfxViewShell()->GetEditWindowForActiveOLEObj();
-                if (pViewShellWindow && pViewShellWindow->IsAncestorOf(*pWin))
+                const vcl::Window* pWin = dynamic_cast<const vcl::Window*>(this->GetFirstOutputDevice());
+                if (pWin && pWin->IsChart())
                 {
-                    Point aOffsetPx = pWin->GetOffsetPixelFrom(*pViewShellWindow);
-                    Point aLogicOffset = pWin->PixelToLogic(aOffsetPx);
-                    aSelection.Move(aLogicOffset.getX(), aLogicOffset.getY());
+                    bIsChart = true;
+                    const vcl::Window* pViewShellWindow = GetSfxViewShell()->GetEditWindowForActiveOLEObj();
+                    if (pViewShellWindow && pViewShellWindow->IsAncestorOf(*pWin))
+                    {
+                        Point aOffsetPx = pWin->GetOffsetPixelFrom(*pViewShellWindow);
+                        Point aLogicOffset = pWin->PixelToLogic(aOffsetPx);
+                        aSelection.Move(aLogicOffset.getX(), aLogicOffset.getY());
+                    }
                 }
             }
         }
-    }
 
-    if (bTiledRendering)
-    {
-        OString sSelection;
-        if (aSelection.IsEmpty())
-            sSelection = "EMPTY";
-        else
+        if (!aSelection.IsEmpty())
         {
             // In case the map mode is in 100th MM, then need to convert the coordinates over to twips for LOK.
             if (mpMarkedPV)
@@ -833,14 +817,20 @@ void SdrMarkView::SetMarkHandles(SfxViewShell* pOtherShell)
                 }
             }
 
-            sSelection = aSelection.toString();
-
             // hide the text selection too
-            if(SfxViewShell* pViewShell = GetSfxViewShell())
-                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_TEXT_SELECTION, "");
+            pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_TEXT_SELECTION, "");
         }
-        if(SfxViewShell* pViewShell = GetSfxViewShell())
+
         {
+            OString sSelectionText;
+            boost::property_tree::ptree aTableJsonTree;
+            bool bTableSelection = false;
+
+            if (mpMarkedObj && mpMarkedObj->GetObjIdentifier() == OBJ_TABLE)
+            {
+                auto& rTableObject = dynamic_cast<sdr::table::SdrTableObj&>(*mpMarkedObj);
+                bTableSelection = rTableObject.createTableEdgesJson(aTableJsonTree);
+            }
             if (GetMarkedObjectCount())
             {
                 SdrMark* pM = GetSdrMarkByIndex(0);
@@ -854,8 +844,6 @@ void SdrMarkView::SetMarkHandles(SfxViewShell* pOtherShell)
                 {
                     nRotAngle *= 10;
                 }
-
-                sSelection += OString(", ") + OString::number(nRotAngle);
 
                 OStringBuffer aExtraInfo;
                 if (bWriterGraphic)
@@ -990,12 +978,34 @@ void SdrMarkView::SetMarkHandles(SfxViewShell* pOtherShell)
                         }
                     }
                 }
-
+                sSelectionText = aSelection.toString();
+                sSelectionText += OStringLiteral(", ") + OString::number(nRotAngle);
                 if (!aExtraInfo.isEmpty())
                 {
-                    sSelection += ", ";
-                    sSelection += aExtraInfo.makeStringAndClear();
+                    sSelectionText += ", ";
+                    sSelectionText += aExtraInfo.makeStringAndClear();
                 }
+            }
+
+            if (sSelectionText.isEmpty())
+                sSelectionText = "EMPTY";
+
+            if (bTableSelection)
+            {
+                boost::property_tree::ptree aTableRectangle;
+                aTableRectangle.put("x", aSelection.Left());
+                aTableRectangle.put("y", aSelection.Top());
+                aTableRectangle.put("width", aSelection.GetWidth());
+                aTableRectangle.put("height", aSelection.GetHeight());
+                aTableJsonTree.push_back(std::make_pair("rectangle", aTableRectangle));
+
+                std::stringstream aStream;
+                boost::property_tree::write_json(aStream, aTableJsonTree);
+                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_TABLE_SELECTED, aStream.str().c_str());
+            }
+            else
+            {
+                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_TABLE_SELECTED, "{}");
             }
 
             if (pOtherShell)
@@ -1003,14 +1013,14 @@ void SdrMarkView::SetMarkHandles(SfxViewShell* pOtherShell)
                 // Another shell wants to know about our existing
                 // selection.
                 if (pViewShell != pOtherShell)
-                    SfxLokHelper::notifyOtherView(pViewShell, pOtherShell, LOK_CALLBACK_GRAPHIC_VIEW_SELECTION, "selection", sSelection);
+                    SfxLokHelper::notifyOtherView(pViewShell, pOtherShell, LOK_CALLBACK_GRAPHIC_VIEW_SELECTION, "selection", sSelectionText);
             }
             else
             {
                 // We have a new selection, so both pViewShell and the
                 // other views want to know about it.
-                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_GRAPHIC_SELECTION, sSelection.getStr());
-                SfxLokHelper::notifyOtherViews(pViewShell, LOK_CALLBACK_GRAPHIC_VIEW_SELECTION, "selection", sSelection);
+                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_GRAPHIC_SELECTION, sSelectionText.getStr());
+                SfxLokHelper::notifyOtherViews(pViewShell, LOK_CALLBACK_GRAPHIC_VIEW_SELECTION, "selection", sSelectionText);
             }
         }
     }
@@ -1977,7 +1987,6 @@ bool SdrMarkView::getPossibleGridOffsetForSdrObject(
         return false;
     }
 
-    basegfx::B2DVector aOffset(0.0, 0.0);
     const sdr::contact::ViewObjectContact& rVOC(pObj->GetViewContact().GetViewObjectContact(
         const_cast<sdr::contact::ObjectContact&>(rObjectContact)));
 
@@ -2017,7 +2026,6 @@ bool SdrMarkView::getPossibleGridOffsetForPosition(
         return false;
     }
 
-    basegfx::B2DVector aOffset(0.0, 0.0);
     rObjectContact.calculateGridOffsetForB2DRange(rOffset, basegfx::B2DRange(rPoint));
 
     return !rOffset.equalZero();
@@ -2037,7 +2045,7 @@ SdrObject* SdrMarkView::CheckSingleSdrObjectHit(const Point& rPnt, sal_uInt16 nT
     SdrObject* pRet=nullptr;
     tools::Rectangle aRect(pObj->GetCurrentBoundRect());
 
-    // add possible GridOffset to up-to-now view-independent BountRect data
+    // add possible GridOffset to up-to-now view-independent BoundRect data
     basegfx::B2DVector aGridOffset(0.0, 0.0);
     if(getPossibleGridOffsetForSdrObject(aGridOffset, pObj, pPV))
     {

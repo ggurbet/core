@@ -28,6 +28,7 @@ fuzzer_externals = \
     icudata \
     lcms2 \
     librdf \
+    libexttextcat \
     liblangtag \
     libxslt \
     libxml2 \
@@ -145,6 +146,7 @@ fuzzer_calc_libraries = \
     sc \
     for \
     forui \
+    guesslang \
 
 fuzzer_writer_libraries = \
     msword \
@@ -152,12 +154,15 @@ fuzzer_writer_libraries = \
     swd \
     writerfilter \
     textfd \
+    guesslang \
 
 fuzzer_draw_libraries = \
     sdfilt \
     sd \
     sdd \
     icg \
+    guesslang \
 
 fuzzer_math_libraries = \
     sm \
+    guesslang \

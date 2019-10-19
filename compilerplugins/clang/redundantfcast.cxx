@@ -6,12 +6,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+#ifndef LO_CLANG_SHARED_PLUGINS
 
 #include "check.hxx"
 #include "compat.hxx"
 #include "plugin.hxx"
 #include <iostream>
 #include <fstream>
+#include <unordered_set>
+#include <vector>
 
 namespace
 {
@@ -21,15 +24,6 @@ public:
     explicit RedundantFCast(loplugin::InstantiationData const& data)
         : FilteringPlugin(data)
     {
-    }
-
-    bool TraverseFunctionDecl(FunctionDecl* functionDecl)
-    {
-        auto prev = m_CurrentFunctionDecl;
-        m_CurrentFunctionDecl = functionDecl;
-        auto rv = RecursiveASTVisitor<RedundantFCast>::TraverseFunctionDecl(functionDecl);
-        m_CurrentFunctionDecl = prev;
-        return rv;
     }
 
     bool VisitReturnStmt(ReturnStmt const* returnStmt)
@@ -61,9 +55,10 @@ public:
         {
             return true;
         }
-        report(DiagnosticsEngine::Warning, "redundant functional cast from %0 to %1",
-               cxxFunctionalCastExpr->getExprLoc())
-            << t2 << t1 << cxxFunctionalCastExpr->getSourceRange();
+        if (m_Seen.insert(cxxFunctionalCastExpr->getExprLoc()).second)
+            report(DiagnosticsEngine::Warning, "redundant functional cast from %0 to %1",
+                   cxxFunctionalCastExpr->getExprLoc())
+                << t2 << t1 << cxxFunctionalCastExpr->getSourceRange();
         return true;
     }
 
@@ -111,11 +106,14 @@ public:
             if (t1.getCanonicalType().getTypePtr() != paramClassOrStructType)
                 continue;
 
-            report(DiagnosticsEngine::Warning, "redundant functional cast from %0 to %1",
-                   arg->getExprLoc())
-                << t2 << t1 << arg->getSourceRange();
-            report(DiagnosticsEngine::Note, "in call to method here", param->getLocation())
-                << param->getSourceRange();
+            if (m_Seen.insert(arg->getExprLoc()).second)
+            {
+                report(DiagnosticsEngine::Warning, "redundant functional cast from %0 to %1",
+                       arg->getExprLoc())
+                    << t2 << t1 << arg->getSourceRange();
+                report(DiagnosticsEngine::Note, "in call to method here", param->getLocation())
+                    << param->getSourceRange();
+            }
         }
         return true;
     }
@@ -154,13 +152,101 @@ public:
             if (t1.getCanonicalType().getTypePtr() != paramClassOrStructType)
                 continue;
 
-            report(DiagnosticsEngine::Warning, "redundant functional cast from %0 to %1",
-                   arg->getExprLoc())
-                << t2 << t1 << arg->getSourceRange();
-            report(DiagnosticsEngine::Note, "in call to method here", param->getLocation())
-                << param->getSourceRange();
+            if (m_Seen.insert(arg->getExprLoc()).second)
+            {
+                report(DiagnosticsEngine::Warning, "redundant functional cast from %0 to %1",
+                       arg->getExprLoc())
+                    << t2 << t1 << arg->getSourceRange();
+                report(DiagnosticsEngine::Note, "in call to method here", param->getLocation())
+                    << param->getSourceRange();
+            }
         }
         return true;
+    }
+
+    // Find redundant cast to std::function, where clang reports
+    // two different types for the inner and outer
+    bool isRedundantStdFunctionCast(CXXFunctionalCastExpr const* expr)
+    {
+        bool deduced = false;
+        QualType target;
+        auto const written = expr->getTypeAsWritten();
+        if (auto const t1 = written->getAs<DeducedTemplateSpecializationType>())
+        {
+            auto const decl = t1->getTemplateName().getAsTemplateDecl();
+            if (!decl)
+            {
+                return false;
+            }
+            if (!loplugin::DeclCheck(decl->getTemplatedDecl())
+                     .ClassOrStruct("function")
+                     .StdNamespace())
+            {
+                return false;
+            }
+            deduced = true;
+        }
+        else if (auto const t2 = written->getAs<TemplateSpecializationType>())
+        {
+            auto const decl = t2->getTemplateName().getAsTemplateDecl();
+            if (!decl)
+            {
+                return false;
+            }
+            if (!loplugin::DeclCheck(decl->getTemplatedDecl())
+                     .ClassOrStruct("function")
+                     .StdNamespace())
+            {
+                return false;
+            }
+            if (t2->getNumArgs() != 1)
+            {
+                if (isDebugMode())
+                {
+                    report(DiagnosticsEngine::Fatal,
+                           "TODO: unexpected std::function with %0 template arguments",
+                           expr->getExprLoc())
+                        << t2->getNumArgs() << expr->getSourceRange();
+                }
+                return false;
+            }
+            if (t2->getArg(0).getKind() != TemplateArgument::Type)
+            {
+                if (isDebugMode())
+                {
+                    report(DiagnosticsEngine::Fatal,
+                           "TODO: unexpected std::function with non-type template argument",
+                           expr->getExprLoc())
+                        << expr->getSourceRange();
+                }
+                return false;
+            }
+            target = t2->getArg(0).getAsType();
+        }
+        else
+        {
+            return false;
+        }
+        auto cxxConstruct = dyn_cast<CXXConstructExpr>(compat::IgnoreImplicit(expr->getSubExpr()));
+        if (!cxxConstruct)
+            return false;
+        auto const lambda = dyn_cast<LambdaExpr>(cxxConstruct->getArg(0));
+        if (!lambda)
+            return false;
+        if (deduced)
+            // std::function([...](Args)->Ret{...}) should always be redundant:
+            return true;
+        auto const decl = lambda->getCallOperator();
+        std::vector<QualType> args;
+        for (unsigned i = 0; i != decl->getNumParams(); ++i)
+        {
+            args.push_back(decl->getParamDecl(i)->getType());
+        }
+        auto const source
+            = compiler.getASTContext().getFunctionType(decl->getReturnType(), args, {});
+        // std::function<Ret1(Args1)>([...](Args2)->Ret2{...}) is redundant if target Ret1(Args1)
+        // matches source Ret2(Args2):
+        return target.getCanonicalType() == source.getCanonicalType();
     }
 
     bool VisitCXXFunctionalCastExpr(CXXFunctionalCastExpr const* expr)
@@ -174,7 +260,8 @@ public:
             return true;
         auto const t1 = expr->getTypeAsWritten();
         auto const t2 = compat::getSubExprAsWritten(expr)->getType();
-        if (t1.getCanonicalType().getTypePtr() != t2.getCanonicalType().getTypePtr())
+        if (!(t1.getCanonicalType().getTypePtr() == t2.getCanonicalType().getTypePtr()
+              || isRedundantStdFunctionCast(expr)))
         {
             return true;
         }
@@ -199,32 +286,42 @@ public:
         if (tc.Typedef("sal_Int32").GlobalNamespace())
             return true;
 
-        report(DiagnosticsEngine::Warning, "redundant functional cast from %0 to %1",
-               expr->getExprLoc())
-            << t2 << t1 << expr->getSourceRange();
+        if (m_Seen.insert(expr->getExprLoc()).second)
+            report(DiagnosticsEngine::Warning, "redundant functional cast from %0 to %1",
+                   expr->getExprLoc())
+                << t2 << t1 << expr->getSourceRange();
         //getParentStmt(expr)->dump();
         return true;
     }
 
-private:
-    void run() override
+    bool preRun() override
     {
         if (!compiler.getLangOpts().CPlusPlus)
-            return;
+            return false;
         std::string fn = handler.getMainFileName();
         loplugin::normalizeDotDotInFilePath(fn);
         // necessary on some other platforms
         if (fn == SRCDIR "/sal/osl/unx/socket.cxx")
-            return;
+            return false;
         // compile-time check of constant
         if (fn == SRCDIR "/bridges/source/jni_uno/jni_bridge.cxx")
-            return;
-        TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
+            return false;
+        return true;
     }
-    FunctionDecl const* m_CurrentFunctionDecl;
+
+    void run() override
+    {
+        if (preRun())
+            TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
+    }
+
+    std::unordered_set<SourceLocation> m_Seen;
 };
 
-static loplugin::Plugin::Registration<RedundantFCast> reg("redundantfcast");
-}
+static loplugin::Plugin::Registration<RedundantFCast> redundantfcast("redundantfcast");
+
+} // namespace
+
+#endif // LO_CLANG_SHARED_PLUGINS
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab cinoptions=b1,g0,N-s cinkeys+=0=break: */

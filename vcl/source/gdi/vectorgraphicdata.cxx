@@ -22,7 +22,6 @@
 #include <sal/log.hxx>
 #include <vcl/vectorgraphicdata.hxx>
 #include <comphelper/processfactory.hxx>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/graphic/SvgTools.hpp>
 #include <com/sun/star/graphic/EmfTools.hpp>
 #include <com/sun/star/graphic/Primitive2DTools.hpp>
@@ -209,7 +208,7 @@ void VectorGraphicData::ensureSequenceAndRange()
     }
 }
 
-auto VectorGraphicData::getSizeBytes() -> std::pair<State, size_t>
+auto VectorGraphicData::getSizeBytes() const -> std::pair<State, size_t>
 {
     if (maSequence.empty() && maVectorGraphicDataArray.hasElements())
     {
@@ -291,8 +290,7 @@ const BitmapEx& VectorGraphicData::getReplacement() const
 
 BitmapChecksum VectorGraphicData::GetChecksum() const
 {
-    BitmapChecksum nRet = 0;
-    return vcl_get_checksum(nRet, maVectorGraphicDataArray.getConstArray(), maVectorGraphicDataArray.getLength());
+    return vcl_get_checksum(0, maVectorGraphicDataArray.getConstArray(), maVectorGraphicDataArray.getLength());
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

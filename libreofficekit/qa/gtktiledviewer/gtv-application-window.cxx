@@ -43,7 +43,18 @@ struct GtvApplicationWindowPrivate
     GtvRenderingArgs* m_pRenderingArgs;
 };
 
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#endif
+#endif
 G_DEFINE_TYPE_WITH_PRIVATE(GtvApplicationWindow, gtv_application_window, GTK_TYPE_APPLICATION_WINDOW);
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic pop
+#endif
+#endif
 
 static GtvApplicationWindowPrivate*
 getPrivate(GtvApplicationWindow* win)
@@ -278,7 +289,7 @@ GtkToolItem* gtv_application_window_find_tool_by_unocommand(GtvApplicationWindow
     return result;
 }
 
-static const std::string
+static std::string
 createRenderingArgsJSON(const GtvRenderingArgs* pRenderingArgs)
 {
     boost::property_tree::ptree aTree;

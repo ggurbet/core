@@ -19,45 +19,26 @@
 
 #include <memory>
 #include <i18nutil/unicode.hxx>
-#include <tools/urlobj.hxx>
-#include <unotools/pathoptions.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
-#include <sfx2/objsh.hxx>
-#include <sfx2/viewsh.hxx>
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/dispatch.hxx>
 #include <svtools/colrdlg.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <sfx2/filedlghelper.hxx>
-#include <svx/ofaitem.hxx>
-#include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
 #include <strings.hrc>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
-#include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
-#include <svx/drawitem.hxx>
 #include <cuitabarea.hxx>
-#include <defdlgname.hxx>
-#include <dlgname.hxx>
 #include <svx/svxdlg.hxx>
 #include <dialmgr.hxx>
 #include <cuitabline.hxx>
 #include <svx/dialmgr.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
-#include <osl/file.hxx>
-#include <svx/Palette.hxx>
-#include <cppu/unotype.hxx>
 #include <officecfg/Office/Common.hxx>
 
 using namespace com::sun::star;
 
-SvxColorTabPage::SvxColorTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/colorpage.ui", "ColorPage", &rInAttrs)
-    , mpTopDlg( GetParentDialog() )
+SvxColorTabPage::SvxColorTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/colorpage.ui", "ColorPage", &rInAttrs)
     , rOutAttrs           ( rInAttrs )
     // All the horrific pointers we store and should not
     , pnColorListState( nullptr )
@@ -98,9 +79,11 @@ SvxColorTabPage::SvxColorTabPage(TabPageParent pParent, const SfxItemSet& rInAtt
     , m_xValSetColorListWin(new weld::CustomWeld(*m_xBuilder, "colorset", *m_xValSetColorList))
     , m_xValSetRecentListWin(new weld::CustomWeld(*m_xBuilder, "recentcolorset", *m_xValSetRecentList))
 {
-    Size aSize = LogicToPixel(Size(100 , 80), MapMode(MapUnit::MapAppFont));
+    Size aSize(m_xBtnWorkOn->get_approximate_digit_width() * 25,
+               m_xBtnWorkOn->get_text_height() * 10);
     m_xValSetColorList->set_size_request(aSize.Width(), aSize.Height());
-    aSize = LogicToPixel(Size(34 , 25), MapMode(MapUnit::MapAppFont));
+    aSize = Size(m_xBtnWorkOn->get_approximate_digit_width() * 8,
+                 m_xBtnWorkOn->get_text_height() * 3);
     m_aCtlPreviewOld.set_size_request(aSize.Width(), aSize.Height());
     m_aCtlPreviewNew.set_size_request(aSize.Width(), aSize.Height());
     // this page needs ExchangeSupport
@@ -161,17 +144,10 @@ SvxColorTabPage::SvxColorTabPage(TabPageParent pParent, const SfxItemSet& rInAtt
 
 SvxColorTabPage::~SvxColorTabPage()
 {
-    disposeOnce();
-}
-
-void SvxColorTabPage::dispose()
-{
-    mpTopDlg.clear();
     m_xValSetRecentListWin.reset();
     m_xValSetRecentList.reset();
     m_xValSetColorListWin.reset();
     m_xValSetColorList.reset();
-    SfxTabPage::dispose();
 }
 
 void SvxColorTabPage::ImpColorCountChanged()
@@ -286,9 +262,9 @@ void SvxColorTabPage::Reset( const SfxItemSet* rSet )
     UpdateModified();
 }
 
-VclPtr<SfxTabPage> SvxColorTabPage::Create(TabPageParent pParent, const SfxItemSet* rOutAttrs)
+std::unique_ptr<SfxTabPage> SvxColorTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rOutAttrs)
 {
-    return VclPtr<SvxColorTabPage>::Create(pParent, *rOutAttrs);
+    return std::make_unique<SvxColorTabPage>(pPage, pController, *rOutAttrs);
 }
 
 // is called when the content of the MtrFields is changed for color values
@@ -348,7 +324,7 @@ IMPL_LINK_NOARG(SvxColorTabPage, ClickAddHdl_Impl, weld::Button&, void)
     }
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc));
+    ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
     sal_uInt16 nError = 1;
 
     while (pDlg->Execute() == RET_OK)
@@ -362,7 +338,7 @@ IMPL_LINK_NOARG(SvxColorTabPage, ClickAddHdl_Impl, weld::Button&, void)
             break;
         }
 
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
         std::unique_ptr<weld::MessageDialog> xWarnBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
         if (xWarnBox->run() != RET_OK)
             break;
@@ -402,7 +378,7 @@ IMPL_LINK_NOARG(SvxColorTabPage, ClickWorkOnHdl_Impl, weld::Button&, void)
     aColorDlg.SetColor (aCurrentColor);
     aColorDlg.SetMode( svtools::ColorPickerMode::Modify );
 
-    if (aColorDlg.Execute(GetDialogFrameWeld()) == RET_OK)
+    if (aColorDlg.Execute(GetFrameWeld()) == RET_OK)
     {
         Color aPreviewColor = aColorDlg.GetColor();
         aCurrentColor = aPreviewColor;
@@ -463,8 +439,9 @@ IMPL_LINK_NOARG(SvxColorTabPage, SelectPaletteLBHdl, weld::ComboBox&, void)
         pList->SetName(maPaletteManager.GetPaletteName());
         if(pList->Load())
         {
-            SvxAreaTabDialog* pArea = dynamic_cast< SvxAreaTabDialog* >( mpTopDlg.get() );
-            SvxLineTabDialog* pLine = dynamic_cast< SvxLineTabDialog* >( mpTopDlg.get() );
+            SfxOkDialogController* pController = GetDialogController();
+            SvxAreaTabDialog* pArea = dynamic_cast<SvxAreaTabDialog*>(pController);
+            SvxLineTabDialog* pLine = dynamic_cast<SvxLineTabDialog*>(pController);
             pColorList = pList;
             if( pArea )
                 pArea->SetNewColorList(pList);

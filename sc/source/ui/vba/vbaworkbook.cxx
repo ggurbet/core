@@ -19,10 +19,9 @@
 
 #include <vbahelper/helperdecl.hxx>
 #include <tools/urlobj.hxx>
-#include <boost/optional.hpp>
 
-#include <com/sun/star/util/XModifiable.hpp>
 #include <com/sun/star/util/XProtectable.hpp>
+#include <com/sun/star/sheet/XNamedRanges.hpp>
 #include <com/sun/star/sheet/XSpreadsheetView.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
@@ -30,7 +29,6 @@
 #include <ooo/vba/excel/XlFileFormat.hpp>
 #include <ooo/vba/excel/XApplication.hpp>
 
-#include <scextopt.hxx>
 #include "service.hxx"
 #include "vbaworksheet.hxx"
 #include "vbaworksheets.hxx"
@@ -41,9 +39,7 @@
 #include "vbapalette.hxx"
 #include <osl/file.hxx>
 #include "vbanames.hxx"
-#include <nameuno.hxx>
 #include <docoptio.hxx>
-#include <unonames.hxx>
 #include <docsh.hxx>
 
 // Much of the impl. for the equivalent UNO module is
@@ -56,11 +52,7 @@ uno::Sequence< sal_Int32 > ScVbaWorkbook::ColorData;
 
 void ScVbaWorkbook::initColorData( const uno::Sequence< sal_Int32 >& sColors )
 {
-        const sal_Int32* pSource = sColors.getConstArray();
-        sal_Int32* pDest = ColorData.getArray();
-        const sal_Int32* pEnd = pSource + sColors.getLength();
-        for ( ; pSource != pEnd; ++pSource, ++pDest )
-            *pDest = *pSource;
+    std::copy(sColors.begin(), sColors.end(), ColorData.begin());
 }
 
 void SAL_CALL
@@ -94,41 +86,38 @@ ScVbaWorkbook::Colors( const ::uno::Any& Index )
 
 bool ScVbaWorkbook::setFilterPropsFromFormat( sal_Int32 nFormat, uno::Sequence< beans::PropertyValue >& rProps )
 {
-    bool bRes = false;
-    for ( sal_Int32 index = 0; index < rProps.getLength(); ++index )
+    auto pProp = std::find_if(rProps.begin(), rProps.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "FilterName"; });
+    bool bRes = pProp != rProps.end();
+    if (bRes)
     {
-        if ( rProps[ index ].Name == "FilterName" )
+        switch( nFormat )
         {
-            switch( nFormat )
-            {
-                case excel::XlFileFormat::xlCSV:
-                    rProps[ index ].Value <<= OUString(SC_TEXT_CSV_FILTER_NAME);
-                    break;
-                case excel::XlFileFormat::xlDBF4:
-                    rProps[ index ].Value <<= OUString("DBF");
-                    break;
-                case excel::XlFileFormat::xlDIF:
-                    rProps[ index ].Value <<= OUString("DIF");
-                    break;
-                case excel::XlFileFormat::xlWK3:
-                    rProps[ index ].Value <<= OUString("Lotus");
-                    break;
-                case excel::XlFileFormat::xlExcel4Workbook:
-                    rProps[ index ].Value <<= OUString("MS Excel 4.0");
-                    break;
-                case excel::XlFileFormat::xlExcel5:
-                    rProps[ index ].Value <<= OUString("MS Excel 5.0/95");
-                    break;
-                case excel::XlFileFormat::xlHtml:
-                    rProps[ index ].Value <<= OUString("HTML (StarCalc)");
-                    break;
-                case excel::XlFileFormat::xlExcel9795:
-                default:
-                    rProps[ index ].Value <<= OUString("MS Excel 97");
-                    break;
-            }
-            bRes = true;
-            break;
+            case excel::XlFileFormat::xlCSV:
+                pProp->Value <<= OUString(SC_TEXT_CSV_FILTER_NAME);
+                break;
+            case excel::XlFileFormat::xlDBF4:
+                pProp->Value <<= OUString("DBF");
+                break;
+            case excel::XlFileFormat::xlDIF:
+                pProp->Value <<= OUString("DIF");
+                break;
+            case excel::XlFileFormat::xlWK3:
+                pProp->Value <<= OUString("Lotus");
+                break;
+            case excel::XlFileFormat::xlExcel4Workbook:
+                pProp->Value <<= OUString("MS Excel 4.0");
+                break;
+            case excel::XlFileFormat::xlExcel5:
+                pProp->Value <<= OUString("MS Excel 5.0/95");
+                break;
+            case excel::XlFileFormat::xlHtml:
+                pProp->Value <<= OUString("HTML (StarCalc)");
+                break;
+            case excel::XlFileFormat::xlExcel9795:
+            default:
+                pProp->Value <<= OUString("MS Excel 97");
+                break;
         }
     }
     return bRes;
@@ -200,7 +189,7 @@ ScVbaWorkbook::init()
 {
     if ( !ColorData.hasElements() )
         ResetColors();
-    uno::Reference< frame::XModel > xModel( getModel(), uno::UNO_QUERY );
+    uno::Reference< frame::XModel > xModel = getModel();
     if ( xModel.is() )
         excel::getDocShell( xModel )->RegisterAutomationWorkbookObject( this );
 }
@@ -298,7 +287,7 @@ OUString SAL_CALL ScVbaWorkbook::getAuthor()
 {
     uno::Reference<document::XDocumentPropertiesSupplier> xDPS( getModel(), uno::UNO_QUERY );
     if (!xDPS.is())
-        return OUString("?");
+        return "?";
     uno::Reference<document::XDocumentProperties> xDocProps = xDPS->getDocumentProperties();
     return xDocProps->getAuthor();
 }
@@ -398,7 +387,7 @@ ScVbaWorkbook::Names( const uno::Any& aIndex )
 OUString
 ScVbaWorkbook::getServiceImplName()
 {
-    return OUString("ScVbaWorkbook");
+    return "ScVbaWorkbook";
 }
 
 uno::Sequence< OUString >
@@ -421,8 +410,7 @@ ScVbaWorkbook::getCodeName()
 sal_Int64
 ScVbaWorkbook::getSomething(const uno::Sequence<sal_Int8 >& rId )
 {
-    if (rId.getLength() == 16 &&
-        0 == memcmp( ScVbaWorksheet::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ))
+    if (isUnoTunnelId<ScVbaWorksheet>(rId))
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }

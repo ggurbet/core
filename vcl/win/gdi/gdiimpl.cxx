@@ -33,7 +33,9 @@
 #include <win/salgdi.h>
 #include <win/salbmp.h>
 #include <win/scoped_gdi.hxx>
-#include <vcl/salbtype.hxx>
+#include <vcl/BitmapAccessMode.hxx>
+#include <vcl/BitmapBuffer.hxx>
+#include <vcl/BitmapPalette.hxx>
 #include <win/salframe.h>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/utils/systemdependentdata.hxx>
@@ -1135,7 +1137,7 @@ bool WinSalGraphicsImpl::setClipRegion( const vcl::Region& i_rClip )
 
             if(nTargetCount)
             {
-                mrParent.mhRegion = CreatePolyPolygonRgn( &aPolyPoints[0], &aPolyCounts[0], nTargetCount, ALTERNATE );
+                mrParent.mhRegion = CreatePolyPolygonRgn( aPolyPoints.data(), aPolyCounts.data(), nTargetCount, ALTERNATE );
             }
         }
     }
@@ -2286,7 +2288,8 @@ bool WinSalGraphicsImpl::drawPolyLine(
     if(pSystemDependentData_GraphicsPath)
     {
         // check data validity
-        if(pSystemDependentData_GraphicsPath->getNoLineJoin() != bNoLineJoin)
+        if (pSystemDependentData_GraphicsPath->getNoLineJoin() != bNoLineJoin
+            || bPixelSnapHairline /*tdf#124700*/)
         {
             // data invalid, forget
             pSystemDependentData_GraphicsPath.reset();
@@ -2317,10 +2320,13 @@ bool WinSalGraphicsImpl::drawPolyLine(
         }
 
         // add to buffering mechanism
-        rPolygon.addOrReplaceSystemDependentData<SystemDependentData_GraphicsPath>(
-            ImplGetSystemDependentDataManager(),
-            pGraphicsPath,
-            bNoLineJoin);
+        if (!bPixelSnapHairline /*tdf#124700*/)
+        {
+            rPolygon.addOrReplaceSystemDependentData<SystemDependentData_GraphicsPath>(
+                ImplGetSystemDependentDataManager(),
+                pGraphicsPath,
+                bNoLineJoin);
+        }
     }
 
     if(mrParent.getAntiAliasB2DDraw())

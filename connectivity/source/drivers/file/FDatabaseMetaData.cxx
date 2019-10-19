@@ -32,6 +32,7 @@
 #include <file/FDriver.hxx>
 #include <file/FTable.hxx>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <tools/diagnose_ex.h>
 #include <ucbhelper/content.hxx>
 
@@ -126,7 +127,7 @@ namespace
             if ( bCanAccess )
             {
                 // here we have two contents whose URLs differ by case only.
-                // Now let's check if both really refer to the same object ....
+                // Now let's check if both really refer to the same object...
                 Reference< XContent > xContent1 = aContent1.get();
                 Reference< XContent > xContent2 = aContent2.get();
                 OSL_ENSURE( xContent1.is() && xContent2.is(), "isCaseSensitiveParentFolder: invalid content interfaces!" );
@@ -140,7 +141,7 @@ namespace
                                   comphelper::getProcessComponentContext() )->
                               compareContentIds( xID1, xID2 ) == 0 ) )
                     {
-                        // finally, we know that the folder is not case-sensitive ....
+                        // finally, we know that the folder is not case-sensitive...
                         nIsCS = 0;
                     }
                 }
@@ -148,8 +149,7 @@ namespace
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "connectivity.drivers", "isCaseSensitiveParentFolder: caught an unexpected exception! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "connectivity.drivers", "isCaseSensitiveParentFolder" );
         }
 
         return nIsCS;
@@ -402,30 +402,26 @@ Reference< XResultSet > SAL_CALL ODatabaseMetaData::getTablePrivileges(
                     xNames->getByName(*pBegin), css::uno::UNO_QUERY);
                 if(xTable.is())
                 {
-                    Reference<XUnoTunnel> xTunnel(xTable,UNO_QUERY);
-                    if(xTunnel.is())
+                    auto pTable = comphelper::getUnoTunnelImplementation<OFileTable>(xTable);
+                    if(pTable && !pTable->isReadOnly())
                     {
-                        OFileTable* pTable = reinterpret_cast< OFileTable* >( xTunnel->getSomething(OFileTable::getUnoTunnelImplementationId()) );
-                        if(pTable && !pTable->isReadOnly())
+                        aRow[6] = ODatabaseMetaDataResultSet::getInsertValue();
+                        aRows.push_back(aRow);
+                        if(!m_pConnection->showDeleted())
                         {
-                            aRow[6] = ODatabaseMetaDataResultSet::getInsertValue();
-                            aRows.push_back(aRow);
-                            if(!m_pConnection->showDeleted())
-                            {
-                                aRow[6] = ODatabaseMetaDataResultSet::getDeleteValue();
-                                aRows.push_back(aRow);
-                            }
-                            aRow[6] = ODatabaseMetaDataResultSet::getUpdateValue();
-                            aRows.push_back(aRow);
-                            aRow[6] = ODatabaseMetaDataResultSet::getCreateValue();
-                            aRows.push_back(aRow);
-                            aRow[6] = ODatabaseMetaDataResultSet::getReadValue();
-                            aRows.push_back(aRow);
-                            aRow[6] = ODatabaseMetaDataResultSet::getAlterValue();
-                            aRows.push_back(aRow);
-                            aRow[6] = ODatabaseMetaDataResultSet::getDropValue();
+                            aRow[6] = ODatabaseMetaDataResultSet::getDeleteValue();
                             aRows.push_back(aRow);
                         }
+                        aRow[6] = ODatabaseMetaDataResultSet::getUpdateValue();
+                        aRows.push_back(aRow);
+                        aRow[6] = ODatabaseMetaDataResultSet::getCreateValue();
+                        aRows.push_back(aRow);
+                        aRow[6] = ODatabaseMetaDataResultSet::getReadValue();
+                        aRows.push_back(aRow);
+                        aRow[6] = ODatabaseMetaDataResultSet::getAlterValue();
+                        aRows.push_back(aRow);
+                        aRow[6] = ODatabaseMetaDataResultSet::getDropValue();
+                        aRows.push_back(aRow);
                     }
                 }
             }
@@ -498,7 +494,7 @@ OUString SAL_CALL ODatabaseMetaData::getCatalogTerm(  )
 
 OUString ODatabaseMetaData::impl_getIdentifierQuoteString_throw(  )
 {
-    return OUString("\"");
+    return "\"";
 }
 
 OUString SAL_CALL ODatabaseMetaData::getExtraNameCharacters(  )
@@ -851,7 +847,7 @@ sal_Bool SAL_CALL ODatabaseMetaData::supportsANSI92IntermediateSQL(  )
 
 OUString SAL_CALL ODatabaseMetaData::getURL(  )
 {
-    return OUString(  "sdbc:file:" );
+    return "sdbc:file:";
 }
 
 OUString SAL_CALL ODatabaseMetaData::getUserName(  )
@@ -916,12 +912,12 @@ OUString SAL_CALL ODatabaseMetaData::getSearchStringEscape(  )
 
 OUString SAL_CALL ODatabaseMetaData::getStringFunctions(  )
 {
-    return OUString("UCASE,LCASE,ASCII,LENGTH,OCTET_LENGTH,CHAR_LENGTH,CHARACTER_LENGTH,CHAR,CONCAT,LOCATE,SUBSTRING,LTRIM,RTRIM,SPACE,REPLACE,REPEAT,INSERT,LEFT,RIGHT");
+    return "UCASE,LCASE,ASCII,LENGTH,OCTET_LENGTH,CHAR_LENGTH,CHARACTER_LENGTH,CHAR,CONCAT,LOCATE,SUBSTRING,LTRIM,RTRIM,SPACE,REPLACE,REPEAT,INSERT,LEFT,RIGHT";
 }
 
 OUString SAL_CALL ODatabaseMetaData::getTimeDateFunctions(  )
 {
-    return OUString("DAYOFWEEK,DAYOFMONTH,DAYOFYEAR,MONTH,DAYNAME,MONTHNAME,QUARTER,WEEK,YEAR,HOUR,MINUTE,SECOND,CURDATE,CURTIME,NOW");
+    return "DAYOFWEEK,DAYOFMONTH,DAYOFYEAR,MONTH,DAYNAME,MONTHNAME,QUARTER,WEEK,YEAR,HOUR,MINUTE,SECOND,CURDATE,CURTIME,NOW";
 }
 
 OUString SAL_CALL ODatabaseMetaData::getSystemFunctions(  )
@@ -931,7 +927,7 @@ OUString SAL_CALL ODatabaseMetaData::getSystemFunctions(  )
 
 OUString SAL_CALL ODatabaseMetaData::getNumericFunctions(  )
 {
-    return OUString("ABS,SIGN,MOD,FLOOR,CEILING,ROUND,EXP,LN,LOG,LOG10,POWER,SQRT,PI,COS,SIN,TAN,ACOS,ASIN,ATAN,ATAN2,DEGREES,RADIANS");
+    return "ABS,SIGN,MOD,FLOOR,CEILING,ROUND,EXP,LN,LOG,LOG10,POWER,SQRT,PI,COS,SIN,TAN,ACOS,ASIN,ATAN,ATAN2,DEGREES,RADIANS";
 }
 
 sal_Bool SAL_CALL ODatabaseMetaData::supportsExtendedSQLGrammar(  )

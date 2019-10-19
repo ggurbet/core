@@ -70,7 +70,6 @@
 #include <unocrsrhelper.hxx>
 #include <unotextrange.hxx>
 #include <sfx2/docfile.hxx>
-#include <calbck.hxx>
 #include <swdtflvr.hxx>
 #include <vcl/svapp.hxx>
 #include <comphelper/processfactory.hxx>
@@ -416,8 +415,7 @@ uno::Any SwXTextView::getSelection()
                 for(size_t i = 0; i < rMarkList.GetMarkCount(); ++i)
                 {
                     SdrObject* pObj = rMarkList.GetMark(i)->GetMarkedSdrObj();
-                    uno::Reference< uno::XInterface >  xInt = SwFmDrawPage::GetInterface( pObj );
-                    uno::Reference< drawing::XShape >  xShape(xInt, uno::UNO_QUERY);
+                    uno::Reference<drawing::XShape> xShape = SwFmDrawPage::GetShape( pObj );
                     xShCol->add(xShape);
                 }
                 aRef.set(xShCol, uno::UNO_QUERY);
@@ -661,7 +659,7 @@ SfxObjectShellLock SwXTextView::BuildTmpSelectionDoc()
     rOldSh.FillPrtDoc(pTempDoc,  pPrt);
     SfxViewFrame* pDocFrame = SfxViewFrame::LoadHiddenDocument( *xDocSh, SFX_INTERFACE_NONE );
     SwView* pDocView = static_cast<SwView*>( pDocFrame->GetViewShell() );
-    pDocView->AttrChangedNotify( &pDocView->GetWrtShell() );//So that SelectShell is called.
+    pDocView->AttrChangedNotify(nullptr);//So that SelectShell is called.
     SwWrtShell* pSh = pDocView->GetWrtShellPtr();
 
     IDocumentDeviceAccess& rIDDA = pSh->getIDocumentDeviceAccess();
@@ -732,7 +730,7 @@ void SAL_CALL SwXTextView::setPropertyValue(
     SolarMutexGuard aGuard;
     const SfxItemPropertySimpleEntry* pEntry = m_pPropSet->getPropertyMap().getByName( rPropertyName );
     if (!pEntry)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     else if (pEntry->nFlags & PropertyAttribute::READONLY)
         throw PropertyVetoException();
     else
@@ -769,7 +767,7 @@ uno::Any SAL_CALL SwXTextView::getPropertyValue(
 
     const SfxItemPropertySimpleEntry* pEntry = m_pPropSet->getPropertyMap().getByName( rPropertyName );
     if (!pEntry)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
 
     sal_Int16 nWID = pEntry->nWID;
     switch (nWID)
@@ -837,7 +835,7 @@ void SAL_CALL SwXTextView::removeVetoableChangeListener(
 
 OUString SwXTextView::getImplementationName()
 {
-    return OUString("SwXTextView");
+    return "SwXTextView";
 }
 
 sal_Bool SwXTextView::supportsService(const OUString& rServiceName)
@@ -847,11 +845,7 @@ sal_Bool SwXTextView::supportsService(const OUString& rServiceName)
 
 Sequence< OUString > SwXTextView::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.text.TextDocumentView";
-    pArray[1] = "com.sun.star.view.OfficeDocumentView";
-    return aRet;
+    return { "com.sun.star.text.TextDocumentView", "com.sun.star.view.OfficeDocumentView" };
 }
 
 SwXTextViewCursor::SwXTextViewCursor(SwView* pVw) :
@@ -1651,7 +1645,7 @@ void SwXTextViewCursor::gotoStartOfLine(sal_Bool bExpand)
 
 OUString SwXTextViewCursor::getImplementationName()
 {
-    return OUString("SwXTextViewCursor");
+    return "SwXTextViewCursor";
 }
 
 sal_Bool SwXTextViewCursor::supportsService(const OUString& rServiceName)
@@ -1661,16 +1655,13 @@ sal_Bool SwXTextViewCursor::supportsService(const OUString& rServiceName)
 
 Sequence< OUString > SwXTextViewCursor::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet(7);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.text.TextViewCursor";
-    pArray[1] = "com.sun.star.style.CharacterProperties";
-    pArray[2] = "com.sun.star.style.CharacterPropertiesAsian";
-    pArray[3] = "com.sun.star.style.CharacterPropertiesComplex";
-    pArray[4] = "com.sun.star.style.ParagraphProperties";
-    pArray[5] = "com.sun.star.style.ParagraphPropertiesAsian";
-    pArray[6] = "com.sun.star.style.ParagraphPropertiesComplex";
-    return aRet;
+    return { "com.sun.star.text.TextViewCursor",
+             "com.sun.star.style.CharacterProperties",
+             "com.sun.star.style.CharacterPropertiesAsian",
+             "com.sun.star.style.CharacterPropertiesComplex",
+             "com.sun.star.style.ParagraphProperties",
+             "com.sun.star.style.ParagraphPropertiesAsian",
+             "com.sun.star.style.ParagraphPropertiesComplex" };
 }
 
 namespace
@@ -1687,12 +1678,10 @@ const uno::Sequence< sal_Int8 > & SwXTextViewCursor::getUnoTunnelId()
 sal_Int64 SAL_CALL SwXTextViewCursor::getSomething(
     const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
-        {
-                return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
-        }
+    if( isUnoTunnelId<SwXTextViewCursor>(rId) )
+    {
+        return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
+    }
     return OTextCursorHelper::getSomething(rId);
 }
 
@@ -1766,7 +1755,7 @@ void SAL_CALL SwXTextView::insertTransferable( const uno::Reference< datatransfe
             SwTransferable::Paste( rSh, aDataHelper );
             if( rSh.IsFrameSelected() || rSh.IsObjSelected() )
                 rSh.EnterSelFrameMode();
-            GetView()->AttrChangedNotify( &rSh );
+            GetView()->AttrChangedNotify(nullptr);
         }
     }
 }

@@ -45,7 +45,7 @@ public:
 StringRef ConstantFunction::getFilename(const FunctionDecl* functionDecl)
 {
     SourceLocation spellingLocation = compiler.getSourceManager().getSpellingLoc(functionDecl->getCanonicalDecl()->getNameInfo().getLoc());
-    StringRef name { compiler.getSourceManager().getFilename(spellingLocation) };
+    StringRef name { getFilenameOfLocation(spellingLocation) };
     return name;
 }
 
@@ -84,7 +84,7 @@ bool ConstantFunction::VisitFunctionDecl(const FunctionDecl * pFunctionDecl) {
     if (aFileName.startswith(SRCDIR "/basegfx/test/")) {
         return true;
     }
-    // bridges has some weird stuff in it....
+    // bridges has some weird stuff in it...
     if (aFileName.startswith(SRCDIR "/bridges/")) {
         return true;
     }

@@ -17,7 +17,6 @@ class titlePage(UITestCase):
         writer_doc = self.ui_test.create_doc_in_start_center("writer")
         document = self.ui_test.get_component()
         xWriterDoc = self.xUITest.getTopFocusWindow()
-        xWriterEdit = xWriterDoc.getChild("writer_edit")
         #dialog Title Page
         self.ui_test.execute_dialog_through_command(".uno:TitlePageDialog")
         xDialog = self.xUITest.getTopFocusWindow()
@@ -30,6 +29,13 @@ class titlePage(UITestCase):
         xpageCount.executeAction("UP", tuple())
         xOKBtn = xDialog.getChild("ok")
         self.ui_test.close_dialog_through_button(xOKBtn)
+        self.assertEqual(document.CurrentController.PageCount, 3)
+
+        # check cancel button
+        self.ui_test.execute_dialog_through_command(".uno:TitlePageDialog")
+        xDialog = self.xUITest.getTopFocusWindow()
+        xCancelBtn = xDialog.getChild("cancel")
+        self.ui_test.close_dialog_through_button(xCancelBtn)
         self.assertEqual(document.CurrentController.PageCount, 3)
 
         self.ui_test.close_doc()

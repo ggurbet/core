@@ -23,19 +23,16 @@
 #include <algorithm>
 
 #include "wmfwr.hxx"
-#include <unotools/fontcvt.hxx>
 #include "emfwr.hxx"
 #include <rtl/crc.h>
-#include <rtl/strbuf.hxx>
 #include <rtl/tencinfo.h>
 #include <tools/bigint.hxx>
 #include <tools/helpers.hxx>
 #include <tools/tenccvt.hxx>
 #include <tools/fract.hxx>
 #include <tools/stream.hxx>
-#include <osl/endian.h>
 #include <vcl/dibtools.hxx>
-#include <vcl/metric.hxx>
+#include <vcl/metaact.hxx>
 #include <vcl/FilterConfigItem.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
@@ -1653,7 +1650,7 @@ void WMFWriter::WriteHeader( bool bPlaceable )
          .WriteUInt16( 0x0009 )           // header length in words
          .WriteUInt16( 0x0300 )           // Version as BCD number
          .WriteUInt32( 0x00000000 )      // file length (without 1st header), is later corrected by UpdateHeader()
-         .WriteUInt16( MAXOBJECTHANDLES ) // maxmimum number of simultaneous objects
+         .WriteUInt16( MAXOBJECTHANDLES ) // maximum number of simultaneous objects
          .WriteUInt32( 0x00000000 )      // maximum record length, is later corrected by UpdateHeader()
          .WriteUInt16( 0x0000 );          // reserved
 }

@@ -398,7 +398,7 @@ uno::Reference< drawing::XShape > SAL_CALL
 ShapeContextHandler::getShape()
 {
     uno::Reference< drawing::XShape > xResult;
-    uno::Reference< drawing::XShapes > xShapes( mxDrawPage, uno::UNO_QUERY );
+    uno::Reference< drawing::XShapes > xShapes = mxDrawPage;
 
     if (mxFilterBase.is() && xShapes.is())
     {
@@ -596,7 +596,7 @@ void SAL_CALL ShapeContextHandler::setMediaDescriptor(const uno::Sequence<beans:
 
 OUString ShapeContextHandler::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.oox.ShapeContextHandler" );
+    return "com.sun.star.comp.oox.ShapeContextHandler";
 }
 
 uno::Sequence< OUString > ShapeContextHandler::getSupportedServiceNames()

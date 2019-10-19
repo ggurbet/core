@@ -69,7 +69,7 @@ public:
     bool Read(SvStream& rStream) override;
 };
 
-/// End of a object: 'endobj' keyword.
+/// End of an object: 'endobj' keyword.
 class PDFEndObjectElement : public PDFElement
 {
 public:
@@ -836,10 +836,8 @@ bool PDFDocument::Sign(const uno::Reference<security::XCertificate>& xCertificat
         = nFileEnd - (nSignatureContentOffset + MAX_SIGNATURE_CONTENT_LENGTH + 1);
     // Write the length to the buffer.
     m_aEditBuffer.Seek(nSignatureLastByteRangeOffset);
-    OStringBuffer aByteRangeBuffer;
-    aByteRangeBuffer.append(nLastByteRangeLength);
-    aByteRangeBuffer.append(" ]");
-    m_aEditBuffer.WriteOString(aByteRangeBuffer.toString());
+    OString aByteRangeBuffer = OString::number(nLastByteRangeLength) + " ]";
+    m_aEditBuffer.WriteOString(aByteRangeBuffer);
 
     // Create the PKCS#7 object.
     css::uno::Sequence<sal_Int8> aDerEncoded = xCertificate->getEncoded();
@@ -1812,7 +1810,10 @@ size_t PDFDocument::GetObjectOffset(size_t nIndex) const
     return it->second.GetOffset();
 }
 
-const std::vector<std::unique_ptr<PDFElement>>& PDFDocument::GetElements() { return m_aElements; }
+const std::vector<std::unique_ptr<PDFElement>>& PDFDocument::GetElements() const
+{
+    return m_aElements;
+}
 
 /// Visits the page tree recursively, looking for page objects.
 static void visitPages(PDFObjectElement* pPages, std::vector<PDFObjectElement*>& rRet)
@@ -2470,7 +2471,7 @@ sal_uInt64 PDFObjectElement::GetDictionaryOffset()
 
 void PDFObjectElement::SetArrayOffset(sal_uInt64 nArrayOffset) { m_nArrayOffset = nArrayOffset; }
 
-sal_uInt64 PDFObjectElement::GetArrayOffset() { return m_nArrayOffset; }
+sal_uInt64 PDFObjectElement::GetArrayOffset() const { return m_nArrayOffset; }
 
 void PDFDictionaryElement::SetKeyOffset(const OString& rKey, sal_uInt64 nOffset)
 {
@@ -2517,7 +2518,7 @@ sal_uInt64 PDFObjectElement::GetDictionaryLength()
 
 void PDFObjectElement::SetArrayLength(sal_uInt64 nArrayLength) { m_nArrayLength = nArrayLength; }
 
-sal_uInt64 PDFObjectElement::GetArrayLength() { return m_nArrayLength; }
+sal_uInt64 PDFObjectElement::GetArrayLength() const { return m_nArrayLength; }
 
 PDFDictionaryElement* PDFObjectElement::GetDictionary()
 {
@@ -2978,7 +2979,7 @@ void PDFArrayElement::PushBack(PDFElement* pElement)
     m_aElements.push_back(pElement);
 }
 
-const std::vector<PDFElement*>& PDFArrayElement::GetElements() { return m_aElements; }
+const std::vector<PDFElement*>& PDFArrayElement::GetElements() const { return m_aElements; }
 
 PDFEndArrayElement::PDFEndArrayElement() = default;
 

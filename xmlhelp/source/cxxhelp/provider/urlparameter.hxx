@@ -22,7 +22,6 @@
 
 #include <rtl/ustring.hxx>
 #include <rtl/string.hxx>
-#include <com/sun/star/ucb/IllegalIdentifierException.hpp>
 #include <com/sun/star/io/XActiveDataSink.hpp>
 #include <com/sun/star/io/XOutputStream.hpp>
 
@@ -41,7 +40,7 @@ namespace chelp {
         {
         }
 
-        OUString getHash()
+        OUString getHash() const
         {
             if( m_ptr )
             {
@@ -55,7 +54,7 @@ namespace chelp {
         }
 
 
-        OUString getFile()
+        OUString getFile() const
         {
             if( ! m_ptr )
                 return OUString();
@@ -70,7 +69,7 @@ namespace chelp {
         }
 
 
-        OUString getDatabase()
+        OUString getDatabase() const
         {
             if( ! m_ptr )
                 return OUString();
@@ -80,7 +79,7 @@ namespace chelp {
         }
 
 
-        OUString getTitle()
+        OUString getTitle() const
         {
             if( ! m_ptr )
                 return OUString();
@@ -122,7 +121,7 @@ namespace chelp {
 
         OUString get_tag();
 
-        //  Not called for an directory
+        //  Not called for a directory
 
         OUString const & get_path();
 

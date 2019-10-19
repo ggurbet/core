@@ -182,7 +182,6 @@ struct ImplStyleData
     //primary means scroll by single page. Secondary button takes the alternative behaviour
     bool                            mbPrimaryButtonWarpsSlider;
     DialogStyle                     maDialogStyle;
-    FrameStyle                      maFrameStyle;
 
     sal_uInt16                      mnEdgeBlending;
     Color                           maEdgeBlendingTopLeftColor;
@@ -575,7 +574,6 @@ ImplStyleData::ImplStyleData( const ImplStyleData& rData ) :
     meContextMenuShortcuts(rData.meContextMenuShortcuts),
     mbPrimaryButtonWarpsSlider(rData.mbPrimaryButtonWarpsSlider),
     maDialogStyle( rData.maDialogStyle ),
-    maFrameStyle( rData.maFrameStyle ),
     mnEdgeBlending(rData.mnEdgeBlending),
     maEdgeBlendingTopLeftColor(rData.maEdgeBlendingTopLeftColor),
     maEdgeBlendingBottomRightColor(rData.maEdgeBlendingBottomRightColor),
@@ -1877,26 +1875,6 @@ StyleSettings::GetDialogStyle() const
 }
 
 void
-StyleSettings::SetDialogStyle( const DialogStyle& rStyle )
-{
-    CopyData();
-    mxData->maDialogStyle = rStyle;
-}
-
-const FrameStyle&
-StyleSettings::GetFrameStyle() const
-{
-    return mxData->maFrameStyle;
-}
-
-void
-StyleSettings::SetFrameStyle( const FrameStyle& rStyle )
-{
-    CopyData();
-    mxData->maFrameStyle = rStyle;
-}
-
-void
 StyleSettings::SetEdgeBlending(sal_uInt16 nCount)
 {
     CopyData();
@@ -2130,8 +2108,7 @@ static void setupPersonaHeaderFooter( WhichPersona eWhich, OUString& rHeaderFoot
         }
         else if ( aPersona == "default" )
         {
-            gallery = "$BRAND_BASE_DIR/" LIBO_SHARE_FOLDER;
-            gallery += "/gallery/personas/";
+            gallery = "$BRAND_BASE_DIR/" LIBO_SHARE_FOLDER "/gallery/personas/";
         }
         rHeaderFooterBitmap = readBitmapEx( gallery + aName );
 

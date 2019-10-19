@@ -341,19 +341,19 @@ interface BaseText
         ExecMethod = Execute ;
         StateMethod = GetState;
     ]
-    FN_EDIT_HYPERLINK
+    SID_EDIT_HYPERLINK
     [
         ExecMethod = Execute ;
         StateMethod = GetState;
         DisableFlags="SfxDisableFlags::SwOnProtectedCursor";
     ]
-    FN_REMOVE_HYPERLINK
+    SID_REMOVE_HYPERLINK
     [
         ExecMethod = Execute ;
         StateMethod = GetState;
         DisableFlags="SfxDisableFlags::SwOnProtectedCursor";
     ]
-    FN_COPY_HYPERLINK_LOCATION
+    SID_COPY_HYPERLINK_LOCATION
     [
         ExecMethod = Execute ;
         StateMethod = GetState;
@@ -953,6 +953,11 @@ interface BaseText
         StateMethod = StateField;
     ]
     FN_DELETE_COMMENT
+    [
+        ExecMethod = ExecField ;
+        StateMethod = StateField;
+    ]
+    FN_RESOLVE_NOTE
     [
         ExecMethod = ExecField ;
         StateMethod = StateField;
@@ -1700,6 +1705,12 @@ interface BaseText
     ]
 
     FN_INSERT_DROPDOWN_FORMFIELD
+    [
+        ExecMethod = ExecField ;
+        StateMethod = StateField ;
+    ]
+
+    FN_INSERT_DATE_FORMFIELD
     [
         ExecMethod = ExecField ;
         StateMethod = StateField ;

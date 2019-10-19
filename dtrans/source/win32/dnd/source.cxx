@@ -68,7 +68,7 @@ DragSource::~DragSource()
      ????
           Do we really need a separate thread for
           every Dnd operation or only if the source
-          thread is a MTA thread
+          thread is an MTA thread
      ????
 */
 void DragSource::StartDragImpl(
@@ -278,7 +278,7 @@ dwEffect
 // XServiceInfo
 OUString SAL_CALL DragSource::getImplementationName(  )
 {
-    return OUString(DNDSOURCE_IMPL_NAME);
+    return DNDSOURCE_IMPL_NAME;
 }
 // XServiceInfo
 sal_Bool SAL_CALL DragSource::supportsService( const OUString& ServiceName )

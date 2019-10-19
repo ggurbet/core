@@ -13,14 +13,12 @@
 #include <vcl/decoview.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/layout.hxx>
-#include <vcl/msgbox.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <messagedialog.hxx>
 #include <window.h>
 #include <boost/multi_array.hpp>
-#include <officecfg/Office/Common.hxx>
-#include <vcl/abstdlg.hxx>
 #include <vcl/vclmedit.hxx>
 #include <sal/log.hxx>
 
@@ -183,159 +181,17 @@ void VclContainer::queue_resize(StateChangedType eReason)
     Window::queue_resize(eReason);
 }
 
-
-static Button* isVisibleButtonWithText(vcl::Window* pCandidate)
-{
-    if (!pCandidate)
-        return nullptr;
-
-    if (!pCandidate->IsVisible())
-        return nullptr;
-
-    if (pCandidate->GetText().isEmpty())
-        return nullptr;
-
-    return dynamic_cast<Button*>(pCandidate);
-}
-
-// evtl. support for screenshot context menu
+// support for screenshot context menu
 void VclContainer::Command(const CommandEvent& rCEvt)
 {
-    if (rCEvt.IsMouseEvent() && CommandEventId::ContextMenu == rCEvt.GetCommand())
+    if (CommandEventId::ContextMenu == rCEvt.GetCommand())
     {
-        const bool bScreenshotMode(officecfg::Office::Common::Misc::ScreenshotMode::get());
-
-        if (bScreenshotMode)
+        auto pParent = GetParent();
+        if (pParent)
         {
-            bool bVisibleChildren(false);
-            vcl::Window* pChild(nullptr);
-
-            for (pChild = GetWindow(GetWindowType::FirstChild); !bVisibleChildren && pChild; pChild = pChild->GetWindow(GetWindowType::Next))
-            {
-                Button* pCandidate = isVisibleButtonWithText(pChild);
-
-                if (nullptr == pCandidate)
-                    continue;
-
-                bVisibleChildren = true;
-            }
-
-            if (bVisibleChildren)
-            {
-                static bool bAddButtonsToMenu(true); // loplugin:constvars:ignore
-                static bool bAddScreenshotButtonToMenu(true); // loplugin:constvars:ignore
-
-                if (bAddButtonsToMenu || bAddScreenshotButtonToMenu)
-                {
-                    const Point aMenuPos(rCEvt.GetMousePosPixel());
-                    ScopedVclPtrInstance<PopupMenu> aMenu;
-                    sal_uInt16 nLocalID(1);
-                    sal_uInt16 nScreenshotButtonID(0);
-
-                    if (bAddButtonsToMenu)
-                    {
-                        for (pChild = GetWindow(GetWindowType::FirstChild); pChild; pChild = pChild->GetWindow(GetWindowType::Next))
-                        {
-                            Button* pCandidate = isVisibleButtonWithText(pChild);
-
-                            if (nullptr == pCandidate)
-                                continue;
-
-                            aMenu->InsertItem(
-                                nLocalID,
-                                pChild->GetText());
-                            aMenu->SetHelpText(
-                                nLocalID,
-                                pChild->GetHelpText());
-                            aMenu->SetHelpId(
-                                nLocalID,
-                                pChild->GetHelpId());
-                            aMenu->EnableItem(
-                                nLocalID,
-                                pChild->IsEnabled());
-                            nLocalID++;
-                        }
-                    }
-
-                    if (bAddScreenshotButtonToMenu)
-                    {
-                        if (nLocalID > 1)
-                        {
-                            aMenu->InsertSeparator();
-                        }
-
-                        aMenu->InsertItem(
-                            nLocalID,
-                            VclResId(SV_BUTTONTEXT_SCREENSHOT));
-                        aMenu->SetHelpText(
-                            nLocalID,
-                            VclResId(SV_HELPTEXT_SCREENSHOT));
-                        aMenu->SetHelpId(
-                            nLocalID,
-                            "InteractiveScreenshotMode");
-                        aMenu->EnableItem(
-                            nLocalID);
-                        nScreenshotButtonID = nLocalID;
-                    }
-
-                    const sal_uInt16 nId(aMenu->Execute(this, aMenuPos));
-
-                    // 0 == no selection (so not usable as ID)
-                    if (0 != nId)
-                    {
-                        if (bAddButtonsToMenu && nId < nLocalID)
-                        {
-                            nLocalID = 1;
-
-                            for (pChild = GetWindow(GetWindowType::FirstChild); pChild; pChild = pChild->GetWindow(GetWindowType::Next))
-                            {
-                                Button* pCandidate = isVisibleButtonWithText(pChild);
-
-                                if (nullptr == pCandidate)
-                                    continue;
-
-                                if (nLocalID++ == nId)
-                                {
-                                    // pCandidate is the selected button, trigger it
-                                    pCandidate->Click();
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (bAddScreenshotButtonToMenu && nId == nScreenshotButtonID)
-                        {
-                            // screenshot was selected, access parent dialog (needed for
-                            // screenshot and other data access)
-                            Dialog* pParentDialog = GetParentDialog();
-
-                            if (pParentDialog)
-                            {
-                                // open screenshot annotation dialog
-                                VclAbstractDialogFactory* pFact = VclAbstractDialogFactory::Create();
-                                VclPtr<AbstractScreenshotAnnotationDlg> pTmp = pFact->CreateScreenshotAnnotationDlg(
-                                    Application::GetDefDialogParent(),
-                                    *pParentDialog);
-                                ScopedVclPtr<AbstractScreenshotAnnotationDlg> pDialog(pTmp);
-
-                                if (pDialog)
-                                {
-                                    // currently just execute the dialog, no need to do
-                                    // different things for ok/cancel. This may change later,
-                                    // for that case use 'if (pDlg->Execute() == RET_OK)'
-                                    pDialog->Execute();
-                                }
-                            }
-                        }
-                    }
-
-                    // consume event when:
-                    // - CommandEventId::ContextMenu
-                    // - bScreenshotMode
-                    // - bVisibleChildren
-                    return;
-                }
-            }
+            CommandEvent aCEvt(rCEvt.GetMousePosPixel() + GetPosPixel(), rCEvt.GetCommand(), rCEvt.IsMouseEvent(), rCEvt.GetEventData());
+            pParent->Command(aCEvt);
+            return;
         }
     }
 
@@ -499,6 +355,13 @@ bool VclBox::set_property(const OString &rKey, const OUString &rValue)
     else
         return VclContainer::set_property(rKey, rValue);
     return true;
+}
+
+boost::property_tree::ptree VclBox::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(VclContainer::DumpAsPropertyTree());
+    aTree.put("vertical", m_bVerticalContainer);
+    return aTree;
 }
 
 sal_uInt16 VclBox::getDefaultAccessibleRole() const
@@ -1430,6 +1293,17 @@ void VclGrid::setAllocation(const Size& rAllocation)
     }
 }
 
+boost::property_tree::ptree VclGrid::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(VclContainer::DumpAsPropertyTree());
+    array_type A = assembleGrid(*this);
+    sal_Int32 nMaxX = A.shape()[0];
+    sal_Int32 nMaxY = A.shape()[1];
+    aTree.put("cols", nMaxX);
+    aTree.put("rows", nMaxY);
+    return aTree;
+}
+
 bool toBool(const OUString &rValue)
 {
     return (!rValue.isEmpty() && (rValue[0] == 't' || rValue[0] == 'T' || rValue[0] == '1'));
@@ -1509,11 +1383,6 @@ Size VclFrame::calculateRequisition() const
         aRet.setWidth( std::max(aLabelSize.Width(), aRet.Width()) );
     }
 
-    const FrameStyle &rFrameStyle =
-        GetSettings().GetStyleSettings().GetFrameStyle();
-    aRet.AdjustWidth(rFrameStyle.left + rFrameStyle.right );
-    aRet.AdjustHeight(rFrameStyle.top + rFrameStyle.bottom );
-
     return aRet;
 }
 
@@ -1521,11 +1390,8 @@ void VclFrame::setAllocation(const Size &rAllocation)
 {
     //SetBackground( Color(0xFF, 0x00, 0xFF) );
 
-    const FrameStyle &rFrameStyle =
-        GetSettings().GetStyleSettings().GetFrameStyle();
-    Size aAllocation(rAllocation.Width() - rFrameStyle.left - rFrameStyle.right,
-        rAllocation.Height() - rFrameStyle.top - rFrameStyle.bottom);
-    Point aChildPos(rFrameStyle.left, rFrameStyle.top);
+    Size aAllocation(rAllocation);
+    Point aChildPos;
 
     vcl::Window *pChild = get_child();
     vcl::Window *pLabel = get_label_widget();
@@ -1614,6 +1480,13 @@ OUString VclFrame::getDefaultAccessibleName() const
     if (pLabel)
         return pLabel->GetAccessibleName();
     return VclBin::getDefaultAccessibleName();
+}
+
+boost::property_tree::ptree VclFrame::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(VclBin::DumpAsPropertyTree());
+    aTree.put("type", "frame");
+    return aTree;
 }
 
 Size VclAlignment::calculateRequisition() const
@@ -1706,21 +1579,13 @@ Size VclExpander::calculateRequisition() const
     aRet.AdjustHeight(aExpanderSize.Height() );
     aRet.setWidth( std::max(aExpanderSize.Width(), aRet.Width()) );
 
-    const FrameStyle &rFrameStyle =
-        GetSettings().GetStyleSettings().GetFrameStyle();
-    aRet.AdjustWidth(rFrameStyle.left + rFrameStyle.right );
-    aRet.AdjustHeight(rFrameStyle.top + rFrameStyle.bottom );
-
     return aRet;
 }
 
 void VclExpander::setAllocation(const Size &rAllocation)
 {
-    const FrameStyle &rFrameStyle =
-        GetSettings().GetStyleSettings().GetFrameStyle();
-    Size aAllocation(rAllocation.Width() - rFrameStyle.left - rFrameStyle.right,
-        rAllocation.Height() - rFrameStyle.top - rFrameStyle.bottom);
-    Point aChildPos(rFrameStyle.left, rFrameStyle.top);
+    Size aAllocation(rAllocation);
+    Point aChildPos;
 
     WindowImpl* pWindowImpl = ImplGetWindowImpl();
 
@@ -1937,27 +1802,32 @@ void VclScrolledWindow::setAllocation(const Size &rAllocation)
     Size aInnerSize(rAllocation);
     aInnerSize.AdjustWidth(-2);
     aInnerSize.AdjustHeight(-2);
-    long nScrollBarWidth = 0, nScrollBarHeight = 0;
+
+    bool bBothVisible = m_pVScroll->IsVisible() && m_pHScroll->IsVisible();
+    auto nScrollBarWidth = getLayoutRequisition(*m_pVScroll).Width();
+    auto nScrollBarHeight = getLayoutRequisition(*m_pHScroll).Height();
 
     if (m_pVScroll->IsVisible())
     {
-        nScrollBarWidth = getLayoutRequisition(*m_pVScroll).Width();
         Point aScrollPos(rAllocation.Width() - nScrollBarWidth - 2, 1);
         Size aScrollSize(nScrollBarWidth, rAllocation.Height() - 2);
+        if (bBothVisible)
+            aScrollSize.AdjustHeight(-nScrollBarHeight);
         setLayoutAllocation(*m_pVScroll, aScrollPos, aScrollSize);
         aInnerSize.AdjustWidth( -nScrollBarWidth );
     }
 
     if (m_pHScroll->IsVisible())
     {
-        nScrollBarHeight = getLayoutRequisition(*m_pHScroll).Height();
         Point aScrollPos(1, rAllocation.Height() - nScrollBarHeight);
         Size aScrollSize(rAllocation.Width() - 2, nScrollBarHeight);
+        if (bBothVisible)
+            aScrollSize.AdjustWidth(-nScrollBarWidth);
         setLayoutAllocation(*m_pHScroll, aScrollPos, aScrollSize);
         aInnerSize.AdjustHeight( -nScrollBarHeight );
     }
 
-    if (m_pVScroll->IsVisible() && m_pHScroll->IsVisible())
+    if (bBothVisible)
     {
         Point aBoxPos(aInnerSize.Width() + 1, aInnerSize.Height() + 1);
         m_aScrollBarBox->SetPosSizePixel(aBoxPos, Size(nScrollBarWidth, nScrollBarHeight));
@@ -2249,13 +2119,13 @@ void MessageDialog::create_message_area()
                 break;
             case VclButtonsType::YesNo:
                 pBtn = VclPtr<PushButton>::Create(pButtonBox);
-                pBtn->SetText(Button::GetStandardText(StandardButtonType::Yes));
+                pBtn->SetText(GetStandardText(StandardButtonType::Yes));
                 pBtn->Show();
                 pBtn->set_id("yes");
                 add_button(pBtn, RET_YES, true);
 
                 pBtn.set( VclPtr<PushButton>::Create(pButtonBox) );
-                pBtn->SetText(Button::GetStandardText(StandardButtonType::No));
+                pBtn->SetText(GetStandardText(StandardButtonType::No));
                 pBtn->Show();
                 pBtn->set_id("no");
                 add_button(pBtn, RET_NO, true);
@@ -2501,7 +2371,7 @@ void VclVPaned::dispose()
 
 IMPL_LINK(VclVPaned, SplitHdl, Splitter*, pSplitter, void)
 {
-    double nSize = pSplitter->GetSplitPosPixel();
+    long nSize = pSplitter->GetSplitPosPixel();
     Size aSplitterSize(m_pSplitter->GetSizePixel());
     Size aAllocation(GetSizePixel());
     arrange(aAllocation, nSize, aAllocation.Height() - nSize - aSplitterSize.Height());

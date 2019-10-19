@@ -51,7 +51,7 @@ namespace dbaui
         css::uno::Reference< css::uno::XComponentContext >    m_xContext;  // the service factory to work with
 
     protected:
-        rtl::Reference<IController> m_xController;  // the controller in where we resides in
+        rtl::Reference<IController> m_xController;  // the controller where we reside in
         VclPtr<FixedLine>   m_aSeparator;
         ::std::unique_ptr< ::svt::AcceleratorExecute> m_pAccel;
 
@@ -72,9 +72,9 @@ namespace dbaui
         virtual void StateChanged( StateChangedType nStateChange ) override;
         virtual void DataChanged( const DataChangedEvent& rDCEvt ) override;
 
-        IController& getCommandController() const { return *m_xController.get(); }
+        IController& getCommandController() const { return *m_xController; }
 
-        const css::uno::Reference< css::uno::XComponentContext >& getORB() { return m_xContext;}
+        const css::uno::Reference< css::uno::XComponentContext >& getORB() const { return m_xContext;}
 
         // the default implementation simply calls resizeAll( GetSizePixel() )
         virtual void Resize() override;

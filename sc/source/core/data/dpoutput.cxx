@@ -443,13 +443,9 @@ bool lcl_MemberEmpty( const uno::Sequence<sheet::MemberResult>& rSeq )
 {
     //  used to skip levels that have no members
 
-    long nLen = rSeq.getLength();
-    const sheet::MemberResult* pArray = rSeq.getConstArray();
-    for (long i=0; i<nLen; i++)
-        if (pArray[i].Flags & sheet::MemberResultFlags::HASMEMBER)
-            return false;
-
-    return true;    // no member data -> empty
+    return std::none_of(rSeq.begin(), rSeq.end(),
+        [](const sheet::MemberResult& rMem) {
+            return rMem.Flags & sheet::MemberResultFlags::HASMEMBER; });
 }
 
 /**
@@ -470,10 +466,9 @@ uno::Sequence<sheet::MemberResult> getVisiblePageMembersAsResults( const uno::Re
         return uno::Sequence<sheet::MemberResult>();
 
     std::vector<sheet::MemberResult> aRes;
-    uno::Sequence<OUString> aNames = xNA->getElementNames();
-    for (sal_Int32 i = 0; i < aNames.getLength(); ++i)
+    const uno::Sequence<OUString> aNames = xNA->getElementNames();
+    for (const OUString& rName : aNames)
     {
-        const OUString& rName = aNames[i];
         xNA->getByName(rName);
 
         uno::Reference<beans::XPropertySet> xMemPS(xNA->getByName(rName), UNO_QUERY);
@@ -1152,9 +1147,21 @@ bool ScDPOutput::HasError()
     return bSizeOverflow || bResultsError;
 }
 
-long ScDPOutput::GetHeaderRows()
+long ScDPOutput::GetHeaderRows() const
 {
     return pPageFields.size() + ( bDoFilter ? 1 : 0 );
+}
+
+namespace
+{
+    void insertNames(ScDPUniqueStringSet& rNames, const uno::Sequence<sheet::MemberResult>& rMemberResults)
+    {
+        for (const sheet::MemberResult& rMemberResult : rMemberResults)
+        {
+            if (rMemberResult.Flags & sheet::MemberResultFlags::HASMEMBER)
+                rNames.insert(rMemberResult.Name);
+        }
+    }
 }
 
 void ScDPOutput::GetMemberResultNames(ScDPUniqueStringSet& rNames, long nDimension)
@@ -1163,39 +1170,23 @@ void ScDPOutput::GetMemberResultNames(ScDPUniqueStringSet& rNames, long nDimensi
     //  Only the dimension has to be compared because this is only used with table data,
     //  where each dimension occurs only once.
 
-    uno::Sequence<sheet::MemberResult> aMemberResults;
-    bool bFound = false;
+    auto lFindDimension = [nDimension](const ScDPOutLevelData& rField) { return rField.mnDim == nDimension; };
 
     // look in column fields
-
-    for (size_t nField=0; nField<pColFields.size() && !bFound; nField++)
-        if ( pColFields[nField].mnDim == nDimension )
-        {
-            aMemberResults = pColFields[nField].maResult;
-            bFound = true;
-        }
+    auto colit = std::find_if(pColFields.begin(), pColFields.end(), lFindDimension);
+    if (colit != pColFields.end())
+    {
+        // collect the member names
+        insertNames(rNames, colit->maResult);
+        return;
+    }
 
     // look in row fields
-
-    for (size_t nField=0; nField<pRowFields.size() && !bFound; nField++)
-        if ( pRowFields[nField].mnDim == nDimension )
-        {
-            aMemberResults = pRowFields[nField].maResult;
-            bFound = true;
-        }
-
-    // collect the member names
-
-    if ( bFound )
+    auto rowit = std::find_if(pRowFields.begin(), pRowFields.end(), lFindDimension);
+    if (rowit != pRowFields.end())
     {
-        const sheet::MemberResult* pArray = aMemberResults.getConstArray();
-        long nResultCount = aMemberResults.getLength();
-
-        for (long nItem=0; nItem<nResultCount; nItem++)
-        {
-            if ( pArray[nItem].Flags & sheet::MemberResultFlags::HASMEMBER )
-                rNames.insert(pArray[nItem].Name);
-        }
+        // collect the member names
+        insertNames(rNames, rowit->maResult);
     }
 }
 
@@ -1516,10 +1507,7 @@ OUString lcl_GetDataFieldName( const OUString& rSourceName, sal_Int16 eFunc )
     if (!pStrId)
         return OUString();
 
-    OUStringBuffer aRet(ScResId(pStrId));
-    aRet.append(" - ");
-    aRet.append(rSourceName);
-    return aRet.makeStringAndClear();
+    return ScResId(pStrId) + " - " + rSourceName;
 }
 
 }

@@ -217,7 +217,7 @@ namespace xmloff
         // set all the properties we collected
 #if OSL_DEBUG_LEVEL > 0
         // check if the object has all the properties
-        // (We do this in the non-pro version only. Doing it all the time would be much to expensive)
+        // (We do this in the non-pro version only. Doing it all the time would be too much expensive)
         if ( m_xInfo.is() )
         {
             for ( const auto& rCheck : m_aValues )
@@ -435,20 +435,20 @@ namespace xmloff
         static const char sUnnamedName[] = "unnamed";
         OSL_ENSURE(m_xParentContainer.is(), "OElementImport::implGetDefaultName: no parent container!");
         if (!m_xParentContainer.is())
-            return OUString(sUnnamedName);
+            return sUnnamedName;
         Sequence< OUString > aNames = m_xParentContainer->getElementNames();
 
-        for (sal_Int32 i=0; i<32768; ++i)   // the limit is nearly arbitrary ...
+        for (sal_Int32 i=0; i<32768; ++i)   // the limit is nearly arbitrary...
         {
             // assemble the new name (suggestion)
             OUString sReturn = sUnnamedName + OUString::number(i);
-            // check the existence (this is the bad performance part ....)
+            // check the existence (this is the bad performance part...)
             if (comphelper::findValue(aNames, sReturn) == -1)
                 // not found the name
                 return sReturn;
         }
         OSL_FAIL("OElementImport::implGetDefaultName: did not find a free name!");
-        return OUString(sUnnamedName);
+        return sUnnamedName;
     }
 
     PropertyGroups::const_iterator OElementImport::impl_matchPropertyGroup( const PropertyGroups& i_propertyGroups ) const
@@ -1781,7 +1781,7 @@ namespace xmloff
 
         // clone the attributes
         Reference< XCloneable > xCloneList(_rxAttrList, UNO_QUERY);
-        OSL_ENSURE(xCloneList.is(), "OColumnWrapperImport::StartElement: AttributeList not cloneable!");
+        OSL_ENSURE(xCloneList.is(), "OColumnWrapperImport::StartElement: AttributeList not clonable!");
         if ( xCloneList.is() )
             m_xOwnAttributes.set(xCloneList->createClone(), UNO_QUERY);
         OSL_ENSURE(m_xOwnAttributes.is(), "OColumnWrapperImport::StartElement: no cloned list!");
@@ -1922,7 +1922,7 @@ namespace xmloff
                 if (*pChars == ',')
                     ++nEstimate;
             aElements.reserve(nEstimate + 1);
-                // that's the worst case. If the string contains the separator character _quoted_, we reserved to much ...
+                // that's the worst case. If the string contains the separator character _quoted_, we reserved too much...
 
             sal_Int32 nElementStart = 0;
             sal_Int32 nNextSep = 0;
@@ -2042,7 +2042,7 @@ namespace xmloff
 
     OUString OFormImport::determineDefaultServiceName() const
     {
-        return OUString("com.sun.star.form.component.Form");
+        return "com.sun.star.form.component.Form";
     }
 
 }   // namespace xmloff

@@ -144,7 +144,6 @@
       </menu:menu>
       <menu:menuitem menu:id=".uno:FieldDialog" menu:style="text"/>
       <menu:menuitem menu:id=".uno:LinkDialog" menu:style="text"/>
-      <menu:menuitem menu:id=".uno:ImageMapDialog" menu:style="text"/>
       <menu:menuitem menu:id=".uno:ObjectMenue" menu:style="text"/>
       <menu:menuitem menu:id=".uno:ChangeDatabaseField" menu:style="text"/>
       <menu:menuseparator/>
@@ -270,9 +269,9 @@
       <menu:menuitem menu:id=".uno:InsertFootnoteDialog"/>
       <menu:menu menu:id=".uno:IndexesMenu">
         <menu:menupopup>
+          <menu:menuitem menu:id=".uno:InsertMultiIndex"/>
           <menu:menuitem menu:id=".uno:InsertIndexesEntry"/>
           <menu:menuitem menu:id=".uno:InsertAuthoritiesEntry"/>
-          <menu:menuitem menu:id=".uno:InsertMultiIndex"/>
         </menu:menupopup>
       </menu:menu>
       <menu:menuseparator/>
@@ -380,8 +379,8 @@
       <menu:menuitem menu:id=".uno:FontDialog"/>
       <menu:menuitem menu:id=".uno:ParagraphDialog"/>
       <menu:menuitem menu:id=".uno:BulletsAndNumberingDialog"/>
-      <menu:menuitem menu:id=".uno:PageDialog"/>
       <menu:menuseparator/>
+      <menu:menuitem menu:id=".uno:PageDialog"/>
       <menu:menuitem menu:id=".uno:RubyDialog" menu:style="text"/>
       <menu:menuitem menu:id=".uno:FormatColumns" menu:style="text"/>
       <menu:menuitem menu:id=".uno:EditRegion" menu:style="text"/>
@@ -633,10 +632,12 @@
           <menu:menuitem menu:id=".uno:OnlineAutoFormat"/>
           <menu:menuitem menu:id=".uno:AutoFormatApply"/>
           <menu:menuitem menu:id=".uno:AutoFormatRedlineApply"/>
+          <menu:menuseparator/>
           <menu:menuitem menu:id=".uno:AutoCorrectDlg"/>
         </menu:menupopup>
       </menu:menu>
       <menu:menuitem menu:id=".uno:EditGlossary" menu:style="text"/>
+      <menu:menuitem menu:id=".uno:ImageMapDialog" menu:style="text"/>
       <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:ChapterNumberingDialog" menu:style="text"/>
       <menu:menuitem menu:id=".uno:LineNumberingDialog" menu:style="text"/>
@@ -691,6 +692,7 @@
       <menu:menuitem menu:id=".uno:HelpIndex"/>
       <menu:menuitem menu:id=".uno:ExtendedHelp"/>
       <menu:menuitem menu:id=".uno:Documentation"/>
+      <menu:menuitem menu:id=".uno:TipOfTheDay"/>
       <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:QuestionAnswers"/>
       <menu:menuitem menu:id=".uno:SendFeedback"/>

@@ -222,29 +222,6 @@ uno::Sequence< OUString > SAL_CALL SvxUnoDrawMSFactory::getAvailableServiceNames
     return UHashMap::getServiceNames();
 }
 
-uno::Sequence< OUString > SvxUnoDrawMSFactory::concatServiceNames( uno::Sequence< OUString >& rServices1, uno::Sequence< OUString >& rServices2 ) throw()
-{
-    const sal_Int32 nLen1 = rServices1.getLength();
-    const sal_Int32 nLen2 = rServices2.getLength();
-
-    uno::Sequence< OUString > aSeq( nLen1+nLen2 );
-    OUString* pStrings = aSeq.getArray();
-
-    sal_Int32 nIdx;
-    OUString* pStringDst = pStrings;
-    const OUString* pStringSrc = rServices1.getArray();
-
-    for( nIdx = 0; nIdx < nLen1; nIdx++ )
-        *pStringDst++ = *pStringSrc++;
-
-    pStringSrc = rServices2.getArray();
-
-    for( nIdx = 0; nIdx < nLen2; nIdx++ )
-        *pStringDst++ = *pStringSrc++;
-
-    return aSeq;
-}
-
 SdrModel& SvxUnoDrawingModel::getSdrModelFromUnoModel() const
 {
     OSL_ENSURE(mpDoc, "No SdrModel in UnoDrawingModel, should not happen");
@@ -546,7 +523,7 @@ uno::Sequence< OUString > SAL_CALL SvxUnoDrawingModel::getAvailableServiceNames(
 // lang::XServiceInfo
 OUString SAL_CALL SvxUnoDrawingModel::getImplementationName()
 {
-    return OUString("SvxUnoDrawingModel");
+    return "SvxUnoDrawingModel";
 }
 
 sal_Bool SAL_CALL SvxUnoDrawingModel::supportsService( const OUString& ServiceName )
@@ -556,9 +533,7 @@ sal_Bool SAL_CALL SvxUnoDrawingModel::supportsService( const OUString& ServiceNa
 
 uno::Sequence< OUString > SAL_CALL SvxUnoDrawingModel::getSupportedServiceNames()
 {
-    OUString aSN("com.sun.star.drawing.DrawingDocument");
-    uno::Sequence< OUString > aSeq( &aSN, 1 );
-    return aSeq;
+    return { "com.sun.star.drawing.DrawingDocument" };
 }
 
 // XAnyCompareFactory
@@ -679,7 +654,7 @@ void SAL_CALL SvxUnoDrawPagesAccess::remove( const uno::Reference< drawing::XDra
 
 OUString SAL_CALL SvxUnoDrawPagesAccess::getImplementationName(  )
 {
-    return OUString( "SvxUnoDrawPagesAccess" );
+    return "SvxUnoDrawPagesAccess";
 }
 
 sal_Bool SAL_CALL SvxUnoDrawPagesAccess::supportsService( const OUString& ServiceName )
@@ -689,9 +664,7 @@ sal_Bool SAL_CALL SvxUnoDrawPagesAccess::supportsService( const OUString& Servic
 
 uno::Sequence< OUString > SAL_CALL SvxUnoDrawPagesAccess::getSupportedServiceNames(  )
 {
-    OUString aService( "com.sun.star.drawing.DrawPages" );
-    uno::Sequence< OUString > aSeq( &aService, 1 );
-    return aSeq;
+    return { "com.sun.star.drawing.DrawPages" };
 }
 
 css::uno::Reference< css::container::XIndexReplace > SvxCreateNumRule(SdrModel* pModel)

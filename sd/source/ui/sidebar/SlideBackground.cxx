@@ -19,34 +19,24 @@
 
 #include <com/sun/star/ui/XDeck.hpp>
 #include <com/sun/star/ui/XPanel.hpp>
+#include <com/sun/star/frame/XController2.hpp>
 #include "SlideBackground.hxx"
-#include <TransitionPreset.hxx>
 #include <sdresid.hxx>
 #include <ViewShellBase.hxx>
 #include <FrameView.hxx>
 #include <DrawDocShell.hxx>
-#include <SlideSorterViewShell.hxx>
 #include <drawdoc.hxx>
 #include <sdpage.hxx>
-#include <filedlg.hxx>
 #include <sdmod.hxx>
 #include <optsitem.hxx>
 #include "PageMarginUtils.hxx"
 #include <strings.hrc>
 #include <pageformatpanel.hrc>
-#include "DocumentHelper.hxx"
-#include "MasterPagesSelector.hxx"
 #include <DrawViewShell.hxx>
-#include <DrawController.hxx>
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <svtools/controldims.hxx>
 #include <svx/colorbox.hxx>
-#include <svx/gallery.hxx>
 #include <svx/drawitem.hxx>
 #include <svx/pageitem.hxx>
-#include <unotools/pathoptions.hxx>
 #include <tools/urlobj.hxx>
-#include <sfx2/sidebar/Theme.hxx>
 #include <app.hrc>
 #include <editeng/paperinf.hxx>
 #include <svx/xflgrit.hxx>
@@ -55,27 +45,20 @@
 #include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xgrad.hxx>
-#include <svx/xbitmap.hxx>
-#include <svx/xflbckit.hxx>
 #include <svx/xbtmpit.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/svdpage.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
-#include <sfx2/objface.hxx>
-#include <svx/dlgutil.hxx>
-#include <sfx2/tabdlg.hxx>
 #include <sfx2/sidebar/Panel.hxx>
-#include <algorithm>
 #include <EventMultiplexer.hxx>
 #include <vcl/EnumContext.hxx>
 
-#include <editeng/ulspitem.hxx>
-#include <editeng/lrspitem.hxx>
 #include <editeng/sizeitem.hxx>
-#include <svl/itemset.hxx>
 #include <comphelper/lok.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
+#include <unomodel.hxx>
+#include <sfx2/lokhelper.hxx>
 
 using namespace ::com::sun::star;
 
@@ -469,11 +452,11 @@ void SlideBackground::SetPanelTitle( const OUString& rTitle )
     if ( !xController.is() )
         return;
 
-    Reference<ui::XSidebarProvider> xSidebarProvider( xController->getSidebar(), uno::UNO_QUERY );
+    Reference<ui::XSidebarProvider> xSidebarProvider = xController->getSidebar();
     if ( !xSidebarProvider.is() )
         return;
 
-    Reference<ui::XDecks> xDecks ( xSidebarProvider->getDecks(), uno::UNO_QUERY);
+    Reference<ui::XDecks> xDecks = xSidebarProvider->getDecks();
     if ( !xDecks.is() )
         return;
 
@@ -481,7 +464,7 @@ void SlideBackground::SetPanelTitle( const OUString& rTitle )
     if ( !xDeck.is() )
         return;
 
-    Reference<ui::XPanels> xPanels ( xDeck->getPanels(), uno::UNO_QUERY);
+    Reference<ui::XPanels> xPanels = xDeck->getPanels();
     if ( !xPanels.is() )
         return;
 
@@ -1022,14 +1005,14 @@ IMPL_LINK_NOARG(SlideBackground, PaperSizeModifyHdl, ListBox&, void)
     GetBindings()->GetDispatcher()->ExecuteList(SID_ATTR_PAGE_SIZE, SfxCallMode::RECORD,
                                                 { &aSizeItem, mpPageItem.get(), &aFitObjs });
 
-    // Notify LOK clients of the page size chagne.
+    // Notify LOK clients of the page size change.
     if (comphelper::LibreOfficeKit::isActive())
     {
         SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-        while (pViewShell)
+        if (pViewShell)
         {
-            pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, "");
-            pViewShell = SfxViewShell::GetNext(*pViewShell);
+            SdXImpressDocument* pDoc = comphelper::getUnoTunnelImplementation<SdXImpressDocument>(pViewShell->GetCurrentDocument());
+            SfxLokHelper::notifyDocumentSizeChangedAllViews(pDoc);
         }
     }
 }

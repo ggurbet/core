@@ -9,9 +9,9 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_HEADERFOOTERWIN_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_HEADERFOOTERWIN_HXX
 
+#include "edtwin.hxx"
 #include "FrameControl.hxx"
 #include <vcl/builder.hxx>
-#include <vcl/menubtn.hxx>
 #include <vcl/timer.hxx>
 #include <drawinglayer/primitive2d/baseprimitive2d.hxx>
 
@@ -57,8 +57,8 @@ public:
     virtual void ShowAll( bool bShow ) override;
     virtual bool Contains( const Point &rDocPt ) const override;
 
-    bool IsHeader() { return m_bIsHeader; };
-    bool IsEmptyHeaderFooter( );
+    bool IsHeader() const { return m_bIsHeader; };
+    bool IsEmptyHeaderFooter( ) const;
 
     void ExecuteCommand(const OString &rIdent);
 

@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <ChartView.hxx>
 #include <chartview/DrawModelWrapper.hxx>
@@ -324,8 +324,8 @@ public:
 
     void AdaptScaleOfYAxisWithoutAttachedSeries( ChartModel& rModel );
 
-    bool isCategoryPositionShifted(
-        const chart2::ScaleData& rSourceScale, bool bHasComplexCategories ) const;
+    static bool isCategoryPositionShifted(
+        const chart2::ScaleData& rSourceScale, bool bHasComplexCategories );
 
 private:
     /** A vector of series plotters.
@@ -349,14 +349,12 @@ private:
      */
     sal_Int32 m_nMaxAxisIndex;
 
-    bool m_bChartTypeUsesShiftedCategoryPositionPerDefault;
     sal_Int32 m_nDefaultDateNumberFormat;
 };
 
 SeriesPlotterContainer::SeriesPlotterContainer( std::vector< std::unique_ptr<VCoordinateSystem> >& rVCooSysList )
         : m_rVCooSysList( rVCooSysList )
         , m_nMaxAxisIndex(0)
-        , m_bChartTypeUsesShiftedCategoryPositionPerDefault(false)
         , m_nDefaultDateNumberFormat(0)
 {
 }
@@ -372,7 +370,7 @@ std::vector< LegendEntryProvider* > SeriesPlotterContainer::getLegendEntryProvid
 {
     std::vector< LegendEntryProvider* > aRet( m_aSeriesPlotterList.size() );
     sal_Int32 nN = 0;
-    for( std::unique_ptr<VSeriesPlotter>& aPlotter : m_aSeriesPlotterList)
+    for( const std::unique_ptr<VSeriesPlotter>& aPlotter : m_aSeriesPlotterList)
         aRet[nN++] = aPlotter.get();
     return aRet;
 }
@@ -520,9 +518,6 @@ void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
                 }
             }
 
-            if(nT==0)
-                m_bChartTypeUsesShiftedCategoryPositionPerDefault = ChartTypeHelper::shiftCategoryPosAtXAxisPerDefault( xChartType );
-
             bool bExcludingPositioning = DiagramHelper::getDiagramPositioningMode( xDiagram ) == DiagramPositioningMode_EXCLUDING;
             VSeriesPlotter* pPlotter = VSeriesPlotter::createSeriesPlotter( xChartType, nDimensionCount, bExcludingPositioning );
             if( !pPlotter )
@@ -631,12 +626,12 @@ void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
 }
 
 bool SeriesPlotterContainer::isCategoryPositionShifted(
-    const chart2::ScaleData& rSourceScale, bool bHasComplexCategories ) const
+    const chart2::ScaleData& rSourceScale, bool bHasComplexCategories )
 {
-    if (rSourceScale.AxisType == AxisType::CATEGORY && m_bChartTypeUsesShiftedCategoryPositionPerDefault)
+    if (rSourceScale.AxisType == AxisType::CATEGORY && rSourceScale.ShiftedCategoryPosition)
         return true;
 
-    if (rSourceScale.AxisType==AxisType::CATEGORY && bHasComplexCategories)
+    if (rSourceScale.AxisType == AxisType::CATEGORY && bHasComplexCategories)
         return true;
 
     if (rSourceScale.AxisType == AxisType::DATE)
@@ -696,7 +691,7 @@ void SeriesPlotterContainer::initAxisUsageList(const Date& rNullDate)
 
     // Determine the highest axis index of all dimensions.
     m_nMaxAxisIndex = 0;
-    for (auto & pVCooSys : m_rVCooSysList)
+    for (const auto & pVCooSys : m_rVCooSysList)
     {
         uno::Reference<XCoordinateSystem> xCooSys = pVCooSys->getModel();
         sal_Int32 nDimCount = xCooSys->getDimension();
@@ -716,7 +711,7 @@ void SeriesPlotterContainer::initAxisUsageList(const Date& rNullDate)
 void SeriesPlotterContainer::setScalesFromCooSysToPlotter()
 {
     //set scales to plotter to enable them to provide the preferred scene AspectRatio
-    for( std::unique_ptr<VSeriesPlotter>& aPlotter : m_aSeriesPlotterList )
+    for( const std::unique_ptr<VSeriesPlotter>& aPlotter : m_aSeriesPlotterList )
     {
         VSeriesPlotter* pSeriesPlotter = aPlotter.get();
         VCoordinateSystem* pVCooSys = lcl_getCooSysForPlotter( m_rVCooSysList, pSeriesPlotter );
@@ -733,7 +728,7 @@ void SeriesPlotterContainer::setScalesFromCooSysToPlotter()
 void SeriesPlotterContainer::setNumberFormatsFromAxes()
 {
     //set numberformats to plotter to enable them to display the data labels in the numberformat of the axis
-    for( std::unique_ptr<VSeriesPlotter>& aPlotter : m_aSeriesPlotterList )
+    for( const std::unique_ptr<VSeriesPlotter>& aPlotter : m_aSeriesPlotterList )
     {
         VSeriesPlotter* pSeriesPlotter = aPlotter.get();
         VCoordinateSystem* pVCooSys = lcl_getCooSysForPlotter( m_rVCooSysList, pSeriesPlotter );
@@ -971,7 +966,7 @@ drawing::Direction3D SeriesPlotterContainer::getPreferredAspectRatio()
     //first with special demands wins (less or equal zero <-> arbitrary)
     double fx, fy, fz;
     fx = fy = fz = -1.0;
-    for( std::unique_ptr<VSeriesPlotter>& aPlotter : m_aSeriesPlotterList )
+    for( const std::unique_ptr<VSeriesPlotter>& aPlotter : m_aSeriesPlotterList )
     {
         drawing::Direction3D aSingleRatio( aPlotter->getPreferredDiagramAspectRatio() );
         if( fx<0 && aSingleRatio.DirectionX>0 )
@@ -1233,8 +1228,7 @@ sal_Bool SAL_CALL ChartView::isDataFlavorSupported( const datatransfer::DataFlav
 // ____ XUnoTunnel ___
 ::sal_Int64 SAL_CALL ChartView::getSomething( const uno::Sequence< ::sal_Int8 >& aIdentifier )
 {
-    if( aIdentifier.getLength() == 16 && memcmp( ExplicitValueProvider::getUnoTunnelId().getConstArray(),
-                                                         aIdentifier.getConstArray(), 16 ) == 0 )
+    if( isUnoTunnelId<ExplicitValueProvider>(aIdentifier) )
     {
         ExplicitValueProvider* pProvider = this;
         return reinterpret_cast<sal_Int64>(pProvider);
@@ -1246,7 +1240,7 @@ sal_Bool SAL_CALL ChartView::isDataFlavorSupported( const datatransfer::DataFlav
 
 OUString SAL_CALL ChartView::getImplementationName()
 {
-    return OUString(CHART_VIEW_SERVICE_IMPLEMENTATION_NAME);
+    return CHART_VIEW_SERVICE_IMPLEMENTATION_NAME;
 }
 
 sal_Bool SAL_CALL ChartView::supportsService( const OUString& rServiceName )
@@ -1568,7 +1562,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
 
     // - create data series for all charttypes
     m_bPointsWereSkipped = false;
-    for( std::unique_ptr<VSeriesPlotter>& aPlotter : rSeriesPlotterList )
+    for( const std::unique_ptr<VSeriesPlotter>& aPlotter : rSeriesPlotterList )
     {
         VSeriesPlotter* pSeriesPlotter = aPlotter.get();
         uno::Reference< drawing::XShapes > xSeriesTarget;
@@ -1748,18 +1742,11 @@ bool ChartView::getExplicitValuesForAxis(
 
 SdrPage* ChartView::getSdrPage()
 {
-    SdrPage* pPage=nullptr;
-    Reference< lang::XUnoTunnel> xUnoTunnel(m_xDrawPage,uno::UNO_QUERY);
-    if(xUnoTunnel.is())
-    {
-        SvxDrawPage* pSvxDrawPage = reinterpret_cast<SvxDrawPage*>(xUnoTunnel->getSomething(
-            SvxDrawPage::getUnoTunnelId() ));
-        if(pSvxDrawPage)
-        {
-            pPage = pSvxDrawPage->GetSdrPage();
-        }
-    }
-    return pPage;
+    auto pSvxDrawPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>(m_xDrawPage);
+    if(pSvxDrawPage)
+        return pSvxDrawPage->GetSdrPage();
+
+    return nullptr;
 }
 
 uno::Reference< drawing::XShape > ChartView::getShapeForCID( const OUString& rObjectCID )
@@ -2304,7 +2291,8 @@ void lcl_createButtons(const uno::Reference<drawing::XShapes>& xPageShapes,
     {
         x = 0;
 
-        for (css::chart2::data::PivotTableFieldEntry const & rPageFieldEntry : xPivotTableDataProvider->getPageFields())
+        const css::uno::Sequence<chart2::data::PivotTableFieldEntry> aPivotFieldEntries = xPivotTableDataProvider->getPageFields();
+        for (css::chart2::data::PivotTableFieldEntry const & rPageFieldEntry : aPivotFieldEntries)
         {
             std::unique_ptr<VButton> pButton(new VButton);
             pButton->init(xPageShapes, xShapeFactory);
@@ -2330,7 +2318,8 @@ void lcl_createButtons(const uno::Reference<drawing::XShapes>& xPageShapes,
     if (xPivotTableDataProvider->getRowFields().hasElements())
     {
         x = 200;
-        for (css::chart2::data::PivotTableFieldEntry const & rRowFieldEntry : xPivotTableDataProvider->getRowFields())
+        const css::uno::Sequence<chart2::data::PivotTableFieldEntry> aPivotFieldEntries = xPivotTableDataProvider->getRowFields();
+        for (css::chart2::data::PivotTableFieldEntry const & rRowFieldEntry : aPivotFieldEntries)
         {
 
             std::unique_ptr<VButton> pButton(new VButton);
@@ -2703,7 +2692,7 @@ void SAL_CALL ChartView::update()
     //#i100778# migrate all imported or old documents to a plot area sizing exclusive axes (in case the save settings allow for this):
     //Although in general it is a bad idea to change the model from within the view this is exceptionally the best place to do this special conversion.
     //When a view update is requested (what happens for creating the metafile or displaying
-    //the chart in edit mode or printing) it is most likely that all necessary information are available - like the underlying spreadsheet data for example.
+    //the chart in edit mode or printing) it is most likely that all necessary information is available - like the underlying spreadsheet data for example.
     //Those data are important for the correct axis label sizes which are needed during conversion.
     if( DiagramHelper::switchDiagramPositioningToExcludingPositioning( mrChartModel, true, false ) )
         impl_updateView();
@@ -2776,13 +2765,13 @@ void SAL_CALL ChartView::setPropertyValue( const OUString& rPropertyName
             throw lang::IllegalArgumentException( "Property 'SdrViewIsInEditMode' requires value of type sal_Bool", nullptr, 0 );
     }
     else
-        throw beans::UnknownPropertyException( "unknown property was tried to set to chart wizard", nullptr );
+        throw beans::UnknownPropertyException( "unknown property was tried to set to chart wizard " + rPropertyName, nullptr );
 }
 
 Any SAL_CALL ChartView::getPropertyValue( const OUString& rPropertyName )
 {
     if( rPropertyName != "Resolution" )
-        throw beans::UnknownPropertyException( "unknown property was tried to get from chart wizard", nullptr );
+        throw beans::UnknownPropertyException( "unknown property was tried to get from chart wizard " + rPropertyName, nullptr );
 
     return Any(m_aPageResolution);
 }

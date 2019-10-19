@@ -73,10 +73,10 @@
 #include <print.h>
 #include <salsys.hxx>
 #include <saltimer.hxx>
-#include <salimestatus.hxx>
 #include <displayconnectiondispatch.hxx>
 
 #include <config_features.h>
+#include <config_feature_opencl.h>
 
 #include <osl/process.h>
 #include <com/sun/star/lang/XComponent.hpp>
@@ -423,9 +423,6 @@ void DeInitVCL()
     pSVData->mbDeInit = true;
 
     vcl::DeleteOnDeinitBase::ImplDeleteOnDeInit();
-
-    // give ime status a chance to destroy its own windows
-    pSVData->mpImeStatus.reset();
 
 #if OSL_DEBUG_LEVEL > 0
     OStringBuffer aBuf( 256 );

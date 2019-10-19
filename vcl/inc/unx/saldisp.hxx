@@ -303,14 +303,12 @@ protected:
     std::vector< int > m_aXineramaScreenIndexMap;
     std::list<SalObject*> m_aSalObjects;
 
-    bool            m_bUseRandRWrapper; // don't use randr on gtk, use gdk signals there
-
     mutable Time    m_nLastUserEventTime; // mutable because changed on first access
 
     virtual bool    Dispatch( XEvent *pEvent ) = 0;
     void            InitXinerama();
     void            InitRandR( ::Window aRoot ) const;
-    void            DeInitRandR();
+    static void     DeInitRandR();
     void            processRandREvent( XEvent* );
 
     void            doDestruct();
@@ -347,9 +345,9 @@ public:
                                XIC = nullptr ) const;
 
     Cursor                GetPointer( PointerStyle ePointerStyle );
-    virtual int           CaptureMouse( SalFrame *pCapture );
+    int             CaptureMouse( SalFrame *pCapture );
 
-    virtual ScreenData   *initScreen( SalX11Screen nXScreen ) const;
+    ScreenData*     initScreen( SalX11Screen nXScreen ) const;
     const ScreenData&     getDataForScreen( SalX11Screen nXScreen ) const
     {
         if( nXScreen.getXScreen() >= m_aScreens.size() )
@@ -391,7 +389,6 @@ public:
     unsigned int GetXScreenCount() const { return m_aScreens.size(); }
 
     const SalFrameSet& getFrames() const { return m_aFrames; }
-    bool            IsNumLockFromXS() const { return bNumLockFromXS_; }
 
     std::list< SalObject* >& getSalObjects() { return m_aSalObjects; }
 };

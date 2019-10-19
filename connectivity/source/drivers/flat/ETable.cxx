@@ -34,6 +34,7 @@
 #include <cppuhelper/typeprovider.hxx>
 #include <comphelper/numbers.hxx>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/types.hxx>
 #include <flat/EDriver.hxx>
 #include <com/sun/star/util/NumberFormat.hpp>
@@ -418,7 +419,7 @@ void OFlatTable::construct()
     Reference< XNumberFormatsSupplier > xSupplier = NumberFormatsSupplier::createWithLocale( m_pConnection->getDriver()->getComponentContext(), aAppLocale );
     m_xNumberFormatter.set( NumberFormatter::create( m_pConnection->getDriver()->getComponentContext()), UNO_QUERY_THROW);
     m_xNumberFormatter->attachNumberFormatsSupplier(xSupplier);
-    Reference<XPropertySet> xProp(xSupplier->getNumberFormatSettings(),UNO_QUERY);
+    Reference<XPropertySet> xProp = xSupplier->getNumberFormatSettings();
     xProp->getPropertyValue("NullDate") >>= m_aNullDate;
 
     INetURLObject aURL;
@@ -449,7 +450,7 @@ void OFlatTable::construct()
     }
 }
 
-OUString OFlatTable::getEntry()
+OUString OFlatTable::getEntry() const
 {
     OUString sURL;
     try
@@ -553,7 +554,7 @@ Any SAL_CALL OFlatTable::queryInterface( const Type & rType )
 }
 
 
-Sequence< sal_Int8 > OFlatTable::getUnoTunnelImplementationId()
+Sequence< sal_Int8 > OFlatTable::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 
@@ -564,7 +565,7 @@ Sequence< sal_Int8 > OFlatTable::getUnoTunnelImplementationId()
 
 sal_Int64 OFlatTable::getSomething( const Sequence< sal_Int8 > & rId )
 {
-    return (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    return (isUnoTunnelId<OFlatTable>(rId))
                 ? reinterpret_cast< sal_Int64 >( this )
                 : OFlatTable_BASE::getSomething(rId);
 }
@@ -672,7 +673,7 @@ bool OFlatTable::fetchRow(OValueRefRow& _rRow, const OSQLColumns & _rCols, bool 
                     else
                     {
                         if ( cThousandDelimiter )
-                            aStrConverted = aStr.replaceAll(OUStringLiteral1(cThousandDelimiter), "");
+                            aStrConverted = aStr.replaceAll(OUStringChar(cThousandDelimiter), "");
                         else
                             aStrConverted = aStr;
                     }
@@ -680,7 +681,7 @@ bool OFlatTable::fetchRow(OValueRefRow& _rRow, const OSQLColumns & _rCols, bool 
 
                     // #99178# OJ
                     if ( DataType::DECIMAL == nType || DataType::NUMERIC == nType )
-                        *(_rRow->get())[i] = OUString::number(nVal);
+                        *(_rRow->get())[i] = OUString(OUString::number(nVal));
                     else
                         *(_rRow->get())[i] = nVal;
                 } break;

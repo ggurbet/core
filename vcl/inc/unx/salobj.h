@@ -20,6 +20,8 @@
 #ifndef INCLUDED_VCL_INC_UNX_SALOBJ_H
 #define INCLUDED_VCL_INC_UNX_SALOBJ_H
 
+#include <X11/Xlib.h>
+
 #include <salobj.hxx>
 #include <vcl/sysdata.hxx>
 #include <vclpluginapi.h>
@@ -40,7 +42,7 @@ public:
         return ClipRectangleList.get(); }
     void        ResetClipRegion()   {
         numClipRectangles = 0;      }
-    int         GetRectangleCount() {
+    int         GetRectangleCount() const {
         return numClipRectangles;   }
 
 private:

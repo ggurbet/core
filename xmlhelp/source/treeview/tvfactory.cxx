@@ -23,6 +23,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <cppuhelper/factory.hxx>
 #include <tvfactory.hxx>
 #include <tvread.hxx>
 
@@ -117,8 +118,7 @@ TVFactory::createInstanceWithArguments(
 Sequence< OUString > SAL_CALL
 TVFactory::getAvailableServiceNames( )
 {
-    Sequence<OUString> seq { "com.sun.star.ucb.HierarchyDataReadAccess" };
-    return seq;
+    return { "com.sun.star.ucb.HierarchyDataReadAccess" };
 }
 
 // static
@@ -126,16 +126,13 @@ TVFactory::getAvailableServiceNames( )
 OUString
 TVFactory::getImplementationName_static()
 {
-    return OUString( "com.sun.star.help.TreeViewImpl" );
+    return "com.sun.star.help.TreeViewImpl";
 }
 
 Sequence< OUString >
 TVFactory::getSupportedServiceNames_static()
 {
-    Sequence< OUString > seq( 2 );
-    seq[0] = "com.sun.star.help.TreeView";
-    seq[1] = "com.sun.star.ucb.HiearchyDataSource";
-    return seq;
+    return { "com.sun.star.help.TreeView", "com.sun.star.ucb.HiearchyDataSource" };
 }
 
 Reference< XSingleServiceFactory >

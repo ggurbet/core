@@ -23,7 +23,6 @@
 #include <rtl/ustring.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-#include <tools/debug.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlimp.hxx>
@@ -145,7 +144,7 @@ static OUString lcl_getFieldmarkName(OUString const& name)
 {
     if (name == "msoffice.field.FORMTEXT" ||
         name == "ecma.office-open-xml.field.FORMTEXT")
-        return OUString(ODF_FORMTEXT);
+        return ODF_FORMTEXT;
     else
         return name;
 }
@@ -222,7 +221,7 @@ void XMLTextMarkImportContext::EndElement()
                 case TypeFieldmark:
                     {
                         const char *formFieldmarkName=lcl_getFormFieldmarkName(m_sFieldName);
-                        bool bImportAsField = (nTmp==TypeFieldmark && formFieldmarkName!=nullptr); //@TODO handle abbreviation cases..
+                        bool bImportAsField = (nTmp==TypeFieldmark && formFieldmarkName!=nullptr); //@TODO handle abbreviation cases...
                         // export point bookmark
                         const Reference<XInterface> xContent(
                             CreateAndInsertMark(GetImport(),

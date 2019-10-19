@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
 #include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 
@@ -30,25 +29,20 @@
 #include <vcl/vclevent.hxx>
 #include <vcl/window.hxx>
 #include <vcl/syswin.hxx>
-#include <vcl/syschild.hxx>
 #include <vcl/dockwin.hxx>
 #include <vcl/wall.hxx>
 #include <vcl/fixed.hxx>
-#include <vcl/gradient.hxx>
-#include <vcl/button.hxx>
 #include <vcl/taskpanelist.hxx>
-#include <vcl/dialog.hxx>
 #include <vcl/toolkit/unowrap.hxx>
-#include <vcl/gdimtf.hxx>
 #include <vcl/lazydelete.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/sysdata.hxx>
 #include <vcl/ptrstyle.hxx>
 #include <vcl/IDialogRenderable.hxx>
+#include <vcl/transfer.hxx>
 
 #include <vcl/uitest/uiobject.hxx>
-#include <vcl/uitest/uitest.hxx>
 
 #include <salframe.hxx>
 #include <salobj.hxx>
@@ -60,21 +54,20 @@
 #include <outdev.h>
 #include <brdwin.hxx>
 #include <helpwin.hxx>
-#include <dndlistenercontainer.hxx>
 
-#include <com/sun/star/awt/XDisplayConnection.hpp>
+#include <com/sun/star/accessibility/AccessibleRelation.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
-#include <com/sun/star/datatransfer/clipboard/SystemClipboard.hpp>
+#include <com/sun/star/datatransfer/dnd/XDragGestureRecognizer.hpp>
+#include <com/sun/star/datatransfer/dnd/XDropTarget.hpp>
 #include <com/sun/star/rendering/CanvasFactory.hpp>
 #include <com/sun/star/rendering/XSpriteCanvas.hpp>
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 #include <unotools/configmgr.hxx>
-#include <tools/diagnose_ex.h>
+#include <osl/diagnose.h>
 #include <tools/debug.hxx>
 
 #include <cassert>
-#include <set>
 #include <typeinfo>
 
 #ifdef _WIN32 // see #140456#
@@ -553,6 +546,7 @@ void Window::dispose()
         assert (mpWindowImpl->mpFrameData->mnFocusId == nullptr);
         assert (mpWindowImpl->mpFrameData->mnMouseMoveId == nullptr);
 
+        mpWindowImpl->mpFrameData->mpBuffer.disposeAndClear();
         delete mpWindowImpl->mpFrameData;
         mpWindowImpl->mpFrameData = nullptr;
     }
@@ -582,6 +576,11 @@ Window::~Window()
 ::OutputDevice* Window::GetOutDev()
 {
     return this;
+}
+
+Color Window::GetBackgroundColor() const
+{
+    return GetDisplayBackground().GetColor();
 }
 
 } /* namespace vcl */
@@ -657,7 +656,7 @@ WindowImpl::WindowImpl( WindowType nType )
     mnMarginBottom                      = 0;
     mbFrame                             = false;                     // true: Window is a frame window
     mbBorderWin                         = false;                     // true: Window is a border window
-    mbOverlapWin                        = false;                     // true: Window is a overlap window
+    mbOverlapWin                        = false;                     // true: Window is an overlap window
     mbSysWin                            = false;                     // true: SystemWindow is the base class
     mbDialog                            = false;                     // true: Dialog is the base class
     mbDockWin                           = false;                     // true: DockingWindow is the base class
@@ -1769,14 +1768,13 @@ void Window::SimulateKeyPress( sal_uInt16 nKeyCode ) const
 void Window::KeyInput( const KeyEvent& rKEvt )
 {
     KeyCode cod = rKEvt.GetKeyCode ();
-    bool accel = ImplGetSVData()->maNWFData.mbEnableAccel;
     bool autoacc = ImplGetSVData()->maNWFData.mbAutoAccel;
 
     // do not respond to accelerators unless Alt is held */
     if (cod.GetCode () >= 0x200 && cod.GetCode () <= 0x219)
     {
-        if (!accel) return;
-        if (autoacc && cod.GetModifier () != KEY_MOD2) return;
+        if (autoacc && cod.GetModifier () != KEY_MOD2)
+            return;
     }
 
     NotifyEvent aNEvt( MouseNotifyEvent::KEYINPUT, this, &rKEvt );
@@ -2239,7 +2237,7 @@ void Window::Show(bool bVisible, ShowFlags nFlags)
     else
     {
         // inherit native widget flag for form controls
-        // required here, because frames never show up in the child hierarchy - which should be fixed....
+        // required here, because frames never show up in the child hierarchy - which should be fixed...
         // eg, the drop down of a combobox which is a system floating window
         if( mpWindowImpl->mbFrame && GetParent() && GetParent()->IsCompoundControl() &&
             GetParent()->IsNativeWidgetEnabled() != IsNativeWidgetEnabled() &&
@@ -2794,7 +2792,7 @@ void Window::setPosSizePixel( long nX, long nY,
         // Resize should be called directly. If we haven't
         // set the correct size, we get a second resize from
         // the system with the correct size. This can be happened
-        // if the size is to small or to large.
+        // if the size is too small or too large.
         ImplHandleResize( pWindow, nWidth, nHeight );
     }
     else
@@ -2994,6 +2992,14 @@ void Window::GrabFocusToDocument()
     ImplGrabFocusToDocument(GetFocusFlags::NONE);
 }
 
+VclPtr<vcl::Window> Window::GetFocusedWindow() const
+{
+    if (mpWindowImpl && mpWindowImpl->mpFrameData)
+        return mpWindowImpl->mpFrameData->mpFocusWin;
+    else
+        return VclPtr<vcl::Window>();
+}
+
 void Window::SetFakeFocus( bool bFocus )
 {
     ImplGetWindowImpl()->mbFakeFocusSet = bFocus;
@@ -3160,9 +3166,9 @@ LOKWindowsMap& GetLOKWindowsMap()
     assert(comphelper::LibreOfficeKit::isActive());
 
     // Map to remember the LOKWindowId <-> Window binding.
-    static std::unique_ptr<LOKWindowsMap> s_pLOKWindowsMap(new LOKWindowsMap);
+    static LOKWindowsMap s_aLOKWindowsMap;
 
-    return *s_pLOKWindowsMap;
+    return s_aLOKWindowsMap;
 }
 
 }
@@ -3172,6 +3178,8 @@ void Window::SetLOKNotifier(const vcl::ILibreOfficeKitNotifier* pNotifier, bool 
     // don't allow setting this twice
     assert(mpWindowImpl->mpLOKNotifier == nullptr);
     assert(pNotifier);
+    // never use this in the desktop case
+    assert(comphelper::LibreOfficeKit::isActive());
 
     if (!bParent)
     {
@@ -3208,6 +3216,28 @@ void Window::ReleaseLOKNotifier()
     mpWindowImpl->mnLOKWindowId = 0;
 }
 
+ILibreOfficeKitNotifier::~ILibreOfficeKitNotifier()
+{
+    if (!comphelper::LibreOfficeKit::isActive())
+    {
+        return;
+    }
+
+    for (auto it = GetLOKWindowsMap().begin(); it != GetLOKWindowsMap().end();)
+    {
+        WindowImpl* pWindowImpl = it->second->ImplGetWindowImpl();
+        if (pWindowImpl->mpLOKNotifier == this)
+        {
+            pWindowImpl->mpLOKNotifier = nullptr;
+            pWindowImpl->mnLOKWindowId = 0;
+            it = GetLOKWindowsMap().erase(it);
+            continue;
+        }
+
+        ++it;
+    }
+}
+
 const vcl::ILibreOfficeKitNotifier* Window::GetLOKNotifier() const
 {
     return mpWindowImpl->mpLOKNotifier;
@@ -3226,6 +3256,122 @@ VclPtr<vcl::Window> Window::GetParentWithLOKNotifier()
         pWindow = pWindow->GetParent();
 
     return pWindow;
+}
+
+namespace
+{
+
+const char* windowTypeName(WindowType nWindowType)
+{
+    switch (nWindowType)
+    {
+        case WindowType::NONE:                      return "none";
+        case WindowType::MESSBOX:                   return "messagebox";
+        case WindowType::INFOBOX:                   return "infobox";
+        case WindowType::WARNINGBOX:                return "warningbox";
+        case WindowType::ERRORBOX:                  return "errorbox";
+        case WindowType::QUERYBOX:                  return "querybox";
+        case WindowType::WINDOW:                    return "window";
+        case WindowType::WORKWINDOW:                return "workwindow";
+        case WindowType::CONTAINER:                 return "container";
+        case WindowType::FLOATINGWINDOW:            return "floatingwindow";
+        case WindowType::DIALOG:                    return "dialog";
+        case WindowType::MODELESSDIALOG:            return "modelessdialog";
+        case WindowType::MODALDIALOG:               return "modaldialog";
+        case WindowType::CONTROL:                   return "control";
+        case WindowType::PUSHBUTTON:                return "pushbutton";
+        case WindowType::OKBUTTON:                  return "okbutton";
+        case WindowType::CANCELBUTTON:              return "cancelbutton";
+        case WindowType::HELPBUTTON:                return "helpbutton";
+        case WindowType::IMAGEBUTTON:               return "imagebutton";
+        case WindowType::MENUBUTTON:                return "menubutton";
+        case WindowType::MOREBUTTON:                return "morebutton";
+        case WindowType::SPINBUTTON:                return "spinbutton";
+        case WindowType::RADIOBUTTON:               return "radiobutton";
+        case WindowType::CHECKBOX:                  return "checkbox";
+        case WindowType::TRISTATEBOX:               return "tristatebox";
+        case WindowType::EDIT:                      return "edit";
+        case WindowType::MULTILINEEDIT:             return "multilineedit";
+        case WindowType::COMBOBOX:                  return "combobox";
+        case WindowType::LISTBOX:                   return "listbox";
+        case WindowType::MULTILISTBOX:              return "multilistbox";
+        case WindowType::FIXEDTEXT:                 return "fixedtext";
+        case WindowType::FIXEDLINE:                 return "fixedline";
+        case WindowType::FIXEDBITMAP:               return "fixedbitmap";
+        case WindowType::FIXEDIMAGE:                return "fixedimage";
+        case WindowType::GROUPBOX:                  return "groupbox";
+        case WindowType::SCROLLBAR:                 return "scrollbar";
+        case WindowType::SCROLLBARBOX:              return "scrollbarbox";
+        case WindowType::SPLITTER:                  return "splitter";
+        case WindowType::SPLITWINDOW:               return "splitwindow";
+        case WindowType::SPINFIELD:                 return "spinfield";
+        case WindowType::PATTERNFIELD:              return "patternfield";
+        case WindowType::NUMERICFIELD:              return "numericfield";
+        case WindowType::METRICFIELD:               return "metricfield";
+        case WindowType::CURRENCYFIELD:             return "currencyfield";
+        case WindowType::DATEFIELD:                 return "datefield";
+        case WindowType::TIMEFIELD:                 return "timefield";
+        case WindowType::PATTERNBOX:                return "patternbox";
+        case WindowType::NUMERICBOX:                return "numericbox";
+        case WindowType::METRICBOX:                 return "metricbox";
+        case WindowType::CURRENCYBOX:               return "currencybox";
+        case WindowType::DATEBOX:                   return "datebox";
+        case WindowType::TIMEBOX:                   return "timebox";
+        case WindowType::LONGCURRENCYFIELD:         return "longcurrencyfield";
+        case WindowType::LONGCURRENCYBOX:           return "longcurrencybox";
+        case WindowType::SCROLLWINDOW:              return "scrollwindow";
+        case WindowType::TOOLBOX:                   return "toolbox";
+        case WindowType::DOCKINGWINDOW:             return "dockingwindow";
+        case WindowType::STATUSBAR:                 return "statusbar";
+        case WindowType::TABPAGE:                   return "tabpage";
+        case WindowType::TABCONTROL:                return "tabcontrol";
+        case WindowType::TABDIALOG:                 return "tabdialog";
+        case WindowType::BORDERWINDOW:              return "borderwindow";
+        case WindowType::BUTTONDIALOG:              return "buttondialog";
+        case WindowType::SYSTEMCHILDWINDOW:         return "systemchildwindow";
+        case WindowType::SLIDER:                    return "slider";
+        case WindowType::MENUBARWINDOW:             return "menubarwindow";
+        case WindowType::TREELISTBOX:               return "treelistbox";
+        case WindowType::HELPTEXTWINDOW:            return "helptextwindow";
+        case WindowType::INTROWINDOW:               return "introwindow";
+        case WindowType::LISTBOXWINDOW:             return "listboxwindow";
+        case WindowType::DOCKINGAREA:               return "dockingarea";
+        case WindowType::RULER:                     return "ruler";
+        case WindowType::CALCINPUTLINE:             return "calcinputline";
+        case WindowType::HEADERBAR:                 return "headerbar";
+        case WindowType::VERTICALTABCONTROL:        return "verticaltabcontrol";
+
+        // nothing to do here, but for completeness
+        case WindowType::TOOLKIT_FRAMEWINDOW:       return "toolkit_framewindow";
+        case WindowType::TOOLKIT_SYSTEMCHILDWINDOW: return "toolkit_systemchildwindow";
+    }
+
+    return "none";
+}
+
+}
+
+boost::property_tree::ptree Window::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree;
+    aTree.put("id", get_id());  // TODO could be missing - sort out
+    aTree.put("type", windowTypeName(GetType()));
+    aTree.put("text", GetText());
+    aTree.put("enabled", IsEnabled());
+
+    boost::property_tree::ptree aChildren;
+    if (vcl::Window* pChild = mpWindowImpl->mpFirstChild)
+    {
+        while (pChild)
+        {
+            if (pChild->IsVisible())
+                aChildren.push_back(std::make_pair("", pChild->DumpAsPropertyTree()));
+            pChild = pChild->mpWindowImpl->mpNext;
+        }
+        aTree.add_child("children", aChildren);
+    }
+
+    return aTree;
 }
 
 void Window::ImplCallDeactivateListeners( vcl::Window *pNew )
@@ -3273,68 +3419,20 @@ void Window::SetClipboard(Reference<XClipboard> const & xClipboard)
 
 Reference< XClipboard > Window::GetClipboard()
 {
-
-    if( mpWindowImpl->mpFrameData )
-    {
-        if( ! mpWindowImpl->mpFrameData->mxClipboard.is() )
-        {
-            try
-            {
-                mpWindowImpl->mpFrameData->mxClipboard
-                    = css::datatransfer::clipboard::SystemClipboard::create(
-                        comphelper::getProcessComponentContext());
-            }
-            catch (DeploymentException const &)
-            {
-                TOOLS_WARN_EXCEPTION("vcl.window", "ignoring");
-            }
-        }
-
-        return mpWindowImpl->mpFrameData->mxClipboard;
-    }
-
-    return static_cast < XClipboard * > (nullptr);
+    if (!mpWindowImpl->mpFrameData)
+        return static_cast<XClipboard*>(nullptr);
+    if (!mpWindowImpl->mpFrameData->mxClipboard.is())
+        mpWindowImpl->mpFrameData->mxClipboard = GetSystemClipboard();
+    return mpWindowImpl->mpFrameData->mxClipboard;
 }
 
 Reference< XClipboard > Window::GetPrimarySelection()
 {
-
-    if( mpWindowImpl->mpFrameData )
-    {
-        if( ! mpWindowImpl->mpFrameData->mxSelection.is() )
-        {
-            try
-            {
-                Reference< XComponentContext > xContext( comphelper::getProcessComponentContext() );
-
-#if HAVE_FEATURE_X11
-                // A hack, making the primary selection available as an instance
-                // of the SystemClipboard service on X11:
-                Sequence< Any > args(1);
-                args[0] <<= OUString("PRIMARY");
-                mpWindowImpl->mpFrameData->mxSelection.set(
-                    (xContext->getServiceManager()->
-                     createInstanceWithArgumentsAndContext(
-                         "com.sun.star.datatransfer.clipboard.SystemClipboard",
-                         args, xContext)),
-                    UNO_QUERY_THROW);
-#else
-                static Reference< XClipboard > s_xSelection(
-                    xContext->getServiceManager()->createInstanceWithContext( "com.sun.star.datatransfer.clipboard.GenericClipboard", xContext ), UNO_QUERY );
-
-                mpWindowImpl->mpFrameData->mxSelection = s_xSelection;
-#endif
-            }
-            catch (RuntimeException const &)
-            {
-                TOOLS_WARN_EXCEPTION("vcl.window", "ignoring");
-            }
-        }
-
-        return mpWindowImpl->mpFrameData->mxSelection;
-    }
-
-    return static_cast < XClipboard * > (nullptr);
+    if (!mpWindowImpl->mpFrameData)
+        return static_cast<XClipboard*>(nullptr);
+    if (!mpWindowImpl->mpFrameData->mxSelection.is())
+        mpWindowImpl->mpFrameData->mxSelection = GetSystemPrimarySelection();
+    return mpWindowImpl->mpFrameData->mxSelection;
 }
 
 void Window::RecordLayoutData( vcl::ControlLayoutData* pLayout, const tools::Rectangle& rRect )
@@ -3365,7 +3463,7 @@ void Window::DrawSelectionBackground( const tools::Rectangle& rRect,
     bool bBright = ( rStyles.GetFaceColor() == COL_WHITE );
 
     int c1 = aSelectionBorderCol.GetLuminance();
-    int c2 = GetDisplayBackground().GetColor().GetLuminance();
+    int c2 = GetBackgroundColor().GetLuminance();
 
     if( !bDark && !bBright && abs( c2-c1 ) < 75 )
     {
@@ -3525,7 +3623,7 @@ void Window::ImplNotifyIconifiedState( bool bIconified )
         mpWindowImpl->mpFrameWindow->mpWindowImpl->mpClientWindow->CallEventListeners( bIconified ? VclEventId::WindowMinimize : VclEventId::WindowNormalize );
 }
 
-bool Window::HasActiveChildFrame()
+bool Window::HasActiveChildFrame() const
 {
     bool bRet = false;
     vcl::Window *pFrameWin = ImplGetSVData()->maWinData.mpFirstFrame;
@@ -3605,19 +3703,18 @@ Reference< css::rendering::XCanvas > Window::ImplGetCanvas( bool bSpriteCanvas )
     if( xCanvas.is() )
         return xCanvas;
 
-    Sequence< Any > aArg(6);
+    Sequence< Any > aArg(5);
 
     // Feed any with operating system's window handle
 
     // common: first any is VCL pointer to window (for VCL canvas)
     aArg[ 0 ] <<= reinterpret_cast<sal_Int64>(this);
-    aArg[ 1 ] = GetSystemDataAny();
-    aArg[ 2 ] <<= css::awt::Rectangle( mnOutOffX, mnOutOffY, mnOutWidth, mnOutHeight );
-    aArg[ 3 ] <<= mpWindowImpl->mbAlwaysOnTop;
-    aArg[ 4 ] <<= Reference< css::awt::XWindow >(
+    aArg[ 1 ] <<= css::awt::Rectangle( mnOutOffX, mnOutOffY, mnOutWidth, mnOutHeight );
+    aArg[ 2 ] <<= mpWindowImpl->mbAlwaysOnTop;
+    aArg[ 3 ] <<= Reference< css::awt::XWindow >(
                              const_cast<vcl::Window*>(this)->GetComponentInterface(),
                              UNO_QUERY );
-    aArg[ 5 ] = GetSystemGfxDataAny();
+    aArg[ 4 ] = GetSystemGfxDataAny();
 
     Reference< XComponentContext > xContext = comphelper::getProcessComponentContext();
 
@@ -3701,18 +3798,6 @@ const SystemEnvData* Window::GetSystemData() const
 {
 
     return mpWindowImpl->mpFrame ? mpWindowImpl->mpFrame->GetSystemData() : nullptr;
-}
-
-Any Window::GetSystemDataAny() const
-{
-    Any aRet;
-    const SystemEnvData* pSysData = GetSystemData();
-    if( pSysData )
-    {
-        Sequence< sal_Int8 > aSeq( reinterpret_cast<sal_Int8 const *>(pSysData), pSysData->nSize );
-        aRet <<= aSeq;
-    }
-    return aRet;
 }
 
 bool Window::SupportsDoubleBuffering() const

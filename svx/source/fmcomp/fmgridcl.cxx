@@ -138,7 +138,7 @@ sal_uInt16 FmGridHeader::GetModelColumnPos(sal_uInt16 nId) const
 void FmGridHeader::notifyColumnSelect(sal_uInt16 nColumnId)
 {
     sal_uInt16 nPos = GetModelColumnPos(nColumnId);
-    Reference< XIndexAccess >  xColumns(static_cast<FmGridControl*>(GetParent())->GetPeer()->getColumns(), UNO_QUERY);
+    Reference< XIndexAccess >  xColumns = static_cast<FmGridControl*>(GetParent())->GetPeer()->getColumns();
     if ( nPos < xColumns->getCount() )
     {
         Reference< XSelectionSupplier >  xSelSupplier(xColumns, UNO_QUERY);
@@ -267,10 +267,10 @@ sal_Int8 FmGridHeader::ExecuteDrop( const ExecuteDropEvent& _rEvt )
             {
                 OUString sSignificantSource( sDatasource.isEmpty() ? sDatabaseLocation : sDatasource );
                 xConnection = getConnection_withFeedback(sSignificantSource, OUString(), OUString(),
-                                  static_cast<FmGridControl*>(GetParent())->getContext() );
+                                  static_cast<FmGridControl*>(GetParent())->getContext(), nullptr );
             }
             catch(NoSuchElementException&)
-            {   // allowed, means sDatasource isn't a valid data source name ....
+            {   // allowed, means sDatasource isn't a valid data source name...
             }
             catch(Exception&)
             {
@@ -684,7 +684,7 @@ void FmGridHeader::PreExecuteColumnContextMenu(sal_uInt16 nColId, PopupMenu& rMe
         sal_Int32 nColType = xServiceQuestion.is() ? getColumnTypeByModelName(xServiceQuestion->getServiceName()) : 0;
         if (nColType == TYPE_TEXTFIELD)
         {   // edit fields and formatted fields have the same service name, thus getColumnTypeByModelName returns TYPE_TEXTFIELD
-            // in both cases. And as columns don't have an css::lang::XServiceInfo interface, we have to distinguish both
+            // in both cases. And as columns don't have a css::lang::XServiceInfo interface, we have to distinguish both
             // types via the existence of special properties
             if (xPropSet.is())
             {
@@ -901,7 +901,7 @@ void FmGridHeader::PostExecuteColumnContextMenu(sal_uInt16 nColId, const PopupMe
             xCurCol.set(xCols->getByIndex(i), css::uno::UNO_QUERY);
             xCurCol->setPropertyValue(FM_PROP_HIDDEN, makeAny(false));
         }
-        // TODO : there must be a more clever way to do this ....
+        // TODO : there must be a more clever way to do this...
         // with the above the view is updated after every single model update ...
     }
     else if (nExecutionResult>0 && nExecutionResult<=16)
@@ -1261,13 +1261,8 @@ void FmGridControl::DeleteSelectedRows()
         SetUpdateMode( true );
 
         // how many rows are deleted?
-        sal_Int32 nDeletedRows = 0;
-        const sal_Int32* pSuccess = aDeletedRows.getConstArray();
-        for (sal_Int32 i = 0; i < aDeletedRows.getLength(); i++)
-        {
-            if (pSuccess[i])
-                ++nDeletedRows;
-        }
+        sal_Int32 nDeletedRows = static_cast<sal_Int32>(std::count_if(aDeletedRows.begin(), aDeletedRows.end(),
+                                                                      [](const sal_Int32 nRow) { return nRow != 0; }));
 
         // have rows been deleted?
         if (nDeletedRows)
@@ -1314,13 +1309,11 @@ void FmGridControl::DeleteSelectedRows()
                 // not all the rows where deleted, so move to the first row which remained in the resultset
                 else
                 {
-                    for (sal_Int32 i = 0; i < aDeletedRows.getLength(); i++)
+                    auto pRow = std::find(aDeletedRows.begin(), aDeletedRows.end(), 0);
+                    if (pRow != aDeletedRows.end())
                     {
-                        if (!pSuccess[i])
-                        {
-                            getDataSource()->moveToBookmark(aBookmarks.getConstArray()[i]);
-                            break;
-                        }
+                        auto i = static_cast<sal_Int32>(std::distance(aDeletedRows.begin(), pRow));
+                        getDataSource()->moveToBookmark(aBookmarks[i]);
                     }
                 }
             }
@@ -1353,11 +1346,11 @@ void FmGridControl::DeleteSelectedRows()
                 else
                 {
                     // select the remaining rows
-                    for (sal_Int32 i = 0; i < aDeletedRows.getLength(); i++)
+                    for (const sal_Int32 nSuccess : aDeletedRows)
                     {
                         try
                         {
-                            if (!pSuccess[i])
+                            if (!nSuccess)
                             {
                                 m_pSeekCursor->moveToBookmark(m_pDataCursor->getBookmark());
                                 SetSeekPos(m_pSeekCursor->getRow() - 1);
@@ -1775,18 +1768,15 @@ bool FmGridControl::selectBookmarks(const Sequence< Any >& _rBookmarks)
         return false;
     }
 
-    const Any* pBookmark = _rBookmarks.getConstArray();
-    const Any* pBookmarkEnd = pBookmark + _rBookmarks.getLength();
-
     SetNoSelection();
 
     bool bAllSuccessfull = true;
     try
     {
-        for (; pBookmark != pBookmarkEnd; ++pBookmark)
+        for (const Any& rBookmark : _rBookmarks)
         {
             // move the seek cursor to the row given
-            if (m_pSeekCursor->moveToBookmark(*pBookmark))
+            if (m_pSeekCursor->moveToBookmark(rBookmark))
                 SelectRow( m_pSeekCursor->getRow() - 1);
             else
                 bAllSuccessfull = false;
@@ -1862,11 +1852,11 @@ Sequence< Any> FmGridControl::getSelectionBookmarks()
     }
     SetUpdateMode(true);
 
-    // if one of the SeekCursor-calls failed ....
+    // if one of the SeekCursor-calls failed...
     aBookmarks.realloc(i);
 
     // (the alternative : while collecting the bookmarks lock our propertyChanged, this should resolve both our problems.
-    // but this would be incompatible as we need a locking flag, then ...)
+    // but this would be incompatible as we need a locking flag, then...)
 
     return aBookmarks;
 }
@@ -1995,7 +1985,7 @@ void FmGridControl::Select()
 
             try
             {
-                Reference< XIndexAccess >  xColumns(GetPeer()->getColumns(), UNO_QUERY);
+                Reference< XIndexAccess >  xColumns = GetPeer()->getColumns();
                 Reference< XSelectionSupplier >  xSelSupplier(xColumns, UNO_QUERY);
                 if (xSelSupplier.is())
                 {

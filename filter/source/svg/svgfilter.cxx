@@ -186,7 +186,7 @@ bool SVGFilter::filterImpressOrDraw( const Sequence< PropertyValue >& rDescripto
             }
 
             // get the DrawPages
-            uno::Reference< drawing::XDrawPages > xDrawPages( xDrawPagesSupplier->getDrawPages(), uno::UNO_QUERY );
+            uno::Reference< drawing::XDrawPages > xDrawPages = xDrawPagesSupplier->getDrawPages();
 
             if(!xDrawPages.is())
             {
@@ -469,8 +469,8 @@ bool SVGFilter::filterImpressOrDraw( const Sequence< PropertyValue >& rDescripto
 
             if( xMasterPagesSupplier.is() && xDrawPagesSupplier.is() )
             {
-                uno::Reference< drawing::XDrawPages >   xMasterPages( xMasterPagesSupplier->getMasterPages(), uno::UNO_QUERY );
-                uno::Reference< drawing::XDrawPages >   xDrawPages( xDrawPagesSupplier->getDrawPages(), uno::UNO_QUERY );
+                uno::Reference< drawing::XDrawPages >   xMasterPages = xMasterPagesSupplier->getMasterPages();
+                uno::Reference< drawing::XDrawPages >   xDrawPages = xDrawPagesSupplier->getDrawPages();
                 if( xMasterPages.is() && xMasterPages->getCount() &&
                     xDrawPages.is() && xDrawPages->getCount() )
                 {
@@ -522,7 +522,7 @@ bool SVGFilter::filterImpressOrDraw( const Sequence< PropertyValue >& rDescripto
              *  The master page are put in an unordered set.
              */
             ObjectSet aMasterPageTargetSet;
-            for(uno::Reference<drawing::XDrawPage> & mSelectedPage : mSelectedPages)
+            for(const uno::Reference<drawing::XDrawPage> & mSelectedPage : mSelectedPages)
             {
                 uno::Reference< drawing::XMasterPageTarget > xMasterPageTarget( mSelectedPage, uno::UNO_QUERY );
                 if( xMasterPageTarget.is() )
@@ -696,10 +696,7 @@ private:
         {
             ZCodec aCodec;
 
-            aCodec.BeginCompression(
-                ZCODEC_DEFAULT_COMPRESSION,
-                false,
-                true);
+            aCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, /*gzLib*/true);
             mnFirstRead = aCodec.Read(
                 *aStream,
                 reinterpret_cast< sal_uInt8* >(mnFirstBytes.getArray()),

@@ -17,16 +17,17 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <comphelper/processfactory.hxx>
 #include <rtl/bootstrap.hxx>
+#include <rtl/ustrbuf.hxx>
 #include <config_folders.h>
 #include <CustomNotebookbarGenerator.hxx>
 #include <osl/file.hxx>
-#include <vcl/dialog.hxx>
+#include <vcl/builder.hxx>
+#include <vcl/EnumContext.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <officecfg/Office/UI/ToolbarMode.hxx>
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <unotools/confignode.hxx>
-#include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
 
 #define aUIItemIDLength 255
@@ -41,16 +42,16 @@ static OUString lcl_activeAppName(vcl::EnumContext::Application eApp)
     switch (eApp)
     {
         case vcl::EnumContext::Application::Writer:
-            return OUString("ActiveWriter");
+            return "ActiveWriter";
             break;
         case vcl::EnumContext::Application::Calc:
-            return OUString("ActiveCalc");
+            return "ActiveCalc";
             break;
         case vcl::EnumContext::Application::Impress:
-            return OUString("ActiveImpress");
+            return "ActiveImpress";
             break;
         case vcl::EnumContext::Application::Draw:
-            return OUString("ActiveDraw");
+            return "ActiveDraw";
             break;
         default:
             return OUString();
@@ -63,16 +64,16 @@ static OUString lcl_getAppName(vcl::EnumContext::Application eApp)
     switch (eApp)
     {
         case vcl::EnumContext::Application::Writer:
-            return OUString("Writer");
+            return "Writer";
             break;
         case vcl::EnumContext::Application::Calc:
-            return OUString("Calc");
+            return "Calc";
             break;
         case vcl::EnumContext::Application::Impress:
-            return OUString("Impress");
+            return "Impress";
             break;
         case vcl::EnumContext::Application::Draw:
-            return OUString("Draw");
+            return "Draw";
             break;
         default:
             return OUString();
@@ -90,9 +91,7 @@ static OUString getAppNameRegistryPath()
     eApp = vcl::EnumContext::GetApplicationEnum(xModuleManager->identify(xFrame));
 
     OUString sAppName(lcl_getAppName(eApp));
-    OUStringBuffer sPath("org.openoffice.Office.UI.ToolbarMode/Applications/");
-    sPath.append(sAppName);
-    return sPath.makeStringAndClear();
+    return "org.openoffice.Office.UI.ToolbarMode/Applications/" + sAppName;
 }
 
 static OUString customizedUIPathBuffer()
@@ -130,8 +129,7 @@ static OUString getUIDirPath()
 
 char* CustomNotebookbarGenerator::convertToCharPointer(const OUString& sString)
 {
-    char* cString = nullptr;
-    cString = new char[sString.getLength() + 1];
+    char* cString = new char[sString.getLength() + 1];
     for (int nIdx = 0; nIdx < sString.getLength(); nIdx++)
         *(cString + nIdx) = char(sString[nIdx]);
     *(cString + sString.getLength()) = '\0';
@@ -176,7 +174,7 @@ static void searchNodeAndAttribute(xmlNode* pNodePtr, char* pUIItemID, char* pPr
     }
 }
 
-static xmlDocPtr notebookbarXMLParser(char* pDocName, char* pUIItemID, char* pProperty,
+static xmlDocPtr notebookbarXMLParser(const char* pDocName, char* pUIItemID, char* pProperty,
                                       char* pValue)
 {
     xmlDocPtr pDocPtr;
@@ -188,7 +186,7 @@ static xmlDocPtr notebookbarXMLParser(char* pDocName, char* pUIItemID, char* pPr
     return pDocPtr;
 }
 
-void CustomNotebookbarGenerator::modifyCustomizedUIFile(Sequence<OUString> sUIItemProperties)
+void CustomNotebookbarGenerator::modifyCustomizedUIFile(const Sequence<OUString>& sUIItemProperties)
 {
     OUString sCustomizedUIPath = getCustomizedUIPath();
     char* cCustomizedUIPath = convertToCharPointer(sCustomizedUIPath);
@@ -262,9 +260,9 @@ void CustomNotebookbarGenerator::createCustomizedUIFile()
 
 Sequence<OUString> CustomNotebookbarGenerator::getCustomizedUIItem(OUString sNotebookbarConfigType)
 {
-    OUStringBuffer aPath = getAppNameRegistryPath();
-    const utl::OConfigurationTreeRoot aAppNode(::comphelper::getProcessComponentContext(),
-                                               aPath.makeStringAndClear(), false);
+    OUString aPath = getAppNameRegistryPath();
+    const utl::OConfigurationTreeRoot aAppNode(::comphelper::getProcessComponentContext(), aPath,
+                                               false);
 
     const utl::OConfigurationNode aModesNode = aAppNode.openNode("Modes");
     const utl::OConfigurationNode aModeNode(aModesNode.openNode(sNotebookbarConfigType));
@@ -277,9 +275,9 @@ Sequence<OUString> CustomNotebookbarGenerator::getCustomizedUIItem(OUString sNot
 void CustomNotebookbarGenerator::setCustomizedUIItem(Sequence<OUString> sUIItemProperties,
                                                      OUString sNotebookbarConfigType)
 {
-    OUStringBuffer aPath = getAppNameRegistryPath();
-    const utl::OConfigurationTreeRoot aAppNode(::comphelper::getProcessComponentContext(),
-                                               aPath.makeStringAndClear(), true);
+    OUString aPath = getAppNameRegistryPath();
+    const utl::OConfigurationTreeRoot aAppNode(::comphelper::getProcessComponentContext(), aPath,
+                                               true);
     const utl::OConfigurationNode aModesNode = aAppNode.openNode("Modes");
     const utl::OConfigurationNode aModeNode(aModesNode.openNode(sNotebookbarConfigType));
 

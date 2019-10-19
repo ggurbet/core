@@ -92,7 +92,7 @@ protected:
     bool                        m_bDismantleMakeLinesPossible : 1;
     bool                        m_bOrthoDesiredOnMarked : 1;
     bool                        m_bOneOrMoreMovable : 1;        // at least one object is moveable
-    bool                        m_bMoreThanOneNoMovRot : 1;     // more then one object is not movable nor turnable (Crook)
+    bool                        m_bMoreThanOneNoMovRot : 1;     // more than one object is not movable nor turnable (Crook)
     bool                        m_bContortionPossible : 1;      // all polygones (grouped if necessary)
     bool                        m_bMoveAllowed : 1;
     bool                        m_bResizeFreeAllowed : 1;
@@ -129,7 +129,7 @@ protected:
     SdrObject* ImpConvertOneObj(SdrObject* pObj, bool bPath, bool bLineToArea);
 
     // set both flags: bToTopPossible and bToBtmPossible.
-    // bToTopPossibleDirty and bToBtmPossibleDirty are reset at same time
+    // bToTopPossibleDirty and bToBtmPossibleDirty are reset at the same time
     void ImpCheckToTopBtmPossible();
 
     // for CombineMarkedObjects and DismantleMarkedObjects
@@ -243,6 +243,10 @@ public:
     bool IsCrookAllowed(bool bNoContortion=false) const;
     bool IsCropAllowed() const;
     bool IsDistortAllowed(bool bNoContortion=false) const;
+
+    // Consolidate the text from multiple, selected TextObjects,
+    // attempting to identify paragraph fragments and join them together
+    void CombineMarkedTextObjects();
 
     // Unite several objects to a polygon:
     // - rectangles/circles/text... are implicitly converted.

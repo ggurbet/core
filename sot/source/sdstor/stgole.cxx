@@ -92,8 +92,6 @@ void StgInternalStream::Commit()
 StgCompObjStream::StgCompObjStream( BaseStorage& rStg, bool bWr )
     : StgInternalStream( rStg, "\1CompObj", bWr )
 {
-    memset( &m_aClsId, 0, sizeof( ClsId ) );
-    m_nCbFormat = SotClipboardFormatId::NONE;
 }
 
 bool StgCompObjStream::Load()
@@ -148,7 +146,7 @@ bool StgCompObjStream::Store()
     WriteInt32( -1 );
     WriteClsId( *this, m_aClsId );             // Class ID
     WriteInt32( aAsciiUserName.getLength() + 1 );
-    WriteCharPtr( aAsciiUserName.getStr() );
+    WriteOString( aAsciiUserName );
     WriteUChar( 0 );             // string terminator
     WriteClipboardFormat( *this, m_nCbFormat );
     WriteInt32( 0 );             // terminator

@@ -21,6 +21,7 @@
 #define INCLUDED_SC_INC_SCMOD_HXX
 
 #include "scdllapi.h"
+#include <o3tl/deleter.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/idle.hxx>
 #include <svl/lstner.hxx>
@@ -86,9 +87,9 @@ class SAL_DLLPUBLIC_RTTI ScModule: public SfxModule, public SfxListener, public 
     ScMessagePool*      m_pMessagePool;
     // there is no global InputHandler anymore, each View has its own
     ScInputHandler*     m_pRefInputHandler;
-    std::unique_ptr<ScViewCfg>        m_pViewCfg;
-    std::unique_ptr<ScDocCfg>         m_pDocCfg;
-    std::unique_ptr<ScAppCfg>         m_pAppCfg;
+    std::unique_ptr<ScViewCfg, o3tl::default_delete<ScViewCfg>> m_pViewCfg;
+    std::unique_ptr<ScDocCfg, o3tl::default_delete<ScDocCfg>> m_pDocCfg;
+    std::unique_ptr<ScAppCfg, o3tl::default_delete<ScAppCfg>> m_pAppCfg;
     std::unique_ptr<ScDefaultsCfg>    m_pDefaultsCfg;
     std::unique_ptr<ScFormulaCfg>     m_pFormulaCfg;
     std::unique_ptr<ScInputCfg>       m_pInputCfg;
@@ -100,7 +101,6 @@ class SAL_DLLPUBLIC_RTTI ScModule: public SfxModule, public SfxListener, public 
     std::unique_ptr<SvtCTLOptions>           m_pCTLOptions;
     std::unique_ptr<SvtUserOptions>          m_pUserOptions;
     std::unique_ptr<SfxErrorHandler>  m_pErrorHdl;
-    std::unique_ptr<ScFormEditData>   m_pFormEditData;
     sal_uInt16          m_nCurRefDlgId;
     bool                m_bIsWaterCan:1;
     bool                m_bIsInEditCommand:1;
@@ -206,7 +206,6 @@ public:
     void                InputSelection( const EditView* pView );
     void                InputChanged( const EditView* pView );
     ScInputHandler*     GetInputHdl( ScTabViewShell* pViewSh = nullptr, bool bUseRef = true );
-
     void                SetRefInputHdl( ScInputHandler* pNew );
     ScInputHandler*     GetRefInputHdl() { return m_pRefInputHandler;}
 
@@ -217,13 +216,8 @@ public:
     void                InputSetSelection( sal_Int32 nStart, sal_Int32 nEnd );
     void                InputReplaceSelection( const OUString& rStr );
     void                InputTurnOffWinEngine();
-    OUString            InputGetFormulaStr();
     void                ActivateInputWindow( const OUString* pStr = nullptr,
                                                 bool bMatrix = false );
-
-    void                InitFormEditData();
-    void                ClearFormEditData();
-    ScFormEditData*     GetFormEditData()       { return m_pFormEditData.get(); }
 
     // input of reference:
     SC_DLLPUBLIC void   SetRefDialog( sal_uInt16 nId, bool bVis, SfxViewFrame* pViewFrm = nullptr );
@@ -240,7 +234,7 @@ public:
     // virtual methods for the options dialog
     virtual std::unique_ptr<SfxItemSet> CreateItemSet( sal_uInt16 nId ) override;
     virtual void         ApplyItemSet( sal_uInt16 nId, const SfxItemSet& rSet ) override;
-    virtual VclPtr<SfxTabPage> CreateTabPage( sal_uInt16 nId, TabPageParent pParent, const SfxItemSet& rSet ) override;
+    virtual std::unique_ptr<SfxTabPage> CreateTabPage( sal_uInt16 nId, weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet ) override;
     virtual std::unique_ptr<SfxStyleFamilies> CreateStyleFamilies() override;
 
     void                SetInSharedDocLoading( bool bNew )  { m_bIsInSharedDocLoading = bNew; }
@@ -249,8 +243,8 @@ public:
     bool                IsInSharedDocSaving() const         { return m_bIsInSharedDocSaving; }
 
     SC_DLLPUBLIC void   RegisterRefController(sal_uInt16 nSlotId, std::shared_ptr<SfxDialogController>& rWnd, weld::Window* pWndAncestor);
-    SC_DLLPUBLIC void   UnregisterRefController(sal_uInt16 nSlotId, std::shared_ptr<SfxDialogController>& rWnd);
-    SC_DLLPUBLIC std::shared_ptr<SfxDialogController> Find1RefWindow(sal_uInt16 nSlotId, weld::Window *pWndAncestor);
+    SC_DLLPUBLIC void   UnregisterRefController(sal_uInt16 nSlotId, const std::shared_ptr<SfxDialogController>& rWnd);
+    SC_DLLPUBLIC std::shared_ptr<SfxDialogController> Find1RefWindow(sal_uInt16 nSlotId, const weld::Window *pWndAncestor);
 
     SC_DLLPUBLIC void RegisterAutomationApplicationEventsCaller(css::uno::Reference< ooo::vba::XSinkCaller > const& xCaller);
     SC_DLLPUBLIC void CallAutomationApplicationEventSinks(const OUString& Method, css::uno::Sequence< css::uno::Any >& Arguments);

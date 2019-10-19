@@ -496,16 +496,14 @@ public:
         This method announces that the given listener was added for
         the specified shape.
      */
-    void notifyShapeListenerAdded( const css::uno::Reference<css::presentation::XShapeEventListener>& xListener,
-                                   const css::uno::Reference<css::drawing::XShape>&                   xShape );
+    void notifyShapeListenerAdded( const css::uno::Reference<css::drawing::XShape>& xShape );
 
     /** A shape event listener was removed
 
         This method announces that the given listener was removed for
         the specified shape.
      */
-    void notifyShapeListenerRemoved( const css::uno::Reference<css::presentation::XShapeEventListener>& xListener,
-                                     const css::uno::Reference<css::drawing::XShape>&                   xShape );
+    void notifyShapeListenerRemoved( const css::uno::Reference<css::drawing::XShape>& xShape );
 
     /** Notify a new user paint color
 
@@ -642,7 +640,7 @@ public:
 
         This method is used by XCommand nodes and all sound
         playing nodes should listen for this command and
-        stop theire sounds when its fired.
+        stop their sounds when it's fired.
 
         @return true, if this event was processed by
         anybody. If false is returned, no handler processed

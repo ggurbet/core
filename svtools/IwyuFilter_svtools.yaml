@@ -1,0 +1,6 @@
+---
+assumeFilename: svtools/source/control/ruler.cxx
+blacklist:
+    svtools/source/dialogs/insdlg.cxx:
+    # Needed on WIN
+    - comphelper/classids.hxx

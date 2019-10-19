@@ -14,7 +14,6 @@
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
-#include <com/sun/star/util/URL.hpp>
 #include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <test/bootstrapfixture.hxx>
 #include <unotools/tempfile.hxx>
@@ -22,7 +21,6 @@
 #include <docsh.hxx>
 #include <editutil.hxx>
 #include <editeng/eeitem.hxx>
-#include <editeng/editobj.hxx>
 #include <editeng/fontitem.hxx>
 #include <osl/file.hxx>
 #include <comphelper/processfactory.hxx>
@@ -44,11 +42,11 @@ public:
 
     // helpers
 private:
-    std::shared_ptr<utl::TempFile> exportToPdf(uno::Reference<frame::XModel>& xModel,
+    std::shared_ptr<utl::TempFile> exportToPDF(const uno::Reference<frame::XModel>& xModel,
                                                const ScRange& range);
 
-    static bool hasFontInPdf(const std::shared_ptr<utl::TempFile>& pXPathFile,
-                             const char* sFontName, bool& bFound);
+    static bool hasTextInPdf(const std::shared_ptr<utl::TempFile>& pPDFFile, const char* sText,
+                             bool& bFound);
 
     void setFont(ScFieldEditEngine& rEE, sal_Int32 nStart, sal_Int32 nEnd,
                  const OUString& rFontName);
@@ -56,9 +54,11 @@ private:
     // unit tests
 public:
     void testExportRange_Tdf120161();
+    void testExportFitToPage_Tdf103516();
 
     CPPUNIT_TEST_SUITE(ScPDFExportTest);
     CPPUNIT_TEST(testExportRange_Tdf120161);
+    CPPUNIT_TEST(testExportFitToPage_Tdf103516);
     CPPUNIT_TEST_SUITE_END();
 };
 
@@ -88,8 +88,8 @@ void ScPDFExportTest::setUp()
         uno::Reference<frame::XModel2> xModel2(xModel, UNO_QUERY);
         CPPUNIT_ASSERT(xModel2.is());
 
-        Reference<frame::XController2> xController(
-            xModel2->createDefaultViewController(xTargetFrame), UNO_QUERY);
+        Reference<frame::XController2> xController
+            = xModel2->createDefaultViewController(xTargetFrame);
         CPPUNIT_ASSERT(xController.is());
 
         // introduce model/view/controller to each other
@@ -111,10 +111,10 @@ void ScPDFExportTest::tearDown()
     test::BootstrapFixture::tearDown();
 }
 
-bool ScPDFExportTest::hasFontInPdf(const std::shared_ptr<utl::TempFile>& pXPathFile,
-                                   const char* sFontName, bool& bFound)
+bool ScPDFExportTest::hasTextInPdf(const std::shared_ptr<utl::TempFile>& pPDFFile,
+                                   const char* sText, bool& bFound)
 {
-    SvStream* pStream = pXPathFile->GetStream(StreamMode::STD_READ);
+    SvStream* pStream = pPDFFile->GetStream(StreamMode::STD_READ);
     CPPUNIT_ASSERT(pStream);
 
     // get file size
@@ -130,7 +130,7 @@ bool ScPDFExportTest::hasFontInPdf(const std::shared_ptr<utl::TempFile>& pXPathF
     if (nRead == nFileSize)
     {
         const std::string haystack(pBuffer, pBuffer + nFileSize);
-        const std::string needle(sFontName);
+        const std::string needle(sText);
         const std::size_t n = haystack.find(needle);
         bFound = (n != std::string::npos);
     }
@@ -138,12 +138,12 @@ bool ScPDFExportTest::hasFontInPdf(const std::shared_ptr<utl::TempFile>& pXPathF
 
     // close and return the status
     pStream = nullptr;
-    pXPathFile->CloseStream();
+    pPDFFile->CloseStream();
     return (nRead == nFileSize);
 }
 
-std::shared_ptr<utl::TempFile> ScPDFExportTest::exportToPdf(uno::Reference<frame::XModel>& xModel,
-                                                            const ScRange& range)
+std::shared_ptr<utl::TempFile>
+ScPDFExportTest::exportToPDF(const uno::Reference<frame::XModel>& xModel, const ScRange& range)
 {
     // create temp file name
     std::shared_ptr<utl::TempFile> pTempFile(new utl::TempFile());
@@ -161,8 +161,7 @@ std::shared_ptr<utl::TempFile> ScPDFExportTest::exportToPdf(uno::Reference<frame
 
     // select requested cells to print
     // query for the XCellRange interface
-    uno::Reference<table::XCellRange> rCellRange(rSheet, UNO_QUERY);
-    uno::Reference<table::XCellRange> xCellRange = rCellRange->getCellRangeByPosition(
+    uno::Reference<table::XCellRange> xCellRange = rSheet->getCellRangeByPosition(
         range.aStart.Col(), range.aStart.Row(), range.aEnd.Col(), range.aEnd.Row());
     {
         uno::Reference<frame::XController> xController = xModel->getCurrentController();
@@ -252,27 +251,109 @@ void ScPDFExportTest::testExportRange_Tdf120161()
     // A1:G1
     {
         ScRange range1(0, 0, 0, 6, 0, 0);
-        std::shared_ptr<utl::TempFile> pXPathFile = exportToPdf(xModel, range1);
+        std::shared_ptr<utl::TempFile> pPDFFile = exportToPDF(xModel, range1);
         bool bFound = false;
-        CPPUNIT_ASSERT(hasFontInPdf(pXPathFile, "DejaVuSans", bFound));
+        CPPUNIT_ASSERT(hasTextInPdf(pPDFFile, "DejaVuSans", bFound));
         CPPUNIT_ASSERT_EQUAL(false, bFound);
     }
 
     // G1:H1
     {
         ScRange range1(6, 0, 0, 7, 0, 0);
-        std::shared_ptr<utl::TempFile> pXPathFile = exportToPdf(xModel, range1);
+        std::shared_ptr<utl::TempFile> pPDFFile = exportToPDF(xModel, range1);
         bool bFound = false;
-        CPPUNIT_ASSERT(hasFontInPdf(pXPathFile, "DejaVuSans", bFound));
+        CPPUNIT_ASSERT(hasTextInPdf(pPDFFile, "DejaVuSans", bFound));
         CPPUNIT_ASSERT_EQUAL(true, bFound);
     }
 
     // H1:I1
     {
         ScRange range1(7, 0, 0, 8, 0, 0);
-        std::shared_ptr<utl::TempFile> pXPathFile = exportToPdf(xModel, range1);
+        std::shared_ptr<utl::TempFile> pPDFFile = exportToPDF(xModel, range1);
         bool bFound = false;
-        CPPUNIT_ASSERT(hasFontInPdf(pXPathFile, "DejaVuSans", bFound));
+        CPPUNIT_ASSERT(hasTextInPdf(pPDFFile, "DejaVuSans", bFound));
+        CPPUNIT_ASSERT_EQUAL(true, bFound);
+    }
+}
+
+void ScPDFExportTest::testExportFitToPage_Tdf103516()
+{
+    // create test document
+    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
+    uno::Reference<sheet::XSpreadsheetDocument> xDoc(xModel, uno::UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), UNO_SET_THROW);
+    uno::Reference<container::XIndexAccess> xIndex(xSheets, uno::UNO_QUERY_THROW);
+    xSheets->insertNewByName("First Sheet", 0);
+    uno::Reference<sheet::XSpreadsheet> rSheet(xIndex->getByIndex(0), UNO_QUERY_THROW);
+
+    // 2. Setup data
+    {
+        SfxObjectShell* pFoundShell = SfxObjectShell::GetShellFromComponent(mxComponent);
+        CPPUNIT_ASSERT_MESSAGE("Failed to access document shell", pFoundShell);
+        ScDocShellRef xDocSh = dynamic_cast<ScDocShell*>(pFoundShell);
+        CPPUNIT_ASSERT(xDocSh.get() != nullptr);
+
+        // put some content into the table
+        ScDocument& rDoc = xDocSh->GetDocument();
+        for (unsigned int r = 0; r < 80; ++r)
+            for (unsigned int c = 0; c < 12; ++c)
+                rDoc.SetValue(ScAddress(c, r, 0), (r + 1) * (c + 1));
+    }
+
+    // A1:G50: 2-page export
+    {
+        ScRange range1(0, 0, 0, 6, 49, 0);
+        std::shared_ptr<utl::TempFile> pPDFFile = exportToPDF(xModel, range1);
+        bool bFound = false;
+        CPPUNIT_ASSERT(hasTextInPdf(pPDFFile, "/Count 2>>", bFound));
+        CPPUNIT_ASSERT_EQUAL(true, bFound);
+    }
+
+    // A1:L80: 4-page export
+    {
+        ScRange range1(0, 0, 0, 11, 79, 0);
+        std::shared_ptr<utl::TempFile> pPDFFile = exportToPDF(xModel, range1);
+        bool bFound = false;
+        CPPUNIT_ASSERT(hasTextInPdf(pPDFFile, "/Count 4>>", bFound));
+        CPPUNIT_ASSERT_EQUAL(true, bFound);
+    }
+
+    // set fit to page: width=1 page, height=0 (automatic)
+    uno::Reference<style::XStyleFamiliesSupplier> xStyleFamSupp(xDoc, UNO_QUERY_THROW);
+    uno::Reference<container::XNameAccess> xStyleFamiliesNames(xStyleFamSupp->getStyleFamilies(),
+                                                               UNO_SET_THROW);
+    uno::Reference<container::XNameAccess> xPageStyles(xStyleFamiliesNames->getByName("PageStyles"),
+                                                       UNO_QUERY_THROW);
+    uno::Any aDefaultStyle = xPageStyles->getByName("Default");
+    uno::Reference<beans::XPropertySet> xProp(aDefaultStyle, UNO_QUERY_THROW);
+
+    uno::Any aScaleX, aScaleY;
+    sal_Int16 nScale;
+    aScaleX <<= static_cast<sal_Int16>(1);
+    xProp->setPropertyValue("ScaleToPagesX", aScaleX);
+    aScaleX = xProp->getPropertyValue("ScaleToPagesX");
+    aScaleX >>= nScale;
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(1), nScale);
+
+    aScaleY = xProp->getPropertyValue("ScaleToPagesY");
+    aScaleY >>= nScale;
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(0), nScale);
+
+    // A1:G50 with fit to page width=1: slightly smaller zoom results only 1-page export
+    {
+        ScRange range1(0, 0, 0, 6, 49, 0);
+        std::shared_ptr<utl::TempFile> pPDFFile = exportToPDF(xModel, range1);
+        bool bFound = false;
+        CPPUNIT_ASSERT(hasTextInPdf(pPDFFile, "/Count 1>>", bFound));
+        CPPUNIT_ASSERT_EQUAL(true, bFound);
+    }
+
+    // A1:L80 with fit to page width=1: slightly smaller zoom results only 1-page export
+    {
+        ScRange range1(0, 0, 0, 11, 79, 0);
+        std::shared_ptr<utl::TempFile> pPDFFile = exportToPDF(xModel, range1);
+        bool bFound = false;
+        CPPUNIT_ASSERT(hasTextInPdf(pPDFFile, "/Count 1>>", bFound));
         CPPUNIT_ASSERT_EQUAL(true, bFound);
     }
 }

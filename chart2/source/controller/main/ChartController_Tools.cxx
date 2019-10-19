@@ -348,7 +348,7 @@ void ChartController::impl_PasteGraphic(
     uno::Reference< beans::XPropertySet > xGraphicShapeProp( xGraphicShape, uno::UNO_QUERY );
     if( xGraphicShapeProp.is() && xGraphicShape.is())
     {
-        uno::Reference< drawing::XShapes > xPage( pDrawModelWrapper->getMainDrawPage(), uno::UNO_QUERY );
+        uno::Reference< drawing::XShapes > xPage = pDrawModelWrapper->getMainDrawPage();
         if( xPage.is())
         {
             xPage->add( xGraphicShape );
@@ -998,7 +998,7 @@ void ChartController::impl_switchDiagramPositioningToExcludingPositioning()
         ActionDescriptionProvider::ActionType::PosSize,
         ObjectNameProvider::getName( OBJECTTYPE_DIAGRAM)),
         m_xUndoManager );
-    ChartModel& rModel = dynamic_cast<ChartModel&>(*m_aModel->getModel().get());
+    ChartModel& rModel = dynamic_cast<ChartModel&>(*m_aModel->getModel());
     if (DiagramHelper::switchDiagramPositioningToExcludingPositioning(rModel, true, true))
         aUndoGuard.commit();
 }

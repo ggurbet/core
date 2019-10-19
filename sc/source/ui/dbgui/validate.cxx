@@ -142,7 +142,7 @@ void ScTPValidationValue::RefInputStartPreHdl( formula::RefEdit* pEdit, const fo
             // if Edit SetParent but button not, the tab order will be
             // incorrect, so move button anyway, and restore
             // parent later in order to restore the tab order. But
-            // hide it if its moved but unwanted
+            // hide it if it's moved but unwanted.
             m_xRefGrid->move(m_xBtnRef->GetWidget(), pNewParent);
             m_xBtnRef->GetWidget()->set_visible(pButton == m_xBtnRef.get());
             m_pBtnRefParent = pNewParent;
@@ -325,8 +325,8 @@ bool lclGetStringListFromFormula( OUString& rStringList, const OUString& rFmlaSt
 
 } // namespace
 
-ScTPValidationValue::ScTPValidationValue(TabPageParent pParent, const SfxItemSet& rArgSet)
-    : SfxTabPage(pParent, "modules/scalc/ui/validationcriteriapage.ui",
+ScTPValidationValue::ScTPValidationValue(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet)
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/validationcriteriapage.ui",
                  "ValidationCriteriaPage", &rArgSet)
     , maStrMin(ScResId(SCSTR_VALID_MINIMUM))
     , maStrMax(ScResId(SCSTR_VALID_MAXIMUM))
@@ -354,7 +354,9 @@ ScTPValidationValue::ScTPValidationValue(TabPageParent pParent, const SfxItemSet
     , m_pBtnRefParent(m_xRefGrid.get())
 {
     m_xEdMin->SetReferences(nullptr, m_xFtMin.get());
-    Size aSize(LogicToPixel(Size(174, 105), MapMode(MapUnit::MapAppFont)));
+
+    Size aSize(m_xEdList->get_approximate_digit_width() * 40,
+               m_xEdList->get_height_rows(25));
     m_xEdList->set_size_request(aSize.Width(), aSize.Height());
     m_xEdMax->SetReferences(nullptr, m_xFtMax.get());
 
@@ -375,17 +377,11 @@ ScTPValidationValue::ScTPValidationValue(TabPageParent pParent, const SfxItemSet
 
 ScTPValidationValue::~ScTPValidationValue()
 {
-    disposeOnce();
-}
-
-void ScTPValidationValue::dispose()
-{
     m_xEdMin.reset();
     m_xEdMin.reset();
     m_xEdMax.reset();
     m_xBtnRef.reset();
     m_xEdMax.reset();
-    SfxTabPage::dispose();
 }
 
 void ScTPValidationValue::Init()
@@ -404,13 +400,13 @@ void ScTPValidationValue::Init()
     m_xLbAllow->set_active( SC_VALIDDLG_ALLOW_ANY );
     m_xLbValue->set_active( SC_VALIDDLG_DATA_EQUAL );
 
-    SelectHdl( *m_xLbAllow.get() );
+    SelectHdl( *m_xLbAllow );
     CheckHdl( *m_xCbShow );
 }
 
-VclPtr<SfxTabPage> ScTPValidationValue::Create(TabPageParent pParent, const SfxItemSet* rArgSet)
+std::unique_ptr<SfxTabPage> ScTPValidationValue::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rArgSet)
 {
-    return VclPtr<ScTPValidationValue>::Create(pParent, *rArgSet);
+    return std::make_unique<ScTPValidationValue>(pPage, pController, *rArgSet);
 }
 
 void ScTPValidationValue::Reset( const SfxItemSet* rArgSet )
@@ -420,13 +416,13 @@ void ScTPValidationValue::Reset( const SfxItemSet* rArgSet )
     sal_uInt16 nLbPos = SC_VALIDDLG_ALLOW_ANY;
     if( rArgSet->GetItemState( FID_VALID_MODE, true, &pItem ) == SfxItemState::SET )
         nLbPos = lclGetPosFromValMode( static_cast< ScValidationMode >(
-            static_cast< const SfxAllEnumItem* >( pItem )->GetValue() ) );
+            static_cast< const SfxUInt16Item* >( pItem )->GetValue() ) );
     m_xLbAllow->set_active( nLbPos );
 
     nLbPos = SC_VALIDDLG_DATA_EQUAL;
     if( rArgSet->GetItemState( FID_VALID_CONDMODE, true, &pItem ) == SfxItemState::SET )
         nLbPos = lclGetPosFromCondMode( static_cast< ScConditionMode >(
-            static_cast< const SfxAllEnumItem* >( pItem )->GetValue() ) );
+            static_cast< const SfxUInt16Item* >( pItem )->GetValue() ) );
     m_xLbValue->set_active( nLbPos );
 
     // *** check boxes ***
@@ -452,7 +448,7 @@ void ScTPValidationValue::Reset( const SfxItemSet* rArgSet )
         aFmlaStr = static_cast< const SfxStringItem* >( pItem )->GetValue();
     SetSecondFormula( aFmlaStr );
 
-    SelectHdl( *m_xLbAllow.get() );
+    SelectHdl( *m_xLbAllow );
     CheckHdl( *m_xCbShow );
 }
 
@@ -467,9 +463,9 @@ bool ScTPValidationValue::FillItemSet( SfxItemSet* rArgSet )
     ScConditionMode eCondMode = bCustom ?
             ScConditionMode::Direct : lclGetCondModeFromPos( m_xLbValue->get_active() );
 
-    rArgSet->Put( SfxAllEnumItem( FID_VALID_MODE, sal::static_int_cast<sal_uInt16>(
+    rArgSet->Put( SfxUInt16Item( FID_VALID_MODE, sal::static_int_cast<sal_uInt16>(
                     lclGetValModeFromPos( nLbPos ) ) ) );
-    rArgSet->Put( SfxAllEnumItem( FID_VALID_CONDMODE, sal::static_int_cast<sal_uInt16>( eCondMode ) ) );
+    rArgSet->Put( SfxUInt16Item( FID_VALID_CONDMODE, sal::static_int_cast<sal_uInt16>( eCondMode ) ) );
     rArgSet->Put( SfxStringItem( FID_VALID_VALUE1, GetFirstFormula() ) );
     rArgSet->Put( SfxStringItem( FID_VALID_VALUE2, GetSecondFormula() ) );
     rArgSet->Put( SfxBoolItem( FID_VALID_BLANK, m_xCbAllow->get_active() ) );
@@ -682,8 +678,8 @@ IMPL_LINK_NOARG(ScTPValidationValue, CheckHdl, weld::Button&, void)
 
 // Input Help Page
 
-ScTPValidationHelp::ScTPValidationHelp(TabPageParent pParent, const SfxItemSet& rArgSet)
-    : SfxTabPage(pParent, "modules/scalc/ui/validationhelptabpage.ui", "ValidationHelpTabPage", &rArgSet)
+ScTPValidationHelp::ScTPValidationHelp(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet)
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/validationhelptabpage.ui", "ValidationHelpTabPage", &rArgSet)
     , m_xTsbHelp(m_xBuilder->weld_check_button("tsbhelp"))
     , m_xEdtTitle(m_xBuilder->weld_entry("title"))
     , m_xEdInputHelp(m_xBuilder->weld_text_view("inputhelp"))
@@ -693,13 +689,12 @@ ScTPValidationHelp::ScTPValidationHelp(TabPageParent pParent, const SfxItemSet& 
 
 ScTPValidationHelp::~ScTPValidationHelp()
 {
-    disposeOnce();
 }
 
-VclPtr<SfxTabPage> ScTPValidationHelp::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> ScTPValidationHelp::Create(weld::Container* pPage, weld::DialogController* pController,
                                               const SfxItemSet* rArgSet)
 {
-    return VclPtr<ScTPValidationHelp>::Create(pParent, *rArgSet);
+    return std::make_unique<ScTPValidationHelp>(pPage, pController, *rArgSet);
 }
 
 void ScTPValidationHelp::Reset( const SfxItemSet* rArgSet )
@@ -733,10 +728,10 @@ bool ScTPValidationHelp::FillItemSet( SfxItemSet* rArgSet )
 
 // Error Alert Page
 
-ScTPValidationError::ScTPValidationError(TabPageParent pParent,
+ScTPValidationError::ScTPValidationError(weld::Container* pPage, weld::DialogController* pController,
                                          const SfxItemSet& rArgSet)
 
-    :   SfxTabPage      ( pParent,
+    :   SfxTabPage      ( pPage, pController,
                           "modules/scalc/ui/erroralerttabpage.ui", "ErrorAlertTabPage",
                           &rArgSet )
     , m_xTsbShow(m_xBuilder->weld_check_button("tsbshow"))
@@ -752,7 +747,6 @@ ScTPValidationError::ScTPValidationError(TabPageParent pParent,
 
 ScTPValidationError::~ScTPValidationError()
 {
-    disposeOnce();
 }
 
 void ScTPValidationError::Init()
@@ -765,10 +759,10 @@ void ScTPValidationError::Init()
     SelectActionHdl(*m_xLbAction);
 }
 
-VclPtr<SfxTabPage> ScTPValidationError::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> ScTPValidationError::Create(weld::Container* pPage, weld::DialogController* pController,
                                                const SfxItemSet* rArgSet)
 {
-    return VclPtr<ScTPValidationError>::Create(pParent, *rArgSet);
+    return std::make_unique<ScTPValidationError>(pPage, pController, *rArgSet);
 }
 
 void ScTPValidationError::Reset( const SfxItemSet* rArgSet )
@@ -781,7 +775,7 @@ void ScTPValidationError::Reset( const SfxItemSet* rArgSet )
         m_xTsbShow->set_state( TRISTATE_TRUE );   // check by default
 
     if ( rArgSet->GetItemState( FID_VALID_ERRSTYLE, true, &pItem ) == SfxItemState::SET )
-        m_xLbAction->set_active( static_cast<const SfxAllEnumItem*>(pItem)->GetValue() );
+        m_xLbAction->set_active( static_cast<const SfxUInt16Item*>(pItem)->GetValue() );
     else
         m_xLbAction->set_active( 0 );
 
@@ -801,7 +795,7 @@ void ScTPValidationError::Reset( const SfxItemSet* rArgSet )
 bool ScTPValidationError::FillItemSet( SfxItemSet* rArgSet )
 {
     rArgSet->Put( SfxBoolItem( FID_VALID_SHOWERR, m_xTsbShow->get_state() == TRISTATE_TRUE ) );
-    rArgSet->Put( SfxAllEnumItem( FID_VALID_ERRSTYLE, m_xLbAction->get_active() ) );
+    rArgSet->Put( SfxUInt16Item( FID_VALID_ERRSTYLE, m_xLbAction->get_active() ) );
     rArgSet->Put( SfxStringItem( FID_VALID_ERRTITLE, m_xEdtTitle->get_text() ) );
     rArgSet->Put( SfxStringItem( FID_VALID_ERRTEXT, m_xEdError->get_text() ) );
 
@@ -822,7 +816,7 @@ IMPL_LINK_NOARG(ScTPValidationError, ClickSearchHdl, weld::Button&, void)
 {
     // Use static SfxApplication method to bring up selector dialog for
     // choosing a script
-    OUString aScriptURL = SfxApplication::ChooseScript(GetDialogFrameWeld());
+    OUString aScriptURL = SfxApplication::ChooseScript(GetFrameWeld());
 
     if ( !aScriptURL.isEmpty() )
     {
@@ -914,7 +908,7 @@ IMPL_LINK_NOARG(ScTPValidationValue, ClickHdl, formula::RefButton&, void)
     SetupRefDlg();
 }
 
-bool ScValidationDlg::IsChildFocus()
+bool ScValidationDlg::IsChildFocus() const
 {
     return m_xDialog->has_toplevel_focus();
 }

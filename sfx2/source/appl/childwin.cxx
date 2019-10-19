@@ -366,7 +366,7 @@ SfxChildWinInfo SfxChildWindow::GetInfo() const
     return aInfo;
 }
 
-sal_uInt16 SfxChildWindow::GetPosition()
+sal_uInt16 SfxChildWindow::GetPosition() const
 {
     return pImpl->pFact->nPos;
 }
@@ -390,7 +390,7 @@ void SfxChildWindow::InitializeChildWinFactory_Impl(sal_uInt16 nId, SfxChildWinI
     css::uno::Sequence < css::beans::NamedValue > aSeq = xWinOpt->GetUserData();
 
     OUString aTmp;
-    if ( aSeq.getLength() )
+    if ( aSeq.hasElements() )
         aSeq[0].Value >>= aTmp;
 
     OUString aWinData( aTmp );
@@ -696,7 +696,7 @@ bool SfxChildWindow::QueryClose()
     return bAllow;
 }
 
-const css::uno::Reference< css::frame::XFrame >&  SfxChildWindow::GetFrame()
+const css::uno::Reference< css::frame::XFrame >&  SfxChildWindow::GetFrame() const
 {
     return pImpl->xFrame;
 }

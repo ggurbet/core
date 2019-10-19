@@ -18,7 +18,6 @@
  */
 
 #include <string.h>
-#include <errno.h>
 
 #ifdef FREEBSD
 #include <sys/types.h>
@@ -26,7 +25,6 @@
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <X11/Xproto.h>
 
 #include <osl/endian.h>
 #include <sal/log.hxx>
@@ -34,12 +32,9 @@
 #include <tools/helpers.hxx>
 #include <tools/debug.hxx>
 #include <vcl/bitmap.hxx>
-#include <vcl/salbtype.hxx>
 #include <com/sun/star/beans/XFastPropertySet.hpp>
 
-#include <unx/salunx.h>
 #include <unx/saldisp.hxx>
-#include <unx/salgdi.h>
 #include <unx/salbmp.h>
 #include <unx/salinst.h>
 #include <unx/x11/xlimits.hxx>
@@ -49,7 +44,7 @@
 #include <vcl/opengl/OpenGLHelper.hxx>
 
 #if defined HAVE_VALGRIND_HEADERS
-#include <valgrind/memcheck.h>
+#include <valgrind/valgrind.h>
 #endif
 
 #include <memory>
@@ -125,7 +120,6 @@ std::unique_ptr<BitmapBuffer> X11SalBitmap::ImplCreateDIB(
            nBitCount ==  1
         || nBitCount ==  4
         || nBitCount ==  8
-        || nBitCount == 16
         || nBitCount == 24
         , "Unsupported BitCount!"
     );
@@ -153,37 +147,10 @@ std::unique_ptr<BitmapBuffer> X11SalBitmap::ImplCreateDIB(
         case 1: pDIB->mnFormat |= ScanlineFormat::N1BitMsbPal; break;
         case 4: pDIB->mnFormat |= ScanlineFormat::N4BitMsnPal; break;
         case 8: pDIB->mnFormat |= ScanlineFormat::N8BitPal; break;
-#ifdef OSL_BIGENDIAN
-        case 16:
-        {
-            pDIB->mnFormat|= ScanlineFormat::N16BitTcMsbMask;
-            ColorMaskElement aRedMask(0xf800);
-            aRedMask.CalcMaskShift();
-            ColorMaskElement aGreenMask(0x07e0);
-            aGreenMask.CalcMaskShift();
-            ColorMaskElement aBlueMask(0x001f);
-            aBlueMask.CalcMaskShift();
-            pDIB->maColorMask = ColorMask(aRedMask, aGreenMask, aBlueMask);
-            break;
-        }
-#else
-        case 16:
-        {
-            pDIB->mnFormat|= ScanlineFormat::N16BitTcLsbMask;
-            ColorMaskElement aRedMask(0xf800);
-            aRedMask.CalcMaskShift();
-            ColorMaskElement aGreenMask(0x07e0);
-            aGreenMask.CalcMaskShift();
-            ColorMaskElement aBlueMask(0x001f);
-            aBlueMask.CalcMaskShift();
-            pDIB->maColorMask = ColorMask(aRedMask, aGreenMask, aBlueMask);
-            break;
-        }
-#endif
+        case 24: pDIB->mnFormat |= ScanlineFormat::N24BitTcBgr; break;
         default:
+            SAL_WARN("vcl.gdi", "32-bit images not supported, converting to 24-bit");
             nBitCount = 24;
-            [[fallthrough]];
-        case 24:
             pDIB->mnFormat |= ScanlineFormat::N24BitTcBgr;
         break;
     }
@@ -296,27 +263,6 @@ std::unique_ptr<BitmapBuffer> X11SalBitmap::ImplCreateDIB(
                 }
                 break;
 
-                case 16:
-                {
-                    ColorMaskElement aRedMask(pImage->red_mask);
-                    aRedMask.CalcMaskShift();
-                    ColorMaskElement aGreenMask(pImage->green_mask);
-                    aGreenMask.CalcMaskShift();
-                    ColorMaskElement aBlueMask(pImage->blue_mask);
-                    aBlueMask.CalcMaskShift();
-                    aSrcBuf.maColorMask = ColorMask(aRedMask, aGreenMask, aBlueMask);
-
-                    if( LSBFirst == pImage->byte_order )
-                    {
-                        aSrcBuf.mnFormat |= ScanlineFormat::N16BitTcLsbMask;
-                    }
-                    else
-                    {
-                        aSrcBuf.mnFormat |= ScanlineFormat::N16BitTcMsbMask;
-                    }
-                }
-                break;
-
                 case 24:
                 {
                     if( ( LSBFirst == pImage->byte_order ) && ( pImage->red_mask == 0xFF ) )
@@ -340,6 +286,8 @@ std::unique_ptr<BitmapBuffer> X11SalBitmap::ImplCreateDIB(
                                             );
                 }
                 break;
+
+                default: assert(false);
             }
 
             BitmapPalette& rPal = aSrcBuf.maPalette;
@@ -457,33 +405,6 @@ XImage* X11SalBitmap::ImplCreateXImage(
                     nDstFormat |= ScanlineFormat::N8BitPal;
                 break;
 
-                case 16:
-                {
-                    #ifdef OSL_BIGENDIAN
-
-                    if( MSBFirst == pImage->byte_order )
-                        nDstFormat |= ScanlineFormat::N16BitTcMsbMask;
-                    else
-                        nDstFormat |= ScanlineFormat::N16BitTcLsbMask;
-
-                    #else /* OSL_LITENDIAN */
-
-                    nDstFormat |= ScanlineFormat::N16BitTcLsbMask;
-                    if( MSBFirst == pImage->byte_order )
-                        pImage->byte_order = LSBFirst;
-
-                    #endif
-
-                    ColorMaskElement aRedMask(pImage->red_mask);
-                    aRedMask.CalcMaskShift();
-                    ColorMaskElement aGreenMask(pImage->green_mask);
-                    aGreenMask.CalcMaskShift();
-                    ColorMaskElement aBlueMask(pImage->blue_mask);
-                    aBlueMask.CalcMaskShift();
-                    xMask.reset(new ColorMask(aRedMask, aGreenMask, aBlueMask));
-                }
-                break;
-
                 case 24:
                 {
                     if( ( LSBFirst == pImage->byte_order ) && ( pImage->red_mask == 0xFF ) )
@@ -507,6 +428,8 @@ XImage* X11SalBitmap::ImplCreateXImage(
                                         );
                 }
                 break;
+
+                default: assert(false);
             }
 
             if( pImage->depth == 1 )

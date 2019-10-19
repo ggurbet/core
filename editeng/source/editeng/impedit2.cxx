@@ -34,6 +34,7 @@
 #include <sfx2/app.hxx>
 #include <svtools/colorcfg.hxx>
 #include <svl/ctloptions.hxx>
+#include <unotools/securityoptions.hxx>
 #include <editeng/acorrcfg.hxx>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/lrspitem.hxx>
@@ -53,7 +54,9 @@
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/text/CharacterCompressionType.hpp>
 #include <com/sun/star/i18n/InputSequenceCheckMode.hpp>
-
+#include <com/sun/star/system/SystemShellExecute.hpp>
+#include <com/sun/star/system/SystemShellExecuteFlags.hpp>
+#include <com/sun/star/system/XSystemShellExecute.hpp>
 
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
@@ -63,6 +66,7 @@
 #include <i18nutil/unicode.hxx>
 #include <tools/diagnose_ex.h>
 #include <comphelper/lok.hxx>
+#include <comphelper/processfactory.hxx>
 #include <unotools/configmgr.hxx>
 
 #include <unicode/ubidi.h>
@@ -588,6 +592,23 @@ bool ImpEditEngine::MouseButtonUp( const MouseEvent& rMEvt, EditView* pView )
             Point aLogicClick = rOutDev.PixelToLogic(rMEvt.GetPosPixel());
             if (const SvxFieldItem* pFld = pView->GetField(aLogicClick))
             {
+                // tdf#121039 When in edit mode, editeng is responsible for opening the URL on mouse click
+                if (auto pUrlField = dynamic_cast<const SvxURLField*>(pFld->GetField()))
+                {
+                    SvtSecurityOptions aSecOpt;
+                    bool bCtrlClickHappened = rMEvt.IsMod1();
+                    bool bCtrlClickSecOption
+                        = aSecOpt.IsOptionSet(SvtSecurityOptions::EOption::CtrlClickHyperlink);
+                    if ((bCtrlClickHappened && bCtrlClickSecOption)
+                        || (!bCtrlClickHappened && !bCtrlClickSecOption))
+                    {
+                        css::uno::Reference<css::system::XSystemShellExecute> exec(
+                            css::system::SystemShellExecute::create(
+                                comphelper::getProcessComponentContext()));
+                        exec->execute(pUrlField->GetURL(), OUString(),
+                                      css::system::SystemShellExecuteFlags::URIS_ONLY);
+                    }
+                }
                 EditPaM aPaM( aCurSel.Max() );
                 sal_Int32 nPara = GetEditDoc().GetPos( aPaM.GetNode() );
                 GetEditEnginePtr()->FieldClicked( *pFld, nPara, aPaM.GetIndex() );
@@ -1699,7 +1720,7 @@ void ImpEditEngine::InitScriptTypes( sal_Int32 nPara )
 
         // i89825: Use CTL font for numbers embedded into an RTL run:
         WritingDirectionInfos& rDirInfos = pParaPortion->aWritingDirectionInfos;
-        for (WritingDirectionInfo & rDirInfo : rDirInfos)
+        for (const WritingDirectionInfo & rDirInfo : rDirInfos)
         {
             const sal_Int32 nStart = rDirInfo.nStartPos;
             const sal_Int32 nEnd   = rDirInfo.nEndPos;
@@ -2418,7 +2439,7 @@ EditPaM ImpEditEngine::ImpDeleteSelection(const EditSelection& rCurSel)
     OSL_ENSURE( nEndNode != EE_PARA_NOT_FOUND, "Start > End ?!" );
     OSL_ENSURE( nStartNode <= nEndNode, "Start > End ?!" );
 
-    // Remove all nodes in between ....
+    // Remove all nodes in between...
     for ( sal_Int32 z = nStartNode+1; z < nEndNode; z++ )
     {
         // Always nStartNode+1, due to Remove()!
@@ -2433,14 +2454,14 @@ EditPaM ImpEditEngine::ImpDeleteSelection(const EditSelection& rCurSel)
         OSL_ENSURE( pPortion, "Blind Portion in ImpDeleteSelection(3)" );
         pPortion->MarkSelectionInvalid( aStartPaM.GetIndex() );
 
-        // The beginning of the EndNodes....
+        // The beginning of the EndNodes...
         const sal_Int32 nChars = aEndPaM.GetIndex();
         aEndPaM.SetIndex( 0 );
         ImpRemoveChars( aEndPaM, nChars );
         pPortion = FindParaPortion( aEndPaM.GetNode() );
         OSL_ENSURE( pPortion, "Blind Portion in ImpDeleteSelection(4)" );
         pPortion->MarkSelectionInvalid( 0 );
-        // Join together....
+        // Join together...
         aStartPaM = ImpConnectParagraphs( aStartPaM.GetNode(), aEndPaM.GetNode() );
     }
     else
@@ -3350,7 +3371,7 @@ void ImpEditEngine::UpdateSelections()
     {
         EditSelection aCurSel( pView->pImpEditView->GetEditSelection() );
         bool bChanged = false;
-        for (std::unique_ptr<DeletedNodeInfo> & aDeletedNode : aDeletedNodes)
+        for (const std::unique_ptr<DeletedNodeInfo> & aDeletedNode : aDeletedNodes)
         {
             const DeletedNodeInfo& rInf = *aDeletedNode;
             if ( ( aCurSel.Min().GetNode() == rInf.GetNode() ) ||
@@ -4193,7 +4214,7 @@ tools::Rectangle ImpEditEngine::GetEditCursor( ParaPortion* pPortion, sal_Int32 
      GetCursorFlags::EndOfLine: If after the last character of a wrapped line, remaining
      at the end of the line, not the beginning of the next one.
      Purpose:   - END => really after the last character
-                - Selection....
+                - Selection...
     */
 
     long nY = pPortion->GetFirstLineOffset();

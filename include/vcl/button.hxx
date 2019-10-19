@@ -76,16 +76,11 @@ public:
     void                SetCommandHandler(const OUString& aCommand);
     OUString const &    GetCommand() const { return maCommand; }
 
-    static OUString     GetStandardText( StandardButtonType eButton );
-
     void                SetModeImage( const Image& rImage );
     Image const &       GetModeImage( ) const;
     bool                HasImage() const;
     void                SetImageAlign( ImageAlign eAlign );
     ImageAlign          GetImageAlign() const;
-
-    void                EnableImageDisplay( bool bEnable );
-    void                EnableTextDisplay( bool bEnable );
 
     bool                IsSmallSymbol() const;
     void                SetSmallSymbol();
@@ -95,6 +90,8 @@ public:
     virtual void        statusChanged(const css::frame::FeatureStateEvent& rEvent);
 
     virtual FactoryFunction GetUITestFactory() const override;
+
+    virtual boost::property_tree::ptree DumpAsPropertyTree() override;
 
 protected:
 
@@ -164,7 +161,7 @@ public:
         mbIsAction = bIsAction;
     }
 
-    bool isAction()
+    bool isAction() const
     {
         return mbIsAction;
     }
@@ -284,7 +281,6 @@ private:
     tools::Rectangle       maMouseRect;
     Image           maImage;
     bool            mbChecked;
-    bool            mbSaveValue;
     bool            mbRadioCheck;
     bool            mbStateChanged;
     Link<RadioButton&,void> maToggleHdl;
@@ -297,7 +293,7 @@ private:
                               const Size& rImageSize, tools::Rectangle& rStateRect,
                               tools::Rectangle& rMouseRect );
     SAL_DLLPRIVATE void     ImplDrawRadioButton(vcl::RenderContext& rRenderContext );
-    SAL_DLLPRIVATE void     ImplUncheckAllOther();
+    SAL_DLLPRIVATE void     ImplUncheckAllOther( const bool bSetStyle = true);
     SAL_DLLPRIVATE Size     ImplGetRadioImageSize() const;
     SAL_DLLPRIVATE long     ImplGetImageToTextDistance() const;
 
@@ -351,10 +347,6 @@ public:
     void            Check( bool bCheck = true );
     bool            IsChecked() const { return mbChecked; }
 
-    void            SaveValue() { mbSaveValue = IsChecked(); }
-    bool            GetSavedValue() const { return mbSaveValue; }
-    bool            IsValueChangedFromSaved() const { return mbSaveValue != IsChecked(); }
-
     static Image    GetRadioImage( const AllSettings& rSettings, DrawButtonFlags nFlags );
 
     Size            CalcMinimumSize() const;
@@ -384,6 +376,9 @@ public:
      */
     void group(RadioButton &rOther);
     virtual void ShowFocus(const tools::Rectangle& rRect) override;
+
+    /// Button hes additional stuff that we need to dump too.
+    boost::property_tree::ptree DumpAsPropertyTree() override;
 
     virtual FactoryFunction GetUITestFactory() const override;
 };
@@ -472,6 +467,9 @@ public:
 
     virtual bool set_property(const OString &rKey, const OUString &rValue) override;
     virtual void ShowFocus(const tools::Rectangle& rRect) override;
+
+    /// Button hes additional stuff that we need to dump too.
+    boost::property_tree::ptree DumpAsPropertyTree() override;
 
     virtual FactoryFunction GetUITestFactory() const override;
 };

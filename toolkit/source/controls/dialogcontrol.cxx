@@ -19,36 +19,25 @@
 
 
 #include <vcl/svapp.hxx>
-#include <vcl/window.hxx>
-#include <vcl/wall.hxx>
 #include <osl/mutex.hxx>
 #include <toolkit/controls/dialogcontrol.hxx>
 #include <toolkit/controls/geometrycontrolmodel.hxx>
 #include <toolkit/helper/property.hxx>
 #include <toolkit/helper/servicenames.hxx>
-#include <toolkit/controls/stdtabcontroller.hxx>
 #include <com/sun/star/awt/PosSize.hpp>
 #include <com/sun/star/awt/WindowAttribute.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
-#include <com/sun/star/graphic/XGraphicProvider.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/weak.hxx>
-#include <cppuhelper/weakagg.hxx>
 #include <tools/debug.hxx>
-#include <tools/diagnose_ex.h>
 #include <comphelper/sequence.hxx>
 #include <vcl/outdev.hxx>
 
-#include <vcl/graph.hxx>
 #include <vcl/image.hxx>
 #include <cppuhelper/implbase.hxx>
-#include <algorithm>
-#include <functional>
-#include <map>
 #include <unordered_map>
-#include <osl/file.hxx>
 
 #include <vcl/tabctrl.hxx>
 #include <toolkit/awt/vclxwindows.hxx>
@@ -157,7 +146,7 @@ public:
 
     // XServiceInfo
     OUString SAL_CALL getImplementationName() override
-    { return OUString("stardiv.Toolkit.UnoControlDialogModel"); }
+    { return "stardiv.Toolkit.UnoControlDialogModel"; }
 
     css::uno::Sequence<OUString> SAL_CALL getSupportedServiceNames() override
     {
@@ -210,7 +199,7 @@ UnoControlDialogModel::UnoControlDialogModel( const UnoControlDialogModel& rMode
     Reference< XNameContainer > xSrcNameCont( const_cast< UnoControlDialogModel& >(rModel).getPropertyValue( GetPropertyName( BASEPROPERTY_USERFORMCONTAINEES ) ), UNO_QUERY );
     Reference<XNameContainer > xNameCont( new SimpleNamedThingContainer< XControlModel > );
 
-    uno::Sequence< OUString > sNames = xSrcNameCont->getElementNames();
+    const uno::Sequence< OUString > sNames = xSrcNameCont->getElementNames();
     for ( OUString const & name : sNames )
     {
         if ( xSrcNameCont->hasByName( name ) )
@@ -232,7 +221,7 @@ rtl::Reference<UnoControlModel> UnoControlDialogModel::Clone() const
 
 OUString UnoControlDialogModel::getServiceName( )
 {
-    return OUString("stardiv.vcl.controlmodel.Dialog");
+    return "stardiv.vcl.controlmodel.Dialog";
 }
 
 Any UnoControlDialogModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
@@ -278,8 +267,18 @@ void SAL_CALL UnoControlDialogModel::setFastPropertyValue_NoBroadcast( sal_Int32
         if ( nHandle == BASEPROPERTY_IMAGEURL && ImplHasProperty( BASEPROPERTY_GRAPHIC ) )
         {
             OUString sImageURL;
-            OSL_VERIFY( rValue >>= sImageURL );
-            setPropertyValue( GetPropertyName( BASEPROPERTY_GRAPHIC ), uno::makeAny( ImageHelper::getGraphicAndGraphicObjectFromURL_nothrow( mxGrfObj, sImageURL ) ) );
+            uno::Reference<graphic::XGraphic> xGraphic;
+            if (rValue >>= sImageURL)
+            {
+                setPropertyValue(
+                    GetPropertyName(BASEPROPERTY_GRAPHIC),
+                    uno::makeAny(ImageHelper::getGraphicAndGraphicObjectFromURL_nothrow(
+                        mxGrfObj, sImageURL)));
+            }
+            else if (rValue >>= xGraphic)
+            {
+                setPropertyValue("Graphic", uno::makeAny(xGraphic));
+            }
         }
     }
     catch( const css::uno::Exception& )
@@ -313,9 +312,9 @@ OUString UnoDialogControl::GetComponentServiceName()
     bool bDecoration( true );
     ImplGetPropertyValue( GetPropertyName( BASEPROPERTY_DECORATION )) >>= bDecoration;
     if ( bDecoration )
-        return OUString("Dialog");
+        return "Dialog";
     else
-        return OUString("TabPage");
+        return "TabPage";
 }
 
 void UnoDialogControl::dispose()
@@ -374,7 +373,7 @@ void UnoDialogControl::createPeer( const Reference< XToolkit > & rxToolkit, cons
 
 OUString UnoDialogControl::getImplementationName()
 {
-    return OUString("stardiv.Toolkit.UnoDialogControl");
+    return "stardiv.Toolkit.UnoDialogControl";
 }
 
 sal_Bool UnoDialogControl::supportsService(OUString const & ServiceName)
@@ -616,7 +615,7 @@ void UnoDialogControl::ImplModelPropertiesChanged( const Sequence< PropertyChang
     {
         Reference< XControlModel > xModel( rEvt.Source, UNO_QUERY );
         bool bOwnModel = xModel.get() == getModel().get();
-        if ( bOwnModel && rEvt.PropertyName == "ImageURL" )
+        if (bOwnModel && rEvt.PropertyName == "ImageURL" && !ImplHasProperty(BASEPROPERTY_GRAPHIC))
         {
             OUString aImageURL;
             Reference< graphic::XGraphic > xGraphic;
@@ -627,6 +626,15 @@ void UnoDialogControl::ImplModelPropertiesChanged( const Sequence< PropertyChang
                 xGraphic = ImageHelper::getGraphicFromURL_nothrow( absoluteUrl );
             }
             ImplSetPropertyValue(  GetPropertyName( BASEPROPERTY_GRAPHIC), uno::makeAny( xGraphic ), true );
+            break;
+        }
+        else if (bOwnModel && rEvt.PropertyName == "Graphic")
+        {
+            uno::Reference<graphic::XGraphic> xGraphic;
+            if (ImplGetPropertyValue("Graphic") >>= xGraphic)
+            {
+                ImplSetPropertyValue("Graphic", uno::makeAny(xGraphic), true);
+            }
             break;
         }
     }
@@ -760,9 +768,9 @@ OUString UnoMultiPageControl::GetComponentServiceName()
     bool bDecoration( true );
     ImplGetPropertyValue( GetPropertyName( BASEPROPERTY_DECORATION )) >>= bDecoration;
     if ( bDecoration )
-        return OUString("tabcontrol");
+        return "tabcontrol";
     // Hopefully we can tweak the tabcontrol to display without tabs
-    return OUString("tabcontrolnotabs");
+    return "tabcontrolnotabs";
 }
 
 void UnoMultiPageControl::bindPage( const uno::Reference< awt::XControl >& _rxControl )
@@ -792,7 +800,7 @@ void UnoMultiPageControl::createPeer( const Reference< XToolkit > & rxToolkit, c
 
     UnoControlContainer::createPeer( rxToolkit, rParentPeer );
 
-    uno::Sequence< uno::Reference< awt::XControl > > aCtrls = getControls();
+    const uno::Sequence< uno::Reference< awt::XControl > > aCtrls = getControls();
     for( const auto& rCtrl : aCtrls )
        bindPage( rCtrl );
     sal_Int32 nActiveTab(0);
@@ -871,7 +879,7 @@ rtl::Reference<UnoControlModel> UnoMultiPageModel::Clone() const
 
 OUString UnoMultiPageModel::getServiceName()
 {
-    return OUString( "com.sun.star.awt.UnoMultiPageModel" );
+    return "com.sun.star.awt.UnoMultiPageModel";
 }
 
 uno::Any UnoMultiPageModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
@@ -932,7 +940,7 @@ UnoPageControl::~UnoPageControl()
 
 OUString UnoPageControl::GetComponentServiceName()
 {
-    return OUString("tabpage");
+    return "tabpage";
 }
 
 
@@ -978,7 +986,7 @@ rtl::Reference<UnoControlModel> UnoPageModel::Clone() const
 
 OUString UnoPageModel::getServiceName()
 {
-    return OUString( "com.sun.star.awt.UnoPageModel" );
+    return "com.sun.star.awt.UnoPageModel";
 }
 
 uno::Any UnoPageModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
@@ -1026,7 +1034,7 @@ UnoFrameControl::~UnoFrameControl()
 
 OUString UnoFrameControl::GetComponentServiceName()
 {
-    return OUString("frame");
+    return "frame";
 }
 
 void UnoFrameControl::ImplSetPosSize( Reference< XControl >& rxCtrl )
@@ -1125,7 +1133,7 @@ rtl::Reference<UnoControlModel> UnoFrameModel::Clone() const
 
 OUString UnoFrameModel::getServiceName()
 {
-    return OUString( "com.sun.star.awt.UnoFrameModel" );
+    return "com.sun.star.awt.UnoFrameModel";
 }
 
 uno::Any UnoFrameModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const

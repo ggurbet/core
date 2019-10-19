@@ -68,7 +68,7 @@ namespace dbaui
         virtual ::cppu::IPropertyArrayHelper* createArrayHelper( ) const override;
     protected:
     // OGenericUnoDialog overridables
-        virtual svt::OGenericUnoDialog::Dialog createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override;
+        virtual std::unique_ptr<weld::DialogController> createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override;
     };
 
     OAdvancedSettingsDialog::OAdvancedSettingsDialog(const Reference< XComponentContext >& _rxORB)
@@ -92,7 +92,7 @@ namespace dbaui
 
     OUString OAdvancedSettingsDialog::getImplementationName_Static()
     {
-        return OUString("org.openoffice.comp.dbu.OAdvancedSettingsDialog");
+        return "org.openoffice.comp.dbu.OAdvancedSettingsDialog";
     }
 
     css::uno::Sequence<OUString> SAL_CALL OAdvancedSettingsDialog::getSupportedServiceNames()
@@ -124,10 +124,10 @@ namespace dbaui
         return new ::cppu::OPropertyArrayHelper(aProps);
     }
 
-    svt::OGenericUnoDialog::Dialog OAdvancedSettingsDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
+    std::unique_ptr<weld::DialogController> OAdvancedSettingsDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
     {
-        return svt::OGenericUnoDialog::Dialog(std::make_unique<AdvancedSettingsDialog>(Application::GetFrameWeld(rParent), m_pDatasourceItems.get(),
-                                                                                        m_aContext, m_aInitialSelection));
+        return std::make_unique<AdvancedSettingsDialog>(Application::GetFrameWeld(rParent), m_pDatasourceItems.get(),
+                                                        m_aContext, m_aInitialSelection);
     }
 
 }   // namespace dbaui

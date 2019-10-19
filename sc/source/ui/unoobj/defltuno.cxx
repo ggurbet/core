@@ -21,12 +21,8 @@
 #include <editeng/langitem.hxx>
 #include <svl/hint.hxx>
 #include <svl/itemprop.hxx>
-#include <svx/unomid.hxx>
 #include <vcl/svapp.hxx>
 #include <i18nlangtag/languagetag.hxx>
-#include <osl/diagnose.h>
-
-#include <com/sun/star/beans/PropertyAttribute.hpp>
 
 #include <scitems.hxx>
 #include <defltuno.hxx>
@@ -128,7 +124,7 @@ void SAL_CALL ScDocDefaultsObj::setPropertyValue(
 
     const SfxItemPropertySimpleEntry* pEntry = aPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
     if(!pEntry->nWID)
     {
         if(aPropertyName ==SC_UNO_STANDARDDEC)
@@ -210,7 +206,7 @@ uno::Any SAL_CALL ScDocDefaultsObj::getPropertyValue( const OUString& aPropertyN
     uno::Any aRet;
     const SfxItemPropertySimpleEntry* pEntry = aPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     if (!pEntry->nWID)
     {
@@ -255,7 +251,7 @@ beans::PropertyState SAL_CALL ScDocDefaultsObj::getPropertyState( const OUString
 
     const SfxItemPropertySimpleEntry* pEntry = aPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     beans::PropertyState eRet = beans::PropertyState_DEFAULT_VALUE;
 
@@ -285,11 +281,9 @@ uno::Sequence<beans::PropertyState> SAL_CALL ScDocDefaultsObj::getPropertyStates
     //  the simple way: call getPropertyState
 
     SolarMutexGuard aGuard;
-    const OUString* pNames = aPropertyNames.getConstArray();
     uno::Sequence<beans::PropertyState> aRet(aPropertyNames.getLength());
-    beans::PropertyState* pStates = aRet.getArray();
-    for(sal_Int32 i = 0; i < aPropertyNames.getLength(); i++)
-        pStates[i] = getPropertyState(pNames[i]);
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aRet.begin(),
+        [this](const OUString& rName) -> beans::PropertyState { return getPropertyState(rName); });
     return aRet;
 }
 
@@ -302,7 +296,7 @@ void SAL_CALL ScDocDefaultsObj::setPropertyToDefault( const OUString& aPropertyN
 
     const SfxItemPropertySimpleEntry* pEntry = aPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     if (pEntry->nWID)
     {
@@ -324,7 +318,7 @@ uno::Any SAL_CALL ScDocDefaultsObj::getPropertyDefault( const OUString& aPropert
 
     const SfxItemPropertySimpleEntry* pEntry = aPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     uno::Any aRet;
     if (pEntry->nWID)

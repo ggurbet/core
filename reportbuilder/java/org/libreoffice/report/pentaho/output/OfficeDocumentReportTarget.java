@@ -555,7 +555,7 @@ public abstract class OfficeDocumentReportTarget extends AbstractReportTarget
                 }
                 case OfficeDocumentReportTarget.STATE_IN_CONTENT:
                 {
-                    // Either a ordinary section or a group ..
+                    // Either an ordinary section or a group ..
                     // A group.
                     if (ReportTargetUtil.isElementOfType(JFreeReportInfo.REPORT_NAMESPACE, "report-body", attrs))
                     {
@@ -1026,7 +1026,6 @@ public abstract class OfficeDocumentReportTarget extends AbstractReportTarget
                 DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
                 Document document = dBuilder.parse(new InputSource(inputStream));
 
-                document.getElementsByTagName("document-meta/meta/generator");
                 Node node = document.getFirstChild().getFirstChild().getFirstChild().getFirstChild();
                 String creator = node.getNodeValue();
                 node.setNodeValue(creator + "/report_builder");

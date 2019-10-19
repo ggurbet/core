@@ -121,7 +121,7 @@ namespace
         const OUString aConnUrl{"sdbc:dbase:" + aPath};
 
         // sdbc:dbase is based on the css.sdbc.FILEConnectionProperties UNOIDL service, so we can
-        // transport the raw rtl_TextEncoding value instead of having to translate it into a IANA
+        // transport the raw rtl_TextEncoding value instead of having to translate it into an IANA
         // character set name string (which might not exist for certain eCharSet values, like
         // RTL_TEXTENCODING_MS_950):
         uno::Sequence<beans::PropertyValue> aProps( comphelper::InitPropertySequence({
@@ -692,7 +692,7 @@ void lcl_GetColumnTypes(
                 bHasMemo = true;
             }
             else
-                nFieldLen = 254;                    // bad luck..
+                nFieldLen = 254;                    // bad luck...
         }
 
         pColNames[nField] = aFieldName;
@@ -789,8 +789,7 @@ ErrCode ScDocShell::DBaseExport( const OUString& rFullFileName, rtl_TextEncoding
         ::utl::DisposableComponent aConnectionHelper(xConnection);
 
         // get dBase driver
-        uno::Reference< sdbc::XDriverAccess> xAccess(xDrvMan,uno::UNO_QUERY);
-        uno::Reference< sdbcx::XDataDefinitionSupplier > xDDSup( xAccess->getDriverByURL( xConnection->getMetaData()->getURL() ), uno::UNO_QUERY );
+        uno::Reference< sdbcx::XDataDefinitionSupplier > xDDSup( xDrvMan->getDriverByURL( xConnection->getMetaData()->getURL() ), uno::UNO_QUERY );
         if ( !xDDSup.is() )
             return SCERR_EXPORT_CONNECT;
 

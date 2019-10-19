@@ -25,10 +25,8 @@
 #include "formstrings.hxx"
 #include <sal/log.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/waitobj.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/dbexception.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/sequence.hxx>
 
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
@@ -209,11 +207,10 @@ namespace pcr
         // and set as property values
         try
         {
-            Reference< XPropertySet > xDetailFormProps( m_xDetailForm, UNO_QUERY );
-            if ( xDetailFormProps.is() )
+            if ( m_xDetailForm.is() )
             {
-                xDetailFormProps->setPropertyValue( PROPERTY_DETAILFIELDS, makeAny( Sequence< OUString >( aDetailFields.data(), aDetailFields.size() ) ) );
-                xDetailFormProps->setPropertyValue( PROPERTY_MASTERFIELDS, makeAny( Sequence< OUString >( aMasterFields.data(), aMasterFields.size() ) ) );
+                m_xDetailForm->setPropertyValue( PROPERTY_DETAILFIELDS, makeAny( Sequence< OUString >( aDetailFields.data(), aDetailFields.size() ) ) );
+                m_xDetailForm->setPropertyValue( PROPERTY_MASTERFIELDS, makeAny( Sequence< OUString >( aMasterFields.data(), aMasterFields.size() ) ) );
             }
         }
         catch( const Exception& )
@@ -303,11 +300,10 @@ namespace pcr
             Sequence< OUString > aDetailFields;
             Sequence< OUString > aMasterFields;
 
-            Reference< XPropertySet > xDetailFormProps( m_xDetailForm, UNO_QUERY );
-            if ( xDetailFormProps.is() )
+            if ( m_xDetailForm.is() )
             {
-                xDetailFormProps->getPropertyValue( PROPERTY_DETAILFIELDS ) >>= aDetailFields;
-                xDetailFormProps->getPropertyValue( PROPERTY_MASTERFIELDS ) >>= aMasterFields;
+                m_xDetailForm->getPropertyValue( PROPERTY_DETAILFIELDS ) >>= aDetailFields;
+                m_xDetailForm->getPropertyValue( PROPERTY_MASTERFIELDS ) >>= aMasterFields;
             }
 
             std::vector< OUString > aDetailFields1;
@@ -431,7 +427,7 @@ namespace pcr
             _rxConnection.set(_rxFormProps->getPropertyValue(PROPERTY_ACTIVE_CONNECTION),UNO_QUERY);
 
         if ( !_rxConnection.is() )
-            _rxConnection = ::dbtools::connectRowset( Reference< XRowSet >( _rxFormProps, UNO_QUERY ), m_xContext );
+            _rxConnection = ::dbtools::connectRowset( Reference< XRowSet >( _rxFormProps, UNO_QUERY ), m_xContext, nullptr );
     }
 
 
@@ -453,7 +449,7 @@ namespace pcr
         Reference< XPropertySet > xTable;
         try
         {
-            Reference< XTablesSupplier > xTablesInForm( ::dbtools::getCurrentSettingsComposer( _rxFormProps, m_xContext ), UNO_QUERY );
+            Reference< XTablesSupplier > xTablesInForm( ::dbtools::getCurrentSettingsComposer( _rxFormProps, m_xContext, nullptr ), UNO_QUERY );
             Reference< XNameAccess > xTables;
             if ( xTablesInForm.is() )
                 xTables = xTablesInForm->getTables();
@@ -543,24 +539,22 @@ namespace pcr
 
     void FormLinkDialog::initializeSuggest()
     {
-        Reference< XPropertySet > xDetailFormProps( m_xDetailForm, UNO_QUERY );
-        Reference< XPropertySet > xMasterFormProps( m_xMasterForm, UNO_QUERY );
-        if ( !xDetailFormProps.is() || !xMasterFormProps.is() )
+        if ( !m_xDetailForm.is() || !m_xMasterForm.is() )
             return;
 
         try
         {
             // only show the button when both forms are based on the same data source
             OUString sMasterDS, sDetailDS;
-            xMasterFormProps->getPropertyValue( PROPERTY_DATASOURCE ) >>= sMasterDS;
-            xDetailFormProps->getPropertyValue( PROPERTY_DATASOURCE ) >>= sDetailDS;
+            m_xMasterForm->getPropertyValue( PROPERTY_DATASOURCE ) >>= sMasterDS;
+            m_xDetailForm->getPropertyValue( PROPERTY_DATASOURCE ) >>= sDetailDS;
             bool bEnable = ( sMasterDS == sDetailDS );
 
             // only show the button when the connection supports relations
             if ( bEnable )
             {
                 Reference< XDatabaseMetaData > xMeta;
-                getConnectionMetaData( xDetailFormProps, xMeta );
+                getConnectionMetaData( m_xDetailForm, xMeta );
                 OSL_ENSURE( xMeta.is(), "FormLinkDialog::initializeSuggest: unable to retrieve the meta data for the connection!" );
                 try
                 {
@@ -576,8 +570,8 @@ namespace pcr
             Reference< XPropertySet > xDetailTable, xMasterTable;
             if ( bEnable )
             {
-                xDetailTable = getCanonicUnderlyingTable( xDetailFormProps );
-                xMasterTable = getCanonicUnderlyingTable( xMasterFormProps );
+                xDetailTable = getCanonicUnderlyingTable( m_xDetailForm );
+                xMasterTable = getCanonicUnderlyingTable( m_xMasterForm );
                 bEnable = xDetailTable.is() && xMasterTable.is();
             }
 

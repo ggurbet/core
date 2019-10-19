@@ -159,7 +159,7 @@ void Test::testFormulaCreateStringFromTokens()
         bool bInserted = pDBs->getNamedDBs().insert(std::move(pData));
         CPPUNIT_ASSERT_MESSAGE(
             OString(
-                "Failed to insert \"" + OString(aDBs[i].pName) + "\"").getStr(),
+                OStringLiteral("Failed to insert \"") + aDBs[i].pName + "\"").getStr(),
             bInserted);
     }
 
@@ -284,8 +284,7 @@ void Test::testFormulaParseReference()
         for (size_t i = 0; i < SAL_N_ELEMENTS(aChecks); ++i)
         {
             // Use the 'Dummy' sheet for this.
-            OUString aInput("=");
-            aInput += OUString::createFromAscii(aChecks[i]);
+            OUString aInput = "=" + OUString::createFromAscii(aChecks[i]);
             m_pDoc->SetString(ScAddress(0,0,0), aInput);
             ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(0,0,0), aChecks[i], "Wrong formula");
         }
@@ -1183,7 +1182,7 @@ void Test::testFormulaCompilerImplicitIntersection2Param()
             }
         };
 
-        for (auto& rCase : aTestCases)
+        for (const auto& rCase : aTestCases)
         {
             m_pDoc->SetString(rCase.aCellAddress, rCase.aFormula);
             const ScFormulaCell* pCell = m_pDoc->GetFormulaCell(rCase.aCellAddress);
@@ -1257,7 +1256,7 @@ void Test::testFormulaCompilerImplicitIntersection1ParamNoChange()
             }
         };
 
-        for (auto& rCase : aCasesNoChange)
+        for (const auto& rCase : aCasesNoChange)
         {
             if (rCase.bMatrixFormula)
             {
@@ -1364,7 +1363,7 @@ void Test::testFormulaCompilerImplicitIntersection1ParamWithChange()
             }
         };
 
-        for (auto& rCase : aCasesWithChange)
+        for (const auto& rCase : aCasesWithChange)
         {
             m_pDoc->SetString(rCase.aCellAddress, rCase.aFormula);
 
@@ -3794,7 +3793,7 @@ void Test::testFormulaRefUpdateNameDeleteRow()
     // the named expression because when updating the sheet reference is
     // relative to its base position on sheet 0 (same for the 'MyRange' range,
     // which is the reason why it is not updated either).
-    // This is a tad confusing..
+    // This is a tad confusing...
     aExpr2 = pCode2->CreateString(aCxt2, ScAddress(0,0,0));
     CPPUNIT_ASSERT_EQUAL(OUString("$B$3"), aExpr2);
 
@@ -4975,7 +4974,7 @@ void Test::testFuncIFERROR()
         { "=IFNA(A7;-7)",                          "-7" },
         { "=IFNA(VLOOKUP(\"4\";A8:A10;1;0);-2)",    "4" },
         { "=IFNA(VLOOKUP(\"fop\";A8:A10;1;0);-2)", "-2" },
-        { "{=IFERROR(3*A11:A12;1998)}[0]",       "1998" },  // um.. this is not the correct way to insert a
+        { "{=IFERROR(3*A11:A12;1998)}[0]",       "1998" },  // um... this is not the correct way to insert a
         { "{=IFERROR(3*A11:A12;1998)}[1]",         "69" }   // matrix formula, just a place holder, see below
     };
 
@@ -5399,7 +5398,7 @@ void Test::testFuncVLOOKUP()
     // Start over again.
     clearSheet(m_pDoc, 0);
 
-    // Set A,B,....,G to A1:A7.
+    // Set A,B,...,G to A1:A7.
     m_pDoc->SetString(ScAddress(0,0,0), "A");
     m_pDoc->SetString(ScAddress(0,1,0), "B");
     m_pDoc->SetString(ScAddress(0,2,0), "C");
@@ -5493,7 +5492,7 @@ static void runTestHorizontalMATCH(ScDocument* pDoc, const char* aData[DataSize]
     {
         pDoc->SetString(i, 1, 0, OUString::createFromAscii(aChecks[i].pVal));
 
-        // Assume we don't have more than 26 data columns..
+        // Assume we don't have more than 26 data columns...
         OUStringBuffer aBuf;
         aBuf.append("=MATCH(");
         aBuf.append(static_cast<sal_Unicode>('A'+i));
@@ -6666,7 +6665,7 @@ void Test::testExternalRefUnresolved()
     m_pDoc->InsertTab(0, "Test");
 
     // Test error propagation of unresolved (not existing document) external
-    // references. Well, let's hope no build machine has such file with sheet..
+    // references. Well, let's hope no build machine has such file with sheet...
 
     const char* aData[][1] = {
         { "='file:///NonExistingFilePath/AnyName.ods'#$NoSuchSheet.A1" },
@@ -6976,7 +6975,7 @@ void Test::testFuncTableRef()
                     ScAddress(2,4,0), ScRangeData::Type::Name, formula::FormulaGrammar::GRAM_NATIVE);
             bool bInserted = pGlobalNames->insert(pName);
             CPPUNIT_ASSERT_MESSAGE(
-                    OString("Failed to insert named expression "+ OString(aNames[i].pName) +".").getStr(), bInserted);
+                    OString(OStringLiteral("Failed to insert named expression ") + aNames[i].pName +".").getStr(), bInserted);
         }
     }
 
@@ -7150,7 +7149,7 @@ void Test::testFuncTableRef()
                     ScAddress(6,12,0), ScRangeData::Type::Name, formula::FormulaGrammar::GRAM_NATIVE);
             bool bInserted = pGlobalNames->insert(pName);
             CPPUNIT_ASSERT_MESSAGE(
-                    OString("Failed to insert named expression "+ OString(aHlNames[i].pName) +".").getStr(), bInserted);
+                    OString(OStringLiteral("Failed to insert named expression ") + aHlNames[i].pName +".").getStr(), bInserted);
         }
     }
 
@@ -7805,7 +7804,7 @@ void Test::testFuncGCD()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of GCD for failed", 10.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetValue(0, 0, 0, -2.0); // A1
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for values less then 0",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for values less than 0",
             OUString("Err:502"), aVal);
     m_pDoc->SetString(0, 0, 0, "a"); // A1
     aVal = m_pDoc->GetString(aPos);
@@ -7816,7 +7815,7 @@ void Test::testFuncGCD()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of GCD for failed", 0.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetValue(0, 1, 0, -12.0); // B1
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for a matrix with values less then 0",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for a matrix with values less than 0",
             OUString("Err:502"), aVal);
     m_pDoc->SetValue(0, 0, 0, 15.0); // A1
     m_pDoc->SetValue(0, 1, 0, 0.0); // B1
@@ -7854,11 +7853,11 @@ void Test::testFuncGCD()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of GCD for failed", 150.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetString(aPos, "=GCD({-3;6;9})");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for a array with values less then 0",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for an array with values less than 0",
             OUString("Err:502"), aVal);
     m_pDoc->SetString(aPos, "=GCD({\"a\";6;9})");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for a array with strings",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for an array with strings",
             OUString("Err:502"), aVal);
 
     //many inline array
@@ -7868,11 +7867,11 @@ void Test::testFuncGCD()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of GCD for failed", 150.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetString(aPos,"=GCD({3;6;9};{3;-6;9})");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for a array with values less then 0",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for an array with values less than 0",
             OUString("Err:502"), aVal);
     m_pDoc->SetString(aPos, "=GCD({3;6;9};{\"a\";6;9})");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for a array with strings",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return Err:502 for an array with strings",
             OUString("Err:502"), aVal);
 
     // inline list of values
@@ -7882,7 +7881,7 @@ void Test::testFuncGCD()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of GCD for failed", 12.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetString(aPos, "=GCD(\"a\";1)");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return #VALUE! for a array with strings",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("GCD should return #VALUE! for an array with strings",
             OUString("#VALUE!"), aVal);
 
     m_pDoc->DeleteTab(0);
@@ -7903,7 +7902,7 @@ void Test::testFuncLCM()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of LCM for failed", 10.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetValue(0, 0, 0, -2.0); // A1
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for values less then 0",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for values less than 0",
             OUString("Err:502"), aVal);
     m_pDoc->SetString(0, 0, 0, "a"); // A1
     aVal = m_pDoc->GetString(aPos);
@@ -7914,7 +7913,7 @@ void Test::testFuncLCM()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of GCD for failed", 1.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetValue(0, 1, 0, -12.0); // B1
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for a matrix with values less then 0",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for a matrix with values less than 0",
             OUString("Err:502"), aVal);
     m_pDoc->SetValue(0, 0, 0, 15.0); // A1
     m_pDoc->SetValue(0, 1, 0, 0.0); // A2
@@ -7951,11 +7950,11 @@ void Test::testFuncLCM()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of LCM for failed", 0.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetString(aPos, "=LCM({-3;6;9})");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for a array with values less then 0",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for an array with values less than 0",
             OUString("Err:502"), aVal);
     m_pDoc->SetString(aPos, "=LCM({\"a\";6;9})");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for a array with strings",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for an array with strings",
             OUString("Err:502"), aVal);
 
         //many inline array
@@ -7965,11 +7964,11 @@ void Test::testFuncLCM()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of LCM for failed", 0.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetString(aPos,"=LCM({3;6;9};{3;-6;9})");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for a array with values less then 0",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for an array with values less than 0",
             OUString("Err:502"), aVal);
     m_pDoc->SetString(aPos, "=LCM({3;6;9};{\"a\";6;9})");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for a array with strings",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return Err:502 for an array with strings",
             OUString("Err:502"), aVal);
 
     m_pDoc->SetString(aPos, "=LCM(12;24;36;48;60)");
@@ -7978,7 +7977,7 @@ void Test::testFuncLCM()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of LCM for failed", 0.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetString(aPos, "=LCM(\"a\";1)");
     aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return #VALUE! for a array with strings",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("LCM should return #VALUE! for an array with strings",
             OUString("#VALUE!"), aVal);
 
     m_pDoc->DeleteTab(0);
@@ -8053,7 +8052,7 @@ void Test::testFuncSUMSQ()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Calculation of SUMSQ for failed", 7920.0, m_pDoc->GetValue(aPos));
     m_pDoc->SetString(aPos, "=SUMSQ(\"a\";1;\"d\";-4;2)");
     OUString aVal = m_pDoc->GetString(aPos);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("SUMSQ should return #VALUE! for a array with strings",
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("SUMSQ should return #VALUE! for an array with strings",
             OUString("#VALUE!"), aVal);
 
     m_pDoc->DeleteTab(0);
@@ -8096,7 +8095,7 @@ void Test::testFuncMDETERM()
         // 6.34413156928661e-17 instead of 0.0 (tdf#99730) so lower the bar to
         // 10e-14.
         // Then again on aarch64, ppc64* and s390x it also fails.
-        // Sigh.. why do we even test this? The original complaint in tdf#32834
+        // Sigh... why do we even test this? The original complaint in tdf#32834
         // was about -9.51712667007776E-016
         CPPUNIT_ASSERT_DOUBLES_EQUAL_MESSAGE("Calculation of MDETERM incorrect for singular integer matrix",
                 0.0, m_pDoc->GetValue(aPos), 1e-14);
@@ -8424,7 +8423,7 @@ void Test::testMatConcat()
 
 void Test::testMatConcatReplication()
 {
-    // if one of the matrices is an one column or row matrix
+    // if one of the matrices is a one column or row matrix
     // the matrix is replicated across the larger matrix
     CPPUNIT_ASSERT(m_pDoc->InsertTab (0, "Test"));
 

@@ -31,14 +31,12 @@
 #include <vcl/svapp.hxx>
 #include <unotools/saveopt.hxx>
 #include <svl/intitem.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/lstbox.hxx>
 #include <vcl/settings.hxx>
 
 #include <unotools/useroptions.hxx>
 #include <cuioptgenrl.hxx>
-#include <svx/dlgutil.hxx>
 #include <svx/svxids.hrc>
+#include <svx/optgenrl.hxx>
 
 using namespace css;
 
@@ -208,9 +206,8 @@ public:
     }
 };
 
-
-SvxGeneralTabPage::SvxGeneralTabPage(TabPageParent pParent, const SfxItemSet& rCoreSet)
-    : SfxTabPage(pParent, "cui/ui/optuserpage.ui", "OptUserPage", &rCoreSet)
+SvxGeneralTabPage::SvxGeneralTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreSet)
+    : SfxTabPage(pPage, pController, "cui/ui/optuserpage.ui", "OptUserPage", &rCoreSet)
     , m_xUseDataCB(m_xBuilder->weld_check_button("usefordocprop"))
     , m_xCryptoFrame(m_xBuilder->weld_widget( "cryptography"))
     , m_xSigningKeyLB(m_xBuilder->weld_combo_box("signingkey"))
@@ -230,7 +227,6 @@ SvxGeneralTabPage::SvxGeneralTabPage(TabPageParent pParent, const SfxItemSet& rC
 
 SvxGeneralTabPage::~SvxGeneralTabPage()
 {
-    disposeOnce();
 }
 
 // Initializes the titles and the edit boxes,
@@ -339,9 +335,9 @@ void SvxGeneralTabPage::SetLinks ()
 }
 
 
-VclPtr<SfxTabPage> SvxGeneralTabPage::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
+std::unique_ptr<SfxTabPage> SvxGeneralTabPage::Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxGeneralTabPage>::Create( pParent, *rAttrSet );
+    return std::make_unique<SvxGeneralTabPage>( pPage, pController, *rAttrSet );
 }
 
 bool SvxGeneralTabPage::FillItemSet( SfxItemSet* )

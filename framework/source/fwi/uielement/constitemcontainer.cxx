@@ -37,7 +37,6 @@ using namespace com::sun::star::beans;
 using namespace com::sun::star::container;
 
 const int PROPHANDLE_UINAME     = 1;
-const int PROPCOUNT             = 1;
 const char PROPNAME_UINAME[]    = "UIName";
 
 namespace framework
@@ -166,7 +165,7 @@ Reference< XIndexAccess > ConstItemContainer::deepCopyContainer( const Reference
 // XUnoTunnel
 sal_Int64 ConstItemContainer::getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier )
 {
-    if( ( rIdentifier.getLength() == 16 ) && ( 0 == memcmp( ConstItemContainer::getUnoTunnelId().getConstArray(), rIdentifier.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<ConstItemContainer>(rIdentifier) )
     {
         return reinterpret_cast< sal_Int64 >( this );
     }
@@ -221,7 +220,7 @@ Any SAL_CALL ConstItemContainer::getPropertyValue( const OUString& PropertyName 
     if ( PropertyName == PROPNAME_UINAME )
         return makeAny( m_aUIName );
 
-    throw UnknownPropertyException();
+    throw UnknownPropertyException(PropertyName);
 }
 
 void SAL_CALL ConstItemContainer::addPropertyChangeListener( const OUString&, const css::uno::Reference< css::beans::XPropertyChangeListener >& )
@@ -253,7 +252,7 @@ Any SAL_CALL ConstItemContainer::getFastPropertyValue( sal_Int32 nHandle )
     if ( nHandle == PROPHANDLE_UINAME )
         return makeAny( m_aUIName );
 
-    throw UnknownPropertyException();
+    throw UnknownPropertyException(OUString::number(nHandle));
 }
 
 ::cppu::IPropertyArrayHelper& ConstItemContainer::getInfoHelper()
@@ -266,7 +265,7 @@ Any SAL_CALL ConstItemContainer::getFastPropertyValue( sal_Int32 nHandle )
     return ourInfoHelper;
 }
 
-const css::uno::Sequence< css::beans::Property > ConstItemContainer::impl_getStaticPropertyDescriptor()
+css::uno::Sequence< css::beans::Property > ConstItemContainer::impl_getStaticPropertyDescriptor()
 {
     // Create a property array to initialize sequence!
     // Table of all predefined properties of this class. It's used from OPropertySetHelper-class!
@@ -275,16 +274,12 @@ const css::uno::Sequence< css::beans::Property > ConstItemContainer::impl_getSta
     // ATTENTION:
     //      YOU MUST SORT FOLLOW TABLE BY NAME ALPHABETICAL !!!
 
-    const css::beans::Property pProperties[] =
+    return
     {
         css::beans::Property( PROPNAME_UINAME, PROPHANDLE_UINAME ,
                               cppu::UnoType<OUString>::get(),
                               css::beans::PropertyAttribute::TRANSIENT | css::beans::PropertyAttribute::READONLY  )
     };
-    // Use it to initialize sequence!
-    const css::uno::Sequence< css::beans::Property > lPropertyDescriptor( pProperties, PROPCOUNT );
-    // Return "PropertyDescriptor"
-    return lPropertyDescriptor;
 }
 
 } // namespace framework

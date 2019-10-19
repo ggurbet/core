@@ -23,7 +23,6 @@
 
 #include <SdShapeTypes.hxx>
 
-#include <svx/DescriptionGenerator.hxx>
 #include <svx/ShapeTypeHandler.hxx>
 
 using namespace ::com::sun::star;
@@ -49,7 +48,7 @@ AccessiblePresentationOLEShape::~AccessiblePresentationOLEShape()
 OUString SAL_CALL
     AccessiblePresentationOLEShape::getImplementationName()
 {
-    return OUString("AccessiblePresentationOLEShape");
+    return "AccessiblePresentationOLEShape";
 }
 
 /// Set this object's name if it is different to the current name.

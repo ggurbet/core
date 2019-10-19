@@ -76,7 +76,7 @@ namespace comphelper
         You can use this class as follows
 <pre>
     EventLogger aLogger( xContext, sLoggerName );
-    ....
+    ...
     aLogger.log( LogLevel::SEVERE, sSomeMessage );
     aLogger.logp( LogLevel::CONFIG, "MyClass", "MyMethod", sSomeMessage, SomeParameter1, SomeParameter2, SomeParameter3 );
 </pre>
@@ -124,7 +124,7 @@ namespace comphelper
                 impl_log(_nLogLevel, nullptr, nullptr, rMessage);
         }
 
-        const css::uno::Reference<css::logging::XLogger> & getLogger();
+        const css::uno::Reference<css::logging::XLogger> & getLogger() const;
 
         /** logs a given message, replacing a placeholder in the message with an argument
 

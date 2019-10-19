@@ -30,7 +30,7 @@
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/drawing/XShapes.hpp>
 #include <com/sun/star/drawing/XShapeDescriptor.hpp>
-#include <com/sun/star/document/XEventBroadcaster.hpp>
+#include <com/sun/star/document/XShapeEventBroadcaster.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/text/XText.hpp>
@@ -140,9 +140,9 @@ void AccessibleShape::Init()
         mpChildrenManager->Update();
 
     // Register at model as document::XEventListener.
-    if (maShapeTreeInfo.GetModelBroadcaster().is())
-        maShapeTreeInfo.GetModelBroadcaster()->addEventListener (
-            static_cast<document::XEventListener*>(this));
+    if (mxShape.is() && maShapeTreeInfo.GetModelBroadcaster().is())
+        maShapeTreeInfo.GetModelBroadcaster()->addShapeEventListener(mxShape,
+            static_cast<document::XShapeEventListener*>(this));
 
     // Beware! Here we leave the paths of the UNO API and descend into the
     // depths of the core.  Necessary for making the edit engine
@@ -315,7 +315,7 @@ OUString SAL_CALL AccessibleShape::getAccessibleDescription()
     if( m_pShape && !m_pShape->GetDescription().isEmpty())
         return m_pShape->GetDescription() ;
     else
-        return OUString(" ");
+        return " ";
 }
 
 // XAccessibleContext
@@ -438,16 +438,11 @@ uno::Reference<XAccessibleStateSet> SAL_CALL
             if (rState.is())
             {
                 css::uno::Sequence<short> aStates = rState->getStates();
-                int count = aStates.getLength();
-                for( int iIndex = 0;iIndex < count;iIndex++ )
+                if (std::find(aStates.begin(), aStates.end(), AccessibleStateType::EDITABLE) != aStates.end())
                 {
-                    if( aStates[iIndex] == AccessibleStateType::EDITABLE )
-                    {
-                        pStateSet->AddState (AccessibleStateType::EDITABLE);
-                        pStateSet->AddState (AccessibleStateType::RESIZABLE);
-                        pStateSet->AddState (AccessibleStateType::MOVEABLE);
-                        break;
-                    }
+                    pStateSet->AddState (AccessibleStateType::EDITABLE);
+                    pStateSet->AddState (AccessibleStateType::RESIZABLE);
+                    pStateSet->AddState (AccessibleStateType::MOVEABLE);
                 }
             }
         }
@@ -755,8 +750,7 @@ css::uno::Any SAL_CALL
             static_cast<XAccessibleExtendedComponent*>(this),
             static_cast< css::accessibility::XAccessibleSelection* >(this),
             static_cast< css::accessibility::XAccessibleExtendedAttributes* >(this),
-            static_cast<lang::XEventListener*>(this),
-            static_cast<document::XEventListener*>(this),
+            static_cast<document::XShapeEventListener*>(this),
             static_cast<lang::XUnoTunnel*>(this),
             static_cast<XAccessibleGroupPosition*>(this),
             static_cast<XAccessibleHypertext*>(this)
@@ -813,13 +807,7 @@ sal_Bool SAL_CALL AccessibleShape::isAccessibleChildSelected( sal_Int32 nChildIn
                 return false;
 
             uno::Sequence<short> aStates = pRState->getStates();
-            int nCount = aStates.getLength();
-            for( int i = 0; i < nCount; i++ )
-            {
-                if(aStates[i] == AccessibleStateType::SELECTED)
-                    return true;
-            }
-            return false;
+            return std::find(aStates.begin(), aStates.end(), AccessibleStateType::SELECTED) != aStates.end();
         }
     }
 
@@ -888,7 +876,7 @@ uno::Any SAL_CALL AccessibleShape::getExtendedAttributes()
 OUString SAL_CALL
     AccessibleShape::getImplementationName()
 {
-    return OUString("AccessibleShape");
+    return "AccessibleShape";
 }
 
 
@@ -928,16 +916,17 @@ uno::Sequence<uno::Type> SAL_CALL
     // ... and merge them all into one list.
     sal_Int32   nTypeCount (aTypeList.getLength()),
         nComponentTypeCount (aComponentTypeList.getLength());
-    int         i;
 
     aTypeList.realloc (nTypeCount + nComponentTypeCount + 3);
 
-    for (i=0; i<nComponentTypeCount; i++)
-        aTypeList[nTypeCount + i] = aComponentTypeList[i];
+    std::copy(aComponentTypeList.begin(), aComponentTypeList.end(),
+              std::next(aTypeList.begin(), nTypeCount));
 
-    aTypeList[nTypeCount + i++ ] = aLangEventListenerType;
-    aTypeList[nTypeCount + i++ ] = aDocumentEventListenerType;
-    aTypeList[nTypeCount + i ] = aUnoTunnelType;
+    int i = nTypeCount + nComponentTypeCount;
+
+    aTypeList[ i++ ] = aLangEventListenerType;
+    aTypeList[ i++ ] = aDocumentEventListenerType;
+    aTypeList[ i ] = aUnoTunnelType;
 
     return aTypeList;
 }
@@ -947,8 +936,7 @@ uno::Sequence<uno::Type> SAL_CALL
     reference to the model in the shape tree info.  Otherwise this object
     remains functional.
 */
-void SAL_CALL
-    AccessibleShape::disposing (const lang::EventObject& aEvent)
+void AccessibleShape::disposing (const lang::EventObject& aEvent)
 {
     SolarMutexGuard aSolarGuard;
     ::osl::MutexGuard aGuard (maMutex);
@@ -965,38 +953,31 @@ void SAL_CALL
     }
     catch (uno::RuntimeException const&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("svx", "caught exception while disposing " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("svx", "caught exception while disposing");
     }
 }
 
-// document::XEventListener
+// document::XShapeEventListener
 void SAL_CALL
-    AccessibleShape::notifyEvent (const document::EventObject& rEventObject)
+    AccessibleShape::notifyShapeEvent (const document::EventObject& rEventObject)
 {
-    // First check if the event is for us.
-    uno::Reference<drawing::XShape> xShape (
-        rEventObject.Source, uno::UNO_QUERY);
-    if ( xShape.get() == mxShape.get() )
+    if (rEventObject.EventName == "ShapeModified")
     {
-        if (rEventObject.EventName == "ShapeModified")
-        {
-            //Need to update text children when receiving ShapeModified hint when exiting edit mode for text box
-            if (mpText)
-                mpText->UpdateChildren();
+        //Need to update text children when receiving ShapeModified hint when exiting edit mode for text box
+        if (mpText)
+            mpText->UpdateChildren();
 
 
-            // Some property of a shape has been modified.  Send an event
-            // that indicates a change of the visible data to all listeners.
-            CommitChange (
-                AccessibleEventId::VISIBLE_DATA_CHANGED,
-                uno::Any(),
-                uno::Any());
+        // Some property of a shape has been modified.  Send an event
+        // that indicates a change of the visible data to all listeners.
+        CommitChange (
+            AccessibleEventId::VISIBLE_DATA_CHANGED,
+            uno::Any(),
+            uno::Any());
 
-            // Name and Description may have changed.  Update the local
-            // values accordingly.
-            UpdateNameAndDescription();
-        }
+        // Name and Description may have changed.  Update the local
+        // values accordingly.
+        UpdateNameAndDescription();
     }
 }
 
@@ -1082,15 +1063,10 @@ void AccessibleShape::disposing()
     if (pStateSet != nullptr)
         pStateSet->RemoveState (AccessibleStateType::FOCUSED);
 
-    // Unregister from broadcasters.
-    Reference<lang::XComponent> xComponent (mxShape, uno::UNO_QUERY);
-    if (xComponent.is())
-        xComponent->removeEventListener (this);
-
     // Unregister from model.
-    if (maShapeTreeInfo.GetModelBroadcaster().is())
-        maShapeTreeInfo.GetModelBroadcaster()->removeEventListener (
-            static_cast<document::XEventListener*>(this));
+    if (mxShape.is() && maShapeTreeInfo.GetModelBroadcaster().is())
+        maShapeTreeInfo.GetModelBroadcaster()->removeShapeEventListener(mxShape,
+            static_cast<document::XShapeEventListener*>(this));
 
     // Release the child containers.
     if (mpChildrenManager != nullptr)
@@ -1311,7 +1287,7 @@ OUString AccessibleShape::getObjectLink( const uno::Any& )
 sal_Int32 SAL_CALL AccessibleShape::getHyperLinkCount()
 {
     // MT: Introduced with IA2 CWS, but SvxAccessibleHyperlink was redundant to svx::AccessibleHyperlink which we introduced meanwhile.
-    // Code need to be adapted....
+    // Code need to be adapted...
     return 0;
 
     /*
@@ -1327,7 +1303,7 @@ uno::Reference< XAccessibleHyperlink > SAL_CALL
 {
     uno::Reference< XAccessibleHyperlink > xRet;
     // MT: Introduced with IA2 CWS, but SvxAccessibleHyperlink was redundant to svx::AccessibleHyperlink which we introduced meanwhile.
-    // Code need to be adapted....
+    // Code need to be adapted...
     /*
     SvxAccessibleHyperlink* pLink = new SvxAccessibleHyperlink(m_pShape,this);
     if (pLink->IsValidHyperlink())

@@ -27,13 +27,11 @@
 #include <vcl/svapp.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/idle.hxx>
-#include <vcl/toolkit/unowrap.hxx>
 #include <vcl/settings.hxx>
 
 #include <svdata.hxx>
 #include <window.h>
 #include <brdwin.hxx>
-#include <salframe.hxx>
 
 #define DOCKWIN_FLOATSTYLES         (WB_SIZEABLE | WB_MOVEABLE | WB_CLOSEABLE | WB_STANDALONE | WB_ROLLABLE )
 
@@ -833,6 +831,11 @@ void DockingWindow::setPosSizePixel( long nX, long nY,
     {
         if (!mpFloatWin)
             Window::setPosSizePixel( nX, nY, nWidth, nHeight, nFlags );
+        else
+        {
+            mpFloatWin->SetOutputSizePixel(Size(nWidth, nHeight));
+            mpFloatWin->SetPosPixel(Point(nX, nY));
+        }
     }
 
     if (::isLayoutEnabled(this))

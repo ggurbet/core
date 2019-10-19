@@ -23,32 +23,22 @@
 #include <com/sun/star/embed/MSOLEObjectSystemCreator.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <sot/filelist.hxx>
-#include <unotools/pathoptions.hxx>
 #include <editeng/editdata.hxx>
-#include <svl/urlbmk.hxx>
 #include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xlnclit.hxx>
 #include <svx/svdpagv.hxx>
-#include <editeng/eeitem.hxx>
-#include <editeng/colritem.hxx>
 #include <sfx2/docfile.hxx>
-#include <svx/svditer.hxx>
-#include <svx/svdogrp.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdograf.hxx>
-#include <svx/svdetc.hxx>
 #include <svx/svdundo.hxx>
-#include <sfx2/app.hxx>
 #include <svl/itempool.hxx>
-#include <comphelper/classids.hxx>
-#include <svx/fmmodel.hxx>
 #include <sot/formats.hxx>
 #include <editeng/outliner.hxx>
-#include <editeng/editeng.hxx>
 #include <svx/obj3d.hxx>
 #include <svx/e3dundo.hxx>
 #include <svx/unomodel.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <unotools/streamwrap.hxx>
 #include <vcl/metaact.hxx>
 #include <svx/svxids.hrc>
@@ -60,14 +50,11 @@
 #include <Window.hxx>
 #include <sdxfer.hxx>
 #include <sdpage.hxx>
-#include <DrawViewShell.hxx>
 #include <drawdoc.hxx>
 #include <sdmod.hxx>
 #include <sdresid.hxx>
 #include <strings.hrc>
-#include <imapinfo.hxx>
 #include <SlideSorterViewShell.hxx>
-#include <strmname.h>
 #include <unomodel.hxx>
 #include <ViewClipboard.hxx>
 #include <sfx2/ipclient.hxx>
@@ -75,8 +62,6 @@
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/processfactory.hxx>
-#include <tools/stream.hxx>
-#include <vcl/cvtgrf.hxx>
 #include <svx/sdrhittesthelper.hxx>
 #include <svx/xbtmpit.hxx>
 #include <memory>
@@ -107,7 +92,7 @@ struct ImpRememberOrigAndClone
 
 static SdrObject* ImpGetClone(std::vector<ImpRememberOrigAndClone>& aConnectorContainer, SdrObject const * pConnObj)
 {
-    for(ImpRememberOrigAndClone& rImp : aConnectorContainer)
+    for(const ImpRememberOrigAndClone& rImp : aConnectorContainer)
     {
         if(pConnObj == rImp.pOrig)
             return rImp.pClone;
@@ -685,7 +670,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
             SdDrawDocument* pModel = xShell->GetDoc();
             pModel->InsertPage(pModel->AllocPage(false));
 
-            Reference< XComponent > xComponent( xShell->GetModel(), UNO_QUERY );
+            Reference< XComponent > xComponent = xShell->GetModel();
             xStm->Seek( 0 );
 
             css::uno::Reference< css::io::XInputStream > xInputStream( new utl::OInputStreamWrapper( *xStm ) );
@@ -1004,7 +989,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                     InsertObjectAtView( pObj, *pPV, nOptions );
 
                     if( pImageMap )
-                        pObj->AppendUserData( std::unique_ptr<SdrObjUserData>(new SdIMapInfo( *pImageMap )) );
+                        pObj->AppendUserData( std::unique_ptr<SdrObjUserData>(new SvxIMapInfo( *pImageMap )) );
 
                     if (pObj->IsChart())
                     {
@@ -1175,14 +1160,16 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                             nOptions |= SdrInsertFlags::DONTMARK;
                     }
 
-                    InsertObjectAtView( pObj, *pPV, nOptions );
+                    bReturn = InsertObjectAtView( pObj, *pPV, nOptions );
 
-                    if( pImageMap )
-                        pObj->AppendUserData( std::unique_ptr<SdrObjUserData>(new SdIMapInfo( *pImageMap )) );
+                    if (bReturn)
+                    {
+                        if( pImageMap )
+                            pObj->AppendUserData( std::unique_ptr<SdrObjUserData>(new SvxIMapInfo( *pImageMap )) );
 
-                    // let the object stay in loaded state after insertion
-                    pObj->Unload();
-                    bReturn = true;
+                        // let the object stay in loaded state after insertion
+                        pObj->Unload();
+                    }
                 }
             }
         }

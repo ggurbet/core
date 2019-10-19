@@ -21,6 +21,7 @@
 
 #include <sfx2/tabdlg.hxx>
 #include <sfx2/basedlgs.hxx>
+#include <svx/swframetypes.hxx>
 
 namespace vcl { class Window; }
 class SfxItemSet;
@@ -65,8 +66,7 @@ class SwWrapTabPage: public SfxTabPage
     std::unique_ptr<weld::CheckButton> m_xWrapTransparentCB;
     std::unique_ptr<weld::CheckButton> m_xWrapOutlineCB;
     std::unique_ptr<weld::CheckButton> m_xWrapOutsideCB;
-
-    virtual ~SwWrapTabPage() override;
+    std::unique_ptr<weld::CheckButton> m_xAllowOverlapCB;
 
     void            SetImages();
     virtual void    ActivatePage(const SfxItemSet& rSet) override;
@@ -76,15 +76,12 @@ class SwWrapTabPage: public SfxTabPage
     DECL_LINK(WrapTypeHdl, weld::ToggleButton&, void);
     DECL_LINK(ContourHdl, weld::ToggleButton&, void);
 
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
-
     static const sal_uInt16 m_aWrapPageRg[];
 
 public:
-    SwWrapTabPage(TabPageParent pParent, const SfxItemSet &rSet);
-
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet *rSet);
+    SwWrapTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet);
+    virtual ~SwWrapTabPage() override;
 
     virtual bool    FillItemSet(SfxItemSet *rSet) override;
     virtual void    Reset(const SfxItemSet *rSet) override;

@@ -22,30 +22,25 @@
 #include "SchXMLRegressionCurveObjectContext.hxx"
 #include "SchXMLPropertyMappingContext.hxx"
 #include "SchXMLTools.hxx"
-#include "PropertyMap.hxx"
 
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart2/XDataSeries.hpp>
 #include <com/sun/star/chart2/XRegressionCurve.hpp>
 #include <com/sun/star/chart2/XRegressionCurveContainer.hpp>
 #include <com/sun/star/chart2/data/XDataSink.hpp>
-#include <com/sun/star/chart2/data/XDataReceiver.hpp>
 #include <com/sun/star/chart2/data/XPivotTableDataProvider.hpp>
 
 #include <com/sun/star/chart/ChartAxisAssign.hpp>
 #include <com/sun/star/chart/ChartSymbolType.hpp>
+#include <com/sun/star/chart/ErrorBarStyle.hpp>
 #include <com/sun/star/chart/XChartDocument.hpp>
-#include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/chart/ChartLegendPosition.hpp>
-#include <com/sun/star/drawing/LineStyle.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/XVisualObject.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <comphelper/processfactory.hxx>
 
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmlimp.hxx>
@@ -53,10 +48,7 @@
 #include <xmloff/SchXMLSeriesHelper.hxx>
 #include <SchXMLImport.hxx>
 #include <xmloff/prstylei.hxx>
-#include <xmloff/xmlprmap.hxx>
 #include <tools/diagnose_ex.h>
-
-#include <typeinfo>
 
 using namespace ::com::sun::star;
 using namespace ::xmloff::token;
@@ -183,7 +175,7 @@ void lcl_insertErrorBarLSequencesToMap(
     if( ( xSeriesProp->getPropertyValue( "ErrorBarY" ) >>= xErrorBarSource ) &&
         xErrorBarSource.is() )
     {
-        Sequence< Reference< chart2::data::XLabeledDataSequence > > aLSequences(
+        const Sequence< Reference< chart2::data::XLabeledDataSequence > > aLSequences(
             xErrorBarSource->getDataSequences());
         for( const auto& rLSequence : aLSequences )
         {
@@ -738,7 +730,7 @@ void SchXMLSeries2Context::setDefaultsToSeries( SeriesDefaultsAndStyles& rSeries
     // iterate over series
     // call initSeriesPropertySets first
 
-    for (auto & seriesStyle : rSeriesDefaultsAndStyles.maSeriesStyleVector)
+    for (const auto & seriesStyle : rSeriesDefaultsAndStyles.maSeriesStyleVector)
     {
         if( seriesStyle.meType != DataRowPointStyle::DATA_SERIES )
             continue;
@@ -784,13 +776,13 @@ void SchXMLSeries2Context::setStylesToSeries( SeriesDefaultsAndStyles& rSeriesDe
         , const SvXMLStylesContext* pStylesCtxt
         , const SvXMLStyleContext*& rpStyle
         , OUString& rCurrStyleName
-        , SchXMLImportHelper& rImportHelper
+        , const SchXMLImportHelper& rImportHelper
         , const SvXMLImport& rImport
         , bool bIsStockChart
         , tSchXMLLSequencesPerIndex & rInOutLSequencesPerIndex )
 {
     // iterate over series
-    for (auto & seriesStyle : rSeriesDefaultsAndStyles.maSeriesStyleVector)
+    for (const auto & seriesStyle : rSeriesDefaultsAndStyles.maSeriesStyleVector)
     {
         if( seriesStyle.meType == DataRowPointStyle::DATA_SERIES )
         {
@@ -846,7 +838,7 @@ void SchXMLSeries2Context::setStylesToSeries( SeriesDefaultsAndStyles& rSeriesDe
                         if( bIsStockChart )
                         {
                             if( SchXMLSeriesHelper::isCandleStickSeries( seriesStyle.m_xSeries
-                                    , uno::Reference< frame::XModel >( rImportHelper.GetChartDocument(), uno::UNO_QUERY ) ) )
+                                    , rImportHelper.GetChartDocument() ) )
                                 bIsMinMaxSeries = true;
                         }
                         if( !bIsMinMaxSeries )
@@ -913,7 +905,7 @@ void SchXMLSeries2Context::setStylesToRegressionCurves(
 
             if( !aServiceName.isEmpty() )
             {
-                Reference< lang::XMultiServiceFactory > xMSF( comphelper::getProcessServiceFactory(), uno::UNO_QUERY );
+                Reference< lang::XMultiServiceFactory > xMSF = comphelper::getProcessServiceFactory();
                 Reference< chart2::XRegressionCurve > xRegCurve( xMSF->createInstance( aServiceName ), uno::UNO_QUERY_THROW );
                 Reference< chart2::XRegressionCurveContainer > xRegCurveCont( regressionStyle.m_xSeries, uno::UNO_QUERY_THROW );
 
@@ -1008,7 +1000,7 @@ void SchXMLSeries2Context::setStylesToDataPoints( SeriesDefaultsAndStyles& rSeri
         , const SvXMLStylesContext* pStylesCtxt
         , const SvXMLStyleContext*& rpStyle
         , OUString& rCurrStyleName
-        , SchXMLImportHelper& rImportHelper
+        , const SchXMLImportHelper& rImportHelper
         , const SvXMLImport& rImport
         , bool bIsStockChart, bool bIsDonutChart, bool bSwitchOffLinesForScatter )
 {
@@ -1028,7 +1020,7 @@ void SchXMLSeries2Context::setStylesToDataPoints( SeriesDefaultsAndStyles& rSeri
         //... todo ...
         if( bIsStockChart )
         {
-            if( SchXMLSeriesHelper::isCandleStickSeries( seriesStyle.m_xSeries, uno::Reference< frame::XModel >( rImportHelper.GetChartDocument(), uno::UNO_QUERY ) ) )
+            if( SchXMLSeriesHelper::isCandleStickSeries( seriesStyle.m_xSeries, rImportHelper.GetChartDocument() ) )
                 continue;
         }
 
@@ -1039,7 +1031,7 @@ void SchXMLSeries2Context::setStylesToDataPoints( SeriesDefaultsAndStyles& rSeri
             {
                 uno::Reference< beans::XPropertySet > xPointProp(
                     SchXMLSeriesHelper::createOldAPIDataPointPropertySet( seriesStyle.m_xSeries, seriesStyle.m_nPointIndex + i
-                        , uno::Reference< frame::XModel >( rImportHelper.GetChartDocument(), uno::UNO_QUERY ) ) );
+                        , rImportHelper.GetChartDocument() ) );
 
                 if( !xPointProp.is() )
                     continue;

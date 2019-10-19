@@ -23,7 +23,6 @@
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
 #include <svx/svxdllapi.h>
-#include <vcl/svlbitm.hxx>
 #include <tools/date.hxx>
 #include <tools/datetime.hxx>
 #include <tools/link.hxx>
@@ -56,23 +55,6 @@ public:
     bool            bDisabled;
     DateTime        aDateTime;
     void*           pData;
-};
-
-/// Class for the representation of Strings depending on the font.
-class SAL_WARN_UNUSED SvLBoxColorString : public SvLBoxString
-{
-public:
-                    SvLBoxColorString();
-                    virtual ~SvLBoxColorString() override;
-
-    /** Paint function of the SvLBoxColorString class.
-
-        The relevant text with the selected color is drawn in the output device.
-    */
-    virtual void Paint(const Point& rPos, SvTreeListBox& rOutDev, vcl::RenderContext& rRenderContext,
-                       const SvViewDataEntry* pView, const SvTreeListEntry& rEntry) override;
-
-    virtual std::unique_ptr<SvLBoxItem> Clone(SvLBoxItem const * pSource) const override;
 };
 
 class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxRedlinTable
@@ -203,7 +185,7 @@ public:
     void            SetLastTime(const tools::Time &aTime);
 
     void            SetDateMode(sal_uInt16 nMode);
-    SvxRedlinDateMode GetDateMode();
+    SvxRedlinDateMode GetDateMode() const;
 
     void            ClearAuthors();
     void            InsertAuthor( const OUString& rString );
@@ -220,11 +202,11 @@ public:
     void            SetFocusToRange();
     // } Methods for Calc
 
-    bool            IsDate();
-    bool            IsAuthor();
-    bool            IsRange();
-    bool            IsAction();
-    bool            IsComment();
+    bool            IsDate() const;
+    bool            IsAuthor() const;
+    bool            IsRange() const;
+    bool            IsAction() const;
+    bool            IsComment() const;
 
     void            ShowAction(bool bShow=true);
 
@@ -263,6 +245,7 @@ private:
     bool bEnableRejectAll;
     bool bEnableUndo;
 
+    weld::Window* m_pDialog;
     std::unique_ptr<weld::Button> m_xAccept;
     std::unique_ptr<weld::Button> m_xReject;
     std::unique_ptr<weld::Button> m_xAcceptAll;
@@ -273,7 +256,7 @@ private:
     DECL_LINK( PbClickHdl, weld::Button&, void );
 
 public:
-    SvxTPView(weld::Container* pParent, weld::Builder* pTopLevel);
+    SvxTPView(weld::Container* pParent, weld::Window* pDialog, weld::Builder* pTopLevel);
     virtual ~SvxTPView() override;
 
     SvxRedlinTable* GetTableControl() { return m_xViewData.get(); }
@@ -282,7 +265,7 @@ public:
     void            EnableAcceptAll(bool bFlag);
     void            EnableReject(bool bFlag);
     void            EnableRejectAll(bool bFlag);
-    static void     EnableClearFormatButton(weld::Button&, bool bFlag);
+    void            EnableClearFormatButton(weld::Button&, bool bFlag);
     void            EnableClearFormat(bool bFlag);
     void            EnableClearFormatAll(bool bFlag);
     void            EnableUndo(bool bFlag=true);
@@ -317,7 +300,7 @@ private:
     DECL_DLLPRIVATE_LINK(DeactivatePageHdl, const OString&, bool);
 
 public:
-    SvxAcceptChgCtr(weld::Container* pParent, weld::Builder* pTopLevel);
+    SvxAcceptChgCtr(weld::Container* pParent, weld::Window* pDialog, weld::Builder* pTopLevel);
     ~SvxAcceptChgCtr();
 
     void            ShowFilterPage();

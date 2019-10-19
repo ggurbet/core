@@ -35,8 +35,11 @@
 #include <sfx2/dialoghelper.hxx>
 #include <sfx2/htmlmode.hxx>
 #include <sfx2/objsh.hxx>
+#include <sfx2/printer.hxx>
 #include <svtools/unitconv.hxx>
 #include <vcl/print.hxx>
+#include <vcl/svapp.hxx>
+#include <com/sun/star/i18n/BreakIterator.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <editeng/scripttypeitem.hxx>
 #include <comphelper/processfactory.hxx>
@@ -450,14 +453,13 @@ void SwDropCapsPict::InitPrinter_()
 SwDropCapsDlg::SwDropCapsDlg(weld::Window *pParent, const SfxItemSet &rSet)
     : SfxSingleTabDialogController(pParent, &rSet)
 {
-    TabPageParent pPageParent(get_content_area(), this);
-    VclPtr<SwDropCapsPage> xNewPage(static_cast<SwDropCapsPage*>(SwDropCapsPage::Create(pPageParent, &rSet).get()));
-    xNewPage->SetFormat(false);
-    SetTabPage(xNewPage);
+    auto xNewPage(SwDropCapsPage::Create(get_content_area(), this, &rSet));
+    static_cast<SwDropCapsPage*>(xNewPage.get())->SetFormat(false);
+    SetTabPage(std::move(xNewPage));
 }
 
-SwDropCapsPage::SwDropCapsPage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/dropcapspage.ui", "DropCapPage", &rSet)
+SwDropCapsPage::SwDropCapsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/dropcapspage.ui", "DropCapPage", &rSet)
     , bModified(false)
     , bFormat(true)
     , rSh(::GetActiveView()->GetWrtShell())
@@ -517,10 +519,9 @@ DeactivateRC SwDropCapsPage::DeactivatePage(SfxItemSet * _pSet)
     return DeactivateRC::LeavePage;
 }
 
-VclPtr<SfxTabPage> SwDropCapsPage::Create(TabPageParent pParent,
-                                          const SfxItemSet *rSet)
+std::unique_ptr<SfxTabPage> SwDropCapsPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet)
 {
-    return VclPtr<SwDropCapsPage>::Create(pParent, *rSet);
+    return std::make_unique<SwDropCapsPage>(pPage, pController, *rSet);
 }
 
 bool  SwDropCapsPage::FillItemSet(SfxItemSet *rSet)

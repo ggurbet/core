@@ -20,11 +20,10 @@
 #ifndef INCLUDED_VCL_GENERIC_PRINT_GLYPHSET_HXX
 #define INCLUDED_VCL_GENERIC_PRINT_GLYPHSET_HXX
 
-#include <unx/fontmanager.hxx>
-
 #include <osl/file.hxx>
 
 #include <rtl/string.hxx>
+#include <vcl/glyphitem.hxx>
 
 #include <vector>
 #include <unordered_map>
@@ -65,12 +64,12 @@ public:
     GlyphSet (sal_Int32 nFontID, bool bVertical);
     ~GlyphSet ();
 
-    sal_Int32       GetFontID () { return mnFontID;}
+    sal_Int32       GetFontID () const { return mnFontID;}
     static OString
     GetReencodedFontName (rtl_TextEncoding nEnc,
                           const OString &rFontName);
 
-    bool            IsVertical () { return mbVertical;}
+    bool            IsVertical () const { return mbVertical;}
 
     void            DrawGlyph (PrinterGfx& rGfx,
                                const Point& rPoint,

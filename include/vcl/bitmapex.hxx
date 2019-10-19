@@ -21,8 +21,8 @@
 #define INCLUDED_VCL_BITMAPEX_HXX
 
 #include <vcl/dllapi.h>
-#include <vcl/bitmap.hxx>
 #include <vcl/alpha.hxx>
+#include <vcl/Scanline.hxx>
 #include <tools/color.hxx>
 
 #include <sal/types.h>
@@ -48,6 +48,7 @@ public:
     explicit            BitmapEx( const OUString& rIconName );
                         BitmapEx( const BitmapEx& rBitmapEx );
                         BitmapEx( const BitmapEx& rBitmapEx, Point aSrc, Size aSize );
+                        BitmapEx( Size aSize, sal_uInt16 nBitCount );
     explicit            BitmapEx( const Bitmap& rBmp );
                         BitmapEx( const Bitmap& rBmp, const Bitmap& rMask );
                         BitmapEx( const Bitmap& rBmp, const AlphaMask& rAlphaMask );
@@ -93,8 +94,6 @@ public:
     sal_uInt16          GetBitCount() const { return maBitmap.GetBitCount(); }
     sal_uLong           GetSizeBytes() const;
     BitmapChecksum      GetChecksum() const;
-
-public:
 
     /**
      * @brief extract the bitmap and alpha data separately. Used by the SWF filter.
@@ -293,6 +292,38 @@ public:
                             const Color* pReplaceColors,
                             sal_uLong nColorCount );
 
+    /** Replace all pixel having one the search colors with the corresponding replace color
+
+        @param pSearchColors
+        Array of colors specifying which pixel should be replaced
+
+        @param rReplaceColors
+        Array of colors to be placed in all changed pixel
+
+        @param nColorCount
+        Size of the aforementioned color arrays
+
+        @param pTols
+        Tolerance value. Specifies the maximal difference between
+        pSearchColor colors and the individual pixel values, such that
+        the corresponding pixel is still regarded a match.
+
+        @return true, if the operation was completed successfully.
+     */
+    void                Replace(
+                            const Color* pSearchColors,
+                            const Color* pReplaceColors,
+                            sal_uLong nColorCount,
+                            sal_uInt8 const * pTols );
+
+    /** Replace transparency with given color.
+     */
+    void                ReplaceTransparency( const Color& rColor );
+
+    /** Get contours in image */
+    tools::Polygon      GetContour( bool bContourEdgeDetect, bool bContourVert,
+                                    const tools::Rectangle* pWorkRect );
+
     /** Change various global color characteristics
 
         @param nLuminancePercent
@@ -430,7 +461,6 @@ public:
     void                GetColorModel(css::uno::Sequence< sal_Int32 >& rRGBPalette,
                             sal_uInt32& rnRedMask, sal_uInt32& rnGreenMask, sal_uInt32& rnBlueMask, sal_uInt32& rnAlphaMask, sal_uInt32& rnTransparencyIndex,
                             sal_uInt32& rnWidth, sal_uInt32& rnHeight, sal_uInt8& rnBitCount);
-public:
 
     SAL_DLLPRIVATE std::shared_ptr<SalBitmap> const & ImplGetBitmapSalBitmap() const { return maBitmap.ImplGetSalBitmap(); }
     SAL_DLLPRIVATE std::shared_ptr<SalBitmap> const & ImplGetMaskSalBitmap() const { return maMask.ImplGetSalBitmap(); }
@@ -438,7 +468,13 @@ public:
 
 private:
     friend class ImpGraphic;
+    friend class OutputDevice;
     friend bool VCL_DLLPUBLIC WriteDIBBitmapEx(const BitmapEx& rSource, SvStream& rOStm);
+    friend bool VCL_DLLPUBLIC ReadRawDIB(BitmapEx& rTarget, const unsigned char* pBuf,
+                                    const ScanlineFormat nFormat,
+                                    const int nHeight,
+                                    const int nStride);
+
     void  loadFromIconTheme( const OUString& rIconName );
 
     Bitmap              maBitmap;

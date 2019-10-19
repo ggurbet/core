@@ -30,6 +30,7 @@
 #include <com/sun/star/util/SearchFlags.hpp>
 #include <i18nutil/searchopt.hxx>
 #include <svl/stritem.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
@@ -41,6 +42,7 @@
 #include <editeng/unolingu.hxx>
 #include <swtypes.hxx>
 #include <idxmrk.hxx>
+#include <toxmgr.hxx>
 #include <txttxmrk.hxx>
 #include <wrtsh.hxx>
 #include <view.hxx>
@@ -691,7 +693,7 @@ void SwIndexMarkPane::ModifyHdl(const weld::Widget& rBox)
         m_xPhoneticFT2->set_sensitive(bKeyEnable&&bKey2HasText&&m_bIsPhoneticReadingEnabled);
         m_xPhoneticED2->set_sensitive(bKeyEnable&&bKey2HasText&&m_bIsPhoneticReadingEnabled);
     }
-    else //m_xEntryED  !!m_xEntryED is not a ListBox but a Edit
+    else //m_xEntryED  !!m_xEntryED is not a ListBox but an Edit
     {
         bool bHasText = !m_xEntryED->get_text().isEmpty();
         if(!bHasText)
@@ -1230,7 +1232,7 @@ IMPL_LINK_NOARG(SwAuthorMarkPane, InsertHdl, weld::Button&, void)
                     xNewData->SetAuthorField(static_cast<ToxAuthorityField>(i), m_sFields[i]);
                 pSh->ChangeAuthorityData(xNewData.get());
             }
-            SwInsertField_Data aData(TYP_AUTHORITY, 0, sFields.makeStringAndClear(), OUString(), 0 );
+            SwInsertField_Data aData(SwFieldTypesEnum::Authority, 0, sFields.makeStringAndClear(), OUString(), 0 );
             aMgr.InsertField( aData );
         }
         else if(aMgr.GetCurField())
@@ -1305,7 +1307,7 @@ IMPL_LINK_NOARG(SwAuthorMarkPane, ChangeSourceHdl, weld::ToggleButton&, void)
                 uno::Sequence<beans::PropertyValue> aSeq;
                 if( aNames >>= aSeq)
                 {
-                    for(const beans::PropertyValue& rProp : aSeq)
+                    for(const beans::PropertyValue& rProp : std::as_const(aSeq))
                     {
                         sal_Int16 nField = 0;
                         rProp.Value >>= nField;
@@ -1318,7 +1320,7 @@ IMPL_LINK_NOARG(SwAuthorMarkPane, ChangeSourceHdl, weld::ToggleButton&, void)
         }
         if(xBibAccess.is())
         {
-            uno::Sequence<OUString> aIdentifiers = xBibAccess->getElementNames();
+            const uno::Sequence<OUString> aIdentifiers = xBibAccess->getElementNames();
             for(const OUString& rName : aIdentifiers)
                 m_xEntryLB->append_text(rName);
         }

@@ -21,6 +21,7 @@
 #define INCLUDED_VCL_EDIT_HXX
 
 #include <vcl/ctrl.hxx>
+#include <vcl/textfilter.hxx>
 
 #include <memory>
 
@@ -48,22 +49,8 @@ struct DDInfo;
 struct Impl_IMEInfos;
 
 #define EDIT_NOLIMIT                SAL_MAX_INT32
-#define EDIT_UPDATEDATA_TIMEOUT     350
 
 typedef OUString (*FncGetSpecialChars)( weld::Widget* pWin, const vcl::Font& rFont );
-
-class VCL_DLLPUBLIC TextFilter
-{
-private:
-    OUString sForbiddenChars;
-public:
-    void SetForbiddenChars(const OUString& rSet) { sForbiddenChars = rSet; }
-
-    virtual OUString filter(const OUString &rText);
-
-    TextFilter(const OUString &rForbiddenChars = OUString(" "));
-    virtual ~TextFilter();
-};
 
 class Timer;
 
@@ -71,7 +58,6 @@ class VCL_DLLPUBLIC Edit : public Control, public vcl::unohelper::DragAndDropCli
 {
 private:
     VclPtr<Edit>        mpSubEdit;
-    std::unique_ptr<Timer> mpUpdateDataTimer;
     TextFilter*         mpFilterText;
     std::unique_ptr<DDInfo, o3tl::default_delete<DDInfo>> mpDDInfo;
     std::unique_ptr<Impl_IMEInfos> mpIMEInfos;
@@ -97,14 +83,11 @@ private:
                         mbForceControlBackground:1,
                         mbPassword;
     Link<Edit&,void>    maModifyHdl;
-    Link<Edit&,void>    maUpdateDataHdl;
     Link<Edit&,void>    maAutocompleteHdl;
     Link<Edit&,bool>    maActivateHdl;
     std::unique_ptr<VclBuilder> mpUIBuilder;
 
     css::uno::Reference<css::i18n::XExtendedInputSequenceChecker> mxISC;
-
-    DECL_DLLPRIVATE_LINK(ImplUpdateDataHdl, Timer*, void);
 
     SAL_DLLPRIVATE bool        ImplTruncateToMaxLen( OUString&, sal_Int32 nSelectionLen ) const;
     SAL_DLLPRIVATE void        ImplInitEditData();
@@ -184,16 +167,12 @@ public:
     virtual void        DataChanged( const DataChangedEvent& rDCEvt ) override;
 
     virtual void        Modify();
-    virtual void        UpdateData();
 
     static bool         IsCharInput( const KeyEvent& rKEvt );
 
     virtual void        SetModifyFlag();
     virtual void        ClearModifyFlag();
     virtual bool        IsModified() const { return mpSubEdit ? mpSubEdit->mbModified : mbModified; }
-
-    virtual void        EnableUpdateData( sal_uLong nTimeout = EDIT_UPDATEDATA_TIMEOUT );
-    virtual void        DisableUpdateData();
 
     void                SetEchoChar( sal_Unicode c );
     sal_Unicode         GetEchoChar() const { return mcEchoChar; }
@@ -242,7 +221,6 @@ public:
 
     virtual void        SetModifyHdl( const Link<Edit&,void>& rLink ) { maModifyHdl = rLink; }
     virtual const Link<Edit&,void>& GetModifyHdl() const { return maModifyHdl; }
-    virtual void        SetUpdateDataHdl( const Link<Edit&,void>& rLink ) { maUpdateDataHdl = rLink; }
 
     void                SetActivateHdl(const Link<Edit&,bool>& rLink) { maActivateHdl = rLink; }
 

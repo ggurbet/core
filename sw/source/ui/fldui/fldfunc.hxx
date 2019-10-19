@@ -20,14 +20,9 @@
 #define INCLUDED_SW_SOURCE_UI_FLDUI_FLDFUNC_HXX
 
 #include <sfx2/tabdlg.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/button.hxx>
-#include <vcl/edit.hxx>
 
 #include <condedit.hxx>
 #include "fldpage.hxx"
-#include <actctrl.hxx>
 
 class SwFieldFuncPage : public SwFieldPage
 {
@@ -67,7 +62,7 @@ class SwFieldFuncPage : public SwFieldPage
 
     DECL_LINK( TypeHdl, weld::TreeView&, void );
     DECL_LINK( SelectHdl, weld::TreeView&, void );
-    DECL_LINK( InsertMacroHdl, weld::TreeView&, void );
+    DECL_LINK( InsertMacroHdl, weld::TreeView&, bool );
     DECL_LINK( ModifyHdl, weld::Entry&, void );
     DECL_LINK( ListModifyReturnActionHdl, weld::Entry&, bool );
     DECL_LINK( ListModifyButtonHdl, weld::Button&, void );
@@ -84,10 +79,10 @@ protected:
     virtual sal_uInt16      GetGroup() override;
 
 public:
-    SwFieldFuncPage(TabPageParent pParent, const SfxItemSet* pSet);
+    SwFieldFuncPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* pSet);
     virtual ~SwFieldFuncPage() override;
 
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

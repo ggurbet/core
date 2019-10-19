@@ -418,8 +418,8 @@ void FmPropBrw::implSetNewSelection( const InterfaceBag& _rSelection )
         else if ( _rSelection.size() > 1 )
         {
             // no form component and (no form or no name) -> Multiselection
-            sTitle = SvxResId(RID_STR_PROPERTIES_CONTROL);
-            sTitle += SvxResId(RID_STR_PROPTITLE_MULTISELECT);
+            sTitle = SvxResId(RID_STR_PROPERTIES_CONTROL) +
+                SvxResId(RID_STR_PROPTITLE_MULTISELECT);
         }
         else
         {
@@ -559,10 +559,10 @@ void FmPropBrw::impl_createPropertyBrowser_throw( FmFormShell* _pFormShell )
         :   DefaultFormComponentInspectorModel::createDefault( m_xInspectorContext );
 
     // an object inspector
-    m_xBrowserController.set(
+    m_xBrowserController =
         ObjectInspector::createWithModel(
             m_xInspectorContext, m_xInspectorModel
-        ), css::uno::UNO_QUERY);
+        );
 
     if ( !m_xBrowserController.is() )
     {

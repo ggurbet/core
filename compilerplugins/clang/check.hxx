@@ -29,6 +29,8 @@ inline ContextCheck checkRecordDecl(
 
 }
 
+class DeclCheck;
+
 class TypeCheck {
 public:
     explicit TypeCheck(clang::QualType type): type_(type) {}
@@ -65,9 +67,13 @@ public:
 
     inline ContextCheck Struct(llvm::StringRef id) const;
 
+    inline ContextCheck ClassOrStruct(llvm::StringRef id) const;
+
     TypeCheck Typedef() const;
 
     inline ContextCheck Typedef(llvm::StringRef id) const;
+
+    DeclCheck TemplateSpecializationClass() const;
 
     TypeCheck NotSubstTemplateTypeParmType() const;
 
@@ -78,6 +84,8 @@ private:
 };
 
 class DeclCheck {
+    friend TypeCheck;
+
 public:
     explicit DeclCheck(clang::Decl const * decl): decl_(decl) {}
 
@@ -86,6 +94,8 @@ public:
     inline ContextCheck Class(llvm::StringRef id) const;
 
     inline ContextCheck Struct(llvm::StringRef id) const;
+
+    inline ContextCheck ClassOrStruct(llvm::StringRef id) const;
 
     inline ContextCheck Union(llvm::StringRef id) const;
 
@@ -98,11 +108,16 @@ public:
     ContextCheck MemberFunction() const;
 
 private:
-    clang::Decl const * const decl_;
+    DeclCheck() = default;
+
+    clang::Decl const * const decl_ = nullptr;
 };
 
 class ContextCheck {
 public:
+    explicit ContextCheck(clang::DeclContext const * context = nullptr):
+        context_(context) {}
+
     explicit operator bool() const { return context_ != nullptr; }
 
     TerminalCheck GlobalNamespace() const;
@@ -110,6 +125,8 @@ public:
     inline ContextCheck Namespace(llvm::StringRef id) const;
 
     TerminalCheck StdNamespace() const;
+
+    TerminalCheck StdOrNestedNamespace() const;
 
     ContextCheck AnonymousNamespace() const;
 
@@ -120,14 +137,6 @@ public:
     explicit ContextCheck(const clang::NamespaceDecl * decl ) : context_( decl ) {}
 
 private:
-    friend DeclCheck;
-    friend TypeCheck;
-    friend ContextCheck detail::checkRecordDecl(
-        clang::Decl const * decl, clang::TagTypeKind tag, llvm::StringRef id);
-
-    explicit ContextCheck(clang::DeclContext const * context = nullptr):
-        context_(context) {}
-
     clang::DeclContext const * const context_;
 };
 
@@ -190,6 +199,15 @@ ContextCheck TypeCheck::Struct(llvm::StringRef id) const
     return ContextCheck();
 }
 
+ContextCheck TypeCheck::ClassOrStruct(llvm::StringRef id) const
+{
+    auto const c1 = Class(id);
+    if (c1) {
+        return c1;
+    }
+    return Struct(id);
+}
+
 ContextCheck TypeCheck::Typedef(llvm::StringRef id) const
 {
     if (!type_.isNull()) {
@@ -213,6 +231,15 @@ ContextCheck DeclCheck::Class(llvm::StringRef id) const
 ContextCheck DeclCheck::Struct(llvm::StringRef id) const
 {
     return detail::checkRecordDecl(decl_, clang::TTK_Struct, id);
+}
+
+ContextCheck DeclCheck::ClassOrStruct(llvm::StringRef id) const
+{
+    auto const c1 = Class(id);
+    if (c1) {
+        return c1;
+    }
+    return Struct(id);
 }
 
 ContextCheck DeclCheck::Union(llvm::StringRef id) const

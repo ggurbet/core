@@ -27,7 +27,6 @@
 #include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <unotools/charclass.hxx>
-#include <osl/diagnose.h>
 
 using namespace ::com::sun::star;
 using ::com::sun::star::uno::Reference;
@@ -409,7 +408,7 @@ SC_IMPL_DUMMY_PROPERTY_LISTENER( ScNamedRangeObj )
 
 OUString SAL_CALL ScNamedRangeObj::getImplementationName()
 {
-    return OUString( "ScNamedRangeObj" );
+    return "ScNamedRangeObj";
 }
 
 sal_Bool SAL_CALL ScNamedRangeObj::supportsService( const OUString& rServiceName )
@@ -427,9 +426,7 @@ uno::Sequence<OUString> SAL_CALL ScNamedRangeObj::getSupportedServiceNames()
 sal_Int64 SAL_CALL ScNamedRangeObj::getSomething(
                 const uno::Sequence<sal_Int8 >& rId )
 {
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
+    if ( isUnoTunnelId<ScNamedRangeObj>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }

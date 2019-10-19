@@ -38,8 +38,10 @@ $(eval $(call gb_UIConfig_add_uifiles,cui,\
 	cui/uiconfig/ui/calloutpage \
 	cui/uiconfig/ui/cellalignment \
 	cui/uiconfig/ui/certdialog \
+	cui/uiconfig/ui/chapterfragment \
 	cui/uiconfig/ui/charnamepage \
 	cui/uiconfig/ui/colorconfigwin \
+	cui/uiconfig/ui/colorfragment \
 	cui/uiconfig/ui/colorpage \
 	cui/uiconfig/ui/colorpickerdialog \
 	cui/uiconfig/ui/comment \
@@ -48,6 +50,7 @@ $(eval $(call gb_UIConfig_add_uifiles,cui,\
 	cui/uiconfig/ui/croppage \
 	cui/uiconfig/ui/cuiimapdlg \
 	cui/uiconfig/ui/databaselinkdialog \
+	cui/uiconfig/ui/diagramdialog \
 	cui/uiconfig/ui/dimensionlinestabpage \
 	cui/uiconfig/ui/editdictionarydialog \
 	cui/uiconfig/ui/editmodulesdialog \
@@ -159,6 +162,7 @@ $(eval $(call gb_UIConfig_add_uifiles,cui,\
 	cui/uiconfig/ui/positionsizedialog \
 	cui/uiconfig/ui/possizetabpage \
 	cui/uiconfig/ui/posterdialog \
+	cui/uiconfig/ui/qrcodegen \
 	cui/uiconfig/ui/querychangelineenddialog \
 	cui/uiconfig/ui/querydeletebitmapdialog \
 	cui/uiconfig/ui/querydeletechartcolordialog \

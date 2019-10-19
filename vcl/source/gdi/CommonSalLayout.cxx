@@ -21,6 +21,7 @@
 
 #include <hb-icu.h>
 #include <hb-ot.h>
+#include <hb-graphite2.h>
 
 #include <sallayout.hxx>
 
@@ -31,13 +32,10 @@
 #include <vcl/font/FeatureParser.hxx>
 #include <scrptrun.h>
 #include <com/sun/star/i18n/CharacterIteratorMode.hpp>
-#include <i18nlangtag/mslangid.hxx>
-#include <limits>
 #include <salgdi.hxx>
 #include <unicode/uchar.h>
 
 #include <fontselect.hxx>
-#include <impfontcache.hxx>
 
 #if !HB_VERSION_ATLEAST(1, 1, 0)
 // Disabled Unicode compatibility decomposition, see fdo#66715
@@ -293,6 +291,7 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
     }
 
     hb_font_t *pHbFont = GetFont().GetHbFont();
+    bool isGraphite = hb_graphite2_face_get_gr_face(hb_font_get_face(pHbFont)) != nullptr;
 
     int nGlyphCapacity = 2 * (rArgs.mnEndCharPos - rArgs.mnMinCharPos);
     m_GlyphItems.Impl()->reserve(nGlyphCapacity);
@@ -341,8 +340,8 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
             break;
 
         // Find script subruns.
-        int nCurrentPos = nBidiMinRunPos;
         std::vector<SubRun> aSubRuns;
+        int nCurrentPos = nBidiMinRunPos;
         size_t k = 0;
         for (; k < pTextLayout->runs.size(); ++k)
         {
@@ -353,67 +352,75 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
             }
         }
 
-        while (nCurrentPos < nBidiEndRunPos && k < pTextLayout->runs.size())
+        if (isGraphite)
         {
-            int32_t nMinRunPos = nCurrentPos;
-            int32_t nEndRunPos = std::min(pTextLayout->runs[k].nEnd, nBidiEndRunPos);
-            hb_direction_t aDirection = bRightToLeft ? HB_DIRECTION_RTL : HB_DIRECTION_LTR;
             hb_script_t aScript = hb_icu_script_to_script(pTextLayout->runs[k].nCode);
-            // For vertical text, further divide the runs based on character
-            // orientation.
-            if (rArgs.mnFlags & SalLayoutFlags::Vertical)
+            aSubRuns.push_back({ nBidiMinRunPos, nBidiEndRunPos, aScript, bRightToLeft ? HB_DIRECTION_RTL : HB_DIRECTION_LTR });
+        }
+        else
+        {
+            while (nCurrentPos < nBidiEndRunPos && k < pTextLayout->runs.size())
             {
-                sal_Int32 nIdx = nMinRunPos;
-                while (nIdx < nEndRunPos)
+                int32_t nMinRunPos = nCurrentPos;
+                int32_t nEndRunPos = std::min(pTextLayout->runs[k].nEnd, nBidiEndRunPos);
+                hb_direction_t aDirection = bRightToLeft ? HB_DIRECTION_RTL : HB_DIRECTION_LTR;
+                hb_script_t aScript = hb_icu_script_to_script(pTextLayout->runs[k].nCode);
+                // For vertical text, further divide the runs based on character
+                // orientation.
+                if (rArgs.mnFlags & SalLayoutFlags::Vertical)
                 {
-                    sal_Int32 nPrevIdx = nIdx;
-                    sal_UCS4 aChar = rArgs.mrStr.iterateCodePoints(&nIdx);
-                    VerticalOrientation aVo = GetVerticalOrientation(aChar, rArgs.maLanguageTag);
-
-                    sal_UCS4 aVariationSelector = 0;
-                    if (nIdx < nEndRunPos)
+                    sal_Int32 nIdx = nMinRunPos;
+                    while (nIdx < nEndRunPos)
                     {
-                        sal_Int32 nNextIdx = nIdx;
-                        sal_UCS4 aNextChar = rArgs.mrStr.iterateCodePoints(&nNextIdx);
-                        if (u_hasBinaryProperty(aNextChar, UCHAR_VARIATION_SELECTOR))
+                        sal_Int32 nPrevIdx = nIdx;
+                        sal_UCS4 aChar = rArgs.mrStr.iterateCodePoints(&nIdx);
+                        VerticalOrientation aVo = GetVerticalOrientation(aChar, rArgs.maLanguageTag);
+
+                        sal_UCS4 aVariationSelector = 0;
+                        if (nIdx < nEndRunPos)
                         {
-                            nIdx = nNextIdx;
-                            aVariationSelector = aNextChar;
+                            sal_Int32 nNextIdx = nIdx;
+                            sal_UCS4 aNextChar = rArgs.mrStr.iterateCodePoints(&nNextIdx);
+                            if (u_hasBinaryProperty(aNextChar, UCHAR_VARIATION_SELECTOR))
+                            {
+                                nIdx = nNextIdx;
+                                aVariationSelector = aNextChar;
+                            }
                         }
-                    }
 
-                    // Charters with U and Tu vertical orientation should
-                    // be shaped in vertical direction. But characters
-                    // with Tr should be shaped in vertical direction
-                    // only if they have vertical alternates, otherwise
-                    // they should be shaped in horizontal direction
-                    // and then rotated.
-                    // See http://unicode.org/reports/tr50/#vo
-                    if (aVo == VerticalOrientation::Upright ||
-                        aVo == VerticalOrientation::TransformedUpright ||
-                        (aVo == VerticalOrientation::TransformedRotated &&
-                         HasVerticalAlternate(aChar, aVariationSelector)))
-                    {
-                        aDirection = HB_DIRECTION_TTB;
-                    }
-                    else
-                    {
-                        aDirection = bRightToLeft ? HB_DIRECTION_RTL : HB_DIRECTION_LTR;
-                    }
+                        // Charters with U and Tu vertical orientation should
+                        // be shaped in vertical direction. But characters
+                        // with Tr should be shaped in vertical direction
+                        // only if they have vertical alternates, otherwise
+                        // they should be shaped in horizontal direction
+                        // and then rotated.
+                        // See http://unicode.org/reports/tr50/#vo
+                        if (aVo == VerticalOrientation::Upright ||
+                            aVo == VerticalOrientation::TransformedUpright ||
+                            (aVo == VerticalOrientation::TransformedRotated &&
+                             HasVerticalAlternate(aChar, aVariationSelector)))
+                        {
+                            aDirection = HB_DIRECTION_TTB;
+                        }
+                        else
+                        {
+                            aDirection = bRightToLeft ? HB_DIRECTION_RTL : HB_DIRECTION_LTR;
+                        }
 
-                    if (aSubRuns.empty() || aSubRuns.back().maDirection != aDirection)
-                        aSubRuns.push_back({ nPrevIdx, nIdx, aScript, aDirection });
-                    else
-                        aSubRuns.back().mnEnd = nIdx;
+                        if (aSubRuns.empty() || aSubRuns.back().maDirection != aDirection)
+                            aSubRuns.push_back({ nPrevIdx, nIdx, aScript, aDirection });
+                        else
+                            aSubRuns.back().mnEnd = nIdx;
+                    }
                 }
-            }
-            else
-            {
-                aSubRuns.push_back({ nMinRunPos, nEndRunPos, aScript, aDirection });
-            }
+                else
+                {
+                    aSubRuns.push_back({ nMinRunPos, nEndRunPos, aScript, aDirection });
+                }
 
-            nCurrentPos = nEndRunPos;
-            ++k;
+                nCurrentPos = nEndRunPos;
+                ++k;
+            }
         }
 
         // RTL subruns should be reversed to ensure that final glyph order is
@@ -530,37 +537,37 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
                         continue;
                 }
 
-                int nGlyphFlags = 0;
+                GlyphItemFlags nGlyphFlags = GlyphItemFlags::NONE;
                 if (bRightToLeft)
-                    nGlyphFlags |= GlyphItem::IS_RTL_GLYPH;
+                    nGlyphFlags |= GlyphItemFlags::IS_RTL_GLYPH;
 
                 if (bClusterStart)
-                    nGlyphFlags |= GlyphItem::IS_CLUSTER_START;
+                    nGlyphFlags |= GlyphItemFlags::IS_CLUSTER_START;
 
                 if (bInCluster)
-                    nGlyphFlags |= GlyphItem::IS_IN_CLUSTER;
+                    nGlyphFlags |= GlyphItemFlags::IS_IN_CLUSTER;
 
                 sal_Int32 indexUtf16 = nCharPos;
                 sal_UCS4 aChar = rArgs.mrStr.iterateCodePoints(&indexUtf16, 0);
 
                 if (u_getIntPropertyValue(aChar, UCHAR_GENERAL_CATEGORY) == U_NON_SPACING_MARK)
-                    nGlyphFlags |= GlyphItem::IS_DIACRITIC;
+                    nGlyphFlags |= GlyphItemFlags::IS_DIACRITIC;
 
                 if (u_isUWhiteSpace(aChar))
-                    nGlyphFlags |= GlyphItem::IS_SPACING;
+                    nGlyphFlags |= GlyphItemFlags::IS_SPACING;
 
                 if (aSubRun.maScript == HB_SCRIPT_ARABIC &&
                     HB_DIRECTION_IS_BACKWARD(aSubRun.maDirection) &&
-                    (nGlyphFlags & GlyphItem::IS_SPACING) == 0)
+                    !(nGlyphFlags & GlyphItemFlags::IS_SPACING))
                 {
-                    nGlyphFlags |= GlyphItem::ALLOW_KASHIDA;
+                    nGlyphFlags |= GlyphItemFlags::ALLOW_KASHIDA;
                     rArgs.mnFlags |= SalLayoutFlags::KashidaJustification;
                 }
 
                 DeviceCoordinate nAdvance, nXOffset, nYOffset;
                 if (aSubRun.maDirection == HB_DIRECTION_TTB)
                 {
-                    nGlyphFlags |= GlyphItem::IS_VERTICAL;
+                    nGlyphFlags |= GlyphItemFlags::IS_VERTICAL;
 
                     // We have glyph offsets that is relative to h origin now,
                     // add the origin back so it is relative to v origin.
@@ -612,7 +619,7 @@ void GenericSalLayout::GetCharWidths(DeviceCoordinate* pCharWidths) const
 
     for (auto const& aGlyphItem : *m_GlyphItems.Impl())
     {
-        const int nIndex = aGlyphItem.m_nCharPos - mnMinCharPos;
+        const int nIndex = aGlyphItem.charPos() - mnMinCharPos;
         if (nIndex >= nCharCount)
             continue;
         pCharWidths[nIndex] += aGlyphItem.m_nNewWidth;
@@ -682,9 +689,9 @@ void GenericSalLayout::ApplyDXArray(const ImplLayoutArgs& rArgs)
     {
         // Accumulate the width difference for all characters corresponding to
         // this glyph.
-        int nCharPos = (*m_GlyphItems.Impl())[i].m_nCharPos - mnMinCharPos;
+        int nCharPos = (*m_GlyphItems.Impl())[i].charPos() - mnMinCharPos;
         DeviceCoordinate nDiff = 0;
-        for (int j = 0; j < (*m_GlyphItems.Impl())[i].m_nCharCount; j++)
+        for (int j = 0; j < (*m_GlyphItems.Impl())[i].charCount(); j++)
             nDiff += pNewCharWidths[nCharPos + j] - pOldCharWidths[nCharPos + j];
 
         if (!(*m_GlyphItems.Impl())[i].IsRTLGlyph())
@@ -731,7 +738,7 @@ void GenericSalLayout::ApplyDXArray(const ImplLayoutArgs& rArgs)
             // last glyph in the cluster not the first as this would be the
             // base glyph.
             if (bKashidaJustify && (*m_GlyphItems.Impl())[i].AllowKashida() &&
-                nDiff > (*m_GlyphItems.Impl())[i].m_nCharCount) // Rounding errors, 1 pixel per character!
+                nDiff > (*m_GlyphItems.Impl())[i].charCount()) // Rounding errors, 1 pixel per character!
             {
                 pKashidas[i] = nDiff;
                 // Move any non-spacing marks attached to this cluster as well.
@@ -782,8 +789,8 @@ void GenericSalLayout::ApplyDXArray(const ImplLayoutArgs& rArgs)
             }
 
             Point aPos(pGlyphIter->m_aLinearPos.getX() - nTotalWidth, 0);
-            int nCharPos = pGlyphIter->m_nCharPos;
-            int const nFlags = GlyphItem::IS_IN_CLUSTER | GlyphItem::IS_RTL_GLYPH;
+            int nCharPos = pGlyphIter->charPos();
+            GlyphItemFlags const nFlags = GlyphItemFlags::IS_IN_CLUSTER | GlyphItemFlags::IS_RTL_GLYPH;
             while (nCopies--)
             {
                 GlyphItem aKashida(nCharPos, 0, nKashidaIndex, aPos, nFlags, nKashidaWidth, 0, &GetFont());
@@ -801,7 +808,7 @@ bool GenericSalLayout::IsKashidaPosValid(int nCharPos) const
 {
     for (auto pIter = m_GlyphItems.Impl()->begin(); pIter != m_GlyphItems.Impl()->end(); ++pIter)
     {
-        if (pIter->m_nCharPos == nCharPos)
+        if (pIter->charPos() == nCharPos)
         {
             // The position is the first glyph, this would happen if we
             // changed the text styling in the middle of a word. Since we don’t
@@ -812,7 +819,7 @@ bool GenericSalLayout::IsKashidaPosValid(int nCharPos) const
 
             // If the character is not supported by this layout, return false
             // so that fallback layouts would be checked for it.
-            if (pIter->m_aGlyphId == 0)
+            if (pIter->glyphId() == 0)
                 break;
 
             // Search backwards for previous glyph belonging to a different
@@ -820,12 +827,12 @@ bool GenericSalLayout::IsKashidaPosValid(int nCharPos) const
             // RTL glyphs, which will be in visual order.
             for (auto pPrev = pIter - 1; pPrev != m_GlyphItems.Impl()->begin(); --pPrev)
             {
-                if (pPrev->m_nCharPos != nCharPos)
+                if (pPrev->charPos() != nCharPos)
                 {
                     // Check if the found glyph belongs to the next character,
                     // otherwise the current glyph will be a ligature which is
                     // invalid kashida position.
-                    if (pPrev->m_nCharPos == (nCharPos + 1))
+                    if (pPrev->charPos() == (nCharPos + 1))
                         return true;
                     break;
                 }

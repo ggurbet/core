@@ -86,8 +86,7 @@ ThumbnailViewAcc* ThumbnailViewAcc::getImplementation( const uno::Reference< uno
 {
     try
     {
-        uno::Reference< lang::XUnoTunnel > xUnoTunnel( rxData, uno::UNO_QUERY );
-        return( xUnoTunnel.is() ? reinterpret_cast<ThumbnailViewAcc*>(sal::static_int_cast<sal_IntPtr>(xUnoTunnel->getSomething( ThumbnailViewAcc::getUnoTunnelId() ))) : nullptr );
+        return comphelper::getUnoTunnelImplementation<ThumbnailViewAcc>(rxData);
     }
     catch(const css::uno::Exception&)
     {
@@ -195,7 +194,7 @@ sal_Int16 SAL_CALL ThumbnailViewAcc::getAccessibleRole()
 OUString SAL_CALL ThumbnailViewAcc::getAccessibleDescription()
 {
     ThrowIfDisposed();
-    return OUString("ThumbnailView");
+    return "ThumbnailView";
 }
 
 OUString SAL_CALL ThumbnailViewAcc::getAccessibleName()
@@ -486,7 +485,7 @@ sal_Int64 SAL_CALL ThumbnailViewAcc::getSomething( const uno::Sequence< sal_Int8
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) && ( 0 == memcmp( ThumbnailViewAcc::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<ThumbnailViewAcc>(rId) )
         nRet = reinterpret_cast< sal_Int64 >( this );
     else
         nRet = 0;
@@ -652,7 +651,7 @@ sal_Int16 SAL_CALL SfxThumbnailViewAcc::getAccessibleRole()
 OUString SAL_CALL SfxThumbnailViewAcc::getAccessibleDescription()
 {
     ThrowIfDisposed();
-    return OUString("ThumbnailView");
+    return "ThumbnailView";
 }
 
 OUString SAL_CALL SfxThumbnailViewAcc::getAccessibleName()
@@ -946,7 +945,7 @@ sal_Int64 SAL_CALL SfxThumbnailViewAcc::getSomething( const uno::Sequence< sal_I
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) && ( 0 == memcmp( SfxThumbnailViewAcc::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<SfxThumbnailViewAcc>(rId) )
         nRet = reinterpret_cast< sal_Int64 >( this );
     else
         nRet = 0;
@@ -1041,11 +1040,7 @@ ThumbnailViewItemAcc* ThumbnailViewItemAcc::getImplementation( const uno::Refere
 {
     try
     {
-        uno::Reference< lang::XUnoTunnel > xUnoTunnel( rxData, uno::UNO_QUERY );
-        return( xUnoTunnel.is() ?
-                reinterpret_cast<ThumbnailViewItemAcc*>(sal::static_int_cast<sal_IntPtr>(
-                        xUnoTunnel->getSomething( ThumbnailViewItemAcc::getUnoTunnelId() ))) :
-                nullptr );
+        return comphelper::getUnoTunnelImplementation<ThumbnailViewItemAcc>(rxData);
     }
     catch(const css::uno::Exception&)
     {
@@ -1095,7 +1090,7 @@ sal_Int32 SAL_CALL ThumbnailViewItemAcc::getAccessibleIndexInParent()
         for (sal_uInt16 i=0; i<nCount && !bDone; i++)
         {
             // Guard the retrieval of the i-th child with a try/catch block
-            // just in case the number of children changes in the mean time.
+            // just in case the number of children changes in the meantime.
             try
             {
                 pItem = mpParent->mrParent.ImplGetVisibleItem (i);
@@ -1139,9 +1134,7 @@ OUString SAL_CALL ThumbnailViewItemAcc::getAccessibleName()
 
         if( aRet.isEmpty() )
         {
-            OUStringBuffer aBuffer("Item ");
-            aBuffer.append(static_cast<sal_Int32>(mpParent->mnId));
-            aRet = aBuffer.makeStringAndClear();
+            aRet = "Item " + OUString::number(static_cast<sal_Int32>(mpParent->mnId));
         }
     }
 
@@ -1354,7 +1347,7 @@ sal_Int64 SAL_CALL ThumbnailViewItemAcc::getSomething( const uno::Sequence< sal_
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) && ( 0 == memcmp( ThumbnailViewItemAcc::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<ThumbnailViewItemAcc>(rId) )
         nRet = reinterpret_cast< sal_Int64 >( this );
     else
         nRet = 0;

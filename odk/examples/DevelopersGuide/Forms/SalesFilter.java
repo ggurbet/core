@@ -280,7 +280,7 @@ class SalesFilter implements XActionListener, XPropertyChangeListener, XResetLis
     }
 
     /* ------------------------------------------------------------------ */
-    /** checks if the given filter index referes to the "<other>" entry which
+    /** checks if the given filter index refers to the "<other>" entry which
         allows the user to manually enter a date
     */
     final private boolean isManualFilter( short nFilterIndex )
@@ -362,7 +362,7 @@ class SalesFilter implements XActionListener, XPropertyChangeListener, XResetLis
         // the current string items
         String[] aOldFilterItems = (String[])m_xFilterList.getPropertyValue( "StringItemList" );
 
-        // translate this into a vector - much more comfort to work with a vector than with an array ....
+        // translate this into a vector - much more comfort to work with a vector than with an array...
         java.util.ArrayList aFilterItems = new java.util.ArrayList();
         for ( int i=0; i<aOldFilterItems.length; ++i )
             aFilterItems.add( aOldFilterItems[i] );
@@ -458,7 +458,7 @@ class SalesFilter implements XActionListener, XPropertyChangeListener, XResetLis
         return false;
             // do not allow the date field to be reset - it would set its content
             // to the current date
-            // Note that another possible solution would be to wait for the resetted
+            // Note that another possible solution would be to wait for the reset
             // event and correct the value there
     }
 

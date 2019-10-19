@@ -62,15 +62,12 @@ void OFileDriver::disposing()
 
 OUString OFileDriver::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.sdbc.driver.file.Driver");
+    return "com.sun.star.sdbc.driver.file.Driver";
 }
 
 Sequence< OUString > OFileDriver::getSupportedServiceNames_Static(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = "com.sun.star.sdbc.Driver";
-    aSNS[1] = "com.sun.star.sdbcx.Driver";
-    return aSNS;
+    return { "com.sun.star.sdbc.Driver", "com.sun.star.sdbcx.Driver" };
 }
 
 
@@ -192,7 +189,7 @@ Reference< XTablesSupplier > SAL_CALL OFileDriver::getDataDefinitionByConnection
     Reference< css::lang::XUnoTunnel> xTunnel(connection,UNO_QUERY);
     if(xTunnel.is())
     {
-        OConnection* pSearchConnection = reinterpret_cast< OConnection* >( xTunnel->getSomething(OConnection::getUnoTunnelImplementationId()) );
+        OConnection* pSearchConnection = reinterpret_cast< OConnection* >( xTunnel->getSomething(OConnection::getUnoTunnelId()) );
         OConnection* pConnection = nullptr;
         for (auto const& elem : m_xConnections)
         {

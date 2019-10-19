@@ -88,11 +88,7 @@ namespace pq_sdbc_driver
 
 OUString concatQualified( const OUString & a, const OUString &b)
 {
-    OUStringBuffer buf( a.getLength() + 2 + b.getLength() );
-    buf.append( a );
-    buf.append( "." );
-    buf.append( b );
-    return buf.makeStringAndClear();
+    return a + "." + b;
 }
 
 static OString iOUStringToOString( const OUString& str, ConnectionSettings const *settings) {
@@ -834,6 +830,13 @@ OString extractSingleTableFromSelect( const std::vector< OString > &vec )
     }
     return ret;
 
+}
+
+OUString getColExprForDefaultSettingVal(ConnectionSettings const *settings)
+{
+    return (PQserverVersion( settings->pConnection ) < 80000)?
+               OUString("pg_attrdef.adsrc"):
+               OUString("pg_get_expr(pg_attrdef.adbin, pg_attrdef.adrelid, true)");
 }
 
 css::uno::Sequence< sal_Int32 > string2intarray( const OUString & str )

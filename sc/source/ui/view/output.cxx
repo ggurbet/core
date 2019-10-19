@@ -17,17 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/embed/EmbedMisc.hpp>
-
 #include <scitems.hxx>
-#include <editeng/boxitem.hxx>
 #include <editeng/brushitem.hxx>
-#include <editeng/editdata.hxx>
 #include <svtools/colorcfg.hxx>
 #include <svx/rotmodit.hxx>
 #include <editeng/shaditem.hxx>
 #include <editeng/svxfont.hxx>
-#include <svx/svdoole2.hxx>
 #include <tools/poly.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/pdfextoutdevdata.hxx>
@@ -42,6 +37,8 @@
 #include <vcl/settings.hxx>
 #include <svx/unoapi.hxx>
 #include <sal/log.hxx>
+#include <comphelper/lok.hxx>
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 #include <output.hxx>
 #include <document.hxx>
@@ -49,15 +46,12 @@
 #include <formulacell.hxx>
 #include <attrib.hxx>
 #include <patattr.hxx>
-#include <docpool.hxx>
-#include <tabvwsh.hxx>
 #include <progress.hxx>
 #include <pagedata.hxx>
 #include <chgtrack.hxx>
 #include <chgviset.hxx>
 #include <viewutil.hxx>
 #include <gridmerg.hxx>
-#include <invmerge.hxx>
 #include <fillinfo.hxx>
 #include <scmod.hxx>
 #include <appoptio.hxx>
@@ -66,10 +60,7 @@
 #include <colorscale.hxx>
 
 #include <math.h>
-#include <iostream>
-#include <map>
 #include <memory>
-#include <utility>
 
 using namespace com::sun::star;
 
@@ -1645,7 +1636,7 @@ void ScOutputData::DrawRotatedFrame(vcl::RenderContext& rRenderContext)
                                 {
                                     tools::Polygon aPoly(4, aPoints);
 
-                                    // for DrawPolygon, whitout Pen one pixel is left out
+                                    // for DrawPolygon, without Pen one pixel is left out
                                     // to the right and below...
                                     if (rColor.GetTransparency() == 0)
                                         rRenderContext.SetLineColor(rColor);
@@ -1661,7 +1652,7 @@ void ScOutputData::DrawRotatedFrame(vcl::RenderContext& rRenderContext)
                             tools::Polygon aPoly(4, aPoints);
                             boost::optional<Color> const & pColor = pInfo->mxColorScale;
 
-                            // for DrawPolygon, whitout Pen one pixel is left out
+                            // for DrawPolygon, without Pen one pixel is left out
                             // to the right and below...
                             if (pColor->GetTransparency() == 0)
                                 rRenderContext.SetLineColor(*pColor);
@@ -1888,10 +1879,103 @@ void ScOutputData::FindChanged()
     mpDoc->EnableIdle(bWasIdleEnabled);
 }
 
-void ScOutputData::DrawRefMark( SCCOL nRefStartX, SCROW nRefStartY,
+ReferenceMark ScOutputData::FillReferenceMark( SCCOL nRefStartX, SCROW nRefStartY,
+                                SCCOL nRefEndX, SCROW nRefEndY, const Color& rColor)
+{
+    ReferenceMark aResult;
+
+    PutInOrder( nRefStartX, nRefEndX );
+    PutInOrder( nRefStartY, nRefEndY );
+
+    if ( nRefStartX == nRefEndX && nRefStartY == nRefEndY )
+        mpDoc->ExtendMerge( nRefStartX, nRefStartY, nRefEndX, nRefEndY, nTab );
+
+    if ( nRefStartX <= nVisX2 && nRefEndX >= nVisX1 &&
+         nRefStartY <= nVisY2 && nRefEndY >= nVisY1 )
+    {
+        long nMinX = nScrX;
+        long nMinY = nScrY;
+        long nMaxX = nScrX + nScrW - 1;
+        long nMaxY = nScrY + nScrH - 1;
+        if ( bLayoutRTL )
+        {
+            long nTemp = nMinX;
+            nMinX = nMaxX;
+            nMaxX = nTemp;
+        }
+        long nLayoutSign = bLayoutRTL ? -1 : 1;
+
+        bool bTop    = false;
+        bool bBottom = false;
+        bool bLeft   = false;
+        bool bRight  = false;
+
+        long nPosY = nScrY;
+        bool bNoStartY = ( nY1 < nRefStartY );
+        bool bNoEndY   = false;
+        for (SCSIZE nArrY=1; nArrY<nArrCount; nArrY++)      // loop to end for bNoEndY check
+        {
+            SCROW nY = pRowInfo[nArrY].nRowNo;
+
+            if ( nY==nRefStartY || (nY>nRefStartY && bNoStartY) )
+            {
+                nMinY = nPosY;
+                bTop = true;
+            }
+            if ( nY==nRefEndY )
+            {
+                nMaxY = nPosY + pRowInfo[nArrY].nHeight - 2;
+                bBottom = true;
+            }
+            if ( nY>nRefEndY && bNoEndY )
+            {
+                nMaxY = nPosY-2;
+                bBottom = true;
+            }
+            bNoStartY = ( nY < nRefStartY );
+            bNoEndY   = ( nY < nRefEndY );
+            nPosY += pRowInfo[nArrY].nHeight;
+        }
+
+        long nPosX = nScrX;
+        if ( bLayoutRTL )
+            nPosX += nMirrorW - 1;      // always in pixels
+
+        for (SCCOL nX=nX1; nX<=nX2; nX++)
+        {
+            if ( nX==nRefStartX )
+            {
+                nMinX = nPosX;
+                bLeft = true;
+            }
+            if ( nX==nRefEndX )
+            {
+                nMaxX = nPosX + ( pRowInfo[0].pCellInfo[nX+1].nWidth - 2 ) * nLayoutSign;
+                bRight = true;
+            }
+            nPosX += pRowInfo[0].pCellInfo[nX+1].nWidth * nLayoutSign;
+        }
+
+        if (bTop && bBottom && bLeft && bRight)
+        {
+            aResult = ReferenceMark( nMinX / mnPPTX * double( aZoomX ),
+                                     nMinY / mnPPTY * double( aZoomY ),
+                                     ( nMaxX - nMinX ) / mnPPTX * double( aZoomX ),
+                                     ( nMaxY - nMinY ) / mnPPTY * double( aZoomY ),
+                                     nTab,
+                                     rColor );
+        }
+    }
+
+    return aResult;
+}
+
+ReferenceMark ScOutputData::DrawRefMark( SCCOL nRefStartX, SCROW nRefStartY,
                                 SCCOL nRefEndX, SCROW nRefEndY,
                                 const Color& rColor, bool bHandle )
 {
+    ReferenceMark aResult;
+
     PutInOrder( nRefStartX, nRefEndX );
     PutInOrder( nRefStartY, nRefEndY );
 
@@ -1968,12 +2052,12 @@ void ScOutputData::DrawRefMark( SCCOL nRefStartX, SCROW nRefStartY,
              nMaxY >= nMinY )
         {
             mpDev->SetLineColor( rColor );
-            if (bTop && bBottom && bLeft && bRight)
+            if (bTop && bBottom && bLeft && bRight && !comphelper::LibreOfficeKit::isActive() )
             {
-                mpDev->SetFillColor();
-                mpDev->DrawRect( tools::Rectangle( nMinX, nMinY, nMaxX, nMaxY ) );
+                    mpDev->SetFillColor();
+                    mpDev->DrawRect( tools::Rectangle( nMinX, nMinY, nMaxX, nMaxY ) );
             }
-            else
+            else if ( !comphelper::LibreOfficeKit::isActive() )
             {
                 if (bTop)
                     mpDev->DrawLine( Point( nMinX, nMinY ), Point( nMaxX, nMinY ) );
@@ -1984,7 +2068,7 @@ void ScOutputData::DrawRefMark( SCCOL nRefStartX, SCROW nRefStartY,
                 if (bRight)
                     mpDev->DrawLine( Point( nMaxX, nMinY ), Point( nMaxX, nMaxY ) );
             }
-            if ( bHandle && bRight && bBottom )
+            if ( bHandle && bRight && bBottom && !comphelper::LibreOfficeKit::isActive() )
             {
                 mpDev->SetLineColor( rColor );
                 mpDev->SetFillColor( rColor );
@@ -2014,6 +2098,8 @@ void ScOutputData::DrawRefMark( SCCOL nRefStartX, SCROW nRefStartY,
             }
         }
     }
+
+    return aResult;
 }
 
 void ScOutputData::DrawOneChange( SCCOL nRefStartX, SCROW nRefStartY,

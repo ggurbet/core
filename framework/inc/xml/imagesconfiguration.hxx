@@ -34,53 +34,12 @@
 namespace framework
 {
 
-enum ImageMaskMode
-{
-    ImageMaskMode_Color,
-    ImageMaskMode_Bitmap
-};
-
 struct ImageItemDescriptor
 {
-    ImageItemDescriptor() : nIndex( -1 ) {}
-
     OUString  aCommandURL;                // URL command to dispatch
-    long      nIndex;                     // index of the bitmap inside the bitmaplist
 };
 
-struct ExternalImageItemDescriptor
-{
-    OUString  aCommandURL;                // URL command to dispatch
-    OUString  aURL;                       // a URL to an external bitmap
-};
-
-typedef std::vector<std::unique_ptr<ImageItemDescriptor> > ImageItemListDescriptor;
-
-typedef std::vector<std::unique_ptr<ExternalImageItemDescriptor> > ExternalImageItemListDescriptor;
-
-struct ImageListItemDescriptor
-{
-    ImageListItemDescriptor() : nMaskMode( ImageMaskMode_Color ) {}
-
-    OUString                    aURL;               // a URL to a bitmap with several images inside
-    Color                       aMaskColor;         // a color used as transparent
-    OUString                    aMaskURL;           // a URL to an optional bitmap used as a mask
-    ImageMaskMode               nMaskMode;            // an enum to describe the current mask mode
-    std::unique_ptr<ImageItemListDescriptor>
-                                pImageItemList;       // an array of ImageItemDescriptors that describes every image
-    OUString                    aHighContrastURL;       // a URL to an optional high contrast bitmap with several images inside
-    OUString                    aHighContrastMaskURL;   // a URL to an optional high contrast bitmap as a mask
-};
-
-typedef std::vector<std::unique_ptr<ImageListItemDescriptor> > ImageListDescriptor;
-
-struct ImageListsDescriptor
-{
-    ImageListsDescriptor() {}
-
-    std::unique_ptr<ImageListDescriptor> pImageList;
-    std::unique_ptr<ExternalImageItemListDescriptor> pExternalImageList;
-};
+typedef std::vector<ImageItemDescriptor> ImageItemDescriptorList;
 
 class ImagesConfiguration
 {
@@ -88,12 +47,12 @@ class ImagesConfiguration
         static bool LoadImages(
             const css::uno::Reference< css::uno::XComponentContext >& rxContext,
             const css::uno::Reference< css::io::XInputStream >& rInputStream,
-            ImageListsDescriptor& rItems );
+            ImageItemDescriptorList& rItems );
 
         static bool StoreImages(
             const css::uno::Reference< css::uno::XComponentContext >& rxContext,
             const css::uno::Reference< css::io::XOutputStream >& rOutputStream,
-            const ImageListsDescriptor& rItems );
+            const ImageItemDescriptorList& rItems );
 };
 
 } // namespace framework

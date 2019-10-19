@@ -134,10 +134,8 @@ PlaceEditDialog::PlaceEditDialog(weld::Window* pParent, const std::shared_ptr<Pl
             // Fill the Username field
             if ( rUrl.HasUserData( ) )
             {
-                m_xEDUsername->set_text( INetURLObject::decode( rUrl.GetUser( ),
-                                                              INetURLObject::DecodeMechanism::WithCharset ) );
-                m_aDetailsContainers[i]->setUsername( INetURLObject::decode( rUrl.GetUser( ),
-                                                              INetURLObject::DecodeMechanism::WithCharset ) );
+                m_xEDUsername->set_text( rUrl.GetUser(INetURLObject::DecodeMechanism::WithCharset) );
+                m_aDetailsContainers[i]->setUsername( rUrl.GetUser(INetURLObject::DecodeMechanism::WithCharset) );
             }
 
             m_xLBServerType->set_active(i);
@@ -192,7 +190,8 @@ void PlaceEditDialog::InitDetails( )
     Sequence< OUString > aTypesNamesList( officecfg::Office::Common::Misc::CmisServersNames::get( xContext ) );
 
     int nPos = 0;
-    for ( sal_Int32 i = 0; i < aTypesUrlsList.getLength( ) && i < aTypesNamesList.getLength( ); ++i )
+    auto nSize = std::min(aTypesUrlsList.getLength(), aTypesNamesList.getLength());
+    for ( sal_Int32 i = 0; i < nSize; ++i )
     {
         OUString sUrl = aTypesUrlsList[i].replaceFirst("<host", "<" + SvtResId(STR_SVT_HOST)).replaceFirst("port>",  SvtResId(STR_SVT_PORT) + ">");
 

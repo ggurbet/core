@@ -263,12 +263,12 @@ public:
     void                UndoActionStart( sal_uInt16 nId = 0 );
     void                UndoActionEnd();
     void                InsertUndo( std::unique_ptr<TextUndo> pUndo, bool bTryMerge = false );
-    bool                IsInUndo()                  { return mbIsInUndo; }
+    bool                IsInUndo() const            { return mbIsInUndo; }
     void                SetIsInUndo( bool bInUndo ) { mbIsInUndo = bInUndo; }
     void                ResetUndo();
 
     void                EnableUndo( bool bEnable );
-    bool                IsUndoEnabled()             { return mbUndoEnabled; }
+    bool                IsUndoEnabled() const           { return mbUndoEnabled; }
 
     void                SetModified( bool bModified )   { mbModified = bModified; }
     bool                IsModified() const              { return mbModified; }
@@ -284,8 +284,6 @@ public:
     const TextAttrib*       FindAttrib( const TextPaM& rPaM, sal_uInt16 nWhich ) const;
     const TextCharAttrib*   FindCharAttrib( const TextPaM& rPaM, sal_uInt16 nWhich ) const;
 
-    void                RemoveAttribs( sal_uInt32 nPara, sal_uInt16 nWhich );
-    std::unique_ptr<TextCharAttrib>     RemoveAttrib( sal_uInt32 nPara, const TextCharAttrib& rAttrib );
     void                RemoveAttribs( sal_uInt32 nPara );
     void                SetAttrib( const TextAttrib& rAttr, sal_uInt32 nPara, sal_Int32 nStart, sal_Int32 nEnd, bool bIdleFormatAndUpdate = true );
 

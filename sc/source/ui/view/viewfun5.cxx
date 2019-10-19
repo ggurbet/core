@@ -25,7 +25,6 @@
 #include <unotools/streamwrap.hxx>
 
 #include <svx/fmmodel.hxx>
-#include <svx/svdetc.hxx>
 #include <svx/svditer.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdogrp.hxx>
@@ -38,7 +37,6 @@
 #include <sot/formats.hxx>
 #include <sot/filelist.hxx>
 #include <sot/storage.hxx>
-#include <svl/ptitem.hxx>
 #include <svl/stritem.hxx>
 #include <vcl/transfer.hxx>
 #include <vcl/graph.hxx>
@@ -54,7 +52,6 @@
 #include <docsh.hxx>
 #include <drawview.hxx>
 #include <impex.hxx>
-#include <dbfunc.hxx>
 #include <dbdata.hxx>
 #include <sc.hrc>
 #include <filter.hxx>
@@ -69,7 +66,7 @@
 #include <scabstdlg.hxx>
 #include <clipparam.hxx>
 #include <markdata.hxx>
-#include <sfx2/viewfrm.hxx>
+#include <sfx2/frame.hxx>
 #include <svx/dbaexchange.hxx>
 #include <memory>
 
@@ -306,7 +303,8 @@ bool ScViewFunc::PasteDataFormat( SotClipboardFormatId nFormatId,
             tools::SvRef<SotStorageStream> xStream;
             if ( aDataHelper.GetSotStorageStream( nFormatId, xStream ) && xStream.is() )
             {
-                if (nFormatId == SotClipboardFormatId::HTML)
+                if (nFormatId == SotClipboardFormatId::HTML &&
+                    !comphelper::LibreOfficeKit::isActive())
                 {
                     // Launch the text import options dialog.  For now, we do
                     // this for html pasting only, but in the future it may
@@ -347,7 +345,7 @@ bool ScViewFunc::PasteDataFormat( SotClipboardFormatId nFormatId,
 
                     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
                     VclPtr<AbstractScImportAsciiDlg> pDlg(
-                        pFact->CreateScImportAsciiDlg(pParent, OUString(), pStrm.get(), SC_PASTETEXT));
+                        pFact->CreateScImportAsciiDlg(pParent ? pParent->GetFrameWeld() : nullptr, OUString(), pStrm.get(), SC_PASTETEXT));
 
                     bAllowDialogs = bAllowDialogs && !SC_MOD()->IsInExecuteDrop();
 

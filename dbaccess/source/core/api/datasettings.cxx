@@ -65,6 +65,9 @@ void ODataSettings::registerPropertiesFor(ODataSettings_Base* _pItem)
     registerMayBeVoidProperty(PROPERTY_ROW_HEIGHT, PROPERTY_ID_ROW_HEIGHT, PropertyAttribute::BOUND | PropertyAttribute::MAYBEVOID,
                     &_pItem->m_aRowHeight, ::cppu::UnoType<sal_Int32>::get());
 
+    registerProperty(PROPERTY_AUTOGROW, PROPERTY_ID_AUTOGROW, PropertyAttribute::BOUND,
+                    &_pItem->m_bAutoGrow, cppu::UnoType<bool>::get());
+
     registerMayBeVoidProperty(PROPERTY_TEXTCOLOR, PROPERTY_ID_TEXTCOLOR, PropertyAttribute::BOUND | PropertyAttribute::MAYBEVOID,
                     &_pItem->m_aTextColor, ::cppu::UnoType<sal_Int32>::get());
 
@@ -103,6 +106,7 @@ ODataSettings::ODataSettings(OBroadcastHelper& _rBHelper,bool _bQuery)
 
 ODataSettings_Base::ODataSettings_Base()
     :m_bApplyFilter(false)
+    ,m_bAutoGrow(false)
     ,m_aFont(::comphelper::getDefaultFont())
     ,m_nFontEmphasis(css::awt::FontEmphasisMark::NONE)
     ,m_nFontRelief(css::awt::FontRelief::NONE)

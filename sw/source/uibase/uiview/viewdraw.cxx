@@ -221,7 +221,7 @@ void SwView::ExecDraw(SfxRequest& rReq)
             m_pWrtShell->EnterSelFrameMode();
         LeaveDrawCreate();
 
-        AttrChangedNotify(m_pWrtShell.get());
+        AttrChangedNotify(nullptr);
         return;
     }
 
@@ -339,7 +339,7 @@ void SwView::ExecDraw(SfxRequest& rReq)
 
         auto pTempFuncPtr = pFuncPtr.get();
         SetDrawFuncPtr(std::move(pFuncPtr));
-        AttrChangedNotify(m_pWrtShell.get());
+        AttrChangedNotify(nullptr);
 
         pTempFuncPtr->Activate(nSlotId);
         NoRotate();
@@ -382,7 +382,7 @@ void SwView::ExecDraw(SfxRequest& rReq)
     if(bEndTextEdit && pSdrView && pSdrView->IsTextEdit())
         pSdrView->SdrEndTextEdit( true );
 
-    AttrChangedNotify(m_pWrtShell.get());
+    AttrChangedNotify(nullptr);
 }
 
 // End drawing
@@ -554,7 +554,7 @@ bool SwView::BeginTextEdit(SdrObject* pObj, SdrPageView* pPV, vcl::Window* pWin,
     SdrObject* pToBeActivated = pObj;
 
     // Always the original object is edited. To allow the TextEdit to happen
-    // where the VirtObj is positioned, on demand a occurring offset is set at
+    // where the VirtObj is positioned, on demand an occurring offset is set at
     // the TextEdit object. That offset is used for creating and managing the
     // OutlinerView.
     Point aNewTextEditOffset(0, 0);
@@ -624,7 +624,7 @@ SdrView* SwView::GetDrawView() const
     return GetWrtShell().GetDrawView();
 }
 
-bool SwView::IsBezierEditMode()
+bool SwView::IsBezierEditMode() const
 {
     return (!IsDrawSelMode() && GetWrtShell().GetDrawView()->HasMarkablePoints());
 }

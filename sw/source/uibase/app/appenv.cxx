@@ -112,7 +112,7 @@ OUString InsertLabEnvText( SwWrtShell& rSh, SwFieldMgr& rFieldMgr, const OUStrin
                     if (comphelper::string::getTokenCount(sDBName, '.') >= 3)
                     {
                         sDBName = ::ReplacePoint(sDBName, true);
-                        SwInsertField_Data aData(TYP_DBFLD, 0, sDBName, OUString(), 0, &rSh);
+                        SwInsertField_Data aData(SwFieldTypesEnum::Database, 0, sDBName, OUString(), 0, &rSh);
                         rFieldMgr.InsertField( aData );
                         sRet = sDBName;
                         bField = true;
@@ -159,7 +159,7 @@ void SwModule::InsertEnv( SfxRequest& rReq )
     xDocSh->DoInitNew();
     pFrame = SfxViewFrame::LoadHiddenDocument( *xDocSh, SFX_INTERFACE_NONE );
     pNewView = static_cast<SwView*>( pFrame->GetViewShell());
-    pNewView->AttrChangedNotify( &pNewView->GetWrtShell() ); // so that SelectShell is being called
+    pNewView->AttrChangedNotify(nullptr); // so that SelectShell is being called
     pSh = pNewView->GetWrtShellPtr();
 
     OUString aTmp( SwResId(STR_ENV_TITLE) );

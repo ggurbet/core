@@ -25,7 +25,6 @@
 #include <svl/typedwhich.hxx>
 
 class SfxInt32Item;
-class SfxAllEnumItem;
 class SfxPointItem;
 class SfxBoolItem;
 class SfxUInt32Item;
@@ -236,16 +235,18 @@ class SvxSetItem;
 #define SID_ATTR_TRANSFORM_POS_Y                        TypedWhichId<SfxInt32Item>( SID_SVX_START + 89 )
 #define SID_ATTR_TRANSFORM_WIDTH                        TypedWhichId<SfxUInt32Item>( SID_SVX_START + 90 )
 #define SID_ATTR_TRANSFORM_HEIGHT                       TypedWhichId<SfxUInt32Item>( SID_SVX_START + 91 )
-#define SID_ATTR_TRANSFORM_SIZE_POINT                   TypedWhichId<SfxAllEnumItem>( SID_SVX_START + 92 )
+#define SID_ATTR_TRANSFORM_SIZE_POINT                   TypedWhichId<SfxUInt16Item>( SID_SVX_START + 92 )
 #define SID_ATTR_TRANSFORM_ROT_X                        TypedWhichId<SfxInt32Item>( SID_SVX_START + 93 )
 #define SID_ATTR_TRANSFORM_ROT_Y                        TypedWhichId<SfxInt32Item>( SID_SVX_START + 94 )
 #define SID_ATTR_TRANSFORM_ANGLE                        TypedWhichId<SfxInt32Item>( SID_SVX_START + 95 )
 #define SID_ATTR_TRANSFORM_DELTA_ANGLE                  TypedWhichId<SfxInt32Item>( SID_SVX_START + 96 )
+// CAUTION! Range <96..100> used by SFX2 (!)
 #define SID_SIZE_ALL                                    ( SID_SVX_START + 101 )
 #define SID_DRAW_LINE                                   ( SID_SVX_START + 102 )
 #define SID_DRAW_XLINE                                  ( SID_SVX_START + 103 )
 #define SID_DRAW_RECT                                   ( SID_SVX_START + 104 )
 #define SID_DRAW_RECT_ROUND                             ( SID_SVX_START + 105 )
+#define SID_TABLE_CHANGE_CURRENT_BORDER_POSITION        ( SID_SVX_START + 106 )
 #define SID_DRAW_ELLIPSE                                ( SID_SVX_START + 110 )
 #define SID_DRAW_PIE                                    ( SID_SVX_START + 112 )
 #define SID_DRAW_ARC                                    ( SID_SVX_START + 114 )
@@ -497,10 +498,10 @@ class SvxSetItem;
 #define SID_GROUP                                       ( SID_SVX_START + 454 )
 #define SID_UNGROUP                                     ( SID_SVX_START + 455 )
 #define SID_SET_DEFAULT                                 ( SID_SVX_START + 456 )
-#define SID_REMOVE_HYPERLINK                            ( SID_SVX_START + 457 )
 
 // CAUTION! Range <457 .. 457> used by EditEngine (!)
 
+#define SID_REMOVE_HYPERLINK                            ( SID_SVX_START + 459 )
 #define SID_ATTR_ALIGN_INDENT                           ( SID_SVX_START + 460 )
 #define SID_DEC_INDENT                                  ( SID_SVX_START + 461 )
 #define SID_INC_INDENT                                  ( SID_SVX_START + 462 )
@@ -762,7 +763,7 @@ class SvxSetItem;
 #define SID_EXTRUSION_SURFACE                           ( SID_SVX_START + 975 )
 #define SID_EXTRUSION_DEPTH_DIALOG                      ( SID_SVX_START + 976 )
 #define SID_FONTWORK_GALLERY_FLOATER                    ( SID_SVX_START + 977 )
-// free                                                 ( SID_SVX_START + 978 )
+#define SID_EDIT_HYPERLINK                              ( SID_SVX_START + 978 )
 #define SID_FONTWORK_SHAPE_TYPE                         ( SID_SVX_START + 979 )
 #define SID_FONTWORK_SAME_LETTER_HEIGHTS                ( SID_SVX_START + 980 )
 #define SID_FONTWORK_ALIGNMENT_FLOATER                  ( SID_SVX_START + 981 )
@@ -808,7 +809,7 @@ class SvxSetItem;
 #define SID_OBJECT_LIST                                 ( SID_SVX_START + 1021 )
 #define SID_ATTR_SET                                    ( SID_SVX_START + 1022 )
 #define SID_CHAR_FMT_LIST_BOX                           ( SID_SVX_START + 1023 )
-#define SID_METRIC_ITEM                                 ( SID_SVX_START + 1024 )
+#define SID_METRIC_ITEM                                 TypedWhichId<SfxUInt16Item>( SID_SVX_START + 1024 )
 #define SID_NUM_CHAR_FMT                                ( SID_SVX_START + 1025 )
 #define SID_BULLET_CHAR_FMT                             ( SID_SVX_START + 1026 )
 #define SID_DISABLE_SVXEXTPARAGRAPHTABPAGE_PAGEBREAK    ( SID_SVX_START + 1027 )
@@ -822,9 +823,9 @@ class SvxSetItem;
 #define SID_SWMODE_TYPE                                 ( SID_SVX_START + 1035 )
 #define SID_DISABLE_CTL                                 ( SID_SVX_START + 1036 )
 #define SID_INSERT_HYPERLINKCONTROL                     ( SID_SVX_START + 1037 )
-#define SID_ENUM_PAGE_MODE                              ( SID_SVX_START + 1038 )
-#define SID_PAPER_START                                 ( SID_SVX_START + 1039 )
-#define SID_PAPER_END                                   ( SID_SVX_START + 1040 )
+#define SID_ENUM_PAGE_MODE                              TypedWhichId<SfxUInt16Item>( SID_SVX_START + 1038 )
+#define SID_PAPER_START                                 TypedWhichId<SfxUInt16Item>( SID_SVX_START + 1039 )
+#define SID_PAPER_END                                   TypedWhichId<SfxUInt16Item>( SID_SVX_START + 1040 )
 #define SID_COLLECT_LIST                                ( SID_SVX_START + 1041 )
 #define SID_GROW_FONT_SIZE                              ( SID_SVX_START + 1042 )
 #define SID_SHRINK_FONT_SIZE                            ( SID_SVX_START + 1043 )
@@ -980,9 +981,14 @@ class SvxSetItem;
 
 #define SID_TABLE_CELL_BACKGROUND_COLOR                 TypedWhichId<SvxColorItem>( SID_SVX_START + 1189 )
 
+#define SID_TOGGLE_RESOLVED_NOTES                       ( SID_SVX_START + 1190 )
+
+#define SID_INSERT_QRCODE                               ( SID_SVX_START + 1191 )
+#define SID_EDIT_QRCODE                                 ( SID_SVX_START + 1192 )
+#define SID_COPY_HYPERLINK_LOCATION                     ( SID_SVX_START + 1193 )
 
 // IMPORTANT NOTE: adjust SID_SVX_FIRSTFREE, when adding new slot id
-#define SID_SVX_FIRSTFREE                               ( SID_SVX_START + 1189 + 1 )
+#define SID_SVX_FIRSTFREE                               ( SID_SVX_START + 1193 + 1 )
 
 // Overflow check for slot IDs
 #if SID_SVX_FIRSTFREE > SID_SVX_END

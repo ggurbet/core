@@ -380,14 +380,12 @@ CPPUNIT_TEST_FIXTURE(CustomshapesTest, testTdf115813_OOXML_XY_handle)
                   || (abs(nDesiredX - nObservedX) == 100 && abs(nDesiredY - nObservedY) <= 1)
                   || (abs(nDesiredX - nObservedX) <= 1 && abs(nDesiredY - nObservedY) <= 1)))
             {
-                sErrors += "\n";
-                //sErrors += OUString(sal_Unicode(10));
-                sErrors
-                    = sErrors + OUString::number(i) + " " + sShapeType + ": " + OUString::number(j);
-                sErrors = sErrors + " X " + OUString::number(nDesiredX) + "|"
-                          + OUString::number(nObservedX);
-                sErrors = sErrors + " Y " + OUString::number(nDesiredY) + "|"
-                          + OUString::number(nObservedY);
+                sErrors += "\n" +
+                           //sErrors += OUString(sal_Unicode(10));
+                           OUString::number(i) + " " + sShapeType + ": " + OUString::number(j)
+                           + " X " + OUString::number(nDesiredX) + "|"
+                           + OUString::number(nObservedX) + " Y " + OUString::number(nDesiredY)
+                           + "|" + OUString::number(nObservedY);
             }
         }
     }
@@ -412,6 +410,197 @@ CPPUNIT_TEST_FIXTURE(CustomshapesTest, testQuadraticCurveTo)
     const double fHeight = static_cast<double>(aBoundRect.Height);
     //Add some tolerance
     CPPUNIT_ASSERT_DOUBLES_EQUAL_MESSAGE("bad height of quadraticcurveto", 3004, fHeight, 10.0);
+}
+
+CPPUNIT_TEST_FIXTURE(CustomshapesTest, testTdf126512_OOXML_handle_in_ODP)
+{
+    // The test covers all preset shapes with handles. Connectors are included as ordinary
+    // shapes to prevent converting. The file was created in PowerPoint 365 and then
+    // opened and exported to ODF format by LibreOffice.
+    // Error was, that for shapes, which were originally imported from OOXML, the handles
+    // could not be moved at all.
+    const OUString sFileName("tdf126512_OOXMLHandleMovementInODF.odp");
+    OUString sURL = m_directories.getURLFromSrc(sDataDirectory) + sFileName;
+    mxComponent = loadFromDesktop(sURL, "com.sun.star.comp.drawing.DrawingDocument");
+    CPPUNIT_ASSERT_MESSAGE("Could not load document", mxComponent.is());
+
+    OUString sErrors; // sErrors collects shape type and handle index for failing cases
+    for (sal_uInt8 i = 0; i < countShapes(); i++)
+    {
+        uno::Reference<drawing::XShape> xShape(getShape(i));
+        SdrObjCustomShape& rSdrObjCustomShape(
+            static_cast<SdrObjCustomShape&>(*GetSdrObjectFromXShape(xShape)));
+        OUString sShapeType("non-primitive"); // only to initialize, value not used here
+        const SdrCustomShapeGeometryItem& rGeometryItem(
+            rSdrObjCustomShape.GetMergedItem(SDRATTR_CUSTOMSHAPE_GEOMETRY));
+        const uno::Any* pAny = rGeometryItem.GetPropertyValueByName("Type");
+        if (pAny)
+            *pAny >>= sShapeType;
+
+        sal_uInt8 nHandlesCount = rSdrObjCustomShape.GetInteractionHandles().size();
+        for (sal_uInt8 j = 0; j < nHandlesCount; j++)
+        {
+            css::awt::Point aInitialPosition(
+                rSdrObjCustomShape.GetInteractionHandles()[j].aPosition);
+            // The handles are initialized in the test document, so that if the handle is moveable
+            // in that direction at all, then it can move at least with an amount of 100.
+            Point aDesiredPosition(aInitialPosition.X + 100, aInitialPosition.Y + 100);
+            rSdrObjCustomShape.DragMoveCustomShapeHdl(aDesiredPosition, j, false);
+            css::awt::Point aObservedPosition(
+                rSdrObjCustomShape.GetInteractionHandles()[j].aPosition);
+            if (aInitialPosition.X == aObservedPosition.X
+                && aInitialPosition.Y == aObservedPosition.Y)
+            {
+                sErrors
+                    += "\n" + OUString::number(i) + " " + sShapeType + "  " + OUString::number(j);
+            }
+        }
+    }
+    CPPUNIT_ASSERT_EQUAL(OUString(), sErrors);
+}
+
+CPPUNIT_TEST_FIXTURE(CustomshapesTest, testTdf127785_Mirror)
+{
+    // The document contains two shapes, one with horizontal flip, the other with vertical
+    // flip. They are diamonds, so their text frame is symmetric to the center of the shape.
+    // The shapes have not stroke and no fill, so that the bounding box surrounds the text
+    // and therefore equals approximately the text frame.
+    // Error was, that because of wrong calculation, the flipped shapes do not use the
+    // text frame but the frame rectangle for their text.
+    const OUString sFileName("tdf127785_Mirror.odp");
+    OUString sURL = m_directories.getURLFromSrc(sDataDirectory) + sFileName;
+    mxComponent = loadFromDesktop(sURL, "com.sun.star.comp.drawing.DrawingDocument");
+    CPPUNIT_ASSERT_MESSAGE("Could not load document", mxComponent.is());
+    OUString sErrors; // sErrors collects the errors and should be empty in case all is OK.
+
+    uno::Reference<drawing::XShape> xShapeV(getShape(0));
+    uno::Reference<beans::XPropertySet> xShapeVProps(xShapeV, uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("Could not get the shape properties", xShapeVProps.is());
+    awt::Rectangle aBoundRectV;
+    xShapeVProps->getPropertyValue(UNO_NAME_MISC_OBJ_BOUNDRECT) >>= aBoundRectV;
+    const sal_Int32 nHeightV = aBoundRectV.Height;
+    const sal_Int32 nWidthV = aBoundRectV.Width;
+    const sal_Int32 nLeftV = aBoundRectV.X;
+    const sal_Int32 nTopV = aBoundRectV.Y;
+    if (abs(nHeightV - 4149) > 5 || abs(nWidthV - 3819) > 5)
+        sErrors += "Flip vertical wrong size.";
+    if (abs(nLeftV - 3155) > 5 || abs(nTopV - 3736) > 5)
+        sErrors += " Flip vertical wrong position.";
+
+    uno::Reference<drawing::XShape> xShapeH(getShape(1));
+    uno::Reference<beans::XPropertySet> xShapeHProps(xShapeH, uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("Could not get the shape properties", xShapeHProps.is());
+    awt::Rectangle aBoundRectH;
+    xShapeHProps->getPropertyValue(UNO_NAME_MISC_OBJ_BOUNDRECT) >>= aBoundRectH;
+    const sal_Int32 nHeightH = aBoundRectH.Height;
+    const sal_Int32 nWidthH = aBoundRectH.Width;
+    const sal_Int32 nLeftH = aBoundRectH.X;
+    const sal_Int32 nTopH = aBoundRectH.Y;
+    if (abs(nHeightH - 4149) > 5 || abs(nWidthH - 3819) > 5)
+        sErrors += " Flip horizontal wrong size.";
+    if (abs(nLeftH - 15026) > 5 || abs(nTopH - 4115) > 5)
+        sErrors += " Flip horizontal wrong position.";
+
+    CPPUNIT_ASSERT_EQUAL(OUString(), sErrors);
+}
+
+CPPUNIT_TEST_FIXTURE(CustomshapesTest, testTdf126060_3D_Z_Rotation)
+{
+    // The document contains one textbox with inside overflowed text
+    // and the text has 3D z rotation. When we open the document we
+    // should see the text vertically and rotated from text bound center not text box.
+
+    const OUString sFileName("tdf126060_3D_Z_Rotation.pptx");
+    OUString sURL = m_directories.getURLFromSrc(sDataDirectory) + sFileName;
+    mxComponent = loadFromDesktop(sURL, "com.sun.star.comp.drawing.DrawingDocument");
+    CPPUNIT_ASSERT_MESSAGE("Could not load document", mxComponent.is());
+    OUString sErrors; // sErrors collects the errors and should be empty in case all is OK.
+
+    uno::Reference<drawing::XShape> xShape(getShape(0));
+    SdrObjCustomShape& rSdrObjCustomShape(
+        static_cast<SdrObjCustomShape&>(*GetSdrObjectFromXShape(xShape)));
+
+    if (rSdrObjCustomShape.GetCameraRotation() != 90)
+        sErrors += "Wrong text camera Z rotation";
+
+    basegfx::B2DHomMatrix aObjectTransform;
+    basegfx::B2DPolyPolygon aObjectPolyPolygon;
+    rSdrObjCustomShape.TRGetBaseGeometry(aObjectTransform, aObjectPolyPolygon);
+
+    if (aObjectTransform.get(0, 0) != 1492 || aObjectTransform.get(0, 1) != 0
+        || aObjectTransform.get(0, 2) != 1129 || aObjectTransform.get(1, 0) != 0
+        || aObjectTransform.get(1, 1) != 2500 || aObjectTransform.get(1, 2) != 5846)
+        sErrors += " Wrong transformation matrix";
+
+    CPPUNIT_ASSERT_EQUAL(OUString(), sErrors);
+}
+
+CPPUNIT_TEST_FIXTURE(CustomshapesTest, testTdf127785_Asymmetric)
+{
+    // The document contains a shapes with vertical flip and text frame asymmetrical
+    // to shape. The shape has not stroke and no fill, so that the bounding box surrounds
+    // the text and therefore equals approximately the text frame.
+    // Error was, that the 180deg text rotation was not compensated for the position of
+    // the flipped text box.
+    const OUString sFileName("tdf127785_asymmetricTextBoxFlipV.odg");
+    OUString sURL = m_directories.getURLFromSrc(sDataDirectory) + sFileName;
+    mxComponent = loadFromDesktop(sURL, "com.sun.star.comp.drawing.DrawingDocument");
+    CPPUNIT_ASSERT_MESSAGE("Could not load document", mxComponent.is());
+    OUString sErrors; // sErrors collects the errors and should be empty in case all is OK.
+
+    uno::Reference<drawing::XShape> xShape(getShape(0));
+    uno::Reference<beans::XPropertySet> xShapeProps(xShape, uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("Could not get the shape properties", xShapeProps.is());
+    awt::Rectangle aBoundRect;
+    xShapeProps->getPropertyValue(UNO_NAME_MISC_OBJ_BOUNDRECT) >>= aBoundRect;
+    const sal_Int32 nLeft = aBoundRect.X;
+    const sal_Int32 nTop = aBoundRect.Y;
+    const sal_Int32 nRight = aBoundRect.X + aBoundRect.Width - 1;
+    const sal_Int32 nBottom = aBoundRect.Y + aBoundRect.Height - 1;
+    if (abs(nLeft - 10034) > 5)
+        sErrors += "wrong left";
+    if (abs(nRight - 12973) > 5)
+        sErrors += " wrong right";
+    if (abs(nTop - 7892) > 5)
+        sErrors += " wrong top";
+    if (abs(nBottom - 14884) > 5)
+        sErrors += " wrong bottom";
+
+    CPPUNIT_ASSERT_EQUAL(OUString(), sErrors);
+}
+
+CPPUNIT_TEST_FIXTURE(CustomshapesTest, testTdf127785_TextRotateAngle)
+{
+    // The document contains a shapes with vertical flip and a text frame with own
+    // rotate angle. The shape has not stroke and no fill, so that the bounding box
+    // surrounds the text and therefore equals approximately the text frame.
+    // Error was, that the compensation for the 180° rotation added for vertical
+    // flip were not made to the text box position but to the text matrix.
+    const OUString sFileName("tdf127785_TextRotateAngle.odp");
+    OUString sURL = m_directories.getURLFromSrc(sDataDirectory) + sFileName;
+    mxComponent = loadFromDesktop(sURL, "com.sun.star.comp.drawing.DrawingDocument");
+    CPPUNIT_ASSERT_MESSAGE("Could not load document", mxComponent.is());
+    OUString sErrors; // sErrors collects the errors and should be empty in case all is OK.
+
+    uno::Reference<drawing::XShape> xShape(getShape(0));
+    uno::Reference<beans::XPropertySet> xShapeProps(xShape, uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("Could not get the shape properties", xShapeProps.is());
+    awt::Rectangle aBoundRect;
+    xShapeProps->getPropertyValue(UNO_NAME_MISC_OBJ_BOUNDRECT) >>= aBoundRect;
+    const sal_Int32 nLeft = aBoundRect.X;
+    const sal_Int32 nTop = aBoundRect.Y;
+    const sal_Int32 nRight = aBoundRect.X + aBoundRect.Width - 1;
+    const sal_Int32 nBottom = aBoundRect.Y + aBoundRect.Height - 1;
+    if (abs(nLeft - 5054) > 5)
+        sErrors += "wrong left";
+    if (abs(nRight - 6374) > 5)
+        sErrors += " wrong right";
+    if (abs(nTop - 4516) > 5)
+        sErrors += " wrong top";
+    if (abs(nBottom - 8930) > 5)
+        sErrors += " wrong bottom";
+
+    CPPUNIT_ASSERT_EQUAL(OUString(), sErrors);
 }
 }
 

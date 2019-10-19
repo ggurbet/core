@@ -27,7 +27,6 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <cstdlib>
-#include <dbfld.hxx>
 #include <dbmgr.hxx>
 #include <docfld.hxx>
 #include <docstat.hxx>
@@ -35,14 +34,13 @@
 #include <IDocumentFieldsAccess.hxx>
 #include <IDocumentStatistics.hxx>
 #include <editeng/langitem.hxx>
-#include <editeng/scripttypeitem.hxx>
-#include <editeng/unolingu.hxx>
 #include <expfld.hxx>
 #include <hintids.hxx>
 #include <o3tl/temporary.hxx>
-#include <osl/diagnose.hxx>
+#include <osl/diagnose.h>
 #include <rtl/math.hxx>
 #include <shellres.hxx>
+#include <svl/languageoptions.hxx>
 #include <svl/zforlist.hxx>
 #include <swmodule.hxx>
 #include <swtypes.hxx>
@@ -498,12 +496,12 @@ SwCalcExp* SwCalc::VarLook( const OUString& rStr, bool bIns )
             OUString sColumnName( GetColumnName( sTmpName ));
             OSL_ENSURE(!sColumnName.isEmpty(), "Missing DB column name");
 
-            OUString sDBNum( SwFieldType::GetTypeStr(TYP_DBSETNUMBERFLD) );
+            OUString sDBNum( SwFieldType::GetTypeStr(SwFieldTypesEnum::DatabaseSetNumber) );
             sDBNum = m_pCharClass->lowercase(sDBNum);
 
             // Initialize again because this doesn't happen in docfld anymore for
             // elements != SwFieldIds::Database. E.g. if there is an expression field before
-            // an DB_Field in a document.
+            // a DB_Field in a document.
             const sal_uInt32 nTmpRec = pMgr->GetSelectedRecordId(sSourceName, sTableName);
             VarChange(sDBNum, nTmpRec);
 
@@ -545,7 +543,7 @@ SwCalcExp* SwCalc::VarLook( const OUString& rStr, bool bIns )
     OUString sColumnName( GetColumnName( sTmpName ));
     OSL_ENSURE( !sColumnName.isEmpty(), "Missing DB column name" );
     if( sColumnName.equalsIgnoreAsciiCase(
-                            SwFieldType::GetTypeStr( TYP_DBSETNUMBERFLD ) ))
+                            SwFieldType::GetTypeStr( SwFieldTypesEnum::DatabaseSetNumber ) ))
     {
 #if HAVE_FEATURE_DBCONNECTIVITY
         SwDBManager *pMgr = m_rDoc.GetDBManager();
@@ -1309,7 +1307,7 @@ OUString SwCalc::GetDBName(const OUString& rName)
             return rName.copy( 0, nPos );
     }
     SwDBData aData = m_rDoc.GetDBData();
-    return aData.sDataSource + OUStringLiteral1(DB_DELIM) + aData.sCommand;
+    return aData.sDataSource + OUStringChar(DB_DELIM) + aData.sCommand;
 }
 
 namespace

@@ -105,6 +105,7 @@ PDFExport::PDFExport( const Reference< XComponent >& rxSrcDoc,
     mbUseTransitionEffects      ( true ),
     mbExportBookmarks           ( true ),
     mbExportHiddenSlides        ( false ),
+    mbSinglePageSheets          ( false ),
     mnOpenBookmarkLevels        ( -1 ),
     mbUseLosslessCompression    ( false ),
     mbReduceImageResolution     ( true ),
@@ -200,7 +201,10 @@ bool PDFExport::ExportSelection( vcl::PDFWriter& rPDFWriter,
                     for( sal_Int32 nProperty = 0, nPropertyCount = aRenderer.getLength(); nProperty < nPropertyCount; ++nProperty )
                     {
                         if ( aRenderer[ nProperty ].Name == "PageSize" )
+                        {
                             aRenderer[ nProperty].Value >>= aPageSize;
+                            break;
+                        }
                     }
 
                     rPDFExtOutDevData.SetCurrentPageNumber( nCurrentPage );
@@ -239,7 +243,8 @@ bool PDFExport::ExportSelection( vcl::PDFWriter& rPDFWriter,
                             try
                             {
                                 Graphic aGraph(aMtf);
-                                BitmapEx bmp = aGraph.GetBitmapEx();
+                                // use antialiasing to improve how graphic objects look
+                                BitmapEx bmp = aGraph.GetBitmapEx(GraphicConversionParameters(Size(0, 0), false, true, false));
                                 Graphic bgraph(bmp);
                                 aMtf = bgraph.GetGDIMetaFile();
                             }
@@ -562,6 +567,8 @@ bool PDFExport::Export( const OUString& rFile, const Sequence< PropertyValue >& 
                     rFilterData[ nData ].Value >>= mbExportBookmarks;
                 else if ( rFilterData[ nData ].Name == "ExportHiddenSlides" )
                     rFilterData[ nData ].Value >>= mbExportHiddenSlides;
+                else if ( rFilterData[ nData ].Name == "SinglePageSheets" )
+                    rFilterData[ nData ].Value >>= mbSinglePageSheets;
                 else if ( rFilterData[ nData ].Name == "OpenBookmarkLevels" )
                     rFilterData[ nData ].Value >>= mnOpenBookmarkLevels;
                 else if ( rFilterData[ nData ].Name == "SignPDF" )
@@ -599,15 +606,14 @@ bool PDFExport::Export( const OUString& rFile, const Sequence< PropertyValue >& 
             case 1:
                 aContext.Version    = vcl::PDFWriter::PDFVersion::PDF_A_1;
                 mbUseTaggedPDF = true;          // force the tagged PDF as well
-                mbExportFormFields = false;     // force disabling of form conversion
-                mbRemoveTransparencies = true;  // PDF/A does not allow transparencies
+                mbRemoveTransparencies = true;  // does not allow transparencies
                 mbEncrypt = false;              // no encryption
                 xEnc.clear();
                 break;
             case 2:
                 aContext.Version    = vcl::PDFWriter::PDFVersion::PDF_A_2;
                 mbUseTaggedPDF = true;          // force the tagged PDF as well
-                mbRemoveTransparencies = false; // PDF/A-2 does allow transparencies
+                mbRemoveTransparencies = false; // does allow transparencies
                 mbEncrypt = false;              // no encryption
                 xEnc.clear();
                 break;
@@ -848,12 +854,13 @@ bool PDFExport::Export( const OUString& rFile, const Sequence< PropertyValue >& 
                 pPDFExtOutDevData->SetIsExportFormFields( mbExportFormFields );
                 pPDFExtOutDevData->SetIsExportBookmarks( mbExportBookmarks );
                 pPDFExtOutDevData->SetIsExportHiddenSlides( mbExportHiddenSlides );
+                pPDFExtOutDevData->SetIsSinglePageSheets( mbSinglePageSheets );
                 pPDFExtOutDevData->SetIsLosslessCompression( mbUseLosslessCompression );
                 pPDFExtOutDevData->SetCompressionQuality( mnQuality );
                 pPDFExtOutDevData->SetIsReduceImageResolution( mbReduceImageResolution );
                 pPDFExtOutDevData->SetIsExportNamedDestinations( mbExportBmkToDest );
 
-                Sequence< PropertyValue > aRenderOptions( 7 );
+                Sequence< PropertyValue > aRenderOptions( 8 );
                 aRenderOptions[ 0 ].Name = "RenderDevice";
                 aRenderOptions[ 0 ].Value <<= uno::Reference<awt::XDevice>(xDevice.get());
                 aRenderOptions[ 1 ].Name = "ExportNotesPages";
@@ -869,6 +876,8 @@ bool PDFExport::Export( const OUString& rFile, const Sequence< PropertyValue >& 
                 aRenderOptions[ 5 ].Value <<= aPageRange;
                 aRenderOptions[ 6 ].Name = "ExportPlaceholders";
                 aRenderOptions[ 6 ].Value <<= mbExportPlaceholders;
+                aRenderOptions[ 7 ].Name = "SinglePageSheets";
+                aRenderOptions[ 7 ].Value <<= mbSinglePageSheets;
 
                 if( !aPageRange.isEmpty() || !aSelection.hasValue() )
                 {
@@ -918,7 +927,7 @@ bool PDFExport::Export( const OUString& rFile, const Sequence< PropertyValue >& 
                 }
                 const bool bExportPages = !bExportNotesPages || !mbExportOnlyNotesPages;
 
-                if( aPageRange.isEmpty() )
+                if( aPageRange.isEmpty() || mbSinglePageSheets)
                 {
                     aPageRange = OUString::number( 1 ) + "-" + OUString::number(nPageCount );
                 }
@@ -1159,6 +1168,21 @@ void PDFExport::ImplWriteWatermark( vcl::PDFWriter& rWriter, const Size& rPageSi
 
 void PDFExport::ImplWriteTiledWatermark( vcl::PDFWriter& rWriter, const Size& rPageSize )
 {
+    OUString watermark = msTiledWatermark;
+    int watermarkLength = watermark.getLength();
+    // Maximum number of characters in one line.
+    // it is set to 21 to make it look like tiled watermarks as online in secure view
+    const int lineLength = 21;
+    int lnIndex = lineLength;
+    int lnCount = watermarkLength / lineLength;
+
+    while(lnCount)
+    {
+        watermark = watermark.replaceAt(lnIndex, 0, "\n");
+        lnIndex += lineLength;
+        lnCount--;
+    }
+
     vcl::Font aFont( "Liberation Sans", Size( 0, 40 ) );
     aFont.SetItalic( ITALIC_NONE );
     aFont.SetWidthType( WIDTH_NORMAL );
@@ -1172,8 +1196,14 @@ void PDFExport::ImplWriteTiledWatermark( vcl::PDFWriter& rWriter, const Size& rP
     pDev->SetFont(aFont);
     pDev->SetMapMode( MapMode( MapUnit::MapPoint ) );
     int w = 0;
-    long nTextWidth = (rPageSize.Width()-60) / 4;
-    while((w = pDev->GetTextWidth(msTiledWatermark)) > nTextWidth)
+    int watermarkcount = ((rPageSize.Width()) / 200)+1;
+    long nTextWidth = rPageSize.Width() / (watermarkcount*1.5);
+    OUString oneLineText = watermark;
+
+    if(watermark.getLength() > lineLength)
+        oneLineText = watermark.copy(0, lineLength);
+
+    while((w = pDev->GetTextWidth(oneLineText)) > nTextWidth)
     {
         if(w==0)
             break;
@@ -1182,27 +1212,32 @@ void PDFExport::ImplWriteTiledWatermark( vcl::PDFWriter& rWriter, const Size& rP
         aFont.SetFontHeight(nNewHeight);
         pDev->SetFont( aFont );
     }
+
+    // maximum number of watermark count for the width
+    if(watermarkcount > 8)
+        watermarkcount = 8;
+
     pDev->Pop();
 
     rWriter.Push();
     rWriter.SetMapMode( MapMode( MapUnit::MapPoint ) );
     rWriter.SetFont(aFont);
     rWriter.SetTextColor( Color(19,20,22) );
-    Point aTextPoint;
-    tools::Rectangle aTextRect;
-    aTextPoint = Point(70,80);
+    // center watermarks horizontally
+    Point aTextPoint( (rPageSize.Width()/2) - (((nTextWidth*watermarkcount)+(watermarkcount-1)*(nTextWidth/2))/2),
+                      pDev->GetTextHeight());
 
-    for( int i = 0; i < 3; i ++)
+    for( int i = 0; i < watermarkcount; i ++)
     {
-        while(aTextPoint.getY()+pDev->GetTextHeight() <= rPageSize.Height()-40)
+        while(aTextPoint.getY()+pDev->GetTextHeight()*2 <= rPageSize.Height())
         {
-            aTextRect = tools::Rectangle(Point(aTextPoint.getX(), aTextPoint.getY()-pDev->GetTextHeight()), Size(pDev->GetTextWidth(msTiledWatermark),pDev->GetTextHeight()));
+            tools::Rectangle aTextRect(aTextPoint, Size(nTextWidth,pDev->GetTextHeight()*2));
 
             pDev->Push();
             rWriter.SetClipRegion();
             rWriter.BeginTransparencyGroup();
             rWriter.SetTextColor( Color(19,20,22) );
-            rWriter.DrawText(aTextPoint, msTiledWatermark);
+            rWriter.DrawText(aTextRect, watermark, DrawTextFlags::MultiLine|DrawTextFlags::Center|DrawTextFlags::VCenter);
             rWriter.EndTransparencyGroup( aTextRect, 50 );
             pDev->Pop();
 
@@ -1210,14 +1245,14 @@ void PDFExport::ImplWriteTiledWatermark( vcl::PDFWriter& rWriter, const Size& rP
             rWriter.SetClipRegion();
             rWriter.BeginTransparencyGroup();
             rWriter.SetTextColor( Color(236,235,233) );
-            rWriter.DrawText(aTextPoint, msTiledWatermark);
+            rWriter.DrawText(aTextRect, watermark, DrawTextFlags::MultiLine|DrawTextFlags::Center|DrawTextFlags::VCenter);
             rWriter.EndTransparencyGroup( aTextRect, 50 );
             pDev->Pop();
 
-            aTextPoint.Move(0,(rPageSize.Height()-40)/4);
+            aTextPoint.Move(0, pDev->GetTextHeight()*3);
         }
-        aTextPoint=Point( aTextPoint.getX(), 80 );
-        aTextPoint.Move( (rPageSize.Width()-120)/3, 0 );
+        aTextPoint=Point( aTextPoint.getX(), pDev->GetTextHeight() );
+        aTextPoint.Move( nTextWidth*1.5, 0 );
     }
 
     rWriter.Pop();

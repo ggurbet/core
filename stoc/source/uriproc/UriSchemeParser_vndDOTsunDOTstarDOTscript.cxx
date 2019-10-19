@@ -191,7 +191,7 @@ class UrlReference:
 public:
     UrlReference(OUString const & scheme, OUString const & path):
         m_base(
-            scheme, false, false, OUString(), path, false, OUString())
+            scheme, false, OUString(), path, false, OUString())
     {}
 
     UrlReference(const UrlReference&) = delete;
@@ -375,7 +375,7 @@ private:
 
 OUString Parser::getImplementationName()
 {
-    return OUString("com.sun.star.comp.uri.UriSchemeParser_vndDOTsunDOTstarDOTscript");
+    return "com.sun.star.comp.uri.UriSchemeParser_vndDOTsunDOTstarDOTscript";
 }
 
 sal_Bool Parser::supportsService(OUString const & serviceName)

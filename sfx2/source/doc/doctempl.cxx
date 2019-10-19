@@ -226,7 +226,7 @@ public:
     bool            InsertRegion( std::unique_ptr<RegionData_Impl> pData, size_t nPos );
     const OUString& GetRootURL() const { return maRootURL; }
 
-    const uno::Reference< XDocumentTemplates >& getDocTemplates() { return mxTemplates; }
+    const uno::Reference< XDocumentTemplates >& getDocTemplates() const { return mxTemplates; }
 };
 
 
@@ -1659,8 +1659,7 @@ void SfxDocTemplate_Impl::Rescan()
     }
     catch( const Exception& )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sfx.doc", "SfxDocTemplate_Impl::Rescan: caught an exception while doing the update! " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "sfx.doc", "SfxDocTemplate_Impl::Rescan: caught an exception while doing the update" );
     }
 }
 

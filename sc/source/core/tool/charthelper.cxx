@@ -201,11 +201,10 @@ void ScChartHelper::GetChartRanges( const uno::Reference< chart2::XChartDocument
     if( !xDataSource.is() )
         return;
 
-    uno::Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > aLabeledDataSequences( xDataSource->getDataSequences() );
+    const uno::Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > aLabeledDataSequences( xDataSource->getDataSequences() );
     rRanges.reserve(2*aLabeledDataSequences.getLength());
-    for( sal_Int32 nN=0;nN<aLabeledDataSequences.getLength();nN++)
+    for(const uno::Reference<chart2::data::XLabeledDataSequence>& xLabeledSequence : aLabeledDataSequences)
     {
-        uno::Reference< chart2::data::XLabeledDataSequence > xLabeledSequence( aLabeledDataSequences[nN] );
         if(!xLabeledSequence.is())
             continue;
         uno::Reference< chart2::data::XDataSequence > xLabel( xLabeledSequence->getLabel());
@@ -228,9 +227,7 @@ void ScChartHelper::SetChartRanges( const uno::Reference< chart2::XChartDocument
     if( !xDataProvider.is() )
         return;
 
-    uno::Reference< frame::XModel > xModel( xChartDoc, uno::UNO_QUERY );
-    if( xModel.is() )
-        xModel->lockControllers();
+    xChartDoc->lockControllers();
 
     try
     {
@@ -238,9 +235,11 @@ void ScChartHelper::SetChartRanges( const uno::Reference< chart2::XChartDocument
 
         uno::Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > aLabeledDataSequences( xDataSource->getDataSequences() );
         sal_Int32 nRange=0;
-        for( sal_Int32 nN=0; (nN<aLabeledDataSequences.getLength()) && (nRange<rRanges.getLength()); nN++ )
+        for( uno::Reference<chart2::data::XLabeledDataSequence>& xLabeledSequence : aLabeledDataSequences )
         {
-            uno::Reference< chart2::data::XLabeledDataSequence > xLabeledSequence( aLabeledDataSequences[nN] );
+            if( nRange >= rRanges.getLength() )
+                break;
+
             if(!xLabeledSequence.is())
                 continue;
             uno::Reference< beans::XPropertySet > xLabel( xLabeledSequence->getLabel(), uno::UNO_QUERY );
@@ -279,8 +278,7 @@ void ScChartHelper::SetChartRanges( const uno::Reference< chart2::XChartDocument
         OSL_FAIL("Exception in ScChartHelper::SetChartRanges - invalid range string?");
     }
 
-    if( xModel.is() )
-        xModel->unlockControllers();
+    xChartDoc->unlockControllers();
 }
 
 void ScChartHelper::AddRangesIfProtectedChart( ScRangeListVector& rRangesVector, const ScDocument* pDocument, SdrObject* pObject )

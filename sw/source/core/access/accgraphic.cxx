@@ -19,7 +19,6 @@
 
 #include <vcl/svapp.hxx>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
-#include <com/sun/star/uno/RuntimeException.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <flyfrm.hxx>
 #include <fmturl.hxx>
@@ -43,7 +42,7 @@ SwAccessibleGraphic::~SwAccessibleGraphic()
 
 OUString SAL_CALL SwAccessibleGraphic::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Writer.SwAccessibleGraphic");
+    return "com.sun.star.comp.Writer.SwAccessibleGraphic";
 }
 
 sal_Bool SAL_CALL SwAccessibleGraphic::supportsService(const OUString& sTestServiceName)
@@ -53,11 +52,7 @@ sal_Bool SAL_CALL SwAccessibleGraphic::supportsService(const OUString& sTestServ
 
 Sequence< OUString > SAL_CALL SwAccessibleGraphic::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.text.AccessibleTextGraphicObject";
-    pArray[1] = sAccessibleServiceName;
-    return aRet;
+    return { "com.sun.star.text.AccessibleTextGraphicObject", sAccessibleServiceName };
 }
 
 Sequence< sal_Int8 > SAL_CALL SwAccessibleGraphic::getImplementationId()

@@ -363,7 +363,7 @@
             <property name="can_focus">False</property>
             <property name="halign">start</property>
             <property name="valign">start</property>
-            <property name="label" translatable="yes" context="menuassignpage|contentslabel">_Function</property>
+            <property name="label" translatable="yes" context="menuassignpage|contentslabel">_Available Commands</property>
             <property name="use_underline">True</property>
           </object>
           <packing>
@@ -477,7 +477,7 @@
                 <property name="use_popover">False</property>
                 <child internal-child="accessible">
                   <object class="AtkObject" id="menugearbtn-atkobject">
-                    <property name="AtkObject::accessible-name" translatable="yes" context="menuassignpage|gearbtn">Gear Menu</property>
+                    <property name="AtkObject::accessible-name" translatable="yes" context="menuassignpage|menugearbtn">Gear Menu</property>
                     <property name="AtkObject::accessible-description" translatable="yes" context="menuassignpage|menugearbtn">Contains commands to modify or delete the selected top level menu, and the command to add new top level menus.</property>
                   </object>
                 </child>
@@ -499,7 +499,7 @@
                 <property name="use_popover">False</property>
                 <child internal-child="accessible">
                   <object class="AtkObject" id="toolbargearbtn-atkobject">
-                    <property name="AtkObject::accessible-name" translatable="yes" context="menuassignpage|gearbtn">Gear Menu</property>
+                    <property name="AtkObject::accessible-name" translatable="yes" context="menuassignpage|toolbargearbtn">Gear Menu</property>
                     <property name="AtkObject::accessible-description" translatable="yes" context="menuassignpage|toolbargearbtn">Contains commands to modify or delete the selected toolbar, and the command to add new toolbars.</property>
                   </object>
                 </child>
@@ -886,7 +886,7 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
-            <property name="label" translatable="yes" context="menuassignpage|functionlabel">F_unction</property>
+            <property name="label" translatable="yes" context="menuassignpage|functionlabel">Assi_gned Commands</property>
             <property name="use_underline">True</property>
           </object>
           <packing>

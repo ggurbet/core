@@ -10,6 +10,7 @@
 #include <cassert>
 
 #include <clang/AST/DeclCXX.h>
+#include <clang/AST/DeclTemplate.h>
 
 #include "check.hxx"
 
@@ -131,6 +132,21 @@ TypeCheck TypeCheck::Typedef() const {
     return TypeCheck();
 }
 
+DeclCheck TypeCheck::TemplateSpecializationClass() const {
+    if (!type_.isNull()) {
+        if (auto const t = type_->getAs<clang::TemplateSpecializationType>()) {
+            if (!t->isTypeAlias()) {
+                if (auto const d = llvm::dyn_cast_or_null<clang::ClassTemplateDecl>(
+                        t->getTemplateName().getAsTemplateDecl()))
+                {
+                    return DeclCheck(d->getTemplatedDecl());
+                }
+            }
+        }
+    }
+    return DeclCheck();
+}
+
 TypeCheck TypeCheck::NotSubstTemplateTypeParmType() const {
     return
         (!type_.isNull()
@@ -151,17 +167,44 @@ ContextCheck DeclCheck::MemberFunction() const {
     return ContextCheck(m == nullptr ? nullptr : m->getParent());
 }
 
+namespace {
+
+bool isGlobalNamespace(clang::DeclContext const * context) {
+    assert(context != nullptr);
+    return (context->isLookupContext() ? context : context->getLookupParent())->isTranslationUnit();
+}
+
+}
+
 TerminalCheck ContextCheck::GlobalNamespace() const {
-    return TerminalCheck(
-        context_ != nullptr
-        && ((context_->isLookupContext()
-             ? context_ : context_->getLookupParent())
-            ->isTranslationUnit()));
+    return TerminalCheck(context_ != nullptr && isGlobalNamespace(context_));
 }
 
 TerminalCheck ContextCheck::StdNamespace() const {
     return TerminalCheck(
         context_ != nullptr && context_->isStdNamespace());
+}
+
+namespace {
+
+bool isStdOrNestedNamespace(clang::DeclContext const * context) {
+    assert(context != nullptr);
+    if (!context->isNamespace()) {
+        return false;
+    }
+    if (isGlobalNamespace(context)) {
+        return false;
+    }
+    if (context->isStdNamespace()) {
+        return true;
+    }
+    return isStdOrNestedNamespace(context->getParent());
+}
+
+}
+
+TerminalCheck ContextCheck::StdOrNestedNamespace() const {
+    return TerminalCheck(context_ != nullptr && isStdOrNestedNamespace(context_));
 }
 
 ContextCheck ContextCheck::AnonymousNamespace() const {

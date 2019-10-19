@@ -121,8 +121,8 @@ static bool IsValidFilePathComponent(
             cLast = *lpCurrent++;
         }
 
-        /*  If we don't reached the end of the component the length of the component was to long
-            ( See condition of while loop ) */
+        /*  If we don't reached the end of the component the length of the component was too long
+            (See condition of while loop) */
         if ( !lpComponentEnd )
         {
             bValid = false;
@@ -540,7 +540,7 @@ static bool osl_decodeURL_( rtl_String* strUTF8, rtl_uString** pstrDecodedURL )
     pSrc = rtl_string_getStr(strUTF8);
     pSrcEnd = pSrc + nSrcLen;
 
-    /* Now decode the URL what should result in an UTF8 string */
+    /* Now decode the URL what should result in a UTF-8 string */
     while ( bValidEncoded && pSrc < pSrcEnd )
     {
         switch ( *pSrc )
@@ -818,7 +818,8 @@ oslFileError osl_getFileURLFromSystemPath( rtl_uString* strPath, rtl_uString** p
             {
                 case PATHTYPE_ABSOLUTE_UNC:
                     nIgnore = SAL_N_ELEMENTS( WSTR_LONG_PATH_PREFIX_UNC ) - 1;
-                    OSL_ENSURE( nIgnore == 8, "Unexpected long path UNC prefix!" );
+                    static_assert(SAL_N_ELEMENTS(WSTR_LONG_PATH_PREFIX_UNC) - 1 == 8,
+                                  "Unexpected long path UNC prefix!");
 
                     /* generate the normal UNC path */
                     nLength = rtl_uString_getLength( strPath );
@@ -831,7 +832,8 @@ oslFileError osl_getFileURLFromSystemPath( rtl_uString* strPath, rtl_uString** p
 
                 case PATHTYPE_ABSOLUTE_LOCAL:
                     nIgnore = SAL_N_ELEMENTS( WSTR_LONG_PATH_PREFIX ) - 1;
-                    OSL_ENSURE( nIgnore == 4, "Unexpected long path prefix!" );
+                    static_assert(SAL_N_ELEMENTS(WSTR_LONG_PATH_PREFIX) - 1 == 4,
+                                  "Unexpected long path prefix!");
 
                     /* generate the normal path */
                     nLength = rtl_uString_getLength( strPath );

@@ -23,7 +23,6 @@
 #include <drawdoc.hxx>
 #include <framework/FrameworkHelper.hxx>
 #include <strings.hrc>
-#include <glob.hxx>
 #include <helpids.h>
 #include <pres.hxx>
 #include <sdmod.hxx>
@@ -43,9 +42,7 @@
 #include <sal/log.hxx>
 
 #include <comphelper/processfactory.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
-#include <sfx2/objface.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/languageoptions.hxx>
@@ -220,7 +217,7 @@ void LayoutMenu::Dispose()
     GetParent()->RemoveEventListener(aWindowEventHandlerLink);
 }
 
-AutoLayout LayoutMenu::GetSelectedAutoLayout()
+AutoLayout LayoutMenu::GetSelectedAutoLayout() const
 {
     AutoLayout aResult = AUTOLAYOUT_NONE;
 
@@ -531,12 +528,16 @@ void LayoutMenu::Fill()
     {
         if ((WritingMode_TB_RL != pInfo->meWritingMode) || bVertical)
         {
-            BitmapEx aBmp(OUString::createFromAscii(pInfo->msBmpResId));
+            Image aImg("private:graphicrepository/" + OUString::createFromAscii(pInfo->msBmpResId));
 
             if (bRightToLeft && (WritingMode_TB_RL != pInfo->meWritingMode))
-                aBmp.Mirror (BmpMirrorFlags::Horizontal);
+            { // FIXME: avoid interpolating RTL layouts.
+                BitmapEx aRTL = aImg.GetBitmapEx();
+                aRTL.Mirror(BmpMirrorFlags::Horizontal);
+                aImg = Image(aRTL);
+            }
 
-            InsertItem(i, Image(aBmp), SdResId(pInfo->mpStrResId));
+            InsertItem(i, aImg, SdResId(pInfo->mpStrResId));
             SetItemData (i, new AutoLayout(pInfo->maAutoLayout));
         }
     }

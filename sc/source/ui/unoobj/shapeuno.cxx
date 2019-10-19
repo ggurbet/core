@@ -23,21 +23,19 @@
 #include <svtools/unoevent.hxx>
 #include <svtools/unoimap.hxx>
 #include <svx/svdobj.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <vcl/svapp.hxx>
 #include <sfx2/event.hxx>
 #include <svx/unoshape.hxx>
 #include <editeng/unofield.hxx>
-#include <svx/shapepropertynotifier.hxx>
 #include <toolkit/helper/convert.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
 #include <com/sun/star/drawing/XShape.hpp>
-#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/lang/NoSupportException.hpp>
 
 #include <shapeuno.hxx>
-#include <miscuno.hxx>
 #include <cellsuno.hxx>
 #include <textuno.hxx>
 #include <fielduno.hxx>
@@ -450,7 +448,7 @@ void SAL_CALL ScShapeObj::setPropertyValue(const OUString& aPropertyName, const 
             if( !xImageMapInt.is() || !SvUnoImageMap_fillImageMap( xImageMapInt, aImageMap ) )
                 throw lang::IllegalArgumentException();
 
-            ScIMapInfo* pIMapInfo = ScDrawLayer::GetIMapInfo(pObj);
+            SvxIMapInfo* pIMapInfo = SvxIMapInfo::GetIMapInfo(pObj);
             if( pIMapInfo )
             {
                 // replace existing image map
@@ -459,7 +457,7 @@ void SAL_CALL ScShapeObj::setPropertyValue(const OUString& aPropertyName, const 
             else
             {
                 // insert new user data with image map
-                pObj->AppendUserData(std::unique_ptr<SdrObjUserData>(new ScIMapInfo(aImageMap) ));
+                pObj->AppendUserData(std::unique_ptr<SdrObjUserData>(new SvxIMapInfo(aImageMap) ));
             }
         }
     }
@@ -712,7 +710,7 @@ uno::Any SAL_CALL ScShapeObj::getPropertyValue( const OUString& aPropertyName )
         SdrObject* pObj = GetSdrObject();
         if ( pObj )
         {
-            ScIMapInfo* pIMapInfo = ScDrawLayer::GetIMapInfo(GetSdrObject());
+            SvxIMapInfo* pIMapInfo = SvxIMapInfo::GetIMapInfo(GetSdrObject());
             if( pIMapInfo )
             {
                 const ImageMap& rIMap = pIMapInfo->GetImageMap();
@@ -936,11 +934,9 @@ uno::Sequence<beans::PropertyState> SAL_CALL ScShapeObj::getPropertyStates(
 
     //  simple loop to get own and aggregated states
 
-    const OUString* pNames = aPropertyNames.getConstArray();
     uno::Sequence<beans::PropertyState> aRet(aPropertyNames.getLength());
-    beans::PropertyState* pStates = aRet.getArray();
-    for(sal_Int32 i = 0; i < aPropertyNames.getLength(); i++)
-        pStates[i] = getPropertyState(pNames[i]);
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aRet.begin(),
+        [this](const OUString& rName) -> beans::PropertyState { return getPropertyState(rName); });
     return aRet;
 }
 
@@ -953,7 +949,7 @@ void SAL_CALL ScShapeObj::setPropertyToDefault( const OUString& aPropertyName )
         SdrObject* pObj = GetSdrObject();
         if ( pObj )
         {
-            ScIMapInfo* pIMapInfo = ScDrawLayer::GetIMapInfo(pObj);
+            SvxIMapInfo* pIMapInfo = SvxIMapInfo::GetIMapInfo(pObj);
             if( pIMapInfo )
             {
                 ImageMap aEmpty;
@@ -1346,27 +1342,24 @@ public:
             throw container::NoSuchElementException();
         uno::Sequence< beans::PropertyValue > aProperties;
         aElement >>= aProperties;
-        const beans::PropertyValue* pProperties = aProperties.getConstArray();
-        const sal_Int32 nCount = aProperties.getLength();
-        sal_Int32 nIndex;
         bool isEventType = false;
-        for( nIndex = 0; nIndex < nCount; nIndex++, pProperties++ )
+        for( const beans::PropertyValue& rProperty : std::as_const(aProperties) )
         {
-            if ( pProperties->Name == SC_EVENTACC_EVENTTYPE )
+            if ( rProperty.Name == SC_EVENTACC_EVENTTYPE )
             {
                 isEventType = true;
                 continue;
             }
-            if ( isEventType && (pProperties->Name == SC_EVENTACC_SCRIPT) )
+            if ( isEventType && (rProperty.Name == SC_EVENTACC_SCRIPT) )
             {
                 OUString sValue;
-                if ( pProperties->Value >>= sValue )
+                if ( rProperty.Value >>= sValue )
                 {
                     ScMacroInfo* pInfo = getInfo( true );
                     OSL_ENSURE( pInfo, "shape macro info could not be created!" );
                     if ( !pInfo )
                         break;
-                    if ( pProperties->Name == SC_EVENTACC_SCRIPT )
+                    if ( rProperty.Name == SC_EVENTACC_SCRIPT )
                         pInfo->SetMacro( sValue );
                     else
                         pInfo->SetHlink( sValue );
@@ -1430,7 +1423,7 @@ ScShapeObj::getEvents(  )
 
 OUString SAL_CALL ScShapeObj::getImplementationName(  )
 {
-    return OUString( "com.sun.star.comp.sc.ScShapeObj" );
+    return "com.sun.star.comp.sc.ScShapeObj";
 }
 
 sal_Bool SAL_CALL ScShapeObj::supportsService( const OUString& ServiceName )

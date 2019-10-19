@@ -20,9 +20,6 @@
 #ifndef INCLUDED_OOX_DRAWINGML_SHAPEPROPERTYMAP_HXX
 #define INCLUDED_OOX_DRAWINGML_SHAPEPROPERTYMAP_HXX
 
-#include <cstddef>
-#include <vector>
-
 #include <com/sun/star/uno/Any.hxx>
 #include <o3tl/enumarray.hxx>
 #include <oox/dllapi.h>
@@ -52,6 +49,7 @@ enum class ShapeProperty
     LineColor,
     LineTransparency,
     LineDash,                     ///< Explicit line dash or name of a line dash stored in a global container.
+    LineCap,
     LineJoint,
     LineStart,                    ///< Explicit line start marker or name of a line marker stored in a global container.
     LineStartWidth,

@@ -146,8 +146,7 @@ DocObjectWrapper::DocObjectWrapper( SbModule* pVar ) : m_pMod( pVar )
                 }
                 catch(const Exception& )
                 {
-                    css::uno::Any ex( cppu::getCaughtException() );
-                    SAL_WARN( "basic", "DocObjectWrapper::DocObjectWrapper: Caught exception! " << exceptionToString(ex) );
+                    TOOLS_WARN_EXCEPTION( "basic", "DocObjectWrapper::DocObjectWrapper" );
                 }
             }
 
@@ -294,7 +293,7 @@ DocObjectWrapper::setValue( const OUString& aPropertyName, const Any& aValue )
 
     SbPropertyRef pProperty = getProperty( aPropertyName );
     if ( !pProperty.is() )
-       throw UnknownPropertyException();
+       throw UnknownPropertyException(aPropertyName);
     unoToSbxValue( pProperty.get(), aValue );
 }
 
@@ -306,7 +305,7 @@ DocObjectWrapper::getValue( const OUString& aPropertyName )
 
     SbPropertyRef pProperty = getProperty( aPropertyName );
     if ( !pProperty.is() )
-       throw UnknownPropertyException();
+       throw UnknownPropertyException(aPropertyName);
 
     SbxVariable* pProp = pProperty.get();
     if ( pProp->GetType() == SbxEMPTY )
@@ -804,7 +803,7 @@ void SbModule::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
 
 void SbModule::SetSource32( const OUString& r )
 {
-    // Default basic mode to library container mode, but.. allow Option VBASupport 0/1 override
+    // Default basic mode to library container mode, but... allow Option VBASupport 0/1 override
     SetVBACompat( getDefaultVBAMode( static_cast< StarBASIC*>( GetParent() ) ) );
     aOUSource = r;
     StartDefinitions();
@@ -1659,7 +1658,7 @@ public:
         StarBASIC::SetGlobalErrorHdl(mErrHandler);
     }
     DECL_LINK( BasicErrorHdl, StarBASIC *, bool );
-    bool HasError() { return mbError; }
+    bool HasError() const { return mbError; }
 };
 
 IMPL_LINK( ErrorHdlResetter, BasicErrorHdl, StarBASIC *, /*pBasic*/, bool)
@@ -2566,7 +2565,7 @@ void SbUserFormModule::InitObject()
             }
             catch(const Exception& ) {}
 
-            sDialogUrl = sDialogUrl + sProjectName + "." + GetName() + "?location=document";
+            sDialogUrl += sProjectName + "." + GetName() + "?location=document";
 
             uno::Reference< awt::XDialogProvider > xProvider = awt::DialogProvider::createWithModel( xContext, m_xModel  );
             m_xDialog = xProvider->createDialog( sDialogUrl );

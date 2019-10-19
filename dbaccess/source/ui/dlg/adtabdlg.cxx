@@ -300,7 +300,7 @@ void QueryListFacade::updateTableObjectList( bool /*_bAllowViews*/ )
             Reference< XContainer> xContainer(xQueries,UNO_QUERY_THROW);
             m_pContainerListener = new ::comphelper::OContainerListenerAdapter(this,xContainer);
         }
-        Sequence< OUString > aQueryNames = xQueries->getElementNames();
+        const Sequence< OUString > aQueryNames = xQueries->getElementNames();
 
         for ( auto const & name : aQueryNames )
             m_rQueryList.append("", name, aQueryImage);
@@ -407,7 +407,7 @@ IMPL_LINK_NOARG( OAddTableDlg, AddClickHdl, weld::Button&, void )
     TableListDoubleClickHdl(m_xTableList->GetWidget());
 }
 
-IMPL_LINK_NOARG(OAddTableDlg, TableListDoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(OAddTableDlg, TableListDoubleClickHdl, weld::TreeView&, bool)
 {
     if ( impl_isAddAllowed() )
     {
@@ -421,6 +421,7 @@ IMPL_LINK_NOARG(OAddTableDlg, TableListDoubleClickHdl, weld::TreeView&, void)
         if ( !impl_isAddAllowed() )
             m_xDialog->response(RET_CLOSE);
     }
+    return true;
 }
 
 IMPL_LINK_NOARG( OAddTableDlg, TableListSelectHdl, weld::TreeView&, void )

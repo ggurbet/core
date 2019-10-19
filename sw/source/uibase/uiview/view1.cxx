@@ -35,6 +35,7 @@
 #include <edtwin.hxx>
 #include <formatclipboard.hxx>
 #include <cmdid.h>
+#include <sfx2/dispatch.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <wordcountdialog.hxx>
@@ -103,7 +104,7 @@ void SwView::Activate(bool bMDIActivate)
             m_sSwViewData.clear();
         }
 
-        AttrChangedNotify(m_pWrtShell.get());
+        AttrChangedNotify(nullptr);
 
         // Initialize Fielddlg newly if necessary (e.g. for TYP_SETVAR)
         sal_uInt16 nId = SwFieldDlgWrapper::GetChildWindowId();
@@ -133,7 +134,7 @@ void SwView::Activate(bool bMDIActivate)
     }
     else
         // At least call the Notify (as a precaution because of the SlotFilter).
-        AttrChangedNotify(m_pWrtShell.get());
+        AttrChangedNotify(nullptr);
 
     SfxViewShell::Activate(bMDIActivate);
 }

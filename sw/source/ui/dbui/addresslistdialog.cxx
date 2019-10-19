@@ -52,6 +52,7 @@
 #include <unotools/pathoptions.hxx>
 #include <svl/urihelper.hxx>
 #include <dbui.hrc>
+#include <strings.hrc>
 #include <view.hxx>
 
 #include <unomid.h>
@@ -99,7 +100,7 @@ static OUString lcl_getFlatURL( uno::Reference<beans::XPropertySet> const & xSou
             {
                 OUString sExtension;
                 OUString sCharSet;
-                for(const auto& rInfo : aInfo)
+                for(const auto& rInfo : std::as_const(aInfo))
                 {
                     if(rInfo.Name == "Extension")
                         rInfo.Value >>= sExtension;
@@ -119,13 +120,14 @@ static OUString lcl_getFlatURL( uno::Reference<beans::XPropertySet> const & xSou
 }
 
 SwAddressListDialog::SwAddressListDialog(SwMailMergeAddressBlockPage* pParent)
-    : SfxDialogController(pParent->GetFrameWeld(), "modules/swriter/ui/selectaddressdialog.ui", "SelectAddressDialog")
+    : SfxDialogController(pParent->GetWizard()->getDialog(), "modules/swriter/ui/selectaddressdialog.ui", "SelectAddressDialog")
     , m_bInSelectHdl(false)
-    , m_xAddressPage(pParent)
+    , m_pAddressPage(pParent)
     , m_xDescriptionFI(m_xBuilder->weld_label("desc"))
     , m_xConnecting(m_xBuilder->weld_label("connecting"))
     , m_xListLB(m_xBuilder->weld_tree_view("sources"))
     , m_xLoadListPB(m_xBuilder->weld_button("add"))
+    , m_xRemovePB(m_xBuilder->weld_button("remove"))
     , m_xCreateListPB(m_xBuilder->weld_button("create"))
     , m_xFilterPB(m_xBuilder->weld_button("filter"))
     , m_xEditPB(m_xBuilder->weld_button("edit"))
@@ -136,11 +138,12 @@ SwAddressListDialog::SwAddressListDialog(SwMailMergeAddressBlockPage* pParent)
     m_sConnecting = m_xConnecting->get_label();
 
     const OUString sTemp(m_xDescriptionFI->get_label()
-        .replaceFirst("%1", m_xLoadListPB->get_label())
-        .replaceFirst("%2", m_xCreateListPB->get_label()));
+        .replaceFirst("%1", m_xLoadListPB->strip_mnemonic(m_xLoadListPB->get_label()))
+        .replaceFirst("%2", m_xCreateListPB->strip_mnemonic(m_xCreateListPB->get_label())));
     m_xDescriptionFI->set_label(sTemp);
     m_xFilterPB->connect_clicked( LINK( this, SwAddressListDialog,    FilterHdl_Impl ));
     m_xLoadListPB->connect_clicked( LINK( this, SwAddressListDialog,  LoadHdl_Impl ));
+    m_xRemovePB->connect_clicked( LINK(this, SwAddressListDialog,   RemoveHdl_Impl ));
     m_xCreateListPB->connect_clicked( LINK( this, SwAddressListDialog,CreateHdl_Impl ));
     m_xEditPB->connect_clicked(LINK( this, SwAddressListDialog, EditHdl_Impl));
     m_xTablePB->connect_clicked(LINK( this, SwAddressListDialog, TableSelectHdl_Impl));
@@ -158,7 +161,7 @@ SwAddressListDialog::SwAddressListDialog(SwMailMergeAddressBlockPage* pParent)
     uno::Reference<XComponentContext> xContext( ::comphelper::getProcessComponentContext() );
     m_xDBContext = DatabaseContext::create(xContext);
 
-    SwMailMergeConfigItem& rConfigItem = m_xAddressPage->GetWizard()->GetConfigItem();
+    SwMailMergeConfigItem& rConfigItem = m_pAddressPage->GetWizard()->GetConfigItem();
     const SwDBData& rCurrentData = rConfigItem.GetCurrentDBData();
 
     bool bEnableEdit = false;
@@ -167,7 +170,7 @@ SwAddressListDialog::SwAddressListDialog(SwMailMergeAddressBlockPage* pParent)
 
     SwDBConfig aDb;
     const OUString sBibliography = aDb.GetBibliographySource().sDataSource;
-    uno::Sequence< OUString> aNames = m_xDBContext->getElementNames();
+    const uno::Sequence< OUString> aNames = m_xDBContext->getElementNames();
     for(const OUString& rName : aNames)
     {
         if ( rName == sBibliography )
@@ -207,6 +210,9 @@ SwAddressListDialog::SwAddressListDialog(SwMailMergeAddressBlockPage* pParent)
 
     m_xOK->set_sensitive(m_xListLB->n_children() > 0 && bEnableOK);
     m_xEditPB->set_sensitive(bEnableEdit);
+    m_xRemovePB->set_sensitive(m_xListLB->n_children() > 0);
+    m_xFilterPB->set_sensitive(m_xListLB->n_children() > 0);
+    m_xTablePB->set_sensitive(m_xListLB->n_children() > 0);
     m_xListLB->connect_changed(LINK(this, SwAddressListDialog, ListBoxSelectHdl_Impl));
     TableSelectHdl(nullptr);
 }
@@ -270,7 +276,7 @@ IMPL_LINK_NOARG(SwAddressListDialog, FilterHdl_Impl, weld::Button&, void)
 
 IMPL_LINK_NOARG(SwAddressListDialog, LoadHdl_Impl, weld::Button&, void)
 {
-    SwView* pView = m_xAddressPage->GetWizard()->GetSwView();
+    SwView* pView = m_pAddressPage->GetWizard()->GetSwView();
 
     const OUString sNewSource = SwDBManager::LoadAndRegisterDataSource(m_xDialog.get(), pView ? pView->GetDocShell() : nullptr);
     if(!sNewSource.isEmpty())
@@ -282,21 +288,46 @@ IMPL_LINK_NOARG(SwAddressListDialog, LoadHdl_Impl, weld::Button&, void)
         m_xListLB->set_id(*m_xIter, OUString::number(reinterpret_cast<sal_Int64>(pUserData)));
         m_xListLB->select(*m_xIter);
         ListBoxSelectHdl_Impl(*m_xListLB);
+        m_xRemovePB->set_sensitive(true);
     }
+}
+
+IMPL_LINK_NOARG(SwAddressListDialog, RemoveHdl_Impl, weld::Button&, void)
+{
+    int nEntry = m_xListLB->get_selected_index();
+    if (nEntry != -1)
+    {
+        std::unique_ptr<weld::MessageDialog> xQuery(Application::CreateMessageDialog(getDialog(),
+                                                    VclMessageType::Question, VclButtonsType::YesNo, SwResId(ST_DELETE_CONFIRM)));
+        if (xQuery->run() == RET_YES)
+        {   // Remove data source connection
+            SwDBManager::RevokeDataSource(m_xListLB->get_selected_text());
+            // Remove item from the list
+            m_xListLB->remove(nEntry);
+            // If this was the last item, disable the Remove & Edit buttons and enable Create
+            if (m_xListLB->n_children() < 1 )
+                {
+                m_xRemovePB->set_sensitive(false);
+                m_xEditPB->set_sensitive(false);
+                m_xFilterPB->set_sensitive(false);
+                m_xCreateListPB->set_sensitive(true);
+                }
+        }
+    }
+
+
 }
 
 IMPL_LINK_NOARG(SwAddressListDialog, CreateHdl_Impl, weld::Button&, void)
 {
-    OUString sInputURL;
-    SwCreateAddressListDialog aDlg(m_xDialog.get(), sInputURL, m_xAddressPage->GetWizard()->GetConfigItem());
+    SwCreateAddressListDialog aDlg(m_xDialog.get(), /*sInputURL*/OUString(), m_pAddressPage->GetWizard()->GetConfigItem());
     if (RET_OK == aDlg.run())
     {
         //register the URL a new datasource
         const OUString sURL = aDlg.GetURL();
         try
         {
-            uno::Reference<XSingleServiceFactory> xFact( m_xDBContext, UNO_QUERY);
-            uno::Reference<XInterface> xNewInstance = xFact->createInstance();
+            uno::Reference<XInterface> xNewInstance = m_xDBContext->createInstance();
             INetURLObject aURL( sURL );
             const OUString sNewName = aURL.getBase();
             //find a unique name if sNewName already exists
@@ -342,8 +373,7 @@ IMPL_LINK_NOARG(SwAddressListDialog, CreateHdl_Impl, weld::Button&, void)
             }
             xStore->storeAsURL(sTmpName, Sequence< PropertyValue >());
 
-            uno::Reference<XNamingService> xNaming(m_xDBContext, UNO_QUERY);
-            xNaming->registerObject( sFind, xNewInstance );
+            m_xDBContext->registerObject( sFind, xNewInstance );
             //now insert the new source into the ListBox
             m_xListLB->append(m_xIter.get());
             m_xListLB->set_text(*m_xIter, sFind, 0);
@@ -354,6 +384,7 @@ IMPL_LINK_NOARG(SwAddressListDialog, CreateHdl_Impl, weld::Button&, void)
             m_xListLB->select(*m_xIter);
             ListBoxSelectHdl_Impl(*m_xListLB);
             m_xCreateListPB->set_sensitive(false);
+            m_xRemovePB->set_sensitive(true);
         }
         catch (const Exception&)
         {
@@ -369,7 +400,7 @@ IMPL_LINK_NOARG(SwAddressListDialog, EditHdl_Impl, weld::Button&, void)
     {
         if(pUserData->xResultSet.is())
         {
-            SwMailMergeConfigItem& rConfigItem = m_xAddressPage->GetWizard()->GetConfigItem();
+            SwMailMergeConfigItem& rConfigItem = m_pAddressPage->GetWizard()->GetConfigItem();
             if(rConfigItem.GetResultSet() != pUserData->xResultSet)
                 ::comphelper::disposeComponent( pUserData->xResultSet );
             pUserData->xResultSet = nullptr;
@@ -381,7 +412,7 @@ IMPL_LINK_NOARG(SwAddressListDialog, EditHdl_Impl, weld::Button&, void)
         pUserData->xConnection.clear();
             // will automatically close if it was the las reference
         SwCreateAddressListDialog aDlg(m_xDialog.get(), pUserData->sURL,
-                                       m_xAddressPage->GetWizard()->GetConfigItem());
+                                       m_pAddressPage->GetWizard()->GetConfigItem());
         aDlg.run();
     }
 };
@@ -449,7 +480,7 @@ void SwAddressListDialog::DetectTablesAndQueries(
             pUserData->xSource.set(xComplConnection, UNO_QUERY);
 
             uno::Reference< XComponentContext > xContext( ::comphelper::getProcessComponentContext() );
-            uno::Reference< XInteractionHandler > xHandler( InteractionHandler::createWithParent(xContext, nullptr), UNO_QUERY );
+            uno::Reference< XInteractionHandler > xHandler = InteractionHandler::createWithParent(xContext, nullptr);
             pUserData->xConnection = SharedConnection( xComplConnection->connectWithCompletion( xHandler ) );
         }
         if(pUserData->xConnection.is())
@@ -534,7 +565,7 @@ IMPL_LINK(SwAddressListDialog, TableSelectHdl_Impl, weld::Button&, rButton, void
     TableSelectHdl(&rButton);
 }
 
-void SwAddressListDialog::TableSelectHdl(weld::Button* pButton)
+void SwAddressListDialog::TableSelectHdl(const weld::Button* pButton)
 {
     weld::WaitObject aWait(m_xDialog.get());
 
@@ -557,7 +588,7 @@ IMPL_LINK_NOARG(SwAddressListDialog, OKHdl_Impl, weld::Button&, void)
     m_xDialog->response(RET_OK);
 }
 
-uno::Reference< XDataSource>  SwAddressListDialog::GetSource()
+uno::Reference< XDataSource>  SwAddressListDialog::GetSource() const
 {
     uno::Reference< XDataSource>  xRet;
     int nSelect = m_xListLB->get_selected_index();
@@ -570,7 +601,7 @@ uno::Reference< XDataSource>  SwAddressListDialog::GetSource()
 
 }
 
-SharedConnection    SwAddressListDialog::GetConnection()
+SharedConnection    SwAddressListDialog::GetConnection() const
 {
     SharedConnection xRet;
     int nSelect = m_xListLB->get_selected_index();
@@ -582,7 +613,7 @@ SharedConnection    SwAddressListDialog::GetConnection()
     return xRet;
 }
 
-uno::Reference< XColumnsSupplier> SwAddressListDialog::GetColumnsSupplier()
+uno::Reference< XColumnsSupplier> SwAddressListDialog::GetColumnsSupplier() const
 {
     uno::Reference< XColumnsSupplier> xRet;
     int nSelect = m_xListLB->get_selected_index();
@@ -594,7 +625,7 @@ uno::Reference< XColumnsSupplier> SwAddressListDialog::GetColumnsSupplier()
     return xRet;
 }
 
-OUString SwAddressListDialog::GetFilter()
+OUString SwAddressListDialog::GetFilter() const
 {
     int nSelect = m_xListLB->get_selected_index();
     if (nSelect != -1)

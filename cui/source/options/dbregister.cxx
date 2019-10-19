@@ -19,30 +19,18 @@
 
 #include <dbregister.hxx>
 #include "dbregistersettings.hxx"
-#include "connpooloptions.hxx"
 #include <svl/filenotation.hxx>
 #include <helpids.h>
-#include <svtools/editbrowsebox.hxx>
+#include <tools/debug.hxx>
 #include <strings.hrc>
 #include <bitmaps.hlst>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <svl/eitem.hxx>
-#include <com/sun/star/uno/Exception.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/ui/dialogs/XFilePicker.hpp>
-#include <com/sun/star/ui/dialogs/XFilterManager.hpp>
-#include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
 #include <svl/itemset.hxx>
 #include "doclinkdialog.hxx"
-#include <unotools/localfilehelper.hxx>
-#include "optHeaderTabListbox.hxx"
-#include <sfx2/docfilt.hxx>
 #include <dialmgr.hxx>
 #include "dbregisterednamesconfig.hxx"
-#include <svx/dialogs.hrc>
-
-#define TAB_WIDTH1      80
+#include <svx/databaseregistrationui.hxx>
 
 #define COL_TYPE       0
 
@@ -73,8 +61,7 @@ DatabaseRegistrationDialog::DatabaseRegistrationDialog(weld::Window* pParent, co
     : RegistrationItemSetHolder(rInAttrs)
     , SfxSingleTabDialogController(pParent, &getRegistrationItems())
 {
-    TabPageParent aParent(get_content_area(), this);
-    SetTabPage(DbRegistrationOptionsPage::Create(aParent, &getRegistrationItems()));
+    SetTabPage(DbRegistrationOptionsPage::Create(get_content_area(), this, &getRegistrationItems()));
     m_xDialog->set_title(CuiResId(RID_SVXSTR_REGISTERED_DATABASES));
 }
 
@@ -92,8 +79,8 @@ short DatabaseRegistrationDialog::run()
 
 // class DbRegistrationOptionsPage --------------------------------------------------
 
-DbRegistrationOptionsPage::DbRegistrationOptionsPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/dbregisterpage.ui", "DbRegisterPage", &rSet)
+DbRegistrationOptionsPage::DbRegistrationOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/dbregisterpage.ui", "DbRegisterPage", &rSet)
     , m_nOldCount(0)
     , m_bModified(false)
     , m_xNew(m_xBuilder->weld_button("new"))
@@ -102,12 +89,12 @@ DbRegistrationOptionsPage::DbRegistrationOptionsPage(TabPageParent pParent, cons
     , m_xPathBox(m_xBuilder->weld_tree_view("pathctrl"))
     , m_xIter(m_xPathBox->make_iterator())
 {
-    Size aControlSize(248, 147);
-    aControlSize = LogicToPixel(aControlSize, MapMode(MapUnit::MapAppFont));
+    Size aControlSize(m_xPathBox->get_approximate_digit_width() * 60,
+                      m_xPathBox->get_height_rows(12));
     m_xPathBox->set_size_request(aControlSize.Width(), aControlSize.Height());
 
     std::vector<int> aWidths;
-    aWidths.push_back(LogicToPixel(Size(TAB_WIDTH1, 0), MapMode(MapUnit::MapAppFont)).Width());
+    aWidths.push_back(m_xPathBox->get_approximate_digit_width() * 20);
     m_xPathBox->set_column_fixed_widths(aWidths);
 
     m_xNew->connect_clicked( LINK( this, DbRegistrationOptionsPage, NewHdl ) );
@@ -125,20 +112,14 @@ DbRegistrationOptionsPage::DbRegistrationOptionsPage(TabPageParent pParent, cons
 
 DbRegistrationOptionsPage::~DbRegistrationOptionsPage()
 {
-    disposeOnce();
-}
-
-void DbRegistrationOptionsPage::dispose()
-{
     for (int i = 0, nCount = m_xPathBox->n_children(); i < nCount; ++i )
         delete reinterpret_cast<DatabaseRegistration*>(m_xPathBox->get_id(i).toInt64());
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> DbRegistrationOptionsPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> DbRegistrationOptionsPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                     const SfxItemSet* rAttrSet )
 {
-    return VclPtr<DbRegistrationOptionsPage>::Create( pParent, *rAttrSet );
+    return std::make_unique<DbRegistrationOptionsPage>(pPage, pController, *rAttrSet);
 }
 
 bool DbRegistrationOptionsPage::FillItemSet( SfxItemSet* rCoreSet )
@@ -211,7 +192,7 @@ IMPL_LINK_NOARG(DbRegistrationOptionsPage, DeleteHdl, weld::Button&, void)
     int nEntry = m_xPathBox->get_selected_index();
     if (nEntry != -1)
     {
-        std::unique_ptr<weld::MessageDialog> xQuery(Application::CreateMessageDialog(GetDialogFrameWeld(),
+        std::unique_ptr<weld::MessageDialog> xQuery(Application::CreateMessageDialog(GetFrameWeld(),
                                                     VclMessageType::Question, VclButtonsType::YesNo, CuiResId(RID_SVXSTR_QUERY_DELETE_CONFIRM)));
         if (xQuery->run() == RET_YES)
             m_xPathBox->remove(nEntry);
@@ -223,9 +204,10 @@ IMPL_LINK_NOARG(DbRegistrationOptionsPage, NewHdl, weld::Button&, void)
     openLinkDialog(OUString(),OUString());
 }
 
-IMPL_LINK_NOARG(DbRegistrationOptionsPage, PathBoxDoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(DbRegistrationOptionsPage, PathBoxDoubleClickHdl, weld::TreeView&, bool)
 {
     EditHdl(*m_xEdit);
+    return true;
 }
 
 IMPL_LINK_NOARG(DbRegistrationOptionsPage, EditHdl, weld::Button&, void)
@@ -284,7 +266,7 @@ void DbRegistrationOptionsPage::insertNewEntry(const OUString& _sName,const OUSt
 
 void DbRegistrationOptionsPage::openLinkDialog(const OUString& sOldName, const OUString& sOldLocation, int nEntry)
 {
-    ODocumentLinkDialog aDlg(GetDialogFrameWeld(), nEntry == -1);
+    ODocumentLinkDialog aDlg(GetFrameWeld(), nEntry == -1);
 
     aDlg.setLink(sOldName, sOldLocation);
     aDlg.setNameValidator(LINK( this, DbRegistrationOptionsPage, NameValidator ) );

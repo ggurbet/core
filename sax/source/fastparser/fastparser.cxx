@@ -21,7 +21,6 @@
 #include <sax/fastattribs.hxx>
 #include <xml2utf.hxx>
 
-#include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/io/XSeekable.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
@@ -408,11 +407,10 @@ void Entity::startElement( Event const *pEvent )
 
         if ( mxNamespaceHandler.is() )
         {
-            Sequence< xml::Attribute > NSDeclAttribs = pEvent->mxDeclAttributes->getUnknownAttributes();
-            sal_uInt16 len = NSDeclAttribs.getLength();
-            for (sal_uInt16 i = 0; i < len; i++)
+            const Sequence< xml::Attribute > NSDeclAttribs = pEvent->mxDeclAttributes->getUnknownAttributes();
+            for (const auto& rNSDeclAttrib : NSDeclAttribs)
             {
-                mxNamespaceHandler->registerNamespace( NSDeclAttribs[i].Name, NSDeclAttribs[i].Value );
+                mxNamespaceHandler->registerNamespace( rNSDeclAttrib.Name, rNSDeclAttrib.Value );
             }
         }
 
@@ -1055,6 +1053,7 @@ void FastSaxParserImpl::parse()
                 throw SAXException("Couldn't create parser", Reference< XInterface >(), Any() );
 
             // Tell libxml2 parser to decode entities in attribute values.
+            // coverity[unsafe_xml_parse_config] - entity support is required
             xmlCtxtUseOptions(rEntity.mpParser, XML_PARSE_NOENT);
         }
         else
@@ -1164,6 +1163,7 @@ void FastSaxParserImpl::callbackStartElement(const xmlChar *localName , const xm
         if ( rEntity.mxTokenHandler.is() )
         {
             // #158414# second: fill attribute list with other attributes
+            rEvent.mxAttributes->reserve( numAttributes );
             for (int i = 0; i < numAttributes * 5; i += 5)
             {
                 // attributes[] is ( localname / prefix / nsURI / valueBegin / valueEnd )
@@ -1400,7 +1400,7 @@ void FastSaxParser::setNamespaceHandler( const uno::Reference< css::xml::sax::XF
 
 OUString FastSaxParser::getImplementationName()
 {
-    return OUString("com.sun.star.comp.extensions.xml.sax.FastParser");
+    return "com.sun.star.comp.extensions.xml.sax.FastParser";
 }
 
 sal_Bool FastSaxParser::supportsService( const OUString& ServiceName )

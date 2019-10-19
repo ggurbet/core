@@ -102,11 +102,11 @@ static bool lcl_getWindowState( const uno::Reference< container::XNameAccess >& 
         a = xWindowStateMgr->getByName( rResourceURL );
         if ( a >>= aWindowState )
         {
-            for ( sal_Int32 n = 0; n < aWindowState.getLength(); n++ )
+            for ( const auto& rProp : std::as_const(aWindowState) )
             {
-                if ( aWindowState[n].Name == "UIName" )
+                if ( rProp.Name == "UIName" )
                 {
-                    aWindowState[n].Value >>= rWindowState.sTitle;
+                    rProp.Value >>= rWindowState.sTitle;
                 }
             }
         }
@@ -139,7 +139,7 @@ SfxDockingWrapper::SfxDockingWrapper( vcl::Window* pParentWnd ,
     uno::Reference< lang::XSingleComponentFactory > xFactoryMgr = ui::theWindowContentFactoryManager::get(xContext);
 
     SfxDispatcher* pDispatcher = pBindings->GetDispatcher();
-    uno::Reference< frame::XFrame > xFrame( pDispatcher->GetFrame()->GetFrame().GetFrameInterface(), uno::UNO_QUERY );
+    uno::Reference< frame::XFrame > xFrame = pDispatcher->GetFrame()->GetFrame().GetFrameInterface();
     // create a resource URL from the nId provided by the sfx2
     OUString aResourceURL =  aDockWindowResourceURL + OUString::number(nId);
     uno::Sequence<uno::Any> aArgs(comphelper::InitAnyPropertySequence(

@@ -195,7 +195,7 @@ css::uno::Sequence<OUString> SAL_CALL SbaTableQueryBrowser::getSupportedServiceN
 
 OUString SbaTableQueryBrowser::getImplementationName_Static()
 {
-    return OUString("org.openoffice.comp.dbu.ODatasourceBrowser");
+    return "org.openoffice.comp.dbu.ODatasourceBrowser";
 }
 
 css::uno::Sequence<OUString> SbaTableQueryBrowser::getSupportedServiceNames_Static()
@@ -497,7 +497,7 @@ void SbaTableQueryBrowser::impl_sanitizeRowSetClauses_nothrow()
         //     ...
         //   }
         //   enum SQLFilterOperand { Column, Literal, ... }
-        // ... or something like this ....
+        // ... or something like this...
     }
     catch( const Exception& )
     {
@@ -581,10 +581,9 @@ void SbaTableQueryBrowser::InitializeGridModel(const Reference< css::form::XForm
         Reference< XNameContainer >  xColContainer(xGrid, UNO_QUERY);
         clearGridColumns( xColContainer );
 
-        Reference< XChild > xGridAsChild(xGrid, UNO_QUERY);
         Reference< XLoadable > xFormAsLoadable;
-        if (xGridAsChild.is())
-            xFormAsLoadable.set(xGridAsChild->getParent(), css::uno::UNO_QUERY);
+        if (xGrid.is())
+            xFormAsLoadable.set(xGrid->getParent(), css::uno::UNO_QUERY);
         if (xFormAsLoadable.is() && xFormAsLoadable->isLoaded())
         {
             // set the formats from the table
@@ -658,7 +657,8 @@ void SbaTableQueryBrowser::InitializeGridModel(const Reference< css::form::XForm
             OUString sDefaultProperty;
             Reference< XPropertySet > xColumn;
             Reference< XPropertySetInfo > xColPSI;
-            for (const OUString& rName : xColumns->getElementNames())
+            const Sequence<OUString> aColNames = xColumns->getElementNames();
+            for (const OUString& rName : aColNames)
             {
                 xColumn.set( xColumns->getByName( rName ), UNO_QUERY_THROW );
                 xColPSI.set( xColumn->getPropertySetInfo(), UNO_SET_THROW );
@@ -818,7 +818,7 @@ void SbaTableQueryBrowser::transferChangedControlProperty(const OUString& _rProp
     if(m_pCurrentlyDisplayed)
     {
         DBTreeListUserData* pData = static_cast<DBTreeListUserData*>(m_pCurrentlyDisplayed->GetUserData());
-        Reference< XPropertySet > xObjectProps(pData->xObjectProperties, UNO_QUERY);
+        Reference< XPropertySet > xObjectProps = pData->xObjectProperties;
         OSL_ENSURE(xObjectProps.is(),"SbaTableQueryBrowser::transferChangedControlProperty: no table/query object!");
         if (xObjectProps.is())
             xObjectProps->setPropertyValue(_rProperty, _rNewValue);
@@ -1015,7 +1015,7 @@ void SbaTableQueryBrowser::checkDocumentDataSource()
         {   // at least the data source is known
             if (nullptr != pContainerEntry)
                 bKnownDocDataSource = true; // assume we know it.
-                // TODO: should we expand the object container? This may be too expensive just for checking ....
+                // TODO: should we expand the object container? This may be too expensive just for checking...
             else
             {
                 if (m_aDocumentDataSource.has(DataAccessDescriptorProperty::CommandType)
@@ -2060,7 +2060,8 @@ void SbaTableQueryBrowser::initializeTreeModel()
         OUString sQueriesName, sTablesName;
 
         // fill the model with the names of the registered datasources
-        for (const OUString& rDatasource : m_xDatabaseContext->getElementNames())
+        const Sequence<OUString> aDatasourceNames = m_xDatabaseContext->getElementNames();
+        for (const OUString& rDatasource : aDatasourceNames)
             implAddDatasource( rDatasource, aDBImage, sQueriesName, aQueriesImage, sTablesName, aTablesImage, SharedConnection() );
     }
 }
@@ -2075,7 +2076,8 @@ void SbaTableQueryBrowser::populateTree(const Reference<XNameAccess>& _xNameAcce
 
     try
     {
-        for (const OUString& rName : _xNameAccess->getElementNames())
+        const Sequence<OUString> aNames = _xNameAccess->getElementNames();
+        for (const OUString& rName : aNames)
         {
             if( !m_pTreeView->getListBox().GetEntryPosByName(rName,_pParent))
             {
@@ -3391,7 +3393,7 @@ void SbaTableQueryBrowser::implAdministrate( SvTreeListEntry* _pApplyTo )
         if (pTopLevelSelected)
             sInitialSelection = getDataSourceAccessor( pTopLevelSelected );
 
-        Reference< XDataSource > xDataSource( getDataSourceByName( sInitialSelection, getView(), getORB(), nullptr ) );
+        Reference< XDataSource > xDataSource( getDataSourceByName( sInitialSelection, getFrameWeld(), getORB(), nullptr ) );
         Reference< XModel > xDocumentModel( getDataSourceOrModel( xDataSource ), UNO_QUERY );
 
         if ( xDocumentModel.is() )
@@ -3439,7 +3441,7 @@ OUString SbaTableQueryBrowser::getContextMenuResourceName( Control& _rControl ) 
     if ( &m_pTreeView->getListBox() != &_rControl )
         return OUString();
 
-    return OUString("explorer");
+    return "explorer";
 }
 
 IController& SbaTableQueryBrowser::getCommandController()
@@ -3558,7 +3560,8 @@ void SbaTableQueryBrowser::clearGridColumns(const Reference< XNameContainer >& _
 {
     // first we have to clear the grid
     Reference< XInterface > xColumn;
-    for (const OUString& rName : _xColContainer->getElementNames())
+    const Sequence<OUString> aColNames = _xColContainer->getElementNames();
+    for (const OUString& rName : aColNames)
     {
         _xColContainer->getByName(rName) >>= xColumn;
         _xColContainer->removeByName(rName);
@@ -3602,8 +3605,7 @@ OUString SbaTableQueryBrowser::getPrivateTitle() const
             sTitle = aURL.getBase(INetURLObject::LAST_SEGMENT,true,INetURLObject::DecodeMechanism::WithCharset);
         if ( !sName.isEmpty() )
         {
-            sName += " - ";
-            sName += sTitle;
+            sName += " - " + sTitle;
             sTitle = sName;
         }
     }

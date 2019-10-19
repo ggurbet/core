@@ -301,7 +301,7 @@ class wwFont
 //In some future land the stream could be converted to a nice stream interface
 //and we could have harmony
 private:
-sal_uInt8 maWW8_FFN[6];
+    sal_uInt8 maWW8_FFN[6] = {};
     OUString msFamilyNm;
     OUString msAltNm;
     bool mbAlt;
@@ -434,7 +434,8 @@ struct MSWordSaveData
     Point* pOldFlyOffset;
     RndStdIds eOldAnchorType;
     std::unique_ptr<ww::bytes> pOOld; ///< WW8Export only
-    SwPaM* pOldPam, *pOldEnd;
+    std::shared_ptr<SwUnoCursor> pOldPam;
+    SwPaM* pOldEnd;
     sal_uLong nOldStart, nOldEnd;
     const ww8::Frame* pOldFlyFormat;
     const SwPageDesc* pOldPageDesc;
@@ -459,6 +460,13 @@ public:
     const SfxItemSet* m_pISet;    // for double attributes
     WW8_WrPct*  m_pPiece;         // Pointer to Piece-Table
     std::unique_ptr<SwNumRuleTable> m_pUsedNumTable;  // all used NumRules
+    /// overriding numdef index -> (existing numdef index, abstractnumdef index)
+    std::map<size_t, std::pair<size_t, size_t>> m_OverridingNums;
+    /// same in reverse
+    std::map<std::pair<size_t, size_t>, size_t> m_OverridingNumsR;
+    /// list-id -> abstractnumdef index
+    std::map<OUString, size_t> m_Lists;
+
     const SwTextNode *m_pTopNodeOfHdFtPage; ///< Top node of host page when in hd/ft
     std::map< sal_uInt16, sal_uInt16 > m_aRuleDuplicates; //map to Duplicated numrules
     std::stack< sal_Int32 > m_aCurrentCharPropStarts; ///< To remember the position in a run.
@@ -566,7 +574,8 @@ public:
 
     SwDoc *m_pDoc;
     sal_uLong m_nCurStart, m_nCurEnd;
-    SwPaM *m_pCurPam, *m_pOrigPam;
+    std::shared_ptr<SwUnoCursor> & m_pCurPam;
+    SwPaM *m_pOrigPam;
 
     /// Stack to remember the nesting (see MSWordSaveData for more)
     std::stack< MSWordSaveData > m_aSaveData;
@@ -597,7 +606,7 @@ public:
     void ExportPoolItemsToCHP( ww8::PoolItems &rItems, sal_uInt16 nScript, const SvxFontItem *pFont, bool bWriteCombChars = false );
 
     /// Return the numeric id of the numbering rule
-    sal_uInt16 GetId( const SwNumRule& rNumRule );
+    sal_uInt16 GetNumberingId( const SwNumRule& rNumRule );
 
     /// Return the numeric id of the style.
     sal_uInt16 GetId( const SwTextFormatColl& rColl ) const;
@@ -647,6 +656,18 @@ public:
     /// completely new list based on this one and export that instead,
     /// which duplicates words behaviour in this respect.
     sal_uInt16 DuplicateNumRule( const SwNumRule *pRule, sal_uInt8 nLevel, sal_uInt16 nVal );
+    SwNumRule * DuplicateNumRuleImpl(const SwNumRule *pRule);
+
+    /// check if a new abstractNum is needed for this list
+    sal_uInt16 DuplicateAbsNum(OUString const& rListId,
+                               SwNumRule const& rAbstractRule);
+
+
+    /// Create a overriding numbering definition (if it does not yet exist)
+    /// @return index of the overriding numbering definition
+    sal_uInt16 OverrideNumRule(SwNumRule const& rExistingRule,
+                               OUString const& rListId,
+                               SwNumRule const& rAbstractRule);
 
     /// Access to the attribute output class.
     virtual AttributeOutputBase& AttrOutput() const = 0;
@@ -747,6 +768,9 @@ public:
     /// Write all Levels for all SwNumRules - LVLF
     void AbstractNumberingDefinitions();
 
+    /// Write one numbering level
+    void NumberingLevel(SwNumRule const& rRule, sal_uInt8 nLvl);
+
     // Convert the bullet according to the font.
     void SubstituteBullet( OUString& rNumStr, rtl_TextEncoding& rChrSet,
         OUString& rFontName ) const;
@@ -777,7 +801,7 @@ public:
                     const OUString &rHelp,
                     const OUString &ToolTip,
                     const OUString &rSelected,
-                    css::uno::Sequence<OUString> &rListItems) = 0;
+                    const css::uno::Sequence<OUString> &rListItems) = 0;
 
     virtual void DoFormText(const SwInputField * pField) = 0;
 
@@ -890,7 +914,7 @@ protected:
     std::vector<const Graphic*> m_vecBulletPic; ///< Vector to record all the graphics of bullets
 
 public:
-    MSWordExportBase( SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM *pOriginalPam );
+    MSWordExportBase( SwDoc *pDocument, std::shared_ptr<SwUnoCursor> & pCurrentPam, SwPaM *pOriginalPam );
     virtual ~MSWordExportBase();
 
     // TODO move as much as possible here from WW8Export! ;-)
@@ -968,7 +992,7 @@ public:
     SvStream *pTableStrm, *pDataStrm;   ///< Streams for WW97 Export
 
     std::unique_ptr<WW8Fib> pFib;                       ///< File Information Block
-    std::unique_ptr<WW8Dop> pDop;                       ///< DOcument Properties
+    std::unique_ptr<WW8Dop> pDop;                       ///< Document Properties
     std::unique_ptr<WW8_WrPlcFootnoteEdn> pFootnote;    ///< Footnotes - structure to remember them, and output
     std::unique_ptr<WW8_WrPlcFootnoteEdn> pEdn;         ///< Endnotes - structure to remember them, and output
     std::unique_ptr<WW8_WrPlcSepx> pSepx;               ///< Sections/headers/footers
@@ -1131,7 +1155,7 @@ public:
 
     /// Setup the exporter.
     WW8Export( SwWW8Writer *pWriter,
-            SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM *pOriginalPam,
+            SwDoc *pDocument, std::shared_ptr<SwUnoCursor> & pCurrentPam, SwPaM *pOriginalPam,
             bool bDot );
     virtual ~WW8Export() override;
 
@@ -1139,7 +1163,7 @@ public:
                     const OUString &rHelp,
                     const OUString &ToolTip,
                     const OUString &rSelected,
-                    css::uno::Sequence<OUString> &rListItems) override;
+                    const css::uno::Sequence<OUString> &rListItems) override;
 
     virtual void DoFormText(const SwInputField * pField) override;
 
@@ -1588,6 +1612,9 @@ public:
 
     /// Get id of the style (rFormat).
     sal_uInt16 GetSlot( const SwFormat* pFormat ) const;
+
+    /// create style id using only ASCII characters of the style name
+    static OString CreateStyleId(const OUString &rName);
 
     /// Get styleId of the nId-th style (nId is its position in pFormatA).
     OString const & GetStyleId(sal_uInt16 nId) const;

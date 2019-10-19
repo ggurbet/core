@@ -9,13 +9,11 @@ avmedia/source/vlc/wrapper/Types.hxx:44
 avmedia/source/vlc/wrapper/Types.hxx:45
     libvlc_event_t::(anonymous union)::(anonymous) dummy2 const char *
 avmedia/source/vlc/wrapper/Types.hxx:46
-    libvlc_event_t::(anonymous) padding struct (anonymous struct at /media/noel/disk2/libo5/avmedia/source/vlc/wrapper/Types.hxx:43:7)
+    libvlc_event_t::(anonymous) padding struct (anonymous struct at /media/disk2/libo7/avmedia/source/vlc/wrapper/Types.hxx:43:7)
 avmedia/source/vlc/wrapper/Types.hxx:47
-    libvlc_event_t u union (anonymous union at /media/noel/disk2/libo5/avmedia/source/vlc/wrapper/Types.hxx:41:5)
+    libvlc_event_t u union (anonymous union at /media/disk2/libo7/avmedia/source/vlc/wrapper/Types.hxx:41:5)
 avmedia/source/vlc/wrapper/Types.hxx:53
     libvlc_track_description_t psz_name char *
-basctl/source/basicide/moduldlg.hxx:204
-    basctl::OrganizeDialog m_aCurEntry class basctl::EntryDescriptor
 basegfx/source/polygon/b2dtrapezoid.cxx:202
     basegfx::trapezoidhelper::PointBlockAllocator maFirstStackBlock class basegfx::B2DPoint [32]
 basic/qa/cppunit/basictest.hxx:27
@@ -26,7 +24,7 @@ binaryurp/source/writer.hxx:148
     binaryurp::Writer state_ struct binaryurp::WriterState
 canvas/source/vcl/impltools.hxx:117
     vclcanvas::tools::LocalGuard aSolarGuard class SolarMutexGuard
-canvas/workben/canvasdemo.cxx:82
+canvas/workben/canvasdemo.cxx:83
     DemoRenderer maColorWhite uno::Sequence<double>
 chart2/source/controller/accessibility/AccessibleChartShape.hxx:79
     chart::AccessibleChartShape m_aShapeTreeInfo ::accessibility::AccessibleShapeTreeInfo
@@ -78,9 +76,9 @@ connectivity/source/inc/flat/EResultSet.hxx:42
     connectivity::flat::OFlatResultSet m_bBookmarkable _Bool
 connectivity/source/inc/java/lang/Object.hxx:45
     connectivity::SDBThreadAttach m_aGuard jvmaccess::class VirtualMachine::AttachGuard
-cppcanvas/source/mtfrenderer/textaction.cxx:809
+cppcanvas/source/mtfrenderer/textaction.cxx:811
     cppcanvas::internal::(anonymous namespace)::EffectTextAction maTextLineInfo const tools::TextLineInfo
-cppcanvas/source/mtfrenderer/textaction.cxx:1638
+cppcanvas/source/mtfrenderer/textaction.cxx:1644
     cppcanvas::internal::(anonymous namespace)::OutlineAction maTextLineInfo const tools::TextLineInfo
 cppu/source/threadpool/threadpool.cxx:354
     _uno_ThreadPool dummy sal_Int32
@@ -130,26 +128,26 @@ cppu/source/uno/check.cxx:134
     (anonymous namespace)::Char3 c3 char
 cppu/source/uno/check.cxx:138
     (anonymous namespace)::Char4 chars struct (anonymous namespace)::Char3
-cui/source/dialogs/colorpicker.cxx:719
+cui/source/dialogs/colorpicker.cxx:710
     cui::ColorPickerDialog m_aColorPrevious class cui::ColorPreviewControl
-cui/source/factory/dlgfact.cxx:1349
+cui/source/factory/dlgfact.cxx:1392
     SvxMacroAssignDialog m_aItems class SfxItemSet
-cui/source/inc/about.hxx:39
-    AboutDialog m_pCloseButton weld::Button *
-cui/source/inc/cfgutil.hxx:238
+cui/source/inc/cfgutil.hxx:236
     SvxScriptSelectorDialog m_aStylesInfo struct SfxStylesInfo_Impl
-cui/source/inc/cuitabarea.hxx:228
+cui/source/inc/cuitabarea.hxx:225
     SvxAreaTabPage maFixed_ChangeType enum ChangeType
-cui/source/inc/cuitabarea.hxx:236
+cui/source/inc/cuitabarea.hxx:233
     SvxAreaTabPage m_aXFillAttr class XFillAttrSetItem
-cui/source/inc/tabstpge.hxx:88
+cui/source/inc/tabstpge.hxx:85
     SvxTabulatorTabPage m_aLeftWin class TabWin_Impl
-cui/source/inc/tabstpge.hxx:89
+cui/source/inc/tabstpge.hxx:86
     SvxTabulatorTabPage m_aRightWin class TabWin_Impl
-cui/source/inc/tabstpge.hxx:90
+cui/source/inc/tabstpge.hxx:87
     SvxTabulatorTabPage m_aCenterWin class TabWin_Impl
-cui/source/inc/tabstpge.hxx:91
+cui/source/inc/tabstpge.hxx:88
     SvxTabulatorTabPage m_aDezWin class TabWin_Impl
+cui/source/options/optcolor.cxx:235
+    ColorConfigWindow_Impl::Entry m_aDefaultColor class Color
 dbaccess/source/core/api/RowSet.hxx:111
     dbaccess::ORowSet m_aURL class rtl::OUString
 dbaccess/source/core/api/RowSet.hxx:125
@@ -174,7 +172,7 @@ drawinglayer/source/tools/emfphelperdata.hxx:153
     emfplushelper::EmfPlusHelperData mnFrameRight sal_Int32
 drawinglayer/source/tools/emfphelperdata.hxx:154
     emfplushelper::EmfPlusHelperData mnFrameBottom sal_Int32
-editeng/source/editeng/impedit.hxx:462
+editeng/source/editeng/impedit.hxx:465
     ImpEditEngine aSelFuncSet class EditSelFunctionSet
 filter/source/flash/swfwriter.hxx:391
     swf::Writer maMovieTempFile utl::TempFile
@@ -198,11 +196,11 @@ include/drawinglayer/texture/texture3d.hxx:62
     drawinglayer::texture::GeoTexSvxBitmapEx maBitmap class Bitmap
 include/drawinglayer/texture/texture3d.hxx:64
     drawinglayer::texture::GeoTexSvxBitmapEx maTransparence class Bitmap
-include/filter/msfilter/svdfppt.hxx:881
+include/filter/msfilter/svdfppt.hxx:880
     ImplPPTParaPropSet nDontKnow1 sal_uInt32
-include/filter/msfilter/svdfppt.hxx:882
+include/filter/msfilter/svdfppt.hxx:881
     ImplPPTParaPropSet nDontKnow2 sal_uInt32
-include/filter/msfilter/svdfppt.hxx:883
+include/filter/msfilter/svdfppt.hxx:882
     ImplPPTParaPropSet nDontKnow2bit06 sal_uInt16
 include/LibreOfficeKit/LibreOfficeKitGtk.h:33
     _LOKDocView aDrawingArea GtkDrawingArea
@@ -354,6 +352,14 @@ include/vcl/commandevent.hxx:315
     CommandGestureData meOrientation const enum PanningOrientation
 include/vcl/font/Feature.hxx:102
     vcl::font::Feature m_eType const enum vcl::font::FeatureType
+include/vcl/NotebookBarAddonsMerger.hxx:37
+    NotebookBarAddonsItem aImage class Image
+include/vcl/NotebookBarAddonsMerger.hxx:44
+    AddonsParams sImageId class rtl::OUString
+include/vcl/NotebookBarAddonsMerger.hxx:45
+    AddonsParams sControlType class rtl::OUString
+include/vcl/NotebookBarAddonsMerger.hxx:46
+    AddonsParams nWidth sal_uInt16
 include/vcl/svimpbox.hxx:127
     SvImpLBox m_aFctSet class ImpLBSelEng
 include/xmloff/shapeimport.hxx:140
@@ -382,6 +388,8 @@ libreofficekit/qa/gtktiledviewer/gtv-lok-dialog.hxx:28
     GtvLokDialog parent GtkDialog
 libreofficekit/qa/gtktiledviewer/gtv-lok-dialog.hxx:33
     GtvLokDialogClass parentClass GtkDialogClass
+libreofficekit/qa/gtktiledviewer/gtv-main-toolbar.cxx:265
+      const std::string &
 libreofficekit/qa/gtktiledviewer/gtv-main-toolbar.hxx:28
     GtvMainToolbar parent GtkBox
 libreofficekit/qa/gtktiledviewer/gtv-main-toolbar.hxx:36
@@ -394,8 +402,6 @@ lotuswordpro/source/filter/bento.hxx:353
     OpenStormBento::CBenNamedObject cNameListElmt class OpenStormBento::CBenNamedObjectListElmt
 lotuswordpro/source/filter/clone.hxx:23
     detail::has_clone::(anonymous) a char [2]
-oox/source/drawingml/diagram/diagramlayoutatoms.hxx:211
-    oox::drawingml::ConditionAtom maIter struct oox::drawingml::IteratorAttr
 oox/source/drawingml/diagram/layoutnodecontext.cxx:91
     oox::drawingml::AlgorithmContext mnRevision sal_Int32
 oox/source/drawingml/diagram/layoutnodecontext.cxx:133
@@ -430,7 +436,7 @@ pyuno/source/module/pyuno_impl.hxx:223
     pyuno::(anonymous) ob_base PyObject
 pyuno/source/module/pyuno_impl.hxx:323
     pyuno::stRuntimeImpl ob_base PyObject
-reportdesign/source/core/api/ReportDefinition.cxx:241
+reportdesign/source/core/api/ReportDefinition.cxx:242
     reportdesign::OStyle m_aSize awt::Size
 sal/osl/unx/thread.cxx:91
     osl_thread_priority_st m_Highest int
@@ -450,17 +456,17 @@ sal/qa/osl/condition/osl_Condition.cxx:198
     osl_Condition::wait bRes2 _Bool
 sal/qa/osl/condition/osl_Condition.cxx:269
     osl_Condition::check bRes2 _Bool
-sal/qa/osl/file/osl_File.cxx:1586
-    osl_FileStatus::getFileType m_aVolumeItem class osl::DirectoryItem
-sal/qa/osl/file/osl_File.cxx:1586
+sal/qa/osl/file/osl_File.cxx:1584
     osl_FileStatus::getFileType m_aFifoItem class osl::DirectoryItem
-sal/qa/osl/file/osl_File.cxx:1587
+sal/qa/osl/file/osl_File.cxx:1584
+    osl_FileStatus::getFileType m_aVolumeItem class osl::DirectoryItem
+sal/qa/osl/file/osl_File.cxx:1585
     osl_FileStatus::getFileType m_aLinkItem class osl::DirectoryItem
-sal/qa/osl/file/osl_File.cxx:1587
+sal/qa/osl/file/osl_File.cxx:1585
     osl_FileStatus::getFileType m_aSocketItem class osl::DirectoryItem
-sal/qa/osl/file/osl_File.cxx:1587
+sal/qa/osl/file/osl_File.cxx:1585
     osl_FileStatus::getFileType m_aSpecialItem class osl::DirectoryItem
-sal/qa/osl/file/osl_File.cxx:3419
+sal/qa/osl/file/osl_File.cxx:3417
     osl_File::setAttributes rItem_hidden class osl::DirectoryItem
 sal/qa/osl/module/osl_Module.cxx:67
     osl_Module::ctors bRes1 _Bool
@@ -492,9 +498,9 @@ sal/qa/osl/security/osl_Security.cxx:59
     osl_Security::ctors bRes _Bool
 sal/qa/osl/security/osl_Security.cxx:124
     osl_Security::getUserIdent bRes1 _Bool
-sal/qa/osl/security/osl_Security.cxx:155
+sal/qa/osl/security/osl_Security.cxx:154
     osl_Security::getUserName bRes1 _Bool
-sal/qa/osl/security/osl_Security.cxx:189
+sal/qa/osl/security/osl_Security.cxx:188
     osl_Security::getConfigDir bRes1 _Bool
 sal/textenc/textenc.cxx:406
     (anonymous namespace)::FullTextEncodingData module_ osl::Module
@@ -526,7 +532,7 @@ sc/source/filter/inc/xetable.hxx:1005
     XclExpCellTable maArrayBfr class XclExpArrayBuffer
 sc/source/filter/inc/xetable.hxx:1006
     XclExpCellTable maShrfmlaBfr class XclExpShrfmlaBuffer
-sc/source/filter/inc/xiescher.hxx:1200
+sc/source/filter/inc/xiescher.hxx:1207
     XclImpDffPropSet maDummyStrm class SvMemoryStream
 sc/source/filter/inc/xihelper.hxx:328
     XclImpCachedValue mxTokArr XclImpCachedValue::ScTokenArrayPtr
@@ -542,7 +548,7 @@ sc/source/filter/xml/xmlexternaltabi.hxx:113
     ScXMLExternalRefCellContext mnCellType sal_Int16
 sc/source/filter/xml/xmltransformationi.hxx:155
     ScXMLDateTimeContext aType class rtl::OUString
-sc/source/ui/inc/acredlin.hxx:51
+sc/source/ui/inc/acredlin.hxx:50
     ScAcceptChgDlg aReOpenIdle class Idle
 sc/source/ui/inc/msgpool.hxx:35
     ScMessagePool aGlobalStringItem class SfxStringItem
@@ -566,7 +572,7 @@ sc/source/ui/inc/msgpool.hxx:44
     ScMessagePool aCondFormatDlgItem class ScCondFormatDlgItem
 sc/source/ui/inc/notemark.hxx:46
     ScNoteMarker m_aTimer class Timer
-sc/source/ui/inc/PivotLayoutTreeListBase.hxx:49
+sc/source/ui/inc/PivotLayoutTreeListBase.hxx:48
     ScPivotLayoutTreeListBase maDropTargetHelper class ScPivotLayoutTreeDropTarget
 sc/source/ui/inc/xmlsourcedlg.hxx:62
     ScXMLSourceDlg maCustomCompare struct CustomCompare
@@ -586,20 +592,20 @@ sd/source/ui/inc/AccessibleDocumentViewBase.hxx:263
     accessibility::AccessibleDocumentViewBase maViewForwarder class accessibility::AccessibleViewForwarder
 sd/source/ui/remotecontrol/Receiver.hxx:35
     sd::Receiver pTransmitter class sd::Transmitter *
-sd/source/ui/remotecontrol/ZeroconfService.hxx:36
+sd/source/ui/remotecontrol/ZeroconfService.hxx:34
     sd::ZeroconfService port const uint
 sd/source/ui/table/TableDesignPane.hxx:100
     sd::TableDesignPane aImpl const class sd::TableDesignWidget
-sd/source/ui/view/DocumentRenderer.cxx:1319
+sd/source/ui/view/DocumentRenderer.cxx:1340
     sd::DocumentRenderer::Implementation mxObjectShell const SfxObjectShellRef
-sd/source/ui/view/viewshel.cxx:1165
-    sd::KeepSlideSorterInSyncWithPageChanges m_aDrawLock const sd::slidesorter::view::class SlideSorterView::DrawLock
-sd/source/ui/view/viewshel.cxx:1166
-    sd::KeepSlideSorterInSyncWithPageChanges m_aModelLock const sd::slidesorter::controller::class SlideSorterController::ModelChangeLock
-sd/source/ui/view/viewshel.cxx:1167
-    sd::KeepSlideSorterInSyncWithPageChanges m_aUpdateLock const sd::slidesorter::controller::class PageSelector::UpdateLock
-sd/source/ui/view/viewshel.cxx:1168
-    sd::KeepSlideSorterInSyncWithPageChanges m_aContext const sd::slidesorter::controller::class SelectionObserver::Context
+sd/source/ui/view/viewshel.cxx:1159
+    sd::KeepSlideSorterInSyncWithPageChanges m_aDrawLock sd::slidesorter::view::class SlideSorterView::DrawLock
+sd/source/ui/view/viewshel.cxx:1160
+    sd::KeepSlideSorterInSyncWithPageChanges m_aModelLock sd::slidesorter::controller::class SlideSorterController::ModelChangeLock
+sd/source/ui/view/viewshel.cxx:1161
+    sd::KeepSlideSorterInSyncWithPageChanges m_aUpdateLock sd::slidesorter::controller::class PageSelector::UpdateLock
+sd/source/ui/view/viewshel.cxx:1162
+    sd::KeepSlideSorterInSyncWithPageChanges m_aContext sd::slidesorter::controller::class SelectionObserver::Context
 sdext/source/pdfimport/pdfparse/pdfparse.cxx:262
     PDFGrammar::definition comment rule<ScannerT>
 sdext/source/pdfimport/pdfparse/pdfparse.cxx:262
@@ -642,6 +648,8 @@ sdext/source/pdfimport/pdfparse/pdfparse.cxx:265
     PDFGrammar::definition xref rule<ScannerT>
 sfx2/inc/autoredactdialog.hxx:105
     SfxAutoRedactDialog m_xDocShell class SfxObjectShellLock
+sfx2/source/dialog/basedlgs.cxx:55
+    SfxModelessDialog_Impl aMoveIdle class Idle
 sfx2/source/doc/doctempl.cxx:117
     DocTempl::DocTempl_EntryData_Impl mxObjShell const class SfxObjectShellLock
 slideshow/source/engine/animationnodes/animationbasenode.hxx:90
@@ -714,7 +722,9 @@ svx/source/dialog/framelinkarray.cxx:381
     svx::frame::MergedCellIterator mnFirstRow size_t
 svx/source/dialog/imapwnd.hxx:87
     IMapWindow maItemInfos struct SfxItemInfo [1]
-svx/source/gallery2/galbrws2.cxx:116
+svx/source/dialog/weldeditview.cxx:300
+    WeldEditSource m_rEditAcc class WeldEditAccessible &
+svx/source/gallery2/galbrws2.cxx:114
     (anonymous namespace)::GalleryThemePopup maBuilder class VclBuilder
 svx/source/stbctrls/pszctrl.cxx:99
     FunctionPopup_Impl m_aBuilder class VclBuilder
@@ -730,13 +740,11 @@ sw/inc/unosett.hxx:145
     SwXNumberingRules m_pImpl ::sw::UnoImplPtr<Impl>
 sw/qa/core/test_ToxTextGenerator.cxx:139
     ToxTextGeneratorWithMockedChapterField mChapterFieldType class SwChapterFieldType
-sw/qa/extras/layout/layout.cxx:2608
-      class SvtSysLocaleOptions &
-sw/qa/extras/uiwriter/uiwriter.cxx:4078
+sw/qa/extras/uiwriter/uiwriter.cxx:4065
     IdleTask maIdle class Idle
-sw/source/core/crsr/crbm.cxx:66
+sw/source/core/crsr/crbm.cxx:64
     (anonymous namespace)::CursorStateHelper m_aSaveState const class SwCursorSaveState
-sw/source/core/inc/swfont.hxx:985
+sw/source/core/inc/swfont.hxx:988
     SvStatistics nGetStretchTextSize sal_uInt16
 sw/source/core/layout/dbg_lay.cxx:172
     SwImplEnterLeave nAction const enum DbgAction
@@ -744,21 +752,19 @@ sw/source/core/text/inftxt.hxx:679
     SwTextSlot aText class rtl::OUString
 sw/source/core/text/porfld.cxx:143
     SwFieldSlot aText class rtl::OUString
-sw/source/ui/dbui/mmaddressblockpage.hxx:208
-    SwCustomizeAddressBlockDialog m_aTextFilter class TextFilter
-sw/source/uibase/docvw/romenu.hxx:35
+sw/source/uibase/docvw/romenu.hxx:34
     SwReadOnlyPopup m_aBuilder class VclBuilder
-sw/source/uibase/inc/condedit.hxx:44
+sw/source/uibase/inc/condedit.hxx:43
     ConditionEdit m_aDropTargetHelper class ConditionEditDropTarget
-sw/source/uibase/inc/olmenu.hxx:77
+sw/source/uibase/inc/olmenu.hxx:78
     SwSpellPopup m_aBuilder class VclBuilder
-sw/source/uibase/inc/olmenu.hxx:86
+sw/source/uibase/inc/olmenu.hxx:87
     SwSpellPopup m_nLangParaMenuId const sal_uInt16
-sw/source/uibase/inc/swuicnttab.hxx:242
+sw/source/uibase/inc/swuicnttab.hxx:239
     SwTokenWindow m_aAdjustPositionsIdle class Idle
-sw/source/uibase/inc/uivwimp.hxx:95
+sw/source/uibase/inc/uivwimp.hxx:93
     SwView_Impl xTmpSelDocSh const class SfxObjectShellLock
-sw/source/uibase/inc/unodispatch.hxx:46
+sw/source/uibase/inc/unodispatch.hxx:45
     SwXDispatchProviderInterceptor::DispatchMutexLock_Impl aGuard const class SolarMutexGuard
 toolkit/source/awt/stylesettings.cxx:92
     toolkit::StyleMethodGuard m_aGuard const class SolarMutexGuard
@@ -772,23 +778,23 @@ ucb/source/ucp/gio/gio_mount.hxx:79
     OOoMountOperationClass _gtk_reserved3 void (*)(void)
 ucb/source/ucp/gio/gio_mount.hxx:80
     OOoMountOperationClass _gtk_reserved4 void (*)(void)
-vcl/headless/svpgdi.cxx:311
+vcl/headless/svpgdi.cxx:314
     (anonymous namespace)::SourceHelper aTmpBmp class SvpSalBitmap
 vcl/inc/canvasbitmap.hxx:42
     vcl::unotools::VclCanvasBitmap m_aAlpha ::Bitmap
-vcl/inc/graphic/Manager.hxx:40
+vcl/inc/graphic/Manager.hxx:41
     vcl::graphic::Manager maSwapOutTimer class Timer
 vcl/inc/opengl/RenderList.hxx:29
     Vertex color glm::vec4
 vcl/inc/opengl/RenderList.hxx:30
     Vertex lineData glm::vec4
-vcl/inc/opengl/zone.hxx:46
+vcl/inc/opengl/zone.hxx:58
     OpenGLVCLContextZone aZone const class OpenGLZone
-vcl/inc/qt5/Qt5FilePicker.hxx:82
+vcl/inc/qt5/Qt5FilePicker.hxx:84
     Qt5FilePicker m_pFilenameLabel class QLabel *
-vcl/inc/qt5/Qt5FilePicker.hxx:83
+vcl/inc/qt5/Qt5FilePicker.hxx:85
     Qt5FilePicker m_pFilterLabel class QLabel *
-vcl/inc/qt5/Qt5Graphics.hxx:61
+vcl/inc/qt5/Qt5Graphics.hxx:58
     Qt5Graphics m_lastPopupRect class QRect
 vcl/inc/salmenu.hxx:42
     SalMenuButtonItem mnId sal_uInt16
@@ -796,19 +802,19 @@ vcl/inc/salmenu.hxx:43
     SalMenuButtonItem maImage class Image
 vcl/inc/salmenu.hxx:44
     SalMenuButtonItem maToolTipText class rtl::OUString
-vcl/inc/unx/i18n_ic.hxx:41
+vcl/inc/unx/i18n_ic.hxx:40
     SalI18N_InputContext maPreeditStartCallback XIMCallback
-vcl/inc/unx/i18n_ic.hxx:42
+vcl/inc/unx/i18n_ic.hxx:41
     SalI18N_InputContext maPreeditDoneCallback XIMCallback
-vcl/inc/unx/i18n_ic.hxx:43
+vcl/inc/unx/i18n_ic.hxx:42
     SalI18N_InputContext maPreeditDrawCallback XIMCallback
-vcl/inc/unx/i18n_ic.hxx:44
+vcl/inc/unx/i18n_ic.hxx:43
     SalI18N_InputContext maPreeditCaretCallback XIMCallback
-vcl/inc/unx/i18n_ic.hxx:45
+vcl/inc/unx/i18n_ic.hxx:44
     SalI18N_InputContext maCommitStringCallback XIMCallback
-vcl/inc/unx/i18n_ic.hxx:46
+vcl/inc/unx/i18n_ic.hxx:45
     SalI18N_InputContext maSwitchIMCallback XIMCallback
-vcl/inc/unx/i18n_ic.hxx:47
+vcl/inc/unx/i18n_ic.hxx:46
     SalI18N_InputContext maDestroyCallback XIMCallback
 vcl/inc/WidgetThemeLibrary.hxx:87
     vcl::ControlDrawParameters nSize uint32_t
@@ -820,30 +826,32 @@ vcl/inc/WidgetThemeLibrary.hxx:90
     vcl::ControlDrawParameters eState enum ControlState
 vcl/inc/WidgetThemeLibrary.hxx:106
     vcl::WidgetThemeLibrary_t nSize uint32_t
-vcl/source/app/salvtables.cxx:2430
+vcl/source/app/salvtables.cxx:3040
     SalInstanceEntry m_aTextFilter class (anonymous namespace)::WeldTextFilter
-vcl/source/app/salvtables.cxx:4861
+vcl/source/app/salvtables.cxx:5527
     SalInstanceComboBoxWithEdit m_aTextFilter class (anonymous namespace)::WeldTextFilter
-vcl/source/gdi/jobset.cxx:36
+vcl/source/gdi/jobset.cxx:35
     ImplOldJobSetupData cDeviceName char [32]
-vcl/source/gdi/jobset.cxx:37
+vcl/source/gdi/jobset.cxx:36
     ImplOldJobSetupData cPortName char [32]
-vcl/unx/gtk3/gtk3gtkinst.cxx:3532
-    CrippledViewport viewport GtkViewport
-vcl/unx/gtk/a11y/atkhypertext.cxx:29
-    HyperLink atk_hyper_link const AtkHyperlink
-vcl/unx/gtk/a11y/atkwrapper.hxx:49
+vcl/source/gdi/pdfbuildin_fonts.hxx:34
+    vcl::pdf::BuildinFont m_nAscent const int
+vcl/source/gdi/pdfbuildin_fonts.hxx:35
+    vcl::pdf::BuildinFont m_nDescent const int
+vcl/source/gdi/pdfbuildin_fonts.hxx:42
+    vcl::pdf::BuildinFont m_aWidths const int [256]
+vcl/unx/gtk3/a11y/atkwrapper.hxx:47
     AtkObjectWrapper aParent const AtkObject
-vcl/unx/gtk/a11y/atkwrapper.hxx:80
-    AtkObjectWrapperClass aParentClass const AtkObjectClass
-vcl/unx/gtk/gloactiongroup.cxx:30
+vcl/unx/gtk3/a11y/atkwrapper.hxx:75
+    AtkObjectWrapperClass aParentClass GtkWidgetAccessibleClass
+vcl/unx/gtk3/a11y/gtk3atkhypertext.cxx:29
+    HyperLink atk_hyper_link const AtkHyperlink
+vcl/unx/gtk3/gtk3gloactiongroup.cxx:28
     GLOAction parent_instance GObject
-vcl/unx/gtk/glomenu.cxx:20
+vcl/unx/gtk3/gtk3glomenu.cxx:17
     GLOMenu parent_instance const GMenuModel
-vcl/unx/kde5/KDE5FilePicker.hxx:32
-    KDE5FilePicker _layout class QGridLayout *
-vcl/unx/kde5/KDE5FilePicker.hxx:34
-    KDE5FilePicker allowRemoteUrls _Bool
+vcl/unx/gtk3/gtk3gtkinst.cxx:4697
+    CrippledViewport viewport GtkViewport
 writerfilter/source/dmapper/PropertyMap.hxx:198
     writerfilter::dmapper::SectionPropertyMap m_nDebugSectionNumber sal_Int32
 xmloff/source/text/XMLTextListBlockContext.hxx:35

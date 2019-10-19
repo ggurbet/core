@@ -280,6 +280,8 @@ void SwFlyFrame::DestroyImpl()
 
     if( GetFormat() && !GetFormat()->GetDoc()->IsInDtor() )
     {
+        ClearTmpConsiderWrapInfluence(); // remove this from SwLayouter
+
         // OD 2004-01-19 #110582#
         Unchain();
 
@@ -641,18 +643,16 @@ void SwFlyFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem * pNew )
     {
         SfxItemIter aNIter( *static_cast<const SwAttrSetChg*>(pNew)->GetChgSet() );
         SfxItemIter aOIter( *static_cast<const SwAttrSetChg*>(pOld)->GetChgSet() );
+        const SfxPoolItem* pNItem = aNIter.GetCurItem();
+        const SfxPoolItem* pOItem = aOIter.GetCurItem();
         SwAttrSetChg aOldSet( *static_cast<const SwAttrSetChg*>(pOld) );
         SwAttrSetChg aNewSet( *static_cast<const SwAttrSetChg*>(pNew) );
-        while( true )
+        do
         {
-            UpdateAttr_( aOIter.GetCurItem(),
-                         aNIter.GetCurItem(), nInvFlags,
-                         &aOldSet, &aNewSet );
-            if( aNIter.IsAtEnd() )
-                break;
-            aNIter.NextItem();
-            aOIter.NextItem();
-        }
+            UpdateAttr_(pOItem, pNItem, nInvFlags, &aOldSet, &aNewSet);
+            pNItem = aNIter.NextItem();
+            pOItem = aOIter.NextItem();
+        } while (pNItem);
         if ( aOldSet.Count() || aNewSet.Count() )
             SwLayoutFrame::Modify( &aOldSet, &aNewSet );
     }
@@ -1271,7 +1271,7 @@ void SwFlyFrame::Format( vcl::RenderContext* /*pRenderContext*/, const SwBorderA
                 if (SdrObjCustomShape* pCustomShape = dynamic_cast<SdrObjCustomShape*>( pShape) )
                 {
                     // The shape is a customshape: then inform it about the calculated fly size.
-                    Size aSize(aRectFnSet.GetWidth(getFrameArea()), aRectFnSet.GetHeight(getFrameArea()));
+                    Size aSize(getFrameArea().Width(), getFrameArea().Height());
                     pCustomShape->SuggestTextFrameSize(aSize);
                     // Do the calculations normally done after touching editeng text of the shape.
                     pCustomShape->NbcSetOutlinerParaObjectForText(nullptr, nullptr);
@@ -2754,14 +2754,14 @@ const SwFrameFormat& SwFlyFrame::GetFrameFormat() const
     return *GetFormat();
 }
 
-const SwRect SwFlyFrame::GetObjRect() const
+SwRect SwFlyFrame::GetObjRect() const
 {
     return getFrameArea();
 }
 
 // #i70122#
 // for Writer fly frames the bounding rectangle equals the object rectangles
-const SwRect SwFlyFrame::GetObjBoundRect() const
+SwRect SwFlyFrame::GetObjBoundRect() const
 {
     return GetObjRect();
 }

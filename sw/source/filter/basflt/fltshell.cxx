@@ -764,16 +764,6 @@ void SwFltControlStack::SetAttrInDoc(const SwPosition& rTmpPos,
                                               | RedlineFlags::ShowDelete );
                 SwFltRedline& rFltRedline = *static_cast<SwFltRedline*>(rEntry.pAttr.get());
 
-                if( SwFltRedline::NoPrevAuthor != rFltRedline.nAutorNoPrev )
-                {
-                    SwRedlineData aData(rFltRedline.eTypePrev,
-                                        rFltRedline.nAutorNoPrev,
-                                        rFltRedline.aStampPrev,
-                                        OUString(),
-                                        nullptr
-                                        );
-                    pDoc->getIDocumentRedlineAccess().AppendRedline(new SwRangeRedline(aData, aRegion), true);
-                }
                 SwRedlineData aData(rFltRedline.eType,
                                     rFltRedline.nAutorNo,
                                     rFltRedline.aStamp,
@@ -953,15 +943,15 @@ void SwFltControlStack::Delete(const SwPaM &rPam)
 SwFltAnchor::SwFltAnchor(SwFrameFormat* pFormat) :
     SfxPoolItem(RES_FLTR_ANCHOR), pFrameFormat(pFormat)
 {
-    pClient.reset( new SwFltAnchorClient(this) );
-    pFrameFormat->Add(pClient.get());
+    pListener.reset(new SwFltAnchorListener(this));
+    pListener->StartListening(pFrameFormat->GetNotifier());
 }
 
 SwFltAnchor::SwFltAnchor(const SwFltAnchor& rCpy) :
     SfxPoolItem(RES_FLTR_ANCHOR), pFrameFormat(rCpy.pFrameFormat)
 {
-    pClient.reset( new SwFltAnchorClient(this) );
-    pFrameFormat->Add(pClient.get());
+    pListener.reset(new SwFltAnchorListener(this));
+    pListener->StartListening(pFrameFormat->GetNotifier());
 }
 
 SwFltAnchor::~SwFltAnchor()
@@ -976,7 +966,8 @@ void SwFltAnchor::SetFrameFormat(SwFrameFormat * _pFrameFormat)
 
 bool SwFltAnchor::operator==(const SfxPoolItem& rItem) const
 {
-    return pFrameFormat == static_cast<const SwFltAnchor&>(rItem).pFrameFormat;
+    return SfxPoolItem::operator==(rItem) &&
+        pFrameFormat == static_cast<const SwFltAnchor&>(rItem).pFrameFormat;
 }
 
 SfxPoolItem* SwFltAnchor::Clone(SfxItemPool*) const
@@ -984,31 +975,28 @@ SfxPoolItem* SwFltAnchor::Clone(SfxItemPool*) const
     return new SwFltAnchor(*this);
 }
 
-SwFltAnchorClient::SwFltAnchorClient(SwFltAnchor * pFltAnchor)
-: m_pFltAnchor(pFltAnchor)
-{
-}
+SwFltAnchorListener::SwFltAnchorListener(SwFltAnchor* pFltAnchor)
+    : m_pFltAnchor(pFltAnchor)
+{ }
 
-void  SwFltAnchorClient::Modify(const SfxPoolItem *, const SfxPoolItem * pNew)
+void SwFltAnchorListener::Notify(const SfxHint& rHint)
 {
-    if (pNew->Which() == RES_FMT_CHG)
+    if(auto pLegacyHint = dynamic_cast<const sw::LegacyModifyHint*>(&rHint))
     {
-        const SwFormatChg * pFormatChg = dynamic_cast<const SwFormatChg *> (pNew);
-
-        if (pFormatChg != nullptr)
-        {
-            SwFrameFormat * pFrameFormat = dynamic_cast<SwFrameFormat *> (pFormatChg->pChangedFormat);
-
-            if (pFrameFormat != nullptr)
-                m_pFltAnchor->SetFrameFormat(pFrameFormat);
-        }
+        if(pLegacyHint->m_pNew->Which() != RES_FMT_CHG)
+            return;
+        auto pFormatChg = dynamic_cast<const SwFormatChg*>(pLegacyHint->m_pNew);
+        auto pFrameFormat = pFormatChg ? dynamic_cast<SwFrameFormat*>(pFormatChg->pChangedFormat) : nullptr;
+        if(pFrameFormat)
+            m_pFltAnchor->SetFrameFormat(pFrameFormat);
     }
 }
 
 // methods of SwFltRedline follow
 bool SwFltRedline::operator==(const SfxPoolItem& rItem) const
 {
-    return this == &rItem;
+    return SfxPoolItem::operator==(rItem) &&
+        this == &rItem;
 }
 
 SfxPoolItem* SwFltRedline::Clone( SfxItemPool* ) const
@@ -1040,8 +1028,9 @@ SwFltBookmark::SwFltBookmark( const OUString& rNa, const OUString& rVa,
 
 bool SwFltBookmark::operator==(const SfxPoolItem& rItem) const
 {
-    return ( maName == static_cast<const SwFltBookmark&>(rItem).maName)
-            && (mnHandle == static_cast<const SwFltBookmark&>(rItem).mnHandle);
+    return SfxPoolItem::operator==(rItem)
+        && maName == static_cast<const SwFltBookmark&>(rItem).maName
+        && mnHandle == static_cast<const SwFltBookmark&>(rItem).mnHandle;
 }
 
 SfxPoolItem* SwFltBookmark::Clone(SfxItemPool*) const
@@ -1099,7 +1088,8 @@ SwFltTOX::SwFltTOX(SwTOXBase* pBase)
 
 bool SwFltTOX::operator==(const SfxPoolItem& rItem) const
 {
-    return m_xTOXBase.get() == static_cast<const SwFltTOX&>(rItem).m_xTOXBase.get();
+    return SfxPoolItem::operator==(rItem) &&
+        m_xTOXBase.get() == static_cast<const SwFltTOX&>(rItem).m_xTOXBase.get();
 }
 
 SfxPoolItem* SwFltTOX::Clone(SfxItemPool*) const

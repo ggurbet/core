@@ -22,22 +22,15 @@
 
 #include <unx/freetype_glyphcache.hxx>
 
-#include <vcl/svapp.hxx>
 #include <fontinstance.hxx>
-#include <impglyphitem.hxx>
-#include <impfont.hxx>
 #include <fontattributes.hxx>
 
-#include <config_features.h>
 #include <unotools/fontdefs.hxx>
 
 #include <tools/poly.hxx>
-#include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 
-#include <osl/file.hxx>
-#include <osl/thread.hxx>
 #include <sal/log.hxx>
 
 #include <langboost.hxx>
@@ -52,8 +45,6 @@
 #include FT_SIZES_H
 #include FT_SYNTHESIS_H
 #include FT_TRUETYPE_TABLES_H
-#include FT_TRUETYPE_TAGS_H
-#include FT_TRUETYPE_IDS_H
 
 #include <rtl/instance.hxx>
 
@@ -67,7 +58,6 @@
 #include <sys/mman.h>
 #include <unx/fontmanager.hxx>
 #include <impfontcharmap.hxx>
-#include <impfontcache.hxx>
 
 static FT_Library aLibFT = nullptr;
 
@@ -324,6 +314,26 @@ void GlyphCache::InitFreetype()
     (void)vclFontFileList::get();
 }
 
+namespace
+{
+    bool DoesAlmostHorizontalDrainRenderingPool()
+    {
+        FT_Int nMajor, nMinor, nPatch;
+        FT_Library_Version(aLibFT, &nMajor, &nMinor, &nPatch);
+        if (nMajor > 2)
+            return false;
+        if (nMajor == 2 && nMinor <= 8)
+            return true;
+        return false;
+    }
+}
+
+bool FreetypeFont::AlmostHorizontalDrainsRenderingPool()
+{
+    static bool bAlmostHorizontalDrainsRenderingPool = DoesAlmostHorizontalDrainRenderingPool();
+    return bAlmostHorizontalDrainsRenderingPool;
+}
+
 FT_Face FreetypeFont::GetFtFace() const
 {
     FT_Activate_Size( maSizeFT );
@@ -427,7 +437,7 @@ FreetypeFont::FreetypeFont(LogicalFontInstance* pFontInstance, FreetypeFontInfo*
     if( !mnWidth )
         mnWidth = rFSD.mnHeight;
     mfStretch = static_cast<double>(mnWidth) / rFSD.mnHeight;
-    // sanity check (e.g. #i66394#, #i66244#, #66537#)
+    // sanity check (e.g. #i66394#, #i66244#, #i66537#)
     if( (mnWidth < 0) || (mfStretch > +64.0) || (mfStretch < -64.0) )
         return;
 
@@ -436,18 +446,15 @@ FreetypeFont::FreetypeFont(LogicalFontInstance* pFontInstance, FreetypeFontInfo*
 
     FT_New_Size( maFaceFT, &maSizeFT );
     FT_Activate_Size( maSizeFT );
-    FT_Error rc = FT_Set_Pixel_Sizes( maFaceFT, mnWidth, rFSD.mnHeight );
-    if( rc != FT_Err_Ok )
-        return;
+    /* This might fail for color bitmap fonts, but that is fine since we will
+     * not need any glyph data from FreeType in this case */
+    /*FT_Error rc = */ FT_Set_Pixel_Sizes( maFaceFT, mnWidth, rFSD.mnHeight );
 
     FT_Select_Charmap(maFaceFT, FT_ENCODING_UNICODE);
 
     if( mpFontInfo->IsSymbolFont() )
     {
         FT_Encoding eEncoding = FT_ENCODING_MS_SYMBOL;
-        if (!FT_IS_SFNT(maFaceFT))
-            eEncoding = FT_ENCODING_ADOBE_CUSTOM; // freetype wants this for PS symbol fonts
-
         FT_Select_Charmap(maFaceFT, eEncoding);
     }
 
@@ -532,15 +539,7 @@ void FreetypeFont::GetFontMetric(ImplFontMetricDataRef const & rxTo) const
 
     FT_Activate_Size( maSizeFT );
 
-    sal_uLong nHhea = 0;
-    const uint8_t* pHheaBuf = mpFontInfo->GetTable("hhea", &nHhea);
-    const std::vector<uint8_t> rHhea(pHheaBuf, pHheaBuf + nHhea);
-
-    sal_uLong nOS2 = 0;
-    const uint8_t* pOS2Buf = mpFontInfo->GetTable("OS/2", &nOS2);
-    const std::vector<uint8_t> rOS2(pOS2Buf, pOS2Buf + nOS2);
-
-    rxTo->ImplCalcLineSpacing(rHhea, rOS2, maFaceFT->units_per_EM);
+    rxTo->ImplCalcLineSpacing(mpFontInstance.get());
 
     rxTo->SetSlant( 0 );
     rxTo->SetWidth( mnWidth );
@@ -682,10 +681,9 @@ bool FreetypeFont::GetAntialiasAdvice() const
 
 // determine unicode ranges in font
 
-const FontCharMapRef FreetypeFont::GetFontCharMap() const
+FontCharMapRef FreetypeFont::GetFontCharMap() const
 {
-    const FontCharMapRef xFCMap = mpFontInfo->GetFontCharMap();
-    return xFCMap;
+    return mpFontInfo->GetFontCharMap();
 }
 
 const FontCharMapRef& FreetypeFontInfo::GetFontCharMap()
@@ -696,8 +694,11 @@ const FontCharMapRef& FreetypeFontInfo::GetFontCharMap()
 
     // get the charmap and cache it
     CmapResult aCmapResult;
-    bool bOK = GetFontCodeRanges( aCmapResult );
-    if( bOK )
+    aCmapResult.mbSymbolic = IsSymbolFont();
+
+    sal_uLong nLength = 0;
+    const unsigned char* pCmap = GetTable("cmap", &nLength);
+    if (pCmap && (nLength > 0) && ParseCMAP(pCmap, nLength, aCmapResult))
     {
         FontCharMapRef xFontCharMap( new FontCharMap ( aCmapResult ) );
         mxFontCharMap = xFontCharMap;
@@ -709,55 +710,6 @@ const FontCharMapRef& FreetypeFontInfo::GetFontCharMap()
     }
     // mxFontCharMap on either branch now has a refcount of 1
     return mxFontCharMap;
-}
-
-// TODO: merge into method GetFontCharMap()
-bool FreetypeFontInfo::GetFontCodeRanges( CmapResult& rResult ) const
-{
-    rResult.mbSymbolic = IsSymbolFont();
-
-    // TODO: is the full CmapResult needed on platforms calling this?
-    if( FT_IS_SFNT( maFaceFT ) )
-    {
-        sal_uLong nLength = 0;
-        const unsigned char* pCmap = GetTable( "cmap", &nLength );
-        if( pCmap && (nLength > 0) )
-            if( ParseCMAP( pCmap, nLength, rResult ) )
-                return true;
-    }
-
-    std::vector<sal_uInt32> aCodes;
-
-    // FT's coverage is available since FT>=2.1.0 (OOo-baseline>=2.1.4 => ok)
-    aCodes.reserve( 0x1000 );
-    FT_UInt nGlyphIndex;
-    for( sal_uInt32 cCode = FT_Get_First_Char( maFaceFT, &nGlyphIndex );; )
-    {
-        if( !nGlyphIndex )
-            break;
-        aCodes.push_back( cCode );  // first code inside range
-        sal_uInt32 cNext;
-        do cNext = FT_Get_Next_Char( maFaceFT, cCode, &nGlyphIndex ); while( cNext == ++cCode );
-        aCodes.push_back( cCode );  // first code outside range
-        cCode = cNext;
-    }
-
-    const int nCount = aCodes.size();
-    if( !nCount) {
-        if( !rResult.mbSymbolic )
-            return false;
-
-        // we usually get here for Type1 symbol fonts
-        aCodes.push_back( 0xF020 );
-        aCodes.push_back( 0xF100 );
-    }
-
-    sal_uInt32* pCodes = new sal_uInt32[ nCount ];
-    for( int i = 0; i < nCount; ++i )
-        pCodes[i] = aCodes[i];
-    rResult.mpRangeCodes = pCodes;
-    rResult.mnRangeCount = nCount / 2;
-    return true;
 }
 
 bool FreetypeFont::GetFontCapabilities(vcl::FontCapabilities &rFontCapabilities) const
@@ -851,7 +803,7 @@ void PolyArgs::ClosePolygon()
     tools::Polygon aPoly( mnPoints, mpPointAry.get(), (bHasOffline ? mpFlagAry.get() : nullptr) );
 
     // #i35928#
-    // This may be a invalid polygons, e.g. the last point is a control point.
+    // This may be an invalid polygon, e.g. the last point is a control point.
     // So close the polygon (and add the first point again) if the last point
     // is a control point or different from first.
     // #i48298#

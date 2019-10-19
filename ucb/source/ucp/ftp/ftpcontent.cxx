@@ -41,6 +41,9 @@
 #include "curl.hxx"
 #include <curl/easy.h>
 #include <comphelper/propertysequence.hxx>
+#include <cppuhelper/queryinterface.hxx>
+#include <cppuhelper/supportsservice.hxx>
+#include <cppuhelper/typeprovider.hxx>
 #include <ucbhelper/cancelcommandexecution.hxx>
 #include <ucbhelper/contentidentifier.hxx>
 #include <ucbhelper/fd_inputstream.hxx>
@@ -169,7 +172,7 @@ css::uno::Sequence< css::uno::Type > SAL_CALL FTPContent::getTypes()
 
 OUString SAL_CALL FTPContent::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.FTPContent");
+    return "com.sun.star.comp.FTPContent";
 }
 
 sal_Bool SAL_CALL FTPContent::supportsService( const OUString& ServiceName )
@@ -188,7 +191,7 @@ css::uno::Sequence< OUString > SAL_CALL FTPContent::getSupportedServiceNames()
 // virtual
 OUString SAL_CALL FTPContent::getContentType()
 {
-    return OUString(FTP_CONTENT_TYPE);
+    return FTP_CONTENT_TYPE;
 }
 
 // XCommandProcessor methods.

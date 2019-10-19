@@ -102,7 +102,7 @@ void SAL_CALL ShellExec::execute( const OUString& aCommand, const OUString& aPar
         css::uri::UriReferenceFactory::create(m_xContext)->parse(aCommand));
     if (uri.is() && uri->isAbsolute())
     {
-        // It seems to be a url ..
+        // It seems to be a URL...
         // We need to re-encode file urls because osl_getFileURLFromSystemPath converts
         // to UTF-8 before encoding non ascii characters, which is not what other apps
         // expect.
@@ -182,7 +182,7 @@ void SAL_CALL ShellExec::execute( const OUString& aCommand, const OUString& aPar
 
         if ( pDesktopLaunch && *pDesktopLaunch )
         {
-            aLaunchBuffer.append( OString(pDesktopLaunch) + " ");
+            aLaunchBuffer.append( pDesktopLaunch + OStringLiteral(" "));
             escapeForShell(aLaunchBuffer, OUStringToOString(aURL, osl_getThreadTextEncoding()));
         }
     } else if ((nFlags & css::system::SystemShellExecuteFlags::URIS_ONLY) != 0)
@@ -237,7 +237,7 @@ void SAL_CALL ShellExec::execute( const OUString& aCommand, const OUString& aPar
 
 OUString SAL_CALL ShellExec::getImplementationName(  )
 {
-    return OUString("com.sun.star.comp.system.SystemShellExecute");
+    return "com.sun.star.comp.system.SystemShellExecute";
 }
 
 sal_Bool SAL_CALL ShellExec::supportsService( const OUString& ServiceName )

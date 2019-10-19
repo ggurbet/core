@@ -18,17 +18,13 @@
  */
 
 #include <memory>
-#include <sfx2/app.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/printer.hxx>
-#include <vcl/graph.hxx>
 #include <sfx2/viewsh.hxx>
-#include <svl/itemiter.hxx>
 #include <svl/languageoptions.hxx>
 #include <svtools/unitconv.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <unotools/configitem.hxx>
 #include <sfx2/htmlmode.hxx>
 #include <sal/macros.h>
 
@@ -46,7 +42,6 @@
 #include <editeng/frmdiritem.hxx>
 #include <svx/dlgutil.hxx>
 #include <editeng/paperinf.hxx>
-#include <sfx2/module.hxx>
 #include <svl/stritem.hxx>
 #include <editeng/eerdll.hxx>
 #include <editeng/editrids.hrc>
@@ -54,14 +49,14 @@
 #include <svtools/optionsdrawinglayer.hxx>
 #include <svl/slstitm.hxx>
 #include <svl/aeitem.hxx>
-#include <sfx2/request.hxx>
 #include <svx/xdef.hxx>
 #include <svx/unobrushitemhelper.hxx>
 #include <svx/SvxNumOptionsTabPageHelper.hxx>
 
 // static ----------------------------------------------------------------
 
-static const long MINBODY       = 284;  // 0,5 cm rounded up in twips
+// #i19922# - tdf#126051 see svx/source/dialog/hdft.cxx and sw/source/uibase/sidebar/PageMarginControl.hxx
+static const long MINBODY = 56;  // 1mm in twips rounded
 
 const sal_uInt16 SvxPageDescPage::pRanges[] =
 {
@@ -138,13 +133,13 @@ static bool IsEqualSize_Impl( const SvxSizeItem* pSize, const Size& rSize )
 
 // class SvxPageDescPage --------------------------------------------------
 
-VclPtr<SfxTabPage> SvxPageDescPage::Create( TabPageParent pParent, const SfxItemSet* rSet )
+std::unique_ptr<SfxTabPage> SvxPageDescPage::Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxPageDescPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxPageDescPage>(pPage, pController, *rSet);
 }
 
-SvxPageDescPage::SvxPageDescPage(TabPageParent pParent, const SfxItemSet& rAttr)
-    : SfxTabPage(pParent, "cui/ui/pageformatpage.ui", "PageFormatPage", &rAttr)
+SvxPageDescPage::SvxPageDescPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttr)
+    : SfxTabPage(pPage, pController, "cui/ui/pageformatpage.ui", "PageFormatPage", &rAttr)
     , bLandscape(false)
     , eMode(SVX_PAGE_MODE_STANDARD)
     , ePaperStart(PAPER_A3)
@@ -292,17 +287,11 @@ SvxPageDescPage::SvxPageDescPage(TabPageParent pParent, const SfxItemSet& rAttr)
 
 SvxPageDescPage::~SvxPageDescPage()
 {
-    disposeOnce();
-}
-
-void SvxPageDescPage::dispose()
-{
     if(mbDelPrinter)
     {
         mpDefPrinter.disposeAndClear();
         mbDelPrinter = false;
     }
-    SfxTabPage::dispose();
 }
 
 void SvxPageDescPage::Init_Impl()
@@ -1507,7 +1496,7 @@ void SvxPageDescPage::CheckMarginEdits( bool _bClear )
         m_nPos |= MARGIN_BOTTOM;
 }
 
-bool SvxPageDescPage::IsMarginOutOfRange()
+bool SvxPageDescPage::IsMarginOutOfRange() const
 {
     bool bRet = ( ( ( !( m_nPos & MARGIN_LEFT ) &&
                       m_xLeftMarginEdit->get_value_changed_from_saved() ) &&
@@ -1530,20 +1519,20 @@ bool SvxPageDescPage::IsMarginOutOfRange()
 
 void SvxPageDescPage::PageCreated(const SfxAllItemSet& aSet)
 {
-    const SfxAllEnumItem* pModeItem = aSet.GetItem<SfxAllEnumItem>(SID_ENUM_PAGE_MODE, false);
-    const SfxAllEnumItem* pPaperStartItem = aSet.GetItem<SfxAllEnumItem>(SID_PAPER_START, false);
-    const SfxAllEnumItem* pPaperEndItem = aSet.GetItem<SfxAllEnumItem>(SID_PAPER_END, false);
+    const SfxUInt16Item* pModeItem = aSet.GetItem(SID_ENUM_PAGE_MODE, false);
+    const SfxUInt16Item* pPaperStartItem = aSet.GetItem(SID_PAPER_START, false);
+    const SfxUInt16Item* pPaperEndItem = aSet.GetItem(SID_PAPER_END, false);
     const SfxStringListItem* pCollectListItem = aSet.GetItem<SfxStringListItem>(SID_COLLECT_LIST, false);
     const SfxBoolItem* pSupportDrawingLayerFillStyleItem = aSet.GetItem<SfxBoolItem>(SID_DRAWINGLAYER_FILLSTYLES, false);
 
     if (pModeItem)
     {
-        eMode = static_cast<SvxModeType>(pModeItem->GetEnumValue());
+        eMode = static_cast<SvxModeType>(pModeItem->GetValue());
     }
 
     if(pPaperStartItem && pPaperEndItem)
     {
-        SetPaperFormatRanges(static_cast<Paper>(pPaperStartItem->GetEnumValue()));
+        SetPaperFormatRanges(static_cast<Paper>(pPaperStartItem->GetValue()));
     }
 
     if(pCollectListItem)

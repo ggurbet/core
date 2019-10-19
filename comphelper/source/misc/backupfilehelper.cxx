@@ -160,7 +160,7 @@ namespace
         // read rTarget
         if (osl::File::E_None == rFile->read(static_cast<void*>(aTarget.data()), nLength, nBaseRead) && nLength == nBaseRead)
         {
-            rTarget = OString(aTarget.data(), static_cast< sal_Int32 >(nLength));
+            rTarget = OString(aTarget.data(), static_cast<sal_Int32>(nBaseRead));
             return true;
         }
 
@@ -187,14 +187,11 @@ namespace
 
         if (!rURL.isEmpty() && !rName.isEmpty())
         {
-            aRetval = rURL;
-            aRetval += "/";
-            aRetval += rName;
+            aRetval = rURL + "/" + rName;
 
             if (!rExt.isEmpty())
             {
-                aRetval += ".";
-                aRetval += rExt;
+                aRetval += "." + rExt;
             }
         }
 
@@ -207,10 +204,7 @@ namespace
 
         if (!rURL.isEmpty() && !rName.isEmpty())
         {
-            aRetval = rURL;
-            aRetval += "/";
-            aRetval += rName;
-            aRetval += ".pack";
+            aRetval = rURL + "/" + rName + ".pack";
         }
 
         return aRetval;
@@ -309,8 +303,7 @@ namespace
 
             if (!file.second.isEmpty())
             {
-                aNewFileURL += ".";
-                aNewFileURL += file.second;
+                aNewFileURL += "." + file.second;
             }
 
             bError |= (osl::FileBase::E_None != osl::File::remove(aNewFileURL));
@@ -368,8 +361,7 @@ namespace
 
             if (!file.second.isEmpty())
             {
-                aSourceFileURL += ".";
-                aSourceFileURL += file.second;
+                aSourceFileURL += "." + file.second;
             }
 
             if (fileExists(aSourceFileURL))
@@ -378,8 +370,7 @@ namespace
 
                 if (!file.second.isEmpty())
                 {
-                    aTargetFileURL += ".";
-                    aTargetFileURL += file.second;
+                    aTargetFileURL += "." +file.second;
                 }
 
                 if (fileExists(aTargetFileURL))
@@ -819,12 +810,12 @@ namespace
                         {
                             // create a SAXWriter
                             uno::Reference< xml::sax::XWriter > const xSaxWriter = xml::sax::Writer::create(xContext);
-                            uno::Reference< io::XStream > xTempFile(io::TempFile::create(xContext), uno::UNO_QUERY);
-                            uno::Reference< io::XOutputStream > xOutStrm(xTempFile->getOutputStream(), uno::UNO_QUERY);
+                            uno::Reference< io::XStream > xTempFile = io::TempFile::create(xContext);
+                            uno::Reference< io::XOutputStream > xOutStrm = xTempFile->getOutputStream();
 
                             // set output stream and do the serialization
-                            xSaxWriter->setOutputStream(uno::Reference< css::io::XOutputStream >(xOutStrm, uno::UNO_QUERY));
-                            xSerializer->serialize(uno::Reference< xml::sax::XDocumentHandler >(xSaxWriter, uno::UNO_QUERY), uno::Sequence< beans::StringPair >());
+                            xSaxWriter->setOutputStream(xOutStrm);
+                            xSerializer->serialize(xSaxWriter, uno::Sequence< beans::StringPair >());
 
                             // get URL from temp file
                             uno::Reference < beans::XPropertySet > xTempFileProps(xTempFile, uno::UNO_QUERY);
@@ -1518,7 +1509,7 @@ namespace
                             if (bRetval)
                             {
                                 // write headers
-                                for (auto& candidate : maPackedFileEntryVector)
+                                for (const auto& candidate : maPackedFileEntryVector)
                                 {
                                     if (!candidate.write_header(aHandle))
                                     {
@@ -2115,12 +2106,12 @@ namespace comphelper
 
         // create a SAXWriter
         uno::Reference< xml::sax::XWriter > const xSaxWriter = xml::sax::Writer::create(xContext);
-        uno::Reference< io::XStream > xTempFile(io::TempFile::create(xContext), uno::UNO_QUERY);
-        uno::Reference< io::XOutputStream > xOutStrm(xTempFile->getOutputStream(), uno::UNO_QUERY);
+        uno::Reference< io::XStream > xTempFile = io::TempFile::create(xContext);
+        uno::Reference< io::XOutputStream > xOutStrm = xTempFile->getOutputStream();
 
         // set output stream and do the serialization
-        xSaxWriter->setOutputStream(uno::Reference< css::io::XOutputStream >(xOutStrm, uno::UNO_QUERY));
-        xSerializer->serialize(uno::Reference< xml::sax::XDocumentHandler >(xSaxWriter, uno::UNO_QUERY), uno::Sequence< beans::StringPair >());
+        xSaxWriter->setOutputStream(xOutStrm);
+        xSerializer->serialize(xSaxWriter, uno::Sequence< beans::StringPair >());
 
         // get URL from temp file
         uno::Reference < beans::XPropertySet > xTempFileProps(xTempFile, uno::UNO_QUERY);
@@ -2203,7 +2194,7 @@ namespace comphelper
 
     /////////////////// helpers ///////////////////////
 
-    const OUString BackupFileHelper::getPackURL()
+    OUString BackupFileHelper::getPackURL()
     {
         return OUString(maUserConfigWorkURL + "/pack");
     }

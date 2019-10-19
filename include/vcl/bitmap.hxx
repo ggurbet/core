@@ -39,25 +39,26 @@ enum class BmpMirrorFlags
     Horizontal       = 0x01,
     Vertical         = 0x02,
 };
+
 namespace o3tl
 {
     template<> struct typed_flags<BmpMirrorFlags> : is_typed_flags<BmpMirrorFlags, 0x03> {};
 }
 
-
 enum class BmpScaleFlag
 {
 // Try to preferably use these.
-    Default           = 1,
+    Default,
     Fast,
     BestQuality,
-// Specific algorithms,  use only if you really need to.
-    Interpolate,
+// Specific algorithms, use only if you really need to (mainly used for tests)
+    NearestNeighbor,
+    Interpolate, // fast, integer bilinear
     Lanczos,
     BiCubic,
-    BiLinear
+    BiLinear,
+    Super // bilinear interpolation when supersampling and averaging when subsampling under certain scale
 };
-
 
 #define BMP_COL_TRANS               Color( 252, 3, 251 )
 
@@ -112,7 +113,7 @@ public:
     virtual                 ~Bitmap();
 
     Bitmap&                 operator=( const Bitmap& rBitmap );
-    Bitmap&                 operator=( Bitmap&& rBitmap );
+    Bitmap&                 operator=( Bitmap&& rBitmap ) noexcept;
     inline bool             operator!() const;
     bool                    operator==( const Bitmap& rBitmap ) const;
     bool                    operator!=( const Bitmap& rBitmap ) const { return !operator==(rBitmap); }

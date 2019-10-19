@@ -22,60 +22,51 @@
 
 #include <sfx2/tabdlg.hxx>
 #include <svx/colorbox.hxx>
-#include <vcl/field.hxx>
-#include <vcl/fixed.hxx>
 
 class ScViewOptions;
 
 class ScTpContentOptions : public SfxTabPage
 {
-    friend class VclPtr<ScTpContentOptions>;
-    VclPtr<ListBox>         pGridLB;
-    VclPtr<FixedText>       pColorFT;
-    VclPtr<SvxColorListBox> pColorLB;
-    VclPtr<CheckBox>        pBreakCB;
-    VclPtr<CheckBox>        pGuideLineCB;
+    std::unique_ptr<ScViewOptions> m_xLocalOptions;
 
-    VclPtr<CheckBox>        pFormulaCB;
-    VclPtr<CheckBox>        pNilCB;
-    VclPtr<CheckBox>        pAnnotCB;
-    VclPtr<CheckBox>        pValueCB;
-    VclPtr<CheckBox>        pAnchorCB;
-    VclPtr<CheckBox>        pClipMarkCB;
-    VclPtr<CheckBox>        pRangeFindCB;
+    std::unique_ptr<weld::ComboBox> m_xGridLB;
+    std::unique_ptr<weld::Label> m_xColorFT;
+    std::unique_ptr<ColorListBox> m_xColorLB;
+    std::unique_ptr<weld::CheckButton> m_xBreakCB;
+    std::unique_ptr<weld::CheckButton> m_xGuideLineCB;
 
-    VclPtr<ListBox>         pObjGrfLB;
-    VclPtr<ListBox>         pDiagramLB;
-    VclPtr<ListBox>         pDrawLB;
+    std::unique_ptr<weld::CheckButton> m_xFormulaCB;
+    std::unique_ptr<weld::CheckButton> m_xNilCB;
+    std::unique_ptr<weld::CheckButton> m_xAnnotCB;
+    std::unique_ptr<weld::CheckButton> m_xValueCB;
+    std::unique_ptr<weld::CheckButton> m_xAnchorCB;
+    std::unique_ptr<weld::CheckButton> m_xClipMarkCB;
+    std::unique_ptr<weld::CheckButton> m_xRangeFindCB;
 
-    VclPtr<CheckBox>        pSyncZoomCB;
+    std::unique_ptr<weld::ComboBox> m_xObjGrfLB;
+    std::unique_ptr<weld::ComboBox> m_xDiagramLB;
+    std::unique_ptr<weld::ComboBox> m_xDrawLB;
 
-    VclPtr<CheckBox>        pRowColHeaderCB;
-    VclPtr<CheckBox>        pHScrollCB;
-    VclPtr<CheckBox>        pVScrollCB;
-    VclPtr<CheckBox>        pTblRegCB;
-    VclPtr<CheckBox>        pOutlineCB;
-    VclPtr<CheckBox>        pSummaryCB;
+    std::unique_ptr<weld::CheckButton> m_xSyncZoomCB;
 
-    std::unique_ptr<ScViewOptions> pLocalOptions;
+    std::unique_ptr<weld::CheckButton> m_xRowColHeaderCB;
+    std::unique_ptr<weld::CheckButton> m_xHScrollCB;
+    std::unique_ptr<weld::CheckButton> m_xVScrollCB;
+    std::unique_ptr<weld::CheckButton> m_xTblRegCB;
+    std::unique_ptr<weld::CheckButton> m_xOutlineCB;
+    std::unique_ptr<weld::CheckButton> m_xSummaryCB;
 
     void    InitGridOpt();
-    DECL_LINK( GridHdl, ListBox&, void );
-    DECL_LINK( SelLbObjHdl, ListBox&, void );
-    DECL_LINK( CBHdl, Button*, void );
-
-            ScTpContentOptions( vcl::Window*         pParent,
-                             const SfxItemSet&  rArgSet );
-            virtual ~ScTpContentOptions() override;
-    virtual void dispose() override;
+    DECL_LINK( GridHdl, weld::ComboBox&, void );
+    DECL_LINK( SelLbObjHdl, weld::ComboBox&, void );
+    DECL_LINK( CBHdl, weld::ToggleButton&, void );
 
 public:
-    static  VclPtr<SfxTabPage> Create          ( TabPageParent pParent,
-                                          const SfxItemSet*     rCoreSet );
+    ScTpContentOptions(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rCoreSet);
+    virtual ~ScTpContentOptions() override;
     virtual bool        FillItemSet     ( SfxItemSet* rCoreSet ) override;
     virtual void        Reset           ( const SfxItemSet* rCoreSet ) override;
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
     virtual void        ActivatePage( const SfxItemSet& ) override;
     virtual DeactivateRC   DeactivatePage( SfxItemSet* pSet ) override;
 
@@ -84,41 +75,37 @@ public:
 class ScDocument;
 class ScTpLayoutOptions : public SfxTabPage
 {
-    friend class VclPtrInstance<ScTpLayoutOptions>;
-    VclPtr<ListBox>        m_pUnitLB;
-    VclPtr<MetricField>    m_pTabMF;
-
-    VclPtr<RadioButton>    m_pAlwaysRB;
-    VclPtr<RadioButton>    m_pRequestRB;
-    VclPtr<RadioButton>    m_pNeverRB;
-
-    VclPtr<CheckBox>       m_pAlignCB;
-    VclPtr<ListBox>        m_pAlignLB;
-    VclPtr<CheckBox>       m_pEditModeCB;
-    VclPtr<CheckBox>       m_pFormatCB;
-    VclPtr<CheckBox>       m_pExpRefCB;
-    VclPtr<CheckBox>       m_pSortRefUpdateCB;
-    VclPtr<CheckBox>       m_pMarkHdrCB;
-    VclPtr<CheckBox>       m_pTextFmtCB;
-    VclPtr<CheckBox>       m_pReplWarnCB;
-    VclPtr<CheckBox>       m_pLegacyCellSelectionCB;
-
-    DECL_LINK(MetricHdl, ListBox&, void );
-    DECL_LINK( AlignHdl, Button*, void );
-
     ScDocument *pDoc;
 
-            ScTpLayoutOptions( vcl::Window*          pParent,
-                             const SfxItemSet&  rArgSet );
+    std::unique_ptr<weld::ComboBox> m_xUnitLB;
+    std::unique_ptr<weld::MetricSpinButton> m_xTabMF;
+
+    std::unique_ptr<weld::RadioButton> m_xAlwaysRB;
+    std::unique_ptr<weld::RadioButton> m_xRequestRB;
+    std::unique_ptr<weld::RadioButton> m_xNeverRB;
+
+    std::unique_ptr<weld::CheckButton> m_xAlignCB;
+    std::unique_ptr<weld::ComboBox> m_xAlignLB;
+    std::unique_ptr<weld::CheckButton> m_xEditModeCB;
+    std::unique_ptr<weld::CheckButton> m_xFormatCB;
+    std::unique_ptr<weld::CheckButton> m_xExpRefCB;
+    std::unique_ptr<weld::CheckButton> m_xSortRefUpdateCB;
+    std::unique_ptr<weld::CheckButton> m_xMarkHdrCB;
+    std::unique_ptr<weld::CheckButton> m_xTextFmtCB;
+    std::unique_ptr<weld::CheckButton> m_xReplWarnCB;
+    std::unique_ptr<weld::CheckButton> m_xLegacyCellSelectionCB;
+
+    DECL_LINK(MetricHdl, weld::ComboBox&, void );
+    DECL_LINK( AlignHdl, weld::ToggleButton&, void );
+
+
 public:
+    ScTpLayoutOptions(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet&  rArgSet );
+    static  std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController,
+                                          const SfxItemSet* rCoreSet);
     virtual ~ScTpLayoutOptions() override;
-    virtual void        dispose() override;
-    static  VclPtr<SfxTabPage> Create          ( TabPageParent pParent,
-                                          const SfxItemSet*     rCoreSet );
     virtual bool        FillItemSet     ( SfxItemSet* rCoreSet ) override;
     virtual void        Reset           ( const SfxItemSet* rCoreSet ) override;
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
     virtual void        ActivatePage( const SfxItemSet& ) override;
     virtual DeactivateRC   DeactivatePage( SfxItemSet* pSet ) override;
 };

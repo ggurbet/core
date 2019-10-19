@@ -19,14 +19,11 @@
 
 
 #include <algorithm>
-#include <limits.h>
 #include <sal/types.h>
-#include <stdlib.h>
 #include <string.h>
 #include <rtl/ustring.hxx>
 #include <svtools/htmltokn.h>
 #include <svtools/htmlkywd.hxx>
-#include <sal/log.hxx>
 
 template<typename T>
 struct TokenEntry
@@ -524,7 +521,7 @@ static HTML_OptionEntry aHTMLOptionTab[] = {
     {OUStringLiteral(OOO_STRING_SVTOOLS_HTML_O_target),        HtmlOptionId::TARGET}, // Netscape 2.0
     {OUStringLiteral(OOO_STRING_SVTOOLS_HTML_O_to),            HtmlOptionId::TO},
 
-// Attributes with an URI value
+// Attributes with a URI value
     {OUStringLiteral(OOO_STRING_SVTOOLS_HTML_O_action),        HtmlOptionId::ACTION},
     {OUStringLiteral(OOO_STRING_SVTOOLS_HTML_O_archive),       HtmlOptionId::ARCHIVE},
     {OUStringLiteral(OOO_STRING_SVTOOLS_HTML_O_background),    HtmlOptionId::BACKGROUND},

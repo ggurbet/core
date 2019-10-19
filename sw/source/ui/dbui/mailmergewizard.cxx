@@ -38,27 +38,27 @@
 using namespace svt;
 using namespace ::com::sun::star;
 
-SwMailMergeWizard::SwMailMergeWizard(SwView& rView, std::shared_ptr<SwMailMergeConfigItem> const & rItem) :
-        RoadmapWizard(&rView.GetViewFrame()->GetWindow()),
-        m_pSwView(&rView),
-        m_bDocumentLoad( false ),
-        m_xConfigItem(rItem),
-        m_sStarting(        SwResId( ST_STARTING      )),
-        m_sDocumentType(    SwResId( ST_DOCUMENTTYPE   )),
-        m_sAddressBlock(    SwResId( ST_ADDRESSBLOCK   )),
-        m_sAddressList(     SwResId( ST_ADDRESSLIST )),
-        m_sGreetingsLine(   SwResId( ST_GREETINGSLINE   )),
-        m_sLayout(          SwResId( ST_LAYOUT        )),
-        m_nRestartPage( MM_DOCUMENTSELECTPAGE )
+SwMailMergeWizard::SwMailMergeWizard(SwView& rView, std::shared_ptr<SwMailMergeConfigItem> const & rItem)
+    : RoadmapWizardMachine(rView.GetFrameWeld())
+    , m_pSwView(&rView)
+    , m_bDocumentLoad(false)
+    , m_xConfigItem(rItem)
+    , m_sStarting(SwResId(ST_STARTING))
+    , m_sDocumentType(SwResId(ST_DOCUMENTTYPE))
+    , m_sAddressBlock(SwResId(ST_ADDRESSBLOCK))
+    , m_sAddressList(SwResId(ST_ADDRESSLIST))
+    , m_sGreetingsLine(SwResId(ST_GREETINGSLINE))
+    , m_sLayout(SwResId(ST_LAYOUT))
+    , m_nRestartPage(MM_DOCUMENTSELECTPAGE)
 {
     defaultButton(WizardButtonFlags::NEXT);
     enableButtons(WizardButtonFlags::FINISH, false);
 
-    setTitleBase(SwResId( ST_MMWTITLE ) );
+    setTitleBase(SwResId(ST_MMWTITLE));
 
-    m_pFinish->SetText(SwResId( ST_FINISH ));
-    m_pNextPage->SetHelpId(HID_MM_NEXT_PAGE);
-    m_pPrevPage->SetHelpId(HID_MM_PREV_PAGE);
+    m_xFinish->set_label(SwResId( ST_FINISH ));
+    m_xNextPage->set_help_id(HID_MM_NEXT_PAGE);
+    m_xPrevPage->set_help_id(HID_MM_PREV_PAGE);
 
     //#i51949# no output type page visible if e-Mail is not supported
     if (m_xConfigItem->IsMailAvailable())
@@ -80,6 +80,7 @@ SwMailMergeWizard::SwMailMergeWizard(SwView& rView, std::shared_ptr<SwMailMergeC
         );
 
     ActivatePage();
+    m_xAssistant->set_current_page(0);
     UpdateRoadmap();
 }
 
@@ -87,13 +88,16 @@ SwMailMergeWizard::~SwMailMergeWizard()
 {
 }
 
-VclPtr<TabPage> SwMailMergeWizard::createPage(WizardState _nState)
+std::unique_ptr<BuilderPage> SwMailMergeWizard::createPage(WizardState _nState)
 {
-    VclPtr<OWizardPage> pRet;
+    OString sIdent(OString::number(_nState));
+    weld::Container* pPageContainer = m_xAssistant->append_page(sIdent);
+
+    std::unique_ptr<vcl::OWizardPage> xRet;
     switch(_nState)
     {
         case MM_DOCUMENTSELECTPAGE :
-            pRet = VclPtr<SwMailMergeDocSelectPage>::Create(this, TabPageParent(this));
+            xRet = std::make_unique<SwMailMergeDocSelectPage>(pPageContainer, this);
 
             /* tdf#52986 Set help ID using SetRoadmapHelpId for all pages
             so that when by default the focus is on the left side pane of
@@ -102,29 +106,32 @@ VclPtr<TabPage> SwMailMergeWizard::createPage(WizardState _nState)
             SetRoadmapHelpId("modules/swriter/ui/mmselectpage/MMSelectPage");
         break;
         case MM_OUTPUTTYPETPAGE    :
-            pRet = VclPtr<SwMailMergeOutputTypePage>::Create(this, TabPageParent(this));
+            xRet = std::make_unique<SwMailMergeOutputTypePage>(pPageContainer, this);
             SetRoadmapHelpId("modules/swriter/ui/mmoutputtypepage/MMOutputTypePage");
         break;
         case MM_ADDRESSBLOCKPAGE   :
-            pRet = VclPtr<SwMailMergeAddressBlockPage>::Create(this);
+            xRet = std::make_unique<SwMailMergeAddressBlockPage>(pPageContainer, this);
             SetRoadmapHelpId("modules/swriter/ui/mmaddressblockpage/MMAddressBlockPage");
         break;
         case MM_GREETINGSPAGE      :
-            pRet = VclPtr<SwMailMergeGreetingsPage>::Create(this, TabPageParent(this));
+            xRet = std::make_unique<SwMailMergeGreetingsPage>(pPageContainer, this);
             SetRoadmapHelpId("modules/swriter/ui/mmsalutationpage/MMSalutationPage");
         break;
         case MM_LAYOUTPAGE         :
-            pRet = VclPtr<SwMailMergeLayoutPage>::Create(this, TabPageParent(this));
+            xRet = std::make_unique<SwMailMergeLayoutPage>(pPageContainer, this);
             SetRoadmapHelpId("modules/swriter/ui/mmlayoutpage/MMLayoutPage");
         break;
     }
-    OSL_ENSURE(pRet, "no page created in ::createPage");
-    return pRet;
+
+    m_xAssistant->set_page_title(sIdent, getStateDisplayName(_nState));
+
+    OSL_ENSURE(xRet, "no page created in ::createPage");
+    return xRet;
 }
 
 void SwMailMergeWizard::enterState( WizardState _nState )
 {
-    ::svt::RoadmapWizard::enterState( _nState );
+    ::vcl::RoadmapWizardMachine::enterState( _nState );
 
     if (m_xConfigItem->GetTargetView())
     {
@@ -132,7 +139,7 @@ void SwMailMergeWizard::enterState( WizardState _nState )
         m_nRestartPage = _nState;
         //set ResultSet back to start
         m_xConfigItem->MoveResultSet(1);
-        EndDialog(RET_REMOVE_TARGET);
+        m_xAssistant->response(RET_REMOVE_TARGET);
         return;
     }
     bool bEnablePrev = true;
@@ -188,8 +195,8 @@ void SwMailMergeWizard::UpdateRoadmap()
 */
 
     // enableState( <page id>, false );
-    const sal_uInt16 nCurPage = GetCurLevel();
-    TabPage* pCurPage = GetPage( nCurPage );
+    const sal_uInt16 nCurPage = m_xAssistant->get_current_page();
+    BuilderPage* pCurPage = GetPage( nCurPage );
     if(!pCurPage)
         return;
     bool bAddressFieldsConfigured = !m_xConfigItem->IsOutputToLetter() ||
@@ -202,7 +209,7 @@ void SwMailMergeWizard::UpdateRoadmap()
     //#i97436# if a document has to be loaded then enable output type page only
     m_bDocumentLoad = false;
     bool bEnableOutputTypePage = (nCurPage != MM_DOCUMENTSELECTPAGE) ||
-        static_cast<svt::OWizardPage*>(pCurPage)->commitPage( ::svt::WizardTypes::eValidate );
+        static_cast<vcl::OWizardPage*>(pCurPage)->commitPage( ::vcl::WizardTypes::eValidate );
 
     // handle the Finish button
     bool bCanFinish = !m_bDocumentLoad && bEnableOutputTypePage &&
@@ -224,6 +231,8 @@ void SwMailMergeWizard::UpdateRoadmap()
             break;
             case MM_ADDRESSBLOCKPAGE:
                 bEnable = !m_bDocumentLoad && bEnableOutputTypePage;
+                // update page title for email vs letter
+                m_xAssistant->set_page_title(OString::number(MM_ADDRESSBLOCKPAGE), getStateDisplayName(MM_ADDRESSBLOCKPAGE));
             break;
             case MM_GREETINGSPAGE:
                 bEnable = !m_bDocumentLoad && bEnableOutputTypePage &&
@@ -240,7 +249,7 @@ void SwMailMergeWizard::UpdateRoadmap()
     }
 }
 
-short SwMailMergeWizard::Execute()
+short SwMailMergeWizard::run()
 {
     OSL_FAIL("SwMailMergeWizard cannot be executed via Dialog::Execute!\n"
                "It creates a thread (MailDispatcher instance) that will call"

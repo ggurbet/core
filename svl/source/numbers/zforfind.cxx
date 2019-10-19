@@ -640,20 +640,29 @@ short ImpSvNumberInputScan::GetMonth( const OUString& rString, sal_Int32& nPos )
                 res = sal::static_int_cast< short >(-(i+1)); // negative
                 break;  // for
             }
-            else if ( i == 8 && pUpperAbbrevMonthText[i] == "SEPT" &&
-                    StringContainsWord( "SEP", rString, nPos ) )
-            {   // #102136# The correct English form of month September abbreviated is
-                // SEPT, but almost every data contains SEP instead.
-                nPos = nPos + 3;
-                res = sal::static_int_cast< short >(-(i+1)); // negative
-                break;  // for
+            else if (i == 8)
+            {
+                // This assumes the weirdness is applicable to all locales.
+                if (pUpperAbbrevMonthText[i] == "SEPT" && StringContainsWord( "SEP", rString, nPos))
+                {   // #102136# The correct English form of month September abbreviated is
+                    // SEPT, but almost every data contains SEP instead.
+                    nPos = nPos + 3;
+                    res = sal::static_int_cast< short >(-(i+1)); // negative
+                    break;  // for
+                }
+                else if (pUpperAbbrevMonthText[i] == "SEP" && StringContainsWord( "SEPT", rString, nPos))
+                {   // And vice versa, accept SEPT for SEP
+                    nPos = nPos + 4;
+                    res = sal::static_int_cast< short >(-(i+1)); // negative
+                    break;  // for
+                }
             }
         }
         if (!res)
         {
             // Brutal hack for German locales that know "Januar" or "Jänner".
             /* TODO: add alternative month names to locale data? if there are
-             * more languages.. */
+             * more languages... */
             const LanguageTag& rLanguageTag = pFormatter->GetLanguageTag();
             if (rLanguageTag.getLanguage() == "de")
             {
@@ -953,6 +962,11 @@ bool ImpSvNumberInputScan::GetTimeRef( double& fOutNumber,
     {
         nHour = 0;
     }
+    else if (mpFormat && nDecPos == 0 && nCnt == 2 && mpFormat->IsMinuteSecondFormat())
+    {
+        // Input on MM:SS format, instead of doing HH:MM:00
+        nHour = 0;
+    }
     else if (nIndex - nStartIndex < nCnt)
     {
         nHour   = static_cast<sal_uInt16>(sStrArray[nNums[nIndex++]].toInt32());
@@ -963,22 +977,7 @@ bool ImpSvNumberInputScan::GetTimeRef( double& fOutNumber,
         bRet = false;
         SAL_WARN( "svl.numbers", "ImpSvNumberInputScan::GetTimeRef: bad number index");
     }
-    if (nDecPos == 2 && nCnt == 2) // 45.5
-    {
-        nMinute = 0;
-    }
-    else if (nIndex - nStartIndex < nCnt)
-    {
-        nMinute = static_cast<sal_uInt16>(sStrArray[nNums[nIndex++]].toInt32());
-    }
-    if (nIndex - nStartIndex < nCnt)
-    {
-        nSecond = static_cast<sal_uInt16>(sStrArray[nNums[nIndex++]].toInt32());
-    }
-    if (nIndex - nStartIndex < nCnt)
-    {
-        fSecond100 = StringToDouble( sStrArray[nNums[nIndex]], true );
-    }
+
     if (nAmPm && nHour > 12) // not a valid AM/PM clock time
     {
         bRet = false;
@@ -990,6 +989,27 @@ bool ImpSvNumberInputScan::GetTimeRef( double& fOutNumber,
     else if (nAmPm == 1 && nHour == 12) // 12 AM
     {
         nHour = 0;
+    }
+
+    if (nDecPos == 2 && nCnt == 2) // 45.5
+    {
+        nMinute = 0;
+    }
+    else if (nIndex - nStartIndex < nCnt)
+    {
+        nMinute = static_cast<sal_uInt16>(sStrArray[nNums[nIndex++]].toInt32());
+        if (nIndex > 1 && nMinute > 59)
+            bRet = false;   // 1:60 or 1:123 is invalid, 123:1 is valid
+    }
+    if (nIndex - nStartIndex < nCnt)
+    {
+        nSecond = static_cast<sal_uInt16>(sStrArray[nNums[nIndex++]].toInt32());
+        if (nIndex > 1 && nSecond > 59 && !(nHour == 23 && nMinute == 59 && nSecond == 60))
+            bRet = false;   // 1:60 or 1:123 or 1:1:123 is invalid, 123:1 or 123:1:1 is valid, or leap second
+    }
+    if (nIndex - nStartIndex < nCnt)
+    {
+        fSecond100 = StringToDouble( sStrArray[nNums[nIndex]], true );
     }
     fOutNumber = (static_cast<double>(nHour)*3600 +
                   static_cast<double>(nMinute)*60 +
@@ -1360,7 +1380,7 @@ bool ImpSvNumberInputScan::IsAcceptedDatePattern( sal_uInt16 nStartPatternAt )
                         OUStringBuffer aBuf(sStrArray[nNext]);
                         aBuf.stripEnd();
                         // Expand again in case of pattern "M. D. " and
-                        // input "M. D.  ", maybe fetched far, but..
+                        // input "M. D.  ", maybe fetched far, but...
                         padToLength(aBuf, rPat.getLength() - nPat, ' ');
                         OUString aStr = aBuf.makeStringAndClear();
                         bOk = (rPat.indexOf( aStr, nPat) == nPat);
@@ -1555,12 +1575,15 @@ sal_uInt32 ImpSvNumberInputScan::GetDatePatternOrder()
 }
 
 
-DateOrder ImpSvNumberInputScan::GetDateOrder()
+DateOrder ImpSvNumberInputScan::GetDateOrder( bool bFromFormatIfNoPattern )
 {
     sal_uInt32 nOrder = GetDatePatternOrder();
     if (!nOrder)
     {
-        return pFormatter->GetLocaleData()->getDateOrder();
+        if (bFromFormatIfNoPattern && mpFormat)
+            return mpFormat->GetDateOrder();
+        else
+            return pFormatter->GetLocaleData()->getDateOrder();
     }
     switch ((nOrder & 0xff0000) >> 16)
     {
@@ -1698,7 +1721,18 @@ bool ImpSvNumberInputScan::GetDateRef( double& fDays, sal_uInt16& nCounter )
             else
             {
                 bFormatTurn = true;
-                DateFmt = mpFormat->GetDateOrder();
+                // Even if the format pattern is to be preferred, the input may
+                // have matched a pattern of the current locale, which then
+                // again is to be preferred. Both date orders can be different
+                // so we need to obtain the actual match. For example ISO
+                // YYYY-MM-DD format vs locale's DD.MM.YY input.
+                // If no pattern was matched, obtain from format.
+                // Note that patterns may have been constructed from the
+                // format's locale and prepended to the current locale's
+                // patterns, it doesn't necessarily mean a current locale's
+                // pattern was matched, but may if the format's locale's
+                // patterns didn't match, which were tried first.
+                DateFmt = GetDateOrder(true);
             }
             break;
         default:
@@ -2329,7 +2363,7 @@ bool ImpSvNumberInputScan::ScanStartString( const OUString& rString )
                         if (nPos < rString.getLength() || (nStringsCnt >= 4 && nNumericsCnt >= 2))
                         {
                             nMonth = nTempMonth;
-                            nMonthPos = 1; // month a the beginning
+                            nMonthPos = 1; // month at the beginning
                             if ( nMonth < 0 )
                             {
                                 SkipChar( '.', rString, nPos ); // abbreviated

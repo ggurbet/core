@@ -51,6 +51,7 @@
 
 #include <vcl/button.hxx>
 
+#include <comphelper/lok.hxx>
 #include <comphelper/sequence.hxx>
 #include <sfx2/frame.hxx>
 #include <sfx2/sidebar/Theme.hxx>
@@ -124,7 +125,6 @@ CustomAnimationPane::CustomAnimationPane( Window* pParent, ViewShellBase& rBase,
                                           const css::uno::Reference<css::frame::XFrame>& rxFrame )
 :   PanelLayout( pParent, "CustomAnimationsPanel", "modules/simpress/ui/customanimationspanel.ui", rxFrame ),
     mrBase( rBase ),
-    mpCustomAnimationPresets(nullptr),
     mnPropertyType( nPropertyTypeNone ),
     mnCurvePathPos( LISTBOX_ENTRY_NOTFOUND ),
     mnPolygonPathPos( LISTBOX_ENTRY_NOTFOUND ),
@@ -473,8 +473,17 @@ void CustomAnimationPane::updateControls()
     mpFTDuration->Enable( mxView.is() );
     mpCBXDuration->Enable( mxView.is() );
     mpCustomAnimationList->Enable( mxView.is() );
-    mpPBPlay->Enable( mxView.is() );
-    mpCBAutoPreview->Enable( mxView.is() );
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        mpPBPlay->Hide();
+        mpCBAutoPreview->Check(false);
+        mpCBAutoPreview->Hide();
+    }
+    else
+    {
+        mpPBPlay->Enable( mxView.is() );
+        mpCBAutoPreview->Enable( mxView.is() );
+    }
 
     if( !mxView.is() )
     {
@@ -532,7 +541,7 @@ void CustomAnimationPane::updateControls()
     {
         CustomAnimationEffectPtr pEffect = maListSelection.front();
 
-        OUString aUIName( getPresets().getUINameForPresetId( pEffect->getPresetId() ) );
+        OUString aUIName( CustomAnimationPresets::getCustomAnimationPresets().getUINameForPresetId( pEffect->getPresetId() ) );
 
         OUString aTemp( maStrModify );
 
@@ -542,7 +551,7 @@ void CustomAnimationPane::updateControls()
             mpFTEffect->SetText( aTemp );
         }
 
-        CustomAnimationPresetPtr pDescriptor = getPresets().getEffectDescriptor( pEffect->getPresetId() );
+        CustomAnimationPresetPtr pDescriptor = CustomAnimationPresets::getCustomAnimationPresets().getEffectDescriptor( pEffect->getPresetId() );
         if( pDescriptor.get() )
         {
             PropertySubControl* pSubControl = nullptr;
@@ -706,7 +715,7 @@ void CustomAnimationPane::updateControls()
             MainSequenceRebuildGuard aGuard( mpMainSequence );
 
             EffectSequenceHelper* pSequence = nullptr;
-            for( CustomAnimationEffectPtr& pEffect : maListSelection )
+            for( const CustomAnimationEffectPtr& pEffect : maListSelection )
             {
                 if( pEffect.get() )
                 {
@@ -994,7 +1003,7 @@ bool CustomAnimationPane::setProperty1Value( sal_Int32 nType, const CustomAnimat
             rValue >>= aPresetSubType;
             if( aPresetSubType != pEffect->getPresetSubType() )
             {
-                getPresets().changePresetSubType( pEffect, aPresetSubType );
+                CustomAnimationPresets::getCustomAnimationPresets().changePresetSubType( pEffect, aPresetSubType );
                 bEffectChanged = true;
             }
         }
@@ -1091,7 +1100,7 @@ std::unique_ptr<STLPropertySet> CustomAnimationPane::createSelectionSet()
     sal_Int32 nMaxParaDepth = 0;
 
     // get options from selected effects
-    const CustomAnimationPresets& rPresets (getPresets());
+    const CustomAnimationPresets& rPresets (CustomAnimationPresets::getCustomAnimationPresets());
     for( CustomAnimationEffectPtr& pEffect : maListSelection )
     {
         EffectSequenceHelper* pEffectSequence = pEffect->getEffectSequence();
@@ -1947,7 +1956,7 @@ void CustomAnimationPane::onChangeSpeed()
     }
 }
 
-double CustomAnimationPane::getDuration()
+double CustomAnimationPane::getDuration() const
 {
     double fDuration = 0;
 
@@ -2031,7 +2040,7 @@ IMPL_LINK_NOARG(CustomAnimationPane, implPropertyHdl, LinkParamNone*, void)
     bool bNeedUpdate = false;
 
     // change selected effect
-    for( CustomAnimationEffectPtr& pEffect : maListSelection )
+    for( const CustomAnimationEffectPtr& pEffect : maListSelection )
     {
         if( setProperty1Value( mnPropertyType, pEffect, aValue ) )
             bNeedUpdate = true;
@@ -2088,7 +2097,7 @@ IMPL_LINK_NOARG(CustomAnimationPane, AnimationSelectHdl, ListBox&, void)
         std::vector< Any > aTargets;
         MainSequenceRebuildGuard aGuard( mpMainSequence );
 
-        for( CustomAnimationEffectPtr& pEffect : maListSelection )
+        for( const CustomAnimationEffectPtr& pEffect : maListSelection )
         {
             aTargets.push_back( pEffect->getTarget() );
 
@@ -2111,7 +2120,7 @@ IMPL_LINK_NOARG(CustomAnimationPane, AnimationSelectHdl, ListBox&, void)
     MainSequenceRebuildGuard aGuard( mpMainSequence );
 
     // get selected effect
-    for( CustomAnimationEffectPtr& pEffect : maListSelection )
+    for( const CustomAnimationEffectPtr& pEffect : maListSelection )
     {
         // Dispose the deprecated motion path tag. It will be rebuilt later.
         if (pEffect->getPresetClass() == css::presentation::EffectPresetClass::MOTIONPATH)
@@ -2157,7 +2166,7 @@ sal_uInt32 CustomAnimationPane::fillAnimationLB( bool bHasText )
 {
     PresetCategoryList rCategoryList;
     sal_uInt16 nPosition = mpLBCategory->GetSelectedEntryPos();
-    const CustomAnimationPresets& rPresets (getPresets());
+    const CustomAnimationPresets& rPresets (CustomAnimationPresets::getCustomAnimationPresets());
     switch(nPosition)
     {
         case 0:rCategoryList = rPresets.getEntrancePresets();break;
@@ -2244,7 +2253,7 @@ IMPL_LINK_NOARG(CustomAnimationPane, lateInitCallback, Timer *, void)
 {
     // Call getPresets() to initiate the (expensive) construction of the
     // presets list.
-    getPresets();
+    CustomAnimationPresets::getCustomAnimationPresets();
 
     // update selection and control states
     onSelectionChanged();
@@ -2268,7 +2277,7 @@ void CustomAnimationPane::moveSelection( bool bUp )
 
     if( bUp )
     {
-        for( CustomAnimationEffectPtr& pEffect : maListSelection )
+        for( const CustomAnimationEffectPtr& pEffect : maListSelection )
         {
             EffectSequence::iterator aUpEffectPos( pSequence->find( pEffect ) );
             // coverity[copy_paste_error : FALSE] - this is correct, checking if it exists
@@ -2342,6 +2351,10 @@ void CustomAnimationPane::onPreview( bool bForcePreview )
     if( !bForcePreview && !mpCBAutoPreview->IsChecked() )
         return;
 
+    // No preview in LOK.
+    if (comphelper::LibreOfficeKit::isActive())
+        return;
+
     if( maListSelection.empty() )
     {
         rtl::Reference< MotionPathTag > xMotionPathTag;
@@ -2369,7 +2382,7 @@ void CustomAnimationPane::onPreview( bool bForcePreview )
     {
         MainSequencePtr pSequence( new MainSequence() );
 
-        for( CustomAnimationEffectPtr& pEffect : maListSelection )
+        for( const CustomAnimationEffectPtr& pEffect : maListSelection )
         {
             pSequence->append( pEffect->clone() );
         }
@@ -2387,13 +2400,6 @@ void CustomAnimationPane::preview( const Reference< XAnimationNode >& xAnimation
     xRoot->appendChild( xAnimationNode );
 
     SlideShow::StartPreview( mrBase, mxCurrentPage, xRoot );
-}
-
-const CustomAnimationPresets& CustomAnimationPane::getPresets()
-{
-    if (mpCustomAnimationPresets == nullptr)
-        mpCustomAnimationPresets = &CustomAnimationPresets::getCustomAnimationPresets();
-    return *mpCustomAnimationPresets;
 }
 
 // ICustomAnimationListController

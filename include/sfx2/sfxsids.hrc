@@ -88,6 +88,8 @@ class SvxSearchItem;
 #define SID_HELPTIPS                        (SID_SFX_START + 404)
 #define SID_EMOJI_CONTROL                   (SID_SFX_START + 405)
 #define SID_CHARMAP_CONTROL                 (SID_SFX_START + 406)
+#define SID_TIPOFTHEDAY                     (SID_SFX_START + 407)
+
 // free                                     (SID_SFX_START + 410)
 #define SID_SEND_FEEDBACK                   (SID_SFX_START + 421)
 #define SID_Q_AND_A                         (SID_SFX_START + 422)
@@ -211,7 +213,6 @@ class SvxSearchItem;
 #define SID_INTERACTIONHANDLER              (SID_SFX_START + 1675)
 #define SID_OPENHYPERLINK                   (SID_SFX_START + 1676)
 #define SID_CONTENT                         (SID_SFX_START + 1679)
-#define SID_SHOW_IME_STATUS_WINDOW          (SID_SFX_START + 1680)
 #define SID_VIEWONLY                        (SID_SFX_START + 1682)
 #define SID_REPAIRPACKAGE                       (SID_SFX_START + 1683)
 #define SID_MINIMIZED                       (SID_SFX_START + 1687)
@@ -257,6 +258,7 @@ class SvxSearchItem;
 #define SID_TOOLBAR_MODE                    (SID_SFX_START + 1728)
 #define SID_NO_FILE_SYNC                    (SID_SFX_START + 1729)
 #define SID_NO_THUMBNAIL                    (SID_SFX_START + 1730)
+#define SID_LOCK_CONTENT_EXTRACTION         (SID_SFX_START + 1731)
 // Used to export a temporary file for preview in Mail Merge Wizard, where saving the data source is
 // not required for preview, but interferes with not-yet-saved embedded data source for main document.
 #define SID_NO_EMBEDDED_DS                  TypedWhichId<SfxBoolItem>(SID_SFX_START + 1731)
@@ -565,6 +567,9 @@ class SvxSearchItem;
 #define SID_OPEN_SMARTTAGOPTIONS            (SID_SVX_START + 1062)
 #define SID_RULER_MARGIN1                   (SID_SVX_START + 1063)
 #define SID_RULER_MARGIN2                   (SID_SVX_START + 1064)
+#define SID_TABLE_BORDER_TYPE               (SID_SVX_START + 1065)
+#define SID_TABLE_BORDER_INDEX              (SID_SVX_START + 1066)
+#define SID_TABLE_BORDER_OFFSET             (SID_SVX_START + 1067)
 
 #define FID_SVX_START                       (SID_LIB_START + 500)
 #define FID_SEARCH_NOW                      (FID_SVX_START + 2)

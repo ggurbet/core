@@ -70,7 +70,7 @@ namespace
 
         CPPUNIT_ASSERT(xZip.is());
 
-        mxNA = uno::Reference<container::XNameAccess>(xZip, uno::UNO_QUERY);
+        mxNA = xZip;
         CPPUNIT_ASSERT(mxNA.is());
     }
 
@@ -152,8 +152,7 @@ namespace
 
             for (char c = 'a'; c <= 'z'; ++c, ++itBuf)
             {
-                OUString aName(c);
-                aName += ".txt";
+                OUString aName = OUStringChar(c) + ".txt";
 
                 uno::Reference<io::XInputStream> xStrm;
                 mxNA->getByName(aName) >>= xStrm;
@@ -175,8 +174,7 @@ namespace
 
         for (char c = 'a'; c <= 'z'; ++c, ++itBuf)
         {
-            OUString aName(c);
-            aName += ".txt";
+            OUString aName = OUStringChar(c) + ".txt";
 
             uno::Reference<io::XInputStream> xStrm;
             //Size of each stream is 1mb (>10000) => XBufferedThreadedStream

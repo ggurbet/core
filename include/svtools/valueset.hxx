@@ -137,7 +137,7 @@ an item could be calculated (for this the free space defined by
 SetExtraSpacing() will not be included).
 
 The background color could be specified by SetColor(), with which the image
-or UserDraw items will be underlayed. If no color is specified the color
+or UserDraw items will be underlaid. If no color is specified the color
 of other windows (WindowColor) will be used for the background.
 
 --------------------------------------------------------------------------
@@ -295,6 +295,7 @@ public:
     virtual void    RequestHelp( const HelpEvent& rHEvt ) override;
     virtual void    StateChanged( StateChangedType nStateChange ) override;
     virtual void    DataChanged( const DataChangedEvent& rDCEvt ) override;
+    virtual boost::property_tree::ptree DumpAsPropertyTree() override;
 
     virtual void    Select();
     virtual void    UserDraw( const UserDrawEvent& rUDEvt );

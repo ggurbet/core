@@ -108,7 +108,7 @@ Test::Test()
 
     //Without this we're crashing because callees are using
     //getProcessServiceFactory.  In general those should be removed in favour
-    //of retaining references to the root ServiceFactory as its passed around
+    //of retaining references to the root ServiceFactory as it's passed around
     comphelper::setProcessServiceFactory(xSM);
     m_pDefaultTimeZone.reset(icu::TimeZone::createDefault());
 }
@@ -410,11 +410,11 @@ void Test::checkPreviewString(SvNumberFormatter& aFormatter,
     Color** ppColor = &pColor;
     if (!aFormatter.GetPreviewString(sCode, fPreviewNumber, sStr, ppColor, eLang))
     {
-        OString aMessage = "GetPreviewString( \"";
-        aMessage += OUStringToOString( sCode, RTL_TEXTENCODING_ASCII_US );
-        aMessage += "\", ";
-        aMessage += OString::number( fPreviewNumber );
-        aMessage += ", sStr, ppColor, ";
+        OString aMessage = "GetPreviewString( \"" +
+            OUStringToOString( sCode, RTL_TEXTENCODING_ASCII_US ) +
+            "\", " +
+            OString::number( fPreviewNumber ) +
+            ", sStr, ppColor, ";
         aMessage += OString::number( static_cast<sal_uInt16>(eLang) );
         aMessage += " ) failed";
         CPPUNIT_FAIL( aMessage.getStr() );
@@ -1081,8 +1081,8 @@ void Test::checkDateInput( SvNumberFormatter& rFormatter, const char* pTimezone,
     sal_uInt32 nIndex = 0;
     double fVal = 0.0;
     bool bVal = rFormatter.IsNumberFormat( aDate, nIndex, fVal);
-    CPPUNIT_ASSERT_MESSAGE( OString("Date not recognized: " +
-                OString(pTimezone) + " " + OString(pIsoDate)).getStr(), bVal);
+    CPPUNIT_ASSERT_MESSAGE( OString(OStringLiteral("Date not recognized: ") +
+                pTimezone + " " + pIsoDate).getStr(), bVal);
     CPPUNIT_ASSERT_MESSAGE("Format parsed is not date.",
             (rFormatter.GetType(nIndex) & SvNumFormatType::DATE));
     OUString aOutString;
@@ -1152,7 +1152,7 @@ void checkSpecificNumberFormats( SvNumberFormatter& rFormatter,
         double fNumber = 0;
         OUString aString( OUString::fromUtf8( rVec[i].mpInput));
         const bool bIsNumber = rFormatter.IsNumberFormat( aString, nIndex, fNumber);
-        CPPUNIT_ASSERT_EQUAL_MESSAGE( OString( OString(pName) + " " + OString::number(i) +
+        CPPUNIT_ASSERT_EQUAL_MESSAGE( OString( pName + OStringLiteral(" ") + OString::number(i) +
                     (rVec[i].mbNumber ? " not recognized: " : " should not be recognized: ") +
                     OUStringToOString( aString, RTL_TEXTENCODING_UTF8)).getStr(), rVec[i].mbNumber, bIsNumber);
         if (bIsNumber)
@@ -1161,7 +1161,7 @@ void checkSpecificNumberFormats( SvNumberFormatter& rFormatter,
                 nIndex = rVec[i].mnOutputIndex;
             Color* pColor;
             rFormatter.GetOutputString( fNumber, nIndex, aString, &pColor);
-            CPPUNIT_ASSERT_EQUAL_MESSAGE( OString( OString(pName) + " " + OString::number(i)  + " mismatch").getStr(),
+            CPPUNIT_ASSERT_EQUAL_MESSAGE( OString( pName + OStringLiteral(" ") + OString::number(i)  + " mismatch").getStr(),
                     OUString::fromUtf8( rVec[i].mpOutput), aString);
         }
     }
@@ -1400,11 +1400,7 @@ void Test::testUserDefinedNumberFormats()
     {  // tdf#79399 tdf#101462 Native Number Formats
         sCode = "[NatNum5][$-0404]General\\ ";
         // Chinese upper case number characters for 120
-        sExpected = OUStringLiteral1(22777) +
-                    OUStringLiteral1(20336) +
-                    OUStringLiteral1(36019) +
-                    OUStringLiteral1(25342) +
-                    " ";
+        sExpected = u"\u58F9\u4F70\u8CB3\u62FE ";
         checkPreviewString(aFormatter, sCode, 120, eLang, sExpected);
         sCode = "[DBNum2][$-0404]General\\ ";
         checkPreviewString(aFormatter, sCode, 120, eLang, sExpected);

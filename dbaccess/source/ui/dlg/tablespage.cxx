@@ -33,7 +33,6 @@
 #include <strings.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/waitobj.hxx>
 #include <com/sun/star/i18n/Collator.hpp>
 #include <com/sun/star/sdb/SQLContext.hpp>
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
@@ -65,11 +64,10 @@ namespace dbaui
     using namespace ::comphelper;
 
     // OTableSubscriptionPage
-    OTableSubscriptionPage::OTableSubscriptionPage(TabPageParent pParent, const SfxItemSet& _rCoreAttrs,
-        OTableSubscriptionDialog* _pTablesDlg)
-        : OGenericAdministrationPage(pParent, "dbaccess/ui/tablesfilterpage.ui", "TablesFilterPage", _rCoreAttrs)
+    OTableSubscriptionPage::OTableSubscriptionPage(weld::Container* pPage, OTableSubscriptionDialog* pTablesDlg, const SfxItemSet& _rCoreAttrs)
+        : OGenericAdministrationPage(pPage, pTablesDlg, "dbaccess/ui/tablesfilterpage.ui", "TablesFilterPage", _rCoreAttrs)
         , m_bCatalogAtStart(true)
-        , m_pTablesDlg(_pTablesDlg)
+        , m_pTablesDlg(pTablesDlg)
         , m_xTables(m_xBuilder->weld_widget("TablesFilterPage"))
         , m_xTablesList(new TableTreeListBox(m_xBuilder->weld_tree_view("treeview")))
     {
@@ -88,18 +86,12 @@ namespace dbaui
 
     OTableSubscriptionPage::~OTableSubscriptionPage()
     {
-        disposeOnce();
-    }
-
-    void OTableSubscriptionPage::dispose()
-    {
         // just to make sure that our connection will be removed
         try
         {
             ::comphelper::disposeComponent(m_xCurrentConnection);
         }
         catch (RuntimeException&) { }
-        OGenericAdministrationPage::dispose();
     }
 
     void OTableSubscriptionPage::implCheckTables(const Sequence< OUString >& _rTables)
@@ -218,7 +210,7 @@ namespace dbaui
 
             try
             {
-                weld::WaitObject aWaitCursor(GetDialogFrameWeld());
+                weld::WaitObject aWaitCursor(GetFrameWeld());
 
                 Reference<XPropertySet> xProp = m_pTablesDlg->getCurrentDataSource();
                 OSL_ENSURE(xProp.is(),"No data source set!");
@@ -260,8 +252,7 @@ namespace dbaui
             if (aErrorInfo.isValid())
             {
                 // establishing the connection failed. Show an error window and exit.
-                vcl::Window *pParent = GetParentDialog();
-                OSQLMessageBox aMessageBox(pParent ? pParent->GetFrameWeld() : nullptr, aErrorInfo);
+                OSQLMessageBox aMessageBox(GetFrameWeld(), aErrorInfo);
                 aMessageBox.run();
                 m_xTables->set_sensitive(false);
                 m_xTablesList->GetWidget().clear();
@@ -459,7 +450,7 @@ namespace dbaui
         return aTableFilter;
     }
 
-    std::unique_ptr<weld::TreeIter> OTableSubscriptionPage::implNextSibling(weld::TreeIter* pEntry) const
+    std::unique_ptr<weld::TreeIter> OTableSubscriptionPage::implNextSibling(const weld::TreeIter* pEntry) const
     {
         std::unique_ptr<weld::TreeIter> xReturn;
         if (pEntry)

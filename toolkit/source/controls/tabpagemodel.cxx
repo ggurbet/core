@@ -20,26 +20,17 @@
 #include <toolkit/controls/tabpagemodel.hxx>
 
 #include <vcl/svapp.hxx>
-#include <vcl/window.hxx>
-#include <vcl/wall.hxx>
 #include <toolkit/helper/property.hxx>
-#include <toolkit/controls/stdtabcontroller.hxx>
 #include <com/sun/star/awt/UnoControlDialogModelProvider.hpp>
 #include <com/sun/star/awt/tab/XTabPage.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/supportsservice.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <tools/debug.hxx>
-#include <tools/diagnose_ex.h>
 #include <vcl/outdev.hxx>
 
-#include <vcl/graph.hxx>
-#include <vcl/image.hxx>
-#include <toolkit/controls/geometrycontrolmodel.hxx>
 #include <toolkit/controls/controlmodelcontainerbase.hxx>
 #include <toolkit/controls/unocontrolcontainer.hxx>
-#include <cppuhelper/basemutex.hxx>
 
 #include <helper/unopropertyarrayhelper.hxx>
 
@@ -59,7 +50,7 @@ UnoControlTabPageModel::UnoControlTabPageModel( Reference< XComponentContext > c
 
 OUString SAL_CALL UnoControlTabPageModel::getImplementationName()
 {
-    return OUString("stardiv.Toolkit.UnoControlTabPageModel");
+    return "stardiv.Toolkit.UnoControlTabPageModel";
 }
 
 css::uno::Sequence< OUString > SAL_CALL UnoControlTabPageModel::getSupportedServiceNames()
@@ -72,7 +63,7 @@ css::uno::Sequence< OUString > SAL_CALL UnoControlTabPageModel::getSupportedServ
 
 OUString UnoControlTabPageModel::getServiceName( )
 {
-    return OUString("com.sun.star.awt.tab.UnoControlTabPageModel");
+    return "com.sun.star.awt.tab.UnoControlTabPageModel";
 }
 
 Any UnoControlTabPageModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
@@ -130,7 +121,7 @@ void SAL_CALL UnoControlTabPageModel::initialize (const Sequence<Any>& rArgument
         Reference<container::XNameContainer > xDialogModel = awt::UnoControlDialogModelProvider::create( m_xContext, sURL );
         if ( xDialogModel.is() )
         {
-            Sequence< OUString> aNames = xDialogModel->getElementNames();
+            const Sequence< OUString> aNames = xDialogModel->getElementNames();
             for(const OUString& rName : aNames)
             {
                 try
@@ -171,12 +162,12 @@ UnoControlTabPage::~UnoControlTabPage()
 
 OUString UnoControlTabPage::GetComponentServiceName()
 {
-    return OUString("TabPageModel");
+    return "TabPageModel";
 }
 
 OUString SAL_CALL UnoControlTabPage::getImplementationName()
 {
-    return OUString("stardiv.Toolkit.UnoControlTabPage");
+    return "stardiv.Toolkit.UnoControlTabPage";
 }
 
 sal_Bool SAL_CALL UnoControlTabPage::supportsService(OUString const & ServiceName)

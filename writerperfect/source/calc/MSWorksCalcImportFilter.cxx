@@ -34,12 +34,6 @@
 
 using namespace ::com::sun::star;
 
-using uno::Exception;
-using uno::RuntimeException;
-using uno::Sequence;
-using uno::XComponentContext;
-using uno::XInterface;
-
 namespace MSWorksCalcImportFilterInternal
 {
 /// returns the list of stream name present in a folder
@@ -89,7 +83,7 @@ public:
     const unsigned char* read(unsigned long, unsigned long&) override { return nullptr; }
     //! returns actual offset position
     long tell() override { return 0; }
-    /*! \brief seeks to a offset position, from actual, beginning or ending position
+    /*! \brief seeks to an offset position, from actual, beginning or ending position
      * \return 0 if ok
      */
     int seek(long, librevenge::RVNG_SEEK_TYPE) override { return 1; }
@@ -119,7 +113,7 @@ public:
     {
         return name && m_nameToPathMap.find(name) != m_nameToPathMap.end();
     }
-    /** return a new stream for a ole zone */
+    /** return a new stream for an OLE zone */
     librevenge::RVNGInputStream* getSubStreamByName(const char* name) override
     {
         if (m_nameToPathMap.find(name) == m_nameToPathMap.end() || !m_xContent.is())
@@ -160,7 +154,7 @@ public:
 
         return nullptr;
     }
-    /** return a new stream for a ole zone */
+    /** return a new stream for an OLE zone */
     librevenge::RVNGInputStream* getSubStreamById(unsigned id) override
     {
         char const* name = subStreamName(id);
@@ -295,13 +289,13 @@ MSWorksCalcImportFilter::filter(const css::uno::Sequence<css::beans::PropertyVal
         return false;
     }
 
-    // An XML import service: what we push sax messages to..
+    // An XML import service: what we push sax messages to...
     css::uno::Reference<css::xml::sax::XDocumentHandler> xInternalHandler(
         getXContext()->getServiceManager()->createInstanceWithContext(
             writerperfect::DocumentHandlerFor<OdsGenerator>::name(), getXContext()),
         css::uno::UNO_QUERY_THROW);
 
-    // The XImporter sets up an empty target document for XDocumentHandler to write to..
+    // The XImporter sets up an empty target document for XDocumentHandler to write to...
     css::uno::Reference<css::document::XImporter> xImporter(xInternalHandler, css::uno::UNO_QUERY);
     xImporter->setTargetDocument(getTargetDocument());
 
@@ -427,7 +421,7 @@ void MSWorksCalcImportFilter::doRegisterHandlers(OdsGenerator&) {}
 // XServiceInfo
 OUString SAL_CALL MSWorksCalcImportFilter::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Calc.MSWorksCalcImportFilter");
+    return "com.sun.star.comp.Calc.MSWorksCalcImportFilter";
 }
 
 sal_Bool SAL_CALL MSWorksCalcImportFilter::supportsService(const OUString& rServiceName)
@@ -435,13 +429,9 @@ sal_Bool SAL_CALL MSWorksCalcImportFilter::supportsService(const OUString& rServ
     return cppu::supportsService(this, rServiceName);
 }
 
-Sequence<OUString> SAL_CALL MSWorksCalcImportFilter::getSupportedServiceNames()
+css::uno::Sequence<OUString> SAL_CALL MSWorksCalcImportFilter::getSupportedServiceNames()
 {
-    Sequence<OUString> aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.document.ImportFilter";
-    pArray[1] = "com.sun.star.document.ExtendedTypeDetection";
-    return aRet;
+    return { "com.sun.star.document.ImportFilter", "com.sun.star.document.ExtendedTypeDetection" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*

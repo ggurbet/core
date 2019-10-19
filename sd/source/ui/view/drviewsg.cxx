@@ -23,21 +23,17 @@
 #include <svx/svxids.hrc>
 #include <svx/imapdlg.hxx>
 #include <sfx2/request.hxx>
-#include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svx/svdograf.hxx>
-#include <svx/svdoole2.hxx>
+#include <svx/ImageMapInfo.hxx>
 
 #include <app.hrc>
 
 #include <drawdoc.hxx>
-#include <slideshow.hxx>
-#include <imapinfo.hxx>
 #include <sdmod.hxx>
 #include <optsitem.hxx>
 #include <FrameView.hxx>
 #include <drawview.hxx>
-#include <fupoor.hxx>
 
 namespace sd {
 
@@ -61,10 +57,10 @@ void DrawViewShell::ExecIMap( SfxRequest const & rReq )
     if ( pDlg->GetEditingObject() == static_cast<void*>(pSdrObj) )
     {
         const ImageMap& rImageMap = pDlg->GetImageMap();
-        SdIMapInfo*     pIMapInfo = SdDrawDocument::GetIMapInfo( pSdrObj );
+        SvxIMapInfo*     pIMapInfo = SvxIMapInfo::GetIMapInfo( pSdrObj );
 
         if ( !pIMapInfo )
-            pSdrObj->AppendUserData( std::unique_ptr<SdrObjUserData>(new SdIMapInfo( rImageMap )) );
+            pSdrObj->AppendUserData( std::unique_ptr<SdrObjUserData>(new SvxIMapInfo( rImageMap )) );
         else
             pIMapInfo->SetImageMap( rImageMap );
 

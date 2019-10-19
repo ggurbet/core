@@ -113,7 +113,7 @@ private:
     void HandleAutoCloseDoubleQuotes();
     void HandleCodeCompletion();
     void HandleProcedureCompletion();
-    TextSelection GetLastHighlightPortionTextSelection();
+    TextSelection GetLastHighlightPortionTextSelection() const;
 
     virtual void    Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& ) override;
     virtual void    Resize() override;
@@ -323,7 +323,6 @@ public:
     virtual void    GetState( SfxItemSet& ) override;
     virtual void    StoreData() override;
     virtual void    UpdateData() override;
-    virtual bool    CanClose() override;
     // return number of pages to be printed
     virtual sal_Int32 countPages( Printer* pPrinter ) override;
     // print page
@@ -418,7 +417,7 @@ public:
 public:
     void BasicAddWatch (OUString const&);
     void BasicRemoveWatch ();
-    Color const & GetBackgroundColor () const { return aSyntaxColors.GetBackgroundColor(); }
+    Color const & GetSyntaxBackgroundColor () const { return aSyntaxColors.GetBackgroundColor(); }
     Color const & GetFontColor () const { return aSyntaxColors.GetFontColor(); }
     Color const & GetSyntaxColor (TokenType eType) const { return aSyntaxColors.GetColor(eType); }
 

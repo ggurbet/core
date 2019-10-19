@@ -17,27 +17,20 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
-
-#include <com/sun/star/media/XPlayer.hpp>
 #include <fusel.hxx>
-#include <basic/sbstar.hxx>
 #include <svx/svddrgmt.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/scene3d.hxx>
-#include <drawview.hxx>
 #include <vcl/imapobj.hxx>
-#include <svl/urihelper.hxx>
 #include <unotools/securityoptions.hxx>
 #include <svx/svxids.hrc>
 #include <svx/xfillit0.hxx>
-#include <sfx2/app.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/stritem.hxx>
 #include <svl/intitem.hxx>
 #include <sfx2/dispatch.hxx>
-#include <tools/urlobj.hxx>
 #include <sfx2/docfile.hxx>
 #include <editeng/flditem.hxx>
 
@@ -45,11 +38,9 @@
 
 #include <app.hrc>
 
-#include <GraphicDocShell.hxx>
 #include <sdmod.hxx>
 #include <DrawDocShell.hxx>
 #include <stlpool.hxx>
-#include <anminfo.hxx>
 #include <fudraw.hxx>
 #include <ViewShell.hxx>
 #include <ViewShellBase.hxx>
@@ -59,13 +50,9 @@
 #include <drawdoc.hxx>
 #include <DrawViewShell.hxx>
 #include <ToolBarManager.hxx>
-#include <pgjump.hxx>
 #include <Client.hxx>
 
-#include <slideshow.hxx>
-
 #include <svx/svdundo.hxx>
-#include <avmedia/mediawindow.hxx>
 
 #include <svx/sdrhittesthelper.hxx>
 
@@ -209,6 +196,10 @@ bool FuSelection::MouseButtonDown(const MouseEvent& rMEvt)
         {
             bTextEdit = true;
         }
+
+        // When clicking into a URl field, also go to text edit mode (when not following the link)
+        if (!bTextEdit && eHit == SdrHitKind::UrlField && !rMEvt.IsMod2() && !lcl_followHyperlinkAllowed(rMEvt))
+            bTextEdit = true;
 
         if(!bTextEdit
             && !mpDocSh->IsReadOnly()
@@ -780,7 +771,7 @@ bool FuSelection::MouseButtonUp(const MouseEvent& rMEvt)
         {
             if( rMEvt.IsRight() )
             {
-                // In watering-can mode, on press onto right mouse button, a undo is executed
+                // In watering-can mode, on press onto right mouse button, an undo is executed
                 mpViewShell->GetViewFrame()->GetDispatcher()->Execute( SID_UNDO, SfxCallMode::ASYNCHRON );
             }
             else if (pWaterCanCandidate != nullptr)
@@ -1202,7 +1193,7 @@ void FuSelection::SetEditMode(sal_uInt16 nMode)
 /**
  * Execute ImageMap interaction
  */
-bool FuSelection::HandleImageMapClick(SdrObject* pObj, const Point& rPos)
+bool FuSelection::HandleImageMapClick(const SdrObject* pObj, const Point& rPos)
 {
     bool bClosed = pObj->IsClosedObj();
     bool bFilled = false;
@@ -1240,9 +1231,9 @@ bool FuSelection::HandleImageMapClick(SdrObject* pObj, const Point& rPos)
             && SdrObjectPrimitiveHit(*pObj, aHitPosB, nHitLog, *mpView->GetSdrPageView(),
                                      pVisiLayer, false)))
     {
-        if (SdDrawDocument::GetIMapInfo(pObj))
+        if (SvxIMapInfo::GetIMapInfo(pObj))
         {
-            const IMapObject* pIMapObj = SdDrawDocument::GetHitIMapObject(pObj, rPos);
+            const IMapObject* pIMapObj = SvxIMapInfo::GetHitIMapObject(pObj, rPos);
 
             if (pIMapObj && !pIMapObj->GetURL().isEmpty())
             {
@@ -1270,7 +1261,7 @@ bool FuSelection::HandleImageMapClick(SdrObject* pObj, const Point& rPos)
     This is used when a function gets a KEY_ESCAPE but can also
     be called directly.
 
-    @returns true if a active function was aborted
+    @returns true if an active function was aborted
 */
 bool FuSelection::cancel()
 {

@@ -255,10 +255,10 @@ public class UnoPkgContainer extends ParcelContainer {
             XTruncate xTrc = UnoRuntime.queryInterface(XTruncate.class, xos);
 
             if (xTrc != null) {
-                LogUtils.DEBUG("In writeUnoPackageDB() Truncating....");
+                LogUtils.DEBUG("In writeUnoPackageDB() Truncating...");
                 xTrc.truncate();
             } else {
-                LogUtils.DEBUG("In writeUnoPackageDB() CAN'T Truncate....");
+                LogUtils.DEBUG("In writeUnoPackageDB() CAN'T Truncate...");
             }
 
             os = new XOutputStreamWrapper(xos);
@@ -348,7 +348,7 @@ public class UnoPkgContainer extends ParcelContainer {
             uri.contains("$BUNDLED_EXTENSIONS/")) {
 
             //its in a bundle need to determine the uno-package file its in
-            LogUtils.DEBUG("processUnoPackage - is part of a uno bundle");
+            LogUtils.DEBUG("processUnoPackage - is part of a UNO bundle");
 
             int index = uri.lastIndexOf('/');
 

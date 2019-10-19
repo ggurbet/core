@@ -23,14 +23,11 @@
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
 
-#include <cmath>
 #include <limits>
 #include <rtl/crc.h>
-#include <rtl/alloc.h>
 #include <tools/zcodec.hxx>
 #include <tools/stream.hxx>
 #include <vcl/bitmapaccess.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/alpha.hxx>
 #include <osl/endian.h>
 #include <memory>
@@ -86,7 +83,6 @@ private:
     sal_uInt8 mnFilterType;  // 0 or 4;
     sal_uLong mnBBP;         // bytes per pixel ( needed for filtering )
     bool mbTrueAlpha;
-    sal_uLong mnCRC;
 
     void ImplWritepHYs(const BitmapEx& rBitmapEx);
     void ImplWriteIDAT();
@@ -115,7 +111,6 @@ PNGWriterImpl::PNGWriterImpl( const BitmapEx& rBitmapEx,
     , mnFilterType(0)
     , mnBBP(0)
     , mbTrueAlpha(false)
-    , mnCRC(0)
 {
     if (!rBitmapEx.IsEmpty())
     {
@@ -399,8 +394,7 @@ void PNGWriterImpl::ImplWriteIDAT()
         mpCurrentScan.reset(new sal_uInt8[mnDeflateInSize]);
         ImplClearFirstScanline();
     }
-    mpZCodec.BeginCompression(mnCompLevel, true);
-    mpZCodec.SetCRC(mnCRC);
+    mpZCodec.BeginCompression(mnCompLevel);
     SvMemoryStream aOStm;
     if (mnInterlaced == 0)
     {
@@ -464,7 +458,6 @@ void PNGWriterImpl::ImplWriteIDAT()
         }
     }
     mpZCodec.EndCompression();
-    mnCRC = mpZCodec.GetCRC();
 
     if (mnFilterType) // using filter type 4 we need memory for the scanline 3 times
     {

@@ -320,8 +320,7 @@ RTFDocumentImpl::RTFDocumentImpl(uno::Reference<uno::XComponentContext> const& x
     uno::Reference<document::XDocumentPropertiesSupplier> xDocumentPropertiesSupplier(
         m_xDstDoc, uno::UNO_QUERY);
     if (xDocumentPropertiesSupplier.is())
-        m_xDocumentProperties.set(xDocumentPropertiesSupplier->getDocumentProperties(),
-                                  uno::UNO_QUERY);
+        m_xDocumentProperties = xDocumentPropertiesSupplier->getDocumentProperties();
 
     m_pGraphicHelper.reset(new oox::GraphicHelper(m_xContext, xFrame, oox::StorageRef()));
 
@@ -449,11 +448,11 @@ static void lcl_copyFlatten(RTFReferenceProperties& rProps, RTFSprms& rStyleAttr
         {
             // rPr can have both attributes and SPRMs, copy over both types.
             RTFSprms& rRPrSprms = rSprm.second->getSprms();
-            for (auto& rRPrSprm : rRPrSprms)
+            for (const auto& rRPrSprm : rRPrSprms)
                 rStyleSprms.set(rRPrSprm.first, rRPrSprm.second);
 
             RTFSprms& rRPrAttributes = rSprm.second->getAttributes();
-            for (auto& rRPrAttribute : rRPrAttributes)
+            for (const auto& rRPrAttribute : rRPrAttributes)
                 rStyleAttributes.set(rRPrAttribute.first, rRPrAttribute.second);
         }
         else
@@ -461,7 +460,7 @@ static void lcl_copyFlatten(RTFReferenceProperties& rProps, RTFSprms& rStyleAttr
     }
 
     RTFSprms& rAttributes = rProps.getAttributes();
-    for (auto& rAttribute : rAttributes)
+    for (const auto& rAttribute : rAttributes)
         rStyleAttributes.set(rAttribute.first, rAttribute.second);
 }
 
@@ -958,7 +957,7 @@ void RTFDocumentImpl::resolvePict(bool const bInline, uno::Reference<drawing::XS
         uno::Reference<drawing::XDrawPageSupplier> const xDrawSupplier(m_xDstDoc, uno::UNO_QUERY);
         if (xDrawSupplier.is())
         {
-            uno::Reference<drawing::XShapes> xShapes(xDrawSupplier->getDrawPage(), uno::UNO_QUERY);
+            uno::Reference<drawing::XShapes> xShapes = xDrawSupplier->getDrawPage();
             if (xShapes.is())
                 xShapes->add(xShape);
         }
@@ -1048,7 +1047,7 @@ void RTFDocumentImpl::resolvePict(bool const bInline, uno::Reference<drawing::XS
     auto pExtentValue = new RTFValue(aExtentAttributes);
     // docpr sprm
     RTFSprms aDocprAttributes;
-    for (auto& rCharacterAttribute : m_aStates.top().getCharacterAttributes())
+    for (const auto& rCharacterAttribute : m_aStates.top().getCharacterAttributes())
         if (rCharacterAttribute.first == NS_ooxml::LN_CT_NonVisualDrawingProps_name
             || rCharacterAttribute.first == NS_ooxml::LN_CT_NonVisualDrawingProps_descr)
             aDocprAttributes.set(rCharacterAttribute.first, rCharacterAttribute.second);
@@ -1076,7 +1075,7 @@ void RTFDocumentImpl::resolvePict(bool const bInline, uno::Reference<drawing::XS
             NS_ooxml::LN_CT_Anchor_behindDoc,
             new RTFValue((m_aStates.top().getShape().getInBackground()) ? 1 : 0));
         RTFSprms aAnchorSprms;
-        for (auto& rCharacterAttribute : m_aStates.top().getCharacterAttributes())
+        for (const auto& rCharacterAttribute : m_aStates.top().getCharacterAttributes())
         {
             if (rCharacterAttribute.first == NS_ooxml::LN_CT_WrapSquare_wrapText)
                 aAnchorWrapAttributes.set(rCharacterAttribute.first, rCharacterAttribute.second);
@@ -2219,7 +2218,7 @@ RTFError RTFDocumentImpl::popState()
         }
         break;
         case Destination::LISTENTRY:
-            for (auto& rListLevelEntry : aState.getListLevelEntries())
+            for (const auto& rListLevelEntry : aState.getListLevelEntries())
                 aState.getTableSprms().set(rListLevelEntry.first, rListLevelEntry.second,
                                            RTFOverwrite::NO_APPEND);
             break;
@@ -2403,7 +2402,7 @@ RTFError RTFDocumentImpl::popState()
                     auto pValue = new RTFValue(m_aStates.top().getShape());
 
                     // Buffer wrap type.
-                    for (auto& rCharacterSprm : m_aStates.top().getCharacterSprms())
+                    for (const auto& rCharacterSprm : m_aStates.top().getCharacterSprms())
                     {
                         if (rCharacterSprm.first == NS_ooxml::LN_EG_WrapType_wrapNone
                             || rCharacterSprm.first == NS_ooxml::LN_EG_WrapType_wrapTight)
@@ -2420,7 +2419,7 @@ RTFError RTFDocumentImpl::popState()
             else if (aState.getInShapeGroup() && !aState.getInShape())
             {
                 // End of a groupshape, as we're in shapegroup, but not in a real shape.
-                for (auto& rGroupProperty : aState.getShape().getGroupProperties())
+                for (const auto& rGroupProperty : aState.getShape().getGroupProperties())
                     m_pSdrImport->appendGroupProperty(rGroupProperty.first, rGroupProperty.second);
                 aState.getShape().getGroupProperties().clear();
             }
@@ -3119,8 +3118,7 @@ RTFError RTFDocumentImpl::popState()
             uno::Reference<document::XDocumentPropertiesSupplier> xDocumentPropertiesSupplier(
                 m_xDstDoc, uno::UNO_QUERY);
             if (xDocumentPropertiesSupplier.is())
-                m_xDocumentProperties.set(xDocumentPropertiesSupplier->getDocumentProperties(),
-                                          uno::UNO_QUERY);
+                m_xDocumentProperties = xDocumentPropertiesSupplier->getDocumentProperties();
 
             if (m_xDocumentProperties.is())
             {
@@ -3140,7 +3138,7 @@ RTFError RTFDocumentImpl::popState()
                     xClipboardPropertyContainer, uno::UNO_QUERY);
                 uno::Reference<beans::XPropertySet> xDocumentPropertySet(xDocumentPropertyContainer,
                                                                          uno::UNO_QUERY);
-                uno::Sequence<beans::Property> aClipboardProperties
+                const uno::Sequence<beans::Property> aClipboardProperties
                     = xClipboardPropertySet->getPropertySetInfo()->getProperties();
                 uno::Sequence<beans::Property> aDocumentProperties
                     = xDocumentPropertySet->getPropertySetInfo()->getProperties();

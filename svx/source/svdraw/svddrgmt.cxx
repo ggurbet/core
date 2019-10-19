@@ -143,7 +143,6 @@ SdrDragEntrySdrObject::SdrDragEntrySdrObject(
     bool bModify)
 :   SdrDragEntry(),
     maOriginal(rOriginal),
-    mpClone(nullptr),
     mbModify(bModify)
 {
     // add SdrObject parts to transparent overlay stuff
@@ -152,10 +151,6 @@ SdrDragEntrySdrObject::SdrDragEntrySdrObject(
 
 SdrDragEntrySdrObject::~SdrDragEntrySdrObject()
 {
-    if(mpClone)
-    {
-        SdrObject::Free(mpClone);
-    }
 }
 
 void SdrDragEntrySdrObject::prepareCurrentState(SdrDragMethod& rDragMethod)
@@ -164,18 +159,14 @@ void SdrDragEntrySdrObject::prepareCurrentState(SdrDragMethod& rDragMethod)
     // out when clone and original have the same class, so that i can use operator=
     // in those cases
 
-    if(mpClone)
-    {
-        SdrObject::Free(mpClone);
-        mpClone = nullptr;
-    }
+    mxClone.reset();
 
     if(mbModify)
     {
-        mpClone = maOriginal.getFullDragClone();
+        mxClone = maOriginal.getFullDragClone();
 
         // apply original transformation, implemented at the DragMethods
-        rDragMethod.applyCurrentTransformationToSdrObject(*mpClone);
+        rDragMethod.applyCurrentTransformationToSdrObject(*mxClone);
     }
 }
 
@@ -183,10 +174,10 @@ drawinglayer::primitive2d::Primitive2DContainer SdrDragEntrySdrObject::createPri
 {
     const SdrObject* pSource = &maOriginal;
 
-    if(mbModify && mpClone)
+    if(mbModify && mxClone)
     {
         // choose source for geometry data
-        pSource = mpClone;
+        pSource = mxClone.get();
     }
 
     // use the view-independent primitive representation (without
@@ -569,7 +560,7 @@ void SdrDragMethod::createSdrDragEntries_GlueDrag()
     }
 }
 
-void SdrDragMethod::ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rStr) const
+OUString SdrDragMethod::ImpGetDescriptionStr(const char* pStrCacheID) const
 {
     ImpGetDescriptionOptions nOpt=ImpGetDescriptionOptions::NONE;
     if (IsDraggingPoints()) {
@@ -577,7 +568,7 @@ void SdrDragMethod::ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rSt
     } else if (IsDraggingGluePoints()) {
         nOpt=ImpGetDescriptionOptions::GLUEPOINTS;
     }
-    rStr = getSdrDragView().ImpGetDescriptionString(pStrCacheID, nOpt);
+    return getSdrDragView().ImpGetDescriptionString(pStrCacheID, nOpt);
 }
 
 SdrObject* SdrDragMethod::GetDragObj() const
@@ -900,7 +891,7 @@ drawinglayer::primitive2d::Primitive2DContainer SdrDragMethod::AddConnectorOverl
                 {
                     // this polygon is a temporary calculated connector path, so it is not possible to fetch
                     // the needed primitives directly from the pEdge object which does not get changed. If full
-                    // drag is on, use the SdrObjects ItemSet to create a adequate representation
+                    // drag is on, use the SdrObjects ItemSet to create an adequate representation
                     bool bUseSolidDragging(getSolidDraggingActive());
 
                     if(bUseSolidDragging)
@@ -969,10 +960,11 @@ void SdrDragMovHdl::createSdrDragEntries()
     // but creates nothing
 }
 
-void SdrDragMovHdl::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragMovHdl::GetSdrDragComment() const
 {
-    rStr=SvxResId(STR_DragMethMovHdl);
-    if (getSdrDragView().IsDragWithCopy()) rStr+=SvxResId(STR_EditWithCopy);
+    OUString aStr=SvxResId(STR_DragMethMovHdl);
+    if (getSdrDragView().IsDragWithCopy()) aStr+=SvxResId(STR_EditWithCopy);
+    return aStr;
 }
 
 bool SdrDragMovHdl::BeginSdrDrag()
@@ -1172,8 +1164,7 @@ PointerStyle SdrDragMovHdl::GetSdrDragPointer() const
 
 
 SdrDragObjOwn::SdrDragObjOwn(SdrDragView& rNewView)
-:   SdrDragMethod(rNewView),
-    mpClone(nullptr)
+:   SdrDragMethod(rNewView)
 {
     const SdrObject* pObj = GetDragObj();
 
@@ -1186,15 +1177,11 @@ SdrDragObjOwn::SdrDragObjOwn(SdrDragView& rNewView)
 
 SdrDragObjOwn::~SdrDragObjOwn()
 {
-    if(mpClone)
-    {
-        SdrObject::Free(mpClone);
-    }
 }
 
 void SdrDragObjOwn::createSdrDragEntries()
 {
-    if(mpClone)
+    if(mxClone)
     {
         basegfx::B2DPolyPolygon aDragPolyPolygon;
         bool bAddWireframe(true);
@@ -1205,7 +1192,7 @@ void SdrDragObjOwn::createSdrDragEntries()
 
             if(pPV && pPV->PageWindowCount())
             {
-                addSdrDragEntry(std::unique_ptr<SdrDragEntry>(new SdrDragEntrySdrObject(*mpClone, false)));
+                addSdrDragEntry(std::unique_ptr<SdrDragEntry>(new SdrDragEntrySdrObject(*mxClone, false)));
 
                 // potentially no wireframe needed, full drag works
                 bAddWireframe = false;
@@ -1216,7 +1203,7 @@ void SdrDragObjOwn::createSdrDragEntries()
         {
             // check for extra conditions for wireframe, e.g. no border at
             // objects
-            if(!mpClone->HasLineStyle())
+            if(!mxClone->HasLineStyle())
             {
                 bAddWireframe = true;
             }
@@ -1225,11 +1212,11 @@ void SdrDragObjOwn::createSdrDragEntries()
         if(bAddWireframe)
         {
             // use wireframe poly when full drag is off or did not work
-            aDragPolyPolygon = mpClone->TakeXorPoly();
+            aDragPolyPolygon = mxClone->TakeXorPoly();
         }
 
         // add evtl. extra DragPolyPolygon
-        const basegfx::B2DPolyPolygon aSpecialDragPolyPolygon(mpClone->getSpecialDragPoly(DragStat()));
+        const basegfx::B2DPolyPolygon aSpecialDragPolyPolygon(mxClone->getSpecialDragPoly(DragStat()));
 
         if(aSpecialDragPolyPolygon.count())
         {
@@ -1243,13 +1230,14 @@ void SdrDragObjOwn::createSdrDragEntries()
     }
 }
 
-void SdrDragObjOwn::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragObjOwn::GetSdrDragComment() const
 {
+    OUString aStr;
     // #i103058# get info string from the clone preferred, the original will
     // not be changed. For security, use original as fallback
-    if(mpClone)
+    if(mxClone)
     {
-        rStr = mpClone->getSpecialDragComment(DragStat());
+        aStr = mxClone->getSpecialDragComment(DragStat());
     }
     else
     {
@@ -1257,14 +1245,15 @@ void SdrDragObjOwn::TakeSdrDragComment(OUString& rStr) const
 
         if(pObj)
         {
-            rStr = pObj->getSpecialDragComment(DragStat());
+            aStr = pObj->getSpecialDragComment(DragStat());
         }
     }
+    return aStr;
 }
 
 bool SdrDragObjOwn::BeginSdrDrag()
 {
-    if(!mpClone)
+    if(!mxClone)
     {
         const SdrObject* pObj = GetDragObj();
 
@@ -1273,8 +1262,8 @@ bool SdrDragObjOwn::BeginSdrDrag()
             if(pObj->beginSpecialDrag(DragStat()))
             {
                 // create initial clone to have a start visualization
-                mpClone = pObj->getFullDragClone();
-                mpClone->applySpecialDrag(DragStat());
+                mxClone = pObj->getFullDragClone();
+                mxClone->applySpecialDrag(DragStat());
 
                 return true;
             }
@@ -1329,15 +1318,11 @@ void SdrDragObjOwn::MoveSdrDrag(const Point& rNoSnapPnt)
     clearSdrDragEntries();
 
     // delete current clone (after the last reference to it is deleted above)
-    if(mpClone)
-    {
-        SdrObject::Free(mpClone);
-        mpClone = nullptr;
-    }
+    mxClone.reset();
 
     // create a new clone and modify to current drag state
-    mpClone = pObj->getFullDragClone();
-    mpClone->applySpecialDrag(DragStat());
+    mxClone = pObj->getFullDragClone();
+    mxClone->applySpecialDrag(DragStat());
 
     // AutoGrowWidth may change for SdrTextObj due to the automatism used
     // with bDisableAutoWidthOnDragging, so not only geometry changes but
@@ -1345,7 +1330,7 @@ void SdrDragObjOwn::MoveSdrDrag(const Point& rNoSnapPnt)
     // changed, it needs to be copied to the original since nothing will
     // happen when it only changes in the drag clone
     const bool bOldAutoGrowWidth(pObj->GetMergedItem(SDRATTR_TEXT_AUTOGROWWIDTH).GetValue());
-    const bool bNewAutoGrowWidth(mpClone->GetMergedItem(SDRATTR_TEXT_AUTOGROWWIDTH).GetValue());
+    const bool bNewAutoGrowWidth(mxClone->GetMergedItem(SDRATTR_TEXT_AUTOGROWWIDTH).GetValue());
 
     if (bOldAutoGrowWidth != bNewAutoGrowWidth)
     {
@@ -1489,10 +1474,10 @@ SdrDragMove::SdrDragMove(SdrDragView& rNewView)
     setMoveOnly(true);
 }
 
-void SdrDragMove::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragMove::GetSdrDragComment() const
 {
-    ImpTakeDescriptionStr(STR_DragMethMove, rStr);
-    rStr += " (x="
+    OUString aStr = ImpGetDescriptionStr(STR_DragMethMove)
+            + " (x="
             + getSdrDragView().GetModel()->GetMetricString(DragStat().GetDX())
             + " y="
             + getSdrDragView().GetModel()->GetMetricString(DragStat().GetDY())
@@ -1502,9 +1487,10 @@ void SdrDragMove::TakeSdrDragComment(OUString& rStr) const
     {
         if(!getSdrDragView().IsInsObjPoint() && !getSdrDragView().IsInsGluePoint())
         {
-            rStr += SvxResId(STR_EditWithCopy);
+            aStr += SvxResId(STR_EditWithCopy);
         }
     }
+    return aStr;
 }
 
 bool SdrDragMove::BeginSdrDrag()
@@ -1738,9 +1724,9 @@ SdrDragResize::SdrDragResize(SdrDragView& rNewView)
 {
 }
 
-void SdrDragResize::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragResize::GetSdrDragComment() const
 {
-    ImpTakeDescriptionStr(STR_DragMethResize, rStr);
+    OUString aStr = ImpGetDescriptionStr(STR_DragMethResize);
     Fraction aFact1(1,1);
     Point aStart(DragStat().GetStart());
     Point aRef(DragStat().GetRef1());
@@ -1759,30 +1745,31 @@ void SdrDragResize::TakeSdrDragComment(OUString& rStr) const
 
     if(bX || bY)
     {
-        rStr += " (";
+        aStr += " (";
 
         bool bEqual(aXFact == aYFact);
         if(bX)
         {
             if(!bEqual)
-                rStr += "x=";
+                aStr += "x=";
 
-            rStr += SdrModel::GetPercentString(aXFact);
+            aStr += SdrModel::GetPercentString(aXFact);
         }
 
         if(bY && !bEqual)
         {
             if(bX)
-                rStr += " ";
+                aStr += " ";
 
-            rStr += "y=" + SdrModel::GetPercentString(aYFact);
+            aStr += "y=" + SdrModel::GetPercentString(aYFact);
         }
 
-        rStr += ")";
+        aStr += ")";
     }
 
     if(getSdrDragView().IsDragWithCopy())
-        rStr += SvxResId(STR_EditWithCopy);
+        aStr += SvxResId(STR_EditWithCopy);
+    return aStr;
 }
 
 bool SdrDragResize::BeginSdrDrag()
@@ -2074,10 +2061,10 @@ SdrDragRotate::SdrDragRotate(SdrDragView& rNewView)
 {
 }
 
-void SdrDragRotate::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragRotate::GetSdrDragComment() const
 {
-    ImpTakeDescriptionStr(STR_DragMethRotate, rStr);
-    rStr += " (";
+    OUString aStr = ImpGetDescriptionStr(STR_DragMethRotate) +
+        " (";
     sal_Int32 nTmpAngle(NormAngle36000(nAngle));
 
     if(bRight && nAngle)
@@ -2085,10 +2072,11 @@ void SdrDragRotate::TakeSdrDragComment(OUString& rStr) const
         nTmpAngle -= 36000;
     }
 
-    rStr += SdrModel::GetAngleString(nTmpAngle) + ")";
+    aStr += SdrModel::GetAngleString(nTmpAngle) + ")";
 
     if(getSdrDragView().IsDragWithCopy())
-        rStr += SvxResId(STR_EditWithCopy);
+        aStr += SvxResId(STR_EditWithCopy);
+    return aStr;
 }
 
 bool SdrDragRotate::BeginSdrDrag()
@@ -2214,10 +2202,10 @@ SdrDragShear::SdrDragShear(SdrDragView& rNewView, bool bSlant1)
 {
 }
 
-void SdrDragShear::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragShear::GetSdrDragComment() const
 {
-    ImpTakeDescriptionStr(STR_DragMethShear, rStr);
-    rStr += " (";
+    OUString aStr = ImpGetDescriptionStr(STR_DragMethShear) +
+        " (";
 
     sal_Int32 nTmpAngle(nAngle);
 
@@ -2226,10 +2214,11 @@ void SdrDragShear::TakeSdrDragComment(OUString& rStr) const
 
     nTmpAngle = NormAngle18000(nTmpAngle);
 
-    rStr += SdrModel::GetAngleString(nTmpAngle) + ")";
+    aStr += SdrModel::GetAngleString(nTmpAngle) + ")";
 
     if(getSdrDragView().IsDragWithCopy())
-        rStr += SvxResId(STR_EditWithCopy);
+        aStr += SvxResId(STR_EditWithCopy);
+    return aStr;
 }
 
 bool SdrDragShear::BeginSdrDrag()
@@ -2431,8 +2420,7 @@ bool SdrDragShear::EndSdrDrag(bool bCopy)
     {
         if (nAngle!=0 && bResize)
         {
-            OUString aStr;
-            ImpTakeDescriptionStr(STR_EditShear,aStr);
+            OUString aStr = ImpGetDescriptionStr(STR_EditShear);
 
             if (bCopy)
                 aStr += SvxResId(STR_EditWithCopy);
@@ -2502,19 +2490,21 @@ bool SdrDragMirror::ImpCheckSide(const Point& rPnt) const
     return nAngle1<18000;
 }
 
-void SdrDragMirror::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragMirror::GetSdrDragComment() const
 {
+    OUString aStr;
     if (aDif.X()==0)
-        ImpTakeDescriptionStr(STR_DragMethMirrorHori,rStr);
+        aStr = ImpGetDescriptionStr(STR_DragMethMirrorHori);
     else if (aDif.Y()==0)
-        ImpTakeDescriptionStr(STR_DragMethMirrorVert,rStr);
+        aStr = ImpGetDescriptionStr(STR_DragMethMirrorVert);
     else if (std::abs(aDif.X()) == std::abs(aDif.Y()))
-        ImpTakeDescriptionStr(STR_DragMethMirrorDiag,rStr);
+        aStr = ImpGetDescriptionStr(STR_DragMethMirrorDiag);
     else
-        ImpTakeDescriptionStr(STR_DragMethMirrorFree,rStr);
+        aStr = ImpGetDescriptionStr(STR_DragMethMirrorFree);
 
     if (getSdrDragView().IsDragWithCopy())
-        rStr+=SvxResId(STR_EditWithCopy);
+        aStr+=SvxResId(STR_EditWithCopy);
+    return aStr;
 }
 
 bool SdrDragMirror::BeginSdrDrag()
@@ -2612,12 +2602,12 @@ SdrDragGradient::SdrDragGradient(SdrDragView& rNewView, bool bGrad)
 {
 }
 
-void SdrDragGradient::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragGradient::GetSdrDragComment() const
 {
     if(IsGradient())
-        ImpTakeDescriptionStr(STR_DragMethGradient, rStr);
+        return ImpGetDescriptionStr(STR_DragMethGradient);
     else
-        ImpTakeDescriptionStr(STR_DragMethTransparence, rStr);
+        return ImpGetDescriptionStr(STR_DragMethTransparence);
 }
 
 bool SdrDragGradient::BeginSdrDrag()
@@ -2786,13 +2776,13 @@ SdrDragCrook::SdrDragCrook(SdrDragView& rNewView)
 {
 }
 
-void SdrDragCrook::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragCrook::GetSdrDragComment() const
 {
-    ImpTakeDescriptionStr(!bContortion ? STR_DragMethCrook : STR_DragMethCrookContortion, rStr);
+    OUString aStr = ImpGetDescriptionStr(!bContortion ? STR_DragMethCrook : STR_DragMethCrookContortion);
 
     if(bValid)
     {
-        rStr += " (";
+        aStr += " (";
 
         sal_Int32 nVal(nAngle);
 
@@ -2800,11 +2790,12 @@ void SdrDragCrook::TakeSdrDragComment(OUString& rStr) const
             nVal *= 2;
 
         nVal = std::abs(nVal);
-        rStr += SdrModel::GetAngleString(nVal) + ")";
+        aStr += SdrModel::GetAngleString(nVal) + ")";
     }
 
     if(getSdrDragView().IsDragWithCopy())
-        rStr += SvxResId(STR_EditWithCopy);
+        aStr += SvxResId(STR_EditWithCopy);
+    return aStr;
 }
 
 // These defines parametrize the created raster
@@ -3325,8 +3316,7 @@ bool SdrDragCrook::EndSdrDrag(bool bCopy)
     {
         if (bResize && bUndo)
         {
-            OUString aStr;
-            ImpTakeDescriptionStr(!bContortion?STR_EditCrook:STR_EditCrookContortion,aStr);
+            OUString aStr = ImpGetDescriptionStr(!bContortion?STR_EditCrook:STR_EditCrookContortion);
 
             if (bCopy)
                 aStr += SvxResId(STR_EditWithCopy);
@@ -3403,18 +3393,18 @@ SdrDragDistort::SdrDragDistort(SdrDragView& rNewView)
 {
 }
 
-void SdrDragDistort::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragDistort::GetSdrDragComment() const
 {
-    ImpTakeDescriptionStr(STR_DragMethDistort, rStr);
-
-    rStr += " (x="
+    OUString aStr = ImpGetDescriptionStr(STR_DragMethDistort)
+            + " (x="
             + getSdrDragView().GetModel()->GetMetricString(DragStat().GetDX())
             + " y="
             + getSdrDragView().GetModel()->GetMetricString(DragStat().GetDY())
             + ")";
 
     if(getSdrDragView().IsDragWithCopy())
-        rStr += SvxResId(STR_EditWithCopy);
+        aStr += SvxResId(STR_EditWithCopy);
+    return aStr;
 }
 
 void SdrDragDistort::createSdrDragEntries()
@@ -3548,18 +3538,18 @@ SdrDragCrop::SdrDragCrop(SdrDragView& rNewView)
     setSolidDraggingActive(false);
 }
 
-void SdrDragCrop::TakeSdrDragComment(OUString& rStr) const
+OUString SdrDragCrop::GetSdrDragComment() const
 {
-    ImpTakeDescriptionStr(STR_DragMethCrop, rStr);
-
-    rStr += " (x="
+    OUString aStr = ImpGetDescriptionStr(STR_DragMethCrop)
+            + " (x="
             + getSdrDragView().GetModel()->GetMetricString(DragStat().GetDX())
             + " y="
             + getSdrDragView().GetModel()->GetMetricString(DragStat().GetDY())
             + ")";
 
     if(getSdrDragView().IsDragWithCopy())
-        rStr += SvxResId(STR_EditWithCopy);
+        aStr += SvxResId(STR_EditWithCopy);
+    return aStr;
 }
 
 bool SdrDragCrop::BeginSdrDrag()
@@ -3600,7 +3590,7 @@ bool SdrDragCrop::EndSdrDrag(bool /*bCopy*/)
     // there are currently no easy mechanisms to plug an alternative interaction
     // from there
     SdrObject* pSdrObject = rMarkList.GetMark(0)->GetMarkedSdrObj();
-    std::unique_ptr< SdrObject, SdrObjectFreeOp > pFullDragClone;
+    SdrObjectUniquePtr pFullDragClone;
     bool bExternal(false);
     SdrObject* pExternalSdrObject(nullptr);
 
@@ -3613,7 +3603,7 @@ bool SdrDragCrop::EndSdrDrag(bool /*bCopy*/)
         // real transformation. That SdrObject is owned and has to be deleted,
         // so use a std::unique_ptr with special handling for the protected
         // SDrObject destructor
-        pFullDragClone.reset(pSdrObject->getFullDragClone());
+        pFullDragClone = pSdrObject->getFullDragClone();
 
         if(dynamic_cast< SdrGrafObj* >(pFullDragClone.get()))
         {
@@ -3636,8 +3626,7 @@ bool SdrDragCrop::EndSdrDrag(bool /*bCopy*/)
 
     if(bUndo)
     {
-        OUString aUndoStr;
-        ImpTakeDescriptionStr(STR_DragMethCrop, aUndoStr);
+        OUString aUndoStr = ImpGetDescriptionStr(STR_DragMethCrop);
 
         getSdrDragView().BegUndo( aUndoStr );
         getSdrDragView().AddUndo( getSdrDragView().GetModel()->GetSdrUndoFactory().CreateUndoGeoObject(*pObj));

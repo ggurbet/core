@@ -66,7 +66,7 @@ namespace ErrorCondition = ::com::sun::star::sdb::ErrorCondition;
 
 OUString SAL_CALL OEvoabResultSet::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdbcx.evoab.ResultSet");
+    return "com.sun.star.sdbcx.evoab.ResultSet";
 }
 
  Sequence< OUString > SAL_CALL OEvoabResultSet::getSupportedServiceNames(  )
@@ -435,7 +435,7 @@ public:
         return isBookBackend(pBook, "local");
     }
 
-    virtual void freeContacts() override
+    virtual void freeContacts() override final
     {
         e_client_util_free_object_slist(m_pContacts);
         m_pContacts = nullptr;
@@ -560,7 +560,7 @@ public:
                           !strncmp( "local:", e_book_get_uri( pBook ), 6 ) );
     }
 
-    virtual void freeContacts() override
+    virtual void freeContacts() override final
     {
         g_list_free(m_pContacts);
         m_pContacts = nullptr;

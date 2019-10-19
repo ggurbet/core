@@ -296,7 +296,7 @@ Graphic SvXMLGraphicOutputStream::GetGraphic()
         mpOStm->Seek( 0 );
         sal_uInt16 nFormat = GRFILTER_FORMAT_DONTKNOW;
         sal_uInt16 nDeterminedFormat = GRFILTER_FORMAT_DONTKNOW;
-        GraphicFilter::GetGraphicFilter().ImportGraphic( aGraphic, "", *mpOStm ,nFormat, &nDeterminedFormat );
+        GraphicFilter::GetGraphicFilter().ImportGraphic( aGraphic, "", *mpOStm ,nFormat,&nDeterminedFormat);
 
         if (nDeterminedFormat == GRFILTER_FORMAT_DONTKNOW)
         {
@@ -326,7 +326,7 @@ Graphic SvXMLGraphicOutputStream::GetGraphic()
                 {
                     std::unique_ptr<SvMemoryStream> pDest(new SvMemoryStream);
                     ZCodec aZCodec( 0x8000, 0x8000 );
-                    aZCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, false, true);
+                    aZCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, /*gzLib*/true);
                     mpOStm->Seek( 0 );
                     aZCodec.Decompress( *mpOStm, *pDest );
 
@@ -691,7 +691,7 @@ OUString SvXMLGraphicHelper::implSaveGraphic(css::uno::Reference<css::graphic::X
             }
             else if (aGraphicObject.GetType() == GraphicType::GdiMetafile)
             {
-                // SJ: first check if this metafile is just a eps file, then we will store the eps instead of svm
+                // SJ: first check if this metafile is just an eps file, then we will store the eps instead of svm
                 GDIMetaFile& rMetafile(const_cast<GDIMetaFile&>(aGraphic.GetGDIMetaFile()));
 
                 if (ImplCheckForEPS(rMetafile))
@@ -760,8 +760,8 @@ OUString SvXMLGraphicHelper::implSaveGraphic(css::uno::Reference<css::graphic::X
             std::unique_ptr<SvStream> pStream(utl::UcbStreamHelper::CreateStream(aStream.xStream));
             if (bUseGfxLink && aGfxLink.GetDataSize() && aGfxLink.GetData())
             {
-                const std::shared_ptr<uno::Sequence<sal_Int8>>& rPdfData = aGraphic.getPdfData();
-                if (rPdfData && rPdfData->hasElements())
+                const std::shared_ptr<std::vector<sal_Int8>> rPdfData = aGraphic.getPdfData();
+                if (rPdfData && !rPdfData->empty())
                 {
                     // See if we have this PDF already, and avoid duplicate storage.
                     auto aIt = maExportPdf.find(rPdfData.get());
@@ -776,7 +776,7 @@ OUString SvXMLGraphicHelper::implSaveGraphic(css::uno::Reference<css::graphic::X
                     // vcl::ImportPDF() possibly downgraded the PDF data from a
                     // higher PDF version, while aGfxLink still contains the
                     // original data provided by the user.
-                    pStream->WriteBytes(rPdfData->getConstArray(), rPdfData->getLength());
+                    pStream->WriteBytes(rPdfData->data(), rPdfData->size());
                 }
                 else
                 {
@@ -811,7 +811,7 @@ OUString SvXMLGraphicHelper::implSaveGraphic(css::uno::Reference<css::graphic::X
                     pStream->SetCompressMode(SvStreamCompressFlags::ZBITMAP);
                     rOutSavedMimeType = comphelper::GraphicMimeTypeHelper::GetMimeTypeForExtension("svm");
 
-                    // SJ: first check if this metafile is just a eps file, then we will store the eps instead of svm
+                    // SJ: first check if this metafile is just an eps file, then we will store the eps instead of svm
                     GDIMetaFile& rMtf(const_cast<GDIMetaFile&>(aGraphic.GetGDIMetaFile()));
                     const MetaCommentAction* pComment = ImplCheckForEPS(rMtf);
                     if (pComment)
@@ -844,8 +844,7 @@ OUString SvXMLGraphicHelper::implSaveGraphic(css::uno::Reference<css::graphic::X
             if (xStorage.is())
                 xStorage->commit();
 
-            OUString aStoragePath("Pictures/");
-            aStoragePath += rPictureStreamName;
+            OUString aStoragePath = "Pictures/" + rPictureStreamName;
 
             // put into cache
             maExportGraphics[aGraphic] = std::make_pair(aStoragePath, rOutSavedMimeType);
@@ -923,8 +922,7 @@ OUString SAL_CALL SvXMLGraphicHelper::resolveOutputStream( const Reference< XOut
 
                 if( !aId.isEmpty() )
                 {
-                    aRet = XML_GRAPHICOBJECT_URL_BASE;
-                    aRet += aId;
+                    aRet = XML_GRAPHICOBJECT_URL_BASE + aId;
                 }
             }
         }
@@ -1091,8 +1089,8 @@ OUString SAL_CALL SvXMLGraphicImportExportHelper::resolveOutputStream( const Ref
 OUString SAL_CALL SvXMLGraphicImportExportHelper::getImplementationName()
 {
     if( m_eGraphicHelperMode == SvXMLGraphicHelperMode::Read )
-        return OUString("com.sun.star.comp.Svx.GraphicImportHelper");
-    return OUString("com.sun.star.comp.Svx.GraphicExportHelper");
+        return "com.sun.star.comp.Svx.GraphicImportHelper";
+    return "com.sun.star.comp.Svx.GraphicExportHelper";
 }
 
 sal_Bool SAL_CALL SvXMLGraphicImportExportHelper::supportsService( const OUString& ServiceName )
@@ -1102,11 +1100,9 @@ sal_Bool SAL_CALL SvXMLGraphicImportExportHelper::supportsService( const OUStrin
 
 Sequence< OUString > SAL_CALL SvXMLGraphicImportExportHelper::getSupportedServiceNames()
 {
-    Sequence< OUString > aSupportedServiceNames(3);
-    aSupportedServiceNames[0] = "com.sun.star.document.GraphicObjectResolver";
-    aSupportedServiceNames[1] = "com.sun.star.document.GraphicStorageHandler";
-    aSupportedServiceNames[2] = "com.sun.star.document.BinaryStreamResolver";
-    return aSupportedServiceNames;
+    return { "com.sun.star.document.GraphicObjectResolver",
+             "com.sun.star.document.GraphicStorageHandler",
+             "com.sun.star.document.BinaryStreamResolver" };
 }
 
 }

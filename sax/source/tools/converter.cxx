@@ -22,11 +22,8 @@
 #include <com/sun/star/i18n/UnicodeType.hpp>
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/util/Date.hpp>
-#include <com/sun/star/util/DateTimeWithTimezone.hpp>
-#include <com/sun/star/util/DateWithTimezone.hpp>
 #include <com/sun/star/util/Duration.hpp>
 #include <com/sun/star/util/Time.hpp>
-#include <com/sun/star/uno/Sequence.hxx>
 #include <boost/optional.hpp>
 
 #include <rtl/ustrbuf.hxx>
@@ -425,28 +422,18 @@ void Converter::convertMeasure( OUStringBuffer& rBuffer,
         rBuffer.appendAscii( psUnit );
 }
 
-static OUString getTrueString()
-{
-    return OUString( "true" );
-}
-
-static OUString getFalseString()
-{
-    return OUString( "false" );
-}
-
 /** convert string to boolean */
 bool Converter::convertBool( bool& rBool, const OUString& rString )
 {
-    rBool = rString == getTrueString();
+    rBool = rString == "true";
 
-    return rBool || (rString == getFalseString());
+    return rBool || (rString == "false");
 }
 
 /** convert boolean to string */
 void Converter::convertBool( OUStringBuffer& rBuffer, bool bValue )
 {
-    rBuffer.append( bValue ? getTrueString() : getFalseString() );
+    rBuffer.append( bValue );
 }
 
 /** convert string to percent */

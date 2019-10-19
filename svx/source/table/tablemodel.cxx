@@ -303,7 +303,6 @@ sal_Int32 SAL_CALL TableModel::getRowCount()
     return getRowCountImpl();
 }
 
-
 sal_Int32 SAL_CALL TableModel::getColumnCount()
 {
     ::SolarMutexGuard aGuard;

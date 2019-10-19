@@ -82,7 +82,7 @@ namespace filter {
                      const Sequence< OUString >& userData) override;
 
             OUString SAL_CALL getImplementationName() override
-            { return OUString("com.sun.star.comp.filter.OdfFlatXml"); }
+            { return "com.sun.star.comp.filter.OdfFlatXml"; }
 
             sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
             { return cppu::supportsService(this, ServiceName); }
@@ -155,8 +155,7 @@ OdfFlatXml::importer(
     }
     catch (const Exception &)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("filter.odfflatxml", exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("filter.odfflatxml", "");
         return false;
     }
     catch (const std::exception &exc)
@@ -204,15 +203,12 @@ OdfFlatXml::exporter(const Sequence< PropertyValue >& sourceData,
 
 OUString OdfFlatXml::impl_getImplementationName()
 {
-    return OUString("com.sun.star.comp.filter.OdfFlatXml");
+    return "com.sun.star.comp.filter.OdfFlatXml";
 }
 
 Sequence< OUString > OdfFlatXml::impl_getSupportedServiceNames()
 {
-    Sequence< OUString > lServiceNames(2);
-    lServiceNames[0] = "com.sun.star.document.ImportFilter";
-    lServiceNames[1] = "com.sun.star.document.ExportFilter";
-    return lServiceNames;
+    return { "com.sun.star.document.ImportFilter", "com.sun.star.document.ExportFilter" };
 }
 
 Reference< XInterface > SAL_CALL OdfFlatXml::impl_createInstance(const Reference< XMultiServiceFactory >& fact)

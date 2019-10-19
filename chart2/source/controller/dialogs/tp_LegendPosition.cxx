@@ -26,8 +26,8 @@
 namespace chart
 {
 
-SchLegendPosTabPage::SchLegendPosTabPage(TabPageParent pWindow, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pWindow, "modules/schart/ui/tp_LegendPosition.ui", "tp_LegendPosition", &rInAttrs)
+SchLegendPosTabPage::SchLegendPosTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "modules/schart/ui/tp_LegendPosition.ui", "tp_LegendPosition", &rInAttrs)
     , m_aLegendPositionResources(*m_xBuilder)
     , m_xLbTextDirection(new TextDirectionListBox(m_xBuilder->weld_combo_box("LB_LEGEND_TEXTDIR")))
 {
@@ -35,19 +35,12 @@ SchLegendPosTabPage::SchLegendPosTabPage(TabPageParent pWindow, const SfxItemSet
 
 SchLegendPosTabPage::~SchLegendPosTabPage()
 {
-    disposeOnce();
-}
-
-void SchLegendPosTabPage::dispose()
-{
     m_xLbTextDirection.reset();
-    SfxTabPage::dispose();
 }
 
-
-VclPtr<SfxTabPage> SchLegendPosTabPage::Create(TabPageParent pParent, const SfxItemSet* rOutAttrs)
+std::unique_ptr<SfxTabPage> SchLegendPosTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rOutAttrs)
 {
-    return VclPtr<SchLegendPosTabPage>::Create(pParent, *rOutAttrs);
+    return std::make_unique<SchLegendPosTabPage>(pPage, pController, *rOutAttrs);
 }
 
 bool SchLegendPosTabPage::FillItemSet(SfxItemSet* rOutAttrs)

@@ -32,7 +32,6 @@
 #include <rtl/math.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/alpha.hxx>
-#include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/canvastools.hxx>
 #include <vcl/outdev.hxx>
@@ -118,7 +117,7 @@ namespace vclcanvas
 
     OUString SAL_CALL CanvasCustomSprite::getImplementationName()
     {
-        return OUString( "VCLCanvas.CanvasCustomSprite" );
+        return "VCLCanvas.CanvasCustomSprite";
     }
 
     sal_Bool SAL_CALL CanvasCustomSprite::supportsService( const OUString& ServiceName )

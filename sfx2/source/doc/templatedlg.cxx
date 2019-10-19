@@ -37,10 +37,7 @@
 #include <unotools/moduleoptions.hxx>
 #include <unotools/pathoptions.hxx>
 #include <unotools/viewoptions.hxx>
-#include <vcl/edit.hxx>
 #include <vcl/event.hxx>
-#include <vcl/toolbox.hxx>
-#include <vcl/lstbox.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 
@@ -291,7 +288,7 @@ void SfxTemplateManagerDlg::setDocumentModel(const uno::Reference<frame::XModel>
     m_xModel = rModel;
 }
 
-FILTER_APPLICATION SfxTemplateManagerDlg::getCurrentApplicationFilter()
+FILTER_APPLICATION SfxTemplateManagerDlg::getCurrentApplicationFilter() const
 {
     const sal_Int16 nCurAppId = mxCBApp->get_active();
 
@@ -759,7 +756,7 @@ void SfxTemplateManagerDlg::SearchUpdate()
         std::vector<TemplateItemProperties> aItems =
                 mxLocalView->getFilteredItems(SearchView_Keyword(aKeyword, getCurrentApplicationFilter()));
 
-        for (TemplateItemProperties& rItem : aItems)
+        for (const TemplateItemProperties& rItem : aItems)
         {
             OUString aFolderName = mxLocalView->getRegionName(rItem.nRegionId);
 
@@ -888,9 +885,7 @@ void SfxTemplateManagerDlg::OnTemplateImportCategory(const OUString& sCategory)
 
     sFilterExt += "*.vor";
 
-    sFilterName += " (";
-    sFilterName += sFilterExt;
-    sFilterName += ")";
+    sFilterName += " (" + sFilterExt + ")";
 
     aFileDlg.AddFilter( sFilterName, sFilterExt );
     aFileDlg.SetCurrentFilter( sFilterName );
@@ -900,7 +895,7 @@ void SfxTemplateManagerDlg::OnTemplateImportCategory(const OUString& sCategory)
     if ( nCode != ERRCODE_NONE )
         return;
 
-    css::uno::Sequence<OUString> aFiles = aFileDlg.GetSelectedFiles();
+    const css::uno::Sequence<OUString> aFiles = aFileDlg.GetSelectedFiles();
 
     if (!aFiles.hasElements())
         return;
@@ -912,14 +907,14 @@ void SfxTemplateManagerDlg::OnTemplateImportCategory(const OUString& sCategory)
 
     OUString aTemplateList;
 
-    for (size_t i = 0, n = aFiles.getLength(); i < n; ++i)
+    for (const auto& rFile : aFiles)
     {
-        if(!mxLocalView->copyFrom(pContItem,aFiles[i]))
+        if(!mxLocalView->copyFrom(pContItem, rFile))
         {
             if (aTemplateList.isEmpty())
-                aTemplateList = aFiles[i];
+                aTemplateList = rFile;
             else
-                aTemplateList = aTemplateList + "\n" + aFiles[i];
+                aTemplateList += "\n" + rFile;
         }
     }
 
@@ -973,7 +968,7 @@ void SfxTemplateManagerDlg::OnTemplateExport()
                 if (aTemplateList.isEmpty())
                     aTemplateList = pItem->maTitle;
                 else
-                    aTemplateList = aTemplateList + "\n" + pItem->maTitle;
+                    aTemplateList += "\n" + pItem->maTitle;
             }
             ++i;
         }
@@ -1006,7 +1001,7 @@ void SfxTemplateManagerDlg::OnTemplateExport()
                 if (aTemplateList.isEmpty())
                     aTemplateList = pItem->maTitle;
                 else
-                    aTemplateList = aTemplateList + "\n" + pItem->maTitle;
+                    aTemplateList += "\n" + pItem->maTitle;
             }
             ++i;
         }
@@ -1261,12 +1256,12 @@ static std::vector<OUString> lcl_getAllFactoryURLs ()
     std::vector<OUString> aList;
     const css::uno::Sequence<OUString> &aServiceNames = aModOpt.GetAllServiceNames();
 
-    for( sal_Int32 i=0, nCount = aServiceNames.getLength(); i < nCount; ++i )
+    for( const auto& rServiceName : aServiceNames )
     {
-        if ( ! SfxObjectFactory::GetStandardTemplate( aServiceNames[i] ).isEmpty() )
+        if ( ! SfxObjectFactory::GetStandardTemplate( rServiceName ).isEmpty() )
         {
             SvtModuleOptions::EFactory eFac = SvtModuleOptions::EFactory::WRITER;
-            SvtModuleOptions::ClassifyFactoryByName( aServiceNames[i], eFac );
+            SvtModuleOptions::ClassifyFactoryByName( rServiceName, eFac );
             aList.push_back(aModOpt.GetFactoryEmptyDocumentURL(eFac));
         }
     }

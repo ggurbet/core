@@ -19,6 +19,7 @@
 #include "vbabookmark.hxx"
 #include <vbahelper/vbahelper.hxx>
 #include <tools/diagnose_ex.h>
+#include <com/sun/star/text/XBookmarksSupplier.hpp>
 #include <com/sun/star/text/XTextDocument.hpp>
 #include <com/sun/star/text/XTextContent.hpp>
 #include <com/sun/star/text/XTextRange.hpp>
@@ -86,7 +87,7 @@ uno::Any SAL_CALL SwVbaBookmark::Range()
 OUString
 SwVbaBookmark::getServiceImplName()
 {
-    return OUString("SwVbaBookmark");
+    return "SwVbaBookmark";
 }
 
 uno::Sequence< OUString >

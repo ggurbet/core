@@ -259,7 +259,7 @@ void ORowSetValue::setTypeKind(sal_Int32 _eType)
 }
 
 
-void ORowSetValue::free()
+void ORowSetValue::free() noexcept
 {
     if(!m_bNull)
     {
@@ -470,7 +470,7 @@ ORowSetValue& ORowSetValue::operator=(const ORowSetValue& _rRH)
     return *this;
 }
 
-ORowSetValue& ORowSetValue::operator=(ORowSetValue&& _rRH)
+ORowSetValue& ORowSetValue::operator=(ORowSetValue&& _rRH) noexcept
 {
     if ( m_eTypeKind != _rRH.m_eTypeKind || !m_bNull)
         free();
@@ -2086,11 +2086,19 @@ void ORowSetValue::setSigned(bool _bMod)
                     }
                     break;
                 case DataType::BIGINT:
+                {
                     if ( m_bSigned )
-                        m_aValue.m_nInt64 = static_cast<sal_Int64>(m_aValue.m_uInt64);
+                    {
+                        auto nTmp = static_cast<sal_Int64>(m_aValue.m_uInt64);
+                        m_aValue.m_nInt64 = nTmp;
+                    }
                     else
-                        m_aValue.m_uInt64 = static_cast<sal_uInt64>(m_aValue.m_nInt64);
+                    {
+                        auto nTmp = static_cast<sal_uInt64>(m_aValue.m_nInt64);
+                        m_aValue.m_uInt64 = nTmp;
+                    }
                     break;
+                }
             }
             m_eTypeKind = nType;
         }

@@ -58,6 +58,7 @@
 #include <columnspanset.hxx>
 #include <column.hxx>
 #include <com/sun/star/document/MacroExecMode.hpp>
+#include <com/sun/star/document/UpdateDocMode.hpp>
 #include <sal/log.hxx>
 
 #include <memory>
@@ -132,11 +133,12 @@ struct UpdateFormulaCell
 {
     void operator() (ScFormulaCell* pCell) const
     {
-        // Check to make sure the cell really contains ocExternalRef.
+        // Check to make sure the cell really contains svExternal*.
         // External names, external cell and range references all have a
-        // ocExternalRef token.
+        // token of svExternal*. Additionally check for INDIRECT() that can be
+        // called with any constructed URI string.
         ScTokenArray* pCode = pCell->GetCode();
-        if (!pCode->HasExternalRef())
+        if (!pCode->HasExternalRef() && !pCode->HasOpCode(ocIndirect))
             return;
 
         if (pCode->GetCodeError() != FormulaError::NONE)
@@ -1619,6 +1621,17 @@ static std::unique_ptr<ScTokenArray> lcl_fillEmptyMatrix(const ScRange& rRange)
     return pArray;
 }
 
+namespace {
+bool isLinkUpdateAllowedInDoc(const ScDocument& rDoc)
+{
+    SfxObjectShell* pDocShell = rDoc.GetDocumentShell();
+    if (!pDocShell)
+        return false;
+
+    return pDocShell->GetEmbeddedObjectContainer().getUserAllowsLinkUpdate();
+}
+}
+
 ScExternalRefManager::ScExternalRefManager(ScDocument* pDoc) :
     mpDoc(pDoc),
     mbInReferenceMarking(false),
@@ -1907,8 +1920,17 @@ ScExternalRefCache::TokenRef ScExternalRefManager::getSingleRefToken(
     pSrcDoc = getSrcDocument(nFileId);
     if (!pSrcDoc)
     {
-        // Source document not reachable.  Throw a reference error.
-        pToken.reset(new FormulaErrorToken(FormulaError::NoRef));
+        // Source document not reachable.
+        if (!isLinkUpdateAllowedInDoc(*mpDoc))
+        {
+            // Indicate with specific error.
+            pToken.reset(new FormulaErrorToken(FormulaError::LinkFormulaNeedingCheck));
+        }
+        else
+        {
+            // Throw a reference error.
+            pToken.reset(new FormulaErrorToken(FormulaError::NoRef));
+        }
         return pToken;
     }
 
@@ -2321,14 +2343,9 @@ ScDocument* ScExternalRefManager::getInMemorySrcDocument(sal_uInt16 nFileId)
     if (!pFileName)
         return nullptr;
 
-    // Do not load document until it was allowed
-    SfxObjectShell* pDocShell = mpDoc->GetDocumentShell();
-    if ( pDocShell )
-    {
-        const comphelper::EmbeddedObjectContainer& rContainer = pDocShell->GetEmbeddedObjectContainer();
-        if ( !rContainer.getUserAllowsLinkUpdate() )
-            return nullptr;
-    }
+    // Do not load document until it was allowed.
+    if (!isLinkUpdateAllowedInDoc(*mpDoc))
+        return nullptr;
 
     ScDocument* pSrcDoc = nullptr;
     ScDocShell* pShell = static_cast<ScDocShell*>(SfxObjectShell::GetFirst(checkSfxObjectShell<ScDocShell>, false));
@@ -2420,6 +2437,10 @@ ScDocument* ScExternalRefManager::getSrcDocument(sal_uInt16 nFileId)
 
 SfxObjectShellRef ScExternalRefManager::loadSrcDocument(sal_uInt16 nFileId, OUString& rFilter)
 {
+    // Do not load document until it was allowed.
+    if (!isLinkUpdateAllowedInDoc(*mpDoc))
+        return nullptr;
+
     const SrcFileData* pFileData = getExternalFileData(nFileId);
     if (!pFileData)
         return nullptr;
@@ -2464,6 +2485,11 @@ SfxObjectShellRef ScExternalRefManager::loadSrcDocument(sal_uInt16 nFileId, OUSt
 
     // If the current document is allowed to execute macros then the referenced
     // document may execute macros according to the security configuration.
+    // Similar for UpdateDocMode to update links, just that if we reach here
+    // the user already allowed updates and intermediate documents are expected
+    // to update as well. When loading the document ScDocShell::Load() will
+    // check through ScDocShell::GetLinkUpdateModeState() if its location is
+    // trusted.
     SfxObjectShell* pShell = mpDoc->GetDocumentShell();
     if (pShell)
     {
@@ -2475,6 +2501,8 @@ SfxObjectShellRef ScExternalRefManager::loadSrcDocument(sal_uInt16 nFileId, OUSt
                     static_cast<const SfxUInt16Item*>(pItem)->GetValue() != css::document::MacroExecMode::NEVER_EXECUTE)
                 pSet->Put( SfxUInt16Item( SID_MACROEXECMODE, css::document::MacroExecMode::USE_CONFIG));
         }
+
+        pSet->Put( SfxUInt16Item( SID_UPDATEDOCMODE, css::document::UpdateDocMode::FULL_UPDATE));
     }
 
     unique_ptr<SfxMedium> pMedium(new SfxMedium(aFile, StreamMode::STD_READ, pFilter, std::move(pSet)));
@@ -2573,6 +2601,11 @@ void ScExternalRefManager::maybeLinkExternalFile( sal_uInt16 nFileId, bool bDefe
         aFilter = pFileData->maFilterName;
         aOptions = pFileData->maFilterOptions;
     }
+
+    // Filter detection may access external links; defer it until we are allowed.
+    if (!bDeferFilterDetection)
+        bDeferFilterDetection = !isLinkUpdateAllowedInDoc(*mpDoc);
+
     // If a filter was already set (for example, loading the cached table),
     // don't call GetFilterName which has to access the source file.
     // If filter detection is deferred, the next successful loadSrcDocument()
@@ -2638,7 +2671,7 @@ void ScExternalRefManager::maybeCreateRealFileName(sal_uInt16 nFileId)
 OUString ScExternalRefManager::getOwnDocumentName() const
 {
     if (utl::ConfigManager::IsFuzzing())
-        return OUString("file:///tmp/document");
+        return "file:///tmp/document";
 
     SfxObjectShell* pShell = mpDoc->GetDocumentShell();
     if (!pShell)

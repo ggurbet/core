@@ -32,13 +32,11 @@
 #include <vcl/outdev.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/image.hxx>
-#include <vcl/window.hxx>
 #include <vcl/BitmapMonochromeFilter.hxx>
 
 #include <bmpfast.hxx>
 #include <salgdi.hxx>
 #include <salbmp.hxx>
-#include <image.h>
 
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <memory>
@@ -429,7 +427,7 @@ Bitmap OutputDevice::GetBitmap( const Point& rSrcPt, const Size& rSize ) const
 
                 if ( aVDev->SetOutputSizePixel( aRect.GetSize() ) )
                 {
-                    if ( aVDev.get()->mpGraphics || aVDev.get()->AcquireGraphics() )
+                    if ( aVDev->mpGraphics || aVDev->AcquireGraphics() )
                     {
                         if ( (nWidth > 0) && (nHeight > 0) )
                         {
@@ -437,7 +435,7 @@ Bitmap OutputDevice::GetBitmap( const Point& rSrcPt, const Size& rSize ) const
                                               (aRect.Left() < mnOutOffX) ? (mnOutOffX - aRect.Left()) : 0L,
                                               (aRect.Top() < mnOutOffY) ? (mnOutOffY - aRect.Top()) : 0L,
                                               nWidth, nHeight);
-                            aVDev.get()->mpGraphics->CopyBits( aPosAry, mpGraphics, this, this );
+                            aVDev->mpGraphics->CopyBits( aPosAry, mpGraphics, this, this );
                         }
                         else
                         {
@@ -1210,7 +1208,7 @@ void OutputDevice::DrawTransformedBitmapEx(
     const bool bInvert(RasterOp::Invert == meRasterOp);
     const bool bBitmapChangedColor(mnDrawMode & (DrawModeFlags::BlackBitmap | DrawModeFlags::WhiteBitmap | DrawModeFlags::GrayBitmap ));
     bool bDone(false);
-    const basegfx::B2DHomMatrix aFullTransform(GetViewTransformation() * rTransformation);
+    basegfx::B2DHomMatrix aFullTransform(GetViewTransformation() * rTransformation);
     const bool bTryDirectPaint(!bInvert && !bBitmapChangedColor && !bMetafile );
 
     if(bTryDirectPaint)
@@ -1235,6 +1233,8 @@ void OutputDevice::DrawTransformedBitmapEx(
             return;
         }
 
+        assert(bSheared || bRotated); // at this point we are either sheared or rotated or both
+
         // fallback; create transformed bitmap the hard way (back-transform
         // the pixels) and paint
         basegfx::B2DRange aVisibleRange(0.0, 0.0, 1.0, 1.0);
@@ -1245,7 +1245,7 @@ void OutputDevice::DrawTransformedBitmapEx(
         // to avoid crashes/resource problems (ca. 1500x3000 here)
         const Size& rOriginalSizePixel(rBitmapEx.GetSizePixel());
         const double fOrigArea(rOriginalSizePixel.Width() * rOriginalSizePixel.Height() * 0.5);
-        const double fOrigAreaScaled(bSheared || bRotated ? fOrigArea * 1.44 : fOrigArea);
+        const double fOrigAreaScaled(fOrigArea * 1.44);
         double fMaximumArea(std::min(4500000.0, std::max(1000000.0, fOrigAreaScaled)));
 
         if(!bMetafile)
@@ -1272,10 +1272,37 @@ void OutputDevice::DrawTransformedBitmapEx(
                 aTransformed = BitmapEx(aContent, aMaskBmp);
             }
 
-            aTransformed = aTransformed.getTransformed(
-                aFullTransform,
-                aVisibleRange,
-                fMaximumArea);
+            // Remove scaling from aFulltransform: we transform due to shearing or rotation, scaling
+            // will happen according to aDestSize.
+            basegfx::B2DVector aFullScale, aFullTranslate;
+            double fFullRotate, fFullShearX;
+            aFullTransform.decompose(aFullScale, aFullTranslate, fFullRotate, fFullShearX);
+            if (aFullScale.getX() != 0 && aFullScale.getY() != 0)
+            {
+                basegfx::B2DHomMatrix aTransform = basegfx::utils::createScaleB2DHomMatrix(
+                    rOriginalSizePixel.getWidth() / aFullScale.getX(),
+                    rOriginalSizePixel.getHeight() / aFullScale.getY());
+                aFullTransform *= aTransform;
+            }
+
+            if (bSheared)
+            {
+                aTransformed = aTransformed.getTransformed(
+                    aFullTransform,
+                    aVisibleRange,
+                    fMaximumArea);
+            }
+            else
+            {
+                // Just rotation, can do that directly.
+                fFullRotate = fmod(fFullRotate * -1, F_2PI);
+                if (fFullRotate < 0)
+                {
+                    fFullRotate += F_2PI;
+                }
+                long nAngle10 = basegfx::fround(basegfx::rad2deg(fFullRotate) * 10);
+                aTransformed.Rotate(nAngle10, COL_TRANSPARENT);
+            }
             basegfx::B2DRange aTargetRange(0.0, 0.0, 1.0, 1.0);
 
             // get logic object target range
@@ -1295,6 +1322,30 @@ void OutputDevice::DrawTransformedBitmapEx(
                 basegfx::fround(aVisibleRange.getMaxY()) - aDestPt.Y());
 
             DrawBitmapEx(aDestPt, aDestSize, aTransformed);
+        }
+    }
+}
+
+void OutputDevice::DrawShadowBitmapEx(
+    const BitmapEx& rBitmapEx,
+    ::Color aShadowColor)
+{
+    Bitmap::ScopedReadAccess pReadAccess(const_cast<Bitmap&>(rBitmapEx.maBitmap));
+
+    if(!pReadAccess)
+        return;
+
+    for(long y(0); y < pReadAccess->Height(); y++)
+    {
+        for(long x(0); x < pReadAccess->Width(); x++)
+        {
+            const BitmapColor aColor = pReadAccess->GetColor(y, x);
+            sal_uInt16 nLuminance(static_cast<sal_uInt16>(aColor.GetLuminance()) + 1);
+            const Color aDestColor(
+                static_cast<sal_uInt8>((nLuminance * static_cast<sal_uInt16>(aShadowColor.GetRed())) >> 8),
+                static_cast<sal_uInt8>((nLuminance * static_cast<sal_uInt16>(aShadowColor.GetGreen())) >> 8),
+                static_cast<sal_uInt8>((nLuminance * static_cast<sal_uInt16>(aShadowColor.GetBlue())) >> 8));
+            DrawPixel(Point(x,y), aDestColor);
         }
     }
 }
@@ -1543,15 +1594,12 @@ Bitmap OutputDevice::BlendBitmap(
         BitmapScopedWriteAccess pB(aBmp);
 
         bool bFastBlend = false;
-        if( pP && pA && pB )
+        if( pP && pA && pB && !bHMirr && !bVMirr )
         {
-            if( !bHMirr && !bVMirr )
-            {
-                SalTwoRect aTR(aBmpRect.Left(), aBmpRect.Top(), aBmpRect.GetWidth(), aBmpRect.GetHeight(),
-                               nOffX, nOffY, aOutSz.Width(), aOutSz.Height());
+            SalTwoRect aTR(aBmpRect.Left(), aBmpRect.Top(), aBmpRect.GetWidth(), aBmpRect.GetHeight(),
+                            nOffX, nOffY, aOutSz.Width(), aOutSz.Height());
 
-                bFastBlend = ImplFastBitmapBlending( *pB,*pP,*pA, aTR );
-            }
+            bFastBlend = ImplFastBitmapBlending( *pB,*pP,*pA, aTR );
         }
 
         if( pP && pA && pB && !bFastBlend )

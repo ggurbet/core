@@ -18,9 +18,7 @@
  */
 
 #include <basegfx/matrix/b2dhommatrix.hxx>
-#include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/matrix/b3dhommatrix.hxx>
-#include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
@@ -31,11 +29,9 @@
 
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/beans/PropertyValues.hpp>
-#include <com/sun/star/chart/XChartDocument.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/container/XIdentifierAccess.hpp>
-#include <com/sun/star/container/XIdentifierContainer.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/drawing/Alignment.hpp>
@@ -43,7 +39,6 @@
 #include <com/sun/star/drawing/CircleKind.hpp>
 #include <com/sun/star/drawing/ConnectorType.hpp>
 #include <com/sun/star/drawing/Direction3D.hpp>
-#include <com/sun/star/drawing/DoubleSequence.hpp>
 #include <com/sun/star/drawing/EscapeDirection.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeAdjustmentValue.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeGluePointType.hpp>
@@ -64,12 +59,16 @@
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/drawing/XCustomShapeEngine.hpp>
 #include <com/sun/star/drawing/XGluePointsSupplier.hpp>
+#include <com/sun/star/drawing/QRCode.hpp>
+#include <com/sun/star/drawing/QRCodeErrorCorrection.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
+#include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/graphic/XGraphicProvider.hpp>
 #include <com/sun/star/io/XSeekableInputStream.hpp>
+#include <com/sun/star/io/XStream.hpp>
 #include <com/sun/star/lang/ServiceNotRegisteredException.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/media/ZoomLevel.hpp>
@@ -79,7 +78,6 @@
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/table/XColumnRowRange.hpp>
 #include <com/sun/star/text/XText.hpp>
-#include <com/sun/star/document/XStorageBasedDocument.hpp>
 
 #include <comphelper/classids.hxx>
 #include <comphelper/processfactory.hxx>
@@ -91,6 +89,7 @@
 
 #include <rtl/math.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <rtl/ustring.hxx>
 #include <sal/log.hxx>
 
 #include <sax/tools/converter.hxx>
@@ -98,7 +97,6 @@
 #include <tools/debug.hxx>
 #include <tools/globname.hxx>
 #include <tools/helpers.hxx>
-#include <tools/urlobj.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <xmloff/contextid.hxx>
@@ -115,16 +113,12 @@
 
 #include <anim.hxx>
 #include <EnhancedCustomShapeToken.hxx>
-#include <PropertySetMerger.hxx>
 #include "sdpropls.hxx"
-#include "sdxmlexp_impl.hxx"
 #include <xexptran.hxx>
 #include "ximpshap.hxx"
 #include <XMLBase64Export.hxx>
 #include <XMLImageMapExport.hxx>
 #include <memory>
-
-#include <config_features.h>
 
 using namespace ::com::sun::star;
 using namespace ::xmloff::EnhancedCustomShapeToken;
@@ -621,8 +615,7 @@ void XMLShapeExport::exportShape(const uno::Reference< drawing::XShape >& xShape
     }
     catch(const uno::Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("xmloff", "XMLShapeExport::exportShape(): exception during hyperlink export " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("xmloff", "XMLShapeExport::exportShape(): exception during hyperlink export");
     }
 
     if( xSet.is() )
@@ -1062,10 +1055,9 @@ void XMLShapeExport::ImpCalcShapeType(const uno::Reference< drawing::XShape >& x
     // set in every case, so init here
     eShapeType = XmlShapeTypeUnknown;
 
-    uno::Reference< drawing::XShapeDescriptor > xShapeDescriptor(xShape, uno::UNO_QUERY);
-    if(xShapeDescriptor.is())
+    if(xShape.is())
     {
-        OUString aType(xShapeDescriptor->getShapeType());
+        OUString aType(xShape->getShapeType());
 
         if(aType.match("com.sun.star."))
         {
@@ -1287,6 +1279,40 @@ void XMLShapeExport::ImpExportSignatureLine(const uno::Reference<drawing::XShape
                                              true);
 }
 
+void XMLShapeExport::ImpExportQRCode(const uno::Reference<drawing::XShape>& xShape)
+{
+    uno::Reference<beans::XPropertySet> xPropSet(xShape, uno::UNO_QUERY);
+
+    uno::Any aAny = xPropSet->getPropertyValue("QRCodeProperties");
+
+    css::drawing::QRCode aQRCode;
+    if(aAny >>= aQRCode)
+    {
+        mrExport.AddAttribute(XML_NAMESPACE_OFFICE, XML_STRING_VALUE, aQRCode.Payload);
+        /* Export QR Code as per customised schema, @see OpenDocument-schema-v1.3+libreoffice */
+        OUString temp;
+        switch(aQRCode.ErrorCorrection){
+            case css::drawing::QRCodeErrorCorrection::LOW :
+                temp = "low";
+                break;
+            case css::drawing::QRCodeErrorCorrection::MEDIUM:
+                temp = "medium";
+                break;
+            case css::drawing::QRCodeErrorCorrection::QUARTILE:
+                temp = "quartile";
+                break;
+            case css::drawing::QRCodeErrorCorrection::HIGH:
+                temp = "high";
+                break;
+        }
+        mrExport.AddAttribute(XML_NAMESPACE_LO_EXT, XML_QRCODE_ERROR_CORRECTION, temp);
+        mrExport.AddAttribute(XML_NAMESPACE_LO_EXT, XML_QRCODE_BORDER, OUStringBuffer(20).append(aQRCode.Border).makeStringAndClear());
+
+        SvXMLElementExport aQRCodeElement(mrExport, XML_NAMESPACE_LO_EXT, XML_QRCODE, true,
+                                                true);
+    }
+}
+
 void XMLShapeExport::ExportGraphicDefaults()
 {
     rtl::Reference<XMLStyleExport> aStEx(new XMLStyleExport(mrExport, mrExport.GetAutoStylePool().get()));
@@ -1347,7 +1373,7 @@ void XMLShapeExport::ImpExportNewTrans(const uno::Reference< beans::XPropertySet
     ::basegfx::B2DHomMatrix aMatrix;
     ImpExportNewTrans_GetB2DHomMatrix(aMatrix, xPropSet);
 
-    // decompose and correct abour pRefPoint
+    // decompose and correct about pRefPoint
     ::basegfx::B2DTuple aTRScale;
     double fTRShear(0.0);
     double fTRRotate(0.0);
@@ -1576,7 +1602,7 @@ void XMLShapeExport::ImpExportEvents( const uno::Reference< drawing::XShape >& x
     if( !xEventsSupplier.is() )
         return;
 
-    uno::Reference< container::XNameAccess > xEvents( xEventsSupplier->getEvents(), uno::UNO_QUERY );
+    uno::Reference< container::XNameAccess > xEvents = xEventsSupplier->getEvents();
     SAL_WARN_IF( !xEvents.is(), "xmloff", "XEventsSupplier::getEvents() returned NULL" );
     if( !xEvents.is() )
         return;
@@ -1597,7 +1623,7 @@ void XMLShapeExport::ImpExportEvents( const uno::Reference< drawing::XShape >& x
     uno::Sequence< beans::PropertyValue > aClickProperties;
     if( xEvents->hasByName( gsOnClick ) && (xEvents->getByName( gsOnClick ) >>= aClickProperties) )
     {
-        for( const auto& rProperty : aClickProperties )
+        for( const auto& rProperty : std::as_const(aClickProperties) )
         {
             if( !( nFound & Found::CLICKEVENTTYPE ) && rProperty.Name == gsEventType )
             {
@@ -2183,7 +2209,7 @@ void XMLShapeExport::ImpExportPolygonShape(
     ::basegfx::B2DHomMatrix aMatrix;
     ImpExportNewTrans_GetB2DHomMatrix(aMatrix, xPropSet);
 
-    // decompose and correct abour pRefPoint
+    // decompose and correct about pRefPoint
     ::basegfx::B2DTuple aTRScale;
     double fTRShear(0.0);
     double fTRRotate(0.0);
@@ -2445,9 +2471,12 @@ void XMLShapeExport::ImpExportGraphicObjectShape(
     GetExport().GetImageMapExport().Export( xPropSet );
     ImpExportDescription( xShape ); // #i68101#
 
-    // Signature Line - needs to be after the images!
+    // Signature Line, QR Code - needs to be after the images!
     if (GetExport().getDefaultVersion() > SvtSaveOptions::ODFVER_012)
+    {
         ImpExportSignatureLine(xShape);
+        ImpExportQRCode(xShape);
+    }
 }
 
 void XMLShapeExport::ImpExportChartShape(
@@ -2868,8 +2897,8 @@ void XMLShapeExport::ImpExportOLE2Shape(
                 // xlink:href
                 if( !sURL.isEmpty() )
                 {
-                    // #96717# in theorie, if we don't have a url we shouldn't even
-                    // export this ole shape. But practical its to risky right now
+                    // #96717# in theorie, if we don't have a URL we shouldn't even
+                    // export this OLE shape. But practically it's too risky right now
                     // to change this so we better dispose this on load
                     sURL = mrExport.AddEmbeddedObject( sURL );
 
@@ -2924,8 +2953,7 @@ void XMLShapeExport::ImpExportOLE2Shape(
     }
     if( !bIsEmptyPresObj )
     {
-        OUString sURL(XML_EMBEDDEDOBJECTGRAPHIC_URL_BASE);
-        sURL += sPersistName;
+        OUString sURL = XML_EMBEDDEDOBJECTGRAPHIC_URL_BASE + sPersistName;
         if( !bExportEmbedded )
         {
             sURL = GetExport().AddEmbeddedObject( sURL );
@@ -3114,7 +3142,7 @@ void XMLShapeExport::ImpExportAppletShape(
         // export parameters
         uno::Sequence< beans::PropertyValue > aCommands;
         xPropSet->getPropertyValue("AppletCommands") >>= aCommands;
-        for( const auto& rCommand : aCommands )
+        for( const auto& rCommand : std::as_const(aCommands) )
         {
             rCommand.Value >>= aStr;
             mrExport.AddAttribute( XML_NAMESPACE_DRAW, XML_NAME, rCommand.Name );
@@ -3160,7 +3188,7 @@ void XMLShapeExport::ImpExportPluginShape(
         // export parameters
         uno::Sequence< beans::PropertyValue > aCommands;
         xPropSet->getPropertyValue("PluginCommands") >>= aCommands;
-        for( const auto& rCommand : aCommands )
+        for( const auto& rCommand : std::as_const(aCommands) )
         {
             rCommand.Value >>= aStr;
             mrExport.AddAttribute( XML_NAMESPACE_DRAW, XML_NAME, rCommand.Name );
@@ -3768,8 +3796,7 @@ static void ImpExportEquations( SvXMLExport& rExport, const uno::Sequence< OUStr
     sal_Int32 i;
     for ( i = 0; i < rEquations.getLength(); i++ )
     {
-        OUString aStr('f');
-        aStr += OUString::number( i );
+        OUString aStr= "f" + OUString::number( i );
         rExport.AddAttribute( XML_NAMESPACE_DRAW, XML_NAME, aStr );
 
         aStr = rEquations[ i ];
@@ -4121,7 +4148,7 @@ static void ImpExportEnhancedGeometry( SvXMLExport& rExport, const uno::Referenc
             bool bCoordinates = false;
             OUString aCustomShapeType( "non-primitive" );
 
-            for ( const beans::PropertyValue& rGeoProp : aGeoPropSeq )
+            for ( const beans::PropertyValue& rGeoProp : std::as_const(aGeoPropSeq) )
             {
                 switch( EASGet( rGeoProp.Name ) )
                 {
@@ -4174,7 +4201,7 @@ static void ImpExportEnhancedGeometry( SvXMLExport& rExport, const uno::Referenc
                         uno::Sequence< beans::PropertyValue > aExtrusionPropSeq;
                         if ( rGeoProp.Value >>= aExtrusionPropSeq )
                         {
-                            for ( const beans::PropertyValue& rProp : aExtrusionPropSeq )
+                            for ( const beans::PropertyValue& rProp : std::as_const(aExtrusionPropSeq) )
                             {
                                 switch( EASGet( rProp.Name ) )
                                 {
@@ -4482,7 +4509,7 @@ static void ImpExportEnhancedGeometry( SvXMLExport& rExport, const uno::Referenc
                         uno::Sequence< beans::PropertyValue > aTextPathPropSeq;
                         if ( rGeoProp.Value >>= aTextPathPropSeq )
                         {
-                            for ( const beans::PropertyValue& rProp : aTextPathPropSeq )
+                            for ( const beans::PropertyValue& rProp : std::as_const(aTextPathPropSeq) )
                             {
                                 switch( EASGet( rProp.Name ) )
                                 {
@@ -4542,7 +4569,7 @@ static void ImpExportEnhancedGeometry( SvXMLExport& rExport, const uno::Referenc
                         uno::Sequence< beans::PropertyValue > aPathPropSeq;
                         if ( rGeoProp.Value >>= aPathPropSeq )
                         {
-                            for ( const beans::PropertyValue& rProp : aPathPropSeq )
+                            for ( const beans::PropertyValue& rProp : std::as_const(aPathPropSeq) )
                             {
                                 switch( EASGet( rProp.Name ) )
                                 {
@@ -4599,7 +4626,7 @@ static void ImpExportEnhancedGeometry( SvXMLExport& rExport, const uno::Referenc
                                         {
                                             if ( aGluePoints.hasElements() )
                                             {
-                                                for( const auto& rGluePoint : aGluePoints )
+                                                for( const auto& rGluePoint : std::as_const(aGluePoints) )
                                                 {
                                                     ExportParameter( aStrBuffer, rGluePoint.First );
                                                     ExportParameter( aStrBuffer, rGluePoint.Second );
@@ -4657,7 +4684,7 @@ static void ImpExportEnhancedGeometry( SvXMLExport& rExport, const uno::Referenc
                                         {
                                             if ( aPathTextFrames.hasElements() )
                                             {
-                                                for ( const auto& rPathTextFrame : aPathTextFrames )
+                                                for ( const auto& rPathTextFrame : std::as_const(aPathTextFrames) )
                                                 {
                                                     ExportParameter( aStrBuffer, rPathTextFrame.TopLeft.First );
                                                     ExportParameter( aStrBuffer, rPathTextFrame.TopLeft.Second );
@@ -4890,8 +4917,7 @@ void XMLShapeExport::ImpExportTableShape( const uno::Reference< drawing::XShape 
 
                 if( !bExportEmbedded )
                 {
-                    OUString sURL( "Pictures/" );
-                    sURL += sPictureName;
+                    OUString sURL = "Pictures/" + sPictureName;
                     mrExport.AddAttribute( XML_NAMESPACE_XLINK, XML_HREF, sURL );
                     mrExport.AddAttribute( XML_NAMESPACE_XLINK, XML_TYPE, XML_SIMPLE );
                     mrExport.AddAttribute( XML_NAMESPACE_XLINK, XML_SHOW, XML_EMBED );

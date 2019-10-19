@@ -12,11 +12,9 @@
 #include <svx/svdpage.hxx>
 #include <test/calc_unoapi_test.hxx>
 
-#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/text/XText.hpp>
-#include <unonames.hxx>
 
 #include <docsh.hxx>
 #include <drwlayer.hxx>
@@ -171,7 +169,7 @@ void ScAnchorTest::testTdf76183()
 
     // Add a circle somewhere below first row.
     const tools::Rectangle aOrigRect(1000, 1000, 1200, 1200);
-    SdrCircObj* pObj = new SdrCircObj(*pDrawLayer, OBJ_CIRC, aOrigRect);
+    SdrCircObj* pObj = new SdrCircObj(*pDrawLayer, SdrCircKind::Full, aOrigRect);
     pPage->InsertObject(pObj);
     // Anchor to cell
     ScDrawLayer::SetCellAnchoredFromPosition(*pObj, rDoc, 0, false);

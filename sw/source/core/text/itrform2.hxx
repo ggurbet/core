@@ -97,7 +97,7 @@ class SwTextFormatter : public SwTextPainter
     // Calculates the ascent and the height from the fontmetric
     void CalcAscent( SwTextFormatInfo &rInf, SwLinePortion *pPor );
 
-    // determines, if a optimized repaint rectangle is allowed
+    // determines, if an optimized repaint rectangle is allowed
     bool AllowRepaintOpt() const;
 
     // Is called by FormatLine
@@ -129,7 +129,7 @@ class SwTextFormatter : public SwTextPainter
     bool ChkFlyUnderflow( SwTextFormatInfo &rInf ) const;
 
     // Insert portion
-    void InsertPortion( SwTextFormatInfo &rInf, SwLinePortion *pPor ) const;
+    void InsertPortion( SwTextFormatInfo &rInf, SwLinePortion *pPor );
 
     // Guess height for the DropPortion
     void GuessDropHeight( const sal_uInt16 nLines );

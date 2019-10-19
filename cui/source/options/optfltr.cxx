@@ -24,93 +24,75 @@
 #include <strings.hrc>
 #include <dialmgr.hxx>
 
-#include <vcl/event.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/treelistentry.hxx>
-
 enum class MSFltrPg2_CheckBoxEntries {
     Math,
     Writer,
     Calc,
     Impress,
     SmartArt,
+    Visio,
+    PDF,
     InvalidCBEntry
 };
 
 
-OfaMSFilterTabPage::OfaMSFilterTabPage(vcl::Window* pParent, const SfxItemSet& rSet)
-    : SfxTabPage( pParent, "OptFltrPage", "cui/ui/optfltrpage.ui", &rSet )
+OfaMSFilterTabPage::OfaMSFilterTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/optfltrpage.ui", "OptFltrPage", &rSet)
+    , m_xWBasicCodeCB(m_xBuilder->weld_check_button("wo_basic"))
+    , m_xWBasicWbctblCB(m_xBuilder->weld_check_button("wo_exec"))
+    , m_xWBasicStgCB(m_xBuilder->weld_check_button("wo_saveorig"))
+    , m_xEBasicCodeCB(m_xBuilder->weld_check_button("ex_basic"))
+    , m_xEBasicExectblCB(m_xBuilder->weld_check_button("ex_exec"))
+    , m_xEBasicStgCB(m_xBuilder->weld_check_button("ex_saveorig"))
+    , m_xPBasicCodeCB(m_xBuilder->weld_check_button("pp_basic"))
+    , m_xPBasicStgCB(m_xBuilder->weld_check_button("pp_saveorig"))
 {
-    get( aWBasicCodeCB      , "wo_basic"    );
-    get( aWBasicWbctblCB    , "wo_exec"     );
-    get( aWBasicStgCB       , "wo_saveorig" );
-    get( aEBasicCodeCB      , "ex_basic"    );
-    get( aEBasicExectblCB   , "ex_exec"     );
-    get( aEBasicStgCB       , "ex_saveorig" );
-    get( aPBasicCodeCB      , "pp_basic"    );
-    get( aPBasicStgCB       , "pp_saveorig" );
-
-    aWBasicCodeCB->SetClickHdl( LINK( this, OfaMSFilterTabPage, LoadWordBasicCheckHdl_Impl ) );
-    aEBasicCodeCB->SetClickHdl( LINK( this, OfaMSFilterTabPage, LoadExcelBasicCheckHdl_Impl ) );
+    m_xWBasicCodeCB->connect_clicked( LINK( this, OfaMSFilterTabPage, LoadWordBasicCheckHdl_Impl ) );
+    m_xEBasicCodeCB->connect_clicked( LINK( this, OfaMSFilterTabPage, LoadExcelBasicCheckHdl_Impl ) );
 }
 
 OfaMSFilterTabPage::~OfaMSFilterTabPage()
 {
-    disposeOnce();
 }
 
-void OfaMSFilterTabPage::dispose()
+IMPL_LINK_NOARG(OfaMSFilterTabPage, LoadWordBasicCheckHdl_Impl, weld::Button&, void)
 {
-    aWBasicCodeCB.clear();
-    aWBasicWbctblCB.clear();
-    aWBasicStgCB.clear();
-    aEBasicCodeCB.clear();
-    aEBasicExectblCB.clear();
-    aEBasicStgCB.clear();
-    aPBasicCodeCB.clear();
-    aPBasicStgCB.clear();
-    SfxTabPage::dispose();
+    m_xWBasicWbctblCB->set_sensitive(m_xWBasicCodeCB->get_active());
 }
 
-
-IMPL_LINK_NOARG(OfaMSFilterTabPage, LoadWordBasicCheckHdl_Impl, Button*, void)
+IMPL_LINK_NOARG(OfaMSFilterTabPage, LoadExcelBasicCheckHdl_Impl, weld::Button&, void)
 {
-    aWBasicWbctblCB->Enable( aWBasicCodeCB->IsChecked() );
+    m_xEBasicExectblCB->set_sensitive(m_xEBasicCodeCB->get_active());
 }
 
-IMPL_LINK_NOARG(OfaMSFilterTabPage, LoadExcelBasicCheckHdl_Impl, Button*, void)
-{
-    aEBasicExectblCB->Enable( aEBasicCodeCB->IsChecked() );
-}
-
-VclPtr<SfxTabPage> OfaMSFilterTabPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> OfaMSFilterTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                                const SfxItemSet* rAttrSet )
 {
-    return VclPtr<OfaMSFilterTabPage>::Create( pParent.pParent, *rAttrSet );
+    return std::make_unique<OfaMSFilterTabPage>(pPage, pController, *rAttrSet);
 }
 
 bool OfaMSFilterTabPage::FillItemSet( SfxItemSet* )
 {
     SvtFilterOptions& rOpt = SvtFilterOptions::Get();
 
-    if( aWBasicCodeCB->IsValueChangedFromSaved() )
-        rOpt.SetLoadWordBasicCode( aWBasicCodeCB->IsChecked() );
-    if( aWBasicWbctblCB->IsValueChangedFromSaved() )
-        rOpt.SetLoadWordBasicExecutable( aWBasicWbctblCB->IsChecked() );
-    if( aWBasicStgCB->IsValueChangedFromSaved() )
-        rOpt.SetLoadWordBasicStorage( aWBasicStgCB->IsChecked() );
+    if( m_xWBasicCodeCB->get_state_changed_from_saved() )
+        rOpt.SetLoadWordBasicCode( m_xWBasicCodeCB->get_active() );
+    if( m_xWBasicWbctblCB->get_state_changed_from_saved() )
+        rOpt.SetLoadWordBasicExecutable( m_xWBasicWbctblCB->get_active() );
+    if( m_xWBasicStgCB->get_state_changed_from_saved() )
+        rOpt.SetLoadWordBasicStorage( m_xWBasicStgCB->get_active() );
 
-    if( aEBasicCodeCB->IsValueChangedFromSaved())
-        rOpt.SetLoadExcelBasicCode( aEBasicCodeCB->IsChecked() );
-    if( aEBasicExectblCB->IsValueChangedFromSaved())
-        rOpt.SetLoadExcelBasicExecutable( aEBasicExectblCB->IsChecked() );
-    if( aEBasicStgCB->IsValueChangedFromSaved())
-        rOpt.SetLoadExcelBasicStorage( aEBasicStgCB->IsChecked() );
+    if( m_xEBasicCodeCB->get_state_changed_from_saved())
+        rOpt.SetLoadExcelBasicCode( m_xEBasicCodeCB->get_active() );
+    if( m_xEBasicExectblCB->get_state_changed_from_saved())
+        rOpt.SetLoadExcelBasicExecutable( m_xEBasicExectblCB->get_active() );
+    if( m_xEBasicStgCB->get_state_changed_from_saved())
+        rOpt.SetLoadExcelBasicStorage( m_xEBasicStgCB->get_active() );
 
-    if( aPBasicCodeCB->IsValueChangedFromSaved())
-        rOpt.SetLoadPPointBasicCode( aPBasicCodeCB->IsChecked() );
-    if( aPBasicStgCB->IsValueChangedFromSaved())
-        rOpt.SetLoadPPointBasicStorage( aPBasicStgCB->IsChecked() );
+    if( m_xPBasicCodeCB->get_state_changed_from_saved())
+        rOpt.SetLoadPPointBasicCode( m_xPBasicCodeCB->get_active() );
+    if( m_xPBasicStgCB->get_state_changed_from_saved())
+        rOpt.SetLoadPPointBasicStorage( m_xPBasicStgCB->get_active() );
 
     return false;
 }
@@ -119,82 +101,56 @@ void OfaMSFilterTabPage::Reset( const SfxItemSet* )
 {
     const SvtFilterOptions& rOpt = SvtFilterOptions::Get();
 
-    aWBasicCodeCB->Check( rOpt.IsLoadWordBasicCode() );
-    aWBasicCodeCB->SaveValue();
-    aWBasicWbctblCB->Check( rOpt.IsLoadWordBasicExecutable() );
-    aWBasicWbctblCB->SaveValue();
-    aWBasicStgCB->Check( rOpt.IsLoadWordBasicStorage() );
-    aWBasicStgCB->SaveValue();
-    LoadWordBasicCheckHdl_Impl( aWBasicCodeCB );
+    m_xWBasicCodeCB->set_active( rOpt.IsLoadWordBasicCode() );
+    m_xWBasicCodeCB->save_state();
+    m_xWBasicWbctblCB->set_active( rOpt.IsLoadWordBasicExecutable() );
+    m_xWBasicWbctblCB->save_state();
+    m_xWBasicStgCB->set_active( rOpt.IsLoadWordBasicStorage() );
+    m_xWBasicStgCB->save_state();
+    LoadWordBasicCheckHdl_Impl( *m_xWBasicCodeCB );
 
-    aEBasicCodeCB->Check( rOpt.IsLoadExcelBasicCode() );
-    aEBasicCodeCB->SaveValue();
-    aEBasicExectblCB->Check( rOpt.IsLoadExcelBasicExecutable() );
-    aEBasicExectblCB->SaveValue();
-    aEBasicStgCB->Check( rOpt.IsLoadExcelBasicStorage() );
-    aEBasicStgCB->SaveValue();
-    LoadExcelBasicCheckHdl_Impl( aEBasicCodeCB );
+    m_xEBasicCodeCB->set_active( rOpt.IsLoadExcelBasicCode() );
+    m_xEBasicCodeCB->save_state();
+    m_xEBasicExectblCB->set_active( rOpt.IsLoadExcelBasicExecutable() );
+    m_xEBasicExectblCB->save_state();
+    m_xEBasicStgCB->set_active( rOpt.IsLoadExcelBasicStorage() );
+    m_xEBasicStgCB->save_state();
+    LoadExcelBasicCheckHdl_Impl( *m_xEBasicCodeCB );
 
-    aPBasicCodeCB->Check( rOpt.IsLoadPPointBasicCode() );
-    aPBasicCodeCB->SaveValue();
-    aPBasicStgCB->Check( rOpt.IsLoadPPointBasicStorage() );
-    aPBasicStgCB->SaveValue();
+    m_xPBasicCodeCB->set_active( rOpt.IsLoadPPointBasicCode() );
+    m_xPBasicCodeCB->save_state();
+    m_xPBasicStgCB->set_active( rOpt.IsLoadPPointBasicStorage() );
+    m_xPBasicStgCB->save_state();
 }
 
-OfaMSFilterTabPage2::OfaMSFilterTabPage2( vcl::Window* pParent, const SfxItemSet& rSet ) :
-    SfxTabPage( pParent, "OptFilterPage", "cui/ui/optfltrembedpage.ui", &rSet ),
-    sHeader1(CuiResId(RID_SVXSTR_HEADER1)),
-    sHeader2(CuiResId(RID_SVXSTR_HEADER2)),
-    sChgToFromMath(CuiResId(RID_SVXSTR_CHG_MATH)),
-    sChgToFromWriter(CuiResId(RID_SVXSTR_CHG_WRITER)),
-    sChgToFromCalc(CuiResId(RID_SVXSTR_CHG_CALC)),
-    sChgToFromImpress(CuiResId(RID_SVXSTR_CHG_IMPRESS)),
-    sChgToFromSmartArt(CuiResId(RID_SVXSTR_CHG_SMARTART))
+OfaMSFilterTabPage2::OfaMSFilterTabPage2(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/optfltrembedpage.ui", "OptFilterPage", &rSet)
+    , sChgToFromMath(CuiResId(RID_SVXSTR_CHG_MATH))
+    , sChgToFromWriter(CuiResId(RID_SVXSTR_CHG_WRITER))
+    , sChgToFromCalc(CuiResId(RID_SVXSTR_CHG_CALC))
+    , sChgToFromImpress(CuiResId(RID_SVXSTR_CHG_IMPRESS))
+    , sChgToFromSmartArt(CuiResId(RID_SVXSTR_CHG_SMARTART))
+    , sChgToFromVisio(CuiResId(RID_SVXSTR_CHG_VISIO))
+    , sChgToFromPDF(CuiResId(RID_SVXSTR_CHG_PDF))
+    , m_xCheckLB(m_xBuilder->weld_tree_view("checklbcontainer"))
+    , m_xHighlightingRB(m_xBuilder->weld_radio_button("highlighting"))
+    , m_xShadingRB(m_xBuilder->weld_radio_button("shading"))
+    , m_xMSOLockFileCB(m_xBuilder->weld_check_button("mso_lockfile"))
 {
-    get(m_pCheckLBContainer, "checklbcontainer");
-
-    get( aHighlightingRB, "highlighting");
-    get( aShadingRB,      "shading"     );
-    get( aMSOLockFileCB,  "mso_lockfile");
-
-    Size aControlSize(248, 55);
-    aControlSize = LogicToPixel(aControlSize, MapMode(MapUnit::MapAppFont));
-    m_pCheckLBContainer->set_width_request(aControlSize.Width());
-    m_pCheckLBContainer->set_height_request(aControlSize.Height());
-
-    m_pCheckLB = VclPtr<MSFltrSimpleTable>::Create(*m_pCheckLBContainer);
-
-    static long aStaticTabs[] = { 0, 20, 40 };
-    m_pCheckLB->SvSimpleTable::SetTabs( SAL_N_ELEMENTS(aStaticTabs), aStaticTabs );
-
-    OUString sHeader = sHeader1 + "\t" + sHeader2 + "\t";
-    m_pCheckLB->InsertHeaderEntry( sHeader, HEADERBAR_APPEND,
-                    HeaderBarItemBits::CENTER | HeaderBarItemBits::FIXEDPOS | HeaderBarItemBits::FIXED );
-
-    m_pCheckLB->SetStyle( m_pCheckLB->GetStyle()|WB_HSCROLL| WB_VSCROLL );
+    std::vector<int> aWidths;
+    aWidths.push_back(m_xCheckLB->get_checkbox_column_width());
+    aWidths.push_back(m_xCheckLB->get_checkbox_column_width());
+    m_xCheckLB->set_column_fixed_widths(aWidths);
 }
 
 OfaMSFilterTabPage2::~OfaMSFilterTabPage2()
 {
-    disposeOnce();
 }
 
-void OfaMSFilterTabPage2::dispose()
-{
-    m_xCheckButtonData.reset();
-    m_pCheckLB.disposeAndClear();
-    m_pCheckLBContainer.clear();
-    aHighlightingRB.clear();
-    aShadingRB.clear();
-    aMSOLockFileCB.clear();
-
-    SfxTabPage::dispose();
-}
-
-VclPtr<SfxTabPage> OfaMSFilterTabPage2::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> OfaMSFilterTabPage2::Create( weld::Container* pPage, weld::DialogController* pController,
                                                 const SfxItemSet* rAttrSet )
 {
-    return VclPtr<OfaMSFilterTabPage2>::Create( pParent.pParent, *rAttrSet );
+    return std::make_unique<OfaMSFilterTabPage2>( pPage, pController, *rAttrSet );
 }
 
 bool OfaMSFilterTabPage2::FillItemSet( SfxItemSet* )
@@ -224,41 +180,51 @@ bool OfaMSFilterTabPage2::FillItemSet( SfxItemSet* )
                         &SvtFilterOptions::SetImpress2PowerPoint },
         { MSFltrPg2_CheckBoxEntries::SmartArt,  &SvtFilterOptions::IsSmartArt2Shape,
                         &SvtFilterOptions::SetSmartArt2Shape },
+        { MSFltrPg2_CheckBoxEntries::Visio, &SvtFilterOptions::IsVisio2Draw,
+                        &SvtFilterOptions::SetVisio2Draw },
     };
 
-    bool bCheck, bFirst = true;
+    bool bFirstCol = true;
     for( const ChkCBoxEntries & rEntry : aChkArr )
     {
-        sal_uInt16 nCol = bFirst ? 1 : 2;
-        if (bFirst)
-            bFirst = false;
-        SvTreeListEntry* pEntry = GetEntry4Type( rEntry.eType );
-        if( pEntry )
+        // we loop through the list, alternating reading the first/second column,
+        // each row appears twice in the list (except for smartart and later entries, which are
+        // import only)
+        sal_uInt16 nCol = bFirstCol ? 0 : 1;
+        bFirstCol = !bFirstCol;
+        int nEntry = GetEntry4Type(rEntry.eType);
+        if (nEntry != -1)
         {
-            SvLBoxButton& rItem = static_cast<SvLBoxButton&>(pEntry->GetItem( nCol ));
-            if (rItem.GetType() == SvLBoxItemType::Button)
-            {
-                SvItemStateFlags nButtonFlags = rItem.GetButtonFlags();
-                bCheck = SvButtonState::Checked ==
-                        SvLBoxButtonData::ConvertToButtonState( nButtonFlags );
-
-                if( bCheck != (rOpt.*rEntry.FnIs)() )
-                    (rOpt.*rEntry.FnSet)( bCheck );
-            }
+            bool bCheck = m_xCheckLB->get_toggle(nEntry, nCol);
+            if( bCheck != (rOpt.*rEntry.FnIs)() )
+                (rOpt.*rEntry.FnSet)( bCheck );
+        }
+        if (rEntry.eType == MSFltrPg2_CheckBoxEntries::SmartArt)
+        {
+            bFirstCol = !bFirstCol;
         }
     }
-
-    if( aHighlightingRB->IsValueChangedFromSaved() )
+    int nPDFEntry = GetEntry4Type(MSFltrPg2_CheckBoxEntries::PDF);
+    bool bPDFCheck = m_xCheckLB->get_toggle(nPDFEntry, 0);
+    if (bPDFCheck != officecfg::Office::Common::Filter::Adobe::Import::PDFToDraw::get())
     {
-        if( aHighlightingRB->IsChecked() )
+        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
+            comphelper::ConfigurationChanges::create());
+        officecfg::Office::Common::Filter::Adobe::Import::PDFToDraw::set(bPDFCheck, pBatch);
+        pBatch->commit();
+    }
+
+    if( m_xHighlightingRB->get_state_changed_from_saved() )
+    {
+        if (m_xHighlightingRB->get_active())
             rOpt.SetCharBackground2Highlighting();
         else
             rOpt.SetCharBackground2Shading();
     }
 
-    if( aMSOLockFileCB->IsValueChangedFromSaved() )
+    if (m_xMSOLockFileCB->get_state_changed_from_saved())
     {
-        rOpt.EnableMSOLockFileCreation(aMSOLockFileCB->IsChecked());
+        rOpt.EnableMSOLockFileCreation(m_xMSOLockFileCB->get_active());
     }
 
     return true;
@@ -268,8 +234,8 @@ void OfaMSFilterTabPage2::Reset( const SfxItemSet* )
 {
     SvtFilterOptions& rOpt = SvtFilterOptions::Get();
 
-    m_pCheckLB->SetUpdateMode(false);
-    m_pCheckLB->Clear();
+    m_xCheckLB->freeze();
+    m_xCheckLB->clear();
 
     SvtModuleOptions aModuleOpt;
 
@@ -283,6 +249,11 @@ void OfaMSFilterTabPage2::Reset( const SfxItemSet* )
     if ( aModuleOpt.IsModuleInstalled( SvtModuleOptions::EModule::IMPRESS ) )
         InsertEntry( sChgToFromImpress, MSFltrPg2_CheckBoxEntries::Impress );
     InsertEntry( sChgToFromSmartArt, MSFltrPg2_CheckBoxEntries::SmartArt, false );
+    if (aModuleOpt.IsModuleInstalled(SvtModuleOptions::EModule::DRAW))
+    {
+        InsertEntry(sChgToFromVisio, MSFltrPg2_CheckBoxEntries::Visio, false);
+        InsertEntry(sChgToFromPDF, MSFltrPg2_CheckBoxEntries::PDF, false);
+    }
 
     static struct ChkCBoxEntries{
         MSFltrPg2_CheckBoxEntries eType;
@@ -297,40 +268,50 @@ void OfaMSFilterTabPage2::Reset( const SfxItemSet* )
         { MSFltrPg2_CheckBoxEntries::Impress,  &SvtFilterOptions::IsPowerPoint2Impress },
         { MSFltrPg2_CheckBoxEntries::Impress,  &SvtFilterOptions::IsImpress2PowerPoint },
         { MSFltrPg2_CheckBoxEntries::SmartArt, &SvtFilterOptions::IsSmartArt2Shape },
+        { MSFltrPg2_CheckBoxEntries::Visio,    &SvtFilterOptions::IsVisio2Draw },
+        { MSFltrPg2_CheckBoxEntries::PDF,      nullptr },
     };
 
-    bool bFirst = true;
+    bool bFirstCol = true;
     for( const ChkCBoxEntries & rArr : aChkArr )
     {
-        sal_uInt16 nCol = bFirst ? 1 : 2;
-        if (bFirst)
-            bFirst = false;
-        SvTreeListEntry* pEntry = GetEntry4Type( rArr.eType );
-        if( pEntry )
+        // we loop through the list, alternating reading the first/second column,
+        // each row appears twice in the list (except for smartart and later entries, which are
+        // import only)
+        sal_uInt16 nCol = bFirstCol ? 0 : 1;
+        bFirstCol = !bFirstCol;
+        int nEntry = GetEntry4Type( rArr.eType );
+        if (nEntry != -1)
         {
-            SvLBoxButton& rItem = static_cast<SvLBoxButton&>(pEntry->GetItem( nCol ));
-            if (rItem.GetType() == SvLBoxItemType::Button)
+            bool bCheck = false;
+            if (rArr.eType != MSFltrPg2_CheckBoxEntries::PDF)
             {
-                if( (rOpt.*rArr.FnIs)() )
-                    rItem.SetStateChecked();
-                else
-                    rItem.SetStateUnchecked();
-                m_pCheckLB->InvalidateEntry( pEntry );
+                bCheck = (rOpt.*rArr.FnIs)();
             }
+            else
+            {
+                bCheck = officecfg::Office::Common::Filter::Adobe::Import::PDFToDraw::get();
+                nCol = 0;
+            }
+            m_xCheckLB->set_toggle(nEntry, bCheck ? TRISTATE_TRUE : TRISTATE_FALSE, nCol);
+        }
+        if (rArr.eType == MSFltrPg2_CheckBoxEntries::SmartArt)
+        {
+            bFirstCol = !bFirstCol;
         }
     }
-    m_pCheckLB->SetUpdateMode( true );
+    m_xCheckLB->thaw();
 
     if (rOpt.IsCharBackground2Highlighting())
-        aHighlightingRB->Check();
+        m_xHighlightingRB->set_active(true);
     else
-        aShadingRB->Check();
+        m_xShadingRB->set_active(true);
 
-    aHighlightingRB->SaveValue();
+    m_xHighlightingRB->save_state();
 
-    aMSOLockFileCB->Check(rOpt.IsMSOLockFileCreationIsEnabled());
-    aMSOLockFileCB->SaveValue();
-    aMSOLockFileCB->Enable(!officecfg::Office::Common::Filter::Microsoft::Import::CreateMSOLockFiles::isReadOnly());
+    m_xMSOLockFileCB->set_active(rOpt.IsMSOLockFileCreationIsEnabled());
+    m_xMSOLockFileCB->save_state();
+    m_xMSOLockFileCB->set_sensitive(!officecfg::Office::Common::Filter::Microsoft::Import::CreateMSOLockFiles::isReadOnly());
 }
 
 void OfaMSFilterTabPage2::InsertEntry( const OUString& _rTxt, MSFltrPg2_CheckBoxEntries _nType )
@@ -341,138 +322,23 @@ void OfaMSFilterTabPage2::InsertEntry( const OUString& _rTxt, MSFltrPg2_CheckBox
 void OfaMSFilterTabPage2::InsertEntry( const OUString& _rTxt, MSFltrPg2_CheckBoxEntries _nType,
                                        bool saveEnabled )
 {
-    SvTreeListEntry* pEntry = new SvTreeListEntry;
-
-    if (!m_xCheckButtonData)
-        m_xCheckButtonData.reset(new SvLBoxButtonData(m_pCheckLB));
-
-    pEntry->AddItem(std::make_unique<SvLBoxContextBmp>(
-        Image(), Image(), false));
-    pEntry->AddItem(std::make_unique<SvLBoxButton>(
-        SvLBoxButtonKind::EnabledCheckbox,
-               m_xCheckButtonData.get()));
-    pEntry->AddItem(std::make_unique<SvLBoxButton>(
-        saveEnabled ? SvLBoxButtonKind::EnabledCheckbox
-                                     : SvLBoxButtonKind::DisabledCheckbox,
-               m_xCheckButtonData.get()));
-    pEntry->AddItem(std::make_unique<SvLBoxString>(_rTxt));
-
-    pEntry->SetUserData( reinterpret_cast<void*>(_nType) );
-    m_pCheckLB->Insert( pEntry );
+    int nPos = m_xCheckLB->n_children();
+    m_xCheckLB->append();
+    m_xCheckLB->set_toggle(nPos, TRISTATE_FALSE, 0);
+    if (saveEnabled)
+        m_xCheckLB->set_toggle(nPos, TRISTATE_FALSE, 1);
+    m_xCheckLB->set_text(nPos, _rTxt, 2);
+    m_xCheckLB->set_id(nPos, OUString::number(static_cast<sal_Int32>(_nType)));
 }
 
-SvTreeListEntry* OfaMSFilterTabPage2::GetEntry4Type( MSFltrPg2_CheckBoxEntries _nType ) const
+int OfaMSFilterTabPage2::GetEntry4Type( MSFltrPg2_CheckBoxEntries _nType ) const
 {
-    SvTreeListEntry* pEntry = m_pCheckLB->First();
-    while ( pEntry )
+    for (int i = 0, nEntryCount = m_xCheckLB->n_children(); i < nEntryCount; ++i)
     {
-        if ( _nType == static_cast<MSFltrPg2_CheckBoxEntries>( reinterpret_cast<sal_IntPtr>( pEntry->GetUserData() ) ) )
-            return pEntry;
-        pEntry = m_pCheckLB->Next( pEntry );
+        if (_nType == static_cast<MSFltrPg2_CheckBoxEntries>(m_xCheckLB->get_id(i).toInt32()))
+            return i;
     }
-    return nullptr;
-}
-
-void OfaMSFilterTabPage2::MSFltrSimpleTable::SetTabs()
-{
-    SvSimpleTable::SetTabs();
-    SvLBoxTabFlags nAdjust = SvLBoxTabFlags::ADJUST_RIGHT|SvLBoxTabFlags::ADJUST_LEFT|SvLBoxTabFlags::ADJUST_CENTER|SvLBoxTabFlags::FORCE;
-
-    if( aTabs.size() > 1 )
-    {
-        SvLBoxTab* pTab = aTabs[1].get();
-        pTab->nFlags &= ~nAdjust;
-        pTab->nFlags |= SvLBoxTabFlags::ADJUST_CENTER|SvLBoxTabFlags::FORCE;
-    }
-    if( aTabs.size() > 2 )
-    {
-        SvLBoxTab* pTab = aTabs[2].get();
-        pTab->nFlags &= ~nAdjust;
-        pTab->nFlags |= SvLBoxTabFlags::ADJUST_CENTER|SvLBoxTabFlags::FORCE;
-    }
-}
-
-void OfaMSFilterTabPage2::MSFltrSimpleTable::HBarClick()
-{
-    // sorting is stopped by this override
-}
-
-void OfaMSFilterTabPage2::MSFltrSimpleTable::SetCheckButtonState(
-                            SvTreeListEntry* pEntry, sal_uInt16 nCol, SvButtonState eState)
-{
-    SvLBoxButton& rItem = static_cast<SvLBoxButton&>(pEntry->GetItem(nCol + 1));
-
-    if (rItem.GetType() == SvLBoxItemType::Button)
-    {
-        switch( eState )
-        {
-            case SvButtonState::Checked:
-                rItem.SetStateChecked();
-                break;
-
-            case SvButtonState::Unchecked:
-                rItem.SetStateUnchecked();
-                break;
-
-            case SvButtonState::Tristate:
-                rItem.SetStateTristate();
-                break;
-        }
-        InvalidateEntry( pEntry );
-    }
-}
-
-SvButtonState OfaMSFilterTabPage2::MSFltrSimpleTable::GetCheckButtonState(
-                                    SvTreeListEntry* pEntry, sal_uInt16 nCol )
-{
-    SvButtonState eState = SvButtonState::Unchecked;
-    SvLBoxButton& rItem = static_cast<SvLBoxButton&>(pEntry->GetItem(nCol + 1));
-
-    if (rItem.GetType() == SvLBoxItemType::Button)
-    {
-        SvItemStateFlags nButtonFlags = rItem.GetButtonFlags();
-        eState = SvLBoxButtonData::ConvertToButtonState( nButtonFlags );
-    }
-
-    return eState;
-}
-
-void OfaMSFilterTabPage2::MSFltrSimpleTable::CheckEntryPos(sal_uLong nPos, sal_uInt16 nCol, bool bChecked)
-{
-    if ( nPos < GetEntryCount() )
-        SetCheckButtonState(
-            GetEntry(nPos),
-            nCol,
-            bChecked ? SvButtonState::Checked : SvButtonState::Unchecked );
-}
-
-void OfaMSFilterTabPage2::MSFltrSimpleTable::KeyInput( const KeyEvent& rKEvt )
-{
-    if(!rKEvt.GetKeyCode().GetModifier() &&
-        KEY_SPACE == rKEvt.GetKeyCode().GetCode())
-    {
-        sal_uLong nSelPos = GetModel()->GetAbsPos(GetCurEntry());
-        sal_uInt16 nCol = GetCurrentTabPos() - 1;
-        if ( nCol < 2 )
-        {
-            SvTreeListEntry* pEntry = GetEntry( nSelPos );
-            bool bIsChecked = ( GetCheckButtonState( pEntry, nCol ) == SvButtonState::Checked );
-            CheckEntryPos( nSelPos, nCol, !bIsChecked );
-            CallImplEventListeners( VclEventId::CheckboxToggle, static_cast<void*>(pEntry) );
-        }
-        else
-        {
-            sal_uInt16 nCheck = GetCheckButtonState( GetEntry(nSelPos), 1 ) == SvButtonState::Checked ? 1 : 0;
-            if(GetCheckButtonState( GetEntry(nSelPos), 0 ) != SvButtonState::Unchecked)
-                nCheck += 2;
-            nCheck--;
-            nCheck &= 3;
-            CheckEntryPos(nSelPos, 1, 0 != (nCheck & 1));
-            CheckEntryPos(nSelPos, 0, 0 != (nCheck & 2));
-        }
-    }
-    else
-        SvSimpleTable::KeyInput(rKEvt);
+    return -1;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

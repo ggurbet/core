@@ -29,7 +29,6 @@
 #include <com/sun/star/chart/ChartSymbolType.hpp>
 #include <com/sun/star/chart/ChartSolidType.hpp>
 #include <com/sun/star/chart/ChartDataRowSource.hpp>
-#include <com/sun/star/chart/ChartDataCaption.hpp>
 #include <ooo/vba/excel/XlChartType.hpp>
 #include <ooo/vba/excel/XlRowCol.hpp>
 #include <ooo/vba/excel/XlAxisType.hpp>
@@ -548,7 +547,7 @@ void SAL_CALL
 ScVbaChart::Activate()
 {
     // #TODO how are Chart sheets handled ( I know we don't even consider
-    // them in the worksheets/sheets collections ), but.....???
+    // them in the worksheets/sheets collections ), but...???
     // note: in vba for excel the parent of a Chart sheet is a workbook,
     // e.g. 'ThisWorkbook'
     uno::Reference< XHelperInterface > xParent( getParent() );
@@ -628,11 +627,8 @@ uno::Sequence< OUString >
 ScVbaChart::getDefaultSeriesDescriptions( sal_Int32 _nCount )
 {
     uno::Sequence< OUString > sDescriptions ( _nCount );
-    sal_Int32 nLen = sDescriptions.getLength();
-    for (sal_Int32 i = 0; i < nLen; i++)
-    {
-        sDescriptions[i] = DEFAULTSERIESPREFIX + OUString::number(i+1);
-    }
+    std::generate_n(sDescriptions.begin(), _nCount,
+        [i = 1]() mutable -> OUString { return DEFAULTSERIESPREFIX + OUString::number(i++); });
     return sDescriptions;
 }
 
@@ -1047,7 +1043,7 @@ ScVbaChart::getAxisPropertySet(sal_Int32 _nAxisType, sal_Int32 _nAxisGroup)
 OUString
 ScVbaChart::getServiceImplName()
 {
-    return OUString("ScVbaChart");
+    return "ScVbaChart";
 }
 
 uno::Sequence< OUString >

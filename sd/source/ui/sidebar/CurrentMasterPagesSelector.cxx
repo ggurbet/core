@@ -27,14 +27,9 @@
 #include "MasterPageContainerProviders.hxx"
 #include "MasterPageDescriptor.hxx"
 #include <EventMultiplexer.hxx>
-#include <app.hrc>
 #include <DrawDocShell.hxx>
 
 #include <helpids.h>
-
-#include <vcl/image.hxx>
-#include <svx/svdmodel.hxx>
-#include <sfx2/request.hxx>
 
 #include <set>
 
@@ -153,7 +148,7 @@ void CurrentMasterPagesSelector::Fill (ItemList& rItemList)
 
 OUString CurrentMasterPagesSelector::GetContextMenuUIFile() const
 {
-    return OUString("modules/simpress/ui/currentmastermenu.ui");
+    return "modules/simpress/ui/currentmastermenu.ui";
 }
 
 void CurrentMasterPagesSelector::UpdateSelection()

@@ -23,10 +23,11 @@
 #include "controlwizard.hxx"
 #include "commonpagesdbp.hxx"
 
+using vcl::WizardTypes::WizardState;
+using vcl::WizardTypes::CommitPageReason;
 
 namespace dbp
 {
-
 
 #define LCW_STATE_DATASOURCE_SELECTION  0
 #define LCW_STATE_TABLESELECTION        1
@@ -50,7 +51,7 @@ namespace dbp
 
     public:
         OListComboWizard(
-            vcl::Window* _pParent,
+            weld::Window* pParent,
             const css::uno::Reference< css::beans::XPropertySet >& _rxObjectModel,
             const css::uno::Reference< css::uno::XComponentContext >& _rxContext
         );
@@ -61,7 +62,7 @@ namespace dbp
 
     private:
         // OWizardMachine overridables
-        virtual VclPtr<TabPage>     createPage( WizardState _nState ) override;
+        virtual std::unique_ptr<BuilderPage> createPage( WizardState _nState ) override;
         virtual WizardState         determineNextState( WizardState _nCurrentState ) const override;
         virtual void                enterState( WizardState _nState ) override;
         virtual bool                leaveState( WizardState _nState ) override;
@@ -77,8 +78,8 @@ namespace dbp
     class OLCPage : public OControlWizardPage
     {
     public:
-        OLCPage(OListComboWizard* _pParent, const OString& rID, const OUString& rUIXMLDescription)
-            : OControlWizardPage(_pParent, rID, rUIXMLDescription)
+        OLCPage(weld::Container* pPage, OListComboWizard* pWizard, const OUString& rUIXMLDescription, const OString& rID)
+            : OControlWizardPage(pPage, pWizard, rUIXMLDescription, rID)
     {
     }
 
@@ -87,88 +88,82 @@ namespace dbp
         bool isListBox() { return static_cast<OListComboWizard*>(getDialog())->isListBox(); }
 
     protected:
-        css::uno::Reference< css::container::XNameAccess >  getTables();
+        css::uno::Reference< css::container::XNameAccess >  getTables() const;
         css::uno::Sequence< OUString >                      getTableFields();
     };
 
     class OContentTableSelection final : public OLCPage
     {
-        VclPtr<ListBox>         m_pSelectTable;
+        std::unique_ptr<weld::TreeView> m_xSelectTable;
 
     public:
-        explicit OContentTableSelection( OListComboWizard* _pParent );
+        explicit OContentTableSelection(weld::Container* pPage, OListComboWizard* pWizard);
         virtual ~OContentTableSelection() override;
-        virtual void dispose() override;
 
     private:
-        // TabPage overridables
-        virtual void ActivatePage() override;
+        // BuilderPage overridables
+        virtual void Activate() override;
 
         // OWizardPage overridables
         virtual void        initializePage() override;
-        virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
         virtual bool        canAdvance() const override;
 
-        DECL_LINK( OnTableDoubleClicked, ListBox&, void );
-        DECL_LINK( OnTableSelected, ListBox&, void );
+        DECL_LINK( OnTableDoubleClicked, weld::TreeView&, bool );
+        DECL_LINK( OnTableSelected, weld::TreeView&, void );
     };
 
     class OContentFieldSelection final : public OLCPage
     {
-        VclPtr<ListBox>         m_pSelectTableField;
-        VclPtr<Edit>            m_pDisplayedField;
-        VclPtr<FixedText>       m_pInfo;
-
+        std::unique_ptr<weld::TreeView> m_xSelectTableField;
+        std::unique_ptr<weld::Entry> m_xDisplayedField;
+        std::unique_ptr<weld::Label> m_xInfo;
 
     public:
-        explicit OContentFieldSelection( OListComboWizard* _pParent );
+        explicit OContentFieldSelection(weld::Container* pPage, OListComboWizard* pWizard);
         virtual ~OContentFieldSelection() override;
-        virtual void dispose() override;
 
     private:
-        DECL_LINK( OnFieldSelected, ListBox&, void );
-        DECL_LINK( OnTableDoubleClicked, ListBox&, void );
+        DECL_LINK( OnFieldSelected, weld::TreeView&, void );
+        DECL_LINK( OnTableDoubleClicked, weld::TreeView&, bool );
 
         // OWizardPage overridables
         virtual void        initializePage() override;
-        virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
         virtual bool        canAdvance() const override;
     };
 
     class OLinkFieldsPage final : public OLCPage
     {
-        VclPtr<ComboBox>        m_pValueListField;
-        VclPtr<ComboBox>        m_pTableField;
-
+        std::unique_ptr<weld::ComboBox> m_xValueListField;
+        std::unique_ptr<weld::ComboBox> m_xTableField;
 
     public:
-        explicit OLinkFieldsPage( OListComboWizard* _pParent );
+        explicit OLinkFieldsPage(weld::Container* pPage, OListComboWizard* pWizard);
         virtual ~OLinkFieldsPage() override;
-        virtual void dispose() override;
 
     private:
-        // TabPage overridables
-        virtual void ActivatePage() override;
+        // BuilderPage overridables
+        virtual void Activate() override;
 
         // OWizardPage overridables
         virtual void        initializePage() override;
-        virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
         virtual bool        canAdvance() const override;
 
         void implCheckFinish();
 
-        DECL_LINK(OnSelectionModified, Edit&, void);
-        DECL_LINK(OnSelectionModifiedCombBox, ComboBox&, void);
+        DECL_LINK(OnSelectionModified, weld::ComboBox&, void);
     };
 
     class OComboDBFieldPage : public ODBFieldPage
     {
     public:
-        explicit OComboDBFieldPage( OControlWizard* _pParent );
+        explicit OComboDBFieldPage(weld::Container* pPage, OControlWizard* pWizard);
 
     protected:
-        // TabPage overridables
-        virtual void ActivatePage() override;
+        // BuilderPage overridables
+        virtual void Activate() override;
 
         // OWizardPage overridables
         virtual bool    canAdvance() const override;

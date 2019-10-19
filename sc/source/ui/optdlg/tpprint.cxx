@@ -26,9 +26,9 @@
 #include <scmod.hxx>
 #include <sc.hrc>
 
-ScTpPrintOptions::ScTpPrintOptions( TabPageParent pPage,
+ScTpPrintOptions::ScTpPrintOptions( weld::Container* pPage, weld::DialogController* pController,
                                     const SfxItemSet& rCoreAttrs )
-    : SfxTabPage(pPage, "modules/scalc/ui/optdlg.ui", "optCalcPrintPage", &rCoreAttrs )
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/optdlg.ui", "optCalcPrintPage", &rCoreAttrs )
     , m_xSkipEmptyPagesCB(m_xBuilder->weld_check_button("suppressCB"))
     , m_xSelectedSheetsCB(m_xBuilder->weld_check_button("printCB"))
     , m_xForceBreaksCB(m_xBuilder->weld_check_button("forceBreaksCB"))
@@ -39,9 +39,9 @@ ScTpPrintOptions::~ScTpPrintOptions()
 {
 }
 
-VclPtr<SfxTabPage> ScTpPrintOptions::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> ScTpPrintOptions::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return VclPtr<ScTpPrintOptions>::Create(pParent, *rAttrSet);
+    return std::make_unique<ScTpPrintOptions>(pPage, pController, *rAttrSet);
 }
 
 DeactivateRC ScTpPrintOptions::DeactivatePage( SfxItemSet* pSetP )

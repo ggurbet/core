@@ -174,7 +174,7 @@ uno::Reference< text::XAutoTextGroup >  SwXAutoTextContainer::insertNewByName(
     OUString sGroup(aGroupName);
     if (sGroup.indexOf(GLOS_DELIM)<0)
     {
-        sGroup += OUStringLiteral1(GLOS_DELIM) + "0";
+        sGroup += OUStringChar(GLOS_DELIM) + "0";
     }
     pGlossaries->NewGroupDoc(sGroup, sGroup.getToken(0, GLOS_DELIM));
 
@@ -197,7 +197,7 @@ void SwXAutoTextContainer::removeByName(const OUString& aGroupName)
 
 OUString SwXAutoTextContainer::getImplementationName()
 {
-    return OUString("SwXAutoTextContainer" );
+    return "SwXAutoTextContainer";
 }
 
 sal_Bool SwXAutoTextContainer::supportsService(const OUString& rServiceName)
@@ -207,9 +207,7 @@ sal_Bool SwXAutoTextContainer::supportsService(const OUString& rServiceName)
 
 uno::Sequence< OUString > SwXAutoTextContainer::getSupportedServiceNames()
 {
-    OUString sService("com.sun.star.text.AutoTextContainer");
-    const uno::Sequence< OUString > aSeq( &sService, 1 );
-    return aSeq;
+    return { "com.sun.star.text.AutoTextContainer" };
 }
 
 namespace
@@ -224,11 +222,9 @@ const uno::Sequence< sal_Int8 > & SwXAutoTextGroup::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SwXAutoTextGroup::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXAutoTextGroup>(rId) )
     {
-            return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
+        return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
     }
     return 0;
 }
@@ -480,7 +476,7 @@ void SwXAutoTextGroup::setName(const OUString& rName)
     OUString sNewGroup(rName);
     if (sNewGroup.indexOf(GLOS_DELIM)<0)
     {
-        sNewGroup += OUStringLiteral1(GLOS_DELIM) + "0";
+        sNewGroup += OUStringChar(GLOS_DELIM) + "0";
     }
 
     //the name must be saved, the group may be invalidated while in RenameGroupDoc()
@@ -590,7 +586,7 @@ void SwXAutoTextGroup::setPropertyValue(
     const SfxItemPropertySimpleEntry*   pEntry = pPropSet->getPropertyMap().getByName( rPropertyName );
 
     if(!pEntry)
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
 
     std::unique_ptr<SwTextBlocks> pGlosGroup(pGlossaries ? pGlossaries->GetGroupDoc(m_sGroupName) : nullptr);
     if(!pGlosGroup || pGlosGroup->GetError())
@@ -618,7 +614,7 @@ uno::Any SwXAutoTextGroup::getPropertyValue(const OUString& rPropertyName)
     const SfxItemPropertySimpleEntry*   pEntry = pPropSet->getPropertyMap().getByName( rPropertyName);
 
     if(!pEntry)
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
     std::unique_ptr<SwTextBlocks> pGlosGroup(pGlossaries ? pGlossaries->GetGroupDoc(m_sGroupName) : nullptr);
     if(!pGlosGroup  || pGlosGroup->GetError())
         throw uno::RuntimeException();
@@ -665,7 +661,7 @@ void SwXAutoTextGroup::Invalidate()
 
 OUString SwXAutoTextGroup::getImplementationName()
 {
-    return OUString("SwXAutoTextGroup");
+    return "SwXAutoTextGroup";
 }
 
 sal_Bool SwXAutoTextGroup::supportsService(const OUString& rServiceName)
@@ -691,11 +687,9 @@ const uno::Sequence< sal_Int8 > & SwXAutoTextEntry::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SwXAutoTextEntry::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXAutoTextEntry>(rId) )
     {
-            return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
+        return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
     }
     return 0;
 }
@@ -939,7 +933,7 @@ void SwXAutoTextEntry::applyTo(const uno::Reference< text::XTextRange > & xTextR
 
 OUString SwXAutoTextEntry::getImplementationName()
 {
-    return OUString("SwXAutoTextEntry");
+    return "SwXAutoTextEntry";
 }
 
 sal_Bool SwXAutoTextEntry::supportsService(const OUString& rServiceName)
@@ -978,7 +972,7 @@ SwAutoTextEventDescriptor::~SwAutoTextEventDescriptor()
 
 OUString SwAutoTextEventDescriptor::getImplementationName()
 {
-    return OUString("SwAutoTextEventDescriptor");
+    return "SwAutoTextEventDescriptor";
 }
 
 void SwAutoTextEventDescriptor::replaceByName(

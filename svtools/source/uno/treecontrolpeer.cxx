@@ -20,7 +20,6 @@
 
 #include <memory>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
-#include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/view/SelectionType.hpp>
 #include <com/sun/star/util/VetoException.hpp>
@@ -1423,6 +1422,7 @@ void UnoTreeListBoxImpl::dispose()
 {
     if( mxPeer.is() )
         mxPeer->disposeControl();
+    mxPeer.clear();
     SvTreeListBox::dispose();
 }
 

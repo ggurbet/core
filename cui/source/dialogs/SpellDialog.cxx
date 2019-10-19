@@ -19,12 +19,12 @@
 
 #include <memory>
 #include "SpellAttrib.hxx"
-#include <sfx2/dispatch.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/viewfrm.hxx>
 #include <svl/grabbagitem.hxx>
 #include <svl/undo.hxx>
+#include <tools/debug.hxx>
 #include <unotools/lingucfg.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/eeitem.hxx>
@@ -32,37 +32,24 @@
 #include <editeng/splwrap.hxx>
 #include <editeng/unolingu.hxx>
 #include <editeng/wghtitem.hxx>
-#include <linguistic/lngprops.hxx>
 #include <linguistic/misc.hxx>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/lang/XServiceDisplayName.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/linguistic2/XDictionary.hpp>
 #include <com/sun/star/linguistic2/XSpellAlternatives.hpp>
 #include <com/sun/star/linguistic2/XSearchableDictionaryList.hpp>
 #include <com/sun/star/linguistic2/XSpellChecker1.hpp>
 #include <sfx2/app.hxx>
-#include <vcl/cursor.hxx>
+#include <vcl/edit.hxx>
 #include <vcl/event.hxx>
-#include <vcl/graph.hxx>
-#include <vcl/help.hxx>
-#include <vcl/graphicfilter.hxx>
-#include <vcl/ptrstyle.hxx>
-#include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/texteng.hxx>
 #include <vcl/weld.hxx>
-#include <osl/file.hxx>
-#include <editeng/optitems.hxx>
-#include <editeng/svxenum.hxx>
 #include <svx/SpellDialogChildWindow.hxx>
 #include <SpellDialog.hxx>
-#include <svx/dlgutil.hxx>
 #include <optlingu.hxx>
-#include <svx/svxerr.hxx>
 #include <treeopt.hxx>
 #include <svtools/langtab.hxx>
-#include <cppuhelper/exc_hlp.hxx>
 #include <sal/log.hxx>
 #include <i18nlangtag/languagetag.hxx>
 
@@ -126,18 +113,18 @@ public:
     sal_uInt16              GetId() const;
 
     void                    SetEnableChangePB(){m_bEnableChangePB = true;}
-    bool                    IsEnableChangePB(){return m_bEnableChangePB;}
+    bool                    IsEnableChangePB() const {return m_bEnableChangePB;}
 
     void                    SetEnableChangeAllPB(){m_bEnableChangeAllPB = true;}
-    bool                    IsEnableChangeAllPB(){return m_bEnableChangeAllPB;}
+    bool                    IsEnableChangeAllPB() const {return m_bEnableChangeAllPB;}
 
     void                    SetErrorMove(long nOldStart, long nOldEnd)
                                 {
                                         m_nOldErrorStart = nOldStart;
                                         m_nOldErrorEnd = nOldEnd;
                                 }
-    long                    GetOldErrorStart() { return m_nOldErrorStart;}
-    long                    GetOldErrorEnd() { return m_nOldErrorEnd;}
+    long                    GetOldErrorStart() const { return m_nOldErrorStart;}
+    long                    GetOldErrorEnd() const { return m_nOldErrorEnd;}
 
     void                    SetErrorLanguageSelected(bool bSet){ m_bIsErrorLanguageSelected = bSet;}
     bool                    IsErrorLanguageSelected() const {return m_bIsErrorLanguageSelected;}
@@ -178,7 +165,7 @@ SpellDialog::SpellDialog(SpellDialogChildWindow* pChildWindow,
     , m_xResumeFT(m_xBuilder->weld_label("resumeft"))
     , m_xNoSuggestionsFT(m_xBuilder->weld_label("nosuggestionsft"))
     , m_xLanguageFT(m_xBuilder->weld_label("languageft"))
-    , m_xLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box("languagelb")))
+    , m_xLanguageLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("languagelb")))
     , m_xExplainFT(m_xBuilder->weld_label("explain"))
     , m_xExplainLink(m_xBuilder->weld_link_button("explainlink"))
     , m_xNotInDictFT(m_xBuilder->weld_label("notindictft"))
@@ -468,10 +455,9 @@ void SpellDialog::StartSpellOptDlg_Impl()
     SfxItemSet aSet( SfxGetpApp()->GetPool(), svl::Items<SID_AUTOSPELL_CHECK,SID_AUTOSPELL_CHECK>{});
     SfxSingleTabDialogController aDlg(m_xDialog.get(), &aSet, "cui/ui/spelloptionsdialog.ui", "SpellOptionsDialog");
 
-    TabPageParent aParent(aDlg.get_content_area(), &aDlg);
-    VclPtr<SfxTabPage> xPage = SvxLinguTabPage::Create(aParent, &aSet);
+    std::unique_ptr<SfxTabPage> xPage = SvxLinguTabPage::Create(aDlg.get_content_area(), &aDlg, &aSet);
     static_cast<SvxLinguTabPage*>(xPage.get())->HideGroups( GROUP_MODULES );
-    aDlg.SetTabPage(xPage);
+    aDlg.SetTabPage(std::move(xPage));
     if (RET_OK == aDlg.run())
     {
         InitUserDicts();
@@ -513,9 +499,10 @@ OUString SpellDialog::getReplacementString() const
     return getDotReplacementString(sOrigString, sReplacement);
 }
 
-IMPL_LINK_NOARG(SpellDialog, DoubleClickChangeHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SpellDialog, DoubleClickChangeHdl, weld::TreeView&, bool)
 {
     ChangeHdl(*m_xChangePB);
+    return true;
 }
 
 IMPL_LINK_NOARG(SpellDialog, ChangeHdl, weld::Button&, void)
@@ -545,7 +532,7 @@ IMPL_LINK_NOARG(SpellDialog, ChangeAllHdl, weld::Button&, void)
     // add new word to ChangeAll list
     OUString  aOldWord( m_xSentenceED->GetErrorText() );
     SvxPrepareAutoCorrect( aOldWord, aString );
-    Reference<XDictionary> aXDictionary( LinguMgr::GetChangeAllList(), UNO_QUERY );
+    Reference<XDictionary> aXDictionary = LinguMgr::GetChangeAllList();
     DictionaryError nAdded = AddEntryToDic( aXDictionary,
             aOldWord, true,
             aString );
@@ -568,7 +555,7 @@ IMPL_LINK( SpellDialog, IgnoreAllHdl, weld::Button&, rButton, void )
 {
     m_xSentenceED->UndoActionStart( SPELLUNDO_CHANGE_GROUP );
     // add word to IgnoreAll list
-    Reference< XDictionary > aXDictionary( LinguMgr::GetIgnoreAllList(), UNO_QUERY );
+    Reference< XDictionary > aXDictionary = LinguMgr::GetIgnoreAllList();
     //in case the error has been changed manually it has to be restored
     m_xSentenceED->RestoreCurrentError();
     if (&rButton == m_xIgnoreRulePB.get())
@@ -780,7 +767,7 @@ int SpellDialog::InitUserDicts()
     sal_uInt16 nItemId = 1;     // menu items should be enumerated from 1 and not 0
     for (sal_Int32 i = 0; i < nSize; ++i)
     {
-        uno::Reference< linguistic2::XDictionary >  xDicTmp( pDic[i], uno::UNO_QUERY );
+        uno::Reference< linguistic2::XDictionary >  xDicTmp = pDic[i];
         if (!xDicTmp.is() || LinguMgr::GetIgnoreAllList() == xDicTmp)
             continue;
 
@@ -1082,7 +1069,7 @@ bool SpellDialog::ApplyChangeAllList_Impl(SpellPortions& rSentence, bool &bHasRe
 {
     bHasReplaced = false;
     bool bRet = true;
-    Reference<XDictionary> xChangeAll( LinguMgr::GetChangeAllList(), UNO_QUERY );
+    Reference<XDictionary> xChangeAll = LinguMgr::GetChangeAllList();
     if(!xChangeAll->getCount())
         return bRet;
     bRet = false;
@@ -1110,7 +1097,9 @@ bool SpellDialog::ApplyChangeAllList_Impl(SpellPortions& rSentence, bool &bHasRe
 }
 
 SentenceEditWindow_Impl::SentenceEditWindow_Impl()
-    : m_nErrorStart(0)
+    : m_pSpellDialog(nullptr)
+    , m_pToolbar(nullptr)
+    , m_nErrorStart(0)
     , m_nErrorEnd(0)
     , m_bIsUndoEditMode(false)
 {
@@ -1481,6 +1470,7 @@ bool SentenceEditWindow_Impl::KeyInput(const KeyEvent& rKeyEvt)
                 if (pErrorAttrib->nStart != m_nErrorStart || pErrorAttrib->nEnd != m_nErrorEnd)
                 {
                     std::unique_ptr<SfxPoolItem> xNewError(pErrorAttrib->pAttr->Clone());
+                    assert(pErrorAttr);
                     m_xEditEngine->RemoveAttribs(ESelection(0, pErrorAttr->nStart, 0, pErrorAttr->nEnd), false, EE_CHAR_GRABBAG);
                     SetAttrib(*xNewError, m_nErrorStart, m_nErrorEnd);
                 }
@@ -1541,7 +1531,7 @@ bool SentenceEditWindow_Impl::MarkNextError( bool bIgnoreCurrentError, const css
 
     //create a cursor behind the end of the last error
     //- or at 0 at the start of the sentence
-    int nCursor(m_nErrorEnd ? m_nErrorEnd + 1 : 0);
+    sal_Int32 nCursor(m_nErrorEnd ? m_nErrorEnd + 1 : 0);
 
     //search for SpellErrorDescription
     SpellErrorDescription aSpellErrorDescription;
@@ -1580,10 +1570,10 @@ bool SentenceEditWindow_Impl::MarkNextError( bool bIgnoreCurrentError, const css
             pSpellErrorDescription = &aSpellErrorDescription;
         }
 
-        nCursor = nMinPos;
+        nCursor = std::max(nCursor, nMinPos); // move forward if possible
 
         // maybe the error found here is already in the ChangeAllList and has to be replaced
-        Reference<XDictionary> xChangeAll( LinguMgr::GetChangeAllList(), UNO_QUERY );
+        Reference<XDictionary> xChangeAll = LinguMgr::GetChangeAllList();
         Reference<XDictionaryEntry> xEntry;
 
         if (xChangeAll->getCount() && pSpellErrorDescription &&
@@ -1993,7 +1983,7 @@ void SentenceEditWindow_Impl::AddUndoAction( std::unique_ptr<SfxUndoAction> pAct
     GetSpellDialog()->m_xUndoPB->set_sensitive(true);
 }
 
-size_t SentenceEditWindow_Impl::GetUndoActionCount()
+size_t SentenceEditWindow_Impl::GetUndoActionCount() const
 {
     return m_xEditEngine->GetUndoManager().GetUndoActionCount();
 }

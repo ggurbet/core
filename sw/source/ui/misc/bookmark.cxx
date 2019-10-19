@@ -20,6 +20,7 @@
 #include <sfx2/request.hxx>
 #include <svl/stritem.hxx>
 #include <svx/svxids.hrc>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <com/sun/star/text/XBookmarksSupplier.hpp>
 
@@ -32,6 +33,7 @@
 #include <bookmark.hxx>
 #include <docsh.hxx>
 #include <globals.hrc>
+#include <ndtxt.hxx>
 #include <strings.hrc>
 
 using namespace ::com::sun::star;
@@ -53,9 +55,9 @@ IMPL_LINK_NOARG(SwInsertBookmarkDlg, ModifyHdl, weld::Entry&, void)
     for (sal_Int32 i = 0; i < BookmarkTable::aForbiddenChars.getLength(); i++)
     {
         const sal_Int32 nTmpLen = sTmp.getLength();
-        sTmp = sTmp.replaceAll(OUStringLiteral1(BookmarkTable::aForbiddenChars[i]), "");
+        sTmp = sTmp.replaceAll(OUStringChar(BookmarkTable::aForbiddenChars[i]), "");
         if (sTmp.getLength() != nTmpLen)
-           sMsg += OUStringLiteral1(BookmarkTable::aForbiddenChars[i]);
+           sMsg += OUStringChar(BookmarkTable::aForbiddenChars[i]);
     }
     if (sTmp.getLength() != nLen)
     {
@@ -134,9 +136,10 @@ IMPL_LINK_NOARG(SwInsertBookmarkDlg, GotoHdl, weld::Button&, void)
     GotoSelectedBookmark();
 }
 
-IMPL_LINK_NOARG(SwInsertBookmarkDlg, DoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SwInsertBookmarkDlg, DoubleClickHdl, weld::TreeView&, bool)
 {
     GotoSelectedBookmark();
+    return true;
 }
 
 IMPL_LINK_NOARG(SwInsertBookmarkDlg, SelectionChangedHdl, weld::TreeView&, void)
@@ -193,7 +196,7 @@ IMPL_LINK_NOARG(SwInsertBookmarkDlg, RenameHdl, weld::Button&, void)
     uno::Reference<container::XNamed> xNamed(xTmp, uno::UNO_QUERY);
     SwAbstractDialogFactory& rFact = swui::GetFactory();
     ScopedVclPtr<AbstractSwRenameXNamedDlg> pDlg(rFact.CreateSwRenameXNamedDlg(m_xDialog.get(), xNamed, xNameAccess));
-    pDlg->SetForbiddenChars(BookmarkTable::aForbiddenChars + OUStringLiteral1(BookmarkTable::cSeparator));
+    pDlg->SetForbiddenChars(BookmarkTable::aForbiddenChars + OUStringChar(BookmarkTable::cSeparator));
 
     if (pDlg->Execute())
     {
@@ -205,7 +208,7 @@ IMPL_LINK_NOARG(SwInsertBookmarkDlg, RenameHdl, weld::Button&, void)
     }
 }
 
-// callback to a insert button. Inserts a new text mark to the current position.
+// callback to an insert button. Inserts a new text mark to the current position.
 IMPL_LINK_NOARG(SwInsertBookmarkDlg, InsertHdl, weld::Button&, void)
 {
     OUString sBookmark = m_xEditBox->get_text();
@@ -422,9 +425,9 @@ void BookmarkTable::InsertBookmark(sw::mark::IMark* pMark)
     else if (bPulling && !bPulledAll)
         sBookmarkNodeText = "..." + sBookmarkNodeText;
 
-    OUString sHidden = "No";
+    OUString sHidden = SwResId(STR_BOOKMARK_NO);
     if (pBookmark->IsHidden())
-        sHidden = "Yes";
+        sHidden = SwResId(STR_BOOKMARK_YES);
     const OUString& sHideCondition = pBookmark->GetHideCondition();
     OUString sPageNum = OUString::number(SwPaM(pMark->GetMarkStart()).GetPageNum());
     int nRow = m_xControl->n_children();
@@ -467,7 +470,7 @@ void BookmarkTable::SelectByName(const OUString& sName)
     select(*xEntry);
 }
 
-OUString BookmarkTable::GetNameProposal()
+OUString BookmarkTable::GetNameProposal() const
 {
     OUString sDefaultBookmarkName = SwResId(STR_BOOKMARK_DEF_NAME);
     sal_Int32 nHighestBookmarkId = 0;

@@ -25,7 +25,6 @@
 
 #include <confuno.hxx>
 #include <unonames.hxx>
-#include <scdll.hxx>
 #include <docsh.hxx>
 #include <miscuno.hxx>
 #include <forbiuno.hxx>
@@ -37,14 +36,11 @@
 
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/document/LinkUpdateModes.hpp>
-#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <formula/grammar.hxx>
 #include <sfx2/printer.hxx>
-#include <xmloff/xmluconv.hxx>
-#include <rtl/ustrbuf.hxx>
+#include <svl/itemset.hxx>
 #include <vcl/svapp.hxx>
-#include <osl/diagnose.h>
 #include <tools/stream.hxx>
 
 using namespace com::sun::star;
@@ -411,7 +407,7 @@ void SAL_CALL ScDocumentConfiguration::setPropertyValue(
         else if ( aPropertyName == SC_UNO_RASTERSYNC )
             aGridOpt.SetSynchronize( ScUnoHelpFunctions::GetBoolFromAny( aValue ) );
         else
-            throw beans::UnknownPropertyException();
+            throw beans::UnknownPropertyException(aPropertyName);
         aViewOpt.SetGridOptions(aGridOpt);
     }
     rDoc.SetViewOptions(aViewOpt);
@@ -612,7 +608,7 @@ uno::Any SAL_CALL ScDocumentConfiguration::getPropertyValue( const OUString& aPr
         else if ( aPropertyName == SC_UNO_RASTERSYNC )
             aRet <<= aGridOpt.GetSynchronize();
         else
-            throw beans::UnknownPropertyException();
+            throw beans::UnknownPropertyException(aPropertyName);
     }
 
 
@@ -624,7 +620,7 @@ SC_IMPL_DUMMY_PROPERTY_LISTENER( ScDocumentConfiguration )
 // XServiceInfo
 OUString SAL_CALL ScDocumentConfiguration::getImplementationName()
 {
-    return OUString( "ScDocumentConfiguration" );
+    return "ScDocumentConfiguration";
 }
 
 sal_Bool SAL_CALL ScDocumentConfiguration::supportsService( const OUString& rServiceName )

@@ -29,8 +29,6 @@
 #include <xmloff/numehelp.hxx>
 #include <xmloff/xmlement.hxx>
 #include <xmloff/xmlexp.hxx>
-#include <xmloff/xmlnume.hxx>
-#include <xmloff/xmlnumfe.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/maptype.hxx>
@@ -39,7 +37,6 @@
 #include <sax/tools/converter.hxx>
 
 #include <com/sun/star/util/DateTime.hpp>
-#include <com/sun/star/util/Date.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/text/UserDataPart.hpp>
 #include <com/sun/star/text/PageNumberType.hpp>
@@ -59,7 +56,6 @@
 #include <com/sun/star/text/TemplateDisplayFormat.hpp>
 #include <com/sun/star/container/XNameReplace.hpp>
 #include <com/sun/star/uno/Sequence.h>
-#include <com/sun/star/util/NumberFormat.hpp>
 #include <com/sun/star/text/BibliographyDataType.hpp>
 #include <com/sun/star/sdb/CommandType.hpp>
 #include <com/sun/star/rdf/XMetadatable.hpp>
@@ -283,7 +279,7 @@ static bool GetOptionalBoolProperty(const OUString&,
                                               bool bDefault);
 static double GetDoubleProperty(const OUString&,
                                       const Reference<XPropertySet> &);
-static OUString const GetStringProperty(const OUString&,
+static OUString GetStringProperty(const OUString&,
                                         const Reference<XPropertySet> &);
 static sal_Int32 GetIntProperty(const OUString&,
                                       const Reference<XPropertySet> &);
@@ -291,9 +287,9 @@ static sal_Int16 GetInt16Property(const OUString&,
                                         const Reference<XPropertySet> &);
 static sal_Int8 GetInt8Property(const OUString&,
                                       const Reference<XPropertySet> &);
-static util::DateTime const GetDateTimeProperty( const OUString& sPropName,
+static util::DateTime GetDateTimeProperty( const OUString& sPropName,
                                            const Reference<XPropertySet> & xPropSet);
-static Sequence<OUString> const GetStringSequenceProperty(
+static Sequence<OUString> GetStringSequenceProperty(
                                    const OUString& sPropName,
                                    const Reference<XPropertySet> & xPropSet);
 
@@ -1759,7 +1755,21 @@ void XMLTextFieldExport::ExportFieldHelper(
         OUString aName;
         rPropSet->getPropertyValue(gsPropertyName) >>= aName;
         if (!aName.isEmpty())
+        {
             GetExport().AddAttribute(XML_NAMESPACE_OFFICE, XML_NAME, aName);
+            SvtSaveOptions::ODFSaneDefaultVersion eVersion = rExport.getSaneDefaultVersion();
+            if(eVersion > SvtSaveOptions::ODFSVER_012)
+            {
+                bool b = GetBoolProperty("Resolved", rPropSet);
+                OUString aResolvedText;
+                OUStringBuffer aResolvedTextBuffer;
+                ::sax::Converter::convertBool(aResolvedTextBuffer, b);
+                aResolvedText = aResolvedTextBuffer.makeStringAndClear();
+
+                GetExport().AddAttribute(XML_NAMESPACE_LO_EXT, XML_RESOLVED,
+                        aResolvedText);
+            }
+        }
         SvXMLElementExport aElem(GetExport(), XML_NAMESPACE_OFFICE,
                                  XML_ANNOTATION, false, true);
 
@@ -1918,8 +1928,8 @@ void XMLTextFieldExport::ExportFieldDeclarations(
     if( !xTextFieldsSupp.is() )
         return;
 
-    Reference<container::XNameAccess> xFieldMasterNameAccess(
-        xTextFieldsSupp->getTextFieldMasters(), UNO_QUERY);
+    Reference<container::XNameAccess> xFieldMasterNameAccess =
+        xTextFieldsSupp->getTextFieldMasters();
 
     // where to get the text field masters from?
     // a) we get a specific XText: then use pUsedMasters
@@ -1951,7 +1961,7 @@ void XMLTextFieldExport::ExportFieldDeclarations(
         aFieldMasters = xFieldMasterNameAccess->getElementNames();
     }
 
-    for(const OUString& sFieldMaster : aFieldMasters) {
+    for(const OUString& sFieldMaster : std::as_const(aFieldMasters)) {
 
         // workaround for #no-bug#
         if ( sFieldMaster.startsWithIgnoreAsciiCase(
@@ -2692,7 +2702,7 @@ void XMLTextFieldExport::ProcessBibliographyData(
     aAny >>= aValues;
 
     // one attribute per value (unless empty)
-    for (const auto& rProp : aValues)
+    for (const auto& rProp : std::as_const(aValues))
     {
         if( rProp.Name == "BibiliographicType" )
         {
@@ -3436,10 +3446,7 @@ OUString XMLTextFieldExport::MakeFootnoteRefName(
     sal_Int16 nSeqNo)
 {
     // generate foot-/endnote ID
-    OUStringBuffer aBuf;
-    aBuf.append("ftn");
-    aBuf.append(static_cast<sal_Int32>(nSeqNo));
-    return aBuf.makeStringAndClear();
+    return "ftn" + OUString::number(static_cast<sal_Int32>(nSeqNo));
 }
 
 OUString XMLTextFieldExport::MakeSequenceRefName(
@@ -3447,11 +3454,7 @@ OUString XMLTextFieldExport::MakeSequenceRefName(
     const OUString& rSeqName)
 {
     // generate foot-/endnote ID
-    OUStringBuffer aBuf;
-    aBuf.append("ref");
-    aBuf.append(rSeqName);
-    aBuf.append(static_cast<sal_Int32>(nSeqNo));
-    return aBuf.makeStringAndClear();
+    return "ref" +rSeqName + OUString::number(static_cast<sal_Int32>(nSeqNo));
 }
 
 
@@ -3490,7 +3493,7 @@ double GetDoubleProperty(
     return fDouble;
 }
 
-OUString const GetStringProperty(
+OUString GetStringProperty(
     const OUString& sPropName,
     const Reference<XPropertySet> & xPropSet)
 {
@@ -3530,7 +3533,7 @@ sal_Int8 GetInt8Property(
     return nInt;
 }
 
-util::DateTime const GetDateTimeProperty(
+util::DateTime GetDateTimeProperty(
     const OUString& sPropName,
     const Reference<XPropertySet> & xPropSet)
 {
@@ -3540,7 +3543,7 @@ util::DateTime const GetDateTimeProperty(
     return aTime;
 }
 
-Sequence<OUString> const GetStringSequenceProperty(
+Sequence<OUString> GetStringSequenceProperty(
     const OUString& sPropName,
     const Reference<XPropertySet> & xPropSet)
 {

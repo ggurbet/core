@@ -88,6 +88,8 @@ void OConnection::construct(const OUString& url, const Sequence<PropertyValue>& 
     // use TCP as connection
     mysql_protocol_type protocol = MYSQL_PROTOCOL_TCP;
     mysql_options(&m_mysql, MYSQL_OPT_PROTOCOL, &protocol);
+    OString charset_name{ "utf8mb4" };
+    mysql_options(&m_mysql, MYSQL_SET_CHARSET_NAME, charset_name.getStr());
 
     sal_Int32 nIndex;
     OUString token;
@@ -196,20 +198,19 @@ void OConnection::construct(const OUString& url, const Sequence<PropertyValue>& 
                            *this, OUString(), 0, Any());
     }
 
-    lcl_executeUpdate(&m_mysql, OString{ "SET session sql_mode='ANSI_QUOTES'" });
-    lcl_executeUpdate(&m_mysql, OString{ "SET NAMES utf8" });
+    lcl_executeUpdate(&m_mysql,
+                      OString{ "SET session sql_mode='ANSI_QUOTES,NO_AUTO_VALUE_ON_ZERO'" });
+    lcl_executeUpdate(&m_mysql, OString{ "SET NAMES utf8mb4" });
 }
 
 OUString OConnection::getImplementationName()
 {
-    return OUString("com.sun.star.sdbc.drivers.mysqlc.OConnection");
+    return "com.sun.star.sdbc.drivers.mysqlc.OConnection";
 }
 
 css::uno::Sequence<OUString> OConnection::getSupportedServiceNames()
 {
-    css::uno::Sequence<OUString> s(1);
-    s[0] = "com.sun.star.sdbc.Connection";
-    return s;
+    return { "com.sun.star.sdbc.Connection" };
 }
 
 sal_Bool OConnection::supportsService(OUString const& ServiceName)

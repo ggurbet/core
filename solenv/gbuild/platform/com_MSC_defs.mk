@@ -156,7 +156,7 @@ gb_CFLAGS := \
 	-wd4800 \
 	-wd4267 \
 
-gb_Helper_disable_warnings = $(filter-out -W4,$(1)) -w
+gb_CXXFLAGS_DISABLE_WARNINGS = -w
 
 ifneq ($(COM_IS_CLANG),TRUE)
 
@@ -275,14 +275,23 @@ endef
 else
 gb_COMPILERDEPFLAGS :=
 define gb_create_deps
+| LC_ALL=C $(GBUILDDIR)/platform/filter-sourceName.awk; exit $${PIPESTATUS[0]}
 endef
 endif
+
+define gb_filter_link_output
+| LC_ALL=C $(GBUILDDIR)/platform/filter-creatingLibrary.awk; exit $${PIPESTATUS[0]}
+endef
 
 gb_LTOFLAGS := $(if $(filter TRUE,$(ENABLE_LTO)),-GL)
 
 # When compiling for CLR, disable "warning C4339: use of undefined type detected
 # in CLR meta-data - use of this type may lead to a runtime exception":
-gb_CXXCLRFLAGS := $(gb_CXXFLAGS) $(gb_LinkTarget_EXCEPTIONFLAGS) \
+gb_CXXCLRFLAGS := \
+	$(if $(COM_IS_CLANG), \
+	    $(patsubst -std=%,-std:c++17 -Zc:__cplusplus,$(gb_CXXFLAGS)), \
+	    $(gb_CXXFLAGS)) \
+	$(gb_LinkTarget_EXCEPTIONFLAGS) \
 	-AI $(INSTDIR)/$(LIBO_URE_LIB_FOLDER) \
 	-EHa \
 	-clr \
@@ -304,7 +313,6 @@ gb_CXXFLAGS += \
 	-Wendif-labels \
 	-Wimplicit-fallthrough \
 	-Wno-missing-braces \
-	-Wno-missing-braces \
 	-Wnon-virtual-dtor \
 	-Woverloaded-virtual \
 	-Wshadow \
@@ -316,13 +324,13 @@ endif
 ifeq ($(COM_IS_CLANG),TRUE)
 gb_COMPILER_TEST_FLAGS := -Xclang -plugin-arg-loplugin -Xclang --unit-test-mode
 ifeq ($(COMPILER_PLUGIN_TOOL),)
-gb_COMPILER_PLUGINS := -Xclang -load -Xclang $(BUILDDIR)/compilerplugins/obj/plugin.dll -Xclang -add-plugin -Xclang loplugin
+gb_COMPILER_PLUGINS := -Xclang -load -Xclang $(BUILDDIR)/compilerplugins/clang/plugin.dll -Xclang -add-plugin -Xclang loplugin
 ifneq ($(COMPILER_PLUGIN_WARNINGS_ONLY),)
 gb_COMPILER_PLUGINS += -Xclang -plugin-arg-loplugin -Xclang \
     --warnings-only='$(COMPILER_PLUGIN_WARNINGS_ONLY)'
 endif
 else
-gb_COMPILER_PLUGINS := -Xclang -load -Xclang $(BUILDDIR)/compilerplugins/obj/plugin.dll -Xclang -plugin -Xclang loplugin $(foreach plugin,$(COMPILER_PLUGIN_TOOL), -Xclang -plugin-arg-loplugin -Xclang $(plugin))
+gb_COMPILER_PLUGINS := -Xclang -load -Xclang $(BUILDDIR)/compilerplugins/clang/plugin.dll -Xclang -plugin -Xclang loplugin $(foreach plugin,$(COMPILER_PLUGIN_TOOL), -Xclang -plugin-arg-loplugin -Xclang $(plugin))
 ifneq ($(UPDATE_FILES),)
 gb_COMPILER_PLUGINS += -Xclang -plugin-arg-loplugin -Xclang --scope=$(UPDATE_FILES)
 endif

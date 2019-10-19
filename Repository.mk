@@ -208,7 +208,6 @@ $(eval $(call gb_Helper_register_executables_for_install,OOO,ooo, \
 	) \
 	$(if $(filter WNT,$(OS)), \
 		senddoc \
-		spsupp_helper \
 	) \
 	$(if $(filter OPENCL,$(BUILD_TYPE)),opencltest) \
 ))
@@ -224,14 +223,6 @@ $(eval $(call gb_Helper_register_executables_for_install,OOO,python, \
 		python \
 	) \
 ))
-
-ifeq ($(USING_X11), TRUE)
-$(eval $(call gb_Helper_register_executables_for_install,OOO,gnome, \
-	$(if $(ENABLE_GTK),\
-		xid-fullscreen-on-all-monitors \
-	) \
-))
-endif
 
 ifneq ($(ENABLE_POPPLER),)
 $(eval $(call gb_Helper_register_executables_for_install,OOO,pdfimport, \
@@ -291,16 +282,15 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,onlineupdate, \
 
 $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,gnome, \
 	$(if $(ENABLE_EVOAB2),evoab) \
-	$(if $(ENABLE_GTK),vclplug_gtk) \
 	$(if $(ENABLE_GTK3),vclplug_gtk3) \
 	$(if $(ENABLE_GIO),losessioninstall) \
 	$(if $(ENABLE_GIO),ucpgio1) \
 ))
 
 $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,kde, \
-	$(if $(ENABLE_KDE5),kde5be1) \
+	$(if $(ENABLE_KF5),kf5be1) \
 	$(if $(USING_X11), \
-        $(if $(ENABLE_KDE5),vclplug_kde5) \
+        $(if $(ENABLE_KF5),vclplug_kf5) \
         $(if $(ENABLE_QT5),vclplug_qt5) \
         $(if $(ENABLE_GTK3_KDE5),vclplug_gtk3_kde5) \
 	) \
@@ -314,7 +304,7 @@ endif
 ifeq ($(OS),HAIKU)
 $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,haiku, \
     $(if $(ENABLE_QT5),vclplug_qt5) \
-    $(if $(ENABLE_KDE5),vclplug_kde5) \
+    $(if $(ENABLE_KF5),vclplug_kf5) \
 ))
 endif
 
@@ -353,7 +343,6 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 	$(call gb_Helper_optional,DBCONNECTIVITY, \
 		dba \
 		dbase \
-		dbmm \
 		dbaxml \
 		dbahsql) \
 	dbtools \
@@ -673,17 +662,14 @@ $(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,activexwin6
 ))
 endif
 
-ifneq ($(CXX_X64_BINARY),)
-$(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,ooo, \
-	spsupp_x64 \
+$(eval $(call gb_Helper_register_executables_for_install,OOO,spsuppfiles, \
+	spsupp_helper \
 ))
-endif
 
-ifneq ($(CXX_X86_BINARY),)
-$(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,ooo, \
-	spsupp_x86 \
+$(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,spsuppfiles, \
+	$(if $(CXX_X64_BINARY),spsupp_x64) \
+	$(if $(CXX_X86_BINARY),spsupp_x86) \
 ))
-endif
 
 $(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,ooobinarytable, \
 	$(if $(WINDOWS_SDK_HOME),\
@@ -983,7 +969,7 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo,\
 $(eval $(call gb_Helper_register_packages_for_install,ooo_fonts,\
 	extras_fonts \
 	$(if $(USING_X11)$(DISABLE_GUI)$(filter ANDROID,$(OS)), \
-		postprocess_fontconfig) \
+		extras_fontconfig) \
 	$(call gb_Helper_optional,MORE_FONTS,\
 		fonts_alef \
 		fonts_amiri \
@@ -1122,6 +1108,7 @@ $(eval $(call gb_Helper_register_mos,\
 	$(call gb_Helper_optional,DESKTOP,fps) \
 	frm \
 	fwk \
+	oox \
 	pcr \
 	rpt \
 	$(call gb_Helper_optional,SCRIPTING,sb) \

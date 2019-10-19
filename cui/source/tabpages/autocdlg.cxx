@@ -21,37 +21,29 @@
 #include <vcl/event.hxx>
 #include <vcl/keycodes.hxx>
 #include <vcl/settings.hxx>
-#include <sot/exchange.hxx>
 #include <vcl/transfer.hxx>
-#include <unotools/syslocale.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/viewsh.hxx>
 #include <unotools/charclass.hxx>
 #include <unotools/collatorwrapper.hxx>
-#include <com/sun/star/i18n/CollatorOptions.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <vcl/svapp.hxx>
 #include <sfx2/module.hxx>
-#include <sfx2/request.hxx>
-#include <sfx2/sfxsids.hrc>
 #include <svl/eitem.hxx>
 #include <svl/languageoptions.hxx>
 #include <svx/SmartTagMgr.hxx>
-#include <svx/ucsubset.hxx>
 #include <com/sun/star/smarttags/XSmartTagRecognizer.hpp>
-#include <com/sun/star/smarttags/XSmartTagAction.hpp>
 #include <rtl/strbuf.hxx>
 #include <osl/diagnose.h>
+#include <tools/debug.hxx>
 
 #include <autocdlg.hxx>
 #include <editeng/acorrcfg.hxx>
 #include <editeng/svxacorr.hxx>
 #include <cui/cuicharmap.hxx>
 #include <strings.hrc>
-#include <editeng/unolingu.hxx>
 #include <dialmgr.hxx>
 #include <svx/svxids.hrc>
 
@@ -63,7 +55,7 @@ using namespace ::com::sun::star;
 OfaAutoCorrDlg::OfaAutoCorrDlg(weld::Window* pParent, const SfxItemSet* _pSet )
     : SfxTabDialogController(pParent, "cui/ui/autocorrectdialog.ui", "AutoCorrectDialog", _pSet)
     , m_xLanguageBox(m_xBuilder->weld_widget("langbox"))
-    , m_xLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box("lang")))
+    , m_xLanguageLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("lang")))
 {
     bool bShowSWOptions = false;
     bool bOpenSmartTagOptions = false;
@@ -171,14 +163,22 @@ IMPL_LINK_NOARG(OfaAutoCorrDlg, SelectLanguageHdl, weld::ComboBox&, void)
     {
         OString sPageId = GetCurPageId();
         if (sPageId == "replace")
-            static_cast<OfaAutocorrReplacePage*>(GetTabPage(sPageId))->SetLanguage(eNewLang);
+        {
+            OfaAutocorrReplacePage* pPage = static_cast<OfaAutocorrReplacePage*>(GetTabPage(sPageId));
+            assert(pPage);
+            pPage->SetLanguage(eNewLang);
+        }
         else if (sPageId == "exceptions")
-            static_cast<OfaAutocorrExceptPage*>(GetTabPage(sPageId))->SetLanguage(eNewLang);
+        {
+            OfaAutocorrExceptPage* pPage = static_cast<OfaAutocorrExceptPage*>(GetTabPage(sPageId));
+            assert(pPage);
+            pPage->SetLanguage(eNewLang);
+        }
     }
 }
 
-OfaAutocorrOptionsPage::OfaAutocorrOptionsPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/acoroptionspage.ui", "AutocorrectOptionsPage", &rSet)
+OfaAutocorrOptionsPage::OfaAutocorrOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/acoroptionspage.ui", "AutocorrectOptionsPage", &rSet)
     , m_sInput(CuiResId(RID_SVXSTR_USE_REPLACE))
     , m_sDoubleCaps(CuiResId(RID_SVXSTR_CPTL_STT_WORD))
     , m_sStartCap(CuiResId(RID_SVXSTR_CPTL_STT_SENT))
@@ -197,13 +197,12 @@ OfaAutocorrOptionsPage::OfaAutocorrOptionsPage(TabPageParent pParent, const SfxI
 
 OfaAutocorrOptionsPage::~OfaAutocorrOptionsPage()
 {
-    disposeOnce();
 }
 
-VclPtr<SfxTabPage> OfaAutocorrOptionsPage::Create(TabPageParent pParent,
-                                                  const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> OfaAutocorrOptionsPage::Create(weld::Container* pPage, weld::DialogController* pController,
+                                                           const SfxItemSet* rSet)
 {
-    return VclPtr<OfaAutocorrOptionsPage>::Create(pParent, *rSet);
+    return std::make_unique<OfaAutocorrOptionsPage>(pPage, pController, *rSet);
 }
 
 #define CBCOL_FIRST     0
@@ -344,9 +343,9 @@ enum OfaAutoFmtOptions
     MERGE_SINGLE_LINE_PARA
 };
 
-OfaSwAutoFmtOptionsPage::OfaSwAutoFmtOptionsPage(TabPageParent pParent,
+OfaSwAutoFmtOptionsPage::OfaSwAutoFmtOptionsPage(weld::Container* pPage, weld::DialogController* pController,
                                                  const SfxItemSet& rSet )
-    : SfxTabPage(pParent, "cui/ui/applyautofmtpage.ui", "ApplyAutoFmtPage", &rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/applyautofmtpage.ui", "ApplyAutoFmtPage", &rSet)
     , sDeleteEmptyPara(CuiResId(RID_SVXSTR_DEL_EMPTY_PARA))
     , sUseReplaceTbl(CuiResId(RID_SVXSTR_USE_REPLACE))
     , sCapitalStartWord(CuiResId(RID_SVXSTR_CPTL_STT_WORD))
@@ -393,13 +392,15 @@ void OfaSwAutoFmtOptionsPage::CreateEntry(const OUString& rTxt, sal_uInt16 nCol)
 
 OfaSwAutoFmtOptionsPage::~OfaSwAutoFmtOptionsPage()
 {
-    disposeOnce();
+    delete reinterpret_cast<ImpUserData*>(m_xCheckLB->get_id(REPLACE_BULLETS).toInt64());
+    delete reinterpret_cast<ImpUserData*>(m_xCheckLB->get_id(APPLY_NUMBERING).toInt64());
+    delete reinterpret_cast<ImpUserData*>(m_xCheckLB->get_id(MERGE_SINGLE_LINE_PARA).toInt64());
 }
 
-VclPtr<SfxTabPage> OfaSwAutoFmtOptionsPage::Create(TabPageParent pParent,
-                                                   const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> OfaSwAutoFmtOptionsPage::Create(weld::Container* pPage, weld::DialogController* pController,
+                                                            const SfxItemSet* rAttrSet)
 {
-    return VclPtr<OfaSwAutoFmtOptionsPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<OfaSwAutoFmtOptionsPage>(pPage, pController, *rAttrSet);
 }
 
 bool OfaSwAutoFmtOptionsPage::FillItemSet( SfxItemSet*  )
@@ -610,9 +611,10 @@ IMPL_LINK(OfaSwAutoFmtOptionsPage, SelectHdl, weld::TreeView&, rBox, void)
     m_xEditPB->set_sensitive(rBox.get_selected_id().toInt64() != 0);
 }
 
-IMPL_LINK_NOARG(OfaSwAutoFmtOptionsPage, DoubleClickEditHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(OfaSwAutoFmtOptionsPage, DoubleClickEditHdl, weld::TreeView&, bool)
 {
     EditHdl(*m_xEditPB);
+    return true;
 }
 
 IMPL_LINK_NOARG(OfaSwAutoFmtOptionsPage, EditHdl, weld::Button&, void)
@@ -620,7 +622,7 @@ IMPL_LINK_NOARG(OfaSwAutoFmtOptionsPage, EditHdl, weld::Button&, void)
     int nSelEntryPos = m_xCheckLB->get_selected_index();
     if (nSelEntryPos == REPLACE_BULLETS || nSelEntryPos == APPLY_NUMBERING)
     {
-        SvxCharacterMap aMapDlg(GetDialogFrameWeld(), nullptr, nullptr);
+        SvxCharacterMap aMapDlg(GetFrameWeld(), nullptr, nullptr);
         ImpUserData* pUserData = reinterpret_cast<ImpUserData*>(m_xCheckLB->get_id(nSelEntryPos).toInt64());
         aMapDlg.SetCharFont(*pUserData->pFont);
         aMapDlg.SetChar( (*pUserData->pString)[0] );
@@ -641,7 +643,7 @@ IMPL_LINK_NOARG(OfaSwAutoFmtOptionsPage, EditHdl, weld::Button&, void)
     else if( MERGE_SINGLE_LINE_PARA == nSelEntryPos )
     {
         // dialog for per cent settings
-        OfaAutoFmtPrcntSet aDlg(GetDialogFrameWeld());
+        OfaAutoFmtPrcntSet aDlg(GetFrameWeld());
         aDlg.GetPrcntFld().set_value(nPercent, FieldUnit::PERCENT);
         if (aDlg.run() == RET_OK)
         {
@@ -653,9 +655,9 @@ IMPL_LINK_NOARG(OfaSwAutoFmtOptionsPage, EditHdl, weld::Button&, void)
 }
 
 
-OfaAutocorrReplacePage::OfaAutocorrReplacePage(TabPageParent pParent,
+OfaAutocorrReplacePage::OfaAutocorrReplacePage(weld::Container* pPage, weld::DialogController* pController,
                                                const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/acorreplacepage.ui", "AcorReplacePage", &rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/acorreplacepage.ui", "AcorReplacePage", &rSet)
     , eLang(eLastDialogLanguage)
     , bHasSelectionText(false)
     , bFirstSelect(true)
@@ -668,9 +670,17 @@ OfaAutocorrReplacePage::OfaAutocorrReplacePage(TabPageParent pParent,
     , m_xNewReplacePB(m_xBuilder->weld_button("new"))
     , m_xReplacePB(m_xBuilder->weld_button("replace"))
     , m_xDeleteReplacePB(m_xBuilder->weld_button("delete"))
+    , m_xButtonBox(m_xBuilder->weld_container("buttonbox"))
 {
     sNew = m_xNewReplacePB->get_label();
     sModify = m_xReplacePB->get_label();
+
+    // lock down the width of the button box to its max
+    // desired width
+    auto nMaxWidth = m_xButtonBox->get_preferred_size().Width();
+    m_xButtonBox->set_size_request(nMaxWidth, -1);
+    m_xReplacePB->hide();
+
     // tdf#125348 set some small but fixed initial width size, final width will
     // depend on the size of the entry boxes
     m_xReplaceTLB->set_size_request(42, m_xReplaceTLB->get_height_rows(10));
@@ -700,23 +710,16 @@ OfaAutocorrReplacePage::OfaAutocorrReplacePage(TabPageParent pParent,
 
 OfaAutocorrReplacePage::~OfaAutocorrReplacePage()
 {
-    disposeOnce();
-}
-
-void OfaAutocorrReplacePage::dispose()
-{
     aDoubleStringTable.clear();
     aChangesTable.clear();
 
     pCompareClass.reset();
     pCharClass.reset();
-
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> OfaAutocorrReplacePage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> OfaAutocorrReplacePage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<OfaAutocorrReplacePage>::Create(pParent, *rSet);
+    return std::make_unique<OfaAutocorrReplacePage>(pPage, pController, *rSet);
 }
 
 void OfaAutocorrReplacePage::ActivatePage( const SfxItemSet& )
@@ -742,13 +745,15 @@ bool OfaAutocorrReplacePage::FillItemSet( SfxItemSet* )
         std::vector<SvxAutocorrWord> aDeleteWords;
         std::vector<SvxAutocorrWord> aNewWords;
 
-        for (DoubleString & deleteEntry : rStringChangeList.aDeletedEntries)
+        aDeleteWords.reserve( rStringChangeList.aDeletedEntries.size() );
+        for (const DoubleString & deleteEntry : rStringChangeList.aDeletedEntries)
         {
             SvxAutocorrWord aDeleteWord( deleteEntry.sShort, deleteEntry.sLong );
             aDeleteWords.push_back( aDeleteWord );
         }
 
-        for (DoubleString & newEntry : rStringChangeList.aNewEntries)
+        aNewWords.reserve( rStringChangeList.aNewEntries.size() );
+        for (const DoubleString & newEntry : rStringChangeList.aNewEntries)
         {
             //fdo#67697 if the user data is set then we want to retain the
             //source formatting of the entry, so don't use the optimized
@@ -834,10 +839,10 @@ void OfaAutocorrReplacePage::RefillReplaceBox(bool bFromReset,
     {
         SvxAutoCorrect* pAutoCorrect = SvxAutoCorrCfg::Get().GetAutoCorrect();
         SvxAutocorrWordList* pWordList = pAutoCorrect->LoadAutocorrWordList(eLang);
-        SvxAutocorrWordList::Content aContent = pWordList->getSortedContent();
-        m_xReplaceTLB->bulk_insert_for_each(aContent.size(), [this, &aContent](weld::TreeIter& rIter, int nIndex) {
-            auto const& elem = aContent[nIndex];
-            bool bTextOnly = elem->IsTextOnly();
+        const SvxAutocorrWordList::AutocorrWordSetType & rContent = pWordList->getSortedContent();
+        m_xReplaceTLB->bulk_insert_for_each(rContent.size(), [this, rContent](weld::TreeIter& rIter, int nIndex) {
+            auto const& elem = rContent[nIndex];
+            bool bTextOnly = elem.IsTextOnly();
             // formatted text is only in Writer
             if (bSWriter || bTextOnly)
             {
@@ -847,12 +852,12 @@ void OfaAutocorrReplacePage::RefillReplaceBox(bool bFromReset,
                     OUString sId = OUString::number(reinterpret_cast<sal_Int64>(m_xTextOnlyCB.get()));
                     m_xReplaceTLB->set_id(rIter, sId);
                 }
-                m_xReplaceTLB->set_text(rIter, elem->GetShort(), 0);
-                m_xReplaceTLB->set_text(rIter, elem->GetLong(), 1);
+                m_xReplaceTLB->set_text(rIter, elem.GetShort(), 0);
+                m_xReplaceTLB->set_text(rIter, elem.GetLong(), 1);
             }
             else
             {
-                aFormatText.insert(elem->GetShort());
+                aFormatText.insert(elem.GetShort());
             }
         }, &m_aReplaceFixedWidths);
         m_xNewReplacePB->set_sensitive(false);
@@ -1179,8 +1184,8 @@ static bool lcl_FindInArray(std::vector<OUString>& rStrings, const OUString& rSt
     return false;
 }
 
-OfaAutocorrExceptPage::OfaAutocorrExceptPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/acorexceptpage.ui", "AcorExceptPage", &rSet)
+OfaAutocorrExceptPage::OfaAutocorrExceptPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/acorexceptpage.ui", "AcorExceptPage", &rSet)
     , eLang(eLastDialogLanguage)
     , m_xAbbrevED(m_xBuilder->weld_entry("abbrev"))
     , m_xAbbrevLB(m_xBuilder->weld_tree_view("abbrevlist"))
@@ -1219,20 +1224,14 @@ OfaAutocorrExceptPage::OfaAutocorrExceptPage(TabPageParent pParent, const SfxIte
 
 OfaAutocorrExceptPage::~OfaAutocorrExceptPage()
 {
-    disposeOnce();
-}
-
-void OfaAutocorrExceptPage::dispose()
-{
     aStringsTable.clear();
     pCompareClass.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> OfaAutocorrExceptPage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> OfaAutocorrExceptPage::Create(weld::Container* pPage, weld::DialogController* pController,
                                                  const SfxItemSet* rSet)
 {
-    return VclPtr<OfaAutocorrExceptPage>::Create(pParent, *rSet);
+    return std::make_unique<OfaAutocorrExceptPage>(pPage, pController, *rSet);
 }
 
 void    OfaAutocorrExceptPage::ActivatePage( const SfxItemSet& )
@@ -1534,8 +1533,8 @@ void OfaQuoteTabPage::CreateEntry(weld::TreeView& rCheckLB, const OUString& rTxt
     rCheckLB.set_text(nRow, rTxt, nTextCol);
 }
 
-OfaQuoteTabPage::OfaQuoteTabPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/applylocalizedpage.ui", "ApplyLocalizedPage", &rSet)
+OfaQuoteTabPage::OfaQuoteTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/applylocalizedpage.ui", "ApplyLocalizedPage", &rSet)
     , sNonBrkSpace(CuiResId(RID_SVXSTR_NON_BREAK_SPACE))
     , sOrdinal(CuiResId(RID_SVXSTR_ORDINAL))
     , cSglStartQuote(0)
@@ -1593,13 +1592,12 @@ OfaQuoteTabPage::OfaQuoteTabPage(TabPageParent pParent, const SfxItemSet& rSet)
 
 OfaQuoteTabPage::~OfaQuoteTabPage()
 {
-    disposeOnce();
 }
 
-VclPtr<SfxTabPage> OfaQuoteTabPage::Create(TabPageParent pParent,
-                                           const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> OfaQuoteTabPage::Create(weld::Container* pPage, weld::DialogController* pController,
+                                                    const SfxItemSet* rAttrSet)
 {
-    return VclPtr<OfaQuoteTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<OfaQuoteTabPage>(pPage, pController, *rAttrSet);
 }
 
 bool OfaQuoteTabPage::FillItemSet( SfxItemSet*  )
@@ -1748,7 +1746,7 @@ IMPL_LINK(OfaQuoteTabPage, QuoteHdl, weld::Button&, rBtn, void)
     else if (&rBtn == m_xDblEndQuotePB.get())
         nMode = DBL_END;
     // start character selection dialog
-    SvxCharacterMap aMap(GetDialogFrameWeld(), nullptr, nullptr);
+    SvxCharacterMap aMap(GetFrameWeld(), nullptr, nullptr);
     aMap.SetCharFont( OutputDevice::GetDefaultFont(DefaultFontType::LATIN_TEXT,
                         LANGUAGE_ENGLISH_US, GetDefaultFontFlags::OnlyOne ));
     aMap.set_title(nMode < SGL_END ? CuiResId(RID_SVXSTR_STARTQUOTE)  : CuiResId(RID_SVXSTR_ENDQUOTE));
@@ -1854,9 +1852,9 @@ OUString OfaQuoteTabPage::ChangeStringExt_Impl( sal_UCS4 cChar )
     return aOUStr;
 }
 
-OfaAutoCompleteTabPage::OfaAutoCompleteTabPage(TabPageParent pParent,
+OfaAutoCompleteTabPage::OfaAutoCompleteTabPage(weld::Container* pPage, weld::DialogController* pController,
     const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/wordcompletionpage.ui",
+    : SfxTabPage(pPage, pController, "cui/ui/wordcompletionpage.ui",
                  "WordCompletionPage", &rSet)
     , m_pAutoCompleteList(nullptr)
     , m_nAutoCmpltListCnt(0)
@@ -1910,21 +1908,12 @@ OfaAutoCompleteTabPage::OfaAutoCompleteTabPage(TabPageParent pParent,
 
 OfaAutoCompleteTabPage::~OfaAutoCompleteTabPage()
 {
-    disposeOnce();
 }
 
-void OfaSwAutoFmtOptionsPage::dispose()
-{
-    delete reinterpret_cast<ImpUserData*>(m_xCheckLB->get_id(REPLACE_BULLETS).toInt64());
-    delete reinterpret_cast<ImpUserData*>(m_xCheckLB->get_id(APPLY_NUMBERING).toInt64());
-    delete reinterpret_cast<ImpUserData*>(m_xCheckLB->get_id(MERGE_SINGLE_LINE_PARA).toInt64());
-    SfxTabPage::dispose();
-}
-
-VclPtr<SfxTabPage> OfaAutoCompleteTabPage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> OfaAutoCompleteTabPage::Create(weld::Container* pPage, weld::DialogController* pController,
                                                   const SfxItemSet* rSet)
 {
-    return VclPtr<OfaAutoCompleteTabPage>::Create(pParent, *rSet);
+    return std::make_unique<OfaAutoCompleteTabPage>(pPage, pController, *rSet);
 }
 
 bool OfaAutoCompleteTabPage::FillItemSet( SfxItemSet* )
@@ -2086,7 +2075,7 @@ void OfaAutoCompleteTabPage::CopyToClipboard() const
 #endif
         }
         pCntnr->CopyByteString( SotClipboardFormatId::STRING, sData.makeStringAndClear() );
-        pCntnr->CopyToClipboard( static_cast<vcl::Window*>(const_cast<OfaAutoCompleteTabPage *>(this)) );
+        pCntnr->CopyToClipboard(GetSystemClipboard());
     }
 }
 
@@ -2113,9 +2102,9 @@ IMPL_LINK(OfaAutoCompleteTabPage, KeyReleaseHdl, const KeyEvent&, rEvent, bool)
 
 // class OfaSmartTagOptionsTabPage ---------------------------------------------
 
-OfaSmartTagOptionsTabPage::OfaSmartTagOptionsTabPage(TabPageParent pParent,
+OfaSmartTagOptionsTabPage::OfaSmartTagOptionsTabPage(weld::Container* pPage, weld::DialogController* pController,
                                                      const SfxItemSet& rSet )
-    : SfxTabPage(pParent, "cui/ui/smarttagoptionspage.ui", "SmartTagOptionsPage", &rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/smarttagoptionspage.ui", "SmartTagOptionsPage", &rSet)
     , m_xMainCB(m_xBuilder->weld_check_button("main"))
     , m_xSmartTagTypesLB(m_xBuilder->weld_tree_view("list"))
     , m_xPropertiesPB(m_xBuilder->weld_button("properties"))
@@ -2135,12 +2124,11 @@ OfaSmartTagOptionsTabPage::OfaSmartTagOptionsTabPage(TabPageParent pParent,
 
 OfaSmartTagOptionsTabPage::~OfaSmartTagOptionsTabPage()
 {
-    disposeOnce();
 }
 
-VclPtr<SfxTabPage> OfaSmartTagOptionsTabPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> OfaSmartTagOptionsTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<OfaSmartTagOptionsTabPage>::Create(pParent, *rSet);
+    return std::make_unique<OfaSmartTagOptionsTabPage>(pPage, pController, *rSet);
 }
 
 /** This struct is used to associate list box entries with smart tag data

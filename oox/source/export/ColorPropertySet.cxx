@@ -125,7 +125,7 @@ uno::Any SAL_CALL ColorPropertySet::getPropertyValue( const OUString& aPropertyN
     else if (aPropertyName == m_aColorPropName)
         return uno::makeAny( m_nColor );
 
-    throw UnknownPropertyException();
+    throw UnknownPropertyException(aPropertyName);
 }
 
 void SAL_CALL ColorPropertySet::addPropertyChangeListener( const OUString& /* aPropertyName */, const Reference< XPropertyChangeListener >& /* xListener */ )
@@ -158,7 +158,8 @@ PropertyState SAL_CALL ColorPropertySet::getPropertyState( const OUString& /* Pr
 Sequence< PropertyState > SAL_CALL ColorPropertySet::getPropertyStates( const Sequence< OUString >& /* aPropertyName */ )
 {
     PropertyState aState = PropertyState_DIRECT_VALUE;
-    return Sequence< PropertyState >( & aState, 1 );
+    // coverity[overrun-buffer-arg : FALSE] - coverity has difficulty with css::uno::Sequence
+    return Sequence<PropertyState>(&aState, 1);
 }
 
 void SAL_CALL ColorPropertySet::setPropertyToDefault( const OUString& PropertyName )

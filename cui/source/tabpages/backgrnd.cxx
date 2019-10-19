@@ -19,22 +19,17 @@
 
 #include <memory>
 #include <com/sun/star/drawing/FillStyle.hpp>
-#include <unotools/pathoptions.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/idle.hxx>
 #include <vcl/svapp.hxx>
 #include <tools/urlobj.hxx>
-#include <sfx2/dialoghelper.hxx>
 #include <sfx2/objsh.hxx>
-#include <sfx2/docfile.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svx/strings.hrc>
 
 #include <strings.hrc>
 #include <svx/dialmgr.hxx>
-#include <editeng/memberids.h>
 
 #include <editeng/brushitem.hxx>
 #include <editeng/colritem.hxx>
@@ -44,13 +39,12 @@
 #include <sfx2/opengrf.hxx>
 #include <svx/svxerr.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <dialmgr.hxx>
 #include <sfx2/htmlmode.hxx>
-#include <svtools/controldims.hxx>
 #include <svx/flagsdef.hxx>
 #include <svl/intitem.hxx>
-#include <sfx2/request.hxx>
 #include <vcl/GraphicObject.hxx>
 
 #include <svx/unobrushitemhelper.hxx>
@@ -117,7 +111,7 @@ public:
     void setBmp(bool bBmp);
 
     void            NotifyChange(const Color&  rColor);
-    void            NotifyChange(const Bitmap* pBitmap);
+    void            NotifyChange(const BitmapEx* pBitmap);
     void            SetFillColor(const Color& rColor) { aColor = rColor; }
 
 protected:
@@ -130,7 +124,7 @@ private:
     void recalcDrawPos();
 
     bool            bIsBmp;
-    std::unique_ptr<Bitmap> pBitmap;
+    std::unique_ptr<BitmapEx> pBitmap;
     Point           aDrawPos;
     Size            aDrawSize;
     ::tools::Rectangle aDrawRect;
@@ -168,14 +162,14 @@ void BackgroundPreviewImpl::NotifyChange( const Color& rColor )
     }
 }
 
-void BackgroundPreviewImpl::NotifyChange( const Bitmap* pNewBitmap )
+void BackgroundPreviewImpl::NotifyChange( const BitmapEx* pNewBitmap )
 {
     if (bIsBmp && (pNewBitmap || pBitmap))
     {
         if (pNewBitmap && pBitmap)
             *pBitmap = *pNewBitmap;
         else if (pNewBitmap && !pBitmap)
-            pBitmap.reset( new Bitmap(*pNewBitmap) );
+            pBitmap.reset( new BitmapEx(*pNewBitmap) );
         else if (!pNewBitmap)
             pBitmap.reset();
 
@@ -248,7 +242,7 @@ void BackgroundPreviewImpl::Paint(vcl::RenderContext& rRenderContext, const ::to
     if (bIsBmp)
     {
         if (pBitmap)
-            rRenderContext.DrawBitmap(aDrawPos, aDrawSize, *pBitmap);
+            rRenderContext.DrawBitmapEx(aDrawPos, aDrawSize, *pBitmap);
         else
         {
             Size aSize(GetOutputSizePixel());
@@ -260,8 +254,8 @@ void BackgroundPreviewImpl::Paint(vcl::RenderContext& rRenderContext, const ::to
 
 #define HDL(hdl) LINK(this,SvxBackgroundTabPage,hdl)
 
-SvxBackgroundTabPage::SvxBackgroundTabPage(TabPageParent pParent, const SfxItemSet& rCoreSet)
-    : SvxTabPage(pParent, "cui/ui/backgroundpage.ui", "BackgroundPage", rCoreSet)
+SvxBackgroundTabPage::SvxBackgroundTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreSet)
+    : SvxTabPage(pPage, pController, "cui/ui/backgroundpage.ui", "BackgroundPage", rCoreSet)
     , nHtmlMode(0)
     , bAllowShowSelector(true)
     , bIsGraphicValid(false)
@@ -321,11 +315,6 @@ SvxBackgroundTabPage::SvxBackgroundTabPage(TabPageParent pParent, const SfxItemS
 
 SvxBackgroundTabPage::~SvxBackgroundTabPage()
 {
-    disposeOnce();
-}
-
-void SvxBackgroundTabPage::dispose()
-{
     m_pLoadIdle.reset();
     pImportDlg.reset();
     m_pCellBrush.reset();
@@ -339,13 +328,11 @@ void SvxBackgroundTabPage::dispose()
     m_xPreview1.reset();
     m_xBackgroundColorSet.reset();
     m_xWndPosition.reset();
-
-    SvxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxBackgroundTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> SvxBackgroundTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SvxBackgroundTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SvxBackgroundTabPage>(pPage, pController, *rAttrSet);
 }
 
 void SvxBackgroundTabPage::Reset( const SfxItemSet* rSet )
@@ -787,7 +774,7 @@ void SvxBackgroundTabPage::RaiseLoadError_Impl()
 {
     SfxErrorContext aContext( ERRCTX_SVX_BACKGROUND,
                               OUString(),
-                              GetDialogFrameWeld(),
+                              GetFrameWeld(),
                               RID_SVXERRCTX,
                               SvxResLocale() );
 
@@ -918,7 +905,7 @@ void SvxBackgroundTabPage::SetGraphicPosition_Impl( SvxGraphicPosition ePos )
     m_xWndPosition->Invalidate();
 }
 
-SvxGraphicPosition SvxBackgroundTabPage::GetGraphicPosition_Impl()
+SvxGraphicPosition SvxBackgroundTabPage::GetGraphicPosition_Impl() const
 {
     if (m_xBtnTile->get_active())
         return GPOS_TILED;
@@ -998,7 +985,7 @@ IMPL_LINK(SvxBackgroundTabPage, FileClickHdl_Impl, weld::ToggleButton&, rBox, vo
 
             if ( bIsGraphicValid )
             {
-                Bitmap aBmp = aBgdGraphic.GetBitmapEx().GetBitmap();
+                BitmapEx aBmp = aBgdGraphic.GetBitmapEx();
                 m_xPreview2->NotifyChange( &aBmp );
             }
             else
@@ -1040,7 +1027,7 @@ IMPL_LINK_NOARG(SvxBackgroundTabPage, BrowseHdl_Impl, weld::Button&, void)
     bool bHtml = 0 != ( nHtmlMode & HTMLMODE_ON );
 
     OUString aStrBrowse(m_xFindGraphicsFt->get_label());
-    pImportDlg.reset(new SvxOpenGraphicDialog(aStrBrowse, GetDialogFrameWeld()));
+    pImportDlg.reset(new SvxOpenGraphicDialog(aStrBrowse, GetFrameWeld()));
     if ( bHtml )
         pImportDlg->EnableLink(false);
     pImportDlg->SetPath(aBgdGraphicPath, m_xBtnLink->get_active());
@@ -1106,7 +1093,7 @@ IMPL_LINK( SvxBackgroundTabPage, LoadIdleHdl_Impl, Timer*, pIdle, void )
 
                 if (m_xBtnPreview->get_active() && bIsGraphicValid)
                 {
-                    Bitmap aBmp = aBgdGraphic.GetBitmapEx().GetBitmap();
+                    BitmapEx aBmp = aBgdGraphic.GetBitmapEx();
                     m_xPreview2->NotifyChange( &aBmp );
                 }
                 else
@@ -1317,7 +1304,7 @@ void SvxBackgroundTabPage::FillControls_Impl( const SvxBrushItem& rBgdAttr,
 
         if (m_xBtnPreview->get_active() && bIsGraphicValid)
         {
-            Bitmap aBmp = aBgdGraphic.GetBitmapEx().GetBitmap();
+            BitmapEx aBmp = aBgdGraphic.GetBitmapEx();
             m_xPreview2->NotifyChange( &aBmp );
         }
         else
@@ -1370,8 +1357,8 @@ static sal_uInt16 lcl_GetTableDestSlot(sal_Int32 nTblDest)
     }
 }
 
-SvxBkgTabPage::SvxBkgTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SvxAreaTabPage(pParent, rInAttrs),
+SvxBkgTabPage::SvxBkgTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SvxAreaTabPage(pPage, pController, rInAttrs),
     bHighlighting(false),
     bCharBackColor(false),
     maSet(rInAttrs)
@@ -1405,13 +1392,7 @@ SvxBkgTabPage::SvxBkgTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
 
 SvxBkgTabPage::~SvxBkgTabPage()
 {
-    disposeOnce();
-}
-
-void SvxBkgTabPage::dispose()
-{
     m_xTblLBox.reset();
-    SvxAreaTabPage::dispose();
 }
 
 void SvxBkgTabPage::ActivatePage( const SfxItemSet& )
@@ -1432,7 +1413,7 @@ DeactivateRC SvxBkgTabPage::DeactivatePage( SfxItemSet* _pSet )
 
 void SvxBkgTabPage::Reset( const SfxItemSet* )
 {
-    maSet.Set( *m_pResetSet.get() );
+    maSet.Set( *m_pResetSet );
     if ( m_xTblLBox && m_xTblLBox->get_visible() )
     {
         m_nActPos = -1;
@@ -1545,10 +1526,10 @@ bool SvxBkgTabPage::FillItemSet( SfxItemSet* rCoreSet )
     return true;
 }
 
-VclPtr<SfxTabPage> SvxBkgTabPage::Create(TabPageParent pWindow, const SfxItemSet* rAttrs)
+std::unique_ptr<SfxTabPage> SvxBkgTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrs)
 {
-    auto xRet = VclPtr<SvxBkgTabPage>::Create(pWindow, *rAttrs);
-    xRet->SetOptimalSize(pWindow.pController);
+    auto xRet = std::make_unique<SvxBkgTabPage>(pPage, pController, *rAttrs);
+    xRet->SetOptimalSize(pController);
     return xRet;
 }
 

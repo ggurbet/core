@@ -18,7 +18,6 @@
  */
 
 #include <editeng/hangulhanja.hxx>
-#include <vcl/button.hxx>
 #include <unotools/lingucfg.hxx>
 #include <unotools/linguprops.hxx>
 
@@ -33,7 +32,6 @@
 #include <com/sun/star/i18n/TextConversionType.hpp>
 #include <com/sun/star/i18n/TextConversionOption.hpp>
 #include <com/sun/star/i18n/WordType.hpp>
-#include <vcl/stdtext.hxx>
 #include <vcl/weld.hxx>
 #include <unotools/charclass.hxx>
 #include <sal/log.hxx>
@@ -749,12 +747,11 @@ namespace editeng
         // exactly which characters are really changed in order to keep as much
         // from attributation for the text as possible.
         Sequence< sal_Int32 > aOffsets;
-        Reference< XExtendedTextConversion > xExtConverter( m_xConverter, UNO_QUERY );
-        if (m_eConvType == HHC::eConvSimplifiedTraditional && xExtConverter.is())
+        if (m_eConvType == HHC::eConvSimplifiedTraditional && m_xConverter.is())
         {
             try
             {
-                xExtConverter->getConversionWithOffset(
+                m_xConverter->getConversionWithOffset(
                     m_sCurrentPortion,
                     m_nCurrentStartIndex,
                     m_nCurrentEndIndex - m_nCurrentStartIndex,

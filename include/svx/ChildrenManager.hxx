@@ -88,9 +88,9 @@ public:
         @param rxShapeList
             List of UNO shapes to manage.
         @param rShapeTreeInfo
-            Bundel of information passed down the shape tree.
+            Bundle of information passed down the shape tree.
         @param rContext
-            An accessible context object that is called for fireing events
+            An accessible context object that is called for firing events
             for new and deleted children, i.e. that holds a list of
             listeners to be informed.
     */
@@ -187,7 +187,7 @@ public:
             Returns <true/> when there is a shape that has the focus and
             <false/> when there is no such shape.
     */
-    bool HasFocus();
+    bool HasFocus() const;
 
     /** When there is a shape that currently has the focus,
         i.e. <member>HasFocus()</member> returns <true/> then remove the

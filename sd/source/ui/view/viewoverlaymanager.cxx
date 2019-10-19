@@ -17,12 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sddll.hxx>
-
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/request.hxx>
 #include <sfx2/dispatch.hxx>
 
 #include <vcl/help.hxx>
@@ -32,10 +28,8 @@
 
 #include <svx/sdrpagewindow.hxx>
 #include <svx/sdrpaintwindow.hxx>
-#include <svx/sdr/overlay/overlayanimatedbitmapex.hxx>
 #include <svx/sdr/overlay/overlaybitmapex.hxx>
 #include <svx/sdr/overlay/overlaymanager.hxx>
-#include <svx/sdr/contact/objectcontact.hxx>
 #include <svx/svxids.hrc>
 #include <svx/svdpagv.hxx>
 
@@ -43,16 +37,14 @@
 
 
 #include <DrawDocShell.hxx>
-#include <DrawViewShell.hxx>
-#include <DrawController.hxx>
 #include <strings.hrc>
 #include <bitmaps.hlst>
 #include <sdresid.hxx>
 #include <EventMultiplexer.hxx>
+#include <View.hxx>
 #include <ViewShellBase.hxx>
-#include <ViewShellManager.hxx>
+#include <ViewShell.hxx>
 #include <sdpage.hxx>
-#include <drawdoc.hxx>
 #include <smarttag.hxx>
 
 using namespace ::com::sun::star::uno;
@@ -145,7 +137,6 @@ public:
     virtual void CreateB2dIAObject() override;
     virtual bool IsFocusHdl() const override;
     virtual PointerStyle GetPointer() const override;
-    virtual bool isMarkable() const override;
 
     virtual void onMouseEnter(const MouseEvent& rMEvt) override;
     virtual void onHelpRequest(const HelpEvent& rHEvt) override;
@@ -292,11 +283,6 @@ void ImageButtonHdl::CreateB2dIAObject()
 }
 
 bool ImageButtonHdl::IsFocusHdl() const
-{
-    return false;
-}
-
-bool ImageButtonHdl::isMarkable() const
 {
     return false;
 }

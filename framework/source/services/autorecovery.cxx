@@ -113,7 +113,7 @@ namespace {
 
     @descr  Because some operations are forced to be executed asynchronously
             (e.g. requested by our CreashSave/Recovery dialog) ... we must make sure
-            that these information won't be set as "normal" members of our AutoRecovery
+            that this information won't be set as "normal" members of our AutoRecovery
             instance. Otherwise they can disturb our normal AutoSave-timer handling.
             e.g. it can be unclear then, which progress has to be used for storing documents...
  */
@@ -284,7 +284,7 @@ public:
                         of each document and update this state flag here.
 
                         Further we postpone saving of active documents, e.g. if the user
-                        works currently on it. We wait for an idle period then ...
+                        works currently on it. We wait for an idle period then...
              */
             sal_Int32 DocumentState;
 
@@ -446,7 +446,7 @@ public:
 
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.framework.AutoRecovery");
+        return "com.sun.star.comp.framework.AutoRecovery";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -486,7 +486,7 @@ public:
     /** @short  informs about created/opened documents.
 
         @descr  Every new opened/created document will be saved internally
-                so it can be checked if its modified. This modified state
+                so it can be checked if it's modified. This modified state
                 is used later to decide, if it must be saved or not.
 
         @param  aEvent
@@ -638,7 +638,7 @@ private:
 
         @param  bStopListening
                 sal_False: must be used in case this method is called within disposing() of the document,
-                       where it make no sense to deregister our listener. The container dies...
+                       where it makes no sense to deregister our listener. The container dies...
                 sal_True : must be used in case this method is used on "deregistration" of this document, where
                        we must deregister our listener .-)
 
@@ -1371,7 +1371,7 @@ void AutoRecovery::implts_dispatch(const DispatchParams& aParams)
     bool bWasUserAutoSaveActive =
         ((eJob & AutoRecovery::E_USER_AUTO_SAVE) == AutoRecovery::E_USER_AUTO_SAVE);
 
-    // On the other side it make no sense to reactivate the AutoSave operation
+    // On the other side it makes no sense to reactivate the AutoSave operation
     // if the new dispatch indicates a final decision ...
     // E.g. an EmergencySave/SessionSave indicates the end of life of the current office session.
     // It make no sense to reactivate an AutoSave then.
@@ -2001,10 +2001,7 @@ void AutoRecovery::implts_flushConfigItem(const AutoRecovery::TDocumentInfo& rIn
         css::uno::Reference< css::container::XNameContainer >   xModify(xCheck, css::uno::UNO_QUERY_THROW);
         css::uno::Reference< css::lang::XSingleServiceFactory > xCreate(xCheck, css::uno::UNO_QUERY_THROW);
 
-        OUStringBuffer sIDBuf;
-        sIDBuf.append(RECOVERY_ITEM_BASE_IDENTIFIER);
-        sIDBuf.append(rInfo.ID);
-        OUString sID = sIDBuf.makeStringAndClear();
+        OUString sID = RECOVERY_ITEM_BASE_IDENTIFIER + OUString::number(rInfo.ID);
 
         // remove
         if (bRemoveIt)
@@ -2155,7 +2152,7 @@ void AutoRecovery::implts_stopListening()
     // May be we must work with our configuration, but don't wish to be informed
     // about changes any longer. Needed e.g. during EMERGENCY_SAVE!
     xCFG.set                   (m_xRecoveryCFG      , css::uno::UNO_QUERY);
-    xGlobalEventBroadcaster.set(m_xNewDocBroadcaster, css::uno::UNO_QUERY);
+    xGlobalEventBroadcaster = m_xNewDocBroadcaster;
     } /* SAFE */
 
     if (xGlobalEventBroadcaster.is() && m_bListenForDocEvents)
@@ -2515,7 +2512,7 @@ void AutoRecovery::implts_deregisterDocument(const css::uno::Reference< css::fra
     } /* SAFE */
 
     /* This method is called within disposing() of the document too. But there it's not a good idea to
-       deregister us as listener. Further it make no sense - because the broadcaster dies.
+       deregister us as listener. Further it makes no sense - because the broadcaster dies.
        So we suppress deregistration in such case...
     */
     if (bStopListening)
@@ -2667,7 +2664,7 @@ AutoRecovery::TDocumentList::iterator AutoRecovery::impl_searchDocument(      Au
 
 void lcl_changeVisibility( const css::uno::Reference< css::frame::XFramesSupplier >& i_rFrames, bool i_bVisible )
 {
-    css::uno::Reference< css::container::XIndexAccess > xFramesContainer( i_rFrames->getFrames(), css::uno::UNO_QUERY );
+    css::uno::Reference< css::container::XIndexAccess > xFramesContainer = i_rFrames->getFrames();
     const sal_Int32 count = xFramesContainer->getCount();
 
     Any aElement;
@@ -2690,7 +2687,7 @@ void lcl_changeVisibility( const css::uno::Reference< css::frame::XFramesSupplie
 
 void AutoRecovery::implts_changeAllDocVisibility(bool bVisible)
 {
-    css::uno::Reference< css::frame::XFramesSupplier > xDesktop( css::frame::Desktop::create(m_xContext), css::uno::UNO_QUERY);
+    css::uno::Reference< css::frame::XFramesSupplier > xDesktop = css::frame::Desktop::create(m_xContext);
     lcl_changeVisibility( xDesktop, bVisible );
 }
 
@@ -3660,10 +3657,10 @@ void AutoRecovery::implts_doRecovery(const DispatchParams& aParams)
     // cache items. Such handle state indicates, that a document
     // was already saved during the THIS(!) Recovery session.
     // Of course a may be following EmergencySave session must be started without
-    // any "handle" state ...
+    // any "handle" state...
     implts_resetHandleStates();
 
-    // Reset the configuration hint "we was crashed"!
+    // Reset the configuration hint "we were crashed"!
     std::shared_ptr<comphelper::ConfigurationChanges> batch(
             comphelper::ConfigurationChanges::create(m_xContext));
     officecfg::Office::Recovery::RecoveryInfo::Crashed::set(false, batch);
@@ -3898,16 +3895,14 @@ void SAL_CALL AutoRecovery::getFastPropertyValue(css::uno::Any& aValue ,
     }
 }
 
-const css::uno::Sequence< css::beans::Property > impl_getStaticPropertyDescriptor()
+css::uno::Sequence< css::beans::Property > impl_getStaticPropertyDescriptor()
 {
-    const css::beans::Property pPropertys[] =
+    return
     {
         css::beans::Property( AUTORECOVERY_PROPNAME_CRASHED            , AUTORECOVERY_PROPHANDLE_CRASHED            , cppu::UnoType<bool>::get() , css::beans::PropertyAttribute::TRANSIENT | css::beans::PropertyAttribute::READONLY ),
         css::beans::Property( AUTORECOVERY_PROPNAME_EXISTS_RECOVERYDATA, AUTORECOVERY_PROPHANDLE_EXISTS_RECOVERYDATA, cppu::UnoType<bool>::get() , css::beans::PropertyAttribute::TRANSIENT | css::beans::PropertyAttribute::READONLY ),
         css::beans::Property( AUTORECOVERY_PROPNAME_EXISTS_SESSIONDATA , AUTORECOVERY_PROPHANDLE_EXISTS_SESSIONDATA , cppu::UnoType<bool>::get() , css::beans::PropertyAttribute::TRANSIENT | css::beans::PropertyAttribute::READONLY ),
     };
-    const css::uno::Sequence< css::beans::Property > lPropertyDescriptor(pPropertys, AUTORECOVERY_PROPCOUNT);
-    return lPropertyDescriptor;
 }
 
 ::cppu::IPropertyArrayHelper& SAL_CALL AutoRecovery::getInfoHelper()
@@ -4178,11 +4173,7 @@ void AutoRecovery::st_impl_removeLockFile()
         OUString sUserURL;
         ::utl::Bootstrap::locateUserInstallation( sUserURL );
 
-        OUStringBuffer sLockURLBuf;
-        sLockURLBuf.append     (sUserURL);
-        sLockURLBuf.append("/.lock");
-        OUString sLockURL = sLockURLBuf.makeStringAndClear();
-
+        OUString sLockURL = sUserURL + "/.lock";
         AutoRecovery::st_impl_removeFile(sLockURL);
     }
     catch(const css::uno::Exception&)

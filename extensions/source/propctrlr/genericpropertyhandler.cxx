@@ -283,7 +283,7 @@ namespace pcr
 
     OUString GenericPropertyHandler::getImplementationName_static(  )
     {
-        return OUString( "com.sun.star.comp.extensions.GenericPropertyHandler" );
+        return "com.sun.star.comp.extensions.GenericPropertyHandler";
     }
 
     Sequence< OUString > GenericPropertyHandler::getSupportedServiceNames_static(  )
@@ -338,7 +338,7 @@ namespace pcr
     {
         ::osl::MutexGuard aGuard( m_aMutex );
         if ( !m_xComponent.is() )
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(_rPropertyName);
 
         return m_xComponent->getPropertyValue( _rPropertyName );
     }
@@ -347,7 +347,7 @@ namespace pcr
     {
         ::osl::MutexGuard aGuard( m_aMutex );
         if ( !m_xComponent.is() )
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(_rPropertyName);
 
         m_xComponent->setPropertyValue( _rPropertyName, _rValue );
     }
@@ -367,7 +367,7 @@ namespace pcr
 
         PropertyMap::const_iterator pos = m_aProperties.find( _rPropertyName );
         if ( pos == m_aProperties.end() )
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(_rPropertyName);
 
         Any aPropertyValue;
         if ( !_rControlValue.hasValue() )
@@ -393,7 +393,7 @@ namespace pcr
 
         PropertyMap::const_iterator pos = m_aProperties.find( _rPropertyName );
         if ( pos == m_aProperties.end() )
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(_rPropertyName);
 
         Any aControlValue;
         if ( !_rPropertyValue.hasValue() )
@@ -470,7 +470,7 @@ namespace pcr
                     aProperties = xPSI->getProperties();
                 DBG_ASSERT( aProperties.hasElements(), "GenericPropertyHandler::getSupportedProperties: no properties!" );
 
-                for ( auto const & property : aProperties )
+                for ( auto const & property : std::as_const(aProperties) )
                 {
                     switch ( property.Type.getTypeClass() )
                     {
@@ -531,7 +531,7 @@ namespace pcr
     {
         // no superseded properties at all. This handler offers the very basic PropertyHandler
         // functionality, so it's much more likely that other handlers want to supersede
-        // *our* properties ....
+        // *our* properties...
         return Sequence< OUString >( );
     }
 
@@ -553,7 +553,7 @@ namespace pcr
 
         PropertyMap::const_iterator pos = m_aProperties.find( _rPropertyName );
         if ( pos == m_aProperties.end() )
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(_rPropertyName);
 
         LineDescriptor aDescriptor;
         aDescriptor.DisplayName = _rPropertyName;

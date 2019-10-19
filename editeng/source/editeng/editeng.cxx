@@ -110,12 +110,12 @@ void EditEngine::EnableUndo( bool bEnable )
     pImpEditEngine->EnableUndo( bEnable );
 }
 
-bool EditEngine::IsUndoEnabled()
+bool EditEngine::IsUndoEnabled() const
 {
     return pImpEditEngine->IsUndoEnabled();
 }
 
-bool EditEngine::IsInUndo()
+bool EditEngine::IsInUndo() const
 {
     return pImpEditEngine->IsInUndo();
 }
@@ -169,7 +169,7 @@ void EditEngine::SetRefMapMode( const MapMode& rMapMode )
     pImpEditEngine->SetRefMapMode( rMapMode );
 }
 
-MapMode const & EditEngine::GetRefMapMode()
+MapMode const & EditEngine::GetRefMapMode() const
 {
     return pImpEditEngine->GetRefMapMode();
 }
@@ -1666,7 +1666,7 @@ bool EditEngine::IsInSelectionMode() const
                 pImpEditEngine->GetSelEngine().IsInSelection() );
 }
 
-void EditEngine::InsertParagraph( sal_Int32 nPara, const EditTextObject& rTxtObj )
+void EditEngine::InsertParagraph( sal_Int32 nPara, const EditTextObject& rTxtObj, bool bAppend )
 {
     if ( nPara > GetParagraphCount() )
     {
@@ -1682,6 +1682,9 @@ void EditEngine::InsertParagraph( sal_Int32 nPara, const EditTextObject& rTxtObj
     // should be taken over!
     pImpEditEngine->RemoveCharAttribs( nPara );
     pImpEditEngine->InsertText( rTxtObj, EditSelection( aPaM, aPaM ) );
+
+    if ( bAppend && nPara )
+        pImpEditEngine->ConnectContents( nPara-1, /*bBackwards=*/false );
 
     pImpEditEngine->UndoActionEnd();
 
@@ -2142,7 +2145,7 @@ void EditEngine::SetWordDelimiters( const OUString& rDelimiters )
 {
     pImpEditEngine->aWordDelimiters = rDelimiters;
     if (pImpEditEngine->aWordDelimiters.indexOf(CH_FEATURE) == -1)
-        pImpEditEngine->aWordDelimiters += OUStringLiteral1(CH_FEATURE);
+        pImpEditEngine->aWordDelimiters += OUStringChar(CH_FEATURE);
 }
 
 const OUString& EditEngine::GetWordDelimiters() const
@@ -2332,7 +2335,7 @@ void EditEngine::RemoveFields( const std::function<bool ( const SvxFieldData* )>
         const CharAttribList::AttribsType& rAttrs = pNode->GetCharAttribs().GetAttribs();
         for (size_t nAttr = rAttrs.size(); nAttr; )
         {
-            const EditCharAttrib& rAttr = *rAttrs[--nAttr].get();
+            const EditCharAttrib& rAttr = *rAttrs[--nAttr];
             if (rAttr.Which() == EE_FEATURE_FIELD)
             {
                 const SvxFieldData* pFldData = static_cast<const SvxFieldItem*>(rAttr.GetItem())->GetField();
@@ -2380,7 +2383,7 @@ sal_Int32 EditEngine::FindParagraph( long nDocPosY )
 EPosition EditEngine::FindDocPosition( const Point& rDocPos ) const
 {
     EPosition aPos;
-    // From the point of the API, this is const....
+    // From the point of the API, this is const...
     EditPaM aPaM = const_cast<EditEngine*>(this)->pImpEditEngine->GetPaM( rDocPos, false );
     if ( aPaM.GetNode() )
     {
@@ -2708,9 +2711,12 @@ bool EditEngine::HasValidData( const css::uno::Reference< css::datatransfer::XTr
 {
     bool bValidData = false;
 
+    if ( comphelper::LibreOfficeKit::isActive())
+        return true;
+
     if ( rTransferable.is() )
     {
-        // Every application that copies rtf or any other text format also copies plain text into the clipboard....
+        // Every application that copies rtf or any other text format also copies plain text into the clipboard...
         datatransfer::DataFlavor aFlavor;
         SotExchange::GetFormatDataFlavor( SotClipboardFormatId::STRING, aFlavor );
         bValidData = rTransferable->isDataFlavorSupported( aFlavor );

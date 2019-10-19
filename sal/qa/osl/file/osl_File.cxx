@@ -86,10 +86,9 @@ static OString errorToString(const osl::FileBase::RC _nError)
 
 static OString errorToStr(osl::FileBase::RC const& nError)
 {
-    OString suBuf;
-    suBuf += "The returned error is: " ;
-    suBuf += errorToString(nError);
-    suBuf += "!\n";
+    OString suBuf = "The returned error is: " +
+        errorToString(nError) +
+        "!\n";
     return suBuf;
 }
 
@@ -263,8 +262,8 @@ static void deleteTestDirectory(const OUString& dirname)
 
     nError = Directory::remove(aPathURL);
 
-    OString strError ("In deleteTestDirectory function: remove Directory ");
-    strError += OUStringToOString(aPathURL, RTL_TEXTENCODING_ASCII_US);
+    OString strError = "In deleteTestDirectory function: remove Directory " +
+        OUStringToOString(aPathURL, RTL_TEXTENCODING_ASCII_US);
     CPPUNIT_ASSERT_MESSAGE(strError.getStr(), (osl::FileBase::E_None == nError) || (nError == osl::FileBase::E_NOENT));
 }
 
@@ -368,16 +367,15 @@ static bool checkDirectory(const OUString& str, oslCheckMode nCheckMode)
 */
 static OString outputError(const OString & returnVal, const OString & rightVal, const sal_Char * msg = "")
 {
-    OString aString;
     if (returnVal == rightVal)
-        return aString;
+        return OString();
 
-    aString += msg;
-    aString += ": the returned value is '";
-    aString += returnVal;
-    aString += "', but the value should be '";
-    aString += rightVal;
-    aString += "'.";
+    OString aString = msg +
+        OStringLiteral(": the returned value is '") +
+        returnVal +
+        "', but the value should be '" +
+        rightVal +
+        "'.";
     return aString;
 }
 
@@ -969,9 +967,9 @@ namespace osl_FileBase
 
         bool bOk = compareFileName(aUStr, aUResultURL);
 
-        OString sError("test for getSystemPathFromFileURL(' ");
-        sError += OUStringToOString(aUNormalURL, RTL_TEXTENCODING_ASCII_US);
-        sError += " ') function:use an absolute file URL, ";
+        OString sError = "test for getSystemPathFromFileURL(' " +
+            OUStringToOString(aUNormalURL, RTL_TEXTENCODING_ASCII_US) +
+            " ') function:use an absolute file URL, ";
         sError += outputError(OUStringToOString(aUStr, RTL_TEXTENCODING_ASCII_US),
                             OUStringToOString(aUResultURL, RTL_TEXTENCODING_ASCII_US));
 
@@ -992,9 +990,9 @@ namespace osl_FileBase
 
         bool bOk = compareFileName(aUStr, aUResultURL);
 
-        OString sError("test for getSystemPathFromFileURL(' ");
-        sError += OUStringToOString(aUNormalURL, RTL_TEXTENCODING_ASCII_US);
-        sError += " ') function:use a CJK coded absolute URL, ";
+        OString sError = "test for getSystemPathFromFileURL(' " +
+            OUStringToOString(aUNormalURL, RTL_TEXTENCODING_ASCII_US) +
+                " ') function:use a CJK coded absolute URL, ";
         sError += outputError(OUStringToOString(aUStr, RTL_TEXTENCODING_ASCII_US),
                             OUStringToOString(aUResultURL, RTL_TEXTENCODING_ASCII_US));
         deleteTestDirectory(aTmpName10);
@@ -1870,7 +1868,7 @@ namespace osl_FileStatus
             free(pTV_current);
             free(pTV_access);
 
-            CPPUNIT_ASSERT_MESSAGE("test for getAccessTime function: This test turns out that UNX pricision is no more than 1 sec, don't know how to test this function, in Windows test, it lost hour min sec, only have date time. ",
+            CPPUNIT_ASSERT_MESSAGE("test for getAccessTime function: This test turns out that UNX precision is no more than 1 sec, don't know how to test this function, in Windows test, it lost hour min sec, only have date time. ",
                                     bOK);
         }
 
@@ -1924,7 +1922,7 @@ namespace osl_FileStatus
             free(pTV_current);
             free(pTV_modify);
 
-            CPPUNIT_ASSERT_MESSAGE("test for getModifyTime function: This test turns out that UNX pricision is no more than 1 sec, don't know how to improve this function.  ",
+            CPPUNIT_ASSERT_MESSAGE("test for getModifyTime function: This test turns out that UNX precision is no more than 1 sec, don't know how to improve this function.  ",
                                     bOK);
         }
 
@@ -3767,7 +3765,7 @@ namespace osl_DirectoryItem
             nError1 = copyItem.getFileStatus(rFileStatus);
             CPPUNIT_ASSERT_EQUAL(osl::FileBase::E_None, nError1);
 
-            CPPUNIT_ASSERT_MESSAGE("test for copy_assin_Ctors function: test assinment operator here since it is same as copy constructor in test way.",
+            CPPUNIT_ASSERT_MESSAGE("test for copy_assin_Ctors function: test assignment operator here since it is same as copy constructor in test way.",
                                     compareFileName(rFileStatus.getFileName(), aTmpName2));
         }
 
@@ -4773,9 +4771,9 @@ namespace osl_Directory
             CPPUNIT_ASSERT_EQUAL_MESSAGE("temp File removal failed", osl::FileBase::E_None, nError1);
 
             nError1 = Directory::create(aTmpDir);
-            OString sError("test for create function: create a directory '");
-            sError += OUStringToOString(aTmpDir, RTL_TEXTENCODING_ASCII_US);
-            sError += "' and check its existence.";
+            OString sError = "test for create function: create a directory '" +
+                OUStringToOString(aTmpDir, RTL_TEXTENCODING_ASCII_US) +
+                "' and check its existence.";
             CPPUNIT_ASSERT_EQUAL_MESSAGE(sError.getStr(), osl::FileBase::E_None, nError1);
             osl_setFileAttributes(aTmpDir.pData, 0); // no access allowed now
 
@@ -4789,9 +4787,9 @@ namespace osl_Directory
                 osl_File_Attribute_OwnWrite |
                 osl_File_Attribute_OwnExe);
             deleteTestDirectory(aTmpDir);
-            sError = OString("test for create function: create a directory under '");
-            sError += OUStringToOString(aTmpDir, RTL_TEXTENCODING_ASCII_US);
-            sError += "' for access test.";
+            sError = "test for create function: create a directory under '" +
+                OUStringToOString(aTmpDir, RTL_TEXTENCODING_ASCII_US) +
+                "' for access test.";
             CPPUNIT_ASSERT_EQUAL_MESSAGE(sError.getStr(), osl::FileBase::E_ACCES, nError1);
 #endif
         }
@@ -4888,8 +4886,8 @@ namespace osl_Directory
             nError1 = Directory::remove(aTmpName3);
             deleteTestFile(aTmpName4);
             deleteTestDirectory(aTmpName3);
-            OString sError = "test for remove function: try to remove a directory that is not empty.";
-            sError += errorToStr(nError1).getStr();
+            OString sError = "test for remove function: try to remove a directory that is not empty." +
+                errorToStr(nError1);
 #if defined(__sun)
             // on UNX, the implementation uses rmdir(), which EEXIST is thrown on Solaris when the directory is not empty, refer to: 'man -s 2 rmdir', while on linux, ENOTEMPTY is thrown.
             // EEXIST The directory contains entries other than those for "." and "..".

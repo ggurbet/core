@@ -21,7 +21,6 @@
 #include <com/sun/star/table/CellRangeAddress.hpp>
 #include <cppuhelper/supportsservice.hxx>
 
-#include <osl/diagnose.h>
 #include <svl/itemprop.hxx>
 #include <vcl/svapp.hxx>
 
@@ -205,7 +204,7 @@ void SAL_CALL ScAddressConversionObj::setPropertyValue( const OUString& aPropert
         }
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     if ( !bSuccess )
         throw lang::IllegalArgumentException();
@@ -271,7 +270,7 @@ uno::Any SAL_CALL ScAddressConversionObj::getPropertyValue( const OUString& aPro
         aRet <<= aFormatStr;
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     return aRet;
 }
@@ -282,7 +281,7 @@ SC_IMPL_DUMMY_PROPERTY_LISTENER( ScAddressConversionObj )
 
 OUString SAL_CALL ScAddressConversionObj::getImplementationName()
 {
-    return OUString("ScAddressConversionObj" );
+    return "ScAddressConversionObj";
 }
 
 sal_Bool SAL_CALL ScAddressConversionObj::supportsService( const OUString& rServiceName )

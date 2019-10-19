@@ -32,7 +32,6 @@
 #include <com/sun/star/io/XPersistObject.hpp>
 #include <com/sun/star/util/Duration.hpp>
 #include <com/sun/star/form/FormComponentType.hpp>
-#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/form/FormSubmitEncoding.hpp>
 #include <com/sun/star/form/FormSubmitMethod.hpp>
 #include <com/sun/star/sdb/CommandType.hpp>
@@ -400,7 +399,7 @@ namespace xmloff
                     Sequence< OUString > aListItems;
                     m_xProps->getPropertyValue(PROPERTY_STRING_ITEM_LIST) >>= aListItems;
                     // loop through it and write the sub elements
-                    for (const auto& rListItem : aListItems)
+                    for (const auto& rListItem : std::as_const(aListItems))
                     {
                         m_rContext.getGlobalContext().ClearAttrList();
                         AddAttribute(
@@ -457,42 +456,17 @@ namespace xmloff
                     continue;
                 }
 
-                OUString attributeValue;
-                if ( propDescription->propertyGroup == NO_GROUP )
+                // that's a property which has a direct mapping to an attribute
+                if ( !shouldExportProperty( prop.Name ) )
+                    // TODO: in the future, we surely need a more sophisticated approach to this, involving the property
+                    // handler, or the property description
                 {
-                    // that's a property which has a direct mapping to an attribute
-                    if ( !shouldExportProperty( prop.Name ) )
-                        // TODO: in the future, we surely need a more sophisticated approach to this, involving the property
-                        // handler, or the property description
-                    {
-                        exportedProperty( prop.Name );
-                        continue;
-                    }
-
-                    const Any propValue = m_xProps->getPropertyValue( prop.Name );
-                    attributeValue = handler->getAttributeValue( propValue );
+                    exportedProperty( prop.Name );
+                    continue;
                 }
-                else
-                {
-                    // that's a property which is part of a group of properties, whose values, in their entity, comprise
-                    // a single attribute value
 
-                    // retrieve the descriptions of all other properties which add to the attribute value
-                    PropertyDescriptionList descriptions;
-                    metadata::getPropertyGroup( propDescription->propertyGroup, descriptions );
-
-                    // retrieve the values for all those properties
-                    PropertyValues aValues;
-                    for ( const auto& desc : descriptions )
-                    {
-                        // TODO: XMultiPropertySet?
-                        const Any propValue = m_xProps->getPropertyValue( desc->propertyName );
-                        aValues[ desc->propertyId ] = propValue;
-                    }
-
-                    // let the handler translate into an XML attribute value
-                    attributeValue = handler->getAttributeValue( aValues );
-                }
+                const Any propValue = m_xProps->getPropertyValue( prop.Name );
+                OUString attributeValue = handler->getAttributeValue( propValue );
 
                 AddAttribute(
                     propDescription->attribute.namespacePrefix,
@@ -1260,7 +1234,7 @@ namespace xmloff
         DBG_CHECK_PROPERTY(_rPropertyName, Sequence< sal_Int16 >);
         m_xProps->getPropertyValue(_rPropertyName) >>= aValueSequence;
 
-        for (const auto& rValue : aValueSequence)
+        for (const auto& rValue : std::as_const(aValueSequence))
             _rOut.insert(rValue);
     }
 
@@ -1310,7 +1284,7 @@ namespace xmloff
             }
             if (i < nValues)
             {
-                // there is an value at this position
+                // there is a value at this position
                 AddAttribute(
                     OAttributeMetaData::getCommonControlAttributeNamespace(CCAFlags::Value),
                     OAttributeMetaData::getCommonControlAttributeName(CCAFlags::Value),
@@ -1476,7 +1450,7 @@ namespace xmloff
                         // if the EchoChar string is not empty, it is a password field
                         sal_Int16 nEchoChar = 0;
                         if (m_xPropertyInfo->hasPropertyByName(PROPERTY_ECHOCHAR))
-                            // grid columns do not have this property ....
+                            // grid columns do not have this property...
                             m_xProps->getPropertyValue(PROPERTY_ECHOCHAR) >>= nEchoChar;
                         if (nEchoChar)
                         {
@@ -1488,7 +1462,7 @@ namespace xmloff
                             // if the MultiLine property is sal_True, it is a TextArea
                             bool bMultiLine = false;
                             if (m_xPropertyInfo->hasPropertyByName(PROPERTY_MULTILINE))
-                                // grid columns do not have this property ....
+                                // grid columns do not have this property...
                                 bMultiLine = ::cppu::any2bool(m_xProps->getPropertyValue(PROPERTY_MULTILINE));
 
                             if ( bMultiLine )
@@ -1817,7 +1791,7 @@ namespace xmloff
             Reference< XListEntrySink > xSink( m_xProps, UNO_QUERY );
             Reference< XListEntrySource > xSource;
             if ( xSink.is() )
-                xSource.set(xSink->getListEntrySource(), css::uno::UNO_QUERY);
+                xSource = xSink->getListEntrySource();
             OSL_ENSURE( xSource.is(), "OControlExport::exportCellListSourceRange: list source or sink!" );
             if ( xSource.is() )
             {

@@ -69,7 +69,7 @@ sal_Bool EPUBExportFilter::filter(const uno::Sequence<beans::PropertyValue>& rDe
     if (aFilterOptions == "layout=fixed")
         nLayoutMethod = libepubgen::EPUB_LAYOUT_METHOD_FIXED;
 
-    for (const auto& rProp : aFilterData)
+    for (const auto& rProp : std::as_const(aFilterData))
     {
         if (rProp.Name == "EPUBVersion")
             rProp.Value >>= nVersion;
@@ -179,7 +179,7 @@ void EPUBExportFilter::setSourceDocument(const uno::Reference<lang::XComponent>&
 
 OUString EPUBExportFilter::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Writer.EPUBExportFilter");
+    return "com.sun.star.comp.Writer.EPUBExportFilter";
 }
 
 sal_Bool EPUBExportFilter::supportsService(const OUString& rServiceName)

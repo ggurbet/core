@@ -80,15 +80,12 @@ void ODriver::disposing()
 
 OUString ODriver::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.sdbc.ado.ODriver");
+    return "com.sun.star.comp.sdbc.ado.ODriver";
 }
 
 Sequence< OUString > ODriver::getSupportedServiceNames_Static(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = "com.sun.star.sdbc.Driver";
-    aSNS[1] = "com.sun.star.sdbcx.Driver";
-    return aSNS;
+    return { "com.sun.star.sdbc.Driver", "com.sun.star.sdbcx.Driver" };
 }
 
 css::uno::Reference< css::uno::XInterface > connectivity::ado::ODriver_CreateInstance(const css::uno::Reference< css::lang::XMultiServiceFactory >& _rxFactory)
@@ -176,7 +173,7 @@ Sequence< DriverPropertyInfo > SAL_CALL ODriver::getPropertyInfo( const OUString
                 ,OUString( )
                 ,Sequence< OUString > ())
         );
-        return Sequence< DriverPropertyInfo >(&aDriverInfo[0],aDriverInfo.size());
+        return Sequence< DriverPropertyInfo >(aDriverInfo.data(),aDriverInfo.size());
     }
     return Sequence< DriverPropertyInfo >();
 }
@@ -202,7 +199,7 @@ Reference< XTablesSupplier > SAL_CALL ODriver::getDataDefinitionByConnection( co
     Reference< css::lang::XUnoTunnel> xTunnel(connection,UNO_QUERY);
     if(xTunnel.is())
     {
-        OConnection* pSearchConnection = reinterpret_cast< OConnection* >( xTunnel->getSomething(OConnection::getUnoTunnelImplementationId()) );
+        OConnection* pSearchConnection = reinterpret_cast< OConnection* >( xTunnel->getSomething(OConnection::getUnoTunnelId()) );
 
         auto foundConnection = std::any_of(m_xConnections.begin(), m_xConnections.end(),
             [&pSearchConnection](const css::uno::WeakReferenceHelper& rxConnection) {
@@ -263,7 +260,7 @@ void ADOS::ThrowException(ADOConnection* _pAdoCon,const Reference< XInterface >&
                     aException = SQLException(aErr.GetDescription(),_xInterface,aErr.GetSQLState(),aErr.GetNumber(),Any());
                 else
                 {
-                    SQLException aTemp = SQLException(aErr.GetDescription(),
+                    SQLException aTemp(aErr.GetDescription(),
                         _xInterface,aErr.GetSQLState(),aErr.GetNumber(),makeAny(aException));
                     aTemp.NextException <<= aException;
                     aException = aTemp;

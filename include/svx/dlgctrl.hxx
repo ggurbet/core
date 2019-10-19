@@ -45,8 +45,8 @@ class SAL_WARN_UNUSED SvxTabPage : public SfxTabPage
 {
 
 public:
-    SvxTabPage(TabPageParent pParent, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet &rAttrSet)
-        : SfxTabPage(pParent, rUIXMLDescription, rID, &rAttrSet)
+    SvxTabPage(weld::Container* pPage, weld::DialogController* pController, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet &rAttrSet)
+        : SfxTabPage(pPage, pController, rUIXMLDescription, rID, &rAttrSet)
     {
     }
     virtual void PointChanged(weld::DrawingArea* pArea, RectPoint eRP) = 0;
@@ -74,7 +74,7 @@ class SvxPixelCtlAccessible;
 class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxRectCtl : public weld::CustomWidgetController
 {
 private:
-    VclPtr<SvxTabPage> m_pPage;
+    SvxTabPage* m_pPage;
 
     SVX_DLLPRIVATE static void      InitSettings(vcl::RenderContext& rRenderContext);
     SVX_DLLPRIVATE void             InitRectBitmap();
@@ -128,9 +128,9 @@ public:
     tools::Rectangle           CalculateFocusRectangle() const;
     tools::Rectangle           CalculateFocusRectangle( RectPoint eRectPoint ) const;
 
-    css::uno::Reference<css::accessibility::XAccessible> getAccessibleParent() { return GetDrawingArea()->get_accessible_parent(); }
+    css::uno::Reference<css::accessibility::XAccessible> getAccessibleParent() const { return GetDrawingArea()->get_accessible_parent(); }
     virtual css::uno::Reference<css::accessibility::XAccessible> CreateAccessible() override;
-    a11yrelationset get_accessible_relation_set() { return GetDrawingArea()->get_accessible_relation_set(); }
+    a11yrelationset get_accessible_relation_set() const { return GetDrawingArea()->get_accessible_relation_set(); }
 
     RectPoint          GetApproxRPFromPixPt( const css::awt::Point& rPixelPoint ) const;
 
@@ -148,7 +148,7 @@ private:
     static sal_uInt16 constexpr nLines = 8;
     static sal_uInt16 constexpr nSquares = nLines * nLines;
 
-    VclPtr<SvxTabPage> m_pPage;
+    SvxTabPage* m_pPage;
 
     Color       aPixelColor;
     Color       aBackgroundColor;
@@ -191,9 +191,9 @@ public:
     void    SetPaintable( bool bTmp ) { bPaintable = bTmp; }
     void    Reset();
 
-    css::uno::Reference<css::accessibility::XAccessible> getAccessibleParent() { return GetDrawingArea()->get_accessible_parent(); }
+    css::uno::Reference<css::accessibility::XAccessible> getAccessibleParent() const { return GetDrawingArea()->get_accessible_parent(); }
     virtual css::uno::Reference<css::accessibility::XAccessible> CreateAccessible() override;
-    a11yrelationset get_accessible_relation_set() { return GetDrawingArea()->get_accessible_relation_set(); }
+    a11yrelationset get_accessible_relation_set() const { return GetDrawingArea()->get_accessible_relation_set(); }
 
     static long GetSquares() { return nSquares ; }
     long GetWidth() const { return aRectSize.getWidth() ; }

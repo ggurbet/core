@@ -31,14 +31,14 @@ void ScCovarianceDialog::Close()
     DoClose( ScCovarianceDialogWrapper::GetChildWindowId() );
 }
 
-const OUString ScCovarianceDialog::getLabel()
+OUString ScCovarianceDialog::getLabel()
 {
     return ScResId(STR_COVARIANCE_LABEL);
 }
 
-const OUString ScCovarianceDialog::getTemplate()
+OUString ScCovarianceDialog::getTemplate()
 {
-    return OUString("=COVAR(%VAR1%; %VAR2%)");
+    return "=COVAR(%VAR1%; %VAR2%)";
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

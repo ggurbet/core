@@ -504,7 +504,7 @@ OUString ObjectIdentifier::createClassifiedIdentifierForParticles(
 OUString ObjectIdentifier::createParticleForDiagram()
 {
     //TODO: if more than one diagram is implemented, add the correct diagram index here
-    return OUString("D=0");
+    return "D=0";
 }
 
 OUString ObjectIdentifier::createParticleForCoordinateSystem(
@@ -567,13 +567,10 @@ OUString ObjectIdentifier::createParticleForAxis(
             sal_Int32 nDimensionIndex
           , sal_Int32 nAxisIndex )
 {
-    OUStringBuffer aRet("Axis=");
-
-    aRet.append( OUString::number( nDimensionIndex ) );
-    aRet.append(",");
-    aRet.append( OUString::number( nAxisIndex ) );
-
-    return aRet.makeStringAndClear();
+    return "Axis=" +
+        OUString::number( nDimensionIndex ) +
+        "," +
+        OUString::number( nAxisIndex );
 }
 
 OUString ObjectIdentifier::createParticleForGrid(
@@ -1187,7 +1184,7 @@ Reference< beans::XPropertySet > ObjectIdentifier::getObjectPropertySet(
     const Reference< chart2::XChartDocument >& xChartDocument )
 {
     return ObjectIdentifier::getObjectPropertySet(
-        rObjectCID, Reference< frame::XModel >( xChartDocument, uno::UNO_QUERY ));
+        rObjectCID, Reference< frame::XModel >( xChartDocument ));
 }
 
 Reference< beans::XPropertySet > ObjectIdentifier::getObjectPropertySet(
@@ -1322,7 +1319,7 @@ Reference< beans::XPropertySet > ObjectIdentifier::getObjectPropertySet(
                                 errorBar = "ErrorBarZ";
 
                             xSeriesProp->getPropertyValue( errorBar ) >>= xErrorBarProp;
-                            xObjectProperties.set( xErrorBarProp, uno::UNO_QUERY );
+                            xObjectProperties = xErrorBarProp;
                         }
                     }
                     break;

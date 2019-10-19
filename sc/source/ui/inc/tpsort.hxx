@@ -42,18 +42,15 @@ class ScViewData;
 class ScTabPageSortFields : public SfxTabPage
 {
 public:
-    ScTabPageSortFields(TabPageParent pParent, const SfxItemSet& rArgSet);
-    virtual void dispose() override;
+    ScTabPageSortFields(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rArgSet);
     virtual ~ScTabPageSortFields() override;
-    static  VclPtr<SfxTabPage> Create      ( TabPageParent               pParent,
-                                      const SfxItemSet*     rArgSet );
+
     virtual bool        FillItemSet ( SfxItemSet* rArgSet ) override;
     virtual void        Reset       ( const SfxItemSet* rArgSet ) override;
 
 protected:
     virtual void        ActivatePage    ( const SfxItemSet& rSet ) override;
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
     virtual DeactivateRC   DeactivatePage  ( SfxItemSet* pSet ) override;
 
 private:
@@ -97,16 +94,14 @@ class ScDocument;
 class ScTabPageSortOptions : public SfxTabPage
 {
 public:
-    ScTabPageSortOptions(TabPageParent pParent, const SfxItemSet& rArgSet);
+    ScTabPageSortOptions(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* pArgSet);
 
-    static  VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* pArgSet);
     virtual bool        FillItemSet ( SfxItemSet* rArgSet ) override;
     virtual void        Reset       ( const SfxItemSet* rArgSet ) override;
 
 protected:
     virtual void        ActivatePage    ( const SfxItemSet& rSet ) override;
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
     virtual DeactivateRC   DeactivatePage  ( SfxItemSet* pSet ) override;
 
 private:
@@ -132,7 +127,7 @@ private:
     std::unique_ptr<weld::Entry> m_xEdOutPos;
     std::unique_ptr<weld::CheckButton> m_xBtnSortUser;
     std::unique_ptr<weld::ComboBox> m_xLbSortUser;
-    std::unique_ptr<LanguageBox> m_xLbLanguage;
+    std::unique_ptr<SvxLanguageBox> m_xLbLanguage;
     std::unique_ptr<weld::Label> m_xFtAlgorithm;
     std::unique_ptr<weld::ComboBox> m_xLbAlgorithm;
     std::unique_ptr<weld::RadioButton> m_xBtnTopDown;

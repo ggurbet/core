@@ -18,7 +18,6 @@
  */
 
 #include "ximpbody.hxx"
-#include <xmloff/prstylei.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include "ximpnote.hxx"
 #include <com/sun/star/drawing/XDrawPage.hpp>
@@ -31,14 +30,10 @@
 #include <com/sun/star/animations/XAnimationNodeSupplier.hpp>
 
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
-#include <xmloff/xmluconv.hxx>
-#include <xmloff/xmlprmap.hxx>
 #include <xmloff/families.hxx>
 #include "ximpshow.hxx"
 #include "layerimp.hxx"
-#include <PropertySetMerger.hxx>
 #include <animationimport.hxx>
-#include <osl/diagnose.hxx>
 #include <sal/log.hxx>
 
 using namespace ::com::sun::star;
@@ -231,15 +226,11 @@ SvXMLImportContextRef SdXMLDrawPageContext::CreateChildContext( sal_uInt16 nPref
                 uno::Reference< presentation::XPresentationPage > xPresPage(GetLocalShapesContext(), uno::UNO_QUERY);
                 if(xPresPage.is())
                 {
-                    uno::Reference< drawing::XDrawPage > xNotesDrawPage(xPresPage->getNotesPage(), uno::UNO_QUERY);
+                    uno::Reference< drawing::XDrawPage > xNotesDrawPage = xPresPage->getNotesPage();
                     if(xNotesDrawPage.is())
                     {
-                        uno::Reference< drawing::XShapes > xNewShapes(xNotesDrawPage, uno::UNO_QUERY);
-                        if(xNewShapes.is())
-                        {
-                            // presentation:notes inside draw:page context
-                            xContext = new SdXMLNotesContext( GetSdImport(), nPrefix, rLocalName, xAttrList, xNewShapes);
-                        }
+                        // presentation:notes inside draw:page context
+                        xContext = new SdXMLNotesContext( GetSdImport(), nPrefix, rLocalName, xAttrList, xNotesDrawPage);
                     }
                 }
             }
@@ -342,13 +333,9 @@ SvXMLImportContextRef SdXMLBodyContext::CreateChildContext(
 
                 if(xNewDrawPage.is())
                 {
-                    uno::Reference< drawing::XShapes > xNewShapes(xNewDrawPage, uno::UNO_QUERY);
-                    if(xNewShapes.is())
-                    {
-                        // draw:page inside office:body context
-                        xContext = new SdXMLDrawPageContext(GetSdImport(), nPrefix, rLocalName, xAttrList,
-                            xNewShapes);
-                    }
+                    // draw:page inside office:body context
+                    xContext = new SdXMLDrawPageContext(GetSdImport(), nPrefix, rLocalName, xAttrList,
+                        xNewDrawPage);
                 }
             }
             break;

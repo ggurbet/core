@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/waitobj.hxx>
 #include <com/sun/star/util/URL.hpp>
 #include <vcl/stdtext.hxx>
 #include <comphelper/types.hxx>
@@ -49,6 +48,7 @@
 #include <sot/exchange.hxx>
 #include <sot/formats.hxx>
 #include <vcl/edit.hxx>
+#include <vcl/weld.hxx>
 #include <osl/mutex.hxx>
 
 #include <unordered_map>
@@ -165,7 +165,7 @@ BibFrameController_Impl::~BibFrameController_Impl()
 
 OUString SAL_CALL BibFrameController_Impl::getImplementationName()
 {
-    return OUString("com.sun.star.comp.extensions.Bibliography");
+    return "com.sun.star.comp.extensions.Bibliography";
 }
 
 sal_Bool SAL_CALL BibFrameController_Impl::supportsService( const OUString& sServiceName )

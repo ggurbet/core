@@ -18,7 +18,6 @@
  */
 
 #include <memory>
-#include <com/sun/star/embed/Aspects.hpp>
 
 #include <pastedlg.hxx>
 #include <svtools/insdlg.hxx>
@@ -27,8 +26,6 @@
 #include <svtools/strings.hrc>
 #include <svtools/svtresid.hxx>
 #include <tools/lineend.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/settings.hxx>
 
 SvPasteObjectDialog::SvPasteObjectDialog(weld::Window* pParent)
     : GenericDialogController(pParent, "cui/ui/pastespecial.ui", "PasteSpecialDialog")
@@ -59,9 +56,10 @@ IMPL_LINK_NOARG(SvPasteObjectDialog, SelectHdl, weld::TreeView&, void)
         m_xOKButton->set_sensitive(true);
 }
 
-IMPL_LINK_NOARG(SvPasteObjectDialog, DoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SvPasteObjectDialog, DoubleClickHdl, weld::TreeView&, bool)
 {
     m_xDialog->response(RET_OK);
+    return true;
 }
 
 /*************************************************************************
@@ -70,6 +68,125 @@ IMPL_LINK_NOARG(SvPasteObjectDialog, DoubleClickHdl, weld::TreeView&, void)
 void SvPasteObjectDialog::Insert( SotClipboardFormatId nFormat, const OUString& rFormatName )
 {
     aSupplementMap.insert( std::make_pair( nFormat, rFormatName ) );
+}
+
+void SvPasteObjectDialog::PreGetFormat( const TransferableDataHelper &rHelper )
+{
+    //TODO/LATER: why is the Descriptor never used?!
+    TransferableObjectDescriptor aDesc;
+    if (rHelper.HasFormat(SotClipboardFormatId::OBJECTDESCRIPTOR))
+    {
+        (void)const_cast<TransferableDataHelper&>(rHelper).GetTransferableObjectDescriptor(
+                                SotClipboardFormatId::OBJECTDESCRIPTOR, aDesc);
+    }
+    const DataFlavorExVector* pFormats = &rHelper.GetDataFlavorExVector();
+
+    // create and fill dialog box
+    OUString aSourceName, aTypeName;
+    SvGlobalName aEmptyNm;
+
+    //ObjectLB().SetUpdateMode( false );
+    ObjectLB().freeze();
+
+    DataFlavorExVector::iterator aIter( const_cast<DataFlavorExVector&>(*pFormats).begin() ),
+                                 aEnd( const_cast<DataFlavorExVector&>(*pFormats).end() );
+    while( aIter != aEnd )
+    {
+        SotClipboardFormatId nFormat = (*aIter++).mnSotId;
+
+        std::map< SotClipboardFormatId, OUString >::iterator itName =
+            aSupplementMap.find( nFormat );
+
+        // if there is an "Embed Source" or and "Embedded Object" on the
+        // Clipboard we read the Description and the Source of this object
+        // from an accompanied "Object Descriptor" format on the clipboard
+        // Remember: these formats mostly appear together on the clipboard
+        OUString aName;
+        const OUString* pName = nullptr;
+        if ( itName == aSupplementMap.end() )
+        {
+            SvPasteObjectHelper::GetEmbeddedName(rHelper,aName,aSourceName,nFormat);
+            if ( !aName.isEmpty() )
+                pName = &aName;
+        }
+        else
+        {
+            pName = &(itName->second);
+        }
+
+        if( pName )
+        {
+            aName = *pName;
+
+            if( SotClipboardFormatId::EMBED_SOURCE == nFormat )
+            {
+                if( aDesc.maClassName != aEmptyNm )
+                {
+                    aSourceName = aDesc.maDisplayName;
+
+                    if( aDesc.maClassName == aObjClassName )
+                        aName = aObjName;
+                    else
+                        aName = aTypeName = aDesc.maTypeName;
+                }
+            }
+            else if( SotClipboardFormatId::LINK_SOURCE == nFormat )
+            {
+                continue;
+            }
+            else if( aName.isEmpty() )
+                aName = SvPasteObjectHelper::GetSotFormatUIName( nFormat );
+
+            // Show RICHTEXT only in case RTF is not present.
+            if (nFormat == SotClipboardFormatId::RICHTEXT &&
+                std::any_of(pFormats->begin(), pFormats->end(),
+                            [](const DataFlavorEx& rFlavor) {
+                                return rFlavor.mnSotId == SotClipboardFormatId::RTF;
+                            }))
+            {
+                continue;
+            }
+
+            if (ObjectLB().find_text(aName) == -1)
+            {
+                ObjectLB().append(OUString::number(static_cast<sal_uInt32>(nFormat)), aName);
+            }
+        }
+    }
+
+    if( aTypeName.isEmpty() && aSourceName.isEmpty() )
+    {
+        if( aDesc.maClassName != aEmptyNm )
+        {
+            aSourceName = aDesc.maDisplayName;
+            aTypeName = aDesc.maTypeName;
+        }
+
+        if( aTypeName.isEmpty() && aSourceName.isEmpty() )
+        {
+            // global resource from svtools (former so3 resource)
+            aSourceName = SvtResId(STR_UNKNOWN_SOURCE);
+        }
+    }
+
+    ObjectLB().thaw();
+    SelectObject();
+
+    if( !aSourceName.isEmpty() )
+    {
+        if( !aTypeName.isEmpty() )
+            aTypeName += "\n";
+
+        aTypeName += aSourceName;
+        aTypeName = convertLineEnd(aTypeName, GetSystemLineEnd());
+    }
+
+    m_xFtObjectSource->set_label(aTypeName);
+}
+
+SotClipboardFormatId SvPasteObjectDialog::GetFormatOnly()
+{
+    return static_cast<SotClipboardFormatId>(ObjectLB().get_selected_id().toUInt32());
 }
 
 SotClipboardFormatId SvPasteObjectDialog::GetFormat( const TransferableDataHelper& rHelper)

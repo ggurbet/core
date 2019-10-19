@@ -129,7 +129,7 @@ void SwXBookmark::registerInMark(SwXBookmark & rThis,
     m_pImpl->registerInMark( rThis, pBkmk );
 }
 
-const ::sw::mark::IMark* SwXBookmark::GetBookmark() const
+::sw::mark::IMark* SwXBookmark::GetBookmark() const
 {
     return m_pImpl->m_pRegisteredBookmark;
 }
@@ -358,7 +358,7 @@ void SAL_CALL SwXBookmark::setName(const OUString& rName)
 OUString SAL_CALL
 SwXBookmark::getImplementationName()
 {
-    return OUString("SwXBookmark");
+    return "SwXBookmark";
 }
 
 sal_Bool SAL_CALL SwXBookmark::supportsService(const OUString& rServiceName)
@@ -616,15 +616,14 @@ OUString SwXFieldmark::getFieldType()
 void SwXFieldmark::setFieldType(const OUString & fieldType)
 {
     SolarMutexGuard aGuard;
-    IFieldmark *pBkm = const_cast<IFieldmark*>(
-        dynamic_cast<const IFieldmark*>(GetBookmark()));
+    IFieldmark *pBkm = dynamic_cast<IFieldmark*>(GetBookmark());
     if(!pBkm)
         throw uno::RuntimeException();
     if(fieldType != getFieldType())
     {
-        if(fieldType == ODF_FORMDROPDOWN || fieldType == ODF_FORMCHECKBOX)
+        if(fieldType == ODF_FORMDROPDOWN || fieldType == ODF_FORMCHECKBOX || fieldType == ODF_FORMDATE)
         {
-            ::sw::mark::IFieldmark* pNewFieldmark = GetIDocumentMarkAccess()->changeNonTextFieldmarkType(pBkm, fieldType);
+            ::sw::mark::IFieldmark* pNewFieldmark = GetIDocumentMarkAccess()->changeFormFieldmarkType(pBkm, fieldType);
             if (pNewFieldmark)
             {
                 registerInMark(*this, pNewFieldmark);
@@ -640,8 +639,7 @@ void SwXFieldmark::setFieldType(const OUString & fieldType)
 uno::Reference<container::XNameContainer> SwXFieldmark::getParameters()
 {
     SolarMutexGuard aGuard;
-    IFieldmark *pBkm = const_cast<IFieldmark*>(
-        dynamic_cast<const IFieldmark*>(GetBookmark()));
+    IFieldmark *pBkm = dynamic_cast<IFieldmark*>(GetBookmark());
     if(!pBkm)
         throw uno::RuntimeException();
     return uno::Reference<container::XNameContainer>(new SwXFieldmarkParameters(pBkm));
@@ -670,6 +668,8 @@ SwXFieldmark::CreateXFieldmark(SwDoc & rDoc, ::sw::mark::IMark *const pMark,
             pXBkmk = new SwXFieldmark(true, &rDoc);
         else if (dynamic_cast< ::sw::mark::DropDownFieldmark* >(pMark))
             pXBkmk = new SwXFieldmark(true, &rDoc);
+        else if (dynamic_cast< ::sw::mark::DateFieldmark* >(pMark))
+            pXBkmk = new SwXFieldmark(false, &rDoc);
         else
             pXBkmk = new SwXFieldmark(isReplacementObject, &rDoc);
 
@@ -685,8 +685,7 @@ SwXFieldmark::getCheckboxFieldmark()
     ::sw::mark::ICheckboxFieldmark* pCheckboxFm = nullptr;
     if ( getFieldType() == ODF_FORMCHECKBOX )
     {
-        // evil #TODO #FIXME casting away the const-ness
-        pCheckboxFm = const_cast<sw::mark::ICheckboxFieldmark*>(dynamic_cast< const ::sw::mark::ICheckboxFieldmark* >( GetBookmark()));
+        pCheckboxFm = dynamic_cast< ::sw::mark::ICheckboxFieldmark* >( GetBookmark());
         assert( GetBookmark() == nullptr || pCheckboxFm != nullptr );
             // unclear to me whether GetBookmark() can be null here
     }

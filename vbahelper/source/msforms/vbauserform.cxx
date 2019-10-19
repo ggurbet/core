@@ -182,7 +182,7 @@ ScVbaUserForm::UnloadObject(  )
 OUString
 ScVbaUserForm::getServiceImplName()
 {
-    return OUString("ScVbaUserForm");
+    return "ScVbaUserForm";
 }
 
 uno::Sequence< OUString >
@@ -233,7 +233,7 @@ ScVbaUserForm::nestedSearch( const OUString& aPropertyName, uno::Reference< awt:
     uno::Reference< awt::XControl > xControl = xContainer->getControl( aPropertyName );
     if ( !xControl.is() )
     {
-        uno::Sequence< uno::Reference< awt::XControl > > aControls = xContainer->getControls();
+        const uno::Sequence< uno::Reference< awt::XControl > > aControls = xContainer->getControls();
 
         for ( const auto& rCtrl : aControls )
         {

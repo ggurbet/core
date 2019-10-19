@@ -87,13 +87,13 @@
 #include <drawdoc.hxx>
 #include <hints.hxx>
 
-#ifndef NDEBUG
 #include <ndtxt.hxx>
-#endif
 
 #include <svx/sdr/attribute/sdrallfillattributeshelper.hxx>
 #include <svx/xfillit0.hxx>
 #include <svl/itemiter.hxx>
+#include <wrtsh.hxx>
+#include <txtfld.hxx>
 
 using namespace ::com::sun::star;
 
@@ -1102,14 +1102,7 @@ bool SwFormatCol::PutValue( const uno::Any& rVal, sal_uInt8 nMemberId )
             m_nWidth = nWidthSum;
             m_bOrtho = false;
 
-            uno::Reference<lang::XUnoTunnel> xNumTunnel(xCols, uno::UNO_QUERY);
-            SwXTextColumns* pSwColums = nullptr;
-            if(xNumTunnel.is())
-            {
-                pSwColums = reinterpret_cast< SwXTextColumns * >(
-                    sal::static_int_cast< sal_IntPtr >(
-                    xNumTunnel->getSomething( SwXTextColumns::getUnoTunnelId() )));
-            }
+            auto pSwColums = comphelper::getUnoTunnelImplementation<SwXTextColumns>(xCols);
             if(pSwColums)
             {
                 m_bOrtho = pSwColums->IsAutomaticWidth();
@@ -1164,16 +1157,16 @@ void SwFormatCol::dumpAsXml(xmlTextWriterPtr pWriter) const
 SwFormatSurround::SwFormatSurround( css::text::WrapTextMode eFly ) :
     SfxEnumItem( RES_SURROUND, eFly )
 {
-    bAnchorOnly = bContour = bOutside = false;
+    m_bAnchorOnly = m_bContour = m_bOutside = false;
 }
 
 bool SwFormatSurround::operator==( const SfxPoolItem& rAttr ) const
 {
     assert(SfxPoolItem::operator==(rAttr));
     return ( GetValue() == static_cast<const SwFormatSurround&>(rAttr).GetValue() &&
-             bAnchorOnly== static_cast<const SwFormatSurround&>(rAttr).bAnchorOnly &&
-             bContour== static_cast<const SwFormatSurround&>(rAttr).bContour &&
-             bOutside== static_cast<const SwFormatSurround&>(rAttr).bOutside );
+             m_bAnchorOnly== static_cast<const SwFormatSurround&>(rAttr).m_bAnchorOnly &&
+             m_bContour== static_cast<const SwFormatSurround&>(rAttr).m_bContour &&
+             m_bOutside== static_cast<const SwFormatSurround&>(rAttr).m_bOutside );
 }
 
 SfxPoolItem*  SwFormatSurround::Clone( SfxItemPool* ) const
@@ -1258,9 +1251,9 @@ void SwFormatSurround::dumpAsXml(xmlTextWriterPtr pWriter) const
     GetPresentation(SfxItemPresentation::Nameless, MapUnit::Map100thMM, MapUnit::Map100thMM, aPresentation, aIntlWrapper);
     xmlTextWriterWriteAttribute(pWriter, BAD_CAST("presentation"), BAD_CAST(aPresentation.toUtf8().getStr()));
 
-    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("bAnchorOnly"), BAD_CAST(OString::boolean(bAnchorOnly).getStr()));
-    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("bContour"), BAD_CAST(OString::boolean(bContour).getStr()));
-    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("bOutside"), BAD_CAST(OString::boolean(bOutside).getStr()));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("bAnchorOnly"), BAD_CAST(OString::boolean(m_bAnchorOnly).getStr()));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("bContour"), BAD_CAST(OString::boolean(m_bContour).getStr()));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("bOutside"), BAD_CAST(OString::boolean(m_bOutside).getStr()));
 
     xmlTextWriterEndElement(pWriter);
 }
@@ -2073,8 +2066,8 @@ bool SwFormatChain::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
 SwFormatLineNumber::SwFormatLineNumber() :
     SfxPoolItem( RES_LINENUMBER )
 {
-    nStartValue = 0;
-    bCountLines = true;
+    m_nStartValue = 0;
+    m_bCountLines = true;
 }
 
 SwFormatLineNumber::~SwFormatLineNumber()
@@ -2085,8 +2078,8 @@ bool SwFormatLineNumber::operator==( const SfxPoolItem &rAttr ) const
 {
     assert(SfxPoolItem::operator==(rAttr));
 
-    return nStartValue  == static_cast<const SwFormatLineNumber&>(rAttr).GetStartValue() &&
-           bCountLines  == static_cast<const SwFormatLineNumber&>(rAttr).IsCount();
+    return m_nStartValue  == static_cast<const SwFormatLineNumber&>(rAttr).GetStartValue() &&
+           m_bCountLines  == static_cast<const SwFormatLineNumber&>(rAttr).IsCount();
 }
 
 SfxPoolItem* SwFormatLineNumber::Clone( SfxItemPool* ) const
@@ -2526,7 +2519,7 @@ void SwFrameFormat::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
                 SfxItemIter aIter(*static_cast<const SwAttrSetChg*>(pNew)->GetChgSet());
                 bool bReset(false);
 
-                for(const SfxPoolItem* pItem = aIter.FirstItem(); pItem && !bReset; pItem = aIter.NextItem())
+                for(const SfxPoolItem* pItem = aIter.GetCurItem(); pItem && !bReset; pItem = aIter.NextItem())
                 {
                     bReset = !IsInvalidItem(pItem) && pItem->Which() >= XATTR_FILL_FIRST && pItem->Which() <= XATTR_FILL_LAST;
                 }
@@ -3156,7 +3149,7 @@ OUString SwFlyFrameFormat::GetObjDescription() const
     Method determines, if background of fly frame is transparent.
 
     @return true, if background color is transparent, but not "no fill"
-    or the transparency of a existing background graphic is set.
+    or the transparency of an existing background graphic is set.
 */
 bool SwFlyFrameFormat::IsBackgroundTransparent() const
 {
@@ -3224,15 +3217,16 @@ SwHandleAnchorNodeChg::SwHandleAnchorNodeChg( SwFlyFrameFormat& _rFlyFrameFormat
                                               const SwFormatAnchor& _rNewAnchorFormat,
                                               SwFlyFrame const * _pKeepThisFlyFrame )
     : mrFlyFrameFormat( _rFlyFrameFormat ),
-      mbAnchorNodeChanged( false )
+      mbAnchorNodeChanged( false ),
+      mpWrtShell(nullptr)
 {
+    const SwFormatAnchor& aOldAnchorFormat(_rFlyFrameFormat.GetAnchor());
     const RndStdIds nNewAnchorType( _rNewAnchorFormat.GetAnchorId() );
     if ( ((nNewAnchorType == RndStdIds::FLY_AT_PARA) ||
           (nNewAnchorType == RndStdIds::FLY_AT_CHAR)) &&
          _rNewAnchorFormat.GetContentAnchor() &&
          _rNewAnchorFormat.GetContentAnchor()->nNode.GetNode().GetContentNode() )
     {
-        const SwFormatAnchor& aOldAnchorFormat( _rFlyFrameFormat.GetAnchor() );
         if ( aOldAnchorFormat.GetAnchorId() == nNewAnchorType &&
              aOldAnchorFormat.GetContentAnchor() &&
              aOldAnchorFormat.GetContentAnchor()->nNode.GetNode().GetContentNode() &&
@@ -3275,14 +3269,74 @@ SwHandleAnchorNodeChg::SwHandleAnchorNodeChg( SwFlyFrameFormat& _rFlyFrameFormat
             }
         }
     }
+
+    if (aOldAnchorFormat.GetContentAnchor()
+        && aOldAnchorFormat.GetAnchorId() == RndStdIds::FLY_AT_CHAR)
+    {
+        mpCommentAnchor.reset(new SwPosition(*aOldAnchorFormat.GetContentAnchor()));
+    }
+
+    if (_pKeepThisFlyFrame)
+    {
+        SwViewShell* pViewShell = _pKeepThisFlyFrame->getRootFrame()->GetCurrShell();
+        mpWrtShell = dynamic_cast<SwWrtShell*>(pViewShell);
+    }
 }
 
-SwHandleAnchorNodeChg::~SwHandleAnchorNodeChg()
+SwHandleAnchorNodeChg::~SwHandleAnchorNodeChg() COVERITY_NOEXCEPT_FALSE
 {
     if ( mbAnchorNodeChanged )
     {
         mrFlyFrameFormat.MakeFrames();
     }
+
+    // See if the fly frame had a comment: if so, move it to the new anchor as well.
+    if (!mpCommentAnchor)
+    {
+        return;
+    }
+
+    SwTextNode* pTextNode = mpCommentAnchor->nNode.GetNode().GetTextNode();
+    if (!pTextNode)
+    {
+        return;
+    }
+
+    const SwTextField* pField = pTextNode->GetFieldTextAttrAt(mpCommentAnchor->nContent.GetIndex());
+    if (!pField || pField->GetFormatField().GetField()->GetTyp()->Which() != SwFieldIds::Postit)
+    {
+        return;
+    }
+
+    if (!mpWrtShell)
+    {
+        return;
+    }
+
+    // Save current cursor position, so we can restore it later.
+    mpWrtShell->Push();
+
+    // Set up the source of the move: the old comment anchor.
+    {
+        SwPaM& rCursor = mpWrtShell->GetCurrentShellCursor();
+        *rCursor.GetPoint() = *mpCommentAnchor;
+        rCursor.SetMark();
+        *rCursor.GetMark() = *mpCommentAnchor;
+        ++rCursor.GetMark()->nContent;
+    }
+
+    // Set up the target of the move: the new comment anchor.
+    const SwFormatAnchor& rNewAnchorFormat = mrFlyFrameFormat.GetAnchor();
+    mpWrtShell->CreateCursor();
+    *mpWrtShell->GetCurrentShellCursor().GetPoint() = *rNewAnchorFormat.GetContentAnchor();
+
+    // Move by copying and deleting.
+    mpWrtShell->SwEditShell::Copy(mpWrtShell);
+    mpWrtShell->DestroyCursor();
+
+    mpWrtShell->Delete();
+
+    mpWrtShell->Pop(SwCursorShell::PopMode::DeleteCurrent);
 }
 
 namespace sw

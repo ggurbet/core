@@ -203,7 +203,7 @@ OUString lcl_RangeSequenceToString(
     return aResult.makeStringAndClear();
 }
 
-OUString lcl_GetFormattedString(ScDocument* pDoc, ScRefCellValue& rCell, const ScAddress& rAddr)
+OUString lcl_GetFormattedString(ScDocument* pDoc, const ScRefCellValue& rCell, const ScAddress& rAddr)
 {
     // return text/edit cell string content, with line feeds in edit cells
 
@@ -499,14 +499,13 @@ void ScXMLExport::CollectSharedData(SCTAB& nTableCount, sal_Int32& nShapesCount)
         aDrawPage.bHasForms = false;
         aDrawPage.xDrawPage.set(xDrawPage);
         pSharedData->AddDrawPage(aDrawPage, nTable);
-        uno::Reference<container::XIndexAccess> xShapesIndex(xDrawPage, uno::UNO_QUERY);
-        if (!xShapesIndex.is())
+        if (!xDrawPage.is())
             continue;
 
-        sal_Int32 nShapes = xShapesIndex->getCount();
+        sal_Int32 nShapes = xDrawPage->getCount();
         for (sal_Int32 nShape = 0; nShape < nShapes; ++nShape)
         {
-            uno::Reference<drawing::XShape> xShape(xShapesIndex->getByIndex(nShape), uno::UNO_QUERY);
+            uno::Reference<drawing::XShape> xShape(xDrawPage->getByIndex(nShape), uno::UNO_QUERY);
             if (!xShape.is())
                 continue;
 
@@ -579,11 +578,10 @@ void ScXMLExport::CollectShapesAutoStyles(SCTAB nTableCount)
         for (SCTAB nTable = 0; nTable < nTableCount; ++nTable)
         {
             uno::Reference<drawing::XDrawPage> xDrawPage(pSharedData->GetDrawPage(nTable));
-            uno::Reference<drawing::XShapes> xShapes (xDrawPage, uno::UNO_QUERY);
 
-            if (xShapes.is())
+            if (xDrawPage.is())
             {
-                GetShapeExport()->seekShapes(xShapes);
+                GetShapeExport()->seekShapes(xDrawPage);
                 uno::Reference< form::XFormsSupplier2 > xFormsSupplier( xDrawPage, uno::UNO_QUERY );
                 if( xFormsSupplier.is() && xFormsSupplier->hasForms() )
                 {
@@ -1545,7 +1543,7 @@ void ScXMLExport::ExportFormatRanges(const sal_Int32 nStartCol, const sal_Int32 
                 pRowFormatRanges->Clear();
                 pCellStyles->GetFormatRanges(0, pSharedData->GetLastColumn(nSheet), nStartRow + nRows, nSheet, pRowFormatRanges.get());
                 sal_Int32 nMaxRows = pRowFormatRanges->GetMaxRows();
-                OSL_ENSURE(nMaxRows, "something wents wrong");
+                OSL_ENSURE(nMaxRows, "something went wrong");
                 if (nMaxRows >= nTotalRows - nRows)
                 {
                     OpenRow(nSheet, nStartRow + nRows, nTotalRows - nRows, aRowAttr);
@@ -2106,7 +2104,7 @@ void ScXMLExport::AddStyleFromCells(const uno::Reference<beans::XPropertySet>& x
                 else
                     nIndex = pCellStyles->GetIndexOfStyleName(sName, XML_STYLE_FAMILY_TABLE_CELL_STYLES_PREFIX, bIsAutoStyle);
 
-                uno::Sequence<table::CellRangeAddress> aAddresses(xCellRanges->getRangeAddresses());
+                const uno::Sequence<table::CellRangeAddress> aAddresses(xCellRanges->getRangeAddresses());
                 bool bGetMerge(true);
                 for (table::CellRangeAddress const & address : aAddresses)
                 {
@@ -2125,7 +2123,7 @@ void ScXMLExport::AddStyleFromCells(const uno::Reference<beans::XPropertySet>& x
             pCellStyles->AddStyleName(sEncodedStyleName, nIndex, false);
             if ( !pOldName )
             {
-                uno::Sequence<table::CellRangeAddress> aAddresses(xCellRanges->getRangeAddresses());
+                const uno::Sequence<table::CellRangeAddress> aAddresses(xCellRanges->getRangeAddresses());
                 bool bGetMerge(true);
                 for (table::CellRangeAddress const & address : aAddresses)
                 {
@@ -2797,7 +2795,6 @@ void ScXMLExport::WriteTable(sal_Int32 nTable, const uno::Reference<sheet::XSpre
         return;
 
     xCurrentTable.set(xTable);
-    xCurrentTableCellRange.set(xTable, uno::UNO_QUERY);
     uno::Reference<container::XNamed> xName (xTable, uno::UNO_QUERY );
     if (!xName.is())
         return;
@@ -2906,7 +2903,7 @@ void ScXMLExport::WriteTable(sal_Int32 nTable, const uno::Reference<sheet::XSpre
     {
         // store sheet events
         uno::Reference<document::XEventsSupplier> xSupplier(xTable, uno::UNO_QUERY);
-        uno::Reference<container::XNameAccess> xEvents(xSupplier->getEvents(), uno::UNO_QUERY);
+        uno::Reference<container::XNameAccess> xEvents = xSupplier->getEvents();
         GetEventExport().ExportExt( xEvents );
     }
 
@@ -2922,7 +2919,7 @@ void ScXMLExport::WriteTable(sal_Int32 nTable, const uno::Reference<sheet::XSpre
     }
     if (pSharedData->HasDrawPage())
     {
-        GetShapeExport()->seekShapes(uno::Reference<drawing::XShapes>(pSharedData->GetDrawPage(nTable), uno::UNO_QUERY));
+        GetShapeExport()->seekShapes(pSharedData->GetDrawPage(nTable));
         WriteTableShapes();
     }
     table::CellRangeAddress aRange(GetEndAddress(xTable));
@@ -3024,7 +3021,7 @@ void writeContent(
 
     if (pField)
     {
-        // Write an field item.
+        // Write a field item.
         OUString aFieldVal = ScEditUtil::GetCellFieldValue(*pField, rExport.GetDocument(), nullptr);
         switch (pField->GetClassId())
         {
@@ -3713,7 +3710,7 @@ bool ScXMLExport::IsEditCell(const ScMyCell& rCell)
     return rCell.maBaseCell.meType == CELLTYPE_EDIT;
 }
 
-bool ScXMLExport::IsCellEqual (ScMyCell& aCell1, ScMyCell& aCell2)
+bool ScXMLExport::IsCellEqual (const ScMyCell& aCell1, const ScMyCell& aCell2)
 {
     bool bIsEqual = false;
     if( !aCell1.bIsMergedBase && !aCell2.bIsMergedBase &&
@@ -4025,7 +4022,7 @@ void ScXMLExport::WriteExternalDataMapping()
     if (!rDataSources.empty())
     {
         SvXMLElementExport aMappings(*this, XML_NAMESPACE_CALC_EXT, XML_DATA_MAPPINGS, true, true);
-        for (auto& itr : rDataSources)
+        for (const auto& itr : rDataSources)
         {
             AddAttribute(XML_NAMESPACE_XLINK, XML_HREF, itr.getURL());
             AddAttribute(XML_NAMESPACE_CALC_EXT, XML_PROVIDER, itr.getProvider());
@@ -4182,7 +4179,7 @@ void ScXMLExport::WriteExternalDataTransformations(const std::vector<std::shared
                 // Number Transformation
                 std::shared_ptr<sc::NumberTransformation> aNumberTransformation = std::dynamic_pointer_cast<sc::NumberTransformation>(itr);
 
-                sc::NUMBER_TRANSFORM_TYPE aNumberTransformType = aNumberTransformation->getNumberTransfromationType();
+                sc::NUMBER_TRANSFORM_TYPE aNumberTransformType = aNumberTransformation->getNumberTransformationType();
 
                 switch ( aNumberTransformType )
                 {
@@ -4261,7 +4258,7 @@ void ScXMLExport::WriteExternalDataTransformations(const std::vector<std::shared
                 // Number Transformation
                 std::shared_ptr<sc::DateTimeTransformation> aDateTimeTransformation = std::dynamic_pointer_cast<sc::DateTimeTransformation>(itr);
 
-                sc::DATETIME_TRANSFORMATION_TYPE aDateTimeTransformationType = aDateTimeTransformation->getDateTimeTransfromationType();
+                sc::DATETIME_TRANSFORMATION_TYPE aDateTimeTransformationType = aDateTimeTransformation->getDateTimeTransformationType();
 
                 switch ( aDateTimeTransformationType )
                 {
@@ -4448,23 +4445,23 @@ OUString getCondFormatEntryType(const ScColorScaleEntry& rEntry, bool bFirst = t
     switch(rEntry.GetType())
     {
         case COLORSCALE_MIN:
-            return OUString("minimum");
+            return "minimum";
         case COLORSCALE_MAX:
-            return OUString("maximum");
+            return "maximum";
         case COLORSCALE_PERCENT:
-            return OUString("percent");
+            return "percent";
         case COLORSCALE_PERCENTILE:
-            return OUString("percentile");
+            return "percentile";
         case COLORSCALE_FORMULA:
-            return OUString("formula");
+            return "formula";
         case COLORSCALE_VALUE:
-            return OUString("number");
+            return "number";
         case COLORSCALE_AUTO:
             // only important for data bars
             if(bFirst)
-                return OUString("auto-minimum");
+                return "auto-minimum";
             else
-                return OUString("auto-maximum");
+                return "auto-maximum";
     }
     return OUString();
 }
@@ -4474,31 +4471,31 @@ OUString getDateStringForType(condformat::ScCondFormatDateType eType)
     switch(eType)
     {
         case condformat::TODAY:
-            return OUString("today");
+            return "today";
         case condformat::YESTERDAY:
-            return OUString("yesterday");
+            return "yesterday";
         case condformat::TOMORROW:
-            return OUString("tomorrow");
+            return "tomorrow";
         case condformat::LAST7DAYS:
-            return OUString("last-7-days");
+            return "last-7-days";
         case condformat::THISWEEK:
-            return OUString("this-week");
+            return "this-week";
         case condformat::LASTWEEK:
-            return OUString("last-week");
+            return "last-week";
         case condformat::NEXTWEEK:
-            return OUString("next-week");
+            return "next-week";
         case condformat::THISMONTH:
-            return OUString("this-month");
+            return "this-month";
         case condformat::LASTMONTH:
-            return OUString("last-month");
+            return "last-month";
         case condformat::NEXTMONTH:
-            return OUString("next-month");
+            return "next-month";
         case condformat::THISYEAR:
-            return OUString("this-year");
+            return "this-year";
         case condformat::LASTYEAR:
-            return OUString("last-year");
+            return "last-year";
         case condformat::NEXTYEAR:
-            return OUString("next-year");
+            return "next-year";
     }
 
     return OUString();
@@ -4853,7 +4850,7 @@ void ScXMLExport::WriteExternalRefCaches()
             }
 
             // Determine maximum column count of used area, for repeated cells.
-            SCCOL nMaxColsUsed = 1;     // assume that there is at least one cell somewhere..
+            SCCOL nMaxColsUsed = 1;     // assume that there is at least one cell somewhere...
             vector<SCROW> aRows;
             pTable->getAllRows(aRows);
             for (SCROW nRow : aRows)
@@ -4887,14 +4884,12 @@ void ScXMLExport::WriteExternalRefCaches()
                     {
                         if (nRow > 1)
                         {
-                            OUStringBuffer aVal;
-                            aVal.append(nRow);
-                            AddAttribute(XML_NAMESPACE_TABLE, XML_NUMBER_ROWS_REPEATED, aVal.makeStringAndClear());
+                            OUString aVal = OUString::number(nRow);
+                            AddAttribute(XML_NAMESPACE_TABLE, XML_NUMBER_ROWS_REPEATED, aVal);
                         }
                         SvXMLElementExport aElemRow(*this, XML_NAMESPACE_TABLE, XML_TABLE_ROW, true, true);
-                        OUStringBuffer aVal;
-                        aVal.append(static_cast<sal_Int32>(nMaxColsUsed));
-                        AddAttribute(XML_NAMESPACE_TABLE,  XML_NUMBER_COLUMNS_REPEATED, aVal.makeStringAndClear());
+                        OUString aVal = OUString::number(static_cast<sal_Int32>(nMaxColsUsed));
+                        AddAttribute(XML_NAMESPACE_TABLE,  XML_NUMBER_COLUMNS_REPEATED, aVal);
                         SvXMLElementExport aElemCell(*this, XML_NAMESPACE_TABLE, XML_TABLE_CELL, true, true);
                     }
                 }
@@ -4905,14 +4900,12 @@ void ScXMLExport::WriteExternalRefCaches()
                     {
                         if (nRowGap > 2)
                         {
-                            OUStringBuffer aVal;
-                            aVal.append(static_cast<sal_Int32>(nRowGap-1));
-                            AddAttribute(XML_NAMESPACE_TABLE, XML_NUMBER_ROWS_REPEATED, aVal.makeStringAndClear());
+                            OUString aVal = OUString::number(static_cast<sal_Int32>(nRowGap-1));
+                            AddAttribute(XML_NAMESPACE_TABLE, XML_NUMBER_ROWS_REPEATED, aVal);
                         }
                         SvXMLElementExport aElemRow(*this, XML_NAMESPACE_TABLE, XML_TABLE_ROW, true, true);
-                        OUStringBuffer aVal;
-                        aVal.append(static_cast<sal_Int32>(nMaxColsUsed));
-                        AddAttribute(XML_NAMESPACE_TABLE,  XML_NUMBER_COLUMNS_REPEATED, aVal.makeStringAndClear());
+                        OUString aVal = OUString::number(static_cast<sal_Int32>(nMaxColsUsed));
+                        AddAttribute(XML_NAMESPACE_TABLE,  XML_NUMBER_COLUMNS_REPEATED, aVal);
                         SvXMLElementExport aElemCell(*this, XML_NAMESPACE_TABLE, XML_TABLE_CELL, true, true);
                     }
                 }
@@ -4930,9 +4923,8 @@ void ScXMLExport::WriteExternalRefCaches()
                         {
                             if (nCol > 1)
                             {
-                                OUStringBuffer aVal;
-                                aVal.append(static_cast<sal_Int32>(nCol));
-                                AddAttribute(XML_NAMESPACE_TABLE, XML_NUMBER_COLUMNS_REPEATED, aVal.makeStringAndClear());
+                                OUString aVal = OUString::number(static_cast<sal_Int32>(nCol));
+                                AddAttribute(XML_NAMESPACE_TABLE, XML_NUMBER_COLUMNS_REPEATED, aVal);
                             }
                             SvXMLElementExport aElemCell(*this, XML_NAMESPACE_TABLE, XML_TABLE_CELL, true, true);
                         }
@@ -4944,9 +4936,8 @@ void ScXMLExport::WriteExternalRefCaches()
                         {
                             if (nColGap > 2)
                             {
-                                OUStringBuffer aVal;
-                                aVal.append(static_cast<sal_Int32>(nColGap-1));
-                                AddAttribute(XML_NAMESPACE_TABLE, XML_NUMBER_COLUMNS_REPEATED, aVal.makeStringAndClear());
+                                OUString aVal = OUString::number(static_cast<sal_Int32>(nColGap-1));
+                                AddAttribute(XML_NAMESPACE_TABLE, XML_NUMBER_COLUMNS_REPEATED, aVal);
                             }
                             SvXMLElementExport aElemCell(*this, XML_NAMESPACE_TABLE, XML_TABLE_CELL, true, true);
                         }
@@ -5247,8 +5238,7 @@ ErrCode ScXMLExport::exportDoc( enum XMLTokenEnum eClass )
             uno::Reference< frame::XModel > xModel = GetModel();
             if ( xModel.is() )
             {
-                uno::Reference< lang::XUnoTunnel >  xObjShellTunnel( xModel, uno::UNO_QUERY );
-                SfxObjectShell* pFoundShell = reinterpret_cast<SfxObjectShell*>( xObjShellTunnel.is() ? xObjShellTunnel->getSomething(SfxObjectShell::getUnoTunnelId()) : 0 );
+                auto pFoundShell = comphelper::getUnoTunnelImplementation<SfxObjectShell>(xModel);
                 if ( pFoundShell && ooo::vba::isAlienExcelDoc( *pFoundShell ) )
                 {
                     xRowStylesPropertySetMapper = new XMLPropertySetMapper(aXMLScFromXLSRowStylesProperties, xScPropHdlFactory, true);

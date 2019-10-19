@@ -101,11 +101,11 @@ public:
 
     const SwNode * getNode() const;
 
-    TableBoxVectorPtr getTableBoxesOfRow();
-    WidthsPtr getWidthsOfRow();
-    WidthsPtr getColumnWidthsBasedOnAllRows();
+    TableBoxVectorPtr getTableBoxesOfRow() const;
+    WidthsPtr getWidthsOfRow() const;
+    WidthsPtr getColumnWidthsBasedOnAllRows() const;
     GridColsPtr getGridColsOfRow(AttributeOutputBase & rBase, bool calculateColumnsFromAllRows = false);
-    RowSpansPtr getRowSpansOfRow();
+    RowSpansPtr getRowSpansOfRow() const;
 
 #ifdef DBG_UTIL
     std::string toString() const;
@@ -203,8 +203,8 @@ public:
     const SwNode * getNextNode() const { return mpNextNode;}
 
     const Inners_t & getInners() const { return mInners;}
-    const WW8TableNodeInfoInner::Pointer_t getFirstInner() const;
-    const WW8TableNodeInfoInner::Pointer_t getInnerForDepth(sal_uInt32 nDepth) const;
+    WW8TableNodeInfoInner::Pointer_t getFirstInner() const;
+    WW8TableNodeInfoInner::Pointer_t getInnerForDepth(sal_uInt32 nDepth) const;
 
     sal_uInt32 getCell() const;
     sal_uInt32 getRow() const;

@@ -66,7 +66,7 @@ Storage::Storage( const uno::Reference< uno::XComponentContext > & rxContext,
   m_xFactory( xFactory ),
   m_xWrappedStorage( xStorageToWrap ),
   m_xWrappedTransObj( xStorageToWrap, uno::UNO_QUERY ), // optional interface
-  m_xWrappedComponent( xStorageToWrap, uno::UNO_QUERY ),
+  m_xWrappedComponent( xStorageToWrap ),
   m_xWrappedTypeProv( xStorageToWrap, uno::UNO_QUERY ),
   m_bIsDocumentStorage( Uri( rUri ).isDocument() )
 {
@@ -205,6 +205,7 @@ uno::Sequence< sal_Int8 > SAL_CALL Storage::getImplementationId()
 void SAL_CALL Storage::dispose()
 {
     m_xWrappedStorage->dispose();
+    m_xWrappedStorage.clear();
 }
 
 
@@ -620,7 +621,7 @@ Stream::Stream(
   m_xWrappedStream( xStreamToWrap ),
   m_xWrappedOutputStream( xStreamToWrap->getOutputStream() ), // might be empty
   m_xWrappedTruncate( m_xWrappedOutputStream, uno::UNO_QUERY ), // might be empty
-  m_xWrappedInputStream( xStreamToWrap->getInputStream(), uno::UNO_QUERY ),
+  m_xWrappedInputStream( xStreamToWrap->getInputStream() ),
   m_xWrappedComponent( xStreamToWrap, uno::UNO_QUERY ),
   m_xWrappedTypeProv( xStreamToWrap, uno::UNO_QUERY )
 {

@@ -155,7 +155,7 @@ CharacterClassificationImpl::getLocaleSpecificCharacterClassification(const Loca
     if (cachedItem && cachedItem->equals(rLocale))
         return cachedItem->xCI;
     else {
-        for (auto & i : lookupTable) {
+        for (const auto & i : lookupTable) {
             cachedItem = i.get();
             if (cachedItem->equals(rLocale))
                 return cachedItem->xCI;
@@ -190,7 +190,7 @@ CharacterClassificationImpl::getLocaleSpecificCharacterClassification(const Loca
 OUString SAL_CALL
 CharacterClassificationImpl::getImplementationName()
 {
-    return OUString("com.sun.star.i18n.CharacterClassification");
+    return "com.sun.star.i18n.CharacterClassification";
 }
 
 sal_Bool SAL_CALL
@@ -202,8 +202,7 @@ CharacterClassificationImpl::supportsService(const OUString& rServiceName)
 Sequence< OUString > SAL_CALL
 CharacterClassificationImpl::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet { "com.sun.star.i18n.CharacterClassification" };
-    return aRet;
+    return { "com.sun.star.i18n.CharacterClassification" };
 }
 
 }

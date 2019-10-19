@@ -214,7 +214,7 @@ void Binding::deferNotifications( bool bDefer )
                 "deferred modifications not delivered?" );
 }
 
-bool Binding::isValid()
+bool Binding::isValid() const
 {
     // TODO: determine whether node is suitable, not just whether it exists
     return maBindingExpression.getNode().is() &&
@@ -225,7 +225,7 @@ bool Binding::isValid()
                !maBindingExpression.getString().isEmpty() ) );
 }
 
-bool Binding::isUseful()
+bool Binding::isUseful() const
 {
     // we are useful, if
     // 0) we don't have a model
@@ -543,10 +543,8 @@ void Binding::bind( bool bForceRebind )
                           aContext.mxNamespaces ) )
         {
             aContext.mxContextNode->appendChild(
-                Reference<XNode>(
                     aContext.mxContextNode->getOwnerDocument()->createElement(
-                        maBindingExpression.getExpression() ),
-                    UNO_QUERY ) );
+                        maBindingExpression.getExpression() ) );
             maBindingExpression.evaluate( aContext );
             OSL_ENSURE( maBindingExpression.getNode().is(),
                         "we should bind to the newly inserted node!" );
@@ -746,13 +744,13 @@ MIP Binding::getLocalMIP() const
     return aMIP;
 }
 
-css::uno::Reference<css::xsd::XDataType> Binding::getDataType()
+css::uno::Reference<css::xsd::XDataType> Binding::getDataType() const
 {
     OSL_ENSURE( getModel().is(), "need model" );
     OSL_ENSURE( getModel()->getDataTypeRepository().is(), "need types" );
 
-    Reference<XDataTypeRepository> xRepository(
-        getModel()->getDataTypeRepository(), UNO_QUERY );
+    Reference<XDataTypeRepository> xRepository =
+        getModel()->getDataTypeRepository();
     OUString sTypeName = maMIP.getTypeName();
 
     return ( xRepository.is() && xRepository->hasByName( sTypeName ) )
@@ -760,7 +758,7 @@ css::uno::Reference<css::xsd::XDataType> Binding::getDataType()
         : Reference<XDataType>( nullptr );
 }
 
-bool Binding::isValid_DataType()
+bool Binding::isValid_DataType() const
 {
     Reference<XDataType> xDataType = getDataType();
     return !xDataType.is()

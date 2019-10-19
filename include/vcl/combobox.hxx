@@ -30,6 +30,7 @@
 
 class UserDrawEvent;
 
+/// A widget used to choose from a list of items and which has an entry.
 class VCL_DLLPUBLIC ComboBox : public Edit
 {
 private:
@@ -90,7 +91,6 @@ public:
     void            Clear();
     void            EnableSelectAll();
     sal_Int32       GetEntryPos( const OUString& rStr ) const;
-    sal_Int32       GetEntryPos( const void* pData ) const;
     Image           GetEntryImage( sal_Int32  nPos ) const;
     OUString        GetEntry( sal_Int32  nPos ) const;
     sal_Int32       GetEntryCount() const;
@@ -117,7 +117,6 @@ public:
     void            EnableAutocomplete( bool bEnable, bool bMatchCase = false );
     bool            IsAutocompleteEnabled() const;
 
-    void            EnableMultiSelection( bool bMulti );
     bool            IsMultiSelectionEnabled() const;
 
     void            SetSelectHdl(const Link<ComboBox&,void>& rLink);

@@ -209,7 +209,7 @@ sal_Bool SAL_CALL OControl::supportsService(const OUString& _rsServiceName)
     return cppu::supportsService(this, _rsServiceName);
 }
 
-Sequence< OUString > OControl::getAggregateServiceNames()
+Sequence< OUString > OControl::getAggregateServiceNames() const
 {
     Sequence< OUString > aAggServices;
     Reference< XServiceInfo > xInfo;
@@ -259,7 +259,7 @@ void OControl::impl_resetStateGuard_nothrow()
     try
     {
         xWindow.set( getPeer(), UNO_QUERY );
-        xModel.set( getModel(), UNO_QUERY );
+        xModel = getModel();
     }
     catch( const Exception& )
     {
@@ -663,7 +663,7 @@ sal_Bool SAL_CALL OControlModel::supportsService(const OUString& _rServiceName)
     return cppu::supportsService(this, _rServiceName);
 }
 
-Sequence< OUString > OControlModel::getAggregateServiceNames()
+Sequence< OUString > OControlModel::getAggregateServiceNames() const
 {
     Sequence< OUString > aAggServices;
     Reference< XServiceInfo > xInfo;
@@ -682,10 +682,7 @@ Sequence<OUString> SAL_CALL OControlModel::getSupportedServiceNames()
 
 Sequence< OUString > OControlModel::getSupportedServiceNames_Static()
 {
-    Sequence< OUString > aServiceNames( 2 );
-    aServiceNames[ 0 ] = FRM_SUN_FORMCOMPONENT;
-    aServiceNames[ 1 ] = "com.sun.star.form.FormControlModel";
-    return aServiceNames;
+    return { FRM_SUN_FORMCOMPONENT, "com.sun.star.form.FormControlModel" };
 }
 
 // XEventListener
@@ -1920,7 +1917,7 @@ void OBoundControlModel::connectToField(const Reference<XRowSet>& rForm)
             DBG_ASSERT(xColumnsSupplier.is(), "OBoundControlModel::connectToField : the row set should support the css::sdb::ResultSet service !");
             if (xColumnsSupplier.is())
             {
-                Reference<XNameAccess> xColumns(xColumnsSupplier->getColumns(), UNO_QUERY);
+                Reference<XNameAccess> xColumns = xColumnsSupplier->getColumns();
                 if (xColumns.is() && xColumns->hasByName(m_aControlSource))
                 {
                     OSL_VERIFY( xColumns->getByName(m_aControlSource) >>= xFieldCandidate );
@@ -1973,7 +1970,6 @@ void OBoundControlModel::connectToField(const Reference<XRowSet>& rForm)
         }
 
     }
-    hasField();
 }
 
 void OBoundControlModel::initFromField( const Reference< XRowSet >& _rxRowSet )
@@ -2367,7 +2363,7 @@ bool OBoundControlModel::impl_approveValueBinding_nolock( const Reference< XValu
         // < SYNCHRONIZED
     }
 
-    for ( auto const & type : aTypeCandidates )
+    for ( auto const & type : std::as_const(aTypeCandidates) )
     {
         if ( _rxBinding->supportsType( type ) )
             return true;
@@ -2595,7 +2591,7 @@ void OBoundControlModel::calculateExternalValueType()
     m_aExternalValueType = Type();
     if ( !m_xExternalBinding.is() )
         return;
-    Sequence< Type > aTypeCandidates( getSupportedBindingTypes() );
+    const Sequence< Type > aTypeCandidates( getSupportedBindingTypes() );
     for ( auto const & typeCandidate : aTypeCandidates )
     {
         if ( m_xExternalBinding->supportsType( typeCandidate ) )

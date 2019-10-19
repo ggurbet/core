@@ -20,7 +20,6 @@
 #define INCLUDED_CUI_SOURCE_INC_SWPOSSIZETABPAGE_HXX
 
 #include <sfx2/tabdlg.hxx>
-#include <svx/swframeposstrings.hxx>
 #include <svx/swframeexample.hxx>
 #include <vcl/weld.hxx>
 
@@ -32,8 +31,6 @@ enum class SvxAnchorIds;
 
 class SvxSwPosSizeTabPage : public SfxTabPage
 {
-    using TabPage::DeactivatePage;
-
     Link<SvxSwFrameValidation&,void> m_aValidateLink;
 
     ::tools::Rectangle           m_aRect; //size of all selected objects
@@ -112,11 +109,10 @@ class SvxSwPosSizeTabPage : public SfxTabPage
     void setOptimalRelWidth();
 
 public:
-    SvxSwPosSizeTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
-    virtual void dispose() override;
+    SvxSwPosSizeTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     virtual ~SvxSwPosSizeTabPage() override;
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     static const sal_uInt16*     GetRanges();
 
     virtual bool FillItemSet( SfxItemSet* ) override;

@@ -34,13 +34,13 @@
 #include <vcl/virdev.hxx>
 #include <vcl/wrkwin.hxx>
 #include <vcl/uitest/logger.hxx>
+#include <salframe.hxx>
 #include <scrwnd.hxx>
 #include <helpwin.hxx>
 #include <vcl/dialog.hxx>
 #include <salinst.hxx>
 #include <salgdi.hxx>
 #include <svdata.hxx>
-#include <salimestatus.hxx>
 #include <salsys.hxx>
 #include <units.hrc>
 #include <print.h>
@@ -94,7 +94,7 @@ namespace
 {
     typedef ::std::map< basegfx::SystemDependentData_SharedPtr, sal_uInt32 > EntryMap;
 
-    class SystemDependentDataBuffer : public basegfx::SystemDependentDataManager, protected cppu::BaseMutex
+    class SystemDependentDataBuffer final : public basegfx::SystemDependentDataManager, protected cppu::BaseMutex
     {
     private:
         std::unique_ptr<AutoTimer> maTimer;
@@ -334,10 +334,10 @@ bool ImplInitAccessBridge()
                      = css::accessibility::MSAAService::create(xContext);
                  SAL_INFO("vcl", "got IAccessible2 bridge");
                  return true;
-             } catch (css::uno::DeploymentException & e) {
-                 SAL_WARN(
+             } catch (css::uno::DeploymentException &) {
+                 TOOLS_WARN_EXCEPTION(
                     "vcl",
-                    "got no IAccessible2 bridge" << e);
+                    "got no IAccessible2 bridge");
                  return false;
              }
         }

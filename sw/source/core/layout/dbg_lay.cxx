@@ -508,7 +508,6 @@ static OUString lcl_CellText(const SwCellFrame* pFrame)
 {
     OUString result;
     int n = 0;
-    sal_Char sz[RTL_STR_MAX_VALUEOFINT64];
 
     const SwStartNode* pStartNode = pFrame->GetTabBox()->GetSttNd();
     const SwEndNode* pEndNode = pStartNode->EndOfSectionNode();
@@ -526,21 +525,12 @@ static OUString lcl_CellText(const SwCellFrame* pFrame)
         else if (pNode->IsTextNode())
         {
             n++;
-            result += "Para:";
-            rtl_str_valueOfInt64(sz, n, 10);
-            OUString s = OUString::createFromAscii(sz);
-            result += s;
-            result += " ";
-            result += pNode->GetTextNode()->GetText();
+            result += "Para:" + OUString::number(10) + " " +
+                pNode->GetTextNode()->GetText();
         }
     }
 
-    rtl_str_valueOfInt64(sz, n, 10);
-    OUString s = OUString::createFromAscii(sz);
-    s += " para(s):";
-    s += result;
-
-    return s;
+    return OUString::number(n) + " para(s):" + result;
 }
 
 static OString lcl_CellInfo(const SwCellFrame* pFrame)
@@ -789,10 +779,10 @@ void SwImplProtocol::Record_( const SwFrame* pFrame, PROT nFunction, DbgAction n
         aOut.append(lcl_CellInfo(pCellFrame));
     }
 
-    pStream->WriteCharPtr( aOut.getStr() );
+    SAL_INFO("sw.layout.debug", aOut.getStr());
+    pStream->WriteOString( aOut.makeStringAndClear() );
     (*pStream) << endl;  // output
     pStream->Flush();   // to the disk, so we can read it immediately
-    SAL_INFO("sw.layout.debug", aOut.getStr());
     if( ++nLineCount >= nMaxLines )     // max number of lines reached?
     {
         SAL_WARN("sw.layout.debug", "max number of lines reached");

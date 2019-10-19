@@ -42,7 +42,7 @@
 #include <sfx2/docfile.hxx>
 #include <svx/xtable.hxx>
 #include <vcl/mnemonic.hxx>
-#include <vcl/lstbox.hxx>
+#include <svl/intitem.hxx>
 #include <svl/urihelper.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <svx/drawitem.hxx>
@@ -73,21 +73,20 @@ SdActionDlg::SdActionDlg(weld::Window* pParent, const SfxItemSet* pAttr, ::sd::V
                                    "InteractionDialog")
     , rOutAttrs(*pAttr)
 {
-    TabPageParent aParent(get_content_area(), this);
-    VclPtr<SfxTabPage> xNewPage = SdTPAction::Create(aParent, rOutAttrs);
+    std::unique_ptr<SfxTabPage> xNewPage = SdTPAction::Create(get_content_area(), this, rOutAttrs);
 
     // formerly in PageCreated
     static_cast<SdTPAction*>( xNewPage.get() )->SetView( pView );
     static_cast<SdTPAction*>( xNewPage.get() )->Construct();
 
-    SetTabPage(xNewPage);
+    SetTabPage(std::move(xNewPage));
 }
 
 /**
  *  Action-TabPage
  */
-SdTPAction::SdTPAction(TabPageParent pWindow, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pWindow, "modules/simpress/ui/interactionpage.ui", "InteractionPage", &rInAttrs)
+SdTPAction::SdTPAction(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "modules/simpress/ui/interactionpage.ui", "InteractionPage", &rInAttrs)
     , mpView(nullptr)
     , mpDoc(nullptr)
     , bTreeUpdated(false)
@@ -128,7 +127,6 @@ SdTPAction::SdTPAction(TabPageParent pWindow, const SfxItemSet& rInAttrs)
 
 SdTPAction::~SdTPAction()
 {
-    disposeOnce();
 }
 
 void SdTPAction::SetView( const ::sd::View* pSdView )
@@ -207,9 +205,8 @@ void SdTPAction::Construct()
                 aVerbs = xObj->getSupportedVerbs();
             }
 
-            for( sal_Int32 i=0; i<aVerbs.getLength(); i++ )
+            for( const embed::VerbDescriptor& aVerb : std::as_const(aVerbs) )
             {
-                embed::VerbDescriptor aVerb = aVerbs[i];
                 if( aVerb.VerbAttributes & embed::VerbAttributes::MS_VERBATTR_ONCONTAINERMENU )
                 {
                     OUString aTmp( aVerb.VerbName );
@@ -235,7 +232,7 @@ void SdTPAction::Construct()
     maCurrentActions.push_back( presentation::ClickAction_STOPPRESENTATION );
 
     // fill Action-Listbox
-    for (presentation::ClickAction & rAction : maCurrentActions)
+    for (const presentation::ClickAction & rAction : maCurrentActions)
     {
         const char* pRId = GetClickActionSdResId(rAction);
         m_xLbAction->append_text(SdResId(pRId));
@@ -253,7 +250,7 @@ bool SdTPAction::FillItemSet( SfxItemSet* rAttrs )
 
     if( m_xLbAction->get_value_changed_from_saved() )
     {
-        rAttrs->Put( SfxAllEnumItem( ATTR_ACTION, static_cast<sal_uInt16>(eCA) ) );
+        rAttrs->Put( SfxUInt16Item( ATTR_ACTION, static_cast<sal_uInt16>(eCA) ) );
         bModified = true;
     }
     else
@@ -294,7 +291,7 @@ void SdTPAction::Reset( const SfxItemSet* rAttrs )
     // m_xLbAction
     if( rAttrs->GetItemState( ATTR_ACTION ) != SfxItemState::DONTCARE )
     {
-        eCA = static_cast<presentation::ClickAction>(static_cast<const SfxAllEnumItem&>( rAttrs->
+        eCA = static_cast<presentation::ClickAction>(static_cast<const SfxUInt16Item&>( rAttrs->
                     Get( ATTR_ACTION ) ).GetValue());
         SetActualClickAction( eCA );
     }
@@ -345,10 +342,9 @@ DeactivateRC SdTPAction::DeactivatePage( SfxItemSet* pPageSet )
     return DeactivateRC::LeavePage;
 }
 
-VclPtr<SfxTabPage> SdTPAction::Create( TabPageParent pParent,
-                                       const SfxItemSet& rAttrs )
+std::unique_ptr<SfxTabPage> SdTPAction::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttrs)
 {
-    return VclPtr<SdTPAction>::Create( pParent, rAttrs );
+    return std::make_unique<SdTPAction>( pPage, pController, rAttrs );
 }
 
 void SdTPAction::UpdateTree()
@@ -381,7 +377,7 @@ void SdTPAction::OpenFileDialog()
 
         if (bSound)
         {
-            SdOpenSoundFileDialog aFileDialog(GetDialogFrameWeld());
+            SdOpenSoundFileDialog aFileDialog(GetFrameWeld());
 
             if( !aFile.isEmpty() )
                 aFileDialog.SetPath( aFile );
@@ -395,7 +391,7 @@ void SdTPAction::OpenFileDialog()
         else if (bMacro)
         {
             // choose macro dialog
-            OUString aScriptURL = SfxApplication::ChooseScript(GetDialogFrameWeld());
+            OUString aScriptURL = SfxApplication::ChooseScript(GetFrameWeld());
 
             if ( !aScriptURL.isEmpty() )
             {
@@ -406,7 +402,7 @@ void SdTPAction::OpenFileDialog()
         {
             sfx2::FileDialogHelper aFileDialog(
                 ui::dialogs::TemplateDescription::FILEOPEN_READONLY_VERSION,
-                FileDialogFlags::NONE, GetDialogFrameWeld());
+                FileDialogFlags::NONE, GetFrameWeld());
 
             if (bDocument && aFile.isEmpty())
                 aFile = SvtPathOptions().GetWorkPath();
@@ -621,51 +617,50 @@ IMPL_LINK_NOARG(SdTPAction, CheckFileHdl, weld::Widget&, void)
     if( aFile == aLastFile )
         return;
 
-    // check if it is a valid draw file
-    SfxMedium aMedium( aFile,
-                StreamMode::READ | StreamMode::NOCREATE );
+    bool bHideTreeDocument = true;
 
-    if( aMedium.IsStorage() )
+    if (mpDoc)
     {
-        WaitObject aWait( GetParentDialog() );
+        // check if it is a valid draw file
+        SfxMedium aMedium( aFile,
+                    StreamMode::READ | StreamMode::NOCREATE );
 
-        bool bHideTreeDocument = true;
-
-        // is it a draw file?
-        // open with READ, otherwise the Storages might write into the file!
-        uno::Reference < embed::XStorage > xStorage = aMedium.GetStorage();
-        DBG_ASSERT( xStorage.is(), "No storage!" );
-
-        uno::Reference < container::XNameAccess > xAccess( xStorage, uno::UNO_QUERY );
-        if (xAccess.is())
+        if( aMedium.IsStorage() )
         {
-            try
-            {
-                if (xAccess->hasByName(pStarDrawXMLContent) ||
-                    xAccess->hasByName(pStarDrawOldXMLContent))
-                {
-                    if (SdDrawDocument* pBookmarkDoc = mpDoc->OpenBookmarkDoc(aFile))
-                    {
-                        aLastFile = aFile;
+            weld::WaitObject aWait(GetFrameWeld());
 
-                        m_xLbTreeDocument->clear();
-                        m_xLbTreeDocument->Fill(pBookmarkDoc, aFile);
-                        mpDoc->CloseBookmarkDoc();
-                        m_xLbTreeDocument->show();
-                        bHideTreeDocument = false;
+            // is it a draw file?
+            // open with READ, otherwise the Storages might write into the file!
+            uno::Reference < embed::XStorage > xStorage = aMedium.GetStorage();
+            DBG_ASSERT( xStorage.is(), "No storage!" );
+
+            if (xStorage.is())
+            {
+                try
+                {
+                    if (xStorage->hasByName(pStarDrawXMLContent) ||
+                        xStorage->hasByName(pStarDrawOldXMLContent))
+                    {
+                        if (SdDrawDocument* pBookmarkDoc = mpDoc->OpenBookmarkDoc(aFile))
+                        {
+                            aLastFile = aFile;
+
+                            m_xLbTreeDocument->clear();
+                            m_xLbTreeDocument->Fill(pBookmarkDoc, aFile);
+                            mpDoc->CloseBookmarkDoc();
+                            m_xLbTreeDocument->show();
+                            bHideTreeDocument = false;
+                        }
                     }
                 }
-            }
-            catch (...)
-            {
+                catch (...)
+                {
+                }
             }
         }
-
-        if (bHideTreeDocument)
-            m_xLbTreeDocument->hide();
-
     }
-    else
+
+    if (bHideTreeDocument)
         m_xLbTreeDocument->hide();
 }
 
@@ -803,7 +798,7 @@ OUString SdTPAction::GetEditText( bool bFullDocDestination )
         OUString aTmpStr( m_xLbTreeDocument->get_selected_text() );
         if( !aTmpStr.isEmpty() )
         {
-            aStr += OUStringLiteral1(DOCUMENT_TOKEN) + aTmpStr;
+            aStr += OUStringChar(DOCUMENT_TOKEN) + aTmpStr;
         }
     }
 

@@ -30,14 +30,13 @@
 #endif
 #include <salgdi.hxx>
 #include <salframe.hxx>
-#include <basegfx/numeric/ftools.hxx> //for F_PI180
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <FileDefinitionWidgetDraw.hxx>
 
 // The only common SalFrame method
 
-SalFrameGeometry SalFrame::GetGeometry()
+SalFrameGeometry SalFrame::GetGeometry() const
 {
     // mirror frame coordinates at parent
     SalFrame *pParent = GetParent();
@@ -81,7 +80,7 @@ bool SalGraphics::initWidgetDrawBackends(bool bForce)
     return false;
 }
 
-SalGraphics::~SalGraphics()
+SalGraphics::~SalGraphics() COVERITY_NOEXCEPT_FALSE
 {
 }
 
@@ -614,7 +613,7 @@ bool SalGraphics::DrawPolyLine(
                 // - apply rMirror (multiply from left)
                 // - multiply with inverse of rObjectToDevice to get back from
                 //   device-coordinates to object-coordinates
-                // this only makes sense to do when we *have* a ObjectToDevice
+                // this only makes sense to do when we *have* an ObjectToDevice
                 // transformation, so optimize that
                 basegfx::B2DHomMatrix aLinearCombination(rObjectToDevice);
                 basegfx::B2DHomMatrix aObjectToDeviceInv(rObjectToDevice);

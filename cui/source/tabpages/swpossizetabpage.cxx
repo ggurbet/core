@@ -28,12 +28,12 @@
 #include <sfx2/htmlmode.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdpagv.hxx>
+#include <svx/swframeposstrings.hxx>
 #include <svx/rectenum.hxx>
 #include <sal/macros.h>
 #include <com/sun/star/text/HoriOrientation.hpp>
 #include <com/sun/star/text/VertOrientation.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svtools/unitconv.hxx>
 
@@ -511,8 +511,8 @@ static LB lcl_GetLBRelationsForStrID(const FrmMap* _pMap,
     return nLBRelations;
 }
 
-SvxSwPosSizeTabPage::SvxSwPosSizeTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/swpossizepage.ui", "SwPosSizePage", &rInAttrs)
+SvxSwPosSizeTabPage::SvxSwPosSizeTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/swpossizepage.ui", "SwPosSizePage", &rInAttrs)
     , m_pVMap(nullptr)
     , m_pHMap(nullptr)
     , m_pSdrView(nullptr)
@@ -597,16 +597,10 @@ SvxSwPosSizeTabPage::SvxSwPosSizeTabPage(TabPageParent pParent, const SfxItemSet
 
 SvxSwPosSizeTabPage::~SvxSwPosSizeTabPage()
 {
-    disposeOnce();
-}
-
-void SvxSwPosSizeTabPage::dispose()
-{
     m_xWidthMF.reset();
     m_xHeightMF.reset();
     m_xHoriByMF.reset();
     m_xVertByMF.reset();
-    SfxTabPage::dispose();
 }
 
 namespace
@@ -708,9 +702,9 @@ void SvxSwPosSizeTabPage::setOptimalRelWidth()
     m_xHoriLB->clear();
 }
 
-VclPtr<SfxTabPage> SvxSwPosSizeTabPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SvxSwPosSizeTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SvxSwPosSizeTabPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxSwPosSizeTabPage>(pPage, pController, *rSet);
 }
 
 const sal_uInt16* SvxSwPosSizeTabPage::GetRanges()
@@ -883,7 +877,7 @@ bool SvxSwPosSizeTabPage::FillItemSet( SfxItemSet* rSet)
         rSet->Put( SfxUInt32Item( GetWhich( SID_ATTR_TRANSFORM_WIDTH ), nWidth ) );
         rSet->Put( SfxUInt32Item( GetWhich( SID_ATTR_TRANSFORM_HEIGHT ), nHeight ) );
         //this item is required by SdrEditView::SetGeoAttrToMarked()
-        rSet->Put( SfxAllEnumItem( GetWhich( SID_ATTR_TRANSFORM_SIZE_POINT ), sal_uInt16(RectPoint::LT) ) );
+        rSet->Put( SfxUInt16Item( GetWhich( SID_ATTR_TRANSFORM_SIZE_POINT ), sal_uInt16(RectPoint::LT) ) );
 
         bModified = true;
     }
@@ -997,10 +991,12 @@ void SvxSwPosSizeTabPage::Reset( const SfxItemSet* rSet)
     sal_Int32 nWidth = std::max( pItem ? ( static_cast<const SfxUInt32Item*>(pItem)->GetValue()) : 0, sal_uInt32(1) );
 
     m_xWidthMF->set_value(m_xWidthMF->normalize(nWidth), FieldUnit::TWIP);
+    m_xWidthMF->save_value();
 
     pItem = GetItem( *rSet, SID_ATTR_TRANSFORM_HEIGHT );
     sal_Int32 nHeight = std::max( pItem ? ( static_cast<const SfxUInt32Item*>(pItem)->GetValue()) : 0, sal_uInt32(1) );
     m_xHeightMF->set_value(m_xHeightMF->normalize(nHeight), FieldUnit::TWIP);
+    m_xHeightMF->save_value();
     m_fWidthHeightRatio = double(nWidth) / double(nHeight);
 
     if(!m_bPositioningDisabled)

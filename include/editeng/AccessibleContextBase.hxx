@@ -71,7 +71,7 @@ public:
     virtual ~AccessibleContextBase() override;
 
 
-    /** Call all accessiblity event listeners to inform them about the
+    /** Call all accessibility event listeners to inform them about the
         specified event.
         @param aEventId
             Id of the event type.
@@ -245,7 +245,7 @@ public:
 
     //=====  XTypeProvider  ===================================================
 
-    /** Returns a implementation id.
+    /** Returns an implementation id.
     */
     virtual css::uno::Sequence<sal_Int8> SAL_CALL
         getImplementationId() override;
@@ -288,7 +288,7 @@ protected:
         @return TRUE, if the object is disposed or in the course
         of being disposed. Otherwise, FALSE is returned.
     */
-    bool IsDisposed();
+    bool IsDisposed() const;
 
     /** sets the role as returned by XaccessibleContext::getAccessibleRole
 

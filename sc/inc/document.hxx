@@ -370,6 +370,8 @@ private:
     std::unique_ptr<ScValidationDataList> pValidationList;              // validity
     SvNumberFormatterIndexTable* pFormatExchangeList;    // for application of number formats
     TableContainer maTabs;
+    SCCOL mnMaxCol; /// Maximum addressable column
+    SCROW mnMaxRow; /// Maximum addressable row
     std::vector<OUString> maTabNames;               // for undo document, we need the information tab name <-> index
     mutable std::unique_ptr<ScRangeName>    pRangeName;
     std::unique_ptr<ScDBCollection>         pDBCollection;
@@ -562,11 +564,11 @@ public:
     bool                     IsCellInChangeTrack(const ScAddress &cell,Color *pColCellBorder);
     void                     GetCellChangeTrackNote(const ScAddress &cell, OUString &strTrackText, bool &pbLeftEdge);
 
-    bool IsEmbedFonts() { return mbEmbedFonts; }
-    bool IsEmbedUsedFontsOnly() { return mbEmbedUsedFontsOnly; }
-    bool IsEmbedFontScriptLatin() { return mbEmbedFontScriptLatin; }
-    bool IsEmbedFontScriptAsian() { return mbEmbedFontScriptAsian; }
-    bool IsEmbedFontScriptComplex() { return mbEmbedFontScriptComplex; }
+    bool IsEmbedFonts() const { return mbEmbedFonts; }
+    bool IsEmbedUsedFontsOnly() const { return mbEmbedUsedFontsOnly; }
+    bool IsEmbedFontScriptLatin() const { return mbEmbedFontScriptLatin; }
+    bool IsEmbedFontScriptAsian() const { return mbEmbedFontScriptAsian; }
+    bool IsEmbedFontScriptComplex() const { return mbEmbedFontScriptComplex; }
 
     void SetEmbedFonts(bool bUse) { mbEmbedFonts = bUse; }
     void SetEmbedUsedFontsOnly(bool bUse) { mbEmbedUsedFontsOnly = bUse; }
@@ -634,7 +636,7 @@ public:
 
     void                        Clear( bool bFromDestructor = false );
 
-    std::unique_ptr<ScFieldEditEngine> CreateFieldEditEngine(bool bUpdateMode);
+    std::unique_ptr<ScFieldEditEngine> CreateFieldEditEngine();
     void                        DisposeFieldEditEngine(std::unique_ptr<ScFieldEditEngine>& rpEditEngine);
 
     /**
@@ -723,7 +725,7 @@ public:
 
         @param  rpRangeData
                 On entry, the pointer to the original named expression/range.
-                On return TRUE, the pointer to the new copied name, or nullptr if hit shappened.
+                On return TRUE, the pointer to the new copied name, or nullptr if hits happened.
 
         @param  rNewPos
                 New position of formula cell if called for that, else new base
@@ -787,7 +789,7 @@ public:
      */
     bool InsertNewRangeName( SCTAB nTab, const OUString& rName, const ScAddress& rPos, const OUString& rExpr );
 
-    SCTAB GetMaxTableNumber() { return static_cast<SCTAB>(maTabs.size()) - 1; }
+    SCTAB GetMaxTableNumber() const { return static_cast<SCTAB>(maTabs.size()) - 1; }
 
     ScRangePairList*    GetColNameRanges() { return xColNameRanges.get(); }
     ScRangePairList*    GetRowNameRanges() { return xRowNameRanges.get(); }
@@ -853,6 +855,8 @@ public:
     SC_DLLPUBLIC bool GetCodeName( SCTAB nTab, OUString& rName ) const;
     SC_DLLPUBLIC bool SetCodeName( SCTAB nTab, const OUString& rName );
     SC_DLLPUBLIC bool GetTable( const OUString& rName, SCTAB& rTab ) const;
+    SC_DLLPUBLIC SCCOL MaxCol() const { return mnMaxCol; }
+    SC_DLLPUBLIC SCROW MaxRow() const { return mnMaxRow; }
 
     SC_DLLPUBLIC std::vector<OUString> GetAllTableNames() const;
 
@@ -958,10 +962,10 @@ public:
     SC_DLLPUBLIC void                                       SetGrammar( formula::FormulaGrammar::Grammar eGram );
     SC_DLLPUBLIC ScLinkMode                                 GetLinkMode( SCTAB nTab ) const;
     bool                                                    IsLinked( SCTAB nTab ) const;
-    SC_DLLPUBLIC const OUString                             GetLinkDoc( SCTAB nTab ) const;
-    const OUString                                          GetLinkFlt( SCTAB nTab ) const;
-    const OUString                                          GetLinkOpt( SCTAB nTab ) const;
-    SC_DLLPUBLIC const OUString                             GetLinkTab( SCTAB nTab ) const;
+    SC_DLLPUBLIC OUString                                   GetLinkDoc( SCTAB nTab ) const;
+    OUString                                                GetLinkFlt( SCTAB nTab ) const;
+    OUString                                                GetLinkOpt( SCTAB nTab ) const;
+    SC_DLLPUBLIC OUString                                   GetLinkTab( SCTAB nTab ) const;
     sal_uLong                                               GetLinkRefreshDelay( SCTAB nTab ) const;
     void                                                    SetLink( SCTAB nTab, ScLinkMode nMode, const OUString& rDoc,
                                                                      const OUString& rFilter, const OUString& rOptions,
@@ -1337,7 +1341,7 @@ public:
     void            SetForcedFormulaPending( bool bNew ) { bForcedFormulaPending = bNew; }
     bool            IsForcedFormulaPending() const { return bForcedFormulaPending; }
                     // if CalcFormulaTree() is currently running
-    bool            IsCalculatingFormulaTree() { return bCalculatingFormulaTree; }
+    bool            IsCalculatingFormulaTree() const { return bCalculatingFormulaTree; }
     /// If set, joining cells into shared formula groups will be delayed until reset again
     /// (RegroupFormulaCells() will be called as needed).
     void            DelayFormulaGrouping( bool delay );
@@ -1715,10 +1719,10 @@ public:
     SC_DLLPUBLIC SvtScriptType  GetStringScriptType( const OUString& rString );
     // pCell is an optimization, must point to rPos
     SC_DLLPUBLIC SvtScriptType  GetCellScriptType( const ScAddress& rPos, sal_uInt32 nNumberFormat,
-                                                   ScRefCellValue* pCell = nullptr );
+                                                   const ScRefCellValue* pCell = nullptr );
     // pCell is an optimization, must point to nCol,nRow,nTab
     SC_DLLPUBLIC SvtScriptType  GetScriptType( SCCOL nCol, SCROW nRow, SCTAB nTab,
-                                               ScRefCellValue* pCell = nullptr );
+                                               const ScRefCellValue* pCell = nullptr );
     SvtScriptType               GetRangeScriptType( sc::ColumnBlockPosition& rBlockPos, const ScAddress& rPos, SCROW nLength );
     SvtScriptType               GetRangeScriptType( const ScRangeList& rRanges );
 
@@ -1958,8 +1962,8 @@ public:
     void GetUnprotectedCells( ScRangeList& rRange, SCTAB nTab ) const;
 
     // PageStyle:
-    SC_DLLPUBLIC const OUString  GetPageStyle( SCTAB nTab ) const;
-    SC_DLLPUBLIC void            SetPageStyle( SCTAB nTab, const OUString& rName );
+    SC_DLLPUBLIC OUString GetPageStyle( SCTAB nTab ) const;
+    SC_DLLPUBLIC void     SetPageStyle( SCTAB nTab, const OUString& rName );
     Size            GetPageSize( SCTAB nTab ) const;
     void            SetPageSize( SCTAB nTab, const Size& rSize );
     void            SetRepeatArea( SCTAB nTab, SCCOL nStartCol, SCCOL nEndCol, SCROW nStartRow, SCROW nEndRow );
@@ -2115,7 +2119,7 @@ public:
     ScChangeViewSettings* GetChangeViewSettings() const     { return pChangeViewSettings.get(); }
     SC_DLLPUBLIC void     SetChangeViewSettings(const ScChangeViewSettings& rNew);
 
-    const std::shared_ptr<SvxForbiddenCharactersTable>& GetForbiddenCharacters();
+    const std::shared_ptr<SvxForbiddenCharactersTable>& GetForbiddenCharacters() const;
     void            SetForbiddenCharacters(const std::shared_ptr<SvxForbiddenCharactersTable>& rNew);
 
     CharCompressType GetAsianCompression() const;
@@ -2148,8 +2152,8 @@ public:
      */
     void SC_DLLPUBLIC SetFormulaResults( const ScAddress& rTopPos, const double* pResults, size_t nLen );
 
-    const ScDocumentThreadSpecific& CalculateInColumnInThread( ScInterpreterContext& rContext, const ScAddress& rTopPos, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal);
-    void HandleStuffAfterParallelCalculation( const ScAddress& rTopPos, size_t nLen );
+    const ScDocumentThreadSpecific& CalculateInColumnInThread( ScInterpreterContext& rContext, const ScRange& rCalcRange, unsigned nThisThread, unsigned nThreadsTotal);
+    void HandleStuffAfterParallelCalculation( SCCOL nColStart, SCCOL nColEnd, SCROW nRow, size_t nLen, SCTAB nTab, ScInterpreter* pInterpreter );
 
     /**
      * Transfer a series of contiguous cell values from specified position to
@@ -2261,7 +2265,7 @@ public:
     bool                IsFinalTrackFormulas() const { return mbFinalTrackFormulas; }
     bool                IsInFormulaTree( const ScFormulaCell* pCell ) const;
     bool                IsInFormulaTrack( const ScFormulaCell* pCell ) const;
-    HardRecalcState     GetHardRecalcState() { return eHardRecalcState; }
+    HardRecalcState     GetHardRecalcState() const { return eHardRecalcState; }
     void                SetHardRecalcState( HardRecalcState eVal ) { eHardRecalcState = eVal; }
     void                StartAllListeners();
     void                StartNeededListeners();
@@ -2285,7 +2289,7 @@ public:
                                 if ( nInterpretLevel )
                                     nInterpretLevel--;
                             }
-    sal_uInt16          GetMacroInterpretLevel() { return nMacroInterpretLevel; }
+    sal_uInt16          GetMacroInterpretLevel() const { return nMacroInterpretLevel; }
     void                IncMacroInterpretLevel()
                             {
                                 assert(!IsThreadedGroupCalcInProgress());

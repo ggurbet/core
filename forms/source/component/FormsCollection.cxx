@@ -33,7 +33,7 @@ using namespace ::com::sun::star::util;
 
 OUString SAL_CALL OFormsCollection::getServiceName()
 {
-    return OUString("com.sun.star.form.Forms");
+    return "com.sun.star.form.Forms";
 }
 
 Sequence< sal_Int8 > SAL_CALL OFormsCollection::getImplementationId(  )
@@ -85,7 +85,7 @@ Any SAL_CALL OFormsCollection::queryAggregation(const Type& _rType)
 
 OUString SAL_CALL OFormsCollection::getImplementationName()
 {
-    return OUString("com.sun.star.form.OFormsCollection");
+    return "com.sun.star.form.OFormsCollection";
 }
 
 sal_Bool SAL_CALL OFormsCollection::supportsService( const OUString& _rServiceName )
@@ -95,12 +95,7 @@ sal_Bool SAL_CALL OFormsCollection::supportsService( const OUString& _rServiceNa
 
 css::uno::Sequence<OUString> SAL_CALL OFormsCollection::getSupportedServiceNames()
 {
-    css::uno::Sequence<OUString> aReturn(2);
-
-    aReturn[0] = "com.sun.star.form.Forms";
-    aReturn[1] = "com.sun.star.form.FormComponents";
-
-    return aReturn;
+    return { "com.sun.star.form.Forms", "com.sun.star.form.FormComponents" };
 }
 
 // XCloneable

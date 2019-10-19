@@ -18,7 +18,11 @@
 
 #include <svsys.h>
 #include <vcl/bitmap.hxx>
-#include <vcl/salbtype.hxx>
+#include <vcl/BitmapAccessMode.hxx>
+#include <vcl/BitmapBuffer.hxx>
+#include <vcl/BitmapPalette.hxx>
+#include <vcl/ColorMask.hxx>
+#include <vcl/Scanline.hxx>
 #include <com/sun/star/beans/XFastPropertySet.hpp>
 #include <win/wincomp.hxx>
 #include <win/salgdi.h>
@@ -242,7 +246,7 @@ Gdiplus::Bitmap* WinSalBitmap::ImplCreateGdiPlusBitmap()
     BitmapBuffer* pRGB = pSalRGB->AcquireBuffer(BitmapAccessMode::Read);
     std::unique_ptr<BitmapBuffer> pExtraRGB;
 
-    if(pRGB && ScanlineFormat::N24BitTcBgr != (pRGB->mnFormat & ~ScanlineFormat::TopDown))
+    if(pRGB && ScanlineFormat::N24BitTcBgr != RemoveScanline(pRGB->mnFormat))
     {
         // convert source bitmap to BMP_FORMAT_24BIT_TC_BGR format if not yet in that format
         SalTwoRect aSalTwoRect(0, 0, pRGB->mnWidth, pRGB->mnHeight, 0, 0, pRGB->mnWidth, pRGB->mnHeight);
@@ -258,7 +262,7 @@ Gdiplus::Bitmap* WinSalBitmap::ImplCreateGdiPlusBitmap()
     if(pRGB
         && pRGB->mnWidth > 0
         && pRGB->mnHeight > 0
-        && ScanlineFormat::N24BitTcBgr == (pRGB->mnFormat & ~ScanlineFormat::TopDown))
+        && ScanlineFormat::N24BitTcBgr == RemoveScanline(pRGB->mnFormat))
     {
         const sal_uInt32 nW(pRGB->mnWidth);
         const sal_uInt32 nH(pRGB->mnHeight);
@@ -330,7 +334,7 @@ Gdiplus::Bitmap* WinSalBitmap::ImplCreateGdiPlusBitmap(const WinSalBitmap& rAlph
     BitmapBuffer* pRGB = pSalRGB->AcquireBuffer(BitmapAccessMode::Read);
     std::unique_ptr<BitmapBuffer> pExtraRGB;
 
-    if(pRGB && ScanlineFormat::N24BitTcBgr != (pRGB->mnFormat & ~ScanlineFormat::TopDown))
+    if(pRGB && ScanlineFormat::N24BitTcBgr != RemoveScanline(pRGB->mnFormat))
     {
         // convert source bitmap to canlineFormat::N24BitTcBgr format if not yet in that format
         SalTwoRect aSalTwoRect(0, 0, pRGB->mnWidth, pRGB->mnHeight, 0, 0, pRGB->mnWidth, pRGB->mnHeight);
@@ -357,7 +361,7 @@ Gdiplus::Bitmap* WinSalBitmap::ImplCreateGdiPlusBitmap(const WinSalBitmap& rAlph
     BitmapBuffer* pA = pSalA->AcquireBuffer(BitmapAccessMode::Read);
     std::unique_ptr<BitmapBuffer> pExtraA;
 
-    if(pA && ScanlineFormat::N8BitPal != (pA->mnFormat & ~ScanlineFormat::TopDown))
+    if(pA && ScanlineFormat::N8BitPal != RemoveScanline(pA->mnFormat))
     {
         // convert alpha bitmap to ScanlineFormat::N8BitPal format if not yet in that format
         SalTwoRect aSalTwoRect(0, 0, pA->mnWidth, pA->mnHeight, 0, 0, pA->mnWidth, pA->mnHeight);
@@ -379,8 +383,8 @@ Gdiplus::Bitmap* WinSalBitmap::ImplCreateGdiPlusBitmap(const WinSalBitmap& rAlph
         && pRGB->mnHeight > 0
         && pRGB->mnWidth == pA->mnWidth
         && pRGB->mnHeight == pA->mnHeight
-        && ScanlineFormat::N24BitTcBgr == (pRGB->mnFormat & ~ScanlineFormat::TopDown)
-        && ScanlineFormat::N8BitPal == (pA->mnFormat & ~ScanlineFormat::TopDown))
+        && ScanlineFormat::N24BitTcBgr == RemoveScanline(pRGB->mnFormat)
+        && ScanlineFormat::N8BitPal == RemoveScanline(pA->mnFormat))
     {
         // we have alpha and bitmap in known formats, create GdiPlus Bitmap as 32bit ARGB
         const sal_uInt32 nW(pRGB->mnWidth);
@@ -697,7 +701,7 @@ sal_uInt16 WinSalBitmap::ImplGetDIBColorCount( HGLOBAL hDIB )
 
 HGLOBAL WinSalBitmap::ImplCreateDIB( const Size& rSize, sal_uInt16 nBits, const BitmapPalette& rPal )
 {
-    SAL_WARN_IF( nBits != 1 && nBits != 4 && nBits != 8 && nBits != 16 && nBits != 24, "vcl", "Unsupported BitCount!" );
+    SAL_WARN_IF( nBits != 1 && nBits != 4 && nBits != 8 && nBits != 24, "vcl", "Unsupported BitCount!" );
 
     HGLOBAL hDIB = nullptr;
 
@@ -836,7 +840,6 @@ BitmapBuffer* WinSalBitmap::AcquireBuffer( BitmapAccessMode /*nMode*/ )
             pBuffer->mnFormat = pBIH->biBitCount == 1 ? ScanlineFormat::N1BitMsbPal :
                                 pBIH->biBitCount == 4 ? ScanlineFormat::N4BitMsnPal :
                                 pBIH->biBitCount == 8 ? ScanlineFormat::N8BitPal :
-                                pBIH->biBitCount == 16 ? ScanlineFormat::N16BitTcLsbMask :
                                 pBIH->biBitCount == 24 ? ScanlineFormat::N24BitTcBgr :
                                 pBIH->biBitCount == 32 ? ScanlineFormat::N32BitTcMask :
                                 ScanlineFormat::NONE;

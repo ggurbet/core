@@ -297,7 +297,7 @@ const css::uno::Sequence< sal_Int8 > & SvxShape::getUnoTunnelId() throw()
 
 sal_Int64 SAL_CALL SvxShape::getSomething( const css::uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SvxShape>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
     }
@@ -1946,7 +1946,7 @@ uno::Any SvxShape::GetAnyForItem( SfxItemSet const & aSet, const SfxItemProperty
     }
     default:
     {
-        // get value form ItemSet
+        // get value from ItemSet
         aAny = SvxItemPropertySet_getPropertyValue( pMap, aSet );
 
         if( pMap->aType != aAny.getValueType() )
@@ -2012,7 +2012,7 @@ beans::PropertyState SvxShape::_getPropertyState( const OUString& PropertyName )
             break;
         }
 
-        // if a item is set, this doesn't mean we want it :)
+        // if an item is set, this doesn't mean we want it :)
         if( beans::PropertyState_DIRECT_VALUE == eState )
         {
             switch( pMap->nWID )
@@ -2938,13 +2938,10 @@ bool SvxShape::setPropertyToDefaultImpl( const SfxItemPropertySimpleEntry* pProp
 uno::Sequence< beans::PropertyState > SAL_CALL SvxShape::getPropertyStates( const uno::Sequence< OUString >& aPropertyName )
 {
     const sal_Int32 nCount = aPropertyName.getLength();
-    const OUString* pNames = aPropertyName.getConstArray();
-
     uno::Sequence< beans::PropertyState > aRet( nCount );
-    beans::PropertyState* pState = aRet.getArray();
 
-    for( sal_Int32 nIdx = 0; nIdx < nCount; nIdx++ )
-        pState[nIdx] = getPropertyState( pNames[nIdx] );
+    std::transform(aPropertyName.begin(), aPropertyName.end(), aRet.begin(),
+        [this](const OUString& rName) -> beans::PropertyState { return getPropertyState(rName); });
 
     return aRet;
 }
@@ -3049,8 +3046,8 @@ void SvxShape::setAllPropertiesToDefault()
 void SvxShape::setPropertiesToDefault(
     const uno::Sequence<OUString>& aPropertyNames )
 {
-    for ( sal_Int32 pos = 0; pos < aPropertyNames.getLength(); ++pos )
-        setPropertyToDefault( aPropertyNames[pos] );
+    for ( const auto& rPropertyName : aPropertyNames )
+        setPropertyToDefault( rPropertyName );
 }
 
 uno::Sequence<uno::Any> SvxShape::getPropertyDefaults(
@@ -3058,8 +3055,8 @@ uno::Sequence<uno::Any> SvxShape::getPropertyDefaults(
 {
     ::std::vector<uno::Any> ret;
     ret.reserve(aPropertyNames.getLength());
-    for (sal_Int32 pos = 0; pos < aPropertyNames.getLength(); ++pos)
-        ret.push_back( getPropertyDefault( aPropertyNames[pos] ) );
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), std::back_inserter(ret),
+        [this](const OUString& rName) -> uno::Any { return getPropertyDefault(rName); });
     return uno::Sequence<uno::Any>( ret.data(), ret.size() );
 }
 
@@ -3068,7 +3065,7 @@ uno::Sequence<uno::Any> SvxShape::getPropertyDefaults(
 
 OUString SAL_CALL SvxShape::getImplementationName()
 {
-    return OUString("SvxShape");
+    return "SvxShape";
 }
 
 const char sUNO_service_style_ParagraphProperties[]          = "com.sun.star.style.ParagraphProperties";
@@ -3806,9 +3803,9 @@ sal_Int16 SAL_CALL SvxShape::resetActionLocks(  )
 }
 
 
-/** since polygon shapes can change theire kind during editing, we have
+/** since polygon shapes can change their kind during editing, we have
     to recheck it here.
-    Circle shapes also change theire kind, but theire all treated equal
+    Circle shapes also change their kind, but they are all treated equal
     so no update is necessary.
 */
 void SvxShape::updateShapeKind()
@@ -3900,7 +3897,7 @@ void SAL_CALL SvxShapeText::release() throw()
 
 OUString SAL_CALL SvxShapeText::getImplementationName()
 {
-    return OUString("SvxShapeText");
+    return "SvxShapeText";
 }
 
 

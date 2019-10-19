@@ -79,6 +79,8 @@ static const struct {
     { "en_GM",  lcl_DATA_EN },
     { "en_BW",  lcl_DATA_EN },
     { "en_ZM",  lcl_DATA_EN },
+    { "en_LK",  lcl_DATA_EN },
+    { "en_NG",  lcl_DATA_EN },
 
     { "es_ES",  lcl_DATA_ES },
     { "es_AR",  lcl_DATA_ES },
@@ -508,7 +510,7 @@ lcl_LookupTableHelper::lcl_LookupTableHelper()
 
 lcl_LookupTableHelper::~lcl_LookupTableHelper()
 {
-    for ( LocaleDataLookupTableItem& item : maLookupTable ) {
+    for ( const LocaleDataLookupTableItem& item : maLookupTable ) {
         delete item.module;
     }
 }
@@ -839,7 +841,7 @@ LocaleDataImpl::getAllCurrencies2( const Locale& rLocale )
 Sequence< Currency > SAL_CALL
 LocaleDataImpl::getAllCurrencies( const Locale& rLocale )
 {
-    Sequence< Currency2 > aCur2( getAllCurrencies2( rLocale));
+    const Sequence< Currency2 > aCur2( getAllCurrencies2( rLocale));
     Sequence< Currency > aCur1( aCur2.getLength());
     Currency* p1 = aCur1.getArray();
     for (const Currency2& r2 : aCur2)
@@ -878,7 +880,7 @@ LocaleDataImpl::getAllFormats( const Locale& rLocale )
 
     Sequence< FormatElement > seq(formatCount);
     sal_Int32 f = 0;
-    for (FormatSection & s : section)
+    for (const FormatSection & s : section)
     {
         sal_Unicode const * const * const formatArray = s.formatArray;
         if ( formatArray )
@@ -1091,7 +1093,7 @@ OUString
 LocaleDataImpl::getIndexKeysByAlgorithm( const Locale& rLocale, const OUString& algorithm )
 {
     sal_Unicode **indexArray = getIndexArrayForAlgorithm(rLocale, algorithm);
-    return indexArray ? "0-9"+OUString(indexArray[2]) : OUString();
+    return indexArray ? (OUStringLiteral("0-9") + indexArray[2]) : OUString();
 }
 
 OUString
@@ -1575,7 +1577,7 @@ sal_Bool OutlineNumbering::hasElements(  )
 OUString SAL_CALL
 LocaleDataImpl::getImplementationName()
 {
-    return OUString("com.sun.star.i18n.LocaleDataImpl");
+    return "com.sun.star.i18n.LocaleDataImpl";
 }
 
 sal_Bool SAL_CALL LocaleDataImpl::supportsService(const OUString& rServiceName)

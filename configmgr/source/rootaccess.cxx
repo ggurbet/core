@@ -24,7 +24,6 @@
 
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/EventObject.hpp>
-#include <com/sun/star/lang/WrappedTargetException.hpp>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/uno/RuntimeException.hpp>
@@ -42,11 +41,9 @@
 #include <cppuhelper/weak.hxx>
 #include <osl/mutex.hxx>
 #include <rtl/ref.hxx>
-#include <rtl/ustring.h>
 #include <rtl/ustring.hxx>
 
 #include "broadcaster.hxx"
-#include "childaccess.hxx"
 #include "components.hxx"
 #include "data.hxx"
 #include "lock.hxx"
@@ -82,7 +79,7 @@ void RootAccess::initBroadcaster(
         css::util::ChangesSet set(comphelper::containerToSequence(changes));
         for (auto const& changesListener : changesListeners_)
         {
-            cppu::OWeakObject* pSource = static_cast< cppu::OWeakObject * >(this);
+            cppu::OWeakObject* pSource = this;
             css::uno::Reference< css::uno::XInterface > xBase( pSource, css::uno::UNO_QUERY );
             broadcaster->addChangesNotification(
                 changesListener,
@@ -306,7 +303,7 @@ OUString RootAccess::getImplementationName()
     assert(thisIs(IS_ANY));
     osl::MutexGuard g(*lock_);
     checkLocalizedPropertyAccess();
-    return OUString("configmgr.RootAccess");
+    return "configmgr.RootAccess";
 }
 
 }

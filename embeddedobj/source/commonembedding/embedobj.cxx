@@ -18,7 +18,6 @@
  */
 
 #include <com/sun/star/embed/EmbedStates.hpp>
-#include <com/sun/star/embed/EmbedVerbs.hpp>
 #include <com/sun/star/embed/EmbedUpdateModes.hpp>
 #include <com/sun/star/embed/ObjectSaveVetoException.hpp>
 #include <com/sun/star/embed/StorageWrappedTargetException.hpp>
@@ -31,7 +30,6 @@
 
 #include <com/sun/star/awt/XWindowPeer.hpp>
 #include <com/sun/star/io/IOException.hpp>
-#include <com/sun/star/util/XCloseBroadcaster.hpp>
 #include <com/sun/star/util/XCloseable.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
 #include <com/sun/star/frame/ModuleManager.hpp>
@@ -48,8 +46,8 @@
 #include <targetstatecontrol.hxx>
 
 #include <commonembobj.hxx>
-#include <intercept.hxx>
 #include "embedobj.hxx"
+#include <specialobject.hxx>
 
 using namespace ::com::sun::star;
 
@@ -58,7 +56,7 @@ awt::Rectangle GetRectangleInterception( const awt::Rectangle& aRect1, const awt
     awt::Rectangle aResult;
 
     OSL_ENSURE( aRect1.Width >= 0 && aRect2.Width >= 0 && aRect1.Height >= 0 && aRect2.Height >= 0,
-                "Offset must not be less then zero!" );
+                "Offset must not be less than zero!" );
 
     aResult.X = std::max(aRect1.X, aRect2.X);
     aResult.Y = std::max(aRect1.Y, aRect2.Y);
@@ -174,8 +172,7 @@ void OCommonEmbeddedObject::SwitchStateTo_Impl( sal_Int32 nNextState )
             }
             else
             {
-                uno::Reference < embed::XEmbedPersist > xPersist( static_cast < embed::XClassifiedObject* > (this), uno::UNO_QUERY );
-                if ( xPersist.is() )
+                if ( !dynamic_cast<OSpecialEmbeddedObject*>(this) )
                 {
                     // in case embedded object is in loaded state the contents must
                     // be stored in the related storage and the storage

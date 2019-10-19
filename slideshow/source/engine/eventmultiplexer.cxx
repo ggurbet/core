@@ -45,20 +45,86 @@
 #include <functional>
 #include <memory>
 #include <algorithm>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 using namespace ::com::sun::star;
 
-
-namespace std
+namespace
 {
     // add operator== for weak_ptr, so we can use std::find over lists of them
-    template<typename T> static bool operator==( weak_ptr<T> const& rLHS,
-                                          weak_ptr<T> const& rRHS )
-    {
-        return rLHS.lock().get() == rRHS.lock().get();
-    }
+    struct ViewEventHandlerWeakPtrWrapper final {
+        slideshow::internal::ViewEventHandlerWeakPtr ptr;
+
+        ViewEventHandlerWeakPtrWrapper(slideshow::internal::ViewEventHandlerWeakPtr thePtr):
+            ptr(std::move(thePtr)) {}
+
+        bool operator ==(ViewEventHandlerWeakPtrWrapper const & other) const
+        { return ptr.lock().get() == other.ptr.lock().get(); }
+    };
 }
+
+// Needed by ImplViewHandlers; see the ListenerOperations<std::weak_ptr<ListenerTargetT>> partial
+// specialization in slideshow/source/inc/listenercontainer.hxx:
+template<>
+struct slideshow::internal::ListenerOperations<ViewEventHandlerWeakPtrWrapper>
+{
+    template< typename ContainerT,
+              typename FuncT >
+    static bool notifySingleListener( ContainerT& rContainer,
+                                      FuncT       func )
+    {
+        for( const auto& rCurr : rContainer )
+        {
+            std::shared_ptr<ViewEventHandler> pListener( rCurr.ptr.lock() );
+
+            if( pListener && func(pListener) )
+                return true;
+        }
+
+        return false;
+    }
+
+    template< typename ContainerT,
+              typename FuncT >
+    static bool notifyAllListeners( ContainerT& rContainer,
+                                    FuncT       func )
+    {
+        bool bRet(false);
+        for( const auto& rCurr : rContainer )
+        {
+            std::shared_ptr<ViewEventHandler> pListener( rCurr.ptr.lock() );
+
+            if( pListener.get() &&
+                FunctionApply<typename ::std::result_of<FuncT (std::shared_ptr<ViewEventHandler> const&)>::type,
+                               std::shared_ptr<ViewEventHandler> >::apply(func,pListener) )
+            {
+                bRet = true;
+            }
+        }
+
+        return bRet;
+    }
+    template< typename ContainerT >
+    static void pruneListeners( ContainerT& rContainer,
+                                size_t      nSizeThreshold )
+    {
+        if( rContainer.size() <= nSizeThreshold )
+            return;
+
+        ContainerT aAliveListeners;
+        aAliveListeners.reserve(rContainer.size());
+
+        for( const auto& rCurr : rContainer )
+        {
+            if( !rCurr.ptr.expired() )
+                aAliveListeners.push_back( rCurr );
+        }
+
+        std::swap( rContainer, aAliveListeners );
+    }
+};
 
 namespace slideshow {
 namespace internal {
@@ -209,8 +275,8 @@ struct EventMultiplexerImpl
         PauseEventHandlerSharedPtr,
         std::vector<PauseEventHandlerSharedPtr> >         ImplPauseHandlers;
     typedef ThreadUnsafeListenerContainer<
-        ViewEventHandlerWeakPtr,
-        std::vector<ViewEventHandlerWeakPtr> >            ImplViewHandlers;
+        ViewEventHandlerWeakPtrWrapper,
+        std::vector<ViewEventHandlerWeakPtrWrapper> >     ImplViewHandlers;
     typedef ThreadUnsafeListenerContainer<
         ViewRepaintHandlerSharedPtr,
         std::vector<ViewRepaintHandlerSharedPtr> >        ImplRepaintHandlers;
@@ -961,21 +1027,19 @@ void EventMultiplexer::removeHyperlinkHandler( const HyperlinkHandlerSharedPtr& 
 }
 
 void EventMultiplexer::notifyShapeListenerAdded(
-    const uno::Reference<presentation::XShapeEventListener>& xListener,
     const uno::Reference<drawing::XShape>&                   xShape )
 {
     mpImpl->maShapeListenerHandlers.applyAll(
-        [&xListener, &xShape]( const ShapeListenerEventHandlerSharedPtr& pHandler )
-        { return pHandler->listenerAdded( xListener, xShape ); } );
+        [&xShape]( const ShapeListenerEventHandlerSharedPtr& pHandler )
+        { return pHandler->listenerAdded( xShape ); } );
 }
 
 void EventMultiplexer::notifyShapeListenerRemoved(
-    const uno::Reference<presentation::XShapeEventListener>& xListener,
     const uno::Reference<drawing::XShape>&                   xShape )
 {
     mpImpl->maShapeListenerHandlers.applyAll(
-        [&xListener, &xShape]( const ShapeListenerEventHandlerSharedPtr& pHandler )
-        { return pHandler->listenerRemoved( xListener, xShape ); } );
+        [&xShape]( const ShapeListenerEventHandlerSharedPtr& pHandler )
+        { return pHandler->listenerRemoved( xShape ); } );
 }
 
 void EventMultiplexer::notifyUserPaintColor( RGBColor const& rUserColor )

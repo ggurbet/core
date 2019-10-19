@@ -20,27 +20,25 @@
 #ifndef INCLUDED_CUI_SOURCE_OPTIONS_OPTBASIC_HXX
 #define INCLUDED_CUI_SOURCE_OPTIONS_OPTBASIC_HXX
 
-#include <vcl/button.hxx>
 #include <sfx2/tabdlg.hxx>
 
 class SvxBasicIDEOptionsPage: public SfxTabPage
 {
 private:
-    VclPtr<CheckBox> pCodeCompleteChk;
-    VclPtr<CheckBox> pAutocloseProcChk;
-    VclPtr<CheckBox> pAutocloseParenChk;
-    VclPtr<CheckBox> pAutocloseQuotesChk;
-    VclPtr<CheckBox> pAutoCorrectChk;
-    VclPtr<CheckBox> pUseExtendedTypesChk;
+    std::unique_ptr<weld::CheckButton> m_xCodeCompleteChk;
+    std::unique_ptr<weld::CheckButton> m_xAutocloseProcChk;
+    std::unique_ptr<weld::CheckButton> m_xAutocloseParenChk;
+    std::unique_ptr<weld::CheckButton> m_xAutocloseQuotesChk;
+    std::unique_ptr<weld::CheckButton> m_xAutoCorrectChk;
+    std::unique_ptr<weld::CheckButton> m_xUseExtendedTypesChk;
 
     void LoadConfig();
 
 public:
-    SvxBasicIDEOptionsPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    SvxBasicIDEOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxBasicIDEOptionsPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rSet );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
     virtual bool FillItemSet( SfxItemSet* rSet ) override;
     virtual void Reset( const SfxItemSet* rSet ) override;
     virtual void FillUserData() override;

@@ -21,13 +21,11 @@
 
 #include <svtools/valueset.hxx>
 #include <svx/dlgctrl.hxx>
-#include <svx/xfillit0.hxx>
 #include <svx/xflasit.hxx>
 #include <svx/tabarea.hxx>
 #include <svx/hexcolorcontrol.hxx>
 #include <svx/SvxColorValueSet.hxx>
 #include <svx/SvxPresetListBox.hxx>
-#include <svx/Palette.hxx>
 #include <svx/PaletteManager.hxx>
 #include <svx/svdview.hxx>
 
@@ -64,7 +62,7 @@ class ButtonBox
             maButtonList.push_back(pButton);
             maButtonToPos.insert( std::make_pair(pButton, maButtonList.size() - 1) );
         }
-        sal_Int32 GetCurrentButtonPos() { return mnCurrentButton; }
+        sal_Int32 GetCurrentButtonPos() const { return mnCurrentButton; }
         sal_Int32 GetButtonPos(weld::ToggleButton* pButton)
         {
             std::map<weld::ToggleButton*, sal_Int32>::const_iterator aBtnPos = maButtonToPos.find(pButton);
@@ -130,8 +128,6 @@ public:
 
 class SvxTransparenceTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
     static const sal_uInt16 pTransparenceRanges[];
 
     const SfxItemSet&   rOutAttrs;
@@ -190,10 +186,10 @@ class SvxTransparenceTabPage : public SfxTabPage
     void InvalidatePreview (bool bEnable = true );
 
 public:
-    SvxTransparenceTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxTransparenceTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxTransparenceTabPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent, const SfxItemSet*);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet*);
     static const sal_uInt16* GetRanges() { return pTransparenceRanges; }
 
     virtual bool FillItemSet(SfxItemSet*) override;
@@ -213,7 +209,7 @@ class SvxAreaTabPage : public SfxTabPage
 {
     static const sal_uInt16 pAreaRanges[];
 private:
-    ScopedVclPtr<SfxTabPage>   m_pFillTabPage;
+    std::unique_ptr<SfxTabPage> m_xFillTabPage;
     ButtonBox                  maBox;
 
     XColorListRef         m_pColorList;
@@ -251,9 +247,9 @@ protected:
     void SetOptimalSize(weld::DialogController* pController);
 
     void SelectFillType( weld::ToggleButton& rButton, const SfxItemSet* _pSet = nullptr );
-    SfxTabPage* GetFillTabPage() { return m_pFillTabPage; }
+    SfxTabPage* GetFillTabPage() { return m_xFillTabPage.get(); }
 
-    bool IsBtnClicked() { return m_bBtnClicked; }
+    bool IsBtnClicked() const { return m_bBtnClicked; }
 
 private:
     DECL_LINK(SelectFillTypeHdl_Impl, weld::ToggleButton&, void);
@@ -266,14 +262,10 @@ private:
     DeactivateRC DeactivatePage_Impl( SfxItemSet* pSet );
 
 public:
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
-    SvxAreaTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxAreaTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxAreaTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     static const sal_uInt16* GetRanges() { return pAreaRanges; }
 
     virtual bool FillItemSet( SfxItemSet* ) override;
@@ -300,8 +292,6 @@ public:
 
 class SvxShadowTabPage : public SvxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
     static const sal_uInt16 pShadowRanges[];
 
 private:
@@ -331,11 +321,10 @@ private:
     DECL_LINK(SelectShadowHdl_Impl, ColorListBox&, void);
 
 public:
-    SvxShadowTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxShadowTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxShadowTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     static const sal_uInt16* GetRanges() { return pShadowRanges; }
 
     virtual bool FillItemSet( SfxItemSet* ) override;
@@ -355,9 +344,6 @@ public:
 
 class SvxGradientTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 private:
     const SfxItemSet&   m_rOutAttrs;
 
@@ -410,13 +396,12 @@ private:
     sal_Int32 SearchGradientList(const OUString& rGradientName);
 
 public:
-    SvxGradientTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxGradientTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxGradientTabPage() override;
-    virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -434,9 +419,6 @@ public:
 
 class SvxHatchTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 private:
     const SfxItemSet&   m_rOutAttrs;
 
@@ -482,13 +464,12 @@ private:
     sal_Int32 SearchHatchList(const OUString& rHatchName);
 
 public:
-    SvxHatchTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxHatchTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxHatchTabPage() override;
-    virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -501,16 +482,12 @@ public:
 
     void    SetHtchChgd( ChangeType* pIn ) { m_pnHatchingListState = pIn; }
     void    SetColorChgd( ChangeType* pIn ) { m_pnColorListState = pIn; }
-
-    virtual void        DataChanged( const DataChangedEvent& rDCEvt ) override;
 };
 
 /************************************************************************/
 
 class SvxBitmapTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
     static const sal_uInt16 pBitmapRanges[];
 private:
 
@@ -567,13 +544,12 @@ private:
     sal_Int32 SearchBitmapList(const GraphicObject& rGraphicObject);
 
 public:
-    SvxBitmapTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxBitmapTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxBitmapTabPage() override;
-    virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
 
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
@@ -588,9 +564,6 @@ public:
 
 class SvxPatternTabPage : public SvxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 private:
     const SfxItemSet&   m_rOutAttrs;
 
@@ -625,13 +598,12 @@ private:
     sal_Int32 SearchPatternList(const OUString& rPatternName);
 
 public:
-    SvxPatternTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxPatternTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxPatternTabPage() override;
-    virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -657,12 +629,7 @@ enum class ColorModel
 
 class SvxColorTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 private:
-    VclPtr<Window>             mpTopDlg;
-
     const SfxItemSet&   rOutAttrs;
 
     XColorListRef         pColorList;
@@ -745,13 +712,12 @@ private:
     sal_Int32 FindInPalette( const Color& rColor );
 
 public:
-    SvxColorTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxColorTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxColorTabPage() override;
-    virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -764,7 +730,7 @@ public:
 
     void    SetColorChgd( ChangeType* pIn ) { pnColorListState = pIn; }
 
-    void    SetCtlPreviewOld( SfxItemSet& rAttrs ) { m_aCtlPreviewOld.SetAttributes( rAttrs ); }
+    void    SetCtlPreviewOld( const SfxItemSet& rAttrs ) { m_aCtlPreviewOld.SetAttributes( rAttrs ); }
 
     virtual void FillUserData() override;
 };

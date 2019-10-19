@@ -84,8 +84,8 @@ bool ViewFilter_Application::operator () (const ThumbnailViewItem *pItem)
     return true;
 }
 
-TemplateLocalView::TemplateLocalView ( vcl::Window* pParent, WinBits nWinStyle)
-    : ThumbnailView(pParent, nWinStyle),
+TemplateLocalView::TemplateLocalView ( vcl::Window* pParent)
+    : ThumbnailView(pParent, WB_TABSTOP),
       mnCurRegionId(0),
       maSelectedItem(nullptr),
       mnThumbnailWidth(TEMPLATE_THUMBNAIL_MAX_WIDTH),
@@ -438,14 +438,8 @@ bool TemplateLocalView::IsDefaultTemplate(const OUString& rPath)
     SvtModuleOptions aModOpt;
     const css::uno::Sequence<OUString> &aServiceNames = aModOpt.GetAllServiceNames();
 
-    for( sal_Int32 i=0, nCount = aServiceNames.getLength(); i < nCount; ++i )
-    {
-        const OUString defaultPath = SfxObjectFactory::GetStandardTemplate( aServiceNames[i] );
-        if(defaultPath.match(rPath))
-            return true;
-    }
-
-    return false;
+    return std::any_of(aServiceNames.begin(), aServiceNames.end(), [&rPath](const OUString& rName) {
+        return SfxObjectFactory::GetStandardTemplate(rName).match(rPath); });
 }
 
 BitmapEx TemplateLocalView::getDefaultThumbnail( const OUString& rPath )
@@ -611,7 +605,7 @@ void SfxTemplateLocalView::createContextMenu(const bool bIsDefault)
         mxContextMenu->append("default",SfxResId(STR_RESET_DEFAULT));
 
     mxContextMenu->append_separator("separator");
-    mxContextMenu->append("rename",SfxResId(STR_RENAME));
+    mxContextMenu->append("rename",SfxResId(STR_SFX_RENAME));
     mxContextMenu->append("delete",SfxResId(STR_DELETE));
     deselectItems();
     maSelectedItem->setSelection(true);
@@ -710,7 +704,7 @@ SfxTemplateLocalView::getFilteredItems(const std::function<bool (const TemplateI
     {
         TemplateContainerItem *pFolderItem = maRegions[mnCurRegionId-1].get();
 
-        for (TemplateItemProperties & rItemProps : pFolderItem->maTemplates)
+        for (const TemplateItemProperties & rItemProps : pFolderItem->maTemplates)
         {
             if (rFunc(rItemProps))
                 aItems.push_back(rItemProps);
@@ -1163,8 +1157,11 @@ bool SfxTemplateLocalView::MouseButtonDown( const MouseEvent& rMEvt )
     return SfxThumbnailView::MouseButtonDown(rMEvt);
 }
 
-bool SfxTemplateLocalView::ContextMenu(const CommandEvent& rCEvt)
+bool SfxTemplateLocalView::Command(const CommandEvent& rCEvt)
 {
+    if (rCEvt.GetCommand() != CommandEventId::ContextMenu)
+        return CustomWidgetController::Command(rCEvt);
+
     if (rCEvt.IsMouseEvent())
     {
         deselectItems();
@@ -1301,19 +1298,13 @@ bool SfxTemplateLocalView::IsDefaultTemplate(const OUString& rPath)
     SvtModuleOptions aModOpt;
     const css::uno::Sequence<OUString> &aServiceNames = aModOpt.GetAllServiceNames();
 
-    for( sal_Int32 i=0, nCount = aServiceNames.getLength(); i < nCount; ++i )
-    {
-        const OUString defaultPath = SfxObjectFactory::GetStandardTemplate( aServiceNames[i] );
-        if(defaultPath.match(rPath))
-            return true;
-    }
-
-    return false;
+    return std::any_of(aServiceNames.begin(), aServiceNames.end(), [&rPath](const OUString& rName) {
+        return SfxObjectFactory::GetStandardTemplate(rName).match(rPath); });
 }
 
 void SfxTemplateLocalView::RemoveDefaultTemplateIcon(const OUString& rPath)
 {
-    for (std::unique_ptr<ThumbnailViewItem>& pItem : mItemList)
+    for (const std::unique_ptr<ThumbnailViewItem>& pItem : mItemList)
     {
         TemplateViewItem* pViewItem = dynamic_cast<TemplateViewItem*>(pItem.get());
         if (pViewItem && pViewItem->getPath().match(rPath))

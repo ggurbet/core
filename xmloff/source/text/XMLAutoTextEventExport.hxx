@@ -22,8 +22,6 @@
 
 #include <xmloff/xmlexp.hxx>
 
-#include <set>
-
 
 namespace com { namespace sun { namespace star {
     namespace container { class XNameAccess; }
@@ -67,7 +65,7 @@ private:
         enum ::xmloff::token::XMLTokenEnum eClass = xmloff::token::XML_TOKEN_INVALID ) override;
 
     /// does the document have any events ?
-    bool hasEvents();
+    bool hasEvents() const;
 
     /// export the events element
     void exportEvents();

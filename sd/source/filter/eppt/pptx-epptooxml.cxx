@@ -378,7 +378,7 @@ bool PowerPointExport::exportDocument()
     DrawingML::ResetCounters();
     maShapeMap.clear();
 
-    mXModel.set(getModel(), UNO_QUERY);
+    mXModel = getModel();
 
     //write document properties
     writeDocumentProperties();
@@ -417,7 +417,7 @@ bool PowerPointExport::exportDocument()
 
     mPresentationFS->startElementNS(XML_p, XML_presentation, PNMSS);
 
-    mXStatusIndicator.set(getStatusIndicator(), UNO_QUERY);
+    mXStatusIndicator = getStatusIndicator();
 
     std::vector< PropertyValue > aProperties;
     PropertyValue aProperty;
@@ -464,7 +464,6 @@ void PowerPointExport::ImplWriteBackground(const FSHelperPtr& pFS, const Referen
         mAny >>= aFillStyle;
 
     if (aFillStyle == FillStyle_NONE ||
-            aFillStyle == FillStyle_GRADIENT ||
             aFillStyle == FillStyle_HATCH)
         return;
 
@@ -1045,7 +1044,7 @@ void PowerPointExport::WriteVBA()
     if (!xStorageBasedDocument.is())
         return;
 
-    uno::Reference<embed::XStorage> xDocumentStorage(xStorageBasedDocument->getDocumentStorage(), uno::UNO_QUERY);
+    uno::Reference<embed::XStorage> xDocumentStorage = xStorageBasedDocument->getDocumentStorage();
     OUString aMacrosName("_MS_VBA_Macros");
     if (!xDocumentStorage.is() || !xDocumentStorage->hasByName(aMacrosName))
         return;
@@ -1320,11 +1319,8 @@ void PowerPointExport::ImplWritePPTXLayout(sal_Int32 nOffset, sal_uInt32 nMaster
     SAL_INFO("sd.eppt", "write layout: " << nOffset);
 
     Reference< drawing::XDrawPagesSupplier > xDPS(getModel(), uno::UNO_QUERY);
-    Reference< drawing::XDrawPages > xDrawPages(xDPS->getDrawPages(), uno::UNO_QUERY);
-    Reference< drawing::XDrawPage > xSlide;
-    Reference< container::XIndexAccess > xIndexAccess(xDrawPages, uno::UNO_QUERY);
-
-    xSlide = xDrawPages->insertNewByIndex(xIndexAccess->getCount());
+    Reference< drawing::XDrawPages > xDrawPages = xDPS->getDrawPages();
+    Reference< drawing::XDrawPage > xSlide = xDrawPages->insertNewByIndex(xDrawPages->getCount());
 
 #ifdef DEBUG
     if (xSlide.is())
@@ -1337,7 +1333,7 @@ void PowerPointExport::ImplWritePPTXLayout(sal_Int32 nOffset, sal_uInt32 nMaster
     dump_pset(xPropSet);
 #endif
     mXPagePropSet.set(xSlide, UNO_QUERY);
-    mXShapes.set(xSlide, UNO_QUERY);
+    mXShapes = xSlide;
 
     if (mLayoutInfo[ nOffset ].mnFileIdArray.size() < mnMasterPages)
     {
@@ -1587,18 +1583,21 @@ ShapeExport& PowerPointShapeExport::WritePlaceholderShape(const Reference< XShap
             </a:schemeClr>\
           </a:solidFill>\
           <a:prstDash val=\"solid\"/>\
+          <a:miter/>\
         </a:ln>\
         <a:ln w=\"25400\" cap=\"flat\" cmpd=\"sng\" algn=\"ctr\">\
           <a:solidFill>\
             <a:schemeClr val=\"phClr\"/>\
           </a:solidFill>\
           <a:prstDash val=\"solid\"/>\
+          <a:miter/>\
         </a:ln>\
         <a:ln w=\"38100\" cap=\"flat\" cmpd=\"sng\" algn=\"ctr\">\
           <a:solidFill>\
             <a:schemeClr val=\"phClr\"/>\
           </a:solidFill>\
           <a:prstDash val=\"solid\"/>\
+          <a:miter/>\
         </a:ln>\
       </a:lnStyleLst>\
       <a:effectStyleLst>\
@@ -1952,7 +1951,7 @@ void PowerPointExport::embedEffectAudio(const FSHelperPtr& pFS, const OUString& 
         if (!xStorageBasedDocument.is())
             return;
 
-        uno::Reference<embed::XStorage> xDocumentStorage(xStorageBasedDocument->getDocumentStorage(), uno::UNO_QUERY);
+        uno::Reference<embed::XStorage> xDocumentStorage = xStorageBasedDocument->getDocumentStorage();
         if (!xDocumentStorage.is())
             return;
 
@@ -1971,10 +1970,7 @@ void PowerPointExport::embedEffectAudio(const FSHelperPtr& pFS, const OUString& 
     int nLastSlash = sUrl.lastIndexOf('/');
     sName = sUrl.copy(nLastSlash >= 0 ? nLastSlash + 1 : 0);
 
-    OUString sPath = OUStringBuffer().append("../media/")
-                                     .append(sName)
-                                     .makeStringAndClear();
-
+    OUString sPath = "../media/" + sName;
     sRelId = addRelation(pFS->getOutputStream(),
                         oox::getRelationship(Relationship::AUDIO), sPath);
 
@@ -2004,7 +2000,7 @@ bool PowerPointExport::ImplCreateMainNotes()
 
 OUString PowerPointExport::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Impress.oox.PowerPointExport");
+    return "com.sun.star.comp.Impress.oox.PowerPointExport";
 }
 
 void PowerPointExport::WriteDiagram(const FSHelperPtr& pFS, PowerPointShapeExport& rDML, const css::uno::Reference<css::drawing::XShape>& rXShape, int nDiagramId)

@@ -168,7 +168,7 @@ void OTableTreeListBox::UpdateTableList( const Reference< XConnection >& _rxConn
     }
     catch(RuntimeException&)
     {
-        OSL_FAIL("OTableTreeListBox::UpdateTableList : caught an RuntimeException!");
+        OSL_FAIL("OTableTreeListBox::UpdateTableList : caught a RuntimeException!");
     }
     catch ( const SQLException& )
     {
@@ -210,7 +210,7 @@ void TableTreeListBox::UpdateTableList( const Reference< XConnection >& _rxConne
     }
     catch(RuntimeException&)
     {
-        OSL_FAIL("OTableTreeListBox::UpdateTableList : caught an RuntimeException!");
+        OSL_FAIL("OTableTreeListBox::UpdateTableList : caught a RuntimeException!");
     }
     catch ( const SQLException& )
     {
@@ -457,7 +457,7 @@ void TableTreeListBox::UpdateTableList( const Reference< XConnection >& _rxConne
     m_xTreeView->make_sorted();
 }
 
-bool TableTreeListBox::isWildcardChecked(weld::TreeIter& rEntry)
+bool TableTreeListBox::isWildcardChecked(const weld::TreeIter& rEntry)
 {
     return m_xTreeView->get_text_emphasis(rEntry, m_nTextColumn);
 }
@@ -605,9 +605,9 @@ void TableTreeListBox::implEmphasize(weld::TreeIter& rEntry, bool _bChecked, boo
     }
 }
 
-void OTableTreeListBox::InitEntry(SvTreeListEntry* _pEntry, const OUString& _rString, const Image& _rCollapsedBitmap, const Image& _rExpandedBitmap, SvLBoxButtonKind _eButtonKind)
+void OTableTreeListBox::InitEntry(SvTreeListEntry* _pEntry, const OUString& _rString, const Image& _rCollapsedBitmap, const Image& _rExpandedBitmap)
 {
-    OMarkableTreeListBox::InitEntry(_pEntry, _rString, _rCollapsedBitmap, _rExpandedBitmap, _eButtonKind);
+    OMarkableTreeListBox::InitEntry(_pEntry, _rString, _rCollapsedBitmap, _rExpandedBitmap);
 
     // replace the text item with our own one
     SvLBoxItem* pTextItem = _pEntry->GetFirstItem(SvLBoxItemType::String);
@@ -902,7 +902,7 @@ void OTableTreeListBox::removedTable( const OUString& _rName )
     }
 }
 
-std::unique_ptr<weld::TreeIter> TableTreeListBox::GetEntryPosByName(const OUString& aName, weld::TreeIter* pStart, const IEntryFilter* _pFilter) const
+std::unique_ptr<weld::TreeIter> TableTreeListBox::GetEntryPosByName(const OUString& aName, const weld::TreeIter* pStart, const IEntryFilter* _pFilter) const
 {
     auto xEntry(m_xTreeView->make_iterator(pStart));
     if (!pStart && !m_xTreeView->get_iter_first(*xEntry))

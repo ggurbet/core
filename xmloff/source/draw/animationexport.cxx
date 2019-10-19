@@ -51,7 +51,6 @@
 #include <com/sun/star/presentation/TextAnimationType.hpp>
 #include <com/sun/star/presentation/ShapeAnimationSubType.hpp>
 #include <com/sun/star/presentation/EffectCommands.hpp>
-#include <com/sun/star/drawing/XShape.hpp>
 #include <o3tl/any.hxx>
 #include <sax/tools/converter.hxx>
 #include <sal/log.hxx>
@@ -59,15 +58,13 @@
 #include <tools/diagnose_ex.h>
 
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
-#include "sdxmlexp_impl.hxx"
 #include "sdpropls.hxx"
+#include <xmlsdtypes.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/xmlexp.hxx>
 #include <xmloff/xmlement.hxx>
-#include <xmloff/nmspmap.hxx>
-#include <xmloff/shapeexport.hxx>
 #include <xmloff/xmlprhdl.hxx>
 
 #include <animations.hxx>
@@ -724,7 +721,7 @@ void AnimationsExporterImpl::prepareNode( const Reference< XAnimationNode >& xNo
         break;
         }
 
-        Sequence< NamedValue > aUserData( xNode->getUserData() );
+        const Sequence< NamedValue > aUserData( xNode->getUserData() );
         for( const auto& rValue : aUserData )
         {
             if( IsXMLToken( rValue.Name, XML_MASTER_ELEMENT ) )
@@ -875,7 +872,7 @@ void AnimationsExporterImpl::exportNode( const Reference< XAnimationNode >& xNod
 
         sal_Int16 nContainerNodeType = EffectNodeType::DEFAULT;
         OUString aPresetId;
-        Sequence< NamedValue > aUserData( xNode->getUserData() );
+        const Sequence< NamedValue > aUserData( xNode->getUserData() );
         for( const auto& rValue : aUserData )
         {
             if( IsXMLToken( rValue.Name, XML_NODE_TYPE ) )
@@ -1161,7 +1158,7 @@ void AnimationsExporterImpl::exportAnimate( const Reference< XAnimate >& xAnimat
 
         if(nNodeType != AnimationNodeType::SET)
         {
-            Sequence< double > aKeyTimes( xAnimate->getKeyTimes() );
+            const Sequence< double > aKeyTimes( xAnimate->getKeyTimes() );
             if( aKeyTimes.hasElements() )
             {
                 for( const auto& rKeyTime : aKeyTimes )
@@ -1202,7 +1199,7 @@ void AnimationsExporterImpl::exportAnimate( const Reference< XAnimate >& xAnimat
                 }
             }
 
-            Sequence< TimeFilterPair > aTimeFilter( xAnimate->getTimeFilter() );
+            const Sequence< TimeFilterPair > aTimeFilter( xAnimate->getTimeFilter() );
             if( aTimeFilter.hasElements() )
             {
                 for( const auto& rPair : aTimeFilter )

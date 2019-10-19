@@ -53,8 +53,7 @@ bool ScRangeUtil::MakeArea( const OUString&   rAreaStr,
 
     if ( nColonPos == -1  && nPointPos != -1 )
     {
-        aStrArea += ":";
-        aStrArea += rAreaStr.copy( nPointPos+1 ); // do not include '.' in copy
+        aStrArea += ":" + rAreaStr.copy( nPointPos+1 ); // do not include '.' in copy
     }
 
     bSuccess = ConvertDoubleRef( pDoc, aStrArea, nTab, startPos, endPos, rDetails );
@@ -115,8 +114,7 @@ bool ScRangeUtil::IsAbsTabArea( const OUString&   rAreaStr,
 
     if ( -1 == aTempAreaStr.indexOf(':') )
     {
-        aTempAreaStr += ":";
-        aTempAreaStr += rAreaStr;
+        aTempAreaStr += ":" + rAreaStr;
     }
 
     sal_Int32   nColonPos = aTempAreaStr.indexOf(':');
@@ -341,7 +339,7 @@ void ScRangeStringConverter::AssignString(
         if( !rNewStr.isEmpty() )
         {
             if( !rString.isEmpty() )
-                rString += OUStringLiteral1(cSeparator);
+                rString += OUStringChar(cSeparator);
             rString += rNewStr;
         }
     }
@@ -696,10 +694,8 @@ void ScRangeStringConverter::GetStringFromRangeList(
         sal_Unicode cSeparator )
 {
     OUString sRangeListStr;
-    sal_Int32 nCount = rRangeSeq.getLength();
-    for( sal_Int32 nIndex = 0; nIndex < nCount; nIndex++ )
+    for( const table::CellRangeAddress& rRange : rRangeSeq )
     {
-        const table::CellRangeAddress& rRange = rRangeSeq[ nIndex ];
         GetStringFromRange( sRangeListStr, rRange, pDocument, eConv, cSeparator, true );
     }
     rString = sRangeListStr;

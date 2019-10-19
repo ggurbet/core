@@ -643,8 +643,8 @@ Any SAL_CALL IdlInterfaceMethodImpl::invoke( const Any & rObj, Sequence< Any > &
                     IllegalArgumentException aExc(
                         "cannot coerce argument type during corereflection call:"
                         "\narg no.: " + OUString::number(nPos)
-                        + " expected: \"" + OUString(pTD->pTypeName)
-                        + "\" actual: \"" + OUString(pCppArgs[nPos].getValueTypeRef()->pTypeName)
+                        + " expected: \"" + OUString::unacquired(&pTD->pTypeName)
+                        + "\" actual: \"" + OUString::unacquired(&pCppArgs[nPos].getValueTypeRef()->pTypeName)
                         + "\"",
                         *o3tl::doAccess<Reference<XInterface>>(rObj), static_cast<sal_Int16>(nPos) );
 
@@ -790,11 +790,9 @@ sal_Bool InterfaceIdlClassImpl::isAssignableFrom( const Reference< XIdlClass > &
         else
         {
             const Sequence< Reference< XIdlClass > > & rSeq = xType->getSuperclasses();
-            for (sal_Int32 i = 0; i < rSeq.getLength(); ++i) {
-                if (isAssignableFrom(rSeq[i])) {
-                    return true;
-                }
-            }
+            if (std::any_of(rSeq.begin(), rSeq.end(),
+                    [this](const Reference<XIdlClass>& rType){ return isAssignableFrom(rType); }))
+                return true;
         }
     }
     return false;

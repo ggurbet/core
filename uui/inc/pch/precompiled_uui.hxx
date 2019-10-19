@@ -13,7 +13,7 @@
  manual changes will be rewritten by the next run of update_pch.sh (which presumably
  also fixes all possible problems, so it's usually better to use it).
 
- Generated on 2019-04-29 21:19:18 using:
+ Generated on 2019-10-17 15:17:33 using:
  ./bin/update_pch uui uui --cutoff=4 --exclude:system --exclude:module --exclude:local
 
  If after updating build fails, use the following command to locate conflicting headers:
@@ -28,6 +28,7 @@
 #include <new>
 #include <ostream>
 #include <stddef.h>
+#include <string_view>
 #include <utility>
 #include <vector>
 #endif // PCH_LEVEL >= 1
@@ -42,6 +43,7 @@
 #include <rtl/instance.hxx>
 #include <rtl/strbuf.hxx>
 #include <rtl/string.hxx>
+#include <rtl/stringconcat.hxx>
 #include <rtl/stringutils.hxx>
 #include <rtl/textenc.h>
 #include <rtl/unload.h>
@@ -49,12 +51,13 @@
 #include <rtl/ustring.h>
 #include <rtl/ustring.hxx>
 #include <sal/config.h>
+#include <sal/detail/log.h>
 #include <sal/macros.h>
 #include <sal/saldllapi.h>
 #include <sal/types.h>
 #include <sal/typesizes.h>
-#include <vcl/button.hxx>
 #include <vcl/dllapi.h>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #endif // PCH_LEVEL >= 2

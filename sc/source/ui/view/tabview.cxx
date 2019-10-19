@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/svapp.hxx>
-
 #include <scitems.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
@@ -40,16 +38,13 @@
 #include <tabcont.hxx>
 #include <scmod.hxx>
 #include <sc.hrc>
-#include <viewutil.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <drawview.hxx>
 #include <docsh.hxx>
 #include <viewuno.hxx>
-#include <AccessibilityHints.hxx>
 #include <appoptio.hxx>
 #include <attrib.hxx>
-#include <table.hxx>
 #include <comphelper/lok.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <sfx2/lokhelper.hxx>
@@ -415,7 +410,7 @@ void ScTabView::DoResize( const Point& rOffset, const Size& rSize, bool bInner )
             {
                 case SC_SPLIT_NONE:
                     nSizeSp = nSplitSizeX;
-                    nSizeLt = nSizeX - nSizeSp; // Covert the corner
+                    nSizeLt = nSizeX - nSizeSp; // Convert the corner
                     break;
                 case SC_SPLIT_NORMAL:
                     nSizeSp = nSplitSizeX;
@@ -1689,7 +1684,7 @@ void ScTabView::DoVSplit(long nSplitPos)
     }
 }
 
-Point ScTabView::GetInsertPos()
+Point ScTabView::GetInsertPos() const
 {
     ScDocument* pDoc = aViewData.GetDocument();
     SCCOL nCol = aViewData.GetCurX();
@@ -2342,7 +2337,7 @@ void lcl_getGroupIndexes(const ScOutlineArray& rArray, SCCOLROW nStart, SCCOLROW
             {
                 if (nIndex > 0)
                 {
-                    // is there a prevoius group not inside the range
+                    // is there a previous group not inside the range
                     // but anyway intersecting it ?
                     const ScOutlineEntry* pPrevEntry = rArray.GetEntry(nLevel, nIndex - 1);
                     if (pPrevEntry && nStart < pPrevEntry->GetEnd())
@@ -2429,12 +2424,11 @@ void lcl_createGroupsData(
 
                 bool bGroupHidden = pEntry->IsHidden();
 
-                OUString aGroupData;
-                aGroupData += "{ \"level\": \"" + OUString::number(nLevel + 1) + "\", ";
-                aGroupData += "\"index\": \"" + OUString::number(nIndex) + "\", ";
-                aGroupData += "\"startPos\": \"" + OUString::number(rGroupStartPositions[nLevel]) + "\", ";
-                aGroupData += "\"endPos\": \"" + OUString::number(nTotalTwips) + "\", ";
-                aGroupData += "\"hidden\": \"" + OUString::number(bGroupHidden ? 1 : 0) + "\" }";
+                OUString aGroupData = "{ \"level\": \"" + OUString::number(nLevel + 1) + "\", "
+                    "\"index\": \"" + OUString::number(nIndex) + "\", "
+                    "\"startPos\": \"" + OUString::number(rGroupStartPositions[nLevel]) + "\", "
+                    "\"endPos\": \"" + OUString::number(nTotalTwips) + "\", "
+                    "\"hidden\": \"" + OUString::number(bGroupHidden ? 1 : 0) + "\" }";
 
                 rGroupsBuffer += aGroupData;
 
@@ -2560,13 +2554,6 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
         SAL_INFO("sc.lok.header", "Row Header: a new height: " << aNewSize.Height());
         if (pDocSh)
         {
-            // Provide size in the payload, so clients don't have to
-            // call lok::Document::getDocumentSize().
-            std::stringstream ss;
-            ss << aNewSize.Width() << ", " << aNewSize.Height();
-            OString sSize = ss.str().c_str();
-            aViewData.GetViewShell()->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, sSize.getStr());
-
             // New area extended to the bottom of the sheet after last row
             // excluding overlapping area with aNewColArea
             tools::Rectangle aNewRowArea(0, aOldSize.getHeight(), aOldSize.getWidth(), aNewSize.getHeight());
@@ -2577,6 +2564,14 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
                 UpdateSelectionOverlay();
                 SfxLokHelper::notifyInvalidation(aViewData.GetViewShell(), aNewRowArea.toString());
             }
+
+            // Provide size in the payload, so clients don't have to
+            // call lok::Document::getDocumentSize().
+            std::stringstream ss;
+            ss << aNewSize.Width() << ", " << aNewSize.Height();
+            OString sSize = ss.str().c_str();
+            ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(aViewData.GetViewShell()->GetCurrentDocument());
+            SfxLokHelper::notifyDocumentSizeChanged(aViewData.GetViewShell(), sSize, pModel, false);
         }
     }
 
@@ -2597,8 +2592,7 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
         aBuffer.append("\"groupLevels\": \"").append(OUString::number(nRowGroupDepth)).append("\" }");
     }
 
-    OUString aRowGroupsBuffer;
-    aRowGroupsBuffer += "\"rowGroups\": [\n";
+    OUString aRowGroupsBuffer = "\"rowGroups\": [\n";
     std::vector<long> aRowGroupStartPositions(nRowGroupDepth, -nTotalPixels);
     long nPrevSizePx = -1;
     for (SCROW nRow = nStartRow + 1; nRow <= nEndRow; ++nRow)
@@ -2701,13 +2695,6 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
 
         if (pDocSh)
         {
-            // Provide size in the payload, so clients don't have to
-            // call lok::Document::getDocumentSize().
-            std::stringstream ss;
-            ss << aNewSize.Width() << ", " << aNewSize.Height();
-            OString sSize = ss.str().c_str();
-            aViewData.GetViewShell()->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, sSize.getStr());
-
             // New area extended to the right of the sheet after last column
             // including overlapping area with aNewRowArea
             tools::Rectangle aNewColArea(aOldSize.getWidth(), 0, aNewSize.getWidth(), aNewSize.getHeight());
@@ -2717,6 +2704,17 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
             {
                 UpdateSelectionOverlay();
                 SfxLokHelper::notifyInvalidation(aViewData.GetViewShell(), aNewColArea.toString());
+            }
+
+            if (aOldSize != aNewSize)
+            {
+                // Provide size in the payload, so clients don't have to
+                // call lok::Document::getDocumentSize().
+                std::stringstream ss;
+                ss << aNewSize.Width() << ", " << aNewSize.Height();
+                OString sSize = ss.str().c_str();
+                ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(aViewData.GetViewShell()->GetCurrentDocument());
+                SfxLokHelper::notifyDocumentSizeChanged(aViewData.GetViewShell(), sSize, pModel, false);
             }
         }
     }
@@ -2737,8 +2735,7 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
         aBuffer.append("\"groupLevels\": \"").append(OUString::number(nColGroupDepth)).append("\" }");
     }
 
-    OUString aColGroupsBuffer;
-    aColGroupsBuffer += "\"columnGroups\": [\n";
+    OUString aColGroupsBuffer = "\"columnGroups\": [\n";
     std::vector<long> aColGroupStartPositions(nColGroupDepth, -nTotalPixels);
     nPrevSizePx = -1;
     for (SCCOL nCol = nStartCol + 1; nCol <= nEndCol; ++nCol)

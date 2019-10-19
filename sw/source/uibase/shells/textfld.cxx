@@ -70,7 +70,6 @@
 #include <app.hrc>
 #include <edtwin.hxx>
 #include <PostItMgr.hxx>
-#include <calbck.hxx>
 #include <cstddef>
 #include <memory>
 #include <swmodule.hxx>
@@ -78,6 +77,12 @@
 #include <xmloff/odffields.hxx>
 #include <IDocumentContentOperations.hxx>
 #include <IDocumentUndoRedo.hxx>
+#include <svx/numfmtsh.hxx>
+#include <svl/zforlist.hxx>
+#include <svl/zformat.hxx>
+#include <IMark.hxx>
+#include <officecfg/Office/Compatibility.hxx>
+
 
 using namespace nsSwDocInfoSubType;
 
@@ -123,7 +128,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
 
     bool bMore = false;
     bool bIsText = true;
-    sal_uInt16 nInsertType = 0;
+    SwFieldTypesEnum nInsertType = SwFieldTypesEnum::Date;
     sal_uInt16 nInsertSubType = 0;
     sal_uInt32 nInsertFormat = 0;
 
@@ -136,7 +141,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
             {
                 switch ( pField->GetTypeId() )
                 {
-                    case TYP_DDEFLD:
+                    case SwFieldTypesEnum::DDE:
                     {
                         ::sfx2::SvBaseLink& rLink = static_cast<SwDDEFieldType*>(pField->GetTyp())->
                                                 GetBaseLink();
@@ -224,15 +229,15 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                 if( pItem )
                 {
                     sal_uInt32 nFormat = 0;
-                    sal_uInt16 nType = 0;
+                    SwFieldTypesEnum nType = SwFieldTypesEnum::Date;
                     OUString aPar1 = static_cast<const SfxStringItem *>(pItem)->GetValue();
                     OUString aPar2;
                     sal_Int32 nCommand = 0;
 
                     if( SfxItemState::SET == pArgs->GetItemState( FN_PARAM_FIELD_TYPE,
                                                                 false, &pItem ))
-                        nType = static_cast<const SfxUInt16Item *>(pItem)->GetValue();
-                    aPar1 += OUStringLiteral1(DB_DELIM);
+                        nType = static_cast<SwFieldTypesEnum>(static_cast<const SfxUInt16Item *>(pItem)->GetValue());
+                    aPar1 += OUStringChar(DB_DELIM);
                     if( SfxItemState::SET == pArgs->GetItemState(
                                         FN_PARAM_1, false, &pItem ))
                     {
@@ -241,9 +246,9 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                     if( SfxItemState::SET == pArgs->GetItemState(
                                         FN_PARAM_3, false, &pItem ))
                         nCommand = static_cast<const SfxInt32Item*>(pItem)->GetValue();
-                    aPar1 += OUStringLiteral1(DB_DELIM)
+                    aPar1 += OUStringChar(DB_DELIM)
                         + OUString::number(nCommand)
-                        + OUStringLiteral1(DB_DELIM);
+                        + OUStringChar(DB_DELIM);
                     if( SfxItemState::SET == pArgs->GetItemState(
                                         FN_PARAM_2, false, &pItem ))
                     {
@@ -269,7 +274,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                 if( pItem && nSlot != FN_INSERT_FIELD_CTRL)
                 {
                     sal_uInt32 nFormat = 0;
-                    sal_uInt16 nType = 0;
+                    SwFieldTypesEnum nType = SwFieldTypesEnum::Date;
                     sal_uInt16 nSubType = 0;
                     OUString aPar1 = static_cast<const SfxStringItem *>(pItem)->GetValue();
                     OUString aPar2;
@@ -277,7 +282,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
 
                     if( SfxItemState::SET == pArgs->GetItemState( FN_PARAM_FIELD_TYPE,
                                                                 false, &pItem ))
-                        nType = static_cast<const SfxUInt16Item *>(pItem)->GetValue();
+                        nType = static_cast<SwFieldTypesEnum>(static_cast<const SfxUInt16Item *>(pItem)->GetValue());
                     if( SfxItemState::SET == pArgs->GetItemState( FN_PARAM_FIELD_SUBTYPE,
                                                                 false, &pItem ))
                         nSubType = static_cast<const SfxUInt16Item *>(pItem)->GetValue();
@@ -339,6 +344,15 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                           GetView().GetPostItMgr()->HasActiveSidebarWin() )
                 {
                     GetView().GetPostItMgr()->DeleteActiveSidebarWin();
+                }
+            }
+            break;
+            case FN_RESOLVE_NOTE:
+            {
+                const SvxPostItIdItem* pIdItem = rReq.GetArg<SvxPostItIdItem>(SID_ATTR_POSTIT_ID);
+                if (pIdItem && !pIdItem->GetValue().isEmpty() && GetView().GetPostItMgr())
+                {
+                    GetView().GetPostItMgr()->ToggleResolvedForThread(pIdItem->GetValue().toUInt32());
                 }
             }
             break;
@@ -430,7 +444,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                         pAnnotationWin->UpdateText(sText);
 
                         // explicit state update to get the Undo state right
-                        GetView().AttrChangedNotify(GetShellPtr());
+                        GetView().AttrChangedNotify(nullptr);
                     }
                 }
             }
@@ -477,7 +491,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                     if (comphelper::LibreOfficeKit::isActive() && !sCommentText.isEmpty())
                     {
                         rSh.SetRedlineComment(sCommentText);
-                        GetView().AttrChangedNotify(GetShellPtr());
+                        GetView().AttrChangedNotify(nullptr);
                         MaybeNotifyRedlineModification(const_cast<SwRangeRedline*>(pRedline), pRedline->GetDoc());
                         break;
                     }
@@ -561,7 +575,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                     pDlg.disposeAndClear();
                     g_bNoInterrupt = false;
                     rSh.ClearMark();
-                    GetView().AttrChangedNotify(GetShellPtr());
+                    GetView().AttrChangedNotify(nullptr);
                 }
             }
             break;
@@ -606,7 +620,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
 
                 if( bNew )
                 {
-                    SwInsertField_Data aData(TYP_SCRIPTFLD, 0, aType, aText, bIsUrl ? 1 : 0);
+                    SwInsertField_Data aData(SwFieldTypesEnum::Script, 0, aType, aText, bIsUrl ? 1 : 0);
                     aMgr.InsertField(aData);
                     rReq.Done();
                 }
@@ -622,34 +636,34 @@ void SwTextShell::ExecField(SfxRequest &rReq)
             break;
 
             case FN_INSERT_FLD_DATE    :
-                nInsertType = TYP_DATEFLD;
+                nInsertType = SwFieldTypesEnum::Date;
                 bIsText = false;
                 goto FIELD_INSERT;
             case FN_INSERT_FLD_TIME    :
-                nInsertType = TYP_TIMEFLD;
+                nInsertType = SwFieldTypesEnum::Time;
                 bIsText = false;
                 goto FIELD_INSERT;
             case FN_INSERT_FLD_PGNUMBER:
-                nInsertType = TYP_PAGENUMBERFLD;
+                nInsertType = SwFieldTypesEnum::PageNumber;
                 nInsertFormat = SVX_NUM_PAGEDESC; // Like page template
                 bIsText = false;
                 goto FIELD_INSERT;
             case FN_INSERT_FLD_PGCOUNT :
-                nInsertType = TYP_DOCSTATFLD;
+                nInsertType = SwFieldTypesEnum::DocumentStatistics;
                 nInsertSubType = 0;
                 bIsText = false;
                 nInsertFormat = SVX_NUM_PAGEDESC;
                 goto FIELD_INSERT;
             case FN_INSERT_FLD_TOPIC   :
-                nInsertType = TYP_DOCINFOFLD;
+                nInsertType = SwFieldTypesEnum::DocumentInfo;
                 nInsertSubType = DI_THEMA;
                 goto FIELD_INSERT;
             case FN_INSERT_FLD_TITLE   :
-                nInsertType = TYP_DOCINFOFLD;
+                nInsertType = SwFieldTypesEnum::DocumentInfo;
                 nInsertSubType = DI_TITLE;
                 goto FIELD_INSERT;
             case FN_INSERT_FLD_AUTHOR  :
-                nInsertType = TYP_DOCINFOFLD;
+                nInsertType = SwFieldTypesEnum::DocumentInfo;
                 nInsertSubType = DI_CREATE|DI_SUB_AUTHOR;
 
 FIELD_INSERT:
@@ -671,8 +685,8 @@ FIELD_INSERT:
                 SwPaM* pCursorPos = rSh.GetCursor();
                 if(pCursorPos)
                 {
-                    // Insert five enspace into the text field so the field has extent
-                    sal_Unicode vEnSpaces[ODF_FORMFIELD_DEFAULT_LENGTH] = {8194, 8194, 8194, 8194, 8194};
+                    // Insert five En Space into the text field so the field has extent
+                    static const sal_Unicode vEnSpaces[ODF_FORMFIELD_DEFAULT_LENGTH] = {8194, 8194, 8194, 8194, 8194};
                     bool bSuccess = rSh.GetDoc()->getIDocumentContentOperations().InsertString(*pCursorPos, OUString(vEnSpaces, ODF_FORMFIELD_DEFAULT_LENGTH));
                     if(bSuccess)
                     {
@@ -717,6 +731,38 @@ FIELD_INSERT:
                 rSh.GetView().GetViewFrame()->GetBindings().Invalidate( SID_UNDO );
             }
             break;
+        case FN_INSERT_DATE_FORMFIELD:
+        {
+            rSh.GetDoc()->GetIDocumentUndoRedo().StartUndo(SwUndoId::INSERT_FORM_FIELD, nullptr);
+
+            SwPaM* pCursorPos = rSh.GetCursor();
+            if(pCursorPos)
+            {
+                // Insert five enspaces into the text field so the field has extent
+                sal_Unicode vEnSpaces[ODF_FORMFIELD_DEFAULT_LENGTH] = {8194, 8194, 8194, 8194, 8194};
+                bool bSuccess = rSh.GetDoc()->getIDocumentContentOperations().InsertString(*pCursorPos, OUString(vEnSpaces, ODF_FORMFIELD_DEFAULT_LENGTH));
+                if(bSuccess)
+                {
+                    IDocumentMarkAccess* pMarksAccess = rSh.GetDoc()->getIDocumentMarkAccess();
+                    SwPaM aFieldPam(pCursorPos->GetPoint()->nNode, pCursorPos->GetPoint()->nContent.GetIndex()-5,
+                                    pCursorPos->GetPoint()->nNode, pCursorPos->GetPoint()->nContent.GetIndex());
+                    sw::mark::IFieldmark* pFieldBM = pMarksAccess->makeFieldBookmark(aFieldPam, OUString(), ODF_FORMDATE);
+
+                    // Use a default date format and language
+                    sw::mark::IFieldmark::parameter_map_t* pParameters = pFieldBM->GetParameters();
+                    SvNumberFormatter* pFormatter = rSh.GetDoc()->GetNumberFormatter();
+                    sal_uInt32 nStandardFormat = pFormatter->GetStandardFormat(SvNumFormatType::DATE);
+                    const SvNumberformat* pFormat = pFormatter->GetEntry(nStandardFormat);
+
+                    (*pParameters)[ODF_FORMDATE_DATEFORMAT] <<= pFormat->GetFormatstring();
+                    (*pParameters)[ODF_FORMDATE_DATEFORMAT_LANGUAGE] <<= LanguageTag(pFormat->GetLanguage()).getBcp47();
+                }
+            }
+
+            rSh.GetDoc()->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT_FORM_FIELD, nullptr);
+            rSh.GetView().GetViewFrame()->GetBindings().Invalidate( SID_UNDO );
+        }
+        break;
             default:
                 OSL_FAIL("wrong dispatcher");
                 return;
@@ -859,6 +905,11 @@ void SwTextShell::StateField( SfxItemSet &rSet )
                 {
                     rSet.DisableItem(nWhich);
                 }
+                // tdf#86188 Allow disabling comment insertion on footnote/endnote for better OOXML interoperability
+                else if ( rSh.IsCursorInFootnote() && !officecfg::Office::Compatibility::View::AllowCommentsInFootnotes::get() )
+                {
+                    rSet.DisableItem(nWhich);
+                }
             }
 
             break;
@@ -880,6 +931,7 @@ void SwTextShell::StateField( SfxItemSet &rSet )
         case FN_INSERT_TEXT_FORMFIELD:
         case FN_INSERT_CHECKBOX_FORMFIELD:
         case FN_INSERT_DROPDOWN_FORMFIELD:
+        case FN_INSERT_DATE_FORMFIELD:
             if ( rSh.CursorInsideInputField() )
             {
                 rSet.DisableItem(nWhich);

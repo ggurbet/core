@@ -542,12 +542,12 @@ DbCellControl::DbCellControl( DbGridColumn& _rColumn )
     ,m_pPainter( nullptr )
     ,m_pWindow( nullptr )
 {
-    Reference< XPropertySet > xColModelProps( _rColumn.getModel(), UNO_QUERY );
+    Reference< XPropertySet > xColModelProps = _rColumn.getModel();
     if ( !xColModelProps.is() )
         return;
 
     // if our model's format key changes we want to propagate the new value to our windows
-    m_pModelChangeBroadcaster = new ::comphelper::OPropertyChangeMultiplexer(this, Reference< css::beans::XPropertySet > (_rColumn.getModel(), UNO_QUERY));
+    m_pModelChangeBroadcaster = new ::comphelper::OPropertyChangeMultiplexer(this, _rColumn.getModel());
 
     // be listener for some common properties
     implDoPropertyListening( FM_PROP_READONLY, false );
@@ -589,7 +589,7 @@ void DbCellControl::implDoPropertyListening(const OUString& _rPropertyName, bool
 {
     try
     {
-        Reference< XPropertySet > xColModelProps( m_rColumn.getModel(), UNO_QUERY );
+        Reference< XPropertySet > xColModelProps = m_rColumn.getModel();
         Reference< XPropertySetInfo > xPSI;
         if ( xColModelProps.is() )
             xPSI = xColModelProps->getPropertySetInfo();
@@ -1307,7 +1307,7 @@ void DbFormattedField::Init( vcl::Window& rParent, const Reference< XRowSet >& x
                 // So if our LoadListener is called before the LoadListener of the model, this "else case" is
                 // allowed.
                 // Of course our property listener for the FormatKey property will notify us if the prop is changed,
-                // so this here isn't really bad ....
+                // so this here isn't really bad...
                 nFormatKey = 0;
             }
         }
@@ -1316,10 +1316,9 @@ void DbFormattedField::Init( vcl::Window& rParent, const Reference< XRowSet >& x
     // No? Maybe the css::form::component::Form behind the cursor?
     if (!m_xSupplier.is())
     {
-        Reference< XRowSet >  xCursorForm(xCursor, UNO_QUERY);
-        if (xCursorForm.is())
+        if (xCursor.is())
         {   // If we take the formatter from the cursor, then also the key from the field to which we are bound
-            m_xSupplier = getNumberFormats(getConnection(xCursorForm));
+            m_xSupplier = getNumberFormats(getConnection(xCursor));
 
             if (m_rColumn.GetField().is())
                 nFormatKey = ::comphelper::getINT32(m_rColumn.GetField()->getPropertyValue(FM_PROP_FORMATKEY));
@@ -2425,10 +2424,8 @@ void DbComboBox::SetList(const Any& rItems)
     css::uno::Sequence<OUString> aTest;
     if (rItems >>= aTest)
     {
-        const OUString* pStrings = aTest.getConstArray();
-        sal_Int32 nItems = aTest.getLength();
-        for (sal_Int32 i = 0; i < nItems; ++i, ++pStrings )
-             pField->InsertEntry(*pStrings);
+        for (const OUString& rString : std::as_const(aTest))
+             pField->InsertEntry(rString);
 
         // tell the grid control that this controller is invalid and has to be re-initialized
         invalidatedController();
@@ -2546,12 +2543,10 @@ void DbListBox::SetList(const Any& rItems)
     css::uno::Sequence<OUString> aTest;
     if (rItems >>= aTest)
     {
-        const OUString* pStrings = aTest.getConstArray();
-        sal_Int32 nItems = aTest.getLength();
-        if (nItems)
+        if (aTest.hasElements())
         {
-            for (sal_Int32 i = 0; i < nItems; ++i, ++pStrings )
-                 pField->InsertEntry(*pStrings);
+            for (const OUString& rString : std::as_const(aTest))
+                 pField->InsertEntry(rString);
 
             m_rColumn.getModel()->getPropertyValue(FM_PROP_VALUE_SEQ) >>= m_aValueList;
             m_bBound = m_aValueList.hasElements();
@@ -2707,21 +2702,19 @@ void DbFilterField::SetList(const Any& rItems, bool bComboBox)
 {
     css::uno::Sequence<OUString> aTest;
     rItems >>= aTest;
-    const OUString* pStrings = aTest.getConstArray();
-    sal_Int32 nItems = aTest.getLength();
-    if (nItems)
+    if (aTest.hasElements())
     {
         if (bComboBox)
         {
             ComboBox* pField = static_cast<ComboBox*>(m_pWindow.get());
-            for (sal_Int32 i = 0; i < nItems; ++i, ++pStrings )
-                pField->InsertEntry(*pStrings);
+            for (const OUString& rString : std::as_const(aTest))
+                pField->InsertEntry(rString);
         }
         else
         {
             ListBox* pField = static_cast<ListBox*>(m_pWindow.get());
-            for (sal_Int32 i = 0; i < nItems; ++i, ++pStrings )
-                pField->InsertEntry(*pStrings);
+            for (const OUString& rString : std::as_const(aTest))
+                pField->InsertEntry(rString);
 
             m_rColumn.getModel()->getPropertyValue(FM_PROP_VALUE_SEQ) >>= m_aValueList;
         }
@@ -2911,7 +2904,7 @@ bool DbFilterField::commitControl()
                                                     m_rColumn.GetField(),
                                                     OUString(),
                                                     aAppLocale,
-                                                    '.',
+                                                    OUString("."),
                                                     getParseContext());
                 m_aText = aPreparedText;
             }
@@ -4103,9 +4096,9 @@ void SAL_CALL FmXListBoxCell::addItems(const css::uno::Sequence<OUString>& aItem
     if (m_pBox)
     {
         sal_uInt16 nP = nPos;
-        for ( sal_Int32 n = 0; n < aItems.getLength(); n++ )
+        for ( const auto& rItem : aItems )
         {
-            m_pBox->InsertEntry( aItems.getConstArray()[n], nP );
+            m_pBox->InsertEntry( rItem, nP );
             if ( nPos != -1 )    // Not if 0xFFFF, because LIST_APPEND
                 nP++;
         }
@@ -4431,9 +4424,9 @@ void SAL_CALL FmXComboBoxCell::addItems( const Sequence< OUString >& Items, sal_
     if ( m_pComboBox )
     {
         sal_uInt16 nP = Pos;
-        for ( sal_Int32 n = 0; n < Items.getLength(); n++ )
+        for ( const auto& rItem : Items )
         {
-            m_pComboBox->InsertEntry( Items.getConstArray()[n], nP );
+            m_pComboBox->InsertEntry( rItem, nP );
             if ( Pos != -1 )
                 nP++;
         }
@@ -4552,9 +4545,7 @@ sal_Int64 SAL_CALL FmXFilterCell::getSomething( const Sequence< sal_Int8 >& _rId
 {
     sal_Int64 nReturn(0);
 
-    if  (   (_rIdentifier.getLength() == 16)
-        &&  (0 == memcmp( getUnoTunnelId().getConstArray(), _rIdentifier.getConstArray(), 16 ))
-        )
+    if  ( isUnoTunnelId<FmXFilterCell>(_rIdentifier) )
     {
         nReturn = reinterpret_cast<sal_Int64>(this);
     }

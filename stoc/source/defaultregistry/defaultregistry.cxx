@@ -18,6 +18,7 @@
  */
 
 #include <osl/mutex.hxx>
+#include <comphelper/sequence.hxx>
 #include <cppuhelper/weak.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/implbase4.hxx>
@@ -754,60 +755,27 @@ Sequence< Reference< XRegistryKey > > SAL_CALL NestedKeyImpl::openKeys(  )
         defaultSeq = m_defaultKey->getKeyNames();
     }
 
-    sal_uInt32 local = localSeq.getLength();
-    sal_uInt32 def = defaultSeq.getLength();
-    sal_uInt32 len = 0;
+    std::vector< Reference<XRegistryKey> > retVec;
+    retVec.reserve(localSeq.getLength() + defaultSeq.getLength());
 
-    sal_uInt32 i, j;
-    for (i=0; i < local; i++)
+    auto lKeyNameToRegKey = [this](const OUString& rName) -> Reference<XRegistryKey> {
+        sal_Int32 lastIndex = rName.lastIndexOf('/');
+        OUString name = rName.copy(lastIndex);
+        return new NestedKeyImpl(name, this);
+    };
+
+    for (const auto& rKeyName : std::as_const(localSeq))
+        retVec.push_back(lKeyNameToRegKey(rKeyName));
+
+    for (const auto& rKeyName : std::as_const(defaultSeq))
     {
-        for (j=0 ; j < def; j++)
+        if ( comphelper::findValue(localSeq, rKeyName) == -1 )
         {
-            if ( localSeq.getConstArray()[i] == defaultSeq.getConstArray()[j] )
-            {
-                len++;
-                break;
-            }
+            retVec.push_back(lKeyNameToRegKey(rKeyName));
         }
     }
 
-    Sequence< Reference<XRegistryKey> > retSeq(local + def - len);
-    OUString                            name;
-    sal_Int32                           lastIndex;
-
-    for (i=0; i < local; i++)
-    {
-        name = localSeq.getConstArray()[i];
-        lastIndex = name.lastIndexOf('/');
-        name = name.copy(lastIndex);
-        retSeq.getArray()[i] = new NestedKeyImpl(name, this);
-    }
-
-    sal_uInt32 k = local;
-    for (i=0; i < def; i++)
-    {
-        bool insert = true;
-
-        for (j=0 ; j < local; j++)
-        {
-            if ( retSeq.getConstArray()[j]->getKeyName()
-                    == defaultSeq.getConstArray()[i] )
-            {
-                insert = false;
-                break;
-            }
-        }
-
-        if ( insert )
-        {
-            name = defaultSeq.getConstArray()[i];
-            lastIndex = name.lastIndexOf('/');
-            name = name.copy(lastIndex);
-            retSeq.getArray()[k++] = new NestedKeyImpl(name, this);
-        }
-    }
-
-    return retSeq;
+    return comphelper::containerToSequence(retVec);
 }
 
 
@@ -830,49 +798,7 @@ Sequence< OUString > SAL_CALL NestedKeyImpl::getKeyNames(  )
         defaultSeq = m_defaultKey->getKeyNames();
     }
 
-    sal_uInt32 local = localSeq.getLength();
-    sal_uInt32 def = defaultSeq.getLength();
-    sal_uInt32 len = 0;
-
-    sal_uInt32 i, j;
-    for (i=0; i < local; i++)
-    {
-        for (j=0 ; j < def; j++)
-        {
-            if ( localSeq.getConstArray()[i] == defaultSeq.getConstArray()[j] )
-            {
-                len++;
-                break;
-            }
-        }
-    }
-
-    Sequence<OUString>  retSeq(local + def - len);
-
-    for (i=0; i < local; i++)
-    {
-        retSeq.getArray()[i] = localSeq.getConstArray()[i];
-    }
-
-    sal_uInt32 k = local;
-    for (i=0; i < def; i++)
-    {
-        bool insert = true;
-
-        for (j=0 ; j < local; j++)
-        {
-            if ( retSeq.getConstArray()[j] == defaultSeq.getConstArray()[i] )
-            {
-                insert = false;
-                break;
-            }
-        }
-
-        if ( insert )
-            retSeq.getArray()[k++] = defaultSeq.getConstArray()[i];
-    }
-
-    return retSeq;
+    return comphelper::combineSequences(localSeq, defaultSeq);
 }
 
 
@@ -901,7 +827,7 @@ sal_Bool SAL_CALL NestedKeyImpl::createLink( const OUString& aLinkName, const OU
             throw InvalidRegistryException();
         }
 
-        resolvedName = resolvedName + aLinkName.copy(lastIndex);
+        resolvedName += aLinkName.copy(lastIndex);
     }
     else
     {
@@ -956,7 +882,7 @@ void SAL_CALL NestedKeyImpl::deleteLink( const OUString& rLinkName )
             throw InvalidRegistryException();
         }
 
-        resolvedName = resolvedName + rLinkName.copy(lastIndex);
+        resolvedName += rLinkName.copy(lastIndex);
     }
     else
     {
@@ -999,7 +925,7 @@ OUString SAL_CALL NestedKeyImpl::getLinkTarget( const OUString& rLinkName )
             throw InvalidRegistryException();
         }
 
-        resolvedName = resolvedName + rLinkName.copy(lastIndex);
+        resolvedName += rLinkName.copy(lastIndex);
     }
     else
     {
@@ -1118,7 +1044,7 @@ sal_Bool SAL_CALL NestedRegistryImpl::hasElements(  )
 
 OUString SAL_CALL NestedRegistryImpl::getImplementationName(  )
 {
-    return OUString("com.sun.star.comp.stoc.NestedRegistry");
+    return "com.sun.star.comp.stoc.NestedRegistry";
 }
 
 sal_Bool SAL_CALL NestedRegistryImpl::supportsService( const OUString& ServiceName )

@@ -257,8 +257,8 @@ ErrCode ScHTMLLayoutParser::Read( SvStream& rStream, const OUString& rBaseURL )
         const sal_Char* pCharSet = rtl_getBestMimeCharsetFromTextEncoding( RTL_TEXTENCODING_UTF8 );
         if( pCharSet )
         {
-            OUString aContentType = "text/html; charset=";
-            aContentType += OUString::createFromAscii( pCharSet );
+            OUString aContentType = "text/html; charset=" +
+                OUString::createFromAscii( pCharSet );
 
             xValues = new SvKeyValueIterator;
             xValues->Append( SvKeyValue( OOO_STRING_SVTOOLS_HTML_META_content_type, aContentType ) );
@@ -1347,7 +1347,7 @@ void ScHTMLLayoutParser::Image( HtmlImportInfo* pInfo )
     if (!mxActEntry->maImageList.empty())
     {
         long nWidth = 0;
-        for (std::unique_ptr<ScHTMLImage> & pI : mxActEntry->maImageList)
+        for (const std::unique_ptr<ScHTMLImage> & pI : mxActEntry->maImageList)
         {
             if ( pI->nDir & nHorizontal )
                 nWidth += pI->aSize.Width() + 2 * pI->aSpace.X();
@@ -1694,7 +1694,7 @@ void ScHTMLEntry::Strip( const EditEngine& rEditEngine )
 
     Organizes the tables with a unique table key. Stores nested tables inside
     the parent table and forms in this way a tree structure of tables. An
-    instance of this class ownes the contained table objects and deletes them
+    instance of this class owns the contained table objects and deletes them
     on destruction.
  */
 class ScHTMLTableMap final
@@ -2772,8 +2772,8 @@ ErrCode ScHTMLQueryParser::Read( SvStream& rStrm, const OUString& rBaseURL  )
         const sal_Char* pCharSet = rtl_getBestMimeCharsetFromTextEncoding( RTL_TEXTENCODING_UTF8 );
         if( pCharSet )
         {
-            OUString aContentType = "text/html; charset=";
-            aContentType += OUString::createFromAscii( pCharSet );
+            OUString aContentType = "text/html; charset=" +
+                OUString::createFromAscii( pCharSet );
 
             xValues = new SvKeyValueIterator;
             xValues->Append( SvKeyValue( OOO_STRING_SVTOOLS_HTML_META_content_type, aContentType ) );

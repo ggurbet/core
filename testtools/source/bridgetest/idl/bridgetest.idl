@@ -361,7 +361,7 @@ interface XBridgeTestBase : com::sun::star::uno::XInterface
 
     /***
      * This method returns the parameter value.
-     * Method to extensivly test anys.
+     * Method to extensively test anys.
      ****/
     any transportAny( [in] any value );
 
@@ -388,7 +388,7 @@ interface XBridgeTestBase : com::sun::star::uno::XInterface
 
 
 /**
- * Inherting from monster; adds raiseException(), attribute raising RuntimeException.
+ * Inheriting from monster; adds raiseException(), attribute raising RuntimeException.
  */
 interface XBridgeTest : XBridgeTestBase
 {

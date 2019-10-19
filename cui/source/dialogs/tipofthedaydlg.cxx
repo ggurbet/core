@@ -19,16 +19,17 @@
 
 #include <tipofthedaydlg.hxx>
 
-#include <config_folders.h>
 #include <dialmgr.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <osl/file.hxx>
 #include <rtl/bootstrap.hxx>
 #include <tipoftheday.hrc>
 #include <vcl/graphicfilter.hxx>
+#include <vcl/help.hxx>
 #include <vcl/virdev.hxx>
-#include <sfx2/sfxhelp.hxx>
 #include <vcl/svapp.hxx>
+#include <i18nlangtag/languagetag.hxx>
+#include <unotools/configmgr.hxx>
 
 TipOfTheDayDialog::TipOfTheDayDialog(weld::Window* pParent)
     : GenericDialogController(pParent, "cui/ui/tipofthedaydialog.ui", "TipOfTheDayDialog")
@@ -38,12 +39,17 @@ TipOfTheDayDialog::TipOfTheDayDialog(weld::Window* pParent)
     , m_pNext(m_xBuilder->weld_button("btnNext"))
     , m_pLink(m_xBuilder->weld_link_button("btnLink"))
 {
-    m_pShowTip->connect_toggled(LINK(this, TipOfTheDayDialog, OnShowTipToggled));
+    m_pShowTip->set_active(officecfg::Office::Common::Misc::ShowTipOfTheDay::get());
     m_pNext->connect_clicked(LINK(this, TipOfTheDayDialog, OnNextClick));
 
     nNumberOfTips = SAL_N_ELEMENTS(TIPOFTHEDAY_STRINGARRAY);
-    srand(time(nullptr));
-    nCurrentTip = rand() % nNumberOfTips;
+    nCurrentTip = officecfg::Office::Common::Misc::LastTipOfTheDayID::get();
+
+    const auto t0 = std::chrono::system_clock::now().time_since_epoch();
+    nDay = std::chrono::duration_cast<std::chrono::hours>(t0).count() / 24; //days since 1970-01-01
+    if (nDay > officecfg::Office::Common::Misc::LastTipOfTheDayShown::get())
+        nCurrentTip++;
+
     UpdateTip();
 }
 
@@ -51,10 +57,9 @@ TipOfTheDayDialog::~TipOfTheDayDialog()
 {
     std::shared_ptr<comphelper::ConfigurationChanges> xChanges(
         comphelper::ConfigurationChanges::create());
-    const auto t0 = std::chrono::system_clock::now().time_since_epoch();
-    const sal_Int32 nDay
-        = std::chrono::duration_cast<std::chrono::hours>(t0).count() / 24; // days since 1970-01-01
     officecfg::Office::Common::Misc::LastTipOfTheDayShown::set(nDay, xChanges);
+    officecfg::Office::Common::Misc::LastTipOfTheDayID::set(nCurrentTip, xChanges);
+    officecfg::Office::Common::Misc::ShowTipOfTheDay::set(m_pShowTip->get_active(), xChanges);
     xChanges->commit();
 }
 
@@ -66,6 +71,11 @@ static bool file_exists(const OUString& fileName)
 
 void TipOfTheDayDialog::UpdateTip()
 {
+    if ((nCurrentTip + 1 > nNumberOfTips) || (nCurrentTip < 0))
+        nCurrentTip = 0;
+    m_xDialog->set_title(CuiResId(STR_TITLE) + ": " + OUString::number(nCurrentTip + 1) + "/"
+                         + OUString::number(nNumberOfTips));
+
     // text
     OUString aText = CuiResId(std::get<0>(TIPOFTHEDAY_STRINGARRAY[nCurrentTip]));
     m_pText->set_label(aText);
@@ -78,7 +88,18 @@ void TipOfTheDayDialog::UpdateTip()
     }
     else if (aLink.startsWith("http"))
     {
-        m_pLink->set_uri(aLink);
+        aText = CuiResId(aLink.toUtf8().getStr());
+
+        sal_Int32 aPos = aText.indexOf("%LANGUAGENAME");
+        if (aPos != -1)
+        {
+            OUString aLang = LanguageTag(utl::ConfigManager::getUILocale()).getLanguage();
+            if (aLang == "en" || aLang == "pt" || aLang == "zh") //en-US/GB, pt-BR, zh-CH/TW
+                aLang = LanguageTag(utl::ConfigManager::getUILocale()).getBcp47();
+            aText = aText.replaceAt(aPos, 13, aLang);
+        }
+
+        m_pLink->set_uri(aText);
         m_pLink->set_label(CuiResId(STR_MORE_LINK));
         m_pLink->set_visible(true);
         m_pLink->connect_clicked(Link<weld::LinkButton&, void>());
@@ -91,7 +112,6 @@ void TipOfTheDayDialog::UpdateTip()
         //converts aLink into the proper offline/online hyperlink
         m_pLink->connect_clicked(LINK(this, TipOfTheDayDialog, OnLinkClick));
     }
-
     // image
     OUString aURL("$BRAND_BASE_DIR/$BRAND_SHARE_SUBDIR/tipoftheday/");
     rtl::Bootstrap::expandMacros(aURL);
@@ -103,21 +123,12 @@ void TipOfTheDayDialog::UpdateTip()
     Graphic aGraphic;
     if (GraphicFilter::LoadGraphic(aURL + aImage, OUString(), aGraphic) == ERRCODE_NONE)
     {
-        ScopedVclPtr<VirtualDevice> m_pVirDev;
-        m_pVirDev = m_pImage->create_virtual_device();
+        ScopedVclPtr<VirtualDevice> m_pVirDev = m_pImage->create_virtual_device();
         m_pVirDev->SetOutputSizePixel(aGraphic.GetSizePixel());
         m_pVirDev->DrawBitmapEx(Point(0, 0), aGraphic.GetBitmapEx());
         m_pImage->set_image(m_pVirDev.get());
         m_pVirDev.disposeAndClear();
     }
-}
-
-IMPL_STATIC_LINK(TipOfTheDayDialog, OnShowTipToggled, weld::ToggleButton&, rButton, void)
-{
-    std::shared_ptr<comphelper::ConfigurationChanges> xChanges(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ShowTipOfTheDay::set(rButton.get_active(), xChanges);
-    xChanges->commit();
 }
 
 IMPL_LINK_NOARG(TipOfTheDayDialog, OnLinkClick, weld::LinkButton&, void)
@@ -127,7 +138,7 @@ IMPL_LINK_NOARG(TipOfTheDayDialog, OnLinkClick, weld::LinkButton&, void)
 
 IMPL_LINK_NOARG(TipOfTheDayDialog, OnNextClick, weld::Button&, void)
 {
-    nCurrentTip = (nCurrentTip + 1) % nNumberOfTips;
+    nCurrentTip++; //zeroed at updatetip when out of range
     UpdateTip();
 }
 

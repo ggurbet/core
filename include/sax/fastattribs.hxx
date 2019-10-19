@@ -78,6 +78,11 @@ public:
     virtual ~FastAttributeList() override;
 
     void clear();
+    void reserve( sal_Int32 nNumTokens )
+    {
+        maAttributeValues.reserve(nNumTokens+1);
+        maAttributeTokens.reserve(nNumTokens);
+    }
     void add( sal_Int32 nToken, const sal_Char* pValue );
     void add( sal_Int32 nToken, const sal_Char* pValue, size_t nValueLength );
     void add( sal_Int32 nToken, const OString& rValue );
@@ -190,9 +195,9 @@ public:
             return !strcmp(str, mrList.getFastAttributeValue(mnIdx));
         }
     };
-    const FastAttributeIter begin() const { return FastAttributeIter(*this, 0); }
-    const FastAttributeIter end() const { return FastAttributeIter(*this, maAttributeTokens.size()); }
-    const FastAttributeIter find( sal_Int32 nToken ) const;
+    FastAttributeIter begin() const { return FastAttributeIter(*this, 0); }
+    FastAttributeIter end() const { return FastAttributeIter(*this, maAttributeTokens.size()); }
+    FastAttributeIter find( sal_Int32 nToken ) const;
 
 private:
     sal_Char *mpChunk; ///< buffer to store all attribute values - null terminated strings

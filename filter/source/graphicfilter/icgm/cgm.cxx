@@ -75,7 +75,7 @@ CGM::~CGM()
     maDefRepSizeList.clear();
 };
 
-sal_uInt32 CGM::GetBackGroundColor()
+sal_uInt32 CGM::GetBackGroundColor() const
 {
     return pElement ? pElement->aColorTable[ 0 ] : 0;
 }
@@ -733,8 +733,7 @@ ImportCGM(SvStream& rIn, uno::Reference< frame::XModel > const & rXModel, css::u
         }
         catch (const css::uno::Exception&)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("filter.icgm", exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("filter.icgm", "");
             nStatus = 0;
         }
     }

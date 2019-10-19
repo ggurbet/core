@@ -113,7 +113,7 @@ EvaluationContext Model::getEvaluationContext()
     // the default context is the top-level element node. A default
     // node (instanceData' is inserted when there is no default node
     Reference<XDocument> xInstance = getDefaultInstance();
-    Reference<XNode> xElement( xInstance->getDocumentElement(), UNO_QUERY );
+    Reference<XNode> xElement = xInstance->getDocumentElement();
 
     // no element found? Then insert default element 'instanceData'
     if( ! xElement.is() )
@@ -600,7 +600,7 @@ Sequence<sal_Int8> Model::getImplementationId()
 
 OUString Model::getImplementationName()
 {
-    return OUString("com.sun.star.form.Model");
+    return "com.sun.star.form.Model";
 }
 
 sal_Bool Model::supportsService(OUString const & ServiceName)

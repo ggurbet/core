@@ -54,6 +54,7 @@
 #include <comphelper/enumhelper.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
@@ -206,7 +207,7 @@ ODatabaseContext::~ODatabaseContext()
 // Helper
 OUString ODatabaseContext::getImplementationName_static()
 {
-    return OUString("com.sun.star.comp.dba.ODatabaseContext");
+    return "com.sun.star.comp.dba.ODatabaseContext";
 }
 
 Reference< XInterface > ODatabaseContext::Create(const Reference< XComponentContext >& _rxContext)
@@ -366,7 +367,7 @@ Reference< XInterface > ODatabaseContext::loadObjectFromURL(const OUString& _rNa
         {
             // In this case the host contains the real path, and the path is the embedded stream name.
             auto const uri = css::uri::UriReferenceFactory::create(m_aContext)->parse(_sURL);
-            if (uri.is() && uri->isAbsolute() && uri->isHierarchical()
+            if (uri.is() && uri->isAbsolute()
                 && uri->hasAuthority() && !uri->hasQuery() && !uri->hasFragment())
             {
                 auto const auth = uri->getAuthority();
@@ -481,7 +482,7 @@ void ODatabaseContext::storeTransientProperties( ODatabaseModelImpl& _rModelImpl
         if (xSetInfo.is())
             aProperties = xSetInfo->getProperties();
 
-        for ( const Property& rProperty : aProperties )
+        for ( const Property& rProperty : std::as_const(aProperties) )
         {
             if  (   ( ( rProperty.Attributes & PropertyAttribute::TRANSIENT) != 0 )
                 &&  ( ( rProperty.Attributes & PropertyAttribute::READONLY) == 0 )
@@ -635,7 +636,7 @@ Any ODatabaseContext::getByName(const OUString& _rName)
         if ( xExistent.is() )
             return makeAny( xExistent );
 
-        // see whether this is an registered name
+        // see whether this is a registered name
         OUString sURL;
         if ( hasRegisteredDatabase( _rName ) )
         {
@@ -731,13 +732,13 @@ void ODatabaseContext::databaseDocumentURLChange( const OUString& _rOldURL, cons
 
 sal_Int64 SAL_CALL ODatabaseContext::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    if (isUnoTunnelId<ODatabaseContext>(rId))
         return reinterpret_cast<sal_Int64>(this);
 
     return 0;
 }
 
-Sequence< sal_Int8 > ODatabaseContext::getUnoTunnelImplementationId()
+Sequence< sal_Int8 > ODatabaseContext::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 

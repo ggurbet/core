@@ -190,7 +190,7 @@ public:
     */
     inline ByteSequence( const ByteSequence & rSeq );
 #if defined LIBO_INTERNAL_ONLY
-    inline ByteSequence( ByteSequence && rSeq );
+    inline ByteSequence( ByteSequence && rSeq ) noexcept;
 #endif
     /** Copy constructor Creates a copy from the C-Handle.
 
@@ -236,7 +236,7 @@ public:
     */
     inline ByteSequence & SAL_CALL operator = ( const ByteSequence & rSeq );
 #if defined LIBO_INTERNAL_ONLY
-    inline ByteSequence & SAL_CALL operator = ( ByteSequence && rSeq );
+    inline ByteSequence & SAL_CALL operator = ( ByteSequence && rSeq ) noexcept;
 #endif
 
     /** Gets the length of sequence.
@@ -306,13 +306,13 @@ public:
     */
     inline void SAL_CALL realloc( sal_Int32 nSize );
 
-    /** Returns the UNnacquired C handle of the sequence
+    /** Returns the UNacquired C handle of the sequence
 
         @return UNacquired handle of the sequence
     */
     sal_Sequence * SAL_CALL getHandle() const
         { return _pSequence; }
-    /** Returns the UNnacquired C handle of the sequence (for compatibility reasons)
+    /** Returns the UNacquired C handle of the sequence (for compatibility reasons)
 
         @return UNacquired handle of the sequence
     */

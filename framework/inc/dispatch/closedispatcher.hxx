@@ -86,8 +86,8 @@ class CloseDispatcher : public  ::cppu::WeakImplHelper<
         css::uno::WeakReference< css::frame::XFrame > m_xCloseFrame;
 
         /** @short  used for asynchronous callbacks within the main thread.
-            @descr  Internally we work asynchronous. Because our callis
-                    are not aware, that her request can kill its own environment... */
+            @descr  Internally we work asynchronously. Because our callees
+                    are not aware that their request can kill its own environment... */
         std::unique_ptr<vcl::EventPoster> m_aAsyncCallback;
 
         /** @short  used inside asynchronous callback to decide,
@@ -191,7 +191,7 @@ class CloseDispatcher : public  ::cppu::WeakImplHelper<
                     Otherwise e.g. the XController->suspend()
                     call is not made and no UI warn the user about
                     losing document changes. Because the
-                    frame is closed ....
+                    frame is closed...
 
             @return [bool]
                     sal_True if closing was successful.

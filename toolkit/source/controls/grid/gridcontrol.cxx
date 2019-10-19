@@ -32,7 +32,6 @@
 #include <com/sun/star/awt/grid/DefaultGridColumnModel.hpp>
 #include <toolkit/helper/property.hxx>
 #include <tools/diagnose_ex.h>
-#include <tools/color.hxx>
 #include <toolkit/controls/unocontrolbase.hxx>
 #include <toolkit/controls/unocontrolmodel.hxx>
 #include <toolkit/helper/listenermultiplexer.hxx>
@@ -212,7 +211,7 @@ void SAL_CALL UnoGridModel::setFastPropertyValue_NoBroadcast( sal_Int32 nHandle,
 
 OUString UnoGridModel::getServiceName()
 {
-    return OUString("com.sun.star.awt.grid.UnoControlGridModel");
+    return "com.sun.star.awt.grid.UnoControlGridModel";
 }
 
 
@@ -281,7 +280,7 @@ UnoGridControl::~UnoGridControl()
 
 OUString UnoGridControl::GetComponentServiceName()
 {
-    return OUString("Grid");
+    return "Grid";
 }
 
 

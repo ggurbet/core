@@ -37,8 +37,8 @@
 
 // Subtotals group tabpage:
 
-ScTpSubTotalGroup::ScTpSubTotalGroup(TabPageParent pParent, const SfxItemSet& rArgSet)
-    : SfxTabPage(pParent, "modules/scalc/ui/subtotalgrppage.ui", "SubTotalGrpPage", &rArgSet)
+ScTpSubTotalGroup::ScTpSubTotalGroup(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet)
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/subtotalgrppage.ui", "SubTotalGrpPage", &rArgSet)
     , aStrNone(ScResId(SCSTR_NONE))
     , aStrColumn(ScResId(SCSTR_COLUMN))
     , pViewData(nullptr)
@@ -66,7 +66,6 @@ ScTpSubTotalGroup::ScTpSubTotalGroup(TabPageParent pParent, const SfxItemSet& rA
 
 ScTpSubTotalGroup::~ScTpSubTotalGroup()
 {
-    disposeOnce();
 }
 
 void ScTpSubTotalGroup::Init()
@@ -147,7 +146,7 @@ bool ScTpSubTotalGroup::DoReset( sal_uInt16             nGroupNo,
 
 namespace
 {
-    int GetCheckedEntryCount(weld::TreeView& rTreeView)
+    int GetCheckedEntryCount(const weld::TreeView& rTreeView)
     {
         int nRet = 0;
         for (sal_Int32 i=0, nEntryCount = rTreeView.n_children(); i < nEntryCount; ++i)
@@ -373,34 +372,34 @@ IMPL_LINK( ScTpSubTotalGroup, CheckHdl, const row_col&, rRowCol, void )
 
 // Derived Group TabPages:
 
-VclPtr<SfxTabPage> ScTpSubTotalGroup1::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> ScTpSubTotalGroup1::Create( weld::Container* pPage, weld::DialogController* pController,
                                                  const SfxItemSet*  rArgSet )
 {
-    return VclPtr<ScTpSubTotalGroup1>::Create( pParent, *rArgSet );
+    return std::make_unique<ScTpSubTotalGroup1>( pPage, pController, *rArgSet );
 }
 
-VclPtr<SfxTabPage> ScTpSubTotalGroup2::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> ScTpSubTotalGroup2::Create( weld::Container* pPage, weld::DialogController* pController,
                                        const SfxItemSet*    rArgSet )
 {
-    return VclPtr<ScTpSubTotalGroup2>::Create( pParent, *rArgSet );
+    return std::make_unique<ScTpSubTotalGroup2>( pPage, pController, *rArgSet );
 }
 
-VclPtr<SfxTabPage> ScTpSubTotalGroup3::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> ScTpSubTotalGroup3::Create( weld::Container* pPage, weld::DialogController* pController,
                                        const SfxItemSet*    rArgSet )
 {
-    return VclPtr<ScTpSubTotalGroup3>::Create( pParent, *rArgSet );
+    return std::make_unique<ScTpSubTotalGroup3>( pPage, pController, *rArgSet );
 }
 
-ScTpSubTotalGroup1::ScTpSubTotalGroup1( TabPageParent pParent, const SfxItemSet& rArgSet ) :
-    ScTpSubTotalGroup( pParent, rArgSet )
+ScTpSubTotalGroup1::ScTpSubTotalGroup1( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet ) :
+    ScTpSubTotalGroup( pPage, pController, rArgSet )
 {}
 
-ScTpSubTotalGroup2::ScTpSubTotalGroup2( TabPageParent pParent, const SfxItemSet& rArgSet ) :
-    ScTpSubTotalGroup( pParent, rArgSet )
+ScTpSubTotalGroup2::ScTpSubTotalGroup2( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet ) :
+    ScTpSubTotalGroup( pPage, pController, rArgSet )
 {}
 
-ScTpSubTotalGroup3::ScTpSubTotalGroup3( TabPageParent pParent, const SfxItemSet& rArgSet ) :
-    ScTpSubTotalGroup( pParent, rArgSet )
+ScTpSubTotalGroup3::ScTpSubTotalGroup3( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet ) :
+    ScTpSubTotalGroup( pPage, pController, rArgSet )
 {}
 
 #define RESET(i) (ScTpSubTotalGroup::DoReset( (i), *rArgSet ))
@@ -417,9 +416,9 @@ bool ScTpSubTotalGroup3::FillItemSet( SfxItemSet* rArgSet ) { return FILLSET(3);
 
 // options tab page:
 
-ScTpSubTotalOptions::ScTpSubTotalOptions(TabPageParent pParent, const SfxItemSet& rArgSet)
+ScTpSubTotalOptions::ScTpSubTotalOptions(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet)
 
-        :   SfxTabPage      ( pParent,
+        :   SfxTabPage      ( pPage, pController,
                               "modules/scalc/ui/subtotaloptionspage.ui", "SubTotalOptionsPage",
                               &rArgSet ),
             pViewData       ( nullptr ),
@@ -443,7 +442,6 @@ ScTpSubTotalOptions::ScTpSubTotalOptions(TabPageParent pParent, const SfxItemSet
 
 ScTpSubTotalOptions::~ScTpSubTotalOptions()
 {
-    disposeOnce();
 }
 
 void ScTpSubTotalOptions::Init()
@@ -462,10 +460,10 @@ void ScTpSubTotalOptions::Init()
     FillUserSortListBox();
 }
 
-VclPtr<SfxTabPage> ScTpSubTotalOptions::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> ScTpSubTotalOptions::Create(weld::Container* pPage, weld::DialogController* pController,
                                                const SfxItemSet* rArgSet)
 {
-    return VclPtr<ScTpSubTotalOptions>::Create(pParent, *rArgSet);
+    return std::make_unique<ScTpSubTotalOptions>(pPage, pController, *rArgSet);
 }
 
 void ScTpSubTotalOptions::Reset( const SfxItemSet* /* rArgSet */ )

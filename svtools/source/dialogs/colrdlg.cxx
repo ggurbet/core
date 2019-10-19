@@ -19,14 +19,11 @@
 
 
 #include <com/sun/star/awt/XWindow.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/XPropertyAccess.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
 #include <com/sun/star/cui/ColorPicker.hpp>
 
 #include <comphelper/processfactory.hxx>
-
-#include <toolkit/helper/vclunohelper.hxx>
 
 #include <svtools/colrdlg.hxx>
 #include <vcl/weld.hxx>
@@ -84,11 +81,11 @@ short SvColorDialog::Execute(weld::Window* pParent)
         if( ret )
         {
             props = xPropertyAccess->getPropertyValues();
-            for( sal_Int32 n = 0; n < props.getLength(); n++ )
+            for( const auto& rProp : std::as_const(props) )
             {
-                if( props[n].Name == sColor )
+                if( rProp.Name == sColor )
                 {
-                    props[n].Value >>= maColor;
+                    rProp.Value >>= maColor;
                 }
             }
         }

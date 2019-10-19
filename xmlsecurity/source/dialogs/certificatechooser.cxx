@@ -86,7 +86,7 @@ short CertificateChooser::run()
 
     // PostUserEvent( LINK( this, CertificateChooser, Initialize ) );
 
-    // PostUserLink behavior is to slow, so do it directly before Execute().
+    // PostUserLink behavior is too slow, so do it directly before Execute().
     // Problem: This Dialog should be visible right now, and the parent should not be accessible.
     // Show, Update, DisableInput...
 
@@ -198,7 +198,7 @@ void CertificateChooser::ImplInitialize()
 
 
         // fill list of certificates; the first entry will be selected
-        for ( const auto& xCert : xCerts )
+        for ( const auto& xCert : std::as_const(xCerts) )
         {
             std::shared_ptr<UserData> userData = std::make_shared<UserData>();
             userData->xCertificate = xCert;
@@ -220,13 +220,15 @@ void CertificateChooser::ImplInitialize()
 
 #if HAVE_FEATURE_GPGME
             // only GPG has preferred keys
-            if ( sIssuer == msPreferredKey )
-            {
-                if ( meAction == UserAction::Sign || meAction == UserAction::SelectSign )
-                    m_xCertLB->select(nRow);
-                else if ( meAction == UserAction::Encrypt &&
-                          aUserOpts.GetEncryptToSelf() )
-                    mxEncryptToSelf = xCert;
+            if ( !sIssuer.isEmpty() && !msPreferredKey.isEmpty() ) {
+                if ( sIssuer == msPreferredKey )
+                {
+                    if ( meAction == UserAction::Sign || meAction == UserAction::SelectSign )
+                        m_xCertLB->select(nRow);
+                    else if ( meAction == UserAction::Encrypt &&
+                              aUserOpts.GetEncryptToSelf() )
+                        mxEncryptToSelf = xCert;
+                }
             }
 #endif
         }
@@ -269,7 +271,7 @@ uno::Sequence<uno::Reference< css::security::XCertificate > > CertificateChooser
     return comphelper::containerToSequence(aRet);
 }
 
-uno::Reference<xml::crypto::XXMLSecurityContext> CertificateChooser::GetSelectedSecurityContext()
+uno::Reference<xml::crypto::XXMLSecurityContext> CertificateChooser::GetSelectedSecurityContext() const
 {
     int nSel = m_xCertLB->get_selected_index();
     if (nSel == -1)
@@ -280,7 +282,7 @@ uno::Reference<xml::crypto::XXMLSecurityContext> CertificateChooser::GetSelected
     return xCert;
 }
 
-OUString CertificateChooser::GetDescription()
+OUString CertificateChooser::GetDescription() const
 {
     return m_xDescriptionED->get_text();
 }
@@ -301,9 +303,10 @@ IMPL_LINK_NOARG(CertificateChooser, CertificateHighlightHdl, weld::TreeView&, vo
     m_xDescriptionED->set_sensitive(bEnable);
 }
 
-IMPL_LINK_NOARG(CertificateChooser, CertificateSelectHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(CertificateChooser, CertificateSelectHdl, weld::TreeView&, bool)
 {
     m_xDialog->response(RET_OK);
+    return true;
 }
 
 IMPL_LINK_NOARG(CertificateChooser, ViewButtonHdl, weld::Button&, void)

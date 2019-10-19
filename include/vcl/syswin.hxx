@@ -27,6 +27,7 @@
 #include <vcl/window.hxx>
 #include <o3tl/typed_flags_set.hxx>
 #include <memory>
+#include <vcl/NotebookBarAddonsMerger.hxx>
 
 class MenuBar;
 class NotebookBar;
@@ -140,6 +141,7 @@ private:
     bool            mbHideBtn;
     bool            mbSysChild;
     bool            mbIsCalculatingInitialLayoutSize;
+    bool            mbPaintComplete;
     MenuBarMode     mnMenuBarMode;
     sal_uInt16      mnIcon;
     std::unique_ptr<ImplData> mpImplData;
@@ -158,6 +160,17 @@ private:
     SAL_DLLPRIVATE void setPosSizeOnContainee(Size aSize, Window &rBox);
     DECL_DLLPRIVATE_LINK( ImplHandleLayoutTimerHdl, Timer*, void );
 
+    // try to extract content and return as Bitmap. To do that reliably, a Yield-loop
+    // like in Execute() has to be executed and it is necessary to detect when the
+    // paint is finished
+    virtual void PrePaint(vcl::RenderContext& rRenderContext) override;
+    virtual void PostPaint(vcl::RenderContext& rRenderContext) override;
+
+    // ensureRepaint - triggers Application::Yield until the dialog is
+    // completely repainted. Sometimes needed for dialogs showing progress
+    // during actions
+    SAL_DLLPRIVATE void ensureRepaint();
+
 protected:
     // Single argument ctors shall be explicit.
     explicit SystemWindow(WindowType nType);
@@ -170,6 +183,7 @@ protected:
     SAL_DLLPRIVATE void DoInitialLayout();
 
     SAL_DLLPRIVATE void SetIdleDebugName( const sal_Char *pDebugName );
+
 public:
     virtual         ~SystemWindow() override;
     virtual void    dispose() override;
@@ -217,6 +231,7 @@ public:
 
     void SetNotebookBar(const OUString& rUIXMLDescription,
                         const css::uno::Reference<css::frame::XFrame>& rFrame,
+                        const NotebookBarAddonsItem& aNotebookBarAddonsItem,
                         bool bReloadNotebookbar = false);
 
     void            CloseNotebookBar();
@@ -268,6 +283,11 @@ public:
     SAL_DLLPRIVATE bool hasPendingLayout() const { return maLayoutIdle.IsActive(); }
 
     virtual        void    doDeferredInit(WinBits nBits);
+
+    // Screenshot interface
+    virtual std::vector<OString> getAllPageUIXMLDescriptions() const;
+    virtual bool selectPageByUIXMLDescription(const OString& rUIXMLDescription);
+    void createScreenshot(VirtualDevice& rOutput);
 };
 
 inline void SystemWindow::SetIdleDebugName( const sal_Char *pDebugName )

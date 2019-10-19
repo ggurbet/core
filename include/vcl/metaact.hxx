@@ -27,7 +27,6 @@
 #include <vcl/wall.hxx>
 #include <vcl/font.hxx>
 #include <tools/poly.hxx>
-#include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/region.hxx>
 #include <vcl/outdevstate.hxx>
@@ -77,7 +76,7 @@ public:
 
     virtual void        Execute( OutputDevice* pOut );
 
-    oslInterlockedCount GetRefCount() { return m_nCount; }
+    oslInterlockedCount GetRefCount() const { return m_nCount; }
 
     virtual rtl::Reference<MetaAction> Clone();
 

@@ -31,22 +31,12 @@ public:
 protected:
     virtual rtl::Reference<OpenGLContext> CreateWinContext() override;
 
-    void RenderPixmap(X11Pixmap const * pPixmap, X11Pixmap const * pMask, int nX, int nY, TextureCombo& rCombo);
-
 public:
     // implementation of X11GraphicsImpl
 
     virtual void copyBits( const SalTwoRect& rPosAry, SalGraphics* pSrcGraphics ) override;
 
     virtual void Init() override;
-
-    void FillPixmapFromScreen( X11Pixmap* pPixmap, int nX, int nY ) override;
-    bool RenderPixmapToScreen(X11Pixmap* pPixmap, X11Pixmap* pMask, int nX, int nY) override;
-
-    bool RenderAndCacheNativeControl(X11Pixmap* pPixmap, X11Pixmap* pMask, int nX, int nY,
-                                     ControlCacheKey& aControlCacheKey) override;
-    bool TryRenderCachedNativeControl(ControlCacheKey& rControlCacheKey,
-                                      int nX, int nY) override;
 };
 
 #endif // INCLUDED_VCL_INC_OPENGL_X11_GDIIMPL_HXX

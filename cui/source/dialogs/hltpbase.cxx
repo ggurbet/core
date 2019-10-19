@@ -20,7 +20,9 @@
 #include <memory>
 #include <sal/config.h>
 
+#include <comphelper/lok.hxx>
 #include <osl/file.hxx>
+#include <sfx2/app.hxx>
 #include <sfx2/event.hxx>
 #include <sfx2/frame.hxx>
 #include <sfx2/viewfrm.hxx>
@@ -35,8 +37,6 @@
 #include <strings.hrc>
 #include <dialmgr.hxx>
 #include <bitmaps.hlst>
-#include <vcl/builderfactory.hxx>
-#include <comphelper/lok.hxx>
 
 using namespace ::ucbhelper;
 
@@ -272,10 +272,17 @@ void SvxHyperlinkTabPageBase::FillStandardDlgFields ( const SvxHyperlinkItem* pH
     mxEdText->set_text( pHyperlinkItem->GetIntName() );
 
     // Script-button
-    if ( pHyperlinkItem->GetMacroEvents() == HyperDialogEvent::NONE )
-        mxBtScript->set_sensitive(false);
+    if (!comphelper::LibreOfficeKit::isActive())
+    {
+        if ( pHyperlinkItem->GetMacroEvents() == HyperDialogEvent::NONE )
+            mxBtScript->set_sensitive(false);
+        else
+            mxBtScript->set_sensitive(true);
+    }
     else
-        mxBtScript->set_sensitive(true);
+    {
+        mxBtScript->hide();
+    }
 }
 
 // Any action to do after apply-button is pressed
@@ -370,7 +377,7 @@ IMPL_LINK_NOARG(SvxHyperlinkTabPageBase, ClickScriptHdl_Impl, weld::Button&, voi
 }
 
 // Get Macro-Infos
-HyperDialogEvent SvxHyperlinkTabPageBase::GetMacroEvents()
+HyperDialogEvent SvxHyperlinkTabPageBase::GetMacroEvents() const
 {
     const SvxHyperlinkItem *pHyperlinkItem = static_cast<const SvxHyperlinkItem *>(
                                        GetItemSet().GetItem (SID_HYPERLINK_GETLINK));

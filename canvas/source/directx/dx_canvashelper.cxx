@@ -147,7 +147,7 @@ namespace dxcanvas
         if( needOutput() )
         {
             GraphicsSharedPtr pGraphics( mpGraphicsProvider->getGraphics() );
-            Gdiplus::Color aClearColor = Gdiplus::Color(Gdiplus::ARGB(Gdiplus::Color::White));
+            Gdiplus::Color aClearColor{Gdiplus::ARGB(Gdiplus::Color::White)};
 
             ENSURE_OR_THROW(
                 Gdiplus::Ok == pGraphics->SetCompositingMode(
@@ -365,7 +365,7 @@ namespace dxcanvas
                     strokeAttributes.DashArray ) );
             if( !rDashArray.empty() )
             {
-                aPen.SetDashPattern( &rDashArray[0],
+                aPen.SetDashPattern( rDashArray.data(),
                                      rDashArray.size() );
             }
             aPen.SetLineCap( gdiCapFromCap(strokeAttributes.StartCapType),

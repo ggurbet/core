@@ -20,11 +20,9 @@
 #include <SchXMLImport.hxx>
 #include "SchXMLChartContext.hxx"
 #include "contexts.hxx"
-#include <XMLChartPropertySetMapper.hxx>
 #include "SchXMLTools.hxx"
 #include <facreg.hxx>
 
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
 #include <xmloff/nmspmap.hxx>
@@ -34,24 +32,19 @@
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/xmlictxt.hxx>
 #include <xmloff/xmlstyle.hxx>
-#include <com/sun/star/task/XStatusIndicatorSupplier.hpp>
 #include <com/sun/star/chart/XChartDocument.hpp>
-#include <com/sun/star/chart/ChartDataRowSource.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/chart2/data/XDataReceiver.hpp>
-#include <com/sun/star/chart2/data/XDataProvider.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
 #include <com/sun/star/chart2/XChartTypeContainer.hpp>
 #include <com/sun/star/chart2/XDataSeriesContainer.hpp>
 
-#include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 
 #include <tools/diagnose_ex.h>
-#include <typeinfo>
 
 using namespace com::sun::star;
 using namespace ::xmloff::token;
@@ -379,13 +372,13 @@ void SchXMLImportHelper::DeleteDataSeries(
     {
         Reference< chart2::XCoordinateSystemContainer > xCooSysCnt(
             xDoc->getFirstDiagram(), uno::UNO_QUERY_THROW );
-        Sequence< Reference< chart2::XCoordinateSystem > > aCooSysSeq(
+        const Sequence< Reference< chart2::XCoordinateSystem > > aCooSysSeq(
             xCooSysCnt->getCoordinateSystems());
 
         for( const auto& rCooSys : aCooSysSeq )
         {
             Reference< chart2::XChartTypeContainer > xCTCnt( rCooSys, uno::UNO_QUERY_THROW );
-            Sequence< Reference< chart2::XChartType > > aChartTypes( xCTCnt->getChartTypes());
+            const Sequence< Reference< chart2::XChartType > > aChartTypes( xCTCnt->getChartTypes());
 
             for( const auto& rChartType : aChartTypes )
             {
@@ -626,7 +619,7 @@ Sequence< OUString > SchXMLImport_getSupportedServiceNames() throw()
 
 OUString SchXMLImport_getImplementationName() throw()
 {
-    return OUString(  "SchXMLImport"  );
+    return "SchXMLImport";
 }
 
 Reference< uno::XInterface > SchXMLImport_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)
@@ -643,7 +636,7 @@ Sequence< OUString > SchXMLImport_Styles_getSupportedServiceNames() throw()
 
 OUString SchXMLImport_Styles_getImplementationName() throw()
 {
-    return OUString( "SchXMLImport.Styles" );
+    return "SchXMLImport.Styles";
 }
 
 Reference< uno::XInterface > SchXMLImport_Styles_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)
@@ -658,7 +651,7 @@ Sequence< OUString > SchXMLImport_Content_getSupportedServiceNames() throw()
 
 OUString SchXMLImport_Content_getImplementationName() throw()
 {
-    return OUString(  "SchXMLImport.Content"  );
+    return "SchXMLImport.Content";
 }
 
 Reference< uno::XInterface > SchXMLImport_Content_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)
@@ -673,7 +666,7 @@ Sequence< OUString > SchXMLImport_Meta_getSupportedServiceNames() throw()
 
 OUString SchXMLImport_Meta_getImplementationName() throw()
 {
-    return OUString(  "SchXMLImport.Meta"  );
+    return "SchXMLImport.Meta";
 }
 
 Reference< uno::XInterface > SchXMLImport_Meta_createInstance(const Reference< lang::XMultiServiceFactory > & rSMgr)

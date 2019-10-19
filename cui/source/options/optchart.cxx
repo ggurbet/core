@@ -17,9 +17,9 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <unotools/pathoptions.hxx>
 #include "optchart.hxx"
 #include <svx/SvxColorValueSet.hxx>
+#include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
@@ -41,37 +41,32 @@ void SvxDefaultColorOptPage::InsertColorEntry(const XColorEntry& rEntry, sal_Int
     xDevice->SetFillColor(rColor);
     xDevice->SetLineColor(rStyleSettings.GetDisableColor());
     xDevice->DrawRect(aRect);
-    BitmapEx aBitmap(xDevice->GetBitmapEx(Point(0, 0), xDevice->GetOutputSize()));
 
-    nPos = m_pLbChartColors->InsertEntry(rStr, Image(aBitmap), nPos);
+    m_xLbChartColors->insert(nullptr, nPos, &rStr, nullptr,
+                             nullptr, xDevice.get(), nullptr, false, nullptr);
 
-    if ( static_cast<size_t>(nPos) < aColorList.size() )
+    if (nPos == -1)
+        aColorList.push_back( rColor );
+    else
     {
         ImpColorList::iterator it = aColorList.begin();
         std::advance( it, nPos );
         aColorList.insert( it, rColor );
     }
-    else
-    {
-        aColorList.push_back( rColor );
-    }
 }
 
 void SvxDefaultColorOptPage::RemoveColorEntry(sal_Int32 nPos)
 {
-    m_pLbChartColors->RemoveEntry(nPos);
-    if ( 0 <= nPos && static_cast<size_t>(nPos) < aColorList.size() )
-    {
-        ImpColorList::iterator it = aColorList.begin();
-        std::advance(it, nPos);
-        aColorList.erase(it);
-    }
+    m_xLbChartColors->remove(nPos);
+    ImpColorList::iterator it = aColorList.begin();
+    std::advance(it, nPos);
+    aColorList.erase(it);
 }
 
 void SvxDefaultColorOptPage::ClearColorEntries()
 {
     aColorList.clear();
-    m_pLbChartColors->Clear();
+    m_xLbChartColors->clear();
 }
 
 void SvxDefaultColorOptPage::ModifyColorEntry(const XColorEntry& rEntry, sal_Int32 nPos)
@@ -85,32 +80,33 @@ void SvxDefaultColorOptPage::FillBoxChartColorLB()
     if (!m_SvxChartColorTableUniquePtr)
         return;
 
-    m_pLbChartColors->SetUpdateMode(false);
+    m_xLbChartColors->freeze();
     ClearColorEntries();
     const long nCount(m_SvxChartColorTableUniquePtr->size());
     for (long i = 0; i < nCount; ++i)
         InsertColorEntry((*m_SvxChartColorTableUniquePtr)[i]);
-    m_pLbChartColors->SetUpdateMode(true);
+    m_xLbChartColors->thaw();
 }
 
-SvxDefaultColorOptPage::SvxDefaultColorOptPage(vcl::Window* pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "OptChartColorsPage","cui/ui/optchartcolorspage.ui", &rInAttrs)
+SvxDefaultColorOptPage::SvxDefaultColorOptPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/optchartcolorspage.ui", "OptChartColorsPage", &rInAttrs)
+    , m_xLbChartColors(m_xBuilder->weld_tree_view("colors"))
+    , m_xLbPaletteSelector(m_xBuilder->weld_combo_box("paletteselector"))
+    , m_xPBDefault(m_xBuilder->weld_button("default"))
+    , m_xPBAdd(m_xBuilder->weld_button("add"))
+    , m_xPBRemove(m_xBuilder->weld_button("delete"))
+    , m_xValSetColorBox(new ColorValueSet(m_xBuilder->weld_scrolled_window("tablewin")))
+    , m_xValSetColorBoxWin(new weld::CustomWeld(*m_xBuilder, "table", *m_xValSetColorBox))
 {
-    get(m_pPBRemove, "delete");
-    get(m_pPBAdd, "add");
-    get(m_pPBDefault, "default");
-    get(m_pLbPaletteSelector, "paletteselector");
-    get(m_pValSetColorBox, "table");
-    get(m_pLbChartColors, "colors");
-    m_pLbChartColors->set_height_request(m_pLbChartColors->GetTextHeight()*16);
+    m_xLbChartColors->set_size_request(-1, m_xLbChartColors->get_height_rows(16));
 
-    m_pPBDefault->SetClickHdl( LINK( this, SvxDefaultColorOptPage, ResetToDefaults ) );
-    m_pPBAdd->SetClickHdl( LINK( this, SvxDefaultColorOptPage, AddChartColor ) );
-    m_pPBRemove->SetClickHdl( LINK( this, SvxDefaultColorOptPage, RemoveChartColor ) );
-    m_pValSetColorBox->SetSelectHdl( LINK( this, SvxDefaultColorOptPage, BoxClickedHdl ) );
-    m_pLbPaletteSelector->SetSelectHdl( LINK( this, SvxDefaultColorOptPage, SelectPaletteLbHdl ) );
+    m_xPBDefault->connect_clicked( LINK( this, SvxDefaultColorOptPage, ResetToDefaults ) );
+    m_xPBAdd->connect_clicked( LINK( this, SvxDefaultColorOptPage, AddChartColor ) );
+    m_xPBRemove->connect_clicked( LINK( this, SvxDefaultColorOptPage, RemoveChartColor ) );
+    m_xValSetColorBox->SetSelectHdl( LINK( this, SvxDefaultColorOptPage, BoxClickedHdl ) );
+    m_xLbPaletteSelector->connect_changed( LINK( this, SvxDefaultColorOptPage, SelectPaletteLbHdl ) );
 
-    m_pValSetColorBox->SetStyle( m_pValSetColorBox->GetStyle()
+    m_xValSetColorBox->SetStyle( m_xValSetColorBox->GetStyle()
                                     | WB_ITEMBORDER | WB_NAMEFIELD | WB_VSCROLL );
 
     m_SvxChartOptionsUniquePtr.reset(new SvxChartOptions);
@@ -125,7 +121,7 @@ SvxDefaultColorOptPage::SvxDefaultColorOptPage(vcl::Window* pParent, const SfxIt
     {
         m_SvxChartColorTableUniquePtr = std::make_unique<SvxChartColorTable>();
         m_SvxChartColorTableUniquePtr->useDefault();
-        m_SvxChartOptionsUniquePtr->SetDefaultColors(*m_SvxChartColorTableUniquePtr.get());
+        m_SvxChartOptionsUniquePtr->SetDefaultColors(*m_SvxChartColorTableUniquePtr);
     }
 
     Construct();
@@ -133,20 +129,8 @@ SvxDefaultColorOptPage::SvxDefaultColorOptPage(vcl::Window* pParent, const SfxIt
 
 SvxDefaultColorOptPage::~SvxDefaultColorOptPage()
 {
-    disposeOnce();
-}
-
-void SvxDefaultColorOptPage::dispose()
-{
-    m_SvxChartColorTableUniquePtr.reset();
-    m_SvxChartOptionsUniquePtr.reset();
-    m_pLbChartColors.clear();
-    m_pValSetColorBox.clear();
-    m_pPBDefault.clear();
-    m_pLbPaletteSelector.clear();
-    m_pPBAdd.clear();
-    m_pPBRemove.clear();
-    SfxTabPage::dispose();
+    m_xValSetColorBoxWin.reset();
+    m_xValSetColorBox.reset();
 }
 
 void SvxDefaultColorOptPage::Construct()
@@ -154,20 +138,19 @@ void SvxDefaultColorOptPage::Construct()
     FillBoxChartColorLB();
     FillPaletteLB();
 
-    m_pLbChartColors->SelectEntryPos( 0 );
+    m_xLbChartColors->select( 0 );
 }
 
-
-VclPtr<SfxTabPage> SvxDefaultColorOptPage::Create( TabPageParent pParent, const SfxItemSet* rAttrs )
+std::unique_ptr<SfxTabPage> SvxDefaultColorOptPage::Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrs )
 {
-    return VclPtr<SvxDefaultColorOptPage>::Create( pParent.pParent, *rAttrs );
+    return std::make_unique<SvxDefaultColorOptPage>( pPage, pController, *rAttrs );
 }
 
 bool SvxDefaultColorOptPage::FillItemSet( SfxItemSet* rOutAttrs )
 {
     if( m_SvxChartColorTableUniquePtr )
     {
-        rOutAttrs->Put(SvxChartColorTableItem(SID_SCH_EDITOPTIONS, *m_SvxChartColorTableUniquePtr.get()));
+        rOutAttrs->Put(SvxChartColorTableItem(SID_SCH_EDITOPTIONS, *m_SvxChartColorTableUniquePtr));
     }
 
     return true;
@@ -175,30 +158,27 @@ bool SvxDefaultColorOptPage::FillItemSet( SfxItemSet* rOutAttrs )
 
 void SvxDefaultColorOptPage::Reset( const SfxItemSet* )
 {
-    m_pLbChartColors->SelectEntryPos( 0 );
+    m_xLbChartColors->select( 0 );
 }
 
 void SvxDefaultColorOptPage::FillPaletteLB()
 {
-    m_pLbPaletteSelector->Clear();
+    m_xLbPaletteSelector->clear();
     std::vector<OUString> aPaletteList = aPaletteManager.GetPaletteList();
     for (auto const& palette : aPaletteList)
-    {
-        m_pLbPaletteSelector->InsertEntry(palette);
-    }
-    OUString aPaletteName( officecfg::Office::Common::UserColors::PaletteName::get() );
-    m_pLbPaletteSelector->SelectEntry(aPaletteName);
-    if (m_pLbPaletteSelector->GetSelectedEntryPos() != LISTBOX_ENTRY_NOTFOUND)
-    {
-        SelectPaletteLbHdl( *m_pLbPaletteSelector );
-    }
+        m_xLbPaletteSelector->append_text(palette);
+
+    OUString aPaletteName(officecfg::Office::Common::UserColors::PaletteName::get());
+    m_xLbPaletteSelector->set_active_text(aPaletteName);
+    if (m_xLbPaletteSelector->get_active() != -1)
+        SelectPaletteLbHdl( *m_xLbPaletteSelector );
 }
 
 void SvxDefaultColorOptPage::SaveChartOptions()
 {
     if (m_SvxChartOptionsUniquePtr && m_SvxChartColorTableUniquePtr)
     {
-        m_SvxChartOptionsUniquePtr->SetDefaultColors(*m_SvxChartColorTableUniquePtr.get());
+        m_SvxChartOptionsUniquePtr->SetDefaultColors(*m_SvxChartColorTableUniquePtr);
         m_SvxChartOptionsUniquePtr->Commit();
     }
 }
@@ -207,9 +187,7 @@ void SvxDefaultColorOptPage::SaveChartOptions()
 
 
 // ResetToDefaults
-
-
-IMPL_LINK_NOARG(SvxDefaultColorOptPage, ResetToDefaults, Button*, void)
+IMPL_LINK_NOARG(SvxDefaultColorOptPage, ResetToDefaults, weld::Button&, void)
 {
     if( m_SvxChartColorTableUniquePtr )
     {
@@ -217,16 +195,14 @@ IMPL_LINK_NOARG(SvxDefaultColorOptPage, ResetToDefaults, Button*, void)
 
         FillBoxChartColorLB();
 
-        m_pLbChartColors->GetFocus();
-        m_pLbChartColors->SelectEntryPos( 0 );
-        m_pPBRemove->Enable();
+        m_xLbChartColors->grab_focus();
+        m_xLbChartColors->select( 0 );
+        m_xPBRemove->set_sensitive(true);
     }
 }
 
 // AddChartColor
-
-
-IMPL_LINK_NOARG(SvxDefaultColorOptPage, AddChartColor, Button*, void)
+IMPL_LINK_NOARG(SvxDefaultColorOptPage, AddChartColor, weld::Button&, void)
 {
     if( m_SvxChartColorTableUniquePtr )
     {
@@ -236,20 +212,17 @@ IMPL_LINK_NOARG(SvxDefaultColorOptPage, AddChartColor, Button*, void)
             XColorEntry(black, SvxChartColorTable::getDefaultName(m_SvxChartColorTableUniquePtr->size())));
 
         FillBoxChartColorLB();
-        m_pLbChartColors->GetFocus();
-        m_pLbChartColors->SelectEntryPos(m_SvxChartColorTableUniquePtr->size() - 1);
-        m_pPBRemove->Enable();
+        m_xLbChartColors->grab_focus();
+        m_xLbChartColors->select(m_SvxChartColorTableUniquePtr->size() - 1);
+        m_xPBRemove->set_sensitive(true);
     }
 }
 
 // RemoveChartColor
-
-
-IMPL_LINK_NOARG( SvxDefaultColorOptPage, RemoveChartColor, Button*, void )
+IMPL_LINK_NOARG( SvxDefaultColorOptPage, RemoveChartColor, weld::Button&, void )
 {
-    sal_Int32 nIndex = m_pLbChartColors->GetSelectedEntryPos();
-
-    if (m_pLbChartColors->GetSelectedEntryCount() == 0)
+    sal_Int32 nIndex = m_xLbChartColors->get_selected_index();
+    if (nIndex == -1)
         return;
 
     if( m_SvxChartColorTableUniquePtr )
@@ -265,37 +238,37 @@ IMPL_LINK_NOARG( SvxDefaultColorOptPage, RemoveChartColor, Button*, void )
 
             FillBoxChartColorLB();
 
-            m_pLbChartColors->GetFocus();
+            m_xLbChartColors->grab_focus();
 
-            if (nIndex == m_pLbChartColors->GetEntryCount() && m_pLbChartColors->GetEntryCount() > 0)
-                m_pLbChartColors->SelectEntryPos(m_SvxChartColorTableUniquePtr->size() - 1);
-            else if (m_pLbChartColors->GetEntryCount() > 0)
-                m_pLbChartColors->SelectEntryPos( nIndex );
+            if (nIndex == m_xLbChartColors->n_children() && m_xLbChartColors->n_children() > 0)
+                m_xLbChartColors->select(m_SvxChartColorTableUniquePtr->size() - 1);
+            else if (m_xLbChartColors->n_children() > 0)
+                m_xLbChartColors->select( nIndex );
             else
-                m_pPBRemove->Enable();
+                m_xPBRemove->set_sensitive(true);
         }
     }
 }
 
-IMPL_LINK_NOARG( SvxDefaultColorOptPage, SelectPaletteLbHdl, ListBox&, void)
+IMPL_LINK_NOARG( SvxDefaultColorOptPage, SelectPaletteLbHdl, weld::ComboBox&, void)
 {
-    sal_Int32 nPos = m_pLbPaletteSelector->GetSelectedEntryPos();
+    sal_Int32 nPos = m_xLbPaletteSelector->get_active();
     aPaletteManager.SetPalette( nPos );
-    aPaletteManager.ReloadColorSet( *m_pValSetColorBox );
-    m_pValSetColorBox->Resize();
+    aPaletteManager.ReloadColorSet( *m_xValSetColorBox );
+    m_xValSetColorBox->Resize();
 }
 
-IMPL_LINK_NOARG(SvxDefaultColorOptPage, BoxClickedHdl, ValueSet*, void)
+IMPL_LINK_NOARG(SvxDefaultColorOptPage, BoxClickedHdl, SvtValueSet*, void)
 {
-    sal_Int32 nIdx = m_pLbChartColors->GetSelectedEntryPos();
-    if( nIdx != LISTBOX_ENTRY_NOTFOUND )
+    sal_Int32 nIdx = m_xLbChartColors->get_selected_index();
+    if (nIdx != -1)
     {
-        const XColorEntry aEntry( m_pValSetColorBox->GetItemColor( m_pValSetColorBox->GetSelectedItemId() ), m_pLbChartColors->GetSelectedEntry() );
+        const XColorEntry aEntry(m_xValSetColorBox->GetItemColor(m_xValSetColorBox->GetSelectedItemId()), m_xLbChartColors->get_selected_text());
 
         ModifyColorEntry(aEntry, nIdx);
         m_SvxChartColorTableUniquePtr->replace(nIdx, aEntry);
 
-        m_pLbChartColors->SelectEntryPos( nIdx );  // reselect entry
+        m_xLbChartColors->select(nIdx);  // reselect entry
     }
 }
 

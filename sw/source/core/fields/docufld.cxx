@@ -1076,7 +1076,7 @@ OUString SwDocInfoField::ExpandImpl(SwRootFrame const*const) const
                     }
                     else if( aAny >>= aDuration )
                     {
-                        sVal = OUString(aDuration.Negative ? '-' : '+')
+                        sVal = OUStringChar(aDuration.Negative ? '-' : '+')
                              + SwViewShell::GetShellRes()->sDurationFormat;
                         sVal = sVal.replaceFirst("%1", OUString::number( aDuration.Years  ) );
                         sVal = sVal.replaceFirst("%2", OUString::number( aDuration.Months ) );
@@ -1270,11 +1270,11 @@ SwHiddenTextField::SwHiddenTextField( SwHiddenTextFieldType* pFieldType,
                                     const OUString& rCond,
                                     const OUString& rStr,
                                     bool    bHidden,
-                                    sal_uInt16  nSub) :
+                                    SwFieldTypesEnum  nSub) :
     SwField( pFieldType ), m_aCond(rCond), m_nSubType(nSub),
     m_bCanToggle(bConditional), m_bIsHidden(bHidden), m_bValid(false)
 {
-    if(m_nSubType == TYP_CONDTXTFLD)
+    if(m_nSubType == SwFieldTypesEnum::ConditionalText)
     {
         sal_Int32 nPos = 0;
         m_aTRUEText = rStr.getToken(0, '|', nPos);
@@ -1297,7 +1297,7 @@ SwHiddenTextField::SwHiddenTextField( SwHiddenTextFieldType* pFieldType,
                                     const OUString& rCond,
                                     const OUString& rTrue,
                                     const OUString& rFalse,
-                                    sal_uInt16 nSub)
+                                    SwFieldTypesEnum nSub)
     : SwField( pFieldType ), m_aTRUEText(rTrue), m_aFALSEText(rFalse), m_aCond(rCond), m_nSubType(nSub),
       m_bIsHidden(true), m_bValid(false)
 {
@@ -1309,7 +1309,7 @@ OUString SwHiddenTextField::ExpandImpl(SwRootFrame const*const) const
     // Type: !Hidden  -> show always
     //        Hide    -> evaluate condition
 
-    if( TYP_CONDTXTFLD == m_nSubType )
+    if( SwFieldTypesEnum::ConditionalText == m_nSubType )
     {
         if( m_bValid )
             return m_aContent;
@@ -1329,7 +1329,7 @@ void SwHiddenTextField::Evaluate(SwDoc* pDoc)
 {
     OSL_ENSURE(pDoc, "got no document");
 
-    if( TYP_CONDTXTFLD == m_nSubType )
+    if( SwFieldTypesEnum::ConditionalText == m_nSubType )
     {
 #if !HAVE_FEATURE_DBCONNECTIVITY
         (void) pDoc;
@@ -1387,7 +1387,7 @@ OUString SwHiddenTextField::GetFieldName() const
     OUString aStr = SwFieldType::GetTypeStr(m_nSubType) +
         " " + m_aCond + " " + m_aTRUEText;
 
-    if (m_nSubType == TYP_CONDTXTFLD)
+    if (m_nSubType == SwFieldTypesEnum::ConditionalText)
     {
         aStr += " : " + m_aFALSEText;
     }
@@ -1422,7 +1422,7 @@ OUString SwHiddenTextField::GetPar1() const
 /// set True/False text
 void SwHiddenTextField::SetPar2(const OUString& rStr)
 {
-    if (m_nSubType == TYP_CONDTXTFLD)
+    if (m_nSubType == SwFieldTypesEnum::ConditionalText)
     {
         sal_Int32 nPos = rStr.indexOf('|');
         if (nPos == -1)
@@ -1440,7 +1440,7 @@ void SwHiddenTextField::SetPar2(const OUString& rStr)
 /// get True/False text
 OUString SwHiddenTextField::GetPar2() const
 {
-    if(m_nSubType != TYP_CONDTXTFLD)
+    if(m_nSubType != SwFieldTypesEnum::ConditionalText)
     {
         return m_aTRUEText;
     }
@@ -1449,7 +1449,7 @@ OUString SwHiddenTextField::GetPar2() const
 
 sal_uInt16 SwHiddenTextField::GetSubType() const
 {
-    return m_nSubType;
+    return static_cast<sal_uInt16>(m_nSubType);
 }
 
 bool SwHiddenTextField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
@@ -1532,7 +1532,7 @@ OUString SwHiddenTextField::GetDBName(const OUString& rName, SwDoc *pDoc)
     }
 
     SwDBData aData = pDoc->GetDBData();
-    return aData.sDataSource + OUStringLiteral1(DB_DELIM) + aData.sCommand;
+    return aData.sDataSource + OUStringChar(DB_DELIM) + aData.sCommand;
 }
 
 // [aFieldDefinition] value sample : " IF A == B \"TrueText\" \"FalseText\""
@@ -1734,13 +1734,16 @@ SwPostItField::SwPostItField( SwPostItFieldType* pT,
         const OUString& rInitials,
         const OUString& rName,
         const DateTime& rDateTime,
-        const sal_uInt32 nPostItId)
+        const bool bResolved,
+        const sal_uInt32 nPostItId
+)
     : SwField( pT )
     , m_sText( rText )
     , m_sAuthor( rAuthor )
     , m_sInitials( rInitials )
     , m_sName( rName )
     , m_aDateTime( rDateTime )
+    , m_bResolved( bResolved )
 {
     m_nPostItId = nPostItId == 0 ? m_nLastPostItId++ : nPostItId;
 }
@@ -1765,10 +1768,25 @@ OUString SwPostItField::GetDescription() const
     return SwResId(STR_NOTE);
 }
 
+void SwPostItField::SetResolved(bool bNewState)
+{
+    m_bResolved = bNewState;
+}
+
+void SwPostItField::ToggleResolved()
+{
+    m_bResolved = !m_bResolved;
+}
+
+bool SwPostItField::GetResolved() const
+{
+    return m_bResolved;
+}
+
 std::unique_ptr<SwField> SwPostItField::Copy() const
 {
     std::unique_ptr<SwPostItField> pRet(new SwPostItField( static_cast<SwPostItFieldType*>(GetTyp()), m_sAuthor, m_sText, m_sInitials, m_sName,
-                                             m_aDateTime, m_nPostItId));
+                                                           m_aDateTime, m_bResolved, m_nPostItId));
     if (mpText)
         pRet->SetTextObject( std::make_unique<OutlinerParaObject>(*mpText) );
 
@@ -1836,6 +1854,9 @@ bool SwPostItField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
     case FIELD_PROP_PAR4:
         rAny <<= m_sName;
         break;
+    case FIELD_PROP_BOOL1:
+        rAny <<= m_bResolved;
+        break;
     case FIELD_PROP_TEXT:
         {
             if ( !m_xTextObject.is() )
@@ -1888,6 +1909,9 @@ bool SwPostItField::PutValue( const uno::Any& rAny, sal_uInt16 nWhichId )
         break;
     case FIELD_PROP_PAR4:
         rAny >>= m_sName;
+        break;
+    case FIELD_PROP_BOOL1:
+        rAny >>= m_bResolved;
         break;
     case FIELD_PROP_TEXT:
         OSL_FAIL("Not implemented!");

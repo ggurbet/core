@@ -32,7 +32,6 @@
 #include <controller/SlsScrollBarManager.hxx>
 #include <controller/SlsSelectionManager.hxx>
 #include <controller/SlsSlotManager.hxx>
-#include <controller/SlsTransferableData.hxx>
 #include <controller/SlsVisibleAreaManager.hxx>
 #include <model/SlideSorterModel.hxx>
 #include <model/SlsPageEnumerationProvider.hxx>
@@ -40,44 +39,34 @@
 #include <view/SlideSorterView.hxx>
 #include <view/SlsLayouter.hxx>
 #include <view/SlsPageObjectLayouter.hxx>
-#include <view/SlsPageObjectPainter.hxx>
 #include <view/SlsTheme.hxx>
 #include <view/SlsToolTip.hxx>
 #include <cache/SlsPageCache.hxx>
 #include <cache/SlsPageCacheManager.hxx>
 
 #include <drawdoc.hxx>
-#include <DrawViewShell.hxx>
 #include <ViewShellBase.hxx>
 #include <Window.hxx>
 #include <FrameView.hxx>
-#include <DrawDocShell.hxx>
 #include <sdpage.hxx>
 
 #include <app.hrc>
 #include <sdmod.hxx>
-#include <sdxfer.hxx>
 #include <ViewShellHint.hxx>
 #include <AccessibleSlideSorterView.hxx>
 #include <AccessibleSlideSorterObject.hxx>
 
 #include <vcl/window.hxx>
-#include <svx/svdopage.hxx>
 #include <svx/svxids.hrc>
-#include <svx/ruler.hxx>
-#include <sfx2/zoomitem.hxx>
-#include <svtools/tabbar.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
+#include <tools/debug.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 
 #include <com/sun/star/lang/XComponent.hpp>
-#include <com/sun/star/drawing/XMasterPagesSupplier.hpp>
-#include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
-#include <com/sun/star/drawing/XDrawPages.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 
 #include <memory>
@@ -333,7 +322,7 @@ bool SlideSorterController::Command (
             else
                 aPopupId = "pagepanenoselmaster";
 
-            std::unique_ptr<InsertionIndicatorHandler::ForceShowContext> pContext;
+            std::unique_ptr<InsertionIndicatorHandler::ForceShowContext, o3tl::default_delete<InsertionIndicatorHandler::ForceShowContext>> xContext;
             if (pPage == nullptr)
             {
                 // When there is no selection, then we show the insertion
@@ -344,7 +333,7 @@ bool SlideSorterController::Command (
                 mpInsertionIndicatorHandler->UpdatePosition(
                     pWindow->PixelToLogic(rEvent.GetMousePosPixel()),
                     InsertionIndicatorHandler::MoveMode);
-                pContext.reset(new InsertionIndicatorHandler::ForceShowContext(
+                xContext.reset(new InsertionIndicatorHandler::ForceShowContext(
                     mpInsertionIndicatorHandler));
             }
 
@@ -389,7 +378,7 @@ bool SlideSorterController::Command (
                 GetSelectionManager()->SetInsertionPosition(
                     GetInsertionIndicatorHandler()->GetInsertionPageIndex());
             }
-            pContext.reset();
+            xContext.reset();
             bEventHasBeenHandled = true;
         }
         break;
@@ -719,7 +708,7 @@ rtl::Reference<FuPoor> SlideSorterController::CreateSelectionFunction (SfxReques
     return xFunc;
 }
 
-::rtl::Reference<SelectionFunction> SlideSorterController::GetCurrentSelectionFunction()
+::rtl::Reference<SelectionFunction> SlideSorterController::GetCurrentSelectionFunction() const
 {
     rtl::Reference<FuPoor> pFunction (mrSlideSorter.GetViewShell()->GetCurrentFunction());
     return ::rtl::Reference<SelectionFunction>(dynamic_cast<SelectionFunction*>(pFunction.get()));

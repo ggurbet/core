@@ -24,11 +24,11 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/container/XEnumeration.hpp>
 
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <vcl/svapp.hxx>
 
 class SfxPoolItem;
-class SwClient;
 class SwDoc;
 class SwUnoTableCursor;
 
@@ -83,9 +83,6 @@ public:
     ~UnoActionRemoveContext() COVERITY_NOEXCEPT_FALSE;
 };
 
-/// helper function for implementing SwClient::Modify
-void ClientModify(SwClient* pClient, const SfxPoolItem *pOld, const SfxPoolItem *pNew);
-
 namespace sw {
     template<typename T>
     struct UnoImplPtrDeleter
@@ -114,9 +111,7 @@ namespace sw {
     UnoTunnelImpl(const css::uno::Sequence< sal_Int8 > & rId,
                   C *const pThis)
     {
-        if ((rId.getLength() == 16) &&
-            (0 == memcmp(C::getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16)))
+        if (isUnoTunnelId<C>(rId))
         {
             return ::sal::static_int_cast< sal_Int64 >(
                     reinterpret_cast< sal_IntPtr >(pThis) );

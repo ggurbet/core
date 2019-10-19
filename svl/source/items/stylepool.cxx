@@ -74,7 +74,7 @@ namespace {
                            const bool bSkipIgnorable );
         // #i86923#
         bool hasIgnorableChildren( const bool bCheckUsage ) const;
-        const std::shared_ptr<SfxItemSet> getItemSetOfIgnorableChild(
+        std::shared_ptr<SfxItemSet> getItemSetOfIgnorableChild(
                                         const bool bSkipUnusedItemSets ) const;
     };
 
@@ -205,7 +205,7 @@ namespace {
             });
     }
 
-    const std::shared_ptr<SfxItemSet> Node::getItemSetOfIgnorableChild(
+    std::shared_ptr<SfxItemSet> Node::getItemSetOfIgnorableChild(
                                         const bool bSkipUnusedItemSets ) const
     {
         DBG_ASSERT( hasIgnorableChildren( bSkipUnusedItemSets ),
@@ -415,7 +415,7 @@ std::shared_ptr<SfxItemSet> StylePoolImpl::insertItemSet( const SfxItemSet& rSet
     }
     // Every leaf node represents an inserted item set, but "non-leaf" nodes represents subsets
     // of inserted itemsets.
-    // These nodes could have but does not need to have a shared_ptr to a item set.
+    // These nodes could have but does not need to have a shared_ptr to an item set.
     if( !pCurNode->hasItemSet( false ) )
     {
         pCurNode->setItemSet( rSet );

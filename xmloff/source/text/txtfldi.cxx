@@ -26,7 +26,6 @@
 #include <txtfldi.hxx>
 #include <txtvfldi.hxx>
 #include <xmloff/xmlimp.hxx>
-#include <xmloff/xmlnumi.hxx>
 #include <xmloff/txtimp.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/nmspmap.hxx>
@@ -41,20 +40,17 @@
 #include <com/sun/star/text/PlaceholderType.hpp>
 #include <com/sun/star/text/ReferenceFieldPart.hpp>
 #include <com/sun/star/text/ReferenceFieldSource.hpp>
-#include <com/sun/star/text/XTextField.hpp>
 #include <com/sun/star/text/XTextContent.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/text/XTextFieldsSupplier.hpp>
 #include <com/sun/star/text/XDependentTextField.hpp>
-#include <com/sun/star/text/SetVariableType.hpp>
 #include <com/sun/star/text/FilenameDisplayFormat.hpp>
 #include <com/sun/star/text/ChapterFormat.hpp>
 #include <com/sun/star/text/TemplateDisplayFormat.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/text/BibliographyDataType.hpp>
-#include <com/sun/star/text/BibliographyDataField.hpp>
 #include <com/sun/star/util/XUpdatable.hpp>
 #include <com/sun/star/sdb/CommandType.hpp>
 #include <com/sun/star/container/XIndexReplace.hpp>
@@ -2490,7 +2486,7 @@ void XMLMacroFieldImportContext::PrepareField(
         Sequence<PropertyValue> aValues;
         pEvents->GetEventSequence( "OnClick", aValues );
 
-        for( const auto& rValue : aValues )
+        for( const auto& rValue : std::as_const(aValues) )
         {
             if ( rValue.Name == "ScriptType" )
             {
@@ -2788,11 +2784,6 @@ void XMLDdeFieldDeclImportContext::StartElement(
     // valid data?
     if (bNameOK && bCommandApplicationOK && bCommandTopicOK && bCommandItemOK)
     {
-        // make service name
-        OUStringBuffer sBuf;
-        sBuf.append(sAPI_fieldmaster_prefix);
-        sBuf.append(sAPI_dde);
-
         // create DDE TextFieldMaster
         Reference<XMultiServiceFactory> xFactory(GetImport().GetModel(),
                                                  UNO_QUERY);
@@ -2807,7 +2798,7 @@ void XMLDdeFieldDeclImportContext::StartElement(
             try
             {
                 Reference<XInterface> xIfc =
-                    xFactory->createInstance(sBuf.makeStringAndClear());
+                    xFactory->createInstance(OUStringLiteral(sAPI_fieldmaster_prefix) + sAPI_dde);
                 if( xIfc.is() )
                 {
                     Reference<XPropertySet> xPropSet( xIfc, UNO_QUERY );
@@ -2881,8 +2872,8 @@ void XMLDdeFieldImportContext::EndElement()
 
         Reference<XTextFieldsSupplier> xTextFieldsSupp(GetImport().GetModel(),
                                                        UNO_QUERY);
-        Reference<container::XNameAccess> xFieldMasterNameAccess(
-            xTextFieldsSupp->getTextFieldMasters(), UNO_QUERY);
+        Reference<container::XNameAccess> xFieldMasterNameAccess =
+            xTextFieldsSupp->getTextFieldMasters();
 
         if (xFieldMasterNameAccess->hasByName(sMasterName))
         {
@@ -3306,6 +3297,8 @@ void XMLAnnotationImportContext::ProcessAttribute(
 {
     if (nToken == XML_TOK_TEXT_NAME)
         aName = rValue;
+    if (nToken == XML_TOK_TEXT_RESOLVED)
+        aResolved = rValue;
 }
 
 SvXMLImportContextRef XMLAnnotationImportContext::CreateChildContext(
@@ -3427,9 +3420,8 @@ void XMLAnnotationImportContext::EndElement()
                 uno::Reference<text::XTextCursor> xCursor =
                     xText->createTextCursorByRange(GetImportHelper().GetCursorAsRange());
                 xCursor->gotoRange(xPrevField->getAnchor(), true);
-                uno::Reference<text::XTextRange> xTextRange(xCursor, uno::UNO_QUERY);
 
-                xText->insertTextContent(xTextRange, xPrevField, !xCursor->isCollapsed());
+                xText->insertTextContent(xCursor, xPrevField, !xCursor->isCollapsed());
             }
         }
         else
@@ -3468,6 +3460,11 @@ void XMLAnnotationImportContext::PrepareField(
     // import (possibly empty) initials
     OUString sInitials( aInitialsBuffer.makeStringAndClear() );
     xPropertySet->setPropertyValue("Initials", makeAny(sInitials));
+
+    //import resolved flag
+    bool bTmp(false);
+    (void)::sax::Converter::convertBool(bTmp, aResolved);
+    xPropertySet->setPropertyValue("Resolved", makeAny(bTmp));
 
     util::DateTime aDateTime;
     if (::sax::Converter::parseDateTime(aDateTime,

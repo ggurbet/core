@@ -15,7 +15,6 @@
 #include <vcl/weld.hxx>
 #include <vcl/font/Feature.hxx>
 #include <svx/fntctrl.hxx>
-#include "chardlg.hxx"
 #include <memory>
 
 namespace cui
@@ -24,6 +23,7 @@ struct FontFeatureItem
 {
     FontFeatureItem(weld::Widget* pParent)
         : m_aFeatureCode(0)
+        , m_nDefault(0)
         , m_xBuilder(Application::CreateBuilder(pParent, "cui/ui/fontfragment.ui"))
         , m_xContainer(m_xBuilder->weld_widget("fontentry"))
         , m_xText(m_xBuilder->weld_label("label"))
@@ -48,7 +48,7 @@ private:
     OUString m_sFontName;
     OUString m_sResultFontName;
 
-    FontPrevWindow m_aPreviewWindow;
+    SvxFontPrevWindow m_aPreviewWindow;
     std::unique_ptr<weld::ScrolledWindow> m_xContentWindow;
     std::unique_ptr<weld::Container> m_xContentGrid;
     std::unique_ptr<weld::CustomWeld> m_xPreviewWindow;
@@ -66,7 +66,7 @@ public:
     ~FontFeaturesDialog() override;
     virtual short run() override;
 
-    OUString const& getResultFontName() { return m_sResultFontName; }
+    OUString const& getResultFontName() const { return m_sResultFontName; }
 
     void updateFontPreview();
 };

@@ -71,7 +71,7 @@ public:
                     TempFile( const OUString& rLeadingChars, bool _bStartWithZero=true, const OUString* pExtension=nullptr,
                               const OUString* pParent=nullptr, bool bCreateParentDirs=false );
 
-                    TempFile(TempFile && other);
+                    TempFile(TempFile && other) noexcept;
 
                     /**
                     TempFile will be removed from disk in dtor if EnableKillingFile(true) was called before.
@@ -132,6 +132,10 @@ public:
                     It is not a URL because all URLs must be "UCB compatible", so there may be no suitable URL at all.
                     */
     static OUString SetTempNameBaseDirectory( const OUString &rBaseName );
+
+    // Return the URL of the temp directory (the one set with SetTempNameBaseDirectory or the
+    // default tempfile folder):
+    static OUString GetTempNameBaseDirectory();
 };
 
 }

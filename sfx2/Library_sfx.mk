@@ -23,7 +23,7 @@ $(eval $(call gb_Library_add_sdi_headers,sfx,sfx2/sdi/sfxslots))
 
 $(eval $(call gb_Library_set_componentfile,sfx,sfx2/util/sfx))
 
-$(eval $(call gb_Library_set_precompiled_header,sfx,$(SRCDIR)/sfx2/inc/pch/precompiled_sfx))
+$(eval $(call gb_Library_set_precompiled_header,sfx,sfx2/inc/pch/precompiled_sfx))
 
 $(eval $(call gb_Library_use_custom_headers,sfx,\
 	officecfg/registry \
@@ -98,7 +98,6 @@ $(eval $(call gb_Library_add_exception_objects,sfx,\
     sfx2/source/appl/fwkhelper \
     sfx2/source/appl/helpdispatch \
     sfx2/source/appl/helpinterceptor \
-    sfx2/source/appl/imestatuswindow \
     sfx2/source/appl/impldde \
     sfx2/source/appl/linkmgr2 \
     sfx2/source/appl/linksrc \
@@ -238,7 +237,6 @@ $(eval $(call gb_Library_add_exception_objects,sfx,\
     sfx2/source/inet/inettbc \
     sfx2/source/notebookbar/ContextVBox \
     sfx2/source/notebookbar/DropdownBox \
-    sfx2/source/notebookbar/OptionalBox \
     sfx2/source/notebookbar/PriorityHBox \
     sfx2/source/notebookbar/PriorityMergedHBox \
     sfx2/source/notebookbar/SfxNotebookBar \

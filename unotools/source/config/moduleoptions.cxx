@@ -24,7 +24,6 @@
 #include <comphelper/sequence.hxx>
 #include <osl/diagnose.h>
 #include <o3tl/enumarray.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <rtl/instance.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
@@ -40,10 +39,10 @@
 /*-************************************************************************************************************
     @descr          These values are used to define necessary keys from our configuration management to support
                     all functionality of these implementation.
-                    It's a fast way to make changes if some keys change his name or location!
+                    It's a fast way to make changes if some keys change its name or location!
 
                     Property handle are necessary to specify right position in return list of configuration
-                    for asked values. We ask it with a list of properties to get his values. The returned list
+                    for asked values. We ask it with a list of properties to get its values. The returned list
                     has the same order like our given name list!
                     e.g.:
                             NAMELIST[ PROPERTYHANDLE_xxx ] => VALUELIST[ PROPERTYHANDLE_xxx ]
@@ -86,7 +85,7 @@
 /*-************************************************************************************************************
     @descr  This struct hold information about one factory. We declare a complete array which can hold infos
             for all well known factories. Values of enum "EFactory" (see header!) are directly used as index!
-            So we can support a fast access on these information.
+            So we can support a fast access on this information.
 *//*-*************************************************************************************************************/
 struct FactoryInfo
 {
@@ -349,7 +348,7 @@ void SvtModuleOptions_Impl::ImplCommit()
     OUString                                 sBasePath;
     for( FactoryInfo & rInfo : m_lFactories )
     {
-        // These path is used to build full qualified property names ....
+        // These path is used to build full qualified property names...
         // See pInfo->getChangedProperties() for further information
         sBasePath  = PATHSEPARATOR + rInfo.getFactory() + PATHSEPARATOR;
 
@@ -358,8 +357,8 @@ void SvtModuleOptions_Impl::ImplCommit()
         nRealCount += lChangedProperties.getLength();
     }
     // Resize commit list to real size.
-    // If nothing to do - suppress calling of configuration ...
-    // It could be to expensive :-)
+    // If nothing to do - suppress calling of configuration...
+    // It could be too expensive :-)
     if( nRealCount > 0 )
     {
         lCommitProperties.realloc( nRealCount );
@@ -416,7 +415,7 @@ css::uno::Sequence < OUString > SvtModuleOptions_Impl::GetAllServiceNames()
 {
     std::vector<OUString> aVec;
 
-    for( auto & rFactory : m_lFactories )
+    for( const auto & rFactory : m_lFactories )
         if( rFactory.getInstalled() )
             aVec.push_back( rFactory.getFactory() );
 
@@ -572,7 +571,7 @@ css::uno::Sequence< OUString > SvtModuleOptions_Impl::impl_ExpandSetNames( const
 
 /*-************************************************************************************************************
     @short      helper to classify given factory by name
-    @descr      Every factory has his own long and short name. So we can match right enum value for internal using.
+    @descr      Every factory has its own long and short name. So we can match right enum value for internal using.
 
     @attention  We change in/out parameter "eFactory" in every case! But you should use it only, if return value is sal_True!
                 Algorithm:  Set out-parameter to probably value ... and check the longname.
@@ -671,7 +670,7 @@ bool SvtModuleOptions_Impl::ClassifyFactoryByName( const OUString& sName, SvtMod
 *//*-*************************************************************************************************************/
 void SvtModuleOptions_Impl::impl_Read( const css::uno::Sequence< OUString >& lFactories )
 {
-    // Expand every set node name in lFactories to full qualified paths to his properties
+    // Expand every set node name in lFactories to full qualified paths to its properties
     // and get right values from configuration.
     const css::uno::Sequence< OUString > lProperties = impl_ExpandSetNames( lFactories  );
     const css::uno::Sequence< css::uno::Any >   lValues     = GetProperties( lProperties );
@@ -728,11 +727,7 @@ void SvtModuleOptions_Impl::MakeReadonlyStatesAvailable()
     css::uno::Sequence< OUString > lFactories = GetNodeNames(OUString());
     std::transform(lFactories.begin(), lFactories.end(), lFactories.begin(),
         [](const OUString& rFactory) -> OUString {
-            OUStringBuffer sPath(256);
-            sPath.append(rFactory                  );
-            sPath.append(PATHSEPARATOR             );
-            sPath.append(PROPERTYNAME_DEFAULTFILTER);
-            return sPath.makeStringAndClear();
+            return rFactory + PATHSEPARATOR PROPERTYNAME_DEFAULTFILTER;
         });
 
     css::uno::Sequence< sal_Bool > lReadonlyStates = GetReadOnlyStates(lFactories);
@@ -922,16 +917,16 @@ OUString SvtModuleOptions::GetModuleName( EModule eModule ) const
 {
     switch( eModule )
     {
-        case SvtModuleOptions::EModule::WRITER    :   { return OUString("Writer"); }
-        case SvtModuleOptions::EModule::WEB       :   { return OUString("Web"); }
-        case SvtModuleOptions::EModule::GLOBAL    :   { return OUString("Global"); }
-        case SvtModuleOptions::EModule::CALC      :   { return OUString("Calc"); }
-        case SvtModuleOptions::EModule::DRAW      :   { return OUString("Draw"); }
-        case SvtModuleOptions::EModule::IMPRESS   :   { return OUString("Impress"); }
-        case SvtModuleOptions::EModule::MATH      :   { return OUString("Math"); }
-        case SvtModuleOptions::EModule::CHART     :   { return OUString("Chart"); }
-        case SvtModuleOptions::EModule::BASIC     :   { return OUString("Basic"); }
-        case SvtModuleOptions::EModule::DATABASE  :   { return OUString("Database"); }
+        case SvtModuleOptions::EModule::WRITER    :   { return "Writer"; }
+        case SvtModuleOptions::EModule::WEB       :   { return "Web"; }
+        case SvtModuleOptions::EModule::GLOBAL    :   { return "Global"; }
+        case SvtModuleOptions::EModule::CALC      :   { return "Calc"; }
+        case SvtModuleOptions::EModule::DRAW      :   { return "Draw"; }
+        case SvtModuleOptions::EModule::IMPRESS   :   { return "Impress"; }
+        case SvtModuleOptions::EModule::MATH      :   { return "Math"; }
+        case SvtModuleOptions::EModule::CHART     :   { return "Chart"; }
+        case SvtModuleOptions::EModule::BASIC     :   { return "Basic"; }
+        case SvtModuleOptions::EModule::DATABASE  :   { return "Database"; }
         default:
             OSL_FAIL( "unknown module" );
             break;

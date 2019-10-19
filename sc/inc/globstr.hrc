@@ -353,6 +353,7 @@
 #define STR_FUNCTIONLIST_MORE                   NC_("STR_FUNCTIONLIST_MORE", "More...")
 #define STR_ERR_INVALID_AREA                    NC_("STR_ERR_INVALID_AREA", "Invalid range")
 #define STR_CHARTTITLE                          NC_("STR_CHARTTITLE", "Chart Title")
+#define STR_AXISTITLE                           NC_("STR_AXISTITLE", "Axis Title")
 // Templates for data pilot tables.
 #define STR_PIVOT_STYLENAME_INNER                   NC_("STR_PIVOT_STYLE_INNER", "Pivot Table Value")
 #define STR_PIVOT_STYLENAME_RESULT                  NC_("STR_PIVOT_STYLE_RESULT", "Pivot Table Result")
@@ -491,8 +492,6 @@
 #define STR_COPYLIST                            NC_("STR_COPYLIST", "Copy List")
 #define STR_COPYFROM                            NC_("STR_COPYFROM", "List from")
 #define STR_COPYERR                             NC_("STR_COPYERR", "Cells without text have been ignored.")
-#define STR_CTRLCLICKHYPERLINK                  NC_("STR_CTRLCLICKHYPERLINK", "%s-click to follow hyperlink:")
-#define STR_CLICKHYPERLINK                      NC_("STR_CLICKHYPERLINK", "click to open hyperlink:")
 #define STR_PRINT_PREVIEW_NODATA                NC_("STR_PRINT_PREVIEW_NODATA", "No Data")
 #define STR_PRINT_PREVIEW_EMPTY_RANGE           NC_("STR_PRINT_PREVIEW_EMPTY_RANGE", "Print Range Empty")
 #define STR_UNDO_CONDFORMAT                     NC_("STR_UNDO_CONDFORMAT", "Conditional Format")

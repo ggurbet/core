@@ -294,6 +294,55 @@ namespace
                rPos1.nContent.GetIndex() == pCNd->Len();
     }
 
+    // copy style or return with SwRedlineExtra_FormatColl with reject data of the upcoming copy
+    SwRedlineExtraData_FormatColl* lcl_CopyStyle( const SwPosition & rFrom, const SwPosition & rTo, bool bCopy = true )
+    {
+        SwTextNode* pToNode = rTo.nNode.GetNode().GetTextNode();
+        SwTextNode* pFromNode = rFrom.nNode.GetNode().GetTextNode();
+        if (pToNode != nullptr && pFromNode != nullptr && pToNode != pFromNode)
+        {
+            const SwPaM aPam(*pToNode);
+            SwDoc* pDoc = aPam.GetDoc();
+            // using Undo, copy paragraph style
+            SwTextFormatColl* pFromColl = pFromNode->GetTextColl();
+            SwTextFormatColl* pToColl = pToNode->GetTextColl();
+            if (bCopy && pFromColl != pToColl)
+                pDoc->SetTextFormatColl(aPam, pFromColl);
+
+            // using Undo, remove direct paragraph formatting of the "To" paragraph,
+            // and apply here direct paragraph formatting of the "From" paragraph
+            SfxItemSet aTmp(
+                pDoc->GetAttrPool(),
+                svl::Items<
+                    RES_PARATR_BEGIN, RES_PARATR_END - 3, // skip RSID and GRABBAG
+                    RES_PARATR_LIST_BEGIN, RES_UL_SPACE,  // skip PAGEDESC and BREAK
+                    RES_CNTNT, RES_FRMATR_END - 1>{});
+            SfxItemSet aTmp2(aTmp);
+
+            pToNode->GetParaAttr(aTmp, 0, 0);
+            pFromNode->GetParaAttr(aTmp2, 0, 0);
+
+            bool bSameSet = aTmp == aTmp2;
+
+            if (!bSameSet)
+            {
+                for( sal_uInt16 nItem = 0; nItem < aTmp.TotalCount(); ++nItem)
+                {
+                    sal_uInt16 nWhich = aTmp.GetWhichByPos(nItem);
+                    if( SfxItemState::SET == aTmp.GetItemState( nWhich, false ) &&
+                        SfxItemState::SET != aTmp2.GetItemState( nWhich, false ) )
+                            aTmp2.Put( aTmp.GetPool()->GetDefaultItem(nWhich), nWhich );
+                }
+            }
+
+            if (bCopy && !bSameSet)
+                pDoc->getIDocumentContentOperations().InsertItemSet(aPam, aTmp2);
+            else if (!bCopy && (!bSameSet || pFromColl != pToColl))
+                return new SwRedlineExtraData_FormatColl( pFromColl->GetName(), USHRT_MAX, &aTmp2 );
+        }
+        return nullptr;
+    }
+
     bool lcl_AcceptRedline( SwRedlineTable& rArr, SwRedlineTable::size_type& rPos,
                             bool bCallDelete,
                             const SwPosition* pSttRng = nullptr,
@@ -415,6 +464,12 @@ namespace
                     SwPaM aPam( *pDelStt, *pDelEnd );
                     SwContentNode* pCSttNd = pDelStt->nNode.GetNode().GetContentNode();
                     SwContentNode* pCEndNd = pDelEnd->nNode.GetNode().GetContentNode();
+                    pRStt = pRedl->Start();
+                    pREnd = pRedl->End();
+
+                    // keep style of the empty paragraph after deletion of wholly paragraphs
+                    if( pCSttNd && pCEndNd && pRStt && pREnd && pRStt->nContent == 0 )
+                        lcl_CopyStyle(*pREnd, *pRStt);
 
                     if( bDelRedl )
                         delete pRedl;
@@ -559,6 +614,9 @@ namespace
                 SwPaM const updatePaM(pSttRng ? *pSttRng : *pRedl->Start(),
                                       pEndRng ? *pEndRng : *pRedl->End());
 
+                if( pRedl->GetExtraData() )
+                    pRedl->GetExtraData()->Reject( *pRedl );
+
                 switch( eCmp )
                 {
                 case SwComparePosition::Inside:
@@ -648,6 +706,7 @@ namespace
 
         case RedlineType::Format:
         case RedlineType::FmtColl:
+        case RedlineType::ParagraphFormat:
             {
                 // tdf#52391 instead of hidden acception at the requested
                 // rejection, remove direct text formatting to get the potential
@@ -658,6 +717,40 @@ namespace
                 {
                     SwPaM aPam( *(pRedl->Start()), *(pRedl->End()) );
                     rDoc.ResetAttrs(aPam);
+                }
+                else if ( pRedl->GetType() == RedlineType::ParagraphFormat )
+                {
+                    // handle paragraph formatting changes
+                    // (range is only a full paragraph or a part of it)
+                    const SwPosition* pStt = pRedl->Start();
+                    SwTextNode* pTNd = pStt->nNode.GetNode().GetTextNode();
+                    if( pTNd )
+                    {
+                        // expand range to the whole paragraph
+                        // and reset only the paragraph attributes
+                        SwPaM aPam( *pTNd, pTNd->GetText().getLength() );
+                        std::set<sal_uInt16> aResetAttrsArray;
+
+                        sal_uInt16 aResetableSetRange[] = {
+                                RES_PARATR_BEGIN, RES_PARATR_END - 1,
+                                RES_PARATR_LIST_BEGIN, RES_FRMATR_END - 1,
+                                0
+                        };
+
+                        const sal_uInt16 *pUShorts = aResetableSetRange;
+                        while (*pUShorts)
+                        {
+                            for (sal_uInt16 i = pUShorts[0]; i <= pUShorts[1]; ++i)
+                                aResetAttrsArray.insert( aResetAttrsArray.end(), i );
+                            pUShorts += 2;
+                        }
+
+                        rDoc.ResetAttrs(aPam, false, aResetAttrsArray);
+
+                        // remove numbering
+                        if ( pTNd->GetNumRule() )
+                            rDoc.DelNumRules(aPam);
+                    }
                 }
 
                 if( pRedl->GetExtraData() )
@@ -774,47 +867,6 @@ namespace
         }
     }
 
-    void lcl_CopyStyle( const SwPosition & rFrom, const SwPosition & rTo )
-    {
-        SwTextNode* pToNode = rTo.nNode.GetNode().GetTextNode();
-        SwTextNode* pFromNode = rFrom.nNode.GetNode().GetTextNode();
-        if (pToNode != nullptr && pFromNode != nullptr && pToNode != pFromNode)
-        {
-            const SwPaM aPam(*pToNode);
-            SwDoc* pDoc = aPam.GetDoc();
-            // using Undo, copy paragraph style
-            pDoc->SetTextFormatColl(aPam, pFromNode->GetTextColl());
-
-            // using Undo, remove direct paragraph formatting of the "To" paragraph,
-            // and apply here direct paragraph formatting of the "From" paragraph
-            SfxItemSet aTmp(
-                pDoc->GetAttrPool(),
-                svl::Items<
-                    RES_PARATR_LINESPACING, RES_PARATR_OUTLINELEVEL,
-                    RES_PARATR_LIST_BEGIN, RES_PARATR_LIST_END - 1>{});
-
-            SfxItemSet aTmp2(
-                pDoc->GetAttrPool(),
-                svl::Items<
-                    RES_PARATR_LINESPACING, RES_PARATR_OUTLINELEVEL,
-                    RES_PARATR_LIST_BEGIN, RES_PARATR_LIST_END - 1>{});
-
-            pToNode->GetParaAttr(aTmp, 0, 0);
-            pFromNode->GetParaAttr(aTmp2, 0, 0);
-
-            for( sal_uInt16 nItem = 0; nItem < aTmp.TotalCount(); ++nItem)
-            {
-                sal_uInt16 nWhich = aTmp.GetWhichByPos(nItem);
-                if( SfxItemState::SET == aTmp.GetItemState( nWhich, false ) &&
-                    SfxItemState::SET != aTmp2.GetItemState( nWhich, false ) )
-                        aTmp2.Put( aTmp.GetPool()->GetDefaultItem(nWhich), nWhich );
-            }
-
-            if (aTmp2.Count())
-                pDoc->getIDocumentContentOperations().InsertItemSet(aPam, aTmp2);
-        }
-    }
-
     /// in case some text is deleted, ensure that the not-yet-inserted
     /// SwRangeRedline has its positions corrected not to point to deleted node
     class TemporaryRedlineUpdater
@@ -862,12 +914,6 @@ RedlineFlags DocumentRedlineManager::GetRedlineFlags() const
 
 void DocumentRedlineManager::SetRedlineFlags( RedlineFlags eMode )
 {
-    if ( IsFinalizeImport() )
-    {
-        FinalizeImport();
-        SetFinalizeImport( false );
-    }
-
     if( meRedlineFlags != eMode )
     {
         if( (RedlineFlags::ShowMask & meRedlineFlags) != (RedlineFlags::ShowMask & eMode)
@@ -1966,21 +2012,55 @@ DocumentRedlineManager::AppendRedline(SwRangeRedline* pNewRedl, bool const bCall
             {
                 if ( bCallDelete && RedlineType::Delete == pNewRedl->GetType() )
                 {
-                    if ( pStt->nContent == 0 )
-                    {
-                        // tdf#54819 to keep the style of the paragraph
-                        // after the fully deleted paragraphs (normal behaviour
-                        // of editing without change tracking), we copy its style
-                        // to the first removed paragraph.
-                        lcl_CopyStyle(*pEnd, *pStt);
-                    }
-                    else
+                    if ( pStt->nContent != 0 )
                     {
                         // tdf#119571 update the style of the joined paragraph
                         // after a partially deleted paragraph to show its correct style
-                        // in "Show changes" mode, too. The paragraph after the deletion
-                        // gets the style of the first (partially deleted) paragraph.
-                        lcl_CopyStyle(*pStt, *pEnd);
+                        // in "Show changes" mode, too. All removed paragraphs
+                        // get the style of the first (partially deleted) paragraph
+                        // to avoid text insertion with bad style in the deleted
+                        // area later.
+
+                        SwContentNode* pDelNd = pStt->nNode.GetNode().GetContentNode();
+                        SwContentNode* pTextNd = pEnd->nNode.GetNode().GetContentNode();
+                        SwTextNode* pDelNode = pStt->nNode.GetNode().GetTextNode();
+                        SwTextNode* pTextNode;
+                        SwNodeIndex aIdx( pEnd->nNode.GetNode() );
+                        bool bFirst = true;
+
+                        while (pDelNode != nullptr && pTextNd != nullptr && pDelNd->GetIndex() < pTextNd->GetIndex())
+                        {
+                            pTextNode = pTextNd->GetTextNode();
+                            if (pTextNode && pDelNode != pTextNode )
+                            {
+                                bCompress = true;
+
+                                // split redline to store ExtraData per paragraphs
+                                SwPosition aPos(aIdx);
+                                SwRangeRedline* pPar = new SwRangeRedline( *pNewRedl );
+                                pPar->SetStart( aPos );
+                                pNewRedl->SetEnd( aPos );
+
+                                // get extradata for reset formatting of the modified paragraph
+                                SwRedlineExtraData_FormatColl* pExtraData = lcl_CopyStyle(aPos, *pStt, false);
+                                if (pExtraData)
+                                {
+                                    std::unique_ptr<SwRedlineExtraData_FormatColl> xRedlineExtraData;
+                                    if (!bFirst)
+                                        pExtraData->SetFormatAll(false);
+                                    xRedlineExtraData.reset(pExtraData);
+                                    pPar->SetExtraData( xRedlineExtraData.get() );
+                                }
+                                mpRedlineTable->Insert( pPar );
+
+                                // modify paragraph formatting
+                                lcl_CopyStyle(*pStt, aPos);
+                            }
+                            pTextNd = SwNodes::GoPrevious( &aIdx );
+
+                            if (bFirst)
+                                bFirst = false;
+                        }
                     }
                 }
                 bool const ret = mpRedlineTable->Insert( pNewRedl );
@@ -2016,7 +2096,7 @@ DocumentRedlineManager::AppendRedline(SwRangeRedline* pNewRedl, bool const bCall
         : (bMerged ? AppendResult::MERGED : AppendResult::IGNORED);
 }
 
-bool DocumentRedlineManager::AppendTableRowRedline( SwTableRowRedline* pNewRedl, bool )
+bool DocumentRedlineManager::AppendTableRowRedline( SwTableRowRedline* pNewRedl )
 {
     // #TODO - equivalent for 'SwTableRowRedline'
     /*
@@ -2058,7 +2138,7 @@ bool DocumentRedlineManager::AppendTableRowRedline( SwTableRowRedline* pNewRedl,
     return nullptr != pNewRedl;
 }
 
-bool DocumentRedlineManager::AppendTableCellRedline( SwTableCellRedline* pNewRedl, bool )
+bool DocumentRedlineManager::AppendTableCellRedline( SwTableCellRedline* pNewRedl )
 {
     // #TODO - equivalent for 'SwTableCellRedline'
     /*
@@ -2271,7 +2351,7 @@ bool DocumentRedlineManager::DeleteRedline( const SwPaM& rRange, bool bSaveInUnd
 
         case SwComparePosition::Inside:
             {
-                // this one needs to be splitted
+                // this one needs to be split
                 pRedl->InvalidateRange(SwRangeRedline::Invalidation::Remove);
                 if( *pRStt == *pStt )
                 {
@@ -3023,16 +3103,6 @@ void DocumentRedlineManager::SetRedlinePassword(
     m_rDoc.getIDocumentState().SetModified();
 }
 
-bool DocumentRedlineManager::IsFinalizeImport() const
-{
-    return m_bFinalizeImport;
-}
-
-void DocumentRedlineManager::SetFinalizeImport(bool const bFinalizeImport)
-{
-    m_bFinalizeImport = bFinalizeImport;
-}
-
 /// Set comment text for the Redline, which is inserted later on via
 /// AppendRedline. Is used by Autoformat.
 /// A null pointer resets the mode. The pointer is not copied, so it
@@ -3050,42 +3120,6 @@ void DocumentRedlineManager::SetAutoFormatRedlineComment( const OUString* pText,
     }
 
     mnAutoFormatRedlnCommentNo = nSeqNo;
-}
-
-void DocumentRedlineManager::FinalizeImport()
-{
-    // set correct numbering after deletion
-    for( SwRedlineTable::size_type n = 0; n < mpRedlineTable->size(); ++n )
-    {
-        SwRangeRedline* pRedl = (*mpRedlineTable)[ n ];
-        if ( RedlineType::Delete == pRedl->GetType() )
-        {
-            const SwPosition* pStt = pRedl->Start(),
-                            * pEnd = pStt == pRedl->GetPoint()
-                                ? pRedl->GetMark() : pRedl->GetPoint();
-            SwTextNode* pDelNode = pStt->nNode.GetNode().GetTextNode();
-            SwTextNode* pTextNode = pEnd->nNode.GetNode().GetTextNode();
-
-            if ( pDelNode->GetNumRule() && !pTextNode->GetNumRule() )
-            {
-                // tdf#118699 remove numbering of the first deleted list item
-                const SwPaM aPam( *pStt, *pStt );
-                m_rDoc.DelNumRules( aPam );
-                // tdf#125916 copy style
-                pDelNode->ChgFormatColl( pTextNode->GetTextColl() );
-            }
-            else if ( pDelNode->GetNumRule() != pTextNode->GetNumRule() )
-            {
-                // tdf#125319 copy numbering to the first deleted list item
-                const SwPaM aPam( *pStt, *pStt );
-                SwNumRule *pRule = pTextNode->GetNumRule();
-                m_rDoc.SetNumRule( aPam, *pRule, false );
-
-                // tdf#125881 copy also numbering level
-                pDelNode->SetAttrListLevel( pTextNode->GetAttrListLevel() );
-            }
-        }
-    }
 }
 
 DocumentRedlineManager::~DocumentRedlineManager()

@@ -742,7 +742,7 @@ SwBulletPortion::SwBulletPortion( const sal_Unicode cBullet,
                                   const bool bCntr,
                                   const sal_uInt16 nMinDst,
                                   const bool bLabelAlignmentPosAndSpaceModeActive )
-    : SwNumberPortion( OUStringLiteral1(cBullet) + rBulletFollowedBy,
+    : SwNumberPortion( OUStringChar(cBullet) + rBulletFollowedBy,
                        std::move(pFont), bLft, bCntr, nMinDst,
                        bLabelAlignmentPosAndSpaceModeActive )
 {
@@ -1083,8 +1083,6 @@ SwCombinedPortion::SwCombinedPortion( const OUString &rText )
         }
         aScrType[i] = nScr;
     }
-
-    memset( &aWidth, 0, sizeof(aWidth) );
 }
 
 void SwCombinedPortion::Paint( const SwTextPaintInfo &rInf ) const
@@ -1256,7 +1254,7 @@ bool SwCombinedPortion::Format( SwTextFormatInfo &rInf )
     if( Height() < nMainAscent + nMainDescent )
         Height( nMainAscent + nMainDescent );
 
-    // We calculate the x positions of the characters in both lines..
+    // We calculate the x positions of the characters in both lines...
     sal_uInt16 nTopDiff = 0;
     sal_uInt16 nBotDiff = 0;
     if( nMaxWidth > Width() )
@@ -1326,6 +1324,27 @@ void SwFieldFormDropDownPortion::Paint( const SwTextPaintInfo &rInf ) const
         SwRect aPaintArea;
         rInf.CalcRect( *this, &aPaintArea );
         pDropDownField->SetPortionPaintArea(aPaintArea);
+    }
+}
+
+SwFieldPortion *SwFieldFormDatePortion::Clone(const OUString &/*rExpand*/) const
+{
+    return new SwFieldFormDatePortion(m_pFieldMark, m_bStart);
+}
+
+void SwFieldFormDatePortion::Paint( const SwTextPaintInfo &rInf ) const
+{
+    SwFieldPortion::Paint( rInf );
+
+    ::sw::mark::DateFieldmark* pDateField = dynamic_cast< ::sw::mark::DateFieldmark* >(m_pFieldMark);
+    if(pDateField)
+    {
+        SwRect aPaintArea;
+        rInf.CalcRect( *this, &aPaintArea );
+        if(m_bStart)
+            pDateField->SetPortionPaintAreaStart(aPaintArea);
+        else
+            pDateField->SetPortionPaintAreaEnd(aPaintArea);
     }
 }
 

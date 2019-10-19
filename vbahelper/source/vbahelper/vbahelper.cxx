@@ -24,6 +24,7 @@
 #include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/frame/XModel2.hpp>
+#include <com/sun/star/script/BasicErrorException.hpp>
 #include <com/sun/star/script/XDefaultProperty.hpp>
 #include <com/sun/star/script/Converter.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
@@ -1059,7 +1060,7 @@ void Millimeter::setInPoints(double points)
     m_nMillimeter = points * factor / 100.0;
 }
 
-double Millimeter::getInHundredthsOfOneMillimeter()
+double Millimeter::getInHundredthsOfOneMillimeter() const
 {
     return m_nMillimeter * 100;
 }

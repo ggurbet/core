@@ -97,8 +97,7 @@ bool ExcelFilter::importDocument()
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("sc", "exception when importing document properties " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("sc", "exception when importing document properties");
         }
         catch( ... )
         {
@@ -192,7 +191,7 @@ const ::oox::drawingml::Theme* ExcelFilter::getCurrentTheme() const
     return nullptr;
 }
 
-const TableStyleListPtr ExcelFilter::getTableStyles()
+TableStyleListPtr ExcelFilter::getTableStyles()
 {
     return TableStyleListPtr();
 }
@@ -228,7 +227,7 @@ sal_Bool SAL_CALL ExcelFilter::filter( const css::uno::Sequence< css::beans::Pro
         Reference< XExporter > xExporter(
             new XclExpXmlStream( getComponentContext(), bExportVBA, isExportTemplate() ) );
 
-        Reference< XComponent > xDocument( getModel(), UNO_QUERY );
+        Reference< XComponent > xDocument = getModel();
         Reference< XFilter > xFilter( xExporter, UNO_QUERY );
 
         if ( xFilter.is() )
@@ -244,7 +243,7 @@ sal_Bool SAL_CALL ExcelFilter::filter( const css::uno::Sequence< css::beans::Pro
 
 OUString ExcelFilter::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.oox.xls.ExcelFilter" );
+    return "com.sun.star.comp.oox.xls.ExcelFilter";
 }
 
 } // namespace xls

@@ -71,7 +71,6 @@ endif
 
 $(eval $(call gb_CppunitTest_use_externals,sd_uimpress,\
     boost_headers \
-    gtk \
     dbus \
 	$(if $(ENABLE_AVAHI), \
 	    avahi \
@@ -81,7 +80,8 @@ $(eval $(call gb_CppunitTest_use_externals,sd_uimpress,\
 ))
 
 ifneq ($(DBUS_HAVE_GLIB),)
-$(eval $(call gb_CppunitTest_add_defs,sd_uimpress,\
+$(eval $(call gb_CppunitTest_set_include,sd_uimpress,\
+	$$(INCLUDE) \
 	$(DBUS_GLIB_CFLAGS) \
 ))
 $(eval $(call gb_CppunitTest_add_libs,sd_uimpress,\
@@ -94,6 +94,7 @@ $(eval $(call gb_CppunitTest_add_exception_objects,sd_uimpress,\
 ))
 
 $(eval $(call gb_CppunitTest_use_ure,sd_uimpress))
+$(eval $(call gb_CppunitTest_use_vcl,sd_uimpress))
 
 $(eval $(call gb_CppunitTest_use_components,sd_uimpress,\
     configmgr/source/configmgr \

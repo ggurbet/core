@@ -25,17 +25,10 @@
 #    define __USE_XOPEN
 #  endif
 #endif
-#include <poll.h>
 
 #include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xlocale.h>
-#include <unx/XIM.h>
 
-#include <unx/salunx.h>
-#include <unx/saldisp.hxx>
 #include <unx/i18n_im.hxx>
-#include <unx/i18n_status.hxx>
 
 #include <osl/thread.h>
 #include <osl/process.h>
@@ -249,7 +242,6 @@ SalI18N_InputMethod::SalI18N_InputMethod( )
 
 SalI18N_InputMethod::~SalI18N_InputMethod()
 {
-    vcl::I18NStatus::free();
     if ( mpStyles != nullptr )
         XFree( mpStyles );
     if ( maMethod != nullptr )

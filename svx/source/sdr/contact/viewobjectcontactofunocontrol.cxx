@@ -320,7 +320,7 @@ namespace sdr { namespace contact {
     {
         try
         {
-            Reference< XComponent > xControlComp( _rControl.getControl(), UNO_QUERY );
+            Reference< XComponent > xControlComp = _rControl.getControl();
             if ( xControlComp.is() )
                 xControlComp->dispose();
         }
@@ -392,7 +392,7 @@ namespace sdr { namespace contact {
         return m_rPageView.GetVisibleLayers().IsSet( _nLayerID );
     }
 
-    /** is a ->IPageViewAccess implementation which can be used to create an invisble control for
+    /** is a ->IPageViewAccess implementation which can be used to create an invisible control for
         an arbitrary window
      */
     class InvisibleControlViewAccess : public IPageViewAccess
@@ -816,7 +816,7 @@ namespace sdr { namespace contact {
 
     private:
         ::rtl::Reference< ViewObjectContactOfUnoControl_Impl >  m_pVOCImpl;
-        /** The geometry is part of the identity of an primitive, so we cannot calculate it on demand
+        /** The geometry is part of the identity of a primitive, so we cannot calculate it on demand
             (since the data the calculation is based on might have changed then), but need to calc
             it at construction time, and remember it.
         */
@@ -1368,7 +1368,7 @@ namespace sdr { namespace contact {
 
         try
         {
-            // if the control is part of a invisible layer, we need to explicitly hide it in alive mode
+            // if the control is part of an invisible layer, we need to explicitly hide it in alive mode
             impl_adjustControlVisibilityToLayerVisibility_throw();
         }
         catch( const Exception& )
@@ -1543,7 +1543,7 @@ namespace sdr { namespace contact {
             // use the default mechanism. This will create a ControlPrimitive2D without
             // handing over a XControl. If not even a XControlModel exists, it will
             // create the SdrObject fallback visualisation
-            drawinglayer::primitive2d::Primitive2DContainer aTmp = rViewContactOfUnoControl.getViewIndependentPrimitive2DContainer();
+            const drawinglayer::primitive2d::Primitive2DContainer& aTmp = rViewContactOfUnoControl.getViewIndependentPrimitive2DContainer();
             rContainer.insert(rContainer.end(), aTmp.begin(), aTmp.end());
             return;
         }

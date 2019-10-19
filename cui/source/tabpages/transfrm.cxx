@@ -21,30 +21,23 @@
 
 #include <algorithm>
 
-#include <sfx2/app.hxx>
 #include <svx/EnhancedCustomShape2d.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdpagv.hxx>
-#include <svx/svdotext.hxx>
 #include <svx/svdoashp.hxx>
 #include <svx/sderitm.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svx/transfrmhelper.hxx>
-#include <editeng/sizeitem.hxx>
 #include <svtools/unitconv.hxx>
 
 #include <transfrm.hxx>
 #include <svx/dlgutil.hxx>
-#include <editeng/svxenum.hxx>
 #include <svx/anchorid.hxx>
-#include <sfx2/module.hxx>
 #include <svl/rectitem.hxx>
 #include <svl/aeitem.hxx>
 #include <swpossizetabpage.hxx>
-#include <comphelper/lok.hxx>
 #include <vcl/canvastools.hxx>
 
 // static ----------------------------------------------------------------
@@ -173,8 +166,8 @@ void SvxTransformTabDialog::SetValidateFramePosLink(const Link<SvxSwFrameValidat
 |*      angle and the rotation angle of the graphic objects
 |*
 \************************************************************************/
-SvxAngleTabPage::SvxAngleTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SvxTabPage(pParent, "cui/ui/rotationtabpage.ui", "Rotation", rInAttrs)
+SvxAngleTabPage::SvxAngleTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SvxTabPage(pPage, pController, "cui/ui/rotationtabpage.ui", "Rotation", rInAttrs)
     , rOutAttrs(rInAttrs)
     , pView(nullptr)
     , eDlgUnit(FieldUnit::NONE)
@@ -308,9 +301,9 @@ void SvxAngleTabPage::Reset(const SfxItemSet* rAttrs)
     m_xMtrPosY->save_value();
 }
 
-VclPtr<SfxTabPage> SvxAngleTabPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SvxAngleTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SvxAngleTabPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxAngleTabPage>(pPage, pController, *rSet);
 }
 
 void SvxAngleTabPage::ActivatePage(const SfxItemSet& rSet)
@@ -402,8 +395,8 @@ void SvxAngleTabPage::PointChanged(weld::DrawingArea* pDrawingArea, RectPoint eR
 |*      dialog for changing slant and corner radius
 |*
 \************************************************************************/
-SvxSlantTabPage::SvxSlantTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/slantcornertabpage.ui", "SlantAndCornerRadius", &rInAttrs)
+SvxSlantTabPage::SvxSlantTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/slantcornertabpage.ui", "SlantAndCornerRadius", &rInAttrs)
     , rOutAttrs(rInAttrs)
     , pView(nullptr)
     , eDlgUnit(FieldUnit::NONE)
@@ -707,9 +700,9 @@ void SvxSlantTabPage::Reset(const SfxItemSet* rAttrs)
     }
 }
 
-VclPtr<SfxTabPage> SvxSlantTabPage::Create(TabPageParent pParent, const SfxItemSet* rOutAttrs)
+std::unique_ptr<SfxTabPage> SvxSlantTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rOutAttrs)
 {
-    return VclPtr<SvxSlantTabPage>::Create(pParent, *rOutAttrs);
+    return std::make_unique<SvxSlantTabPage>(pPage, pController, *rOutAttrs);
 }
 
 void SvxSlantTabPage::ActivatePage( const SfxItemSet& rSet )
@@ -743,8 +736,8 @@ DeactivateRC SvxSlantTabPage::DeactivatePage( SfxItemSet* _pSet )
 |*      Dialog for changing position and size of graphic objects
 |*
 \************************************************************************/
-SvxPositionSizeTabPage::SvxPositionSizeTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SvxTabPage(pParent, "cui/ui/possizetabpage.ui", "PositionAndSize", rInAttrs)
+SvxPositionSizeTabPage::SvxPositionSizeTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SvxTabPage(pPage, pController, "cui/ui/possizetabpage.ui", "PositionAndSize", rInAttrs)
     , mrOutAttrs(rInAttrs)
     , mpView(nullptr)
     , meDlgUnit(FieldUnit::NONE)
@@ -974,7 +967,7 @@ bool SvxPositionSizeTabPage::FillItemSet( SfxItemSet* rOutAttrs )
         // put Width & Height to itemset
         rOutAttrs->Put( SfxUInt32Item( GetWhich( SID_ATTR_TRANSFORM_WIDTH ), static_cast<sal_uInt32>(lWidth) ) );
         rOutAttrs->Put( SfxUInt32Item( GetWhich( SID_ATTR_TRANSFORM_HEIGHT ), static_cast<sal_uInt32>(lHeight) ) );
-        rOutAttrs->Put( SfxAllEnumItem( GetWhich( SID_ATTR_TRANSFORM_SIZE_POINT ), sal::static_int_cast< sal_uInt16 >( meRP ) ) );
+        rOutAttrs->Put( SfxUInt16Item( GetWhich( SID_ATTR_TRANSFORM_SIZE_POINT ), sal::static_int_cast< sal_uInt16 >( meRP ) ) );
         bModified = true;
     }
 
@@ -1123,9 +1116,9 @@ void SvxPositionSizeTabPage::Reset( const SfxItemSet*  )
     ChangeSizeProtectHdl(*m_xTsbSizeProtect);
 }
 
-VclPtr<SfxTabPage> SvxPositionSizeTabPage::Create(TabPageParent pParent, const SfxItemSet* rOutAttrs)
+std::unique_ptr<SfxTabPage> SvxPositionSizeTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rOutAttrs)
 {
-    return VclPtr<SvxPositionSizeTabPage>::Create(pParent, *rOutAttrs);
+    return std::make_unique<SvxPositionSizeTabPage>(pPage, pController, *rOutAttrs);
 }
 
 void SvxPositionSizeTabPage::ActivatePage( const SfxItemSet& rSet )

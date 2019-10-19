@@ -21,34 +21,28 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/awt/FontWidth.hpp>
-#include <com/sun/star/awt/FontWeight.hpp>
 #include <com/sun/star/awt/FontSlant.hpp>
 #include <com/sun/star/awt/MouseWheelBehavior.hpp>
-#include <com/sun/star/graphic/XGraphicProvider.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/awt/XDevice.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
 #include <com/sun/star/io/XMarkableStream.hpp>
 #include <com/sun/star/i18n/Currency2.hpp>
+#include <com/sun/star/util/Date.hpp>
+#include <com/sun/star/util/Time.hpp>
 #include <toolkit/controls/unocontrolmodel.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <cppuhelper/typeprovider.hxx>
-#include <rtl/uuid.h>
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
-#include <tools/date.hxx>
-#include <tools/time.hxx>
 #include <tools/debug.hxx>
 #include <toolkit/helper/property.hxx>
 #include <toolkit/helper/emptyfontdescriptor.hxx>
-#include <com/sun/star/lang/Locale.hpp>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/configmgr.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/extract.hxx>
 #include <comphelper/servicehelper.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/unohelp.hxx>
-#include <uno/data.h>
 
 #include <memory>
 #include <set>
@@ -344,7 +338,7 @@ css::uno::Any UnoControlModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
                     sBankSymbol = aLocaleInfo.getCurrBankSymbol();
 
                 // look for the currency entry (for this language) which has the given bank symbol
-                Sequence< Currency2 > aAllCurrencies = aLocaleInfo.getAllCurrencies();
+                const Sequence< Currency2 > aAllCurrencies = aLocaleInfo.getAllCurrencies();
 
                 OUString sCurrencySymbol = aLocaleInfo.getCurrSymbol();
                 if ( sBankSymbol.isEmpty() )
@@ -433,14 +427,14 @@ namespace
     class theUnoControlModelUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theUnoControlModelUnoTunnelId> {};
 }
 
-const css::uno::Sequence< sal_Int8 >& UnoControlModel::GetUnoTunnelId() throw()
+const css::uno::Sequence< sal_Int8 >& UnoControlModel::getUnoTunnelId() throw()
 {
     return theUnoControlModelUnoTunnelId::get().getSeq();
 }
 
 sal_Int64 UnoControlModel::getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier )
 {
-    if( ( rIdentifier.getLength() == 16 ) && ( memcmp( UnoControlModel::GetUnoTunnelId().getConstArray(), rIdentifier.getConstArray(), 16 ) == 0 ) )
+    if( isUnoTunnelId<UnoControlModel>(rIdentifier) )
         return sal::static_int_cast< sal_Int64 >(reinterpret_cast< sal_IntPtr >(this));
 
     return 0;
@@ -670,7 +664,7 @@ void UnoControlModel::write( const css::uno::Reference< css::io::XObjectOutputSt
                 rValue >>= aSeq;
                 long nEntries = aSeq.getLength();
                 OutStream->writeLong( nEntries );
-                for ( const auto& rVal : aSeq )
+                for ( const auto& rVal : std::as_const(aSeq) )
                     OutStream->writeUTF( rVal );
             }
             else if ( rType == cppu::UnoType< cppu::UnoSequenceType<cppu::UnoUnsignedShortType> >::get() )
@@ -719,7 +713,7 @@ void UnoControlModel::write( const css::uno::Reference< css::io::XObjectOutputSt
     if ( aProps.find( BASEPROPERTY_FONTDESCRIPTOR ) != aProps.end() )
     {
         const css::uno::Any* pProp = &maData[ BASEPROPERTY_FONTDESCRIPTOR ];
-        // Until 5.0 export arrives, write old format..
+        // Until 5.0 export arrives, write old format...
         css::awt::FontDescriptor aFD;
         (*pProp) >>= aFD;
 
@@ -1252,7 +1246,7 @@ void UnoControlModel::setPropertyValue( const OUString& rPropertyName, const css
         DBG_ASSERT( nPropId, "Invalid ID in UnoControlModel::setPropertyValue" );
     }
     if( !nPropId )
-        throw css::beans::UnknownPropertyException();
+        throw css::beans::UnknownPropertyException(rPropertyName);
 
     setFastPropertyValue( nPropId, rValue );
 

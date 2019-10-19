@@ -172,7 +172,7 @@ bool SwDoc::SplitDoc( sal_uInt16 eDocType, const OUString& rPath, bool bOutline,
     if ( !bOutline) {
         if( pSplitColl )
         {
-            // If it isn't a OutlineNumbering, then use an own array and collect the Nodes.
+            // If it isn't an OutlineNumbering, then use an own array and collect the Nodes.
             if( pSplitColl->GetAttrOutlineLevel() == 0 )
             {
                 xTmpOutlNds.reset(new SwOutlineNodes);
@@ -315,7 +315,7 @@ bool SwDoc::SplitDoc( sal_uInt16 eDocType, const OUString& rPath, bool bOutline,
                         pDoc->GetNodes().Delete( aIdx );
 
                     // All Flys in the section
-                    GetDocumentContentOperationsManager().CopyFlyInFlyImpl( aRg, 0, aIdx );
+                    GetDocumentContentOperationsManager().CopyFlyInFlyImpl(aRg, nullptr, aIdx);
 
                     // And what's with all the Bookmarks?
                     // ?????

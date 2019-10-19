@@ -285,16 +285,16 @@ Reference< XControlModel > SAL_CALL ProgressBar::getModel()
 
 //  impl but public method to register service
 
-const Sequence< OUString > ProgressBar::impl_getStaticSupportedServiceNames()
+Sequence< OUString > ProgressBar::impl_getStaticSupportedServiceNames()
 {
     return css::uno::Sequence<OUString>();
 }
 
 //  impl but public method to register service
 
-const OUString ProgressBar::impl_getStaticImplementationName()
+OUString ProgressBar::impl_getStaticImplementationName()
 {
-    return OUString("stardiv.UnoControls.ProgressBar");
+    return "stardiv.UnoControls.ProgressBar";
 }
 
 //  protected method

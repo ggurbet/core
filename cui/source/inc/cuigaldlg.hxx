@@ -24,11 +24,7 @@
 
 #include <salhelper/thread.hxx>
 #include <tools/urlobj.hxx>
-#include <vcl/graph.hxx>
 #include <vcl/idle.hxx>
-#include <svl/slstitm.hxx>
-#include <vcl/transfer.hxx>
-#include <vcl/GraphicObject.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <svx/galctrl.hxx>
 #include <svx/galmisc.hxx>
@@ -54,7 +50,7 @@ class SearchThread: public salhelper::Thread
 private:
 
     SearchProgress* mpProgress;
-    VclPtr<TPGalleryThemeProperties>   mpBrowser;
+    TPGalleryThemeProperties*   mpBrowser;
     INetURLObject               maStartURL;
 
     void                        ImplSearch( const INetURLObject& rStartURL,
@@ -75,7 +71,7 @@ class SearchProgress : public weld::GenericDialogController
 {
 private:
     INetURLObject startUrl_;
-    VclPtr<TPGalleryThemeProperties> m_xTabPage;
+    TPGalleryThemeProperties* m_pTabPage;
     rtl::Reference< SearchThread > m_aSearchThread;
     std::unique_ptr<weld::Label> m_xFtSearchDir;
     std::unique_ptr<weld::Label> m_xFtSearchType;
@@ -99,7 +95,7 @@ class TakeThread: public salhelper::Thread
 private:
 
     TakeProgress* mpProgress;
-    VclPtr<TPGalleryThemeProperties>   mpBrowser;
+    TPGalleryThemeProperties*   mpBrowser;
     TokenList_impl&             mrTakenList;
 
     virtual                     ~TakeThread() override;
@@ -118,7 +114,7 @@ class TakeProgress : public weld::GenericDialogController
 {
 private:
     weld::Window* m_pParent;
-    VclPtr<TPGalleryThemeProperties> m_xTabPage;
+    TPGalleryThemeProperties* m_pTabPage;
     rtl::Reference< TakeThread > maTakeThread;
     TokenList_impl      maTakenList;
     std::unique_ptr<weld::Label> m_xFtTakeFile;
@@ -207,9 +203,9 @@ private:
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
 
 public:
-    TPGalleryThemeGeneral(TabPageParent pParent, const SfxItemSet& rSet);
+    TPGalleryThemeGeneral(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     void                SetXChgData( ExchangeData* pData );
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
+    static std::unique_ptr<SfxTabPage>  Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
 };
 
 class TPGalleryThemeProperties : public SfxTabPage
@@ -260,21 +256,20 @@ class TPGalleryThemeProperties : public SfxTabPage
     DECL_LINK(ClickTakeAllHdl, weld::Button&, void);
     DECL_LINK(SelectFoundHdl, weld::TreeView&, void);
     DECL_LINK(SelectFileTypeHdl, weld::ComboBox&, void);
-    DECL_LINK(DClickFoundHdl, weld::TreeView&, void);
+    DECL_LINK(DClickFoundHdl, weld::TreeView&, bool);
     DECL_LINK(PreviewTimerHdl, Timer*, void);
     DECL_LINK(DialogClosedHdl, css::ui::dialogs::DialogClosedEvent*, void);
 
 public:
-    TPGalleryThemeProperties(TabPageParent pWindow, const SfxItemSet& rSet);
+    TPGalleryThemeProperties(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~TPGalleryThemeProperties() override;
-    virtual void        dispose() override;
 
     void                SetXChgData( ExchangeData* pData );
     const ExchangeData* GetXChgData() const { return pData; }
 
     void                StartSearchFiles( const OUString& _rFolderURL, short _nDlgResult );
 
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent, const SfxItemSet* rSet);
+    static std::unique_ptr<SfxTabPage>  Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
 };
 
 #endif // INCLUDED_CUI_SOURCE_INC_CUIGALDLG_HXX

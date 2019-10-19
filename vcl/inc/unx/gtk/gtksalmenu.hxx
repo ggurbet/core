@@ -23,27 +23,8 @@
 #include <unotools/tempfile.hxx>
 #include <vcl/idle.hxx>
 
-#if GTK_CHECK_VERSION(3,0,0)
-#  define ENABLE_GMENU_INTEGRATION
-#  include <unx/gtk/glomenu.h>
-#  include <unx/gtk/gloactiongroup.h>
-#elif ENABLE_DBUS && ENABLE_GIO && \
-    (GLIB_MAJOR_VERSION > 2 || GLIB_MINOR_VERSION >= 36)
-#  define ENABLE_GMENU_INTEGRATION
-#  include <unx/gtk/glomenu.h>
-#  include <unx/gtk/gloactiongroup.h>
-#else
-#  if !(GLIB_MAJOR_VERSION > 2 || GLIB_MINOR_VERSION >= 32)
-     typedef void GMenuModel;
-#  endif
-#  if !(GLIB_MAJOR_VERSION > 2 || GLIB_MINOR_VERSION >= 28)
-     typedef void GActionGroup;
-#  endif
-#endif
-
-#if !GTK_CHECK_VERSION(3,0,0)
-typedef void GtkCssProvider;
-#endif
+#include <unx/gtk/glomenu.h>
+#include <unx/gtk/gloactiongroup.h>
 
 class MenuItemList;
 class GtkSalMenuItem;
@@ -105,7 +86,7 @@ public:
     void                        SetMenu( Menu* pMenu ) { mpVCLMenu = pMenu; }
     Menu*                       GetMenu() { return mpVCLMenu; }
     void                        SetMenuModel(GMenuModel* pMenuModel);
-    unsigned                    GetItemCount() { return maItems.size(); }
+    unsigned                    GetItemCount() const { return maItems.size(); }
     GtkSalMenuItem*             GetItemAtPos( unsigned nPos ) { return maItems[ nPos ]; }
     void                        SetActionGroup( GActionGroup* pActionGroup ) { mpActionGroup = pActionGroup; }
     bool                        IsItemVisible( unsigned nPos );
@@ -158,11 +139,11 @@ public:
     GtkSalMenuItem( const SalItemParams* );
     virtual ~GtkSalMenuItem() override;
 
-    sal_uInt16 const    mnId;               // Item ID
-    MenuItemType const  mnType;             // Item type
-    bool                mbVisible;          // Item visibility.
     GtkSalMenu*         mpParentMenu;       // The menu into which this menu item is inserted
     GtkSalMenu*         mpSubMenu;          // Submenu of this item (if defined)
+    MenuItemType const  mnType;             // Item type
+    sal_uInt16 const    mnId;               // Item ID
+    bool                mbVisible;          // Item visibility.
 };
 
 #endif // INCLUDED_VCL_INC_UNX_GTK_GTKSALMENU_HXX

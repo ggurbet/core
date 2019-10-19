@@ -25,10 +25,8 @@
 #include <com/sun/star/view/DocumentZoomType.hpp>
 
 #include <editeng/outliner.hxx>
-#include <svx/fmdpage.hxx>
 #include <svx/svditer.hxx>
 #include <svx/svdmark.hxx>
-#include <svx/svdouno.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdview.hxx>
@@ -36,11 +34,11 @@
 #include <svx/fmshell.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
-#include <sfx2/printer.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <comphelper/profilezone.hxx>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <toolkit/helper/convert.hxx>
 #include <vcl/svapp.hxx>
@@ -65,7 +63,6 @@
 #include <gridwin.hxx>
 #include <sheetevents.hxx>
 #include <markdata.hxx>
-#include <AccessibilityHints.hxx>
 #include <scextopt.hxx>
 #include <preview.hxx>
 #include <svx/sdrhittesthelper.hxx>
@@ -1807,7 +1804,7 @@ void SAL_CALL ScTabViewObj::setPropertyValue(
 
         //  Options are set on the view and document (for new views),
         //  so that they remain during saving.
-        //! In the app (module) we need a extra options to tune that
+        //! In the app (module) we need an extra options to tune that
         //! (for new documents)
 
         if ( aNewOpt != rOldOpt )
@@ -1936,11 +1933,8 @@ void SAL_CALL ScTabViewObj::startRangeSelection(
         bool bMultiSelection = false;
 
         OUString aStrVal;
-        const beans::PropertyValue* pPropArray = aArguments.getConstArray();
-        long nPropCount = aArguments.getLength();
-        for (long i = 0; i < nPropCount; i++)
+        for (const beans::PropertyValue& rProp : aArguments)
         {
-            const beans::PropertyValue& rProp = pPropArray[i];
             OUString aPropName(rProp.Name);
 
             if (aPropName == SC_UNONAME_CLOSEONUP )
@@ -2047,7 +2041,7 @@ void ScTabViewObj::RangeSelChanged( const OUString& rText )
 // XServiceInfo
 OUString SAL_CALL ScTabViewObj::getImplementationName()
 {
-    return OUString( "ScTabViewObj" );
+    return "ScTabViewObj";
 }
 
 sal_Bool SAL_CALL ScTabViewObj::supportsService( const OUString& rServiceName )

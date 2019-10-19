@@ -22,7 +22,6 @@
 #include <helpids.h>
 #include <propctrlr.h>
 #include <vcl/event.hxx>
-#include <vcl/tabpage.hxx>
 #include <memory>
 
 namespace pcr
@@ -105,7 +104,7 @@ namespace pcr
         m_pPropBox->SetSizePixel(aSize);
     }
 
-    css::awt::Size OPropertyBrowserView::getMinimumSize()
+    css::awt::Size OPropertyBrowserView::getMinimumSize() const
     {
         Size aSize = GetOutputSizePixel();
         if( m_pPropBox )

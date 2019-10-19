@@ -176,7 +176,7 @@ void SAL_CALL OInstanceLocker::initialize( const uno::Sequence< uno::Any >& aArg
 // XServiceInfo
 OUString SAL_CALL OInstanceLocker::getImplementationName(  )
 {
-    return OUString( "com.sun.star.comp.embed.InstanceLocker" );
+    return "com.sun.star.comp.embed.InstanceLocker";
 }
 
 sal_Bool SAL_CALL OInstanceLocker::supportsService( const OUString& ServiceName )
@@ -186,8 +186,7 @@ sal_Bool SAL_CALL OInstanceLocker::supportsService( const OUString& ServiceName 
 
 uno::Sequence< OUString > SAL_CALL OInstanceLocker::getSupportedServiceNames()
 {
-    const OUString aServiceName( "com.sun.star.embed.InstanceLocker" );
-    return uno::Sequence< OUString >( &aServiceName, 1 );
+    return { "com.sun.star.embed.InstanceLocker" };
 }
 
 // OLockListener

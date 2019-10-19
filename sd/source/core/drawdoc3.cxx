@@ -30,7 +30,7 @@
 #include <svl/style.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdundo.hxx>
-#include <vcl/button.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <xmloff/autolayout.hxx>
@@ -451,7 +451,7 @@ bool SdDrawDocument::InsertBookmarkAsPage(
             std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(nullptr,
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            aStr));
-            xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+            xQueryBox->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
             sal_uInt16 nBut = xQueryBox->run();
 
             bScaleObjects = nBut == RET_YES;
@@ -1480,9 +1480,7 @@ void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
             {
                 aTargetNewLayoutName = createNewMasterPageLayoutName(*this);
 
-                OUString aTemp(aTargetNewLayoutName);
-                aTemp += SD_LT_SEPARATOR;
-                aTemp += STR_LAYOUT_OUTLINE;
+                OUString aTemp = aTargetNewLayoutName + SD_LT_SEPARATOR STR_LAYOUT_OUTLINE;
 
                 pMaster->SetName(aTargetNewLayoutName);
                 pMaster->SetLayoutName(aTemp);
@@ -1573,7 +1571,7 @@ void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
                     aReplList.push_back(aReplData);
                 }
 
-                pHisSheet = static_cast<SfxStyleSheet*>( pSourceStyleSheetPool->Next() );
+                pHisSheet = pSourceStyleSheetPool->Next();
             }
 
             // If new styles were created: re-create parent chaining of the item

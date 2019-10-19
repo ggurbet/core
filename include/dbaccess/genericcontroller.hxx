@@ -23,7 +23,6 @@
 #include <sal/config.h>
 
 #include <deque>
-#include <exception>
 #include <map>
 #include <memory>
 #include <vector>
@@ -44,9 +43,7 @@
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/uno/Any.hxx>
-#include <com/sun/star/uno/Exception.hpp>
 #include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/util/URL.hpp>
 #include <com/sun/star/util/XModifyListener.hpp>
@@ -60,7 +57,6 @@
 #include <dbaccess/dbaccessdllapi.h>
 #include <dbaccess/IController.hxx>
 #include <osl/mutex.hxx>
-#include <rtl/string.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
 #include <tools/link.hxx>
@@ -388,10 +384,10 @@ namespace dbaui
         weld::Window* getFrameWeld() const;
         void        setView( const VclPtr<ODataView>& i_rView );
         void        clearView();
-        // shows a error box if the SQLExceptionInfo is valid
+        // shows an error box if the SQLExceptionInfo is valid
         void showError(const ::dbtools::SQLExceptionInfo& _rInfo);
 
-        // if there is an css::util::URL translation for the id
+        // if there is a css::util::URL translation for the id
         // ('handle') then if xListener is NULL the change will be forwarded
         // to all listeners to the given css::util::URL
         // if there is a toolbar slot with the given id it is updated (the new state is determined via GetState)

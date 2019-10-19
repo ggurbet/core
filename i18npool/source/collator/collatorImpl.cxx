@@ -164,7 +164,7 @@ CollatorImpl::createCollator(const lang::Locale& rLocale, const OUString& servic
 void
 CollatorImpl::loadCachedCollator(const lang::Locale& rLocale, const OUString& rSortAlgorithm)
 {
-    for (auto& i : lookupTable) {
+    for (const auto& i : lookupTable) {
         cachedItem = i.get();
         if (cachedItem->equals(rLocale, rSortAlgorithm)) {
             return;
@@ -208,7 +208,7 @@ CollatorImpl::loadCachedCollator(const lang::Locale& rLocale, const OUString& rS
 
 OUString SAL_CALL CollatorImpl::getImplementationName()
 {
-    return OUString("com.sun.star.i18n.Collator");
+    return "com.sun.star.i18n.Collator";
 }
 
 sal_Bool SAL_CALL CollatorImpl::supportsService(const OUString& rServiceName)
@@ -219,8 +219,7 @@ sal_Bool SAL_CALL CollatorImpl::supportsService(const OUString& rServiceName)
 Sequence< OUString > SAL_CALL
 CollatorImpl::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet { "com.sun.star.i18n.Collator" };
-    return aRet;
+    return { "com.sun.star.i18n.Collator" };
 }
 
 }

@@ -96,8 +96,8 @@ namespace {
 // This enum can be used to set different active states of frames
 enum EActiveState
 {
-    E_INACTIVE,   // I'am not a member of active path in tree and i don't have the focus.
-    E_ACTIVE,     // I'am in the middle of an active path in tree and i don't have the focus.
+    E_INACTIVE,   // I am not a member of active path in tree and i don't have the focus.
+    E_ACTIVE,     // I am in the middle of an active path in tree and i don't have the focus.
     E_FOCUS       // I have the focus now. I must a member of an active path!
 };
 
@@ -126,7 +126,7 @@ public:
 
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.framework.Frame");
+        return "com.sun.star.comp.framework.Frame";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -856,7 +856,7 @@ css::uno::Reference< css::awt::XWindow > SAL_CALL XFrameImpl::getContainerWindow
     @seealso    getCreator()
     @seealso    findFrame()
     @seealso    isTop()
-    @seealos    m_bIsFrameTop
+    @seealso    m_bIsFrameTop
 
     @param      xCreator
                     valid reference to our new owner frame, which should implement a supplier interface
@@ -977,7 +977,7 @@ css::uno::Reference< css::frame::XFrame > SAL_CALL XFrameImpl::findFrame( const 
     // get threadsafe some necessary member which are necessary for following functionality
     /* SAFE { */
     SolarMutexResettableGuard aReadLock;
-    css::uno::Reference< css::frame::XFrame > xParent ( m_xParent, css::uno::UNO_QUERY );
+    css::uno::Reference< css::frame::XFrame > xParent = m_xParent;
     bool bIsTopFrame  = m_bIsFrameTop;
     bool bIsTopWindow = WindowHelper::isTopWindow(m_xContainerWindow);
     aReadLock.clear();
@@ -1125,7 +1125,7 @@ css::uno::Reference< css::frame::XFrame > SAL_CALL XFrameImpl::findFrame( const 
                 css::uno::Reference< css::frame::XFramesSupplier > xSupplier( xParent, css::uno::UNO_QUERY );
                 if (xSupplier.is())
                 {
-                    css::uno::Reference< css::container::XIndexAccess > xContainer( xSupplier->getFrames(), css::uno::UNO_QUERY );
+                    css::uno::Reference< css::container::XIndexAccess > xContainer = xSupplier->getFrames();
                     if (xContainer.is())
                     {
                         sal_Int32 nCount = xContainer->getCount();
@@ -1240,14 +1240,14 @@ void SAL_CALL XFrameImpl::activate()
     // It's not necessary for m_aChildFrameContainer ... because
     // he is threadsafe himself and live if we live.
     css::uno::Reference< css::frame::XFrame >           xActiveChild    = m_aChildFrameContainer.getActive();
-    css::uno::Reference< css::frame::XFramesSupplier >  xParent         ( m_xParent, css::uno::UNO_QUERY );
+    css::uno::Reference< css::frame::XFramesSupplier >  xParent         = m_xParent;
     css::uno::Reference< css::frame::XFrame >           xThis           ( static_cast< ::cppu::OWeakObject* >(this), css::uno::UNO_QUERY );
     EActiveState                                        eState          = m_eActiveState;
 
     aWriteLock.clear();
     /* UNSAFE AREA --------------------------------------------------------------------------------------------- */
 
-    //  1)  If I'am not active before ...
+    //  1)  If I am not active before...
     if( eState == E_INACTIVE )
     {
         // ... do it then.
@@ -1318,7 +1318,7 @@ void SAL_CALL XFrameImpl::deactivate()
 
     // Copy necessary member and free the lock.
     css::uno::Reference< css::frame::XFrame > xActiveChild = m_aChildFrameContainer.getActive();
-    css::uno::Reference< css::frame::XFramesSupplier > xParent ( m_xParent, css::uno::UNO_QUERY );
+    css::uno::Reference< css::frame::XFramesSupplier > xParent = m_xParent;
     css::uno::Reference< css::frame::XFrame > xThis ( static_cast< ::cppu::OWeakObject* >(this), css::uno::UNO_QUERY );
     EActiveState eState = m_eActiveState;
 
@@ -1347,7 +1347,7 @@ void SAL_CALL XFrameImpl::deactivate()
             implts_sendFrameActionEvent( css::frame::FrameAction_FRAME_UI_DEACTIVATING );
         }
 
-        //  3)  If I'am active - I will be deactivated now.
+        //  3)  If I am active - I will be deactivated now.
         if( eState == E_ACTIVE )
         {
             // Set new state and send message to all listener.
@@ -1358,8 +1358,8 @@ void SAL_CALL XFrameImpl::deactivate()
             implts_sendFrameActionEvent( css::frame::FrameAction_FRAME_DEACTIVATING );
         }
 
-        //  4)  If there is a path from here to my parent ...
-        //      ... I'am on the top or in the middle of deactivated subtree and action was started here.
+        //  4)  If there is a path from here to my parent...
+        //      ... I am on the top or in the middle of deactivated subtree and action was started here.
         //      I must deactivate all frames from here to top, which are members of current path.
         //      Stop, if THESE frame not the active frame of our parent!
         if ( xParent.is() && xParent->getActiveFrame() == xThis )
@@ -1485,12 +1485,11 @@ sal_Bool SAL_CALL XFrameImpl::setComponent(const css::uno::Reference< css::awt::
         }
         /* } SAFE */
 
-        css::uno::Reference< css::lang::XComponent > xDisposable( xOldController, css::uno::UNO_QUERY );
-        if (xDisposable.is())
+        if (xOldController.is())
         {
             try
             {
-                xDisposable->dispose();
+                xOldController->dispose();
             }
             catch(const css::lang::DisposedException&)
                 {}
@@ -1515,12 +1514,11 @@ sal_Bool SAL_CALL XFrameImpl::setComponent(const css::uno::Reference< css::awt::
         }
         /* } SAFE */
 
-        css::uno::Reference< css::lang::XComponent > xDisposable( xOldComponentWindow, css::uno::UNO_QUERY );
-        if (xDisposable.is())
+        if (xOldComponentWindow.is())
         {
             try
             {
-                xDisposable->dispose();
+                xOldComponentWindow->dispose();
             }
             catch(const css::lang::DisposedException&)
             {
@@ -1871,7 +1869,7 @@ void SAL_CALL XFrameImpl::setPropertyValue(const OUString& sProperty,
 
     TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
     if (pIt == m_lProps.end())
-        throw css::beans::UnknownPropertyException();
+        throw css::beans::UnknownPropertyException(sProperty);
 
     css::beans::Property aPropInfo = pIt->second;
 
@@ -1906,7 +1904,7 @@ css::uno::Any SAL_CALL XFrameImpl::getPropertyValue(const OUString& sProperty)
 
     TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
     if (pIt == m_lProps.end())
-        throw css::beans::UnknownPropertyException();
+        throw css::beans::UnknownPropertyException(sProperty);
 
     css::beans::Property aPropInfo = pIt->second;
 
@@ -1925,7 +1923,7 @@ void SAL_CALL XFrameImpl::addPropertyChangeListener(
 
         TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
         if (pIt == m_lProps.end())
-            throw css::beans::UnknownPropertyException();
+            throw css::beans::UnknownPropertyException(sProperty);
     }
     // <- SAFE
 
@@ -1942,7 +1940,7 @@ void SAL_CALL XFrameImpl::removePropertyChangeListener(
 
         TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
         if (pIt == m_lProps.end())
-            throw css::beans::UnknownPropertyException();
+            throw css::beans::UnknownPropertyException(sProperty);
     }
     // <- SAFE
 
@@ -1961,7 +1959,7 @@ void SAL_CALL XFrameImpl::addVetoableChangeListener(
 
         TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
         if (pIt == m_lProps.end())
-            throw css::beans::UnknownPropertyException();
+            throw css::beans::UnknownPropertyException(sProperty);
     }
     // <- SAFE
 
@@ -1978,7 +1976,7 @@ void SAL_CALL XFrameImpl::removeVetoableChangeListener(
 
         TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
         if (pIt == m_lProps.end())
-            throw css::beans::UnknownPropertyException();
+            throw css::beans::UnknownPropertyException(sProperty);
     }
     // <- SAFE
 
@@ -2010,7 +2008,7 @@ css::beans::Property SAL_CALL XFrameImpl::getPropertyByName(const OUString& sNam
 
     TPropInfoHash::const_iterator pIt = m_lProps.find(sName);
     if (pIt == m_lProps.end())
-        throw css::beans::UnknownPropertyException();
+        throw css::beans::UnknownPropertyException(sName);
 
     return pIt->second;
 }
@@ -2162,8 +2160,8 @@ void SAL_CALL XFrameImpl::disposing()
     css::uno::Reference< css::lang::XComponent > xDisposableComp;
     {
         SolarMutexGuard g;
-        xDisposableCtrl.set( m_xController, css::uno::UNO_QUERY );
-        xDisposableComp.set( m_xComponentWindow, css::uno::UNO_QUERY );
+        xDisposableCtrl = m_xController;
+        xDisposableComp = m_xComponentWindow;
     }
     if (xDisposableCtrl.is())
         xDisposableCtrl->dispose();
@@ -2496,7 +2494,7 @@ void SAL_CALL XFrameImpl::windowDeactivated( const css::lang::EventObject& )
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
     SolarMutexClearableGuard aReadLock;
 
-    css::uno::Reference< css::frame::XFrame > xParent          ( m_xParent, css::uno::UNO_QUERY );
+    css::uno::Reference< css::frame::XFrame > xParent          = m_xParent;
     css::uno::Reference< css::awt::XWindow >  xContainerWindow = m_xContainerWindow;
     EActiveState                              eActiveState     = m_eActiveState;
 
@@ -2541,7 +2539,7 @@ void SAL_CALL XFrameImpl::windowClosing( const css::lang::EventObject& )
     deactivate();
 
     // ... and try to close it
-    // But do it asynchron inside the main thread.
+    // But do it asynchronous inside the main thread.
     // VCL has no fun to do such things outside his main thread :-(
     // Note: The used dispatch make it asynchronous for us .-)
 
@@ -2662,8 +2660,8 @@ void SAL_CALL XFrameImpl::disposing( const css::lang::EventObject& aEvent )
                 Otherwise task couldn't die anymore!!!
 
     @seealso    interface XActionLockable
-    @seeelso    method BaseDispatcher::implts_loadIt()
-    @seeelso    method Desktop::loadComponentFromURL()
+    @seealso    method BaseDispatcher::implts_loadIt()
+    @seealso    method Desktop::loadComponentFromURL()
     @return     true if frame/task is locked
                 false otherwise
     @threadsafe yes
@@ -2712,8 +2710,8 @@ sal_Int16 SAL_CALL XFrameImpl::resetActionLocks()
     }
 
     // Attention:
-    // external lock count is 0 here every time ... but if
-    // member m_bSelfClose is set to true too .... we call our own close()/dispose().
+    // external lock count is 0 here every time... but if
+    // member m_bSelfClose is set to true too... we call our own close()/dispose().
     // See close() for further information
     implts_checkSuicide();
 
@@ -2991,7 +2989,7 @@ void XFrameImpl::implts_resizeComponentWindow()
 /*-****************************************************************************************************
     @short      helper to set icon on our container window (if it is a system window!)
     @descr      We use our internal set controller (if it exist) to specify which factory he represented.
-                These information can be used to find right icon. But our controller can say it us directly
+                This information can be used to find right icon. But our controller can say it us directly
                 too ... we should ask his optional property set first ...
 
     @seealso    method Window::SetIcon()
@@ -3004,8 +3002,8 @@ void XFrameImpl::implts_setIconOnWindow()
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
     // Make snapshot of necessary members and release lock.
     SolarMutexClearableGuard aReadLock;
-    css::uno::Reference< css::awt::XWindow > xContainerWindow( m_xContainerWindow, css::uno::UNO_QUERY );
-    css::uno::Reference< css::frame::XController > xController( m_xController, css::uno::UNO_QUERY );
+    css::uno::Reference< css::awt::XWindow > xContainerWindow = m_xContainerWindow;
+    css::uno::Reference< css::frame::XController > xController = m_xController;
     aReadLock.clear();
     /* UNSAFE AREA --------------------------------------------------------------------------------------------- */
 
@@ -3075,10 +3073,10 @@ void XFrameImpl::implts_setIconOnWindow()
 }
 
 /*-************************************************************************************************************
-    @short      helper to start/stop listeneing for window events on container window
+    @short      helper to start/stop listening for window events on container window
     @descr      If we get a new container window, we must set it on internal member ...
                 and stop listening at old one ... and start listening on new one!
-                But sometimes (in dispose() call!) it's necessary to stop listeneing without starting
+                But sometimes (in dispose() call!) it's necessary to stop listening without starting
                 on new connections. So we split this functionality to make it easier at use.
 
     @seealso    method initialize()
@@ -3275,7 +3273,7 @@ void XFrameImpl::impl_checkMenuCloser()
     // But we can enable this closer only, if one of these two tasks includes the help module.
     // The "other frame" couldn't be the help. Because then it wouldn't be part of this "other list".
     // In such case it will be separated to the reference aAnalyzer.m_xHelp!
-    // But we must check, if weself includes the help...
+    // But we must check, if we include ourself the help...
     // Check aAnalyzer.m_bReferenceIsHelp!
     if (
         (aAnalyzer.m_lOtherVisibleFrames.size()==1)   &&
@@ -3291,8 +3289,8 @@ void XFrameImpl::impl_checkMenuCloser()
     }
 
     // b)
-    // There is no other frame ... means no other document frame. The help module
-    // will be handled separately and must(!) be ignored here ... excepting weself includes the help.
+    // There is no other frame... means no other document frame. The help module
+    // will be handled separately and must(!) be ignored here... excepting if we include ourself the help.
     else if (
         (aAnalyzer.m_lOtherVisibleFrames.empty()) &&
         (!aAnalyzer.m_bReferenceIsHelp) &&

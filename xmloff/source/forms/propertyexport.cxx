@@ -25,12 +25,10 @@
 #include "strings.hxx"
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmluconv.hxx>
-#include <xmloff/families.hxx>
 #include <xmloff/xmlexppr.hxx>
 #include <xmloff/xmlprmap.hxx>
 #include <sax/tools/converter.hxx>
 #include <osl/diagnose.h>
-#include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/util/Date.hpp>
@@ -38,7 +36,6 @@
 #include <com/sun/star/util/Time.hpp>
 #include <com/sun/star/util/DateTime.hpp>
 #include <comphelper/extract.hxx>
-#include <comphelper/sequence.hxx>
 #include <comphelper/types.hxx>
 #include "callbacks.hxx"
 #include <unotools/datetime.hxx>
@@ -223,7 +220,7 @@ namespace xmloff
     void OPropertyExport::examinePersistence()
     {
         m_aRemainingProps.clear();
-        Sequence< Property > aProperties = m_xPropertyInfo->getProperties();
+        const Sequence< Property > aProperties = m_xPropertyInfo->getProperties();
         for (const auto& rProp : aProperties)
         {
             // no transient props
@@ -243,7 +240,7 @@ namespace xmloff
     {
         DBG_CHECK_PROPERTY( _rPropertyName, OUString );
 
-        // no try-catch here, this would be to expensive. The outer scope has to handle exceptions (which should not
+        // no try-catch here, this would be too expensive. The outer scope has to handle exceptions (which should not
         // happen if we're used correctly :)
 
         // this is way simple, as we don't need to convert anything (the property already is a string)
@@ -558,7 +555,7 @@ namespace xmloff
             }
             break;
             default:
-            {   // hmmm .... what else do we know?
+            {   // hmmm... what else do we know?
                 double fValue = 0;
                 css::util::Date aDate;
                 css::util::Time aTime;

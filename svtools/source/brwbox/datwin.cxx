@@ -21,12 +21,9 @@
 #include "datwin.hxx"
 #include <o3tl/numeric.hxx>
 #include <vcl/commandevent.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/help.hxx>
-#include <vcl/image.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/ptrstyle.hxx>
-#include <rtl/string.hxx>
 #include <tools/debug.hxx>
 #include <tools/fract.hxx>
 
@@ -628,7 +625,7 @@ void BrowserDataWin::SetUpdateMode( bool bMode )
 
 void BrowserDataWin::DoOutstandingInvalidations()
 {
-    for (auto& rRect : aInvalidRegion)
+    for (const auto& rRect : aInvalidRegion)
         Control::Invalidate( rRect );
     aInvalidRegion.clear();
 }
@@ -670,8 +667,7 @@ void BrowserScrollBar::Tracking( const TrackingEvent& rTEvt )
     sal_uLong nPos = GetThumbPos();
     if ( nPos != _nLastPos )
     {
-        OUString aTip( OUString::number(nPos) );
-        aTip += "/";
+        OUString aTip = OUString::number(nPos) + "/";
         if ( !_pDataWin->GetRealRowCount().isEmpty() )
             aTip += _pDataWin->GetRealRowCount();
         else

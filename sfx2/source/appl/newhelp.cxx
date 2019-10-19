@@ -285,8 +285,10 @@ ContentListBox_Impl::ContentListBox_Impl(vcl::Window* pParent, WinBits nStyle)
     InitRoot();
 }
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeContentListBox(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
+extern "C" SAL_DLLPUBLIC_EXPORT void makeContentListBox(VclPtr<vcl::Window> & rRet, const VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
 {
+    static_assert(std::is_same_v<std::remove_pointer_t<VclBuilder::customMakeWidget>,
+                                 decltype(makeContentListBox)>);
     WinBits nWinStyle = WB_TABSTOP;
     OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
     if (!sBorder.isEmpty())
@@ -470,8 +472,10 @@ IndexBox_Impl::IndexBox_Impl(vcl::Window* pParent, WinBits nStyle)
     EnableUserDraw(true);
 }
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeIndexBox(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
+extern "C" SAL_DLLPUBLIC_EXPORT void makeIndexBox(VclPtr<vcl::Window> & rRet, const VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
 {
+    static_assert(std::is_same_v<std::remove_pointer_t<VclBuilder::customMakeWidget>,
+                                 decltype(makeIndexBox)>);
     WinBits nWinBits = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK;
     OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
     if (!sBorder.isEmpty())
@@ -656,10 +660,10 @@ void IndexTabPage_Impl::InitializeIndex()
 
                     sal_uInt32 nRefListLen = aRefList.getLength();
 
-                    DBG_ASSERT( aAnchorList.getLength(), "*IndexTabPage_Impl::InitializeIndex(): AnchorList is empty!" );
+                    DBG_ASSERT( aAnchorList.hasElements(), "*IndexTabPage_Impl::InitializeIndex(): AnchorList is empty!" );
                     DBG_ASSERT( nRefListLen, "*IndexTabPage_Impl::InitializeIndex(): RefList is empty!" );
 
-                    if ( aAnchorList.getLength() && nRefListLen )
+                    if ( aAnchorList.hasElements() && nRefListLen )
                     {
                         if ( aAnchorList[0].getLength() > 0 )
                         {
@@ -846,8 +850,10 @@ void IndexTabPage_Impl::OpenKeyword()
 
 // class SearchBox_Impl --------------------------------------------------
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeSearchBox(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap &)
+extern "C" SAL_DLLPUBLIC_EXPORT void makeSearchBox(VclPtr<vcl::Window> & rRet, const VclPtr<vcl::Window> & pParent, VclBuilder::stringmap &)
 {
+    static_assert(std::is_same_v<std::remove_pointer_t<VclBuilder::customMakeWidget>,
+                                 decltype(makeSearchBox)>);
     WinBits nWinBits = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE|WB_DROPDOWN;
     VclPtrInstance<SearchBox_Impl> pComboBox(pParent, nWinBits);
     pComboBox->EnableAutoSize(true);
@@ -877,8 +883,10 @@ void SearchBox_Impl::Select()
 
 // class SearchResultsBox_Impl -------------------------------------------
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeSearchResultsBox(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
+extern "C" SAL_DLLPUBLIC_EXPORT void makeSearchResultsBox(VclPtr<vcl::Window> & rRet, const VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
 {
+    static_assert(std::is_same_v<std::remove_pointer_t<VclBuilder::customMakeWidget>,
+                                 decltype(makeSearchResultsBox)>);
     WinBits nWinBits = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK;
     OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
     if (!sBorder.isEmpty())
@@ -1116,14 +1124,13 @@ bool SearchTabPage_Impl::OpenKeyword( const OUString& rKeyword )
 
 static void GetBookmarkEntry_Impl
 (
-    Sequence< PropertyValue >& aBookmarkEntry,
+    const Sequence< PropertyValue >& aBookmarkEntry,
     OUString& rTitle,
     OUString& rURL
 )
 {
-    for ( int i = 0; i < aBookmarkEntry.getLength(); i++ )
+    for ( const PropertyValue& aValue : aBookmarkEntry )
     {
-        PropertyValue aValue = aBookmarkEntry[i];
         if ( aValue.Name == HISTORY_PROPERTYNAME_URL )
             aValue.Value >>= rURL;
         else if ( aValue.Name == HISTORY_PROPERTYNAME_TITLE )
@@ -1136,8 +1143,10 @@ BookmarksBox_Impl::BookmarksBox_Impl(vcl::Window* pParent, WinBits nStyle)
 {
 }
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeBookmarksBox(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
+extern "C" SAL_DLLPUBLIC_EXPORT void makeBookmarksBox(VclPtr<vcl::Window> & rRet, const VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
 {
+    static_assert(std::is_same_v<std::remove_pointer_t<VclBuilder::customMakeWidget>,
+                                 decltype(makeBookmarksBox)>);
     WinBits nWinBits = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE;
     OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
     if (!sBorder.isEmpty())
@@ -1274,15 +1283,14 @@ BookmarksTabPage_Impl::BookmarksTabPage_Impl(vcl::Window* pParent, SfxHelpIndexW
     m_pBookmarksPB->SetClickHdl( LINK( this, BookmarksTabPage_Impl, OpenHdl ) );
 
     // load bookmarks from configuration
-    Sequence< Sequence< PropertyValue > > aBookmarkSeq = SvtHistoryOptions().GetList( eHELPBOOKMARKS );
+    const Sequence< Sequence< PropertyValue > > aBookmarkSeq = SvtHistoryOptions().GetList( eHELPBOOKMARKS );
 
     OUString aTitle;
     OUString aURL;
 
-    sal_uInt32 i, nCount = aBookmarkSeq.getLength();
-    for ( i = 0; i < nCount; ++i )
+    for ( const auto& rBookmark : aBookmarkSeq )
     {
-        GetBookmarkEntry_Impl( aBookmarkSeq[i], aTitle, aURL );
+        GetBookmarkEntry_Impl( rBookmark, aTitle, aURL );
         AddBookmarks( aTitle, aURL );
     }
 }
@@ -2031,8 +2039,7 @@ void SfxHelpTextWindow_Impl::InitOnStartupBox()
             }
             catch( Exception const & )
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN( "sfx.appl", "SfxHelpTextWindow_Impl::InitOnStartupBox(): unexpected exception " << exceptionToString(ex) );
+                TOOLS_WARN_EXCEPTION( "sfx.appl", "SfxHelpTextWindow_Impl::InitOnStartupBox()" );
             }
             sModuleName = sTemp;
         }
@@ -2233,7 +2240,7 @@ void SfxHelpTextWindow_Impl::FindHdl(sfx2::SearchDialog* pDlg)
                 else if ( pDlg->IsWrapAround() && !bWrapAround )
                 {
                     Reference < text::XTextViewCursorSupplier > xCrsrSupp( xController, uno::UNO_QUERY );
-                    Reference < text::XTextViewCursor > xTVCrsr( xCrsrSupp->getViewCursor(), uno::UNO_QUERY );
+                    Reference < text::XTextViewCursor > xTVCrsr = xCrsrSupp->getViewCursor();
                     if ( xTVCrsr.is() )
                     {
                         Reference < text::XTextDocument > xDoc( xController->getModel(), uno::UNO_QUERY );
@@ -2285,8 +2292,7 @@ IMPL_LINK( SfxHelpTextWindow_Impl, CheckHdl, Button*, pButton, void )
     }
     catch( Exception const & )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sfx.appl", "SfxHelpTextWindow_Impl::CheckHdl(): unexpected exception " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "sfx.appl", "SfxHelpTextWindow_Impl::CheckHdl()" );
     }
 }
 
@@ -2442,8 +2448,7 @@ void SfxHelpTextWindow_Impl::GetFocus()
     }
     catch( Exception const & )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sfx.appl", "SfxHelpTextWindow_Impl::GetFocus(): unexpected exception " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "sfx.appl", "SfxHelpTextWindow_Impl::GetFocus()" );
     }
 }
 
@@ -2530,8 +2535,7 @@ void SfxHelpTextWindow_Impl::SetPageStyleHeaderOff() const
     }
     catch( Exception const & )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sfx.appl", "SfxHelpTextWindow_Impl::SetPageStyleHeaderOff(): unexpected exception " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "sfx.appl", "SfxHelpTextWindow_Impl::SetPageStyleHeaderOff()" );
     }
 
     SAL_WARN_IF( !bSetOff, "sfx.appl", "SfxHelpTextWindow_Impl::SetPageStyleHeaderOff(): set off failed" );
@@ -3026,7 +3030,7 @@ void SfxHelpWindow_Impl::DoAction( sal_uInt16 nActionId )
         case TBI_COPY :
         case TBI_SELECTIONMODE:
         {
-            Reference < XDispatchProvider > xProv( pTextWin->getFrame(), UNO_QUERY );
+            Reference < XDispatchProvider > xProv = pTextWin->getFrame();
             if ( xProv.is() )
             {
                 URL aURL;
@@ -3103,8 +3107,7 @@ void SfxHelpWindow_Impl::CloseWindow()
     }
     catch( Exception const & )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sfx.appl", "SfxHelpWindow_Impl::CloseWindow(): caught an exception " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "sfx.appl", "SfxHelpWindow_Impl::CloseWindow()" );
     }
 }
 

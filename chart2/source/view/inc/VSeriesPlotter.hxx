@@ -85,7 +85,7 @@ class VDataSeriesGroup final
 public:
     VDataSeriesGroup() = delete;
     VDataSeriesGroup( std::unique_ptr<VDataSeries> pSeries );
-    VDataSeriesGroup( VDataSeriesGroup&& );
+    VDataSeriesGroup(VDataSeriesGroup&&) noexcept;
     ~VDataSeriesGroup();
 
     void addSeries( std::unique_ptr<VDataSeries> pSeries );//takes ownership of pSeries
@@ -231,7 +231,7 @@ public:
 
     std::vector< VDataSeries* > getAllSeries();
 
-    // This method creates a series plotter of the requested type; e.g. : return new PieChart ....
+    // This method creates a series plotter of the requested type; e.g. : return new PieChart...
     static VSeriesPlotter* createSeriesPlotter( const css::uno::Reference< css::chart2::XChartType >& xChartTypeModel
                                 , sal_Int32 nDimensionCount
                                 , bool bExcludingPositioning /*for pie and donut charts labels and exploded segments are excluded from the given size*/);

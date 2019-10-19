@@ -559,7 +559,7 @@ void SvxRTFParser::ReadFontTable()
         {
             // All data from the font is available, so off to the table
             if (!sAltNm.isEmpty())
-                sFntNm = sFntNm + ";" + sAltNm;
+                sFntNm += ";" + sAltNm;
 
             pFont->SetFamilyName( sFntNm );
             m_FontTable.insert(std::make_pair(nInsFontNo, std::move(pFont)));
@@ -700,17 +700,15 @@ void SvxRTFParser::AttrGroupEnd()   // process the current, delete from Stack
             {
                 SfxItemIter aIter( pOld->aAttrSet );
                 const SfxPoolItem* pItem = aIter.GetCurItem(), *pGet;
-                while( true )
+                do
                 {
                     if( SfxItemState::SET == pCurrent->aAttrSet.GetItemState(
                         pItem->Which(), false, &pGet ) &&
                         *pItem == *pGet )
                         pOld->aAttrSet.ClearItem( pItem->Which() );
 
-                    if( aIter.IsAtEnd() )
-                        break;
                     pItem = aIter.NextItem();
-                }
+                } while (pItem);
 
                 if (!pOld->aAttrSet.Count() && !pOld->m_pChildList &&
                     !pOld->nStyleNo )
@@ -793,7 +791,7 @@ void SvxRTFParser::AttrGroupEnd()   // process the current, delete from Stack
                     }
                 }
 
-                pOld->pEndNd = pInsPos->MakeNodeIdx();
+                pOld->pEndNd = pInsPos->MakeNodeIdx().release();
                 pOld->nEndCnt = pInsPos->GetCntIdx();
 
                 /*
@@ -812,7 +810,7 @@ void SvxRTFParser::AttrGroupEnd()   // process the current, delete from Stack
                 if( pCurrent )
                 {
                     pCurrent->Add(std::move(pOld));
-                    // split up and create new entry, because it make no sense
+                    // split up and create new entry, because it makes no sense
                     // to create a "so long" depend list. Bug 95010
                     if (bCrsrBack && 50 < pCurrent->m_pChildList->size())
                     {
@@ -939,7 +937,7 @@ SvxRTFItemStackType::SvxRTFItemStackType(
     : aAttrSet( rPool, pWhichRange )
     , nStyleNo( 0 )
 {
-    pSttNd.reset( rPos.MakeNodeIdx() );
+    pSttNd = rPos.MakeNodeIdx();
     nSttCnt = rPos.GetCntIdx();
     pEndNd = pSttNd.get();
     nEndCnt = nSttCnt;
@@ -952,7 +950,7 @@ SvxRTFItemStackType::SvxRTFItemStackType(
     : aAttrSet( *rCpy.aAttrSet.GetPool(), rCpy.aAttrSet.GetRanges() )
     , nStyleNo( rCpy.nStyleNo )
 {
-    pSttNd.reset( rPos.MakeNodeIdx() );
+    pSttNd = rPos.MakeNodeIdx();
     nSttCnt = rPos.GetCntIdx();
     pEndNd = pSttNd.get();
     nEndCnt = nSttCnt;
@@ -1017,7 +1015,7 @@ void SvxRTFItemStackType::SetStartPos( const EditPosition& rPos )
 {
     if (pSttNd.get() != pEndNd)
         delete pEndNd;
-    pSttNd.reset(rPos.MakeNodeIdx() );
+    pSttNd = rPos.MakeNodeIdx();
     pEndNd = pSttNd.get();
     nSttCnt = rPos.GetCntIdx();
 }
@@ -1064,16 +1062,15 @@ void SvxRTFItemStackType::Compress( const SvxRTFParser& rParser )
             // Search for all which are set over the whole area
             SfxItemIter aIter( aMrgSet );
             const SfxPoolItem* pItem;
+            const SfxPoolItem* pIterItem = aIter.GetCurItem();
             do {
-                sal_uInt16 nWhich = aIter.GetCurItem()->Which();
+                sal_uInt16 nWhich = pIterItem->Which();
                 if( SfxItemState::SET != pTmp->aAttrSet.GetItemState( nWhich,
-                      false, &pItem ) || *pItem != *aIter.GetCurItem() )
+                      false, &pItem ) || *pItem != *pIterItem)
                     aMrgSet.ClearItem( nWhich );
 
-                if( aIter.IsAtEnd() )
-                    break;
-                aIter.NextItem();
-            } while( true );
+                pIterItem = aIter.NextItem();
+            } while(pIterItem);
 
             if( !aMrgSet.Count() )
                 return;
@@ -1110,15 +1107,14 @@ void SvxRTFItemStackType::SetRTFDefaults( const SfxItemSet& rDefaults )
     if( rDefaults.Count() )
     {
         SfxItemIter aIter( rDefaults );
+        const SfxPoolItem* pItem = aIter.GetCurItem();
         do {
-            sal_uInt16 nWhich = aIter.GetCurItem()->Which();
+            sal_uInt16 nWhich = pItem->Which();
             if( SfxItemState::SET != aAttrSet.GetItemState( nWhich, false ))
-                aAttrSet.Put( *aIter.GetCurItem() );
+                aAttrSet.Put(*pItem);
 
-            if( aIter.IsAtEnd() )
-                break;
-            aIter.NextItem();
-        } while( true );
+            pItem = aIter.NextItem();
+        } while(pItem);
     }
 }
 

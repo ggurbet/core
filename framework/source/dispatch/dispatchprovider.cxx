@@ -467,7 +467,7 @@ css::uno::Reference< css::frame::XDispatch > DispatchProvider::implts_searchProt
                 {
                     try
                     {
-                        // but do it only, if all context information are OK
+                        // but do it only, if all context information is OK
                         css::uno::Sequence< css::uno::Any > lContext(1);
                         lContext[0] <<= xOwner;
                         xInit->initialize(lContext);
@@ -525,8 +525,7 @@ css::uno::Reference< css::frame::XDispatch > DispatchProvider::implts_getOrCreat
 
         case E_BLANKDISPATCHER :
                 {
-                    css::uno::Reference< css::frame::XFrame > xDesktop( xOwner, css::uno::UNO_QUERY );
-                    if (xDesktop.is())
+                    if (xOwner.is())
                     {
                         LoadDispatcher* pDispatcher = new LoadDispatcher(m_xContext, xOwner, SPECIALTARGET_BLANK, 0);
                         xDispatchHelper.set( static_cast< ::cppu::OWeakObject* >(pDispatcher), css::uno::UNO_QUERY );
@@ -536,8 +535,7 @@ css::uno::Reference< css::frame::XDispatch > DispatchProvider::implts_getOrCreat
 
         case E_DEFAULTDISPATCHER :
                 {
-                    css::uno::Reference< css::frame::XFrame > xDesktop( xOwner, css::uno::UNO_QUERY );
-                    if (xDesktop.is())
+                    if (xOwner.is())
                     {
                         LoadDispatcher* pDispatcher = new LoadDispatcher(m_xContext, xOwner, SPECIALTARGET_DEFAULT, 0);
                         xDispatchHelper.set( static_cast< ::cppu::OWeakObject* >(pDispatcher), css::uno::UNO_QUERY );

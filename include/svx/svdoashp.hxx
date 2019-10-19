@@ -142,6 +142,7 @@ public:
 
     double GetObjectRotation() const { return fObjectRotation;}
     double GetExtraTextRotation( const bool bPreRotation = false ) const;
+    double GetCameraRotation() const;
 
     SdrObjCustomShape(SdrModel& rSdrModel);
 
@@ -222,7 +223,7 @@ public:
 
     virtual void NbcSetOutlinerParaObject(std::unique_ptr<OutlinerParaObject> pTextObject) override;
 
-    virtual SdrObject* DoConvertToPolyObj(bool bBezier, bool bAddText) const override;
+    virtual SdrObjectUniquePtr DoConvertToPolyObj(bool bBezier, bool bAddText) const override;
 
     // react on model/page change
     virtual void handlePageChange(SdrPage* pOldPage, SdrPage* pNewPage) override;
@@ -247,7 +248,7 @@ public:
 
     using SdrTextObj::NbcSetOutlinerParaObject;
 
-    OUString GetCustomShapeName();
+    OUString GetCustomShapeName() const;
 };
 
 #endif // INCLUDED_SVX_SVDOASHP_HXX

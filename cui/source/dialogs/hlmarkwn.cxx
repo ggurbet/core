@@ -18,20 +18,14 @@
  */
 
 #include <dialmgr.hxx>
-#include <sfx2/docfile.hxx>
 #include <unotools/viewoptions.hxx>
 #include <vcl/graph.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/settings.hxx>
-#include <vcl/wrkwin.hxx>
-#include <vcl/builderfactory.hxx>
 
 // UNO-Stuff
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
 #include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/frame/XComponentLoader.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/document/XLinkTargetSupplier.hpp>
@@ -43,6 +37,7 @@
 #include <strings.hrc>
 #include <hlmarkwn.hxx>
 #include <hltpbase.hxx>
+#include <hlmarkwn_def.hxx>
 
 using namespace ::com::sun::star;
 
@@ -233,15 +228,14 @@ bool SvxHlinkDlgMarkWnd::RefreshFromDoc(const OUString& aURL)
     if( !aURL.isEmpty() )
     {
         // load from url
-        uno::Reference< frame::XComponentLoader > xLoader( xDesktop, uno::UNO_QUERY );
-        if( xLoader.is() )
+        if( xDesktop.is() )
         {
             try
             {
                 uno::Sequence< beans::PropertyValue > aArg(1);
                 aArg.getArray()[0].Name = "Hidden";
                 aArg.getArray()[0].Value <<= true;
-                xComp = xLoader->loadComponentFromURL( aURL, "_blank", 0, aArg );
+                xComp = xDesktop->loadComponentFromURL( aURL, "_blank", 0, aArg );
             }
             catch( const io::IOException& )
             {
@@ -283,7 +277,7 @@ bool SvxHlinkDlgMarkWnd::RefreshFromDoc(const OUString& aURL)
 }
 
 // Fill Tree-Control
-int SvxHlinkDlgMarkWnd::FillTree( const uno::Reference< container::XNameAccess >& xLinks, weld::TreeIter* pParentEntry )
+int SvxHlinkDlgMarkWnd::FillTree( const uno::Reference< container::XNameAccess >& xLinks, const weld::TreeIter* pParentEntry )
 {
     int nEntries=0;
     const uno::Sequence< OUString > aNames( xLinks->getElementNames() );
@@ -417,9 +411,10 @@ bool SvxHlinkDlgMarkWnd::SelectEntry(const OUString& aStrMark)
 }
 
 // Click on Apply-Button / Double-click on item in tree
-IMPL_LINK_NOARG(SvxHlinkDlgMarkWnd, DoubleClickApplyHdl_Impl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SvxHlinkDlgMarkWnd, DoubleClickApplyHdl_Impl, weld::TreeView&, bool)
 {
     ClickApplyHdl_Impl(*mxBtApply);
+    return true;
 }
 
 IMPL_LINK_NOARG(SvxHlinkDlgMarkWnd, ClickApplyHdl_Impl, weld::Button&, void)

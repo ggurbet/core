@@ -453,10 +453,7 @@ uno::Reference< embed::XStorage > SAL_CALL FSStorage::openStorageElement(
             throw io::IOException(); // there is no such folder
 
         ::ucbhelper::Content aResultContent( aFolderURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), xDummyEnv, comphelper::getProcessComponentContext() );
-        xResult.set( static_cast< OWeakObject* >( new FSStorage( aResultContent,
-                                                                 nStorageMode,
-                                                                 m_pImpl->m_xContext ) ),
-                     uno::UNO_QUERY );
+        xResult = new FSStorage( aResultContent, nStorageMode, m_pImpl->m_xContext );
     }
     catch( embed::InvalidStorageException& )
     {
@@ -1006,7 +1003,7 @@ void SAL_CALL FSStorage::setPropertyValue( const OUString& aPropertyName, const 
     if ( aPropertyName == "URL" || aPropertyName == "OpenMode" )
         throw beans::PropertyVetoException(); // TODO
     else
-        throw beans::UnknownPropertyException(); // TODO
+        throw beans::UnknownPropertyException(aPropertyName); // TODO
 }
 
 
@@ -1022,7 +1019,7 @@ uno::Any SAL_CALL FSStorage::getPropertyValue( const OUString& aPropertyName )
     else if ( aPropertyName == "OpenMode" )
         return uno::makeAny( m_pImpl->m_nMode );
 
-    throw beans::UnknownPropertyException(); // TODO
+    throw beans::UnknownPropertyException(aPropertyName); // TODO
 }
 
 

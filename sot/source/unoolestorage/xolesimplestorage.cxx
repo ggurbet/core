@@ -236,16 +236,16 @@ void OLESimpleStorage::InsertNameAccessToStorage_Impl( BaseStorage* pStorage, co
 
     try
     {
-        uno::Sequence< OUString > aElements = xNameAccess->getElementNames();
-        for ( sal_Int32 nInd = 0; nInd < aElements.getLength(); nInd++ )
+        const uno::Sequence< OUString > aElements = xNameAccess->getElementNames();
+        for ( const auto& rElement : aElements )
         {
             uno::Reference< io::XInputStream > xInputStream;
             uno::Reference< container::XNameAccess > xSubNameAccess;
-            uno::Any aAny = xNameAccess->getByName( aElements[nInd] );
+            uno::Any aAny = xNameAccess->getByName( rElement );
             if ( aAny >>= xInputStream )
-                InsertInputStreamToStorage_Impl( pNewStorage.get(), aElements[nInd], xInputStream );
+                InsertInputStreamToStorage_Impl( pNewStorage.get(), rElement, xInputStream );
             else if ( aAny >>= xSubNameAccess )
-                InsertNameAccessToStorage_Impl( pNewStorage.get(), aElements[nInd], xSubNameAccess );
+                InsertNameAccessToStorage_Impl( pNewStorage.get(), rElement, xSubNameAccess );
         }
     }
     catch( uno::Exception& )
@@ -375,8 +375,7 @@ uno::Any SAL_CALL OLESimpleStorage::getByName( const OUString& aName )
 
     uno::Any aResult;
 
-    uno::Reference< io::XStream > xTempFile(
-        io::TempFile::create(m_xContext), uno::UNO_QUERY );
+    uno::Reference< io::XStream > xTempFile = io::TempFile::create(m_xContext);
     uno::Reference< io::XSeekable > xSeekable( xTempFile, uno::UNO_QUERY_THROW );
     uno::Reference< io::XOutputStream > xOutputStream = xTempFile->getOutputStream();
     uno::Reference< io::XInputStream > xInputStream = xTempFile->getInputStream();
@@ -678,7 +677,7 @@ void SAL_CALL OLESimpleStorage::setClassInfo( const uno::Sequence< sal_Int8 >& /
 //  XServiceInfo
 OUString SAL_CALL OLESimpleStorage::getImplementationName()
 {
-    return OUString("com.sun.star.comp.embed.OLESimpleStorage");
+    return "com.sun.star.comp.embed.OLESimpleStorage";
 }
 
 sal_Bool SAL_CALL OLESimpleStorage::supportsService( const OUString& ServiceName )

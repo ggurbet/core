@@ -13,7 +13,7 @@
 
 #include <sal/config.h>
 #include <svx/svxdllapi.h>
-#include <editeng/weldeditview.hxx>
+#include <svx/weldeditview.hxx>
 #include <editeng/svxenum.hxx>
 #include <vcl/customweld.hxx>
 
@@ -50,12 +50,7 @@ public:
 
     EditView& getEditView()
     {
-        return *m_xEditView.get();
-    }
-
-    void SetModifyHdl(const Link<LinkParamNone*,void>& rLink)
-    {
-        m_xEditEngine->SetModifyHdl(rLink);
+        return *m_xEditView;
     }
 };
 

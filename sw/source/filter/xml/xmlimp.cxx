@@ -471,9 +471,7 @@ const Sequence< sal_Int8 > & SwXMLImport::getUnoTunnelId() throw()
 
 sal_Int64 SAL_CALL SwXMLImport::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXMLImport>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >(this) );
     }
@@ -520,11 +518,8 @@ void SwXMLImport::startDocument()
             if( aAny >>= aFamiliesSeq )
             {
                 SfxStyleFamily nFamilyMask = SfxStyleFamily::None;
-                sal_Int32 nCount = aFamiliesSeq.getLength();
-                const OUString *pSeq = aFamiliesSeq.getConstArray();
-                for( sal_Int32 i=0; i < nCount; i++ )
+                for( const OUString& rFamily : std::as_const(aFamiliesSeq) )
                 {
-                    const OUString& rFamily = pSeq[i];
                     if( rFamily=="FrameStyles" )
                         nFamilyMask |= SfxStyleFamily::Frame;
                     else if( rFamily=="PageStyles" )
@@ -602,7 +597,7 @@ void SwXMLImport::startDocument()
 
                 if (xProps.is() && xInfo.is())
                 {
-                    for (const auto& rProp : aProps)
+                    for (const auto& rProp : std::as_const(aProps))
                     {
                         if (xInfo->hasPropertyByName(rProp.Name))
                         {
@@ -642,7 +637,7 @@ void SwXMLImport::startDocument()
             if( !pDoc )
                 return;
 
-            // Is there a edit shell. If yes, then we are currently inserting
+            // Is there an edit shell. If yes, then we are currently inserting
             // a document. We then have to insert at the current edit shell's
             // cursor position. That not quite clean code, but there is no other
             // way currently.
@@ -690,7 +685,7 @@ void SwXMLImport::startDocument()
             SwPaM *pPaM = pTextCursor->GetPaM();
             const SwPosition* pPos = pPaM->GetPoint();
 
-            // Split once and remember the node that has been splitted.
+            // Split once and remember the node that has been split.
             pDoc->getIDocumentContentOperations().SplitNode( *pPos, false );
             *m_pSttNdIdx = pPos->nNode.GetIndex()-1;
 
@@ -766,7 +761,7 @@ void SwXMLImport::endDocument()
         SwPaM *pPaM = pTextCursor->GetPaM();
         if( IsInsertMode() && m_pSttNdIdx->GetIndex() )
         {
-            // If we are in insert mode, join the splitted node that is in front
+            // If we are in insert mode, join the split node that is in front
             // of the new content with the first new node. Or in other words:
             // Revert the first split node.
             SwTextNode* pTextNode = m_pSttNdIdx->GetNode().GetTextNode();
@@ -1189,8 +1184,7 @@ SvTextShapeImportHelper::SvTextShapeImportHelper(SvXMLImport& rImp) :
         }
 
         xPage  = xSupplier->getDrawPage();
-        Reference<XShapes> xShapes( xPage, UNO_QUERY );
-        XMLShapeImportHelper::startPage( xShapes );
+        XMLShapeImportHelper::startPage( xPage );
     }
 }
 
@@ -1200,8 +1194,7 @@ SvTextShapeImportHelper::~SvTextShapeImportHelper()
 
     if (xPage.is())
     {
-        Reference<XShapes> xShapes( xPage, UNO_QUERY );
-        XMLShapeImportHelper::endPage(xShapes);
+        XMLShapeImportHelper::endPage(xPage);
     }
 }
 
@@ -1245,9 +1238,6 @@ void SwXMLImport::SetViewSettings(const Sequence < PropertyValue > & aViewProps)
         //TODO/LATER: why that cast?!
         //aRect = ((SfxInPlaceObject *)pDoc->GetDocShell())->GetVisArea();
 
-    sal_Int32 nCount = aViewProps.getLength();
-    const PropertyValue *pValue = aViewProps.getConstArray();
-
     sal_Int64 nTmp = 0;
     bool bShowRedlineChanges = false, bBrowseMode = false;
     bool bChangeShowRedline = false, bChangeBrowseMode = false;
@@ -1256,44 +1246,43 @@ void SwXMLImport::SetViewSettings(const Sequence < PropertyValue > & aViewProps)
     bool bTwip = pDoc->GetDocShell()->GetMapUnit ( ) == MapUnit::MapTwip;
     //sal_Bool bTwip = pDoc->GetDocShell()->SfxInPlaceObject::GetMapUnit ( ) == MapUnit::MapTwip;
 
-    for (sal_Int32 i = 0; i < nCount ; i++)
+    for (const PropertyValue& rValue : aViewProps)
     {
-        if ( pValue->Name == "ViewAreaTop" )
+        if ( rValue.Name == "ViewAreaTop" )
         {
-            pValue->Value >>= nTmp;
+            rValue.Value >>= nTmp;
             aRect.setY( static_cast< long >(bTwip ? sanitiseMm100ToTwip(nTmp) : nTmp) );
         }
-        else if ( pValue->Name == "ViewAreaLeft" )
+        else if ( rValue.Name == "ViewAreaLeft" )
         {
-            pValue->Value >>= nTmp;
+            rValue.Value >>= nTmp;
             aRect.setX( static_cast< long >(bTwip ? sanitiseMm100ToTwip(nTmp) : nTmp) );
         }
-        else if ( pValue->Name == "ViewAreaWidth" )
+        else if ( rValue.Name == "ViewAreaWidth" )
         {
-            pValue->Value >>= nTmp;
+            rValue.Value >>= nTmp;
             Size aSize( aRect.GetSize() );
             aSize.setWidth( static_cast< long >(bTwip ? sanitiseMm100ToTwip(nTmp) : nTmp) );
             aRect.SetSize( aSize );
         }
-        else if ( pValue->Name == "ViewAreaHeight" )
+        else if ( rValue.Name == "ViewAreaHeight" )
         {
-            pValue->Value >>= nTmp;
+            rValue.Value >>= nTmp;
             Size aSize( aRect.GetSize() );
             aSize.setHeight( static_cast< long >(bTwip ? sanitiseMm100ToTwip(nTmp) : nTmp) );
             aRect.SetSize( aSize );
         }
-        else if ( pValue->Name == "ShowRedlineChanges" )
+        else if ( rValue.Name == "ShowRedlineChanges" )
         {
-            bShowRedlineChanges = *o3tl::doAccess<bool>(pValue->Value);
+            bShowRedlineChanges = *o3tl::doAccess<bool>(rValue.Value);
             bChangeShowRedline = true;
         }
 // Headers and footers are not displayed in BrowseView anymore
-        else if ( pValue->Name == "InBrowseMode" )
+        else if ( rValue.Name == "InBrowseMode" )
         {
-            bBrowseMode = *o3tl::doAccess<bool>(pValue->Value);
+            bBrowseMode = *o3tl::doAccess<bool>(rValue.Value);
             bChangeBrowseMode = true;
         }
-        pValue++;
     }
     if( pDoc->GetDocShell() )
         pDoc->GetDocShell()->SetVisArea ( aRect );
@@ -1360,9 +1349,6 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
     aExcludeWhenNotLoadingUserSettings.insert("SubtractFlysAnchoredAtFlys");
     aExcludeWhenNotLoadingUserSettings.insert("EmptyDbFieldHidesPara");
 
-    sal_Int32 nCount = aConfigProps.getLength();
-    const PropertyValue* pValues = aConfigProps.getConstArray();
-
     SvtSaveOptions aSaveOpt;
     bool bIsUserSetting = aSaveOpt.IsLoadUserSettings();
 
@@ -1400,11 +1386,11 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
     const PropertyValue* currentDatabaseCommandType = nullptr;
     const PropertyValue* embeddedDatabaseName = nullptr;
 
-    while( nCount-- )
+    for( const PropertyValue& rValue : aConfigProps )
     {
-        bool bSet = aExcludeAlways.find(pValues->Name) == aExcludeAlways.end();
+        bool bSet = aExcludeAlways.find(rValue.Name) == aExcludeAlways.end();
         if( bSet && !bIsUserSetting
-            && (aExcludeWhenNotLoadingUserSettings.find(pValues->Name)
+            && (aExcludeWhenNotLoadingUserSettings.find(rValue.Name)
                 != aExcludeWhenNotLoadingUserSettings.end()) )
         {
             bSet = false;
@@ -1414,82 +1400,81 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
         {
             try
             {
-                if( xInfo->hasPropertyByName( pValues->Name ) )
+                if( xInfo->hasPropertyByName( rValue.Name ) )
                 {
-                    if( pValues->Name == "RedlineProtectionKey" )
+                    if( rValue.Name == "RedlineProtectionKey" )
                     {
                         Sequence<sal_Int8> aKey;
-                        pValues->Value >>= aKey;
+                        rValue.Value >>= aKey;
                         GetTextImport()->SetChangesProtectionKey( aKey );
                     }
                     else
                     {
                         // HACK: Setting these out of order does not work.
-                        if( pValues->Name == "CurrentDatabaseDataSource" )
-                            currentDatabaseDataSource = pValues;
-                        else if( pValues->Name == "CurrentDatabaseCommand" )
-                            currentDatabaseCommand = pValues;
-                        else if( pValues->Name == "CurrentDatabaseCommandType" )
-                            currentDatabaseCommandType = pValues;
-                        else if (pValues->Name == "EmbeddedDatabaseName")
-                            embeddedDatabaseName = pValues;
+                        if( rValue.Name == "CurrentDatabaseDataSource" )
+                            currentDatabaseDataSource = &rValue;
+                        else if( rValue.Name == "CurrentDatabaseCommand" )
+                            currentDatabaseCommand = &rValue;
+                        else if( rValue.Name == "CurrentDatabaseCommandType" )
+                            currentDatabaseCommandType = &rValue;
+                        else if (rValue.Name == "EmbeddedDatabaseName")
+                            embeddedDatabaseName = &rValue;
                         else
-                            xProps->setPropertyValue( pValues->Name,
-                                                  pValues->Value );
+                            xProps->setPropertyValue( rValue.Name, rValue.Value );
                     }
                 }
 
                 // did we find any of the non-default cases?
-                if ( pValues->Name == "PrinterIndependentLayout" )
+                if ( rValue.Name == "PrinterIndependentLayout" )
                     bPrinterIndependentLayout = true;
-                else if ( pValues->Name == "AddExternalLeading" )
+                else if ( rValue.Name == "AddExternalLeading" )
                     bAddExternalLeading = true;
-                else if ( pValues->Name == "AddParaSpacingToTableCells" )
+                else if ( rValue.Name == "AddParaSpacingToTableCells" )
                     bAddParaSpacingToTableCells = true;
-                else if ( pValues->Name == "UseFormerLineSpacing" )
+                else if ( rValue.Name == "UseFormerLineSpacing" )
                     bUseFormerLineSpacing = true;
-                else if ( pValues->Name == "UseFormerObjectPositioning" )
+                else if ( rValue.Name == "UseFormerObjectPositioning" )
                     bUseFormerObjectPositioning = true;
-                else if ( pValues->Name == "UseFormerTextWrapping" )
+                else if ( rValue.Name == "UseFormerTextWrapping" )
                     bUseFormerTextWrapping = true;
-                else if ( pValues->Name == "UseOldNumbering" )
+                else if ( rValue.Name == "UseOldNumbering" )
                     bUseOldNumbering = true;
-                else if ( pValues->Name == "ConsiderTextWrapOnObjPos" )
+                else if ( rValue.Name == "ConsiderTextWrapOnObjPos" )
                     bConsiderWrapOnObjPos = true;
-                else if ( pValues->Name == "IgnoreFirstLineIndentInNumbering" )
+                else if ( rValue.Name == "IgnoreFirstLineIndentInNumbering" )
                     bIgnoreFirstLineIndentInNumbering = true;
-                else if ( pValues->Name == "DoNotJustifyLinesWithManualBreak" )
+                else if ( rValue.Name == "DoNotJustifyLinesWithManualBreak" )
                     bDoNotJustifyLinesWithManualBreak = true;
-                else if ( pValues->Name == "DoNotResetParaAttrsForNumFont" )
+                else if ( rValue.Name == "DoNotResetParaAttrsForNumFont" )
                     bDoNotResetParaAttrsForNumFont = true;
-                else if ( pValues->Name == "LoadReadonly" )
+                else if ( rValue.Name == "LoadReadonly" )
                     bLoadReadonly = true;
-                else if ( pValues->Name == "DoNotCaptureDrawObjsOnPage" )
+                else if ( rValue.Name == "DoNotCaptureDrawObjsOnPage" )
                     bDoNotCaptureDrawObjsOnPage = true;
-                else if ( pValues->Name == "ClipAsCharacterAnchoredWriterFlyFrames" )
+                else if ( rValue.Name == "ClipAsCharacterAnchoredWriterFlyFrames" )
                     bClipAsCharacterAnchoredWriterFlyFrames = true;
-                else if ( pValues->Name == "UnxForceZeroExtLeading" )
+                else if ( rValue.Name == "UnxForceZeroExtLeading" )
                     bUnixForceZeroExtLeading = true;
-                else if ( pValues->Name == "SmallCapsPercentage66" )
+                else if ( rValue.Name == "SmallCapsPercentage66" )
                     bSmallCapsPercentage66 = true;
-                else if ( pValues->Name == "TabOverflow" )
+                else if ( rValue.Name == "TabOverflow" )
                     bTabOverflow = true;
-                else if ( pValues->Name == "UnbreakableNumberings" )
+                else if ( rValue.Name == "UnbreakableNumberings" )
                     bUnbreakableNumberings = true;
-                else if ( pValues->Name == "ClippedPictures" )
+                else if ( rValue.Name == "ClippedPictures" )
                     bClippedPictures = true;
-                else if ( pValues->Name == "BackgroundParaOverDrawings" )
+                else if ( rValue.Name == "BackgroundParaOverDrawings" )
                     bBackgroundParaOverDrawings = true;
-                else if ( pValues->Name == "TabOverMargin" )
+                else if ( rValue.Name == "TabOverMargin" )
                 {
                     bTabOverMargin = true;
-                    pValues->Value >>= bTabOverMarginValue;
+                    rValue.Value >>= bTabOverMarginValue;
                 }
-                else if ( pValues->Name == "PropLineSpacingShrinksFirstLine" )
+                else if ( rValue.Name == "PropLineSpacingShrinksFirstLine" )
                     bPropLineSpacingShrinksFirstLine = true;
-                else if (pValues->Name == "SubtractFlysAnchoredAtFlys")
+                else if (rValue.Name == "SubtractFlysAnchoredAtFlys")
                     bSubtractFlysAnchoredAtFlys = true;
-                else if (pValues->Name == "CollapseEmptyCellPara")
+                else if (rValue.Name == "CollapseEmptyCellPara")
                     bCollapseEmptyCellPara = true;
             }
             catch( Exception& )
@@ -1497,7 +1482,6 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
                 OSL_FAIL( "SwXMLImport::SetConfigurationSettings: Exception!" );
             }
         }
-        pValues++;
     }
 
     try
@@ -1711,11 +1695,10 @@ void SwXMLImport::initialize(
     SvXMLImport::initialize(aArguments);
 
     // we are only looking for a NamedValue "LateInitSettings"
-    sal_Int32 nLength = aArguments.getLength();
-    for(sal_Int32 i = 0; i < nLength; i++)
+    for(const auto& rArgument : aArguments)
     {
         beans::NamedValue aNamedValue;
-        if ( aArguments[i] >>= aNamedValue )
+        if ( rArgument >>= aNamedValue )
         {
             if (aNamedValue.Name == "LateInitSettings")
             {
@@ -1727,9 +1710,7 @@ void SwXMLImport::initialize(
 
 SwDoc* SwImport::GetDocFromXMLImport( SvXMLImport const & rImport )
 {
-    uno::Reference<lang::XUnoTunnel> xModelTunnel( rImport.GetModel(), uno::UNO_QUERY );
-    SwXTextDocument *pTextDoc = reinterpret_cast< SwXTextDocument *>(
-            sal::static_int_cast< sal_IntPtr >(  xModelTunnel->getSomething(SwXTextDocument::getUnoTunnelId() )));
+    auto pTextDoc = comphelper::getUnoTunnelImplementation<SwXTextDocument>(rImport.GetModel());
     assert( pTextDoc );
     assert( pTextDoc->GetDocShell() );
     SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
@@ -1740,11 +1721,7 @@ SwDoc* SwImport::GetDocFromXMLImport( SvXMLImport const & rImport )
 void SwXMLImport::initXForms()
 {
     // obtain SwDoc
-    Reference<XUnoTunnel> xDocTunnel( GetModel(), UNO_QUERY );
-    if( ! xDocTunnel.is() )
-        return;
-    SwXTextDocument* pXTextDocument = reinterpret_cast<SwXTextDocument*>(
-        xDocTunnel->getSomething( SwXTextDocument::getUnoTunnelId() ) );
+    auto pXTextDocument = comphelper::getUnoTunnelImplementation<SwXTextDocument>(GetModel());
     if( pXTextDocument == nullptr )
         return;
 
@@ -1861,8 +1838,8 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportFODT(SvStream &rStream)
 
     uno::Reference<document::XFilter> xFilter(xInterface, uno::UNO_QUERY_THROW);
     //SetLoading hack because the document properties will be re-initted
-    //by the xml filter and during the init, while its considered uninitialized,
-    //setting a property will inform the document its modified, which attempts
+    //by the xml filter and during the init, while it's considered uninitialized,
+    //setting a property will inform the document it's modified, which attempts
     //to update the properties, which throws cause the properties are uninitialized
     xDocSh->SetLoading(SfxLoadedFlags::NONE);
     bool ret = xFilter->filter(aArgs);
@@ -1895,8 +1872,8 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportDOCX(SvStream &rStream)
     xImporter->setTargetDocument(xModel);
 
     //SetLoading hack because the document properties will be re-initted
-    //by the xml filter and during the init, while its considered uninitialized,
-    //setting a property will inform the document its modified, which attempts
+    //by the xml filter and during the init, while it's considered uninitialized,
+    //setting a property will inform the document it's modified, which attempts
     //to update the properties, which throws cause the properties are uninitialized
     xDocSh->SetLoading(SfxLoadedFlags::NONE);
     bool ret = false;

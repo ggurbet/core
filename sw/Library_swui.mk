@@ -27,7 +27,7 @@ $(eval $(call gb_Library_set_include,swui,\
     $$(INCLUDE) \
 ))
 
-$(eval $(call gb_Library_set_precompiled_header,swui,$(SRCDIR)/sw/inc/pch/precompiled_swui))
+$(eval $(call gb_Library_set_precompiled_header,swui,sw/inc/pch/precompiled_swui))
 
 $(eval $(call gb_Library_use_externals,swui,\
 	boost_headers \
@@ -109,6 +109,7 @@ $(eval $(call gb_Library_add_exception_objects,swui,\
     sw/source/ui/envelp/labfmt \
     sw/source/ui/envelp/labprt \
     sw/source/ui/envelp/mailmrge \
+    sw/source/ui/fldui/DateFormFieldDialog \
     sw/source/ui/fldui/DropDownFieldDialog \
     sw/source/ui/fldui/DropDownFormFieldDialog \
     sw/source/ui/fldui/changedb \

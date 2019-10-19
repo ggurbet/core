@@ -19,12 +19,29 @@ struct GtvApplicationPrivate
     GtvRenderingArgs* m_pRenderingArgs;
 };
 
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#endif
+#endif
 G_DEFINE_TYPE_WITH_PRIVATE(GtvApplication, gtv_application, GTK_TYPE_APPLICATION);
+#if defined __clang__
+#if __has_warning("-Wdeprecated-volatile")
+#pragma clang diagnostic pop
+#endif
+#endif
 
 static GtvApplicationPrivate*
 getPrivate(GtvApplication* app)
 {
     return static_cast<GtvApplicationPrivate*>(gtv_application_get_instance_private(app));
+}
+
+static void
+gtv_application_activate(GApplication*)
+{
+    // If this isn't provided, some GTK versions fail to run us at all.
 }
 
 static void
@@ -145,6 +162,7 @@ gtv_application_handle_local_options(GApplication* app, GVariantDict* options)
 static void
 gtv_application_class_init(GtvApplicationClass* klass)
 {
+    G_APPLICATION_CLASS(klass)->activate = gtv_application_activate;
     G_APPLICATION_CLASS(klass)->open = gtv_application_open;
     G_APPLICATION_CLASS(klass)->handle_local_options = gtv_application_handle_local_options;
     G_OBJECT_CLASS(klass)->dispose = gtv_application_dispose;

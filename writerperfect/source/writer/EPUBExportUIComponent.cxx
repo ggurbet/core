@@ -9,7 +9,6 @@
 
 #include "EPUBExportUIComponent.hxx"
 
-#include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
 #include <comphelper/namedvaluecollection.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -51,7 +50,7 @@ void EPUBExportUIComponent::setPropertyValues(
 
 OUString EPUBExportUIComponent::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Writer.EPUBExportUIComponent");
+    return "com.sun.star.comp.Writer.EPUBExportUIComponent";
 }
 
 sal_Bool EPUBExportUIComponent::supportsService(const OUString& rServiceName)

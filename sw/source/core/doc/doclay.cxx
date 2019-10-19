@@ -1287,33 +1287,53 @@ SwFlyFrameFormat* SwDoc::InsertDrawLabel(
     return pNewFormat;
 }
 
-static void lcl_SetNumUsedBit(std::vector<sal_uInt8>& rSetFlags, size_t nFormatSize, sal_Int32 nNmLen, const OUString& rName, const OUString& rCmpName)
+static void lcl_collectUsedNums(std::vector<unsigned int>& rSetFlags, sal_Int32 nNmLen, const OUString& rName, const OUString& rCmpName)
 {
     if (rName.startsWith(rCmpName))
     {
         // Only get and set the Flag
-        const sal_Int32 nNum = rName.copy(nNmLen).toInt32()-1;
-        if (nNum >= 0 && static_cast<SwFrameFormats::size_type>(nNum) < nFormatSize)
-            rSetFlags[ nNum / 8 ] |= (0x01 << ( nNum & 0x07 ));
+        const sal_Int32 nNum = rName.copy(nNmLen).toInt32() - 1;
+        if (nNum >= 0)
+            rSetFlags.push_back(nNum);
     }
 }
 
-static void lcl_SetNumUsedBit(std::vector<sal_uInt8>& rSetFlags, size_t nFormatSize, sal_Int32 nNmLen, const SdrObject& rObj, const OUString& rCmpName)
+static void lcl_collectUsedNums(std::vector<unsigned int>& rSetFlags, sal_Int32 nNmLen, const SdrObject& rObj, const OUString& rCmpName)
 {
     OUString sName = rObj.GetName();
-    lcl_SetNumUsedBit(rSetFlags, nFormatSize, nNmLen, sName, rCmpName);
-    // tdf#122487 take groups into account, interate and recurse through their
+    lcl_collectUsedNums(rSetFlags, nNmLen, sName, rCmpName);
+    // tdf#122487 take groups into account, iterate and recurse through their
     // contents for name collision check
     if (rObj.IsGroupObject())
     {
-        const SdrObjGroup &rGroupObj = static_cast<const SdrObjGroup&>(rObj);
-        for (size_t i = 0, nCount = rGroupObj.GetObjCount(); i < nCount; ++i)
+        const SdrObjList* pSub(rObj.GetSubList());
+        assert(pSub && "IsGroupObject is implemented as GetSubList != nullptr");
+        const size_t nCount = pSub->GetObjCount();
+        for (size_t i = 0; i < nCount; ++i)
         {
-            SdrObject* pObj = rGroupObj.GetObj(i);
+            SdrObject* pObj = pSub->GetObj(i);
             if (!pObj)
                 continue;
-            lcl_SetNumUsedBit(rSetFlags, nFormatSize, nNmLen, *pObj, rCmpName);
+            lcl_collectUsedNums(rSetFlags, nNmLen, *pObj, rCmpName);
         }
+    }
+}
+
+namespace
+{
+    int first_available_number(std::vector<unsigned int>& numbers)
+    {
+        std::sort(numbers.begin(), numbers.end());
+        auto last = std::unique(numbers.begin(), numbers.end());
+        numbers.erase(last, numbers.end());
+
+        for (size_t i = 0; i < numbers.size(); ++i)
+        {
+            if (numbers[i] != i)
+                return i;
+        }
+
+        return numbers.size();
     }
 }
 
@@ -1333,7 +1353,8 @@ static OUString lcl_GetUniqueFlyName(const SwDoc* pDoc, const char* pDefStrId, s
 
     const SwFrameFormats& rFormats = *pDoc->GetSpzFrameFormats();
 
-    std::vector<sal_uInt8> aSetFlags(rFormats.size()/8 + 2);
+    std::vector<unsigned int> aUsedNums;
+    aUsedNums.reserve(rFormats.size());
 
     for( SwFrameFormats::size_type n = 0; n < rFormats.size(); ++n )
     {
@@ -1344,34 +1365,18 @@ static OUString lcl_GetUniqueFlyName(const SwDoc* pDoc, const char* pDefStrId, s
         {
             const SdrObject *pObj = pFlyFormat->FindSdrObject();
             if (pObj)
-                lcl_SetNumUsedBit(aSetFlags, rFormats.size(), nNmLen, *pObj, aName);
+                lcl_collectUsedNums(aUsedNums, nNmLen, *pObj, aName);
         }
         else
         {
             OUString sName = pFlyFormat->GetName();
-            lcl_SetNumUsedBit(aSetFlags, rFormats.size(), nNmLen, sName, aName);
+            lcl_collectUsedNums(aUsedNums, nNmLen, sName, aName);
         }
     }
 
     // All numbers are flagged accordingly, so determine the right one
-    SwFrameFormats::size_type nNum = rFormats.size();
-    for( std::vector<sal_uInt8>::size_type n=0; n<aSetFlags.size(); ++n )
-    {
-        sal_uInt8 nTmp = aSetFlags[ n ];
-        if( 0xff != nTmp )
-        {
-            // so determine the number
-            nNum = n * 8;
-            while( nTmp & 1 )
-            {
-                ++nNum;
-                nTmp >>= 1;
-            }
-            break;
-        }
-    }
-
-    return aName + OUString::number( ++nNum );
+    SwFrameFormats::size_type nNum = first_available_number(aUsedNums) + 1;
+    return aName + OUString::number(nNum);
 }
 
 OUString SwDoc::GetUniqueGrfName() const
@@ -1676,7 +1681,7 @@ std::set<SwRootFrame*> SwDoc::GetAllLayouts()
     SwViewShell *pStart = getIDocumentLayoutAccess().GetCurrentViewShell();
     if(pStart)
     {
-        for(SwViewShell& rShell : pStart->GetRingContainer())
+        for(const SwViewShell& rShell : pStart->GetRingContainer())
         {
             if(rShell.GetLayout())
                 aAllLayouts.insert(rShell.GetLayout());

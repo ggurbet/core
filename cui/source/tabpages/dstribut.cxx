@@ -19,8 +19,6 @@
 
 #include <sfx2/basedlgs.hxx>
 #include <dstribut.hxx>
-#include <svx/dialogs.hrc>
-#include <svx/svddef.hxx>
 
 /*************************************************************************
 |*
@@ -34,9 +32,8 @@ SvxDistributeDialog::SvxDistributeDialog(weld::Window* pParent,
     : SfxSingleTabDialogController(pParent, &rInAttrs, "cui/ui/distributiondialog.ui",
                                    "DistributionDialog")
 {
-    TabPageParent pPageParent(get_content_area(), this);
-    mpPage = VclPtr<SvxDistributePage>::Create(pPageParent, rInAttrs, eHor, eVer);
-    SetTabPage(mpPage);
+    SetTabPage(std::make_unique<SvxDistributePage>(get_content_area(), this, rInAttrs, eHor, eVer));
+    mpPage = static_cast<SvxDistributePage*>(GetTabPage());
 }
 
 SvxDistributeDialog::~SvxDistributeDialog()
@@ -49,10 +46,10 @@ SvxDistributeDialog::~SvxDistributeDialog()
 |*
 \************************************************************************/
 
-SvxDistributePage::SvxDistributePage(TabPageParent pWindow,
+SvxDistributePage::SvxDistributePage(weld::Container* pPage, weld::DialogController* pController,
     const SfxItemSet& rInAttrs, SvxDistributeHorizontal eHor,
     SvxDistributeVertical eVer)
-    : SfxTabPage(pWindow, "cui/ui/distributionpage.ui", "DistributionPage",
+    : SfxTabPage(pPage, pController, "cui/ui/distributionpage.ui", "DistributionPage",
         &rInAttrs)
     , m_eDistributeHor(eHor)
     , m_eDistributeVer(eVer)

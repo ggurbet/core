@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/beans/PropertyValue.hpp>
-
 #include <editeng/outlobj.hxx>
 
 #include <controller/SlsSlotManager.hxx>
@@ -27,12 +25,10 @@
 #include <controller/SlideSorterController.hxx>
 #include <controller/SlsClipboard.hxx>
 #include <controller/SlsCurrentSlideManager.hxx>
-#include <controller/SlsFocusManager.hxx>
 #include <controller/SlsInsertionIndicatorHandler.hxx>
 #include <controller/SlsPageSelector.hxx>
 #include <controller/SlsSelectionFunction.hxx>
 #include <controller/SlsSelectionManager.hxx>
-#include <controller/SlsSelectionObserver.hxx>
 #include <model/SlideSorterModel.hxx>
 #include <model/SlsPageEnumerationProvider.hxx>
 #include <model/SlsPageDescriptor.hxx>
@@ -41,12 +37,10 @@
 #include <framework/FrameworkHelper.hxx>
 #include <Window.hxx>
 #include <fupoor.hxx>
-#include <fuzoom.hxx>
 #include <fucushow.hxx>
 #include <fusldlg.hxx>
 #include <fuexpand.hxx>
 #include <fusumry.hxx>
-#include <fuscale.hxx>
 #include <slideshow.hxx>
 #include <app.hrc>
 #include <strings.hrc>
@@ -56,9 +50,6 @@
 #include <DrawDocShell.hxx>
 #include <ViewShellBase.hxx>
 #include <ViewShellImplementation.hxx>
-#include <sdattr.hxx>
-#include <FrameView.hxx>
-#include <zoomlist.hxx>
 #include <sdpage.hxx>
 #include <sdxfer.hxx>
 #include <helpids.h>
@@ -67,22 +58,23 @@
 #include <sdabstdlg.hxx>
 #include <sdmod.hxx>
 
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
+
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/sidebar/Sidebar.hxx>
 #include <svx/svxids.hrc>
-#include <sfx2/zoomitem.hxx>
 #include <svx/svxdlg.hxx>
-#include <svx/dialogs.hrc>
 #include <svl/intitem.hxx>
+#include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
 #include <svl/itempool.hxx>
-#include <svl/aeitem.hxx>
 #include <com/sun/star/drawing/XMasterPagesSupplier.hpp>
 #include <com/sun/star/drawing/XDrawPages.hpp>
-#include <vcl/svapp.hxx>
+
 
 #include <memory>
 
@@ -105,6 +97,23 @@ enum SlideExclusionState {UNDEFINED, EXCLUDED, INCLUDED, MIXED};
 SlideExclusionState GetSlideExclusionState (model::PageEnumeration& rPageSet);
 
 } // end of anonymous namespace
+
+
+namespace {
+
+void collectUIInformation(const std::map<OUString, OUString>& aParameters, const OUString& rAction)
+{
+    EventDescription aDescription;
+    aDescription.aID = "impress_win_or_draw_win";
+    aDescription.aParameters = aParameters;
+    aDescription.aAction = rAction;
+    aDescription.aKeyWord = "ImpressWindowUIObject";
+    aDescription.aParent = "MainWindow";
+
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
+}
 
 SlotManager::SlotManager (SlideSorter& rSlideSorter)
     : mrSlideSorter(rSlideSorter)
@@ -176,6 +185,17 @@ void SlotManager::FuTemporary (SfxRequest& rRequest)
             pShell->GetViewFrame()->ShowChildWindow(SID_SIDEBAR);
             ::sfx2::sidebar::Sidebar::ShowPanel(
                 "SdSlideTransitionPanel",
+                pShell->GetViewFrame()->GetFrame().GetFrameInterface());
+            rRequest.Ignore ();
+            break;
+        }
+
+        case SID_MASTER_SLIDES_PANEL:
+        {
+            // First make sure that the sidebar is visible
+            pShell->GetViewFrame()->ShowChildWindow(SID_SIDEBAR);
+            ::sfx2::sidebar::Sidebar::ShowPanel(
+                "SdAllMasterPagesPanel",
                 pShell->GetViewFrame()->GetFrame().GetFrameInterface());
             rRequest.Ignore ();
             break;
@@ -269,9 +289,10 @@ void SlotManager::FuTemporary (SfxRequest& rRequest)
         case SID_REMOTE_DLG:
         {
 #ifdef ENABLE_SDREMOTE
-             SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-             ScopedVclPtr<VclAbstractDialog> pDlg( pFact->CreateRemoteDialog( mrSlideSorter.GetContentWindow() ) );
-             pDlg->Execute();
+            SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
+            vcl::Window* pWin = mrSlideSorter.GetContentWindow();
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateRemoteDialog(pWin ? pWin->GetFrameWeld() : nullptr));
+            pDlg->Execute();
 #endif
         }
         break;
@@ -553,7 +574,7 @@ void SlotManager::GetMenuState (SfxItemSet& rSet)
                     }
                     else
                     {
-                        // check if the object is in edit, than its temporarily not empty
+                        // check if the object is in edit, then if it's temporarily not empty
                         SdrTextObj* pTextObj = dynamic_cast< SdrTextObj* >( pObj );
                         if( pTextObj )
                         {
@@ -885,6 +906,8 @@ void SlotManager::RenameSlide(const SfxRequest& rRequest)
         ScopedVclPtr<AbstractSvxNameDialog> aNameDlg(pFact->CreateSvxNameDialog(
                 pWin ? pWin->GetFrameWeld() : nullptr,
                 aPageName, aDescr));
+        OUString aOldName;
+        aNameDlg->GetName( aOldName );
         aNameDlg->SetText( aTitle );
         aNameDlg->SetCheckNameHdl( LINK( this, SlotManager, RenameSlideHdl ), true );
         aNameDlg->SetEditHelpId( HID_SD_NAMEDIALOG_PAGE );
@@ -901,6 +924,9 @@ void SlotManager::RenameSlide(const SfxRequest& rRequest)
                 DBG_ASSERT( bResult, "Couldn't rename slide" );
             }
         }
+        OUString aNewName;
+        aNameDlg->GetName( aNewName );
+        collectUIInformation({{"OldName", aOldName}, {"NewName", aNewName}}, "RENAME");
         aNameDlg.disposeAndClear();
     }
     // Tell the slide sorter about the name change (necessary for
@@ -1067,6 +1093,7 @@ void SlotManager::InsertSlide (SfxRequest& rRequest)
     PageSelector::UpdateLock aUpdateLock (mrSlideSorter);
     mrSlideSorter.GetController().GetPageSelector().DeselectAllPages();
     mrSlideSorter.GetController().GetPageSelector().SelectPage(pNewPage);
+    collectUIInformation({{"POS", OUString::number(nInsertionIndex + 2)}}, "Insert_New_Page_or_Slide");
 }
 
 void SlotManager::DuplicateSelectedSlides (SfxRequest& rRequest)
@@ -1113,6 +1140,8 @@ void SlotManager::DuplicateSelectedSlides (SfxRequest& rRequest)
     {
         rSelector.SelectPage(it);
     }
+
+    collectUIInformation({{"POS", OUString::number(nInsertPosition + 2)}}, "Duplicate");
 }
 
 void SlotManager::ChangeSlideExclusionState (
@@ -1149,7 +1178,7 @@ void SlotManager::ChangeSlideExclusionState (
     mrSlideSorter.GetModel().GetDocument()->SetChanged();
 }
 
-sal_Int32 SlotManager::GetInsertionPosition()
+sal_Int32 SlotManager::GetInsertionPosition() const
 {
     PageSelector& rSelector (mrSlideSorter.GetController().GetPageSelector());
 

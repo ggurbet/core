@@ -217,7 +217,7 @@ bool ScConflictsFinder::Find()
         if ( !aOwnActions.empty() )
         {
             ScConflictsListEntry& rEntry = GetEntry(pSharedAction->GetActionNumber(), aOwnActions);
-            for ( auto& aOwnAction : aOwnActions )
+            for ( const auto& aOwnAction : aOwnActions )
             {
                 if (!ScConflictsListHelper::HasOwnAction(mrConflictsList, aOwnAction))
                 {
@@ -402,7 +402,7 @@ OUString ScConflictsDlg::GetConflictString( const ScConflictsListEntry& rConflic
     return aString;
 }
 
-void ScConflictsDlg::SetActionString(const ScChangeAction* pAction, ScDocument* pDoc, weld::TreeIter& rEntry)
+void ScConflictsDlg::SetActionString(const ScChangeAction* pAction, ScDocument* pDoc, const weld::TreeIter& rEntry)
 {
     OSL_ENSURE( pAction, "ScConflictsDlg::GetActionString(): pAction is null!" );
     OSL_ENSURE( pDoc, "ScConflictsDlg::GetActionString(): pDoc is null!" );
@@ -603,7 +603,7 @@ void ScConflictsDlg::UpdateView()
             std::unique_ptr<weld::TreeIter> xEntry(rTreeView.make_iterator());
             rTreeView.insert(nullptr, -1, &sString, &sId, nullptr, nullptr, nullptr, false, xRootEntry.get());
 
-            for ( auto& aSharedAction : rConflictEntry.maSharedActions )
+            for ( const auto& aSharedAction : rConflictEntry.maSharedActions )
             {
                 ScChangeAction* pAction = mpSharedTrack ? mpSharedTrack->GetAction(aSharedAction) : nullptr;
                 if ( pAction )
@@ -623,7 +623,7 @@ void ScConflictsDlg::UpdateView()
                 }
             }
 
-            for ( auto& aOwnAction : rConflictEntry.maOwnActions )
+            for ( const auto& aOwnAction : rConflictEntry.maOwnActions )
             {
                 ScChangeAction* pAction = mpOwnTrack ? mpOwnTrack->GetAction(aOwnAction) : nullptr;
                 if ( pAction )

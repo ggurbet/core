@@ -21,7 +21,6 @@
 #include <editeng/eeitem.hxx>
 #include <svx/sdrpagewindow.hxx>
 #include <svx/sdrpaintwindow.hxx>
-#include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <vcl/help.hxx>
 #include <editeng/fhgtitem.hxx>
@@ -252,6 +251,28 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
 
     SdrViewEvent aVEvt;
     SdrHitKind eHit = mpView->PickAnything(rMEvt, SdrMouseEventKind::BUTTONDOWN, aVEvt);
+
+    // handle URL also during the text editing
+    if (rMEvt.GetClicks() == 1 && rMEvt.IsLeft() && rMEvt.IsMod1())
+    {
+        OutlinerView* pOLV = mpView->GetTextEditOutlinerView();
+
+        if (mxTextObj.is() && pOLV && pOLV->GetFieldUnderMousePointer())
+        {
+            const SvxFieldItem* pFieldItem = pOLV->GetFieldUnderMousePointer();
+            if (pFieldItem)
+            {
+                const SvxFieldData* pField = pFieldItem->GetField();
+
+                if (pField && dynamic_cast< const SvxURLField *>( pField ) !=  nullptr)
+                {
+                    eHit = SdrHitKind::MarkedObject;
+                    aVEvt.eEvent = SdrEventKind::ExecuteUrl;
+                    aVEvt.pURLField = static_cast<const SvxURLField*>(pField);
+                }
+            }
+        }
+    }
 
     if (eHit == SdrHitKind::TextEdit)
     {
@@ -490,7 +511,7 @@ void FuText::ImpSetAttributesForNewTextObject(SdrTextObj* pTxtObj)
         {
             /* Create Impress text object (rescales to line height)
                We get the correct height during the subsequent creation of the
-               object, otherwise we draw to much */
+               object, otherwise we draw too much */
             SfxItemSet aSet(mpViewShell->GetPool());
             aSet.Put(makeSdrTextMinFrameHeightItem(0));
             aSet.Put(makeSdrTextAutoGrowWidthItem(false));
@@ -1261,9 +1282,9 @@ void FuText::ReceiveRequest(SfxRequest& rReq)
         {
             SdrObject* pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
 
-            if( dynamic_cast< const SdrTextObj *>( pObj ) !=  nullptr)
+            if( auto pTextObj = dynamic_cast<SdrTextObj *>( pObj ))
             {
-                mxTextObj.reset( static_cast< SdrTextObj* >( pObj ) );
+                mxTextObj.reset( pTextObj );
             }
         }
     }
@@ -1344,7 +1365,7 @@ SdrObjectUniquePtr FuText::CreateDefaultObject(const sal_uInt16 nID, const ::too
     This is used when a function gets a KEY_ESCAPE but can also
     be called directly.
 
-    @returns true if a active function was aborted
+    @returns true if an active function was aborted
 */
 bool FuText::cancel()
 {

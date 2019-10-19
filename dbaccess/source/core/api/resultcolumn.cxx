@@ -111,15 +111,12 @@ Sequence< sal_Int8 > OResultColumn::getImplementationId()
 // XServiceInfo
 OUString OResultColumn::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.OResultColumn");
+    return "com.sun.star.sdb.OResultColumn";
 }
 
 Sequence< OUString > OResultColumn::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = SERVICE_SDBCX_COLUMN;
-    aSNS[1] = SERVICE_SDB_RESULTCOLUMN;
-    return aSNS;
+    return { SERVICE_SDBCX_COLUMN, SERVICE_SDB_RESULTCOLUMN };
 }
 
 // OComponentHelper

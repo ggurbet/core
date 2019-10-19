@@ -18,10 +18,8 @@
 #include <sal/log.hxx>
 #include <tools/stream.hxx>
 #include <config_folders.h>
-#include <vcl/bitmapaccess.hxx>
 #include <memory>
 #include <vcl/pngwrite.hxx>
-#include <vcl/graph.hxx>
 #include <vcl/svapp.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <com/sun/star/util/XFlushable.hpp>
@@ -29,12 +27,8 @@
 
 #include <stdarg.h>
 #include <vector>
-#include <deque>
 #include <unordered_map>
 
-#include <svdata.hxx>
-#include <salgdi.hxx>
-#include <salinst.hxx>
 #include <opengl/zone.hxx>
 #include <opengl/watchdog.hxx>
 #include <osl/conditn.hxx>
@@ -50,8 +44,8 @@
 #endif
 
 static bool volatile gbInShaderCompile = false;
-sal_uInt64 volatile OpenGLZone::gnEnterCount = 0;
-sal_uInt64 volatile OpenGLZone::gnLeaveCount = 0;
+OpenGLZone::AtomicCounter OpenGLZone::gnEnterCount = 0;
+OpenGLZone::AtomicCounter OpenGLZone::gnLeaveCount = 0;
 
 namespace {
 
@@ -79,7 +73,7 @@ OString loadShader(const OUString& rFilename)
         assert(nSize == nBytesRead);
         content.get()[nBytesRead] = 0;
         SAL_INFO("vcl.opengl", "Read " << nBytesRead << " bytes from " << aFileURL);
-        return OString(content.get());
+        return content.get();
     }
     else
     {
@@ -236,11 +230,10 @@ namespace
         // get info about the graphic device
         static const OString aDeviceInfo (getDeviceInfoString());
 
-        OString aMessage;
-        aMessage += rPreamble;
-        aMessage += aVertexShaderSource;
-        aMessage += aFragmentShaderSource;
-        aMessage += aDeviceInfo;
+        OString aMessage = rPreamble +
+            aVertexShaderSource +
+            aFragmentShaderSource +
+            aDeviceInfo;
 
         return generateMD5(aMessage.getStr(), aMessage.getLength());
     }
@@ -315,8 +308,8 @@ namespace
     {
         OString aFileName;
         aFileName += getCacheFolder();
-        aFileName += OUStringToOString( rVertexShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
-        aFileName += OUStringToOString( rFragmentShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
+        aFileName += OUStringToOString( rVertexShaderName, RTL_TEXTENCODING_UTF8 ) + "-" +
+            OUStringToOString( rFragmentShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
         if (!rGeometryShaderName.isEmpty())
             aFileName += OUStringToOString( rGeometryShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
         aFileName += rDigest + ".bin";
@@ -800,9 +793,6 @@ bool OpenGLHelper::supportsVCLOpenGL()
     return !bDisableGL && !bBlacklisted;
 }
 
-void OpenGLZone::enter() { gnEnterCount++; }
-void OpenGLZone::leave() { gnLeaveCount++; }
-
 namespace {
     static volatile bool gbWatchdogFiring = false;
     static osl::Condition* gpWatchdogExit = nullptr;
@@ -1033,7 +1023,7 @@ bool OpenGLHelper::isVCLOpenGLEnabled()
         if (!getenv("SAL_DISABLE_GL_WATCHDOG"))
             OpenGLWatchdogThread::start();
     }
-    CrashReporter::AddKeyValue("UseOpenGL", OUString::boolean(bRet));
+    CrashReporter::addKeyValue("UseOpenGL", OUString::boolean(bRet), CrashReporter::Write);
 
     return bRet;
 }

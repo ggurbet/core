@@ -55,11 +55,11 @@ class SmLocalizedSymbolData
 public:
     SmLocalizedSymbolData() = delete;
 
-    static const OUString GetUiSymbolName( const OUString &rExportName );
-    static const OUString GetExportSymbolName( const OUString &rUiName );
+    static OUString GetUiSymbolName( const OUString &rExportName );
+    static OUString GetExportSymbolName( const OUString &rUiName );
 
-    static const OUString GetUiSymbolSetName( const OUString &rExportName );
-    static const OUString GetExportSymbolSetName( const OUString &rUiName );
+    static OUString GetUiSymbolSetName( const OUString &rExportName );
+    static OUString GetExportSymbolSetName( const OUString &rUiName );
 };
 
 class SmModule : public SfxModule, public utl::ConfigurationListener
@@ -97,7 +97,7 @@ public:
     //virtual methods for options dialog
     virtual std::unique_ptr<SfxItemSet> CreateItemSet( sal_uInt16 nId ) override;
     virtual void         ApplyItemSet( sal_uInt16 nId, const SfxItemSet& rSet ) override;
-    virtual VclPtr<SfxTabPage> CreateTabPage( sal_uInt16 nId, TabPageParent pParent, const SfxItemSet& rSet ) override;
+    virtual std::unique_ptr<SfxTabPage> CreateTabPage( sal_uInt16 nId, weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet ) override;
 };
 
 #define SM_MOD() ( static_cast<SmModule*>(SfxApplication::GetModule(SfxToolsModule::Math)) )

@@ -69,7 +69,7 @@ private:
 
     DECL_LINK(ViewButtonHdl, weld::Button&, void);
     DECL_LINK(CertificateHighlightHdl, weld::TreeView&, void);
-    DECL_LINK(CertificateSelectHdl, weld::TreeView&, void);
+    DECL_LINK(CertificateSelectHdl, weld::TreeView&, bool);
 
     void ImplShowCertificateDetails();
     void ImplInitialize();
@@ -85,9 +85,9 @@ public:
     short run() override;
 
     css::uno::Sequence<css::uno::Reference< css::security::XCertificate > > GetSelectedCertificates();
-    css::uno::Reference< css::xml::crypto::XXMLSecurityContext > GetSelectedSecurityContext();
+    css::uno::Reference< css::xml::crypto::XXMLSecurityContext > GetSelectedSecurityContext() const;
     /// Gets the description string provided when selecting the certificate.
-    OUString GetDescription();
+    OUString GetDescription() const;
 
     /// Returns the usage string of the selected certificate, if any.
     OUString GetUsageText();

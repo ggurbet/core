@@ -22,7 +22,6 @@
 
 #include "adminpages.hxx"
 #include <com/sun/star/i18n/XCollator.hpp>
-#include <vcl/layout.hxx>
 #include <tabletree.hxx>
 #include <com/sun/star/sdbc/XConnection.hpp>
 
@@ -48,11 +47,9 @@ namespace dbaui
     public:
         virtual bool            FillItemSet(SfxItemSet* _rCoreAttrs) override;
         virtual DeactivateRC    DeactivatePage(SfxItemSet* _pSet) override;
-        using OGenericAdministrationPage::DeactivatePage;
 
-        OTableSubscriptionPage(TabPageParent pParent, const SfxItemSet& _rCoreAttrs ,OTableSubscriptionDialog* _pTablesDlg);
+        OTableSubscriptionPage(weld::Container* pPage, OTableSubscriptionDialog* pController, const SfxItemSet& _rCoreAttrs);
         virtual ~OTableSubscriptionPage() override;
-        virtual void dispose() override;
 
     private:
         virtual void fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList) override;
@@ -66,7 +63,7 @@ namespace dbaui
         void implCheckTables(const css::uno::Sequence< OUString >& _rTables);
 
         /// returns the next sibling, if not available, the next sibling of the parent, a.s.o.
-        std::unique_ptr<weld::TreeIter> implNextSibling(weld::TreeIter* pEntry) const;
+        std::unique_ptr<weld::TreeIter> implNextSibling(const weld::TreeIter* pEntry) const;
 
         /** return the current selection in <member>m_aTablesList</member>
         */

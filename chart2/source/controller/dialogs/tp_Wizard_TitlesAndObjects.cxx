@@ -30,10 +30,10 @@ namespace chart
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::chart2;
 
-TitlesAndObjectsTabPage::TitlesAndObjectsTabPage(TabPageParent pParent,
+TitlesAndObjectsTabPage::TitlesAndObjectsTabPage(weld::Container* pPage, weld::DialogController* pController,
                                                  const uno::Reference< XChartDocument >& xChartModel,
                                                  const uno::Reference< uno::XComponentContext >& xContext )
-    : OWizardPage(pParent, "modules/schart/ui/wizelementspage.ui", "WizElementsPage")
+    : OWizardPage(pPage, pController, "modules/schart/ui/wizelementspage.ui", "WizElementsPage")
     , m_xTitleResources(new TitleResources(*m_xBuilder, false))
     , m_xLegendPositionResources(new LegendPositionResources(*m_xBuilder, xContext))
     , m_xChartModel(xChartModel)
@@ -54,7 +54,6 @@ TitlesAndObjectsTabPage::TitlesAndObjectsTabPage(TabPageParent pParent,
 
 TitlesAndObjectsTabPage::~TitlesAndObjectsTabPage()
 {
-    disposeOnce();
 }
 
 void TitlesAndObjectsTabPage::initializePage()
@@ -91,7 +90,7 @@ void TitlesAndObjectsTabPage::initializePage()
     m_bCommitToModel = true;
 }
 
-bool TitlesAndObjectsTabPage::commitPage( ::svt::WizardTypes::CommitPageReason /*eReason*/ )
+bool TitlesAndObjectsTabPage::commitPage( ::vcl::WizardTypes::CommitPageReason /*eReason*/ )
 {
     if( m_xTitleResources->get_value_changed_from_saved() ) //titles may have changed in the meanwhile
         commitToModel();

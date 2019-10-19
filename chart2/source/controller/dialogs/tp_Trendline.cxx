@@ -24,15 +24,15 @@
 namespace chart
 {
 
-TrendlineTabPage::TrendlineTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "modules/schart/ui/tp_Trendline.ui", "TP_TRENDLINE", &rInAttrs)
+TrendlineTabPage::TrendlineTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "modules/schart/ui/tp_Trendline.ui", "TP_TRENDLINE", &rInAttrs)
     , m_aTrendlineResources(*m_xBuilder, rInAttrs)
 {
 }
 
-VclPtr<SfxTabPage> TrendlineTabPage::Create(TabPageParent pParent, const SfxItemSet* rOutAttrs)
+std::unique_ptr<SfxTabPage> TrendlineTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rOutAttrs)
 {
-    return VclPtr<TrendlineTabPage>::Create(pParent, *rOutAttrs);
+    return std::make_unique<TrendlineTabPage>(pPage, pController, *rOutAttrs);
 }
 
 bool TrendlineTabPage::FillItemSet( SfxItemSet* rOutAttrs )
@@ -44,14 +44,6 @@ bool TrendlineTabPage::FillItemSet( SfxItemSet* rOutAttrs )
 void TrendlineTabPage::Reset( const SfxItemSet* rInAttrs )
 {
     m_aTrendlineResources.Reset( *rInAttrs );
-}
-
-void TrendlineTabPage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    SfxTabPage::DataChanged( rDCEvt );
-
-    if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
-        m_aTrendlineResources.FillValueSets();
 }
 
 void TrendlineTabPage::SetNumFormatter( SvNumberFormatter* pNumFormatter )

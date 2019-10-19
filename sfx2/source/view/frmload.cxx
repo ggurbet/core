@@ -753,7 +753,7 @@ void SfxFrameLoader_Impl::cancel()
 /* XServiceInfo */
 OUString SAL_CALL SfxFrameLoader_Impl::getImplementationName()
 {
-    return OUString("com.sun.star.comp.office.FrameLoader");
+    return "com.sun.star.comp.office.FrameLoader";
 }
 
 /* XServiceInfo */
@@ -765,10 +765,7 @@ sal_Bool SAL_CALL SfxFrameLoader_Impl::supportsService( const OUString& sService
 /* XServiceInfo */
 Sequence< OUString > SAL_CALL SfxFrameLoader_Impl::getSupportedServiceNames()
 {
-    Sequence< OUString > seqServiceNames( 2 );
-    seqServiceNames.getArray() [0] = "com.sun.star.frame.SynchronousFrameLoader";
-    seqServiceNames.getArray() [1] = "com.sun.star.frame.OfficeFrameLoader";
-    return seqServiceNames ;
+    return { "com.sun.star.frame.SynchronousFrameLoader", "com.sun.star.frame.OfficeFrameLoader" };
 }
 
 }

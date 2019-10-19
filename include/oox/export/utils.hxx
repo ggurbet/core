@@ -21,14 +21,13 @@
 #define INCLUDED_OOX_EXPORT_UTILS_HXX
 
 #include <rtl/string.hxx>
-#include <rtl/textenc.h>
 #include <sal/types.h>
 
 inline OString I32SHEX(sal_Int32 x)
 {
     OString aStr = OString::number(x, 16);
     while (aStr.getLength() < 6)
-        aStr = OString("0") + aStr;
+        aStr = "0" + aStr;
     return aStr;
 }
 
@@ -64,7 +63,7 @@ static constexpr sal_Int64 TwipsToEMU( sal_Int32 nTwips )
 template <typename T>
 OString write1000thOfAPercent(T number)
 {
-    return OString::number( number * 1000 );
+    return OString::number( lround(number * 1000.0) );
 }
 
 namespace oox { namespace drawingml {

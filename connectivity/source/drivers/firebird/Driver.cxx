@@ -138,15 +138,12 @@ void FirebirdDriver::disposing()
 //----- static ServiceInfo ---------------------------------------------------
 OUString FirebirdDriver::getImplementationName_Static()
 {
-    return OUString("com.sun.star.comp.sdbc.firebird.Driver");
+    return "com.sun.star.comp.sdbc.firebird.Driver";
 }
 
 Sequence< OUString > FirebirdDriver::getSupportedServiceNames_Static()
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = "com.sun.star.sdbc.Driver";
-    aSNS[1] = "com.sun.star.sdbcx.Driver";
-    return aSNS;
+    return { "com.sun.star.sdbc.Driver", "com.sun.star.sdbcx.Driver" };
 }
 
 OUString SAL_CALL FirebirdDriver::getImplementationName()
@@ -221,7 +218,7 @@ uno::Reference< XTablesSupplier > SAL_CALL FirebirdDriver::getDataDefinitionByCo
                                     const uno::Reference< XConnection >& rConnection)
 {
     Connection* pConnection = static_cast< Connection* >(rConnection.get());
-    return uno::Reference< XTablesSupplier >(pConnection->createCatalog(), UNO_QUERY);
+    return pConnection->createCatalog();
 }
 
 uno::Reference< XTablesSupplier > SAL_CALL FirebirdDriver::getDataDefinitionByURL(

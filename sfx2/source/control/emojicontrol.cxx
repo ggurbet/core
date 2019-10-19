@@ -40,7 +40,7 @@ using namespace com::sun::star;
 SfxEmojiControl::SfxEmojiControl(sal_uInt16 nId, vcl::Window* pParent, const css::uno::Reference< css::frame::XFrame >& rFrame)
     : SfxPopupWindow(nId, pParent, "emojictrl", "sfx/ui/emojicontrol.ui", rFrame)
 {
-    get(mpTabControl, "tab_control");
+    get(mpTabControl, "tabcontrol");
     get(mpEmojiView, "emoji_view");
 
     sal_uInt16 nCurPageId = mpTabControl->GetPageId(FILTER_PEOPLE);
@@ -128,7 +128,7 @@ void SfxEmojiControl::ConvertLabelToUnicode(sal_uInt16 nPageId)
     mpTabControl->SetPageText(nPageId, sHexText.toString());
 }
 
-FILTER_CATEGORY SfxEmojiControl::getCurrentFilter()
+FILTER_CATEGORY SfxEmojiControl::getCurrentFilter() const
 {
     const sal_uInt16 nCurPageId = mpTabControl->GetCurPageId();
 

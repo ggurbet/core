@@ -123,17 +123,19 @@ static OUString lcl_getFieldCode( const IFieldmark* pFieldmark )
     if ( !pFieldmark)
         return OUString();
     if ( pFieldmark->GetFieldname( ) == ODF_FORMTEXT )
-        return OUString(" FORMTEXT ");
+        return " FORMTEXT ";
     if ( pFieldmark->GetFieldname( ) == ODF_FORMDROPDOWN )
-        return OUString(" FORMDROPDOWN ");
+        return " FORMDROPDOWN ";
     if ( pFieldmark->GetFieldname( ) == ODF_FORMCHECKBOX )
-        return OUString(" FORMCHECKBOX ");
+        return " FORMCHECKBOX ";
+    if ( pFieldmark->GetFieldname( ) == ODF_FORMDATE )
+        return " ODFFORMDATE ";
     if ( pFieldmark->GetFieldname( ) == ODF_TOC )
-        return OUString(" TOC ");
+        return " TOC ";
     if ( pFieldmark->GetFieldname( ) == ODF_HYPERLINK )
-        return OUString(" HYPERLINK ");
+        return " HYPERLINK ";
     if ( pFieldmark->GetFieldname( ) == ODF_PAGEREF )
-        return OUString(" PAGEREF ");
+        return " PAGEREF ";
     return pFieldmark->GetFieldname();
 }
 
@@ -147,6 +149,8 @@ static ww::eField lcl_getFieldId( const IFieldmark* pFieldmark ) {
         return ww::eFORMDROPDOWN;
     if ( pFieldmark->GetFieldname( ) == ODF_FORMCHECKBOX )
         return ww::eFORMCHECKBOX;
+    if ( pFieldmark->GetFieldname( ) == ODF_FORMDATE )
+        return ww::eFORMDATE;
     if ( pFieldmark->GetFieldname( ) == ODF_TOC )
         return ww::eTOC;
     if ( pFieldmark->GetFieldname( ) == ODF_HYPERLINK )
@@ -833,7 +837,7 @@ void WW8AttributeOutput::StartRuby( const SwTextNode& rNode, sal_Int32 /*nPos*/,
     aStr += " \\o";
     if (aWW8Ruby.GetDirective())
     {
-        aStr += "\\a" + OUString(aWW8Ruby.GetDirective());
+        aStr += OUStringLiteral("\\a") + OUStringChar(aWW8Ruby.GetDirective());
     }
     aStr += "(\\s\\up ";
 
@@ -870,36 +874,10 @@ static OUString &TruncateBookmark( OUString &rRet )
 OUString AttributeOutputBase::ConvertURL( const OUString& rUrl, bool bAbsoluteOut )
 {
     OUString sURL = rUrl;
-    OUString sExportedDocumentURL = "";
-    {
-        DocxExport* pDocxExport = dynamic_cast<DocxExport*>(&GetExport());
-        if ( pDocxExport )
-        {
-            // DOCX
-            DocxExportFilter& rFilter = pDocxExport->GetFilter();
-            sExportedDocumentURL = rFilter.getFileUrl();
-        }
-        else
-        {
-            // DOC
-            WW8Export* pWW8Export = dynamic_cast<WW8Export*>(&GetExport());
-            if ( pWW8Export )
-            {
-                SwWW8Writer& rWriter = pWW8Export->GetWriter();
-                sExportedDocumentURL = rWriter.GetMedia()->GetURLObject().GetPath();
-            }
-        }
-    }
 
-    INetURLObject anAbsoluteParent( sExportedDocumentURL );
-    if ( anAbsoluteParent.GetURLPath().isEmpty() )
-    {
-        // DOC filter returns system path (without file:///)
-        anAbsoluteParent.setFSysPath( sExportedDocumentURL, FSysStyle::Detect );
-        anAbsoluteParent.setFinalSlash();
-    }
+    INetURLObject anAbsoluteParent(m_sBaseURL);
     OUString sConvertedParent = INetURLObject::GetScheme( anAbsoluteParent.GetProtocol() ) + anAbsoluteParent.GetURLPath();
-    OUString sParentPath = sConvertedParent.isEmpty() ? sExportedDocumentURL : sConvertedParent;
+    OUString sParentPath = sConvertedParent.isEmpty() ? m_sBaseURL : sConvertedParent;
 
     if ( bAbsoluteOut )
     {
@@ -907,8 +885,6 @@ OUString AttributeOutputBase::ConvertURL( const OUString& rUrl, bool bAbsoluteOu
 
         if ( anAbsoluteParent.GetNewAbsURL( rUrl, &anAbsoluteNew ) )
             sURL = anAbsoluteNew.GetMainURL( INetURLObject::DecodeMechanism::NONE );
-        else
-            sURL = rUrl;
     }
     else
     {
@@ -941,14 +917,15 @@ bool AttributeOutputBase::AnalyzeURL( const OUString& rUrl, const OUString& /*rT
                                 OUString());
 
         // #i21465# Only interested in outline references
-        if ( sRefType == "outline" )
+        if ( !sRefType.isEmpty() &&
+            (sRefType == "outline" || sRefType == "graphic" || sRefType == "frame" || sRefType == "ole" || sRefType == "region" || sRefType == "table") )
         {
-            OUString sLink = sMark.copy(0, nPos);
             for ( const auto& rBookmarkPair : GetExport().m_aImplicitBookmarks )
             {
-                if ( rBookmarkPair.first == sLink )
+                if ( rBookmarkPair.first == sMark )
                 {
                     sMark = "_toc" + OUString::number( rBookmarkPair.second );
+                    break;
                 }
             }
         }
@@ -1233,7 +1210,7 @@ void WW8AttributeOutput::FieldVanish( const OUString& rText, ww::eField /*eType*
 
 void AttributeOutputBase::TOXMark( const SwTextNode& rNode, const SwTOXMark& rAttr )
 {
-    // it's a field; so get the Text form the Node and build the field
+    // it's a field; so get the Text from the Node and build the field
     OUString sText;
     ww::eField eType = ww::eNONE;
 
@@ -1264,7 +1241,7 @@ void AttributeOutputBase::TOXMark( const SwTextNode& rNode, const SwTOXMark& rAt
             break;
 
         case TOX_USER:
-            sText += "\" \\f \"" + OUString(static_cast<sal_Char>( 'A' + GetExport( ).GetId( *rAttr.GetTOXType() ) ));
+            sText += "\" \\f \"" + OUStringChar(static_cast<sal_Char>( 'A' + GetExport( ).GetId( *rAttr.GetTOXType() ) ));
             [[fallthrough]];
         case TOX_CONTENT:
             {
@@ -1702,6 +1679,17 @@ OUString SwWW8AttrIter::GetSnippet(const OUString &rStr, sal_Int32 nCurrentPos,
     aSnippet = aSnippet.replace(CHAR_HARDHYPHEN, 0x1e);
     aSnippet = aSnippet.replace(CHAR_SOFTHYPHEN, 0x1f);
 
+    // tdf#123703 revert import workaround for longer space characters in consecutive spaces
+    sal_Int32 nPos;
+    if ((nPos = aSnippet.indexOf(0x2006)) > -1)
+    {
+        const sal_Unicode aExtraSpace[5] = { 0x2006, 0x20, 0x2006, 0x20, 0 };
+        const sal_Unicode aExtraSpace2[4] = { 0x20, 0x2006, 0x20, 0 };
+        OUString sDoubleSpace("  ");
+        aSnippet = aSnippet.replaceAll(aExtraSpace, sDoubleSpace, nPos)
+                           .replaceAll(aExtraSpace2, sDoubleSpace);
+    }
+
     m_rExport.m_aCurrentCharPropStarts.push( nCurrentPos );
     const SfxPoolItem &rItem = GetItem(RES_CHRATR_CASEMAP);
 
@@ -1737,7 +1725,7 @@ OUString SwWW8AttrIter::GetSnippet(const OUString &rStr, sal_Int32 nCurrentPos,
             rStr, nCurrentPos, g_pBreakIt->GetLocale(nLanguage),
             i18n::WordType::ANYWORD_IGNOREWHITESPACES ) )
         {
-            aSnippet = OUStringLiteral1(rStr[nCurrentPos]) + aSnippet.copy(1);
+            aSnippet = OUStringChar(rStr[nCurrentPos]) + aSnippet.copy(1);
         }
     }
     m_rExport.m_aCurrentCharPropStarts.pop();
@@ -1891,7 +1879,7 @@ bool MSWordExportBase::GetBookmarks( const SwTextNode& rNd, sal_Int32 nStt,
             const sal_Int32 nBStart = pMark->GetMarkStart().nContent.GetIndex();
             const sal_Int32 nBEnd = pMark->GetMarkEnd().nContent.GetIndex();
 
-            // Keep only the bookmars starting or ending in the snippet
+            // Keep only the bookmarks starting or ending in the snippet
             bool bIsStartOk = ( pMark->GetMarkStart().nNode == nNd ) && ( nBStart >= nStt ) && ( nBStart <= nEnd );
             bool bIsEndOk = ( pMark->GetMarkEnd().nNode == nNd ) && ( nBEnd >= nStt ) && ( nBEnd <= nEnd );
 
@@ -1922,7 +1910,7 @@ bool MSWordExportBase::GetAnnotationMarks( const SwWW8AttrIter& rAttrs, sal_Int3
             const sal_Int32 nBStart = pMark->GetMarkStart().nContent.GetIndex();
             const sal_Int32 nBEnd = pMark->GetMarkEnd().nContent.GetIndex();
 
-            // Keep only the bookmars starting or ending in the snippet
+            // Keep only the bookmarks starting or ending in the snippet
             bool bIsStartOk = ( pMark->GetMarkStart().nNode == nNd ) && ( nBStart >= nStt ) && ( nBStart <= nEnd );
             bool bIsEndOk = ( pMark->GetMarkEnd().nNode == nNd ) && ( nBEnd >= nStt ) && ( nBEnd <= nEnd );
 
@@ -2326,91 +2314,114 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
                 if ( ch == CH_TXT_ATR_FIELDSTART )
                 {
                     SwPosition aPosition( rNode, SwIndex( &rNode, nCurrentPos ) );
-                    ::sw::mark::IFieldmark const * const pFieldmark = pMarkAccess->getFieldmarkFor( aPosition );
+                    ::sw::mark::IFieldmark const*const pFieldmark = pMarkAccess->getFieldmarkAt(aPosition);
                     OSL_ENSURE( pFieldmark, "Looks like this doc is broken...; where is the Fieldmark for the FIELDSTART??" );
 
-                    if ( pFieldmark && pFieldmark->GetFieldname() == ODF_FORMTEXT
-                         && GetExportFormat() != MSWordExportBase::ExportFormat::DOCX )
+                    // Date field is exported as content control, not as a simple field
+                    if(pFieldmark && pFieldmark->GetFieldname( ) == ODF_FORMDATE)
                     {
-                       AppendBookmark( pFieldmark->GetName() );
-                    }
-                    ww::eField eFieldId = lcl_getFieldId( pFieldmark );
-                    OUString sCode = lcl_getFieldCode( pFieldmark );
-                    if ( pFieldmark && pFieldmark->GetFieldname() == ODF_UNHANDLED )
-                    {
-                        IFieldmark::parameter_map_t::const_iterator it = pFieldmark->GetParameters()->find( ODF_ID_PARAM );
-                        if ( it != pFieldmark->GetParameters()->end() )
+                        if(GetExportFormat() == MSWordExportBase::ExportFormat::DOCX) // supported by DOCX only
                         {
-                            OUString sFieldId;
-                            it->second >>= sFieldId;
-                            eFieldId = static_cast<ww::eField>(sFieldId.toInt32());
-                        }
-
-                        it = pFieldmark->GetParameters()->find( ODF_CODE_PARAM );
-                        if ( it != pFieldmark->GetParameters()->end() )
-                        {
-                            it->second >>= sCode;
+                            OutputField( nullptr, lcl_getFieldId( pFieldmark ),
+                                    lcl_getFieldCode( pFieldmark ),
+                                    FieldFlags::Start | FieldFlags::CmdStart );
+                            WriteFormData( *pFieldmark );
                         }
                     }
-
-                    OutputField( nullptr, eFieldId, sCode, FieldFlags::Start | FieldFlags::CmdStart );
-
-                    if ( pFieldmark && pFieldmark->GetFieldname( ) == ODF_FORMTEXT )
-                        WriteFormData( *pFieldmark );
-                    else if ( pFieldmark && pFieldmark->GetFieldname( ) == ODF_HYPERLINK )
-                        WriteHyperlinkData( *pFieldmark );
-                    OutputField( nullptr, lcl_getFieldId( pFieldmark ), OUString(), FieldFlags::CmdEnd );
-
-                    if ( pFieldmark && pFieldmark->GetFieldname() == ODF_UNHANDLED )
+                    else
                     {
-                        // Check for the presence of a linked OLE object
-                        IFieldmark::parameter_map_t::const_iterator it = pFieldmark->GetParameters()->find( ODF_OLE_PARAM );
-                        if ( it != pFieldmark->GetParameters()->end() )
+
+                        if ( pFieldmark && pFieldmark->GetFieldname() == ODF_FORMTEXT
+                             && GetExportFormat() != MSWordExportBase::ExportFormat::DOCX )
                         {
-                            OUString sOleId;
-                            uno::Any aValue = it->second;
-                            aValue >>= sOleId;
-                            if ( !sOleId.isEmpty() )
-                                OutputLinkedOLE( sOleId );
+                           AppendBookmark( pFieldmark->GetName() );
+                        }
+                        ww::eField eFieldId = lcl_getFieldId( pFieldmark );
+                        OUString sCode = lcl_getFieldCode( pFieldmark );
+                        if ( pFieldmark && pFieldmark->GetFieldname() == ODF_UNHANDLED )
+                        {
+                            IFieldmark::parameter_map_t::const_iterator it = pFieldmark->GetParameters()->find( ODF_ID_PARAM );
+                            if ( it != pFieldmark->GetParameters()->end() )
+                            {
+                                OUString sFieldId;
+                                it->second >>= sFieldId;
+                                eFieldId = static_cast<ww::eField>(sFieldId.toInt32());
+                            }
+
+                            it = pFieldmark->GetParameters()->find( ODF_CODE_PARAM );
+                            if ( it != pFieldmark->GetParameters()->end() )
+                            {
+                                it->second >>= sCode;
+                            }
+                        }
+
+                        OutputField( nullptr, eFieldId, sCode, FieldFlags::Start | FieldFlags::CmdStart );
+
+                        if ( pFieldmark && pFieldmark->GetFieldname( ) == ODF_FORMTEXT)
+                            WriteFormData( *pFieldmark );
+                        else if ( pFieldmark && pFieldmark->GetFieldname( ) == ODF_HYPERLINK )
+                            WriteHyperlinkData( *pFieldmark );
+                        OutputField( nullptr, lcl_getFieldId( pFieldmark ), OUString(), FieldFlags::CmdEnd );
+
+                        if ( pFieldmark && pFieldmark->GetFieldname() == ODF_UNHANDLED )
+                        {
+                            // Check for the presence of a linked OLE object
+                            IFieldmark::parameter_map_t::const_iterator it = pFieldmark->GetParameters()->find( ODF_OLE_PARAM );
+                            if ( it != pFieldmark->GetParameters()->end() )
+                            {
+                                OUString sOleId;
+                                uno::Any aValue = it->second;
+                                aValue >>= sOleId;
+                                if ( !sOleId.isEmpty() )
+                                    OutputLinkedOLE( sOleId );
+                            }
                         }
                     }
                 }
                 else if ( ch == CH_TXT_ATR_FIELDEND )
                 {
                     SwPosition aPosition( rNode, SwIndex( &rNode, nCurrentPos ) );
-                    ::sw::mark::IFieldmark const * const pFieldmark = pMarkAccess->getFieldmarkFor( aPosition );
+                    ::sw::mark::IFieldmark const*const pFieldmark = pMarkAccess->getFieldmarkAt(aPosition);
 
                     OSL_ENSURE( pFieldmark, "Looks like this doc is broken...; where is the Fieldmark for the FIELDEND??" );
 
-                    ww::eField eFieldId = lcl_getFieldId( pFieldmark );
-                    if ( pFieldmark && pFieldmark->GetFieldname() == ODF_UNHANDLED )
+                    if(pFieldmark && pFieldmark->GetFieldname( ) == ODF_FORMDATE)
                     {
-                        IFieldmark::parameter_map_t::const_iterator it = pFieldmark->GetParameters()->find( ODF_ID_PARAM );
-                        if ( it != pFieldmark->GetParameters()->end() )
+                        if(GetExportFormat() == MSWordExportBase::ExportFormat::DOCX) // supported by DOCX only
                         {
-                            OUString sFieldId;
-                            it->second >>= sFieldId;
-                            eFieldId = static_cast<ww::eField>(sFieldId.toInt32());
+                            OutputField( nullptr, ww::eFORMDATE, OUString(), FieldFlags::Close );
                         }
                     }
-
-                    OutputField( nullptr, eFieldId, OUString(), FieldFlags::Close );
-
-                    if ( pFieldmark && pFieldmark->GetFieldname() == ODF_FORMTEXT
-                         && GetExportFormat() != MSWordExportBase::ExportFormat::DOCX )
+                    else
                     {
-                        AppendBookmark( pFieldmark->GetName() );
+                        ww::eField eFieldId = lcl_getFieldId( pFieldmark );
+                        if ( pFieldmark && pFieldmark->GetFieldname() == ODF_UNHANDLED )
+                        {
+                            IFieldmark::parameter_map_t::const_iterator it = pFieldmark->GetParameters()->find( ODF_ID_PARAM );
+                            if ( it != pFieldmark->GetParameters()->end() )
+                            {
+                                OUString sFieldId;
+                                it->second >>= sFieldId;
+                                eFieldId = static_cast<ww::eField>(sFieldId.toInt32());
+                            }
+                        }
+
+                        OutputField( nullptr, eFieldId, OUString(), FieldFlags::Close );
+
+                        if ( pFieldmark && pFieldmark->GetFieldname() == ODF_FORMTEXT
+                             && GetExportFormat() != MSWordExportBase::ExportFormat::DOCX )
+                        {
+                            AppendBookmark( pFieldmark->GetName() );
+                        }
                     }
                 }
                 else if ( ch == CH_TXT_ATR_FORMELEMENT )
                 {
                     SwPosition aPosition( rNode, SwIndex( &rNode, nCurrentPos ) );
-                    ::sw::mark::IFieldmark const * const pFieldmark = pMarkAccess->getFieldmarkFor( aPosition );
-                    OSL_ENSURE( pFieldmark, "Looks like this doc is broken...; where is the Fieldmark for the FIELDSTART??" );
+                    ::sw::mark::IFieldmark const*const pFieldmark = pMarkAccess->getFieldmarkAt(aPosition);
 
                     bool isDropdownOrCheckbox = pFieldmark && (pFieldmark->GetFieldname( ) == ODF_FORMDROPDOWN ||
-                            pFieldmark->GetFieldname( ) == ODF_FORMCHECKBOX );
-
+                                                                pFieldmark->GetFieldname( ) == ODF_FORMCHECKBOX );
                     if ( isDropdownOrCheckbox )
                         AppendBookmark( pFieldmark->GetName() );
                     OutputField( nullptr, lcl_getFieldId( pFieldmark ),
@@ -2958,6 +2969,7 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
         }
 
         // The formatting of the paragraph marker has two sources:
+        // 0) If there is a RES_PARATR_LIST_AUTOFMT, then use that.
         // 1) If there are hints at the end of the paragraph, then use that.
         // 2) Else use the RES_CHRATR_BEGIN..RES_TXTATR_END range of the paragraph
         // properties.
@@ -2967,7 +2979,15 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
         // set as a hint.
         SfxItemSet aParagraphMarkerProperties(m_pDoc->GetAttrPool(), svl::Items<RES_CHRATR_BEGIN, RES_TXTATR_END>{});
         bool bCharFormatOnly = true;
-        if(const SwpHints* pTextAttrs = rNode.GetpSwpHints())
+
+        SwFormatAutoFormat const& rListAutoFormat(static_cast<SwFormatAutoFormat const&>(rNode.GetAttr(RES_PARATR_LIST_AUTOFMT)));
+        if (std::shared_ptr<SfxItemSet> const& pSet = rListAutoFormat.GetStyleHandle())
+        {
+            aParagraphMarkerProperties.Put(*pSet);
+            bCharFormatOnly = false;
+            // TODO: still need to check for a RES_TXTATR_CHARFMT hint...
+        }
+        if (const SwpHints* pTextAttrs = rNode.GetpSwpHints())
         {
             for( size_t i = 0; i < pTextAttrs->Count(); ++i )
             {
@@ -2982,8 +3002,11 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
                     SAL_INFO( "sw.ww8", startPos << "startPos == endPos" << *endPos);
                     sal_uInt16 nWhich = pHt->GetAttr().Which();
                     SAL_INFO( "sw.ww8", "nWhich" << nWhich);
-                    if (nWhich == RES_TXTATR_AUTOFMT || nWhich == RES_TXTATR_CHARFMT)
+                    if ((nWhich == RES_TXTATR_AUTOFMT && bCharFormatOnly)
+                        || nWhich == RES_TXTATR_CHARFMT)
+                    {
                         aParagraphMarkerProperties.Put(pHt->GetAttr());
+                    }
                     if (nWhich != RES_TXTATR_CHARFMT)
                         bCharFormatOnly = false;
                 }

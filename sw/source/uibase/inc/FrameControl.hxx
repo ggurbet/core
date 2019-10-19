@@ -11,6 +11,7 @@
 
 #include <vcl/menubtn.hxx>
 
+#include "edtwin.hxx"
 
 class SwEditWin;
 class SwPageFrame;
@@ -63,7 +64,7 @@ public:
 
     virtual const SwFrame* GetFrame()   override { return m_pFrame; }
     virtual SwEditWin*   GetEditWin() override { return m_pEditWin; }
-    const SwPageFrame*     GetPageFrame();
+    const SwPageFrame*     GetPageFrame() const;
 };
 
 #endif

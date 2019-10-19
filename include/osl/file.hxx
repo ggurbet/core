@@ -1303,7 +1303,7 @@ public:
         Moves or renames a file, replacing an existing file if exist. If the old file existed,
         moved file's metadata, e.g. creation time (on FSes which keep files' creation time) or
         ACLs, are set to old one's (to keep the old file's identity) - currently this is only
-        implemented on Windows; on other platforms, this is equivalent to osl_moveFile.
+        implemented fully on Windows; on other platforms, this is mostly equivalent to osl_moveFile.
 
         @param[in] ustrSourceFileURL
         Full qualified URL of the source file.
@@ -1625,7 +1625,7 @@ extern "C" inline void SAL_CALL onDirectoryCreated(void* pData, rtl_uString* aDi
     static_cast<DirectoryCreationObserver*>(pData)->DirectoryCreated(aDirectoryUrl);
 }
 
-/** The directory class object provides a enumeration of DirectoryItems.
+/** The directory class object provides an enumeration of DirectoryItems.
 
     @see DirectoryItem
     @see File
@@ -1681,7 +1681,7 @@ public:
         @retval E_None on success
         @retval E_INVAL the format of the parameters was not valid
         @retval E_NOENT the specified path doesn't exist
-        @retval E_NOTDIR the specified path is not an directory
+        @retval E_NOTDIR the specified path is not a directory
         @retval E_NOMEM not enough memory for allocating structures
         @retval E_ACCES permission denied
         @retval E_MFILE too many open files used by the process
@@ -1740,7 +1740,7 @@ public:
         @retval E_None on success
         @retval E_INVAL the format of the parameters was not valid
         @retval E_NOENT the specified path doesn't exist
-        @retval E_NOTDIR the specified path is not an directory
+        @retval E_NOTDIR the specified path is not a directory
         @retval E_NOMEM not enough memory for allocating structures
         @retval E_ACCES permission denied
         @retval E_MFILE too many open files used by the process

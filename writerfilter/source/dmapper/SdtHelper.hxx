@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <com/sun/star/beans/PropertyValue.hpp>
+#include <com/sun/star/text/XTextRange.hpp>
 
 #include <rtl/ustrbuf.hxx>
 #include <tools/ref.hxx>
@@ -50,12 +51,16 @@ class SdtHelper final : public virtual SvRefBase
 
     /// Items of the drop-down control.
     std::vector<OUString> m_aDropDownItems;
+    /// Indicator of a drop-down control
+    bool m_bInsideDropDownControl;
     /// Pieces of the default text -- currently used only by the dropdown control.
     OUStringBuffer m_aSdtTexts;
     /// Date ISO string contained in the w:date element, used by the date control.
     OUStringBuffer m_sDate;
     /// Date format string as it comes from the ooxml document.
     OUStringBuffer m_sDateFormat;
+    /// Start range of the date field
+    css::uno::Reference<css::text::XTextRange> m_xDateFieldStartRange;
     /// Locale string as it comes from the ooxml document.
     OUStringBuffer m_sLocale;
     /// Grab bag to store unsupported SDTs, aiming to save them back on export.
@@ -66,61 +71,53 @@ class SdtHelper final : public virtual SvRefBase
     bool m_bOutsideAParagraph;
 
     /// Create and append the drawing::XControlShape, containing the various models.
-    void createControlShape(css::awt::Size aSize, css::uno::Reference<css::awt::XControlModel> const& xControlModel, const css::uno::Sequence<css::beans::PropertyValue>& rGrabBag);
+    void createControlShape(css::awt::Size aSize,
+                            css::uno::Reference<css::awt::XControlModel> const& xControlModel,
+                            const css::uno::Sequence<css::beans::PropertyValue>& rGrabBag);
+
 public:
     explicit SdtHelper(DomainMapper_Impl& rDM_Impl);
     ~SdtHelper() override;
 
-    std::vector<OUString>& getDropDownItems()
+    std::vector<OUString>& getDropDownItems() { return m_aDropDownItems; }
+    OUStringBuffer& getSdtTexts() { return m_aSdtTexts; }
+
+    OUStringBuffer& getDate() { return m_sDate; }
+
+    OUStringBuffer& getDateFormat() { return m_sDateFormat; }
+
+    void setDateFieldStartRange(const css::uno::Reference<css::text::XTextRange>& xStartRange)
     {
-        return m_aDropDownItems;
-    }
-    OUStringBuffer& getSdtTexts()
-    {
-        return m_aSdtTexts;
-    }
-    OUStringBuffer& getDate()
-    {
-        return m_sDate;
-    }
-    OUStringBuffer& getDateFormat()
-    {
-        return m_sDateFormat;
+        m_xDateFieldStartRange = xStartRange;
     }
 
     /// Decides if we have enough information to create a date control.
     bool validateDateFormat();
 
-    OUStringBuffer& getLocale()
-    {
-        return m_sLocale;
-    }
+    OUStringBuffer& getLocale() { return m_sLocale; }
     /// If createControlShape() was ever called.
-    bool hasElements()
-    {
-        return m_bHasElements;
-    }
+    bool hasElements() const { return m_bHasElements; }
 
     void setOutsideAParagraph(bool bOutsideAParagraph)
     {
         m_bOutsideAParagraph = bOutsideAParagraph;
     }
 
-    bool isOutsideAParagraph()
-    {
-        return m_bOutsideAParagraph;
-    }
+    bool isOutsideAParagraph() const { return m_bOutsideAParagraph; }
+
+    bool isInsideDropDownControl() const { return m_bInsideDropDownControl; }
+    void setInsideDropDownControl(bool bInside) { m_bInsideDropDownControl = bInside; }
 
     /// Create drop-down control from w:sdt's w:dropDownList.
     void createDropDownControl();
     /// Create date control from w:sdt's w:date.
-    void createDateControl(OUString const& rContentText, const css::beans::PropertyValue& rCharFormat);
+    void createDateContentControl();
 
     void appendToInteropGrabBag(const css::beans::PropertyValue& rValue);
     css::uno::Sequence<css::beans::PropertyValue> getInteropGrabBagAndClear();
-    bool isInteropGrabBagEmpty();
+    bool isInteropGrabBagEmpty() const;
     bool containedInInteropGrabBag(const OUString& rValueName);
-    sal_Int32 getInteropGrabBagSize();
+    sal_Int32 getInteropGrabBagSize() const;
 };
 
 } // namespace dmapper

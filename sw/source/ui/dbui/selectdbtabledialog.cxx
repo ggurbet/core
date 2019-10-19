@@ -20,7 +20,6 @@
 #include <swtypes.hxx>
 #include "selectdbtabledialog.hxx"
 #include "dbtablepreviewdialog.hxx"
-#include <svtools/simptabl.hxx>
 #include <osl/diagnose.h>
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
 #include <com/sun/star/sdb/XQueriesSupplier.hpp>
@@ -75,7 +74,7 @@ SwSelectDBTableDialog::SwSelectDBTableDialog(weld::Window* pParent,
     if (xQSupplier.is())
     {
         Reference<XNameAccess> xQueries = xQSupplier->getQueries();
-        Sequence<OUString> aQueries = xQueries->getElementNames();
+        const Sequence<OUString> aQueries = xQueries->getElementNames();
         int nPos = m_xTable->n_children();
         for (const OUString& rQuery : aQueries)
         {
@@ -122,8 +121,8 @@ IMPL_LINK_NOARG(SwSelectDBTableDialog, PreviewHdl, weld::Button&, void)
     pProperties[4].Name = "ShowTreeViewButton";
     pProperties[4].Value <<= false;
 
-    VclPtrInstance< SwDBTablePreviewDialog > pDlg(nullptr, aProperties); //TODO
-    pDlg->Execute();
+    SwDBTablePreviewDialog aDlg(m_xDialog.get(), aProperties);
+    aDlg.run();
 }
 
 OUString SwSelectDBTableDialog::GetSelectedTable(bool& bIsTable)

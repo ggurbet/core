@@ -101,7 +101,7 @@ bool OneInstanceOleWrapper::deregisterClass()
     return CoRevokeClassObject(m_factoryHandle) == NOERROR;
 }
 
-STDMETHODIMP OneInstanceOleWrapper::QueryInterface(REFIID riid, void ** ppv)
+COM_DECLSPEC_NOTHROW STDMETHODIMP OneInstanceOleWrapper::QueryInterface(REFIID riid, void ** ppv)
 {
     if(IsEqualIID(riid, IID_IUnknown))
     {
@@ -120,12 +120,12 @@ STDMETHODIMP OneInstanceOleWrapper::QueryInterface(REFIID riid, void ** ppv)
     return ResultFromScode(E_NOINTERFACE);
 }
 
-STDMETHODIMP_(ULONG) OneInstanceOleWrapper::AddRef()
+COM_DECLSPEC_NOTHROW STDMETHODIMP_(ULONG) OneInstanceOleWrapper::AddRef()
 {
     return osl_atomic_increment( &m_refCount);
 }
 
-STDMETHODIMP_(ULONG) OneInstanceOleWrapper::Release()
+COM_DECLSPEC_NOTHROW STDMETHODIMP_(ULONG) OneInstanceOleWrapper::Release()
 {
     MutexGuard oGuard( Mutex::getGlobalMutex());
     ULONG refCount = --m_refCount;
@@ -137,7 +137,7 @@ STDMETHODIMP_(ULONG) OneInstanceOleWrapper::Release()
     return refCount;
 }
 
-STDMETHODIMP OneInstanceOleWrapper::CreateInstance(IUnknown FAR* punkOuter,
+COM_DECLSPEC_NOTHROW STDMETHODIMP OneInstanceOleWrapper::CreateInstance(IUnknown FAR* punkOuter,
                                                    REFIID riid,
                                                    void FAR* FAR* ppv)
 {
@@ -178,7 +178,7 @@ STDMETHODIMP OneInstanceOleWrapper::CreateInstance(IUnknown FAR* punkOuter,
     return ret;
 }
 
-STDMETHODIMP OneInstanceOleWrapper::LockServer(BOOL /*fLock*/)
+COM_DECLSPEC_NOTHROW STDMETHODIMP OneInstanceOleWrapper::LockServer(BOOL /*fLock*/)
 {
     return NOERROR;
 }
@@ -375,7 +375,7 @@ Sequence< OUString >    SAL_CALL OleClient::getAvailableServiceNames()
 
 OUString OleClient::getImplementationName()
 {
-    return OUString("com.sun.star.comp.ole.OleClient");
+    return "com.sun.star.comp.ole.OleClient";
 }
 
 sal_Bool OleClient::supportsService(OUString const & ServiceName)
@@ -522,7 +522,7 @@ OleServer::~OleServer()
 
 OUString OleServer::getImplementationName()
 {
-    return OUString("com.sun.star.comp.ole.OleServer");
+    return "com.sun.star.comp.ole.OleServer";
 }
 
 sal_Bool OleServer::supportsService(OUString const & ServiceName)

@@ -17,21 +17,15 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <signal.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include <tools/debug.hxx>
 
-#include <sal/alloca.h>
-
+#include <vcl/event.hxx>
 #include <vcl/floatwin.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/keycodes.hxx>
-#include <vcl/layout.hxx>
-#include <printerinfomanager.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/opengl/OpenGLContext.hxx>
@@ -43,23 +37,17 @@
 #include <X11/keysym.h>
 #include <X11/extensions/shape.h>
 
-#include <unx/salunx.h>
 #include <saldatabasic.hxx>
 #include <unx/saldisp.hxx>
 #include <unx/salgdi.h>
 #include <unx/salframe.h>
-#include <unx/sm.hxx>
 #include <unx/wmadaptor.hxx>
-#include <unx/genprn.h>
 #include <unx/salbmp.h>
 #include <unx/i18n_ic.hxx>
 #include <unx/i18n_keysym.hxx>
-#include <unx/i18n_status.hxx>
-#include <unx/x11/xlimits.hxx>
 #include <opengl/zone.hxx>
 
 #include <unx/gensys.h>
-#include <sallayout.hxx>
 #include <window.h>
 
 #include <sal/macros.h>
@@ -67,7 +55,6 @@
 #include <com/sun/star/uno/Exception.hpp>
 
 #include <svdata.hxx>
-#include <strings.hrc>
 #include <bitmaps.hlst>
 
 #include <boost/optional.hpp>
@@ -862,7 +849,6 @@ X11SalFrame::X11SalFrame( SalFrame *pParent, SalFrameStyleFlags nSalFrameStyle,
     bDefaultPosition_           = true;
     nVisibility_                = VisibilityFullyObscured;
     m_nWorkArea                 = 0;
-    mbInShow                    = false;
     m_bXEmbed                   = false;
 
 
@@ -915,8 +901,8 @@ X11SalFrame::~X11SalFrame()
 
     if( mpInputContext )
     {
-        mpInputContext->UnsetICFocus( this );
-        mpInputContext->Unmap( this );
+        mpInputContext->UnsetICFocus();
+        mpInputContext->Unmap();
         mpInputContext.reset();
     }
 
@@ -948,19 +934,6 @@ X11SalFrame::~X11SalFrame()
     }
 
     XDestroyWindow( GetXDisplay(), mhWindow );
-
-    /*
-     *  check if there is only the status frame left
-     *  if so, free it
-     */
-    auto &rFrames = GetDisplay()->getFrames();
-    if( ! rFrames.empty() && vcl::I18NStatus::exists() )
-    {
-        SalFrame* pStatusFrame = vcl::I18NStatus::get().getStatusFrame();
-        auto sit = rFrames.begin();
-        if( pStatusFrame && *sit == pStatusFrame && ++sit == rFrames.end() )
-            vcl::I18NStatus::free();
-    }
 }
 
 void X11SalFrame::SetExtendedFrameStyle( SalExtStyle nStyle )
@@ -975,7 +948,6 @@ void X11SalFrame::SetExtendedFrameStyle( SalExtStyle nStyle )
 const SystemEnvData* X11SalFrame::GetSystemData() const
 {
     X11SalFrame *pFrame = const_cast<X11SalFrame*>(this);
-    pFrame->maSystemChildData.nSize         = sizeof( SystemEnvData );
     pFrame->maSystemChildData.pDisplay      = GetXDisplay();
     pFrame->maSystemChildData.aWindow       = pFrame->GetWindow();
     pFrame->maSystemChildData.pSalFrame     = pFrame;
@@ -1197,7 +1169,6 @@ void X11SalFrame::Show( bool bVisible, bool bNoActivate )
     setXEmbedInfo();
     if( bVisible )
     {
-        mbInShow = true;
         if( ! (nStyle_ & SalFrameStyleFlags::INTRO) )
         {
             // hide all INTRO frames
@@ -1373,7 +1344,7 @@ void X11SalFrame::Show( bool bVisible, bool bNoActivate )
     else
     {
         if( getInputContext() )
-            getInputContext()->Unmap( this );
+            getInputContext()->Unmap();
 
         if( ! IsChildWindow() )
         {
@@ -2228,8 +2199,6 @@ void X11SalFrame::StartPresentation( bool bStart )
                                     mhWindow,
                                     GetXDisplay() );
 
-    vcl::I18NStatus::get().show( !bStart, vcl::I18NStatus::presentation );
-
     if( ! bStart && hPresentationWindow != None )
         doReparentPresentationDialogues( GetDisplay() );
     hPresentationWindow = (bStart && IsOverrideRedirect() ) ? GetWindow() : None;
@@ -2337,7 +2306,7 @@ void X11SalFrame::SetInputContext( SalInputContext* pContext )
     if (!(pContext->mnOptions & InputContextFlags::Text))
     {
         if( mpInputContext )
-            mpInputContext->Unmap( this );
+            mpInputContext->Unmap();
         return;
     }
 
@@ -2346,8 +2315,6 @@ void X11SalFrame::SetInputContext( SalInputContext* pContext )
 
     if (mpInputContext == nullptr)
     {
-        vcl::I18NStatus& rStatus( vcl::I18NStatus::get() );
-        rStatus.setParent( this );
         mpInputContext.reset( new SalI18N_InputContext( this ) );
         if (mpInputContext->UseContext())
         {
@@ -2457,8 +2424,8 @@ void X11SalFrame::createNewWindow( ::Window aNewParent, SalX11Screen nXScreen )
     updateGraphics(true);
     if( mpInputContext )
     {
-        mpInputContext->UnsetICFocus( this );
-        mpInputContext->Unmap( this );
+        mpInputContext->UnsetICFocus();
+        mpInputContext->Unmap();
     }
     if( GetWindow() == hPresentationWindow )
     {
@@ -2914,10 +2881,7 @@ bool X11SalFrame::appendUnicodeSequence( sal_Unicode c )
             (c >= 'a' && c <= 'f') ||
             (c >= 'A' && c <= 'F') )
         {
-            OUStringBuffer aBuf( rSeq.getLength() + 1 );
-            aBuf.append( rSeq );
-            aBuf.append( c );
-            rSeq = aBuf.makeStringAndClear();
+            rSeq += OUStringChar(c);
             std::vector<ExtTextInputAttr> attribs( rSeq.getLength(), ExtTextInputAttr::Underline );
 
             SalExtTextInputEvent aEv;
@@ -3324,15 +3288,6 @@ bool X11SalFrame::HandleFocusEvent( XFocusChangeEvent const *pEvent )
     {
         if( FocusIn == pEvent->type )
             mpInputContext->SetICFocus( this );
-        else
-        {
-            /*
-             *  do not unset the IC focus here because would kill
-             *  a lookup choice windows that might have the focus now
-             *      mpInputContext->UnsetICFocus( this );
-             */
-            vcl::I18NStatus::get().show( false, vcl::I18NStatus::focus );
-        }
     }
 
     if ( pEvent->mode == NotifyNormal || pEvent->mode == NotifyWhileGrabbed ||
@@ -3945,17 +3900,6 @@ bool X11SalFrame::Dispatch( XEvent *pEvent )
                     CallCallback( SalEvent::Resize, nullptr );
 
                     bool bSetFocus = m_bSetFocusOnMap;
-                    /*  another workaround for sawfish: if a transient window for the same parent is shown
-                     *  sawfish does not set the focus to it. Applies only for click to focus mode.
-                     */
-                    if( ! (nStyle_ & SalFrameStyleFlags::FLOAT ) && mbInShow && GetDisplay()->getWMAdaptor()->getWindowManagerName() == "Sawfish" )
-                    {
-                        // don't set the focus into the IME status window
-                        // since this will lead to a parent loss of focus, close status,
-                        // reget focus, open status, .... flicker loop
-                        if ( vcl::I18NStatus::get().getStatusFrame() != this )
-                            bSetFocus = true;
-                    }
 
                     /*
                      *  sometimes a message box/dialogue is brought up when a frame is not mapped
@@ -3987,7 +3931,6 @@ bool X11SalFrame::Dispatch( XEvent *pEvent )
                     }
 
                     RestackChildren();
-                    mbInShow = false;
                     m_bSetFocusOnMap = false;
                 }
                 break;
@@ -3999,7 +3942,7 @@ bool X11SalFrame::Dispatch( XEvent *pEvent )
                     bViewable_ = false;
                     nRet = true;
                     if ( mpInputContext != nullptr )
-                        mpInputContext->Unmap( this );
+                        mpInputContext->Unmap();
                     CallCallback( SalEvent::Resize, nullptr );
                 }
                 break;

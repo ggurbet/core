@@ -15,6 +15,7 @@
 #include <viscrs.hxx>
 #include <wrtsh.hxx>
 #include <ndgrf.hxx>
+#include <fmtsrnd.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/ulspitem.hxx>
@@ -85,6 +86,33 @@ DECLARE_WW8IMPORT_TEST(testTdf107773, "tdf107773.doc")
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), xDrawPage->getCount());
 }
 
+DECLARE_WW8IMPORT_TEST(testTdf124601, "tdf124601.doc")
+{
+    // Without the accompanying fix in place, this test would have failed, as the importer lost the
+    // fLayoutInCell shape property for wrap-though shapes.
+    CPPUNIT_ASSERT(getProperty<bool>(getShapeByName("Grafik 18"), "IsFollowingTextFlow"));
+    CPPUNIT_ASSERT(getProperty<bool>(getShapeByName("Grafik 19"), "IsFollowingTextFlow"));
+}
+
+DECLARE_WW8IMPORT_TEST(testTdf112535, "tdf112535.doc")
+{
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    CPPUNIT_ASSERT(pDoc->GetSpzFrameFormats());
+
+    SwFrameFormats& rFormats = *pDoc->GetSpzFrameFormats();
+    CPPUNIT_ASSERT(!rFormats.empty());
+
+    const SwFrameFormat* pFormat = rFormats[0];
+    CPPUNIT_ASSERT(pFormat);
+
+    // Without the accompanying fix in place, this test would have failed: auto-contour was enabled
+    // in Writer, but not in Word.
+    CPPUNIT_ASSERT(!pFormat->GetSurround().IsContour());
+}
+
 DECLARE_WW8IMPORT_TEST(testTdf106291, "tdf106291.doc")
 {
     // Table cell was merged vertically instead of horizontally -> had incorrect dimensions
@@ -144,6 +172,14 @@ DECLARE_OOXMLIMPORT_TEST(testImageLazyRead, "image-lazy-read.doc")
 
 DECLARE_WW8IMPORT_TEST(testTdf106799, "tdf106799.doc")
 {
+    // Ensure that all text portions are calculated before testing.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwViewShell* pViewShell
+        = pTextDoc->GetDocShell()->GetDoc()->getIDocumentLayoutAccess().GetCurrentViewShell();
+    CPPUNIT_ASSERT(pViewShell);
+    pViewShell->Reformat();
+
     sal_Int32 const nCellWidths[3][4] = { { 9530, 0, 0, 0 },{ 2382, 2382, 2382, 2384 },{ 2382, 2382, 2382, 2384 } };
     sal_Int32 const nCellTxtLns[3][4] = { { 1, 0, 0, 0 },{ 1, 0, 0, 0},{ 1, 1, 1, 1 } };
     // Table was distorted because of missing sprmPFInnerTableCell at paragraph marks (0x0D) with sprmPFInnerTtp
@@ -270,6 +306,17 @@ DECLARE_WW8IMPORT_TEST(testTdf122425_1, "tdf122425_1.doc")
             CPPUNIT_ASSERT(!pBox->GetLine(eLine));
         }
     }
+}
+
+DECLARE_WW8IMPORT_TEST(testTdf79639, "tdf79639.doc")
+{
+    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<drawing::XDrawPage> xDrawPage = xDrawPageSupplier->getDrawPage();
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 1
+    // - Actual  : 0
+    // as the floating table in the header wasn't converted to a TextFrame.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), xDrawPage->getCount());
 }
 
 DECLARE_WW8IMPORT_TEST(testTdf122425_2, "tdf122425_2.doc")

@@ -30,7 +30,6 @@
 
 #include <slideshow.hxx>
 #include <ViewShell.hxx>
-#include <ViewShellBase.hxx>
 #include <sdresid.hxx>
 #include <helpids.h>
 #include <strings.hrc>
@@ -563,7 +562,7 @@ IMPL_LINK_NOARG(ShowWindow, MouseTimeoutHdl, Timer *, void)
     }
     else
     {
-        // mouse has been idle to long, hide pointer
+        // mouse has been idle too long, hide pointer
         ShowPointer( false );
         mbMouseCursorHidden = true;
     }

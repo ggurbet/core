@@ -30,7 +30,6 @@ $(eval $(call gb_Executable_add_cxxflags,lo_kde5filepicker,\
     $$(INCLUDE) \
     $$(BOOST_CXXFLAGS) \
     $(QT5_CFLAGS) \
-    $(QT5_GLIB_CFLAGS) \
     $(KF5_CFLAGS) \
 ))
 
@@ -68,13 +67,12 @@ $(eval $(call gb_Executable_use_libraries,lo_kde5filepicker,\
 $(eval $(call gb_Executable_use_externals,lo_kde5filepicker,\
 	boost_headers \
 	epoxy \
-	kde5 \
+	kf5 \
 	dbus \
 ))
 
 $(eval $(call gb_Executable_add_libs,lo_kde5filepicker,\
     $(QT5_LIBS) \
-    $(QT5_GLIB_LIBS) \
     $(KF5_LIBS) \
     $(BOOST_PROCESS_LIB) \
     $(BOOST_FILESYSTEM_LIB) \

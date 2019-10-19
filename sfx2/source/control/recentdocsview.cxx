@@ -44,6 +44,7 @@
 #include <com/sun/star/frame/XFrame.hpp>
 #include <sfx2/strings.hrc>
 #include <bitmaps.hlst>
+#include <vcl/virdev.hxx>
 
 #include <officecfg/Office/Common.hxx>
 
@@ -234,20 +235,21 @@ void RecentDocsView::Reload()
     Sequence< Sequence< PropertyValue > > aHistoryList = SvtHistoryOptions().GetList( ePICKLIST );
     for ( int i = 0; i < aHistoryList.getLength(); i++ )
     {
-        Sequence< PropertyValue >& rRecentEntry = aHistoryList[i];
+        const Sequence< PropertyValue >& rRecentEntry = aHistoryList[i];
 
         OUString aURL;
         OUString aTitle;
         BitmapEx aThumbnail;
+        BitmapEx aModule;
 
-        for ( int j = 0; j < rRecentEntry.getLength(); j++ )
+        for ( const auto& rProp : rRecentEntry )
         {
-            Any a = rRecentEntry[j].Value;
+            Any a = rProp.Value;
 
-            if (rRecentEntry[j].Name == "URL")
+            if (rProp.Name == "URL")
                 a >>= aURL;
             //fdo#74834: only load thumbnail if the corresponding option is not disabled in the configuration
-            else if (rRecentEntry[j].Name == "Thumbnail" && officecfg::Office::Common::History::RecentDocsThumbnail::get())
+            else if (rProp.Name == "Thumbnail" && officecfg::Office::Common::History::RecentDocsThumbnail::get())
             {
                 OUString aBase64;
                 a >>= aBase64;
@@ -261,6 +263,17 @@ void RecentDocsView::Reload()
                     aThumbnail = aReader.Read();
                 }
             }
+        }
+
+        aModule = getDefaultThumbnail(aURL);
+        if (!aModule.IsEmpty() && !aThumbnail.IsEmpty()) {
+            ScopedVclPtr<VirtualDevice> m_pVirDev(VclPtr<VirtualDevice>::Create());
+            Size aSize(aThumbnail.GetSizePixel());
+            m_pVirDev->SetOutputSizePixel(aSize);
+            m_pVirDev->DrawBitmapEx(Point(), aThumbnail);
+            m_pVirDev->DrawBitmapEx(Point(aSize.Width()-50,aSize.Height()-50), Size(40,40), aModule);
+            aThumbnail = m_pVirDev->GetBitmapEx(Point(), aSize);
+            m_pVirDev.disposeAndClear();
         }
 
         if(!aURL.isEmpty())

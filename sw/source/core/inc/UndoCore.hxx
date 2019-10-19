@@ -145,7 +145,6 @@ class SwUndoFormatColl : public SwUndo, private SwUndRng
 {
     OUString aFormatName;
     std::unique_ptr<SwHistory> pHistory;
-    SwFormatColl* const pFormatColl;
     // for correct <ReDo(..)> and <Repeat(..)>
     // boolean, which indicates that the attributes are reset at the nodes
     // before the format has been applied.
@@ -157,7 +156,7 @@ class SwUndoFormatColl : public SwUndo, private SwUndRng
     void DoSetFormatColl(SwDoc & rDoc, SwPaM const & rPaM);
 
 public:
-    SwUndoFormatColl( const SwPaM&, SwFormatColl*,
+    SwUndoFormatColl( const SwPaM&, const SwFormatColl*,
                    const bool bReset,
                    const bool bResetListAttrs );
     virtual ~SwUndoFormatColl() override;
@@ -188,8 +187,8 @@ public:
 class SwUndoSetFlyFormat : public SwUndo, public SwClient
 {
     SwFrameFormat* m_pFrameFormat;                  // saved FlyFormat
-    SwFrameFormat* const m_pOldFormat;
-    SwFrameFormat* m_pNewFormat;
+    const OUString m_DerivedFromFormatName;
+    const OUString m_NewFormatName;
     std::unique_ptr<SfxItemSet> m_pItemSet;               // the re-/ set attributes
     sal_uLong m_nOldNode, m_nNewNode;
     sal_Int32 m_nOldContent, m_nNewContent;
@@ -201,7 +200,7 @@ class SwUndoSetFlyFormat : public SwUndo, public SwClient
     void GetAnchor( SwFormatAnchor& rAnhor, sal_uLong nNode, sal_Int32 nContent );
 
 public:
-    SwUndoSetFlyFormat( SwFrameFormat& rFlyFormat, SwFrameFormat& rNewFrameFormat );
+    SwUndoSetFlyFormat( SwFrameFormat& rFlyFormat, const SwFrameFormat& rNewFrameFormat );
     virtual ~SwUndoSetFlyFormat() override;
 
     virtual void UndoImpl( ::sw::UndoRedoContext & ) override;

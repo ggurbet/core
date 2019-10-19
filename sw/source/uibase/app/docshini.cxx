@@ -126,7 +126,7 @@ bool SwDocShell::InitNew( const uno::Reference < embed::XStorage >& xStor )
         if (!utl::ConfigManager::IsFuzzing())
         {
             SvxAsianConfig aAsian;
-            Sequence<lang::Locale> aLocales =  aAsian.GetStartEndCharLocales();
+            const Sequence<lang::Locale> aLocales =  aAsian.GetStartEndCharLocales();
             for(const lang::Locale& rLocale : aLocales)
             {
                 ForbiddenCharacters aForbidden;
@@ -373,7 +373,7 @@ SwDocShell::SwDocShell( SwDoc *const pD, SfxObjectCreateMode const eMode )
 // Dtor
 SwDocShell::~SwDocShell()
 {
-    // disable chart related objects now because in ~SwDoc it may be to late for this
+    // disable chart related objects now because in ~SwDoc it may be too late for this
     if (m_xDoc)
     {
         m_xDoc->getIDocumentChartDataProviderAccess().GetChartControllerHelper().Disconnect();
@@ -386,7 +386,7 @@ SwDocShell::~SwDocShell()
     m_pFontList.reset();
 
     // we, as BroadCaster also become our own Listener
-    // (for DocInfo/FileNames/....)
+    // (for DocInfo/FileNames/...)
     EndListening( *this );
 
     m_pOLEChildList.reset();
@@ -397,7 +397,7 @@ void  SwDocShell::Init_Impl()
     SetPool(&SW_MOD()->GetPool());
     SetBaseModel(new SwXTextDocument(this));
     // we, as BroadCaster also become our own Listener
-    // (for DocInfo/FileNames/....)
+    // (for DocInfo/FileNames/...)
     StartListening( *this );
     //position of the "Automatic" style filter for the stylist (app.src)
     SetAutoStyleFilterIndex(3);
@@ -597,7 +597,7 @@ bool  SwDocShell::LoadFrom( SfxMedium& rMedium )
     do {        // middle check loop
         ErrCode nErr = ERR_SWG_READ_ERROR;
         OUString aStreamName = "styles.xml";
-        uno::Reference < container::XNameAccess > xAccess( rMedium.GetStorage(), uno::UNO_QUERY );
+        uno::Reference < container::XNameAccess > xAccess = rMedium.GetStorage();
         if ( xAccess->hasByName( aStreamName ) && rMedium.GetStorage()->isStreamElement( aStreamName ) )
         {
             // Loading

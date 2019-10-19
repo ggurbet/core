@@ -28,11 +28,8 @@
 
 #include <cmath>
 #include <rtl/crc.h>
-#include <rtl/alloc.h>
 #include <tools/zcodec.hxx>
 #include <tools/stream.hxx>
-#include <vcl/bitmapaccess.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/alpha.hxx>
 #include <osl/endian.h>
 #include <bitmapwriteaccess.hxx>
@@ -125,7 +122,7 @@ private:
     sal_uInt8           mnInterlaceType;
     const BitmapColor   mcTranspColor;  // transparency mask's transparency "color"
     const BitmapColor   mcOpaqueColor;  // transparency mask's opaque "color"
-    bool                mbTransparent : 1;  // graphic includes an tRNS Chunk or an alpha Channel
+    bool                mbTransparent : 1;  // graphic includes a tRNS Chunk or an alpha Channel
     bool                mbAlphaChannel : 1; // is true for ColorType 4 and 6
     bool                mbRGBTriple : 1;
     bool                mbPalette : 1;      // false if we need a Palette
@@ -907,7 +904,7 @@ void PNGReaderImpl::ImplReadIDAT()
         if ( !mbzCodecInUse )
         {
             mbzCodecInUse = true;
-            mpZCodec.BeginCompression( ZCODEC_NO_COMPRESSION, true );
+            mpZCodec.BeginCompression( ZCODEC_NO_COMPRESSION );
         }
         mpZCodec.SetBreak( mnChunkLen );
         SvMemoryStream aIStrm( &(*maDataIter), mnChunkLen, StreamMode::READ );

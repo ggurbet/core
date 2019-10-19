@@ -82,7 +82,6 @@ bool lcl_UpdateCurrentSeriesName(weld::TreeView& rOutListBox)
 
 OUString lcl_GetSelectedRole(const weld::TreeView& rRoleListBox, bool bUITranslated = false)
 {
-    OUString aResult;
     int nEntry = rRoleListBox.get_selected_index();
     if (nEntry != -1)
     {
@@ -91,7 +90,7 @@ OUString lcl_GetSelectedRole(const weld::TreeView& rRoleListBox, bool bUITransla
         ::chart::SeriesEntry* pEntry = reinterpret_cast<::chart::SeriesEntry*>(rRoleListBox.get_id(nEntry).toInt64());
         return pEntry->m_sRole;
     }
-    return aResult;
+    return OUString();
 }
 
 OUString lcl_GetSelectedRolesRange( const weld::TreeView& rRoleListBox )
@@ -109,15 +108,6 @@ OUString lcl_GetSequenceNameForLabel(const ::chart::SeriesEntry* pEntry)
     if (pEntry && pEntry->m_xChartType.is())
         aResult = pEntry->m_xChartType->getRoleOfSequenceForSeriesLabel();
     return aResult;
-}
-
-void lcl_enableRangeChoosing( bool bEnable, Dialog * pDialog )
-{
-    if( pDialog )
-    {
-        pDialog->SetModalInputMode( !bEnable );
-        pDialog->Show( !bEnable );
-    }
 }
 
 void lcl_enableRangeChoosing(bool bEnable, weld::DialogController* pDialog)
@@ -168,19 +158,16 @@ Reference< chart2::data::XLabeledDataSequence > lcl_findLSequenceWithOnlyLabel(
 namespace chart
 {
 
-DataSourceTabPage::DataSourceTabPage(TabPageParent pParent, DialogModel & rDialogModel,
+DataSourceTabPage::DataSourceTabPage(weld::Container* pPage, weld::DialogController* pController,
+                                     DialogModel & rDialogModel,
                                      ChartTypeTemplateProvider* pTemplateProvider,
-                                     Dialog * pParentDialog,
                                      bool bHideDescription /* = false */)
-    : ::svt::OWizardPage(pParent, "modules/schart/ui/tp_DataSource.ui", "tp_DataSource")
+    : ::vcl::OWizardPage(pPage, pController, "modules/schart/ui/tp_DataSource.ui", "tp_DataSource")
     , m_pTemplateProvider(pTemplateProvider)
     , m_rDialogModel(rDialogModel)
     , m_pCurrentRangeChoosingField( nullptr )
     , m_bIsDirty( false )
-    , m_pParentDialog( pParentDialog )
-    , m_pParentController(pParent.pController)
-    , m_pTabPageNotifiable(pParentDialog ? dynamic_cast<TabPageNotifiable*>(pParentDialog)
-                                         : dynamic_cast<TabPageNotifiable*>(m_pParentController))
+    , m_pTabPageNotifiable(dynamic_cast<TabPageNotifiable*>(pController))
     , m_xFT_CAPTION(m_xBuilder->weld_label("FT_CAPTION_FOR_WIZARD"))
     , m_xFT_SERIES(m_xBuilder->weld_label("FT_SERIES"))
     , m_xLB_SERIES(m_xBuilder->weld_tree_view("LB_SERIES"))
@@ -205,7 +192,7 @@ DataSourceTabPage::DataSourceTabPage(TabPageParent pParent, DialogModel & rDialo
     m_xFT_CAPTION->set_visible(!bHideDescription);
 
     m_aFixedTextRange = m_xFT_RANGE->get_label();
-    SetText( SchResId( STR_OBJECT_DATASERIES_PLURAL ) );
+    SetPageTitle(SchResId(STR_OBJECT_DATASERIES_PLURAL));
 
     // set handlers
     m_xLB_SERIES->connect_changed(LINK(this, DataSourceTabPage, SeriesSelectionChangedHdl));
@@ -248,18 +235,11 @@ void DataSourceTabPage::InsertRoleLBEntry(const OUString& rRole, const OUString&
 
 DataSourceTabPage::~DataSourceTabPage()
 {
-    disposeOnce();
 }
 
-void DataSourceTabPage::dispose()
+void DataSourceTabPage::Activate()
 {
-    m_pParentDialog.clear();
-    ::svt::OWizardPage::dispose();
-}
-
-void DataSourceTabPage::ActivatePage()
-{
-    OWizardPage::ActivatePage();
+    OWizardPage::Activate();
     updateControlsFromDialogModel();
     m_xLB_SERIES->grab_focus();
 }
@@ -268,18 +248,18 @@ void DataSourceTabPage::initializePage()
 {
 }
 
-void DataSourceTabPage::DeactivatePage()
+void DataSourceTabPage::Deactivate()
 {
     commitPage();
-    svt::OWizardPage::DeactivatePage();
+    vcl::OWizardPage::Deactivate();
 }
 
 void DataSourceTabPage::commitPage()
 {
-    commitPage(::svt::WizardTypes::eFinish);
+    commitPage(::vcl::WizardTypes::eFinish);
 }
 
-bool DataSourceTabPage::commitPage( ::svt::WizardTypes::CommitPageReason /*eReason*/ )
+bool DataSourceTabPage::commitPage( ::vcl::WizardTypes::CommitPageReason /*eReason*/ )
 {
     //ranges may have been edited in the meanwhile (dirty is true in that case here)
     if( isValid() )
@@ -549,8 +529,7 @@ IMPL_LINK_NOARG(DataSourceTabPage, MainRangeButtonClickedHdl, weld::Button&, voi
                                       m_xLB_SERIES->get_text(nEntry));
         }
 
-        lcl_enableRangeChoosing( true, m_pParentDialog );
-        lcl_enableRangeChoosing( true, m_pParentController );
+        lcl_enableRangeChoosing(true, m_pDialogController);
         m_rDialogModel.getRangeSelectionHelper()->chooseRange( aSelectedRolesRange, aUIStr, *this );
     }
     else
@@ -566,8 +545,7 @@ IMPL_LINK_NOARG(DataSourceTabPage, CategoriesRangeButtonClickedHdl, weld::Button
         return;
 
     OUString aStr(SchResId(m_xFT_CATEGORIES->get_visible() ? STR_DATA_SELECT_RANGE_FOR_CATEGORIES : STR_DATA_SELECT_RANGE_FOR_DATALABELS));
-    lcl_enableRangeChoosing(true, m_pParentDialog);
-    lcl_enableRangeChoosing(true, m_pParentController);
+    lcl_enableRangeChoosing(true, m_pDialogController);
     m_rDialogModel.getRangeSelectionHelper()->chooseRange(
         m_rDialogModel.getCategoriesRange(), aStr, *this );
 }
@@ -721,8 +699,6 @@ void DataSourceTabPage::listeningFinished(
     m_rDialogModel.getRangeSelectionHelper()->stopRangeListening();
 
     // change edit field
-    ToTop();
-    GrabFocus();
     if( m_pCurrentRangeChoosingField )
     {
         m_pCurrentRangeChoosingField->set_text(aRange);
@@ -747,8 +723,7 @@ void DataSourceTabPage::listeningFinished(
     m_pCurrentRangeChoosingField = nullptr;
 
     updateControlState();
-    lcl_enableRangeChoosing(false, m_pParentDialog);
-    lcl_enableRangeChoosing(false, m_pParentController);
+    lcl_enableRangeChoosing(false, m_pDialogController);
 }
 
 void DataSourceTabPage::disposingRangeSelection()

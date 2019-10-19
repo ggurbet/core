@@ -209,7 +209,7 @@ namespace pcr
 
         OUString lcl_getEventPropertyName( const OUString& _rListenerClassName, const OUString& _rMethodName )
         {
-            return _rListenerClassName + OUStringLiteral1(';') + _rMethodName;
+            return _rListenerClassName + OUStringChar(';') + _rMethodName;
         }
 
         ScriptEventDescriptor lcl_getAssignedScriptEvent( const EventDescription& _rEvent, const std::vector< ScriptEventDescriptor >& _rAllAssignedMacros )
@@ -250,13 +250,11 @@ namespace pcr
                 OUString sLocation = aScriptEvent.ScriptCode.copy( 0, nPrefixLen );
                 OUString sMacroPath = aScriptEvent.ScriptCode.copy( nPrefixLen + 1 );
 
-                OUStringBuffer aNewStyleSpec;
-                aNewStyleSpec.append( "vnd.sun.star.script:" );
-                aNewStyleSpec.append     ( sMacroPath );
-                aNewStyleSpec.append( "?language=Basic&location=" );
-                aNewStyleSpec.append     ( sLocation );
-
-                aScriptEvent.ScriptCode = aNewStyleSpec.makeStringAndClear();
+                aScriptEvent.ScriptCode =
+                    "vnd.sun.star.script:" +
+                    sMacroPath +
+                    "?language=Basic&location=" +
+                    sLocation;
 
                 // also, this new-style spec requires the script code to be "Script" instead of "StarBasic"
                 aScriptEvent.ScriptType = "Script";
@@ -303,7 +301,7 @@ namespace pcr
     {
     private:
         typedef std::unordered_map< OUString, ScriptEventDescriptor >  EventMap;
-        typedef std::map< EventId, EventMap::iterator >                                       EventMapIndexAccess;
+        typedef std::map< EventId, OUString >                          EventMapIndexAccess;
 
         EventMap            m_aEventNameAccess;
         EventMapIndexAccess m_aEventIndexAccess;
@@ -349,7 +347,7 @@ namespace pcr
         std::pair< EventMap::iterator, bool > insertionResult =
             m_aEventNameAccess.emplace( _rEventName, _rScriptEvent );
         OSL_ENSURE( insertionResult.second, "EventHolder::addEvent: there already was a MacroURL for this event!" );
-        m_aEventIndexAccess[ _nId ] = insertionResult.first;
+        m_aEventIndexAccess[ _nId ] = _rEventName;
     }
 
     ScriptEventDescriptor EventHolder::getNormalizedDescriptorByName( const OUString& _rEventName ) const
@@ -409,7 +407,7 @@ namespace pcr
         // appear in the property browser UI.
         for (auto const& elem : m_aEventIndexAccess)
         {
-            *pReturn = elem.second->first;
+            *pReturn = elem.second;
             ++pReturn;
         }
         return aReturn;
@@ -463,7 +461,7 @@ namespace pcr
 
     OUString EventHandler::getImplementationName_static(  )
     {
-        return OUString(  "com.sun.star.comp.extensions.EventHandler"  );
+        return "com.sun.star.comp.extensions.EventHandler";
     }
 
     Sequence< OUString > EventHandler::getSupportedServiceNames_static(  )
@@ -702,7 +700,8 @@ namespace pcr
                         continue;
 
                     // loop through all methods
-                    for (const OUString& rMethod : comphelper::getEventMethodsForType( rListener ))
+                    const Sequence<OUString> aEventMethods = comphelper::getEventMethodsForType( rListener );
+                    for (const OUString& rMethod : aEventMethods)
                     {
                         EventDescription aEvent;
                         if ( !lcl_getEventDescriptionForMethod( rMethod, aEvent ) )
@@ -995,7 +994,7 @@ namespace pcr
     {
         EventMap::const_iterator pos = m_aEvents.find( _rPropertyName );
         if ( pos == m_aEvents.end() )
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(_rPropertyName);
         return pos->second;
     }
 
@@ -1079,11 +1078,10 @@ namespace pcr
             Reference< XScriptEventsSupplier > xEventsSupplier( m_xComponent, UNO_QUERY_THROW );
             Reference< XNameContainer > xEvents( xEventsSupplier->getEvents(), UNO_SET_THROW );
 
-            OUStringBuffer aCompleteName;
-            aCompleteName.append( _rScriptEvent.ListenerType );
-            aCompleteName.append( "::" );
-            aCompleteName.append( _rScriptEvent.EventMethod );
-            OUString sCompleteName( aCompleteName.makeStringAndClear() );
+            OUString sCompleteName =
+                _rScriptEvent.ListenerType +
+                "::" +
+                _rScriptEvent.EventMethod;
 
             bool bExists = xEvents->hasByName( sCompleteName );
 

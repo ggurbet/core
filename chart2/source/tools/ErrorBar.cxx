@@ -209,10 +209,9 @@ OUString getSourceRangeStrFromLabeledSequences( const uno::Sequence< uno::Refere
         }
         catch (uno::Exception const &)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
             // we can't be sure that this is 100% safe and we don't want to kill the export
             // we should at least check why the exception is thrown
-            SAL_WARN("chart2", "unexpected exception! " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("chart2", "unexpected exception");
         }
         catch (...)
         {
@@ -455,7 +454,7 @@ uno::Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > SAL_CALL E
 
 OUString SAL_CALL ErrorBar::getImplementationName()
 {
-    return OUString(lcl_aServiceName);
+    return lcl_aServiceName;
 }
 
 sal_Bool SAL_CALL ErrorBar::supportsService( const OUString& rServiceName )

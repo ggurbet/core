@@ -946,12 +946,11 @@ void ImpEditEngine::WriteItemAsRTF( const SfxPoolItem& rItem, SvStream& rOutput,
                     nProp100).getStr() ).WriteChar( '}' );
             }
             long nUpDown = nFontHeight * std::abs( nEsc ) / 100;
-            OString aUpDown = OString::number(
-                nUpDown);
             if ( nEsc < 0 )
-                rOutput.WriteCharPtr( OOO_STRING_SVTOOLS_RTF_DN ).WriteCharPtr( aUpDown.getStr() );
+                rOutput.WriteCharPtr( OOO_STRING_SVTOOLS_RTF_DN );
             else if ( nEsc > 0 )
-                rOutput.WriteCharPtr( OOO_STRING_SVTOOLS_RTF_UP ).WriteCharPtr( aUpDown.getStr() );
+                rOutput.WriteCharPtr( OOO_STRING_SVTOOLS_RTF_UP );
+            rOutput.WriteOString( OString::number(nUpDown) );
         }
         break;
     }
@@ -1041,6 +1040,7 @@ std::unique_ptr<EditTextObject> ImpEditEngine::CreateTextObject( EditSelection a
 
         // The Text...
         pC->SetText(pNode->Copy(nStartPos, nEndPos-nStartPos));
+        auto& rCAttriblist = pC->GetCharAttribs();
 
         // and the Attribute...
         sal_uInt16 nAttr = 0;
@@ -1068,7 +1068,7 @@ std::unique_ptr<EditTextObject> ImpEditEngine::CreateTextObject( EditSelection a
                 if ( !pX->GetLen() && !bEmptyPara )
                     pTxtObj->mpImpl->DestroyAttrib(std::move(pX));
                 else
-                    pC->GetCharAttribs().push_back(std::move(pX));
+                    rCAttriblist.push_back(std::move(pX));
             }
             nAttr++;
             pAttr = GetAttrib( pNode->GetCharAttribs().GetAttribs(), nAttr );
@@ -1213,7 +1213,7 @@ EditSelection ImpEditEngine::InsertTextObject( const EditTextObject& rTextObject
             bool bUpdateFields = false;
             for (size_t nAttr = 0; nAttr < nNewAttribs; ++nAttr)
             {
-                const XEditAttribute& rX = *pC->GetCharAttribs()[nAttr].get();
+                const XEditAttribute& rX = *pC->GetCharAttribs()[nAttr];
                 // Can happen when paragraphs > 16K, it is simply wrapped.
                     //TODO! Still true, still needed?
                 if ( rX.GetEnd() <= aPaM.GetNode()->Len() )
@@ -1830,7 +1830,7 @@ Reference< XSpellAlternatives > ImpEditEngine::ImpSpell( EditView* pEditView )
             if ( cNext == '.' )
             {
                 aCurSel.Max().SetIndex( aCurSel.Max().GetIndex()+1 );
-                aWord += OUStringLiteral1(cNext);
+                aWord += OUStringChar(cNext);
             }
         }
 
@@ -1880,7 +1880,7 @@ Reference< XSpellAlternatives > ImpEditEngine::ImpFindNextError(EditSelection& r
             if ( cNext == '.' )
             {
                 aCurSel.Max().SetIndex( aCurSel.Max().GetIndex()+1 );
-                aWord += OUStringLiteral1(cNext);
+                aWord += OUStringChar(cNext);
             }
         }
 
@@ -2279,7 +2279,7 @@ void ImpEditEngine::DoOnlineSpelling( ContentNode* pThisNodeOnly, bool bSpellAtC
                             }
                             else
                             {
-                                // It may be that the Wrongs in the list ar not
+                                // It may be that the Wrongs in the list are not
                                 // spanning exactly over words because the
                                 // WordDelimiters during expansion are not
                                 // evaluated.
@@ -2351,7 +2351,7 @@ void ImpEditEngine::DoOnlineSpelling( ContentNode* pThisNodeOnly, bool bSpellAtC
                             aClipRect.Intersection( pView->GetVisArea() );
                             if ( !aClipRect.IsEmpty() )
                             {
-                                // convert to window coordinates ....
+                                // convert to window coordinates...
                                 aClipRect.SetPos( pView->pImpEditView->GetWindowPos( aClipRect.TopLeft() ) );
                                 pView->pImpEditView->InvalidateAtWindow(aClipRect);
                             }
@@ -2364,7 +2364,7 @@ void ImpEditEngine::DoOnlineSpelling( ContentNode* pThisNodeOnly, bool bSpellAtC
                     aInvalidRect = tools::Rectangle();
                 }
             }
-            // After two corrected nodes give up the control ...
+            // After two corrected nodes give up the control...
             nInvalids++;
             if ( bInterruptible && ( nInvalids >= 2 ) )
             {
@@ -2893,7 +2893,7 @@ EditSelection ImpEditEngine::TransliterateText( const EditSelection& rSelection,
             if ( !pUndo && IsUndoEnabled() && !IsInUndo() )
             {
                 // adjust selection to include all changes
-                for (eeTransliterationChgData & aChange : aChanges)
+                for (const eeTransliterationChgData & aChange : aChanges)
                 {
                     const EditSelection &rSel = aChange.aSelection;
                     if (aSel.Min().GetNode() == rSel.Min().GetNode() &&

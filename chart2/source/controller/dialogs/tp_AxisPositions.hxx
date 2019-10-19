@@ -27,13 +27,12 @@ namespace chart
 class AxisPositionsTabPage : public SfxTabPage
 {
 public:
-    AxisPositionsTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    AxisPositionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~AxisPositionsTabPage() override;
 
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rInAttrs );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rInAttrs );
     virtual bool FillItemSet( SfxItemSet* rOutAttrs ) override;
     virtual void Reset( const SfxItemSet* rInAttrs ) override;
-    using TabPage::DeactivatePage;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pItemSet ) override;
 
     void SetNumFormatter( SvNumberFormatter* pFormatter );

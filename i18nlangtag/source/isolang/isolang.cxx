@@ -604,7 +604,7 @@ static IsoLanguageCountryEntry const aImplIsoLangEntries[] =
     { LANGUAGE_USER_MANX,                   "gv", "GB", k0    },
     { LANGUAGE_USER_ARAGONESE,              "an", "ES", k0    },
     { LANGUAGE_USER_KEYID,                 "qtz", ""  , k0    },    // key id pseudolanguage used for UI testing
-    { LANGUAGE_USER_PALI_LATIN,            "pli", ""  , kSAME },    // Pali with Latin script, ISO 639-3 (sigh..) back-compat, Latin is not a default script though..
+    { LANGUAGE_USER_PALI_LATIN,            "pli", ""  , kSAME },    // Pali with Latin script, ISO 639-3 (sigh..) back-compat, Latin is not a default script though...
     { LANGUAGE_USER_KYRGYZ_CHINA,           "ky", "CN", k0    },
     { LANGUAGE_USER_KOMI_ZYRIAN,           "kpv", "RU", k0    },
     { LANGUAGE_USER_KOMI_PERMYAK,          "koi", "RU", k0    },
@@ -673,11 +673,13 @@ static IsoLanguageCountryEntry const aImplIsoLangEntries[] =
     { LANGUAGE_USER_FON,                   "fon", "BJ", k0    },
     { LANGUAGE_USER_PLAUTDIETSCH,          "pdt", "CA", k0    },
     { LANGUAGE_USER_ARMENIAN_WESTERN,      "hyw", "AM", k0    },
-    { LANGUAGE_USER_ARMENIAN_CLASSIC,      "xcl", "AM", k0    },
+    { LANGUAGE_USER_ARMENIAN_CLASSICAL,    "xcl", "AM", k0    },
     { LANGUAGE_USER_JUHOAN,                "ktz", "NA", k0    },
     { LANGUAGE_USER_NARO,                  "nhr", "BW", k0    },
     { LANGUAGE_USER_ILOKO,                 "ilo", "PH", k0    },
     { LANGUAGE_USER_ENGLISH_ZAMBIA,         "en", "ZM", k0    },
+    { LANGUAGE_USER_ENGLISH_SRI_LANKA,      "en", "LK", k0    },
+    { LANGUAGE_USER_ENGLISH_NIGERIA,        "en", "NG", k0    },
     { LANGUAGE_MULTIPLE,                   "mul", ""  , k0    },    // multiple languages, many languages are used
     { LANGUAGE_UNDETERMINED,               "und", ""  , k0    },    // undetermined language, language cannot be identified
     { LANGUAGE_NONE,                       "zxx", ""  , k0    },    // added to ISO 639-2 on 2006-01-11: Used to declare the absence of linguistic information

@@ -278,7 +278,7 @@ css::uno::Reference< css::embed::XStorage > PresetHandler::getOrCreateRootStorag
     return xStorage;
 }
 
-css::uno::Reference< css::embed::XStorage > PresetHandler::getWorkingStorageUser()
+css::uno::Reference< css::embed::XStorage > PresetHandler::getWorkingStorageUser() const
 {
     SolarMutexGuard g;
     return m_xWorkingStorageUser;
@@ -436,51 +436,6 @@ void PresetHandler::connectToResource(      PresetHandler::EConfigType          
         sRelPathUser  = sLocalizedUserPath;
     }
 
-    // read content of level 3 (presets, targets)
-    css::uno::Reference< css::container::XNameAccess > xAccess;
-    css::uno::Sequence< OUString > lNames;
-    const OUString*       pNames;
-    sal_Int32             c;
-    sal_Int32             i;
-    std::vector<OUString> lPresets;
-    std::vector<OUString> lTargets;
-
-    // read preset names of share layer
-    xAccess.set(xShare, css::uno::UNO_QUERY);
-    if (xAccess.is())
-    {
-        lNames  = xAccess->getElementNames();
-        pNames  = lNames.getConstArray();
-        c       = lNames.getLength();
-
-        for (i=0; i<c; ++i)
-        {
-            OUString sTemp = pNames[i];
-            sal_Int32       nPos  = sTemp.indexOf(".xml");
-            if (nPos > -1)
-                sTemp = sTemp.copy(0,nPos);
-            lPresets.push_back(sTemp);
-        }
-    }
-
-    // read preset names of user layer
-    xAccess.set(xUser, css::uno::UNO_QUERY);
-    if (xAccess.is())
-    {
-        lNames  = xAccess->getElementNames();
-        pNames  = lNames.getConstArray();
-        c       = lNames.getLength();
-
-        for (i=0; i<c; ++i)
-        {
-            OUString sTemp = pNames[i];
-            sal_Int32       nPos  = sTemp.indexOf(".xml");
-            if (nPos > -1)
-                sTemp = sTemp.copy(0,nPos);
-            lTargets.push_back(sTemp);
-        }
-    }
-
     {
         SolarMutexGuard g;
         m_xWorkingStorageShare = xShare;
@@ -524,11 +479,8 @@ void PresetHandler::copyPresetToTarget(const OUString& sPreset,
        return;
     }
 
-    OUString sPresetFile(sPreset);
-    sPresetFile += ".xml";
-
-    OUString sTargetFile(sTarget);
-    sTargetFile += ".xml";
+    OUString sPresetFile = sPreset + ".xml";
+    OUString sTargetFile = sTarget + ".xml";
 
     // remove existing elements before you try to copy the preset to that location ...
     // Otherwise w will get an ElementExistException inside copyElementTo()!
@@ -555,8 +507,7 @@ css::uno::Reference< css::io::XStream > PresetHandler::openPreset(const OUString
     if (!xFolder.is())
        return css::uno::Reference< css::io::XStream >();
 
-    OUString sFile(sPreset);
-    sFile += ".xml";
+    OUString sFile = sPreset + ".xml";
 
     // inform user about errors (use original exceptions!)
     css::uno::Reference< css::io::XStream > xStream = xFolder->openStreamElement(sFile, css::embed::ElementModes::READ);
@@ -761,12 +712,11 @@ css::uno::Reference< css::embed::XStorage > PresetHandler::impl_openLocalizedPat
 
 ::std::vector< OUString > PresetHandler::impl_getSubFolderNames(const css::uno::Reference< css::embed::XStorage >& xFolder)
 {
-    css::uno::Reference< css::container::XNameAccess > xAccess(xFolder, css::uno::UNO_QUERY);
-    if (!xAccess.is())
+    if (!xFolder.is())
         return ::std::vector< OUString >();
 
     ::std::vector< OUString >      lSubFolders;
-    const css::uno::Sequence< OUString > lNames = xAccess->getElementNames();
+    const css::uno::Sequence< OUString > lNames = xFolder->getElementNames();
     const OUString*                      pNames = lNames.getConstArray();
     sal_Int32                            c      = lNames.getLength();
     sal_Int32                            i      = 0;

@@ -17,6 +17,7 @@
 #include <com/sun/star/awt/XDevice.hpp>
 #include <com/sun/star/awt/XToolkit.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
+#include <com/sun/star/style/LineSpacing.hpp>
 #include <comphelper/propertyvalue.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/graphicfilter.hxx>
@@ -27,6 +28,8 @@
 #include <PostItMgr.hxx>
 #include <postithelper.hxx>
 #include <AnnotationWin.hxx>
+#include <flyfrm.hxx>
+#include <fmtanchr.hxx>
 
 using namespace ::com::sun::star;
 
@@ -93,7 +96,7 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testDefaultCharStyle)
     loadURL("private:factory/swriter", nullptr);
 
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XSimpleText> xBodyText(xTextDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XSimpleText> xBodyText = xTextDocument->getText();
     xBodyText->insertString(xBodyText->getStart(), "x", false);
 
     uno::Reference<text::XTextCursor> xCursor(xBodyText->createTextCursor());
@@ -129,7 +132,7 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testGraphicDesciptorURL)
 
     // Insert it.
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XText> xBodyText(xTextDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XText> xBodyText = xTextDocument->getText();
     uno::Reference<text::XTextCursor> xCursor(xBodyText->createTextCursor());
     uno::Reference<text::XTextContent> xTextContent(xTextGraphic, uno::UNO_QUERY);
     xBodyText->insertTextContent(xCursor, xTextContent, false);
@@ -159,7 +162,7 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testGraphicDesciptorURLBitmap)
 
     // Insert it.
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XText> xBodyText(xTextDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XText> xBodyText = xTextDocument->getText();
     uno::Reference<text::XTextCursor> xCursor(xBodyText->createTextCursor());
     uno::Reference<text::XTextContent> xTextContent(xTextGraphic, uno::UNO_QUERY);
     xBodyText->insertTextContent(xCursor, xTextContent, false);
@@ -173,7 +176,7 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testGraphicDesciptorURLBitmap)
 static bool ensureAutoTextExistsByTitle(const uno::Reference<text::XAutoTextGroup>& autoTextGroup,
                                         const OUString& autoTextName)
 {
-    uno::Sequence<OUString> aTitles(autoTextGroup->getTitles());
+    const uno::Sequence<OUString> aTitles(autoTextGroup->getTitles());
     for (const auto& rTitle : aTitles)
     {
         if (rTitle == autoTextName)
@@ -185,7 +188,7 @@ static bool ensureAutoTextExistsByTitle(const uno::Reference<text::XAutoTextGrou
 static bool ensureAutoTextExistsByName(const uno::Reference<text::XAutoTextGroup>& autoTextGroup,
                                        const OUString& autoTextName)
 {
-    uno::Sequence<OUString> aTitles(autoTextGroup->getElementNames());
+    const uno::Sequence<OUString> aTitles(autoTextGroup->getElementNames());
     for (const auto& rTitle : aTitles)
     {
         if (rTitle == autoTextName)
@@ -209,8 +212,8 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testXAutoTextGroup)
     const OUString sTextTitleNew = "Test Auto Text Renamed";
 
     // Create new temporary group
-    uno::Reference<text::XAutoTextGroup> xAutoTextGroup(
-        xAutoTextContainer->insertNewByName(sGroupName), uno::UNO_QUERY);
+    uno::Reference<text::XAutoTextGroup> xAutoTextGroup
+        = xAutoTextContainer->insertNewByName(sGroupName);
     CPPUNIT_ASSERT_MESSAGE("AutoTextGroup was not found!", xAutoTextGroup.is());
 
     // Insert new element and ensure it exists
@@ -287,7 +290,7 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testXURI)
     CPPUNIT_ASSERT_EQUAL(OUString("somedata"), xURIcreate->getLocalName());
     CPPUNIT_ASSERT_EQUAL(OUString("http://example.com/url#somedata"), xURIcreate->getStringValue());
 
-    // create() without local name splitted with "/"
+    // create() without local name split with "/"
     uno::Reference<rdf::XURI> xURIcreate2(rdf::URI::create(xContext, "http://example.com/url"),
                                           uno::UNO_SET_THROW);
     CPPUNIT_ASSERT_EQUAL(OUString("http://example.com/"), xURIcreate2->getNamespace());
@@ -338,7 +341,7 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testSetPagePrintSettings)
     loadURL("private:factory/swriter", nullptr);
 
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XSimpleText> xBodyText(xTextDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XSimpleText> xBodyText = xTextDocument->getText();
     xBodyText->insertString(xBodyText->getStart(), "x", false);
 
     uno::Reference<text::XPagePrintable> xPagePrintable(mxComponent, uno::UNO_QUERY);
@@ -478,7 +481,7 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testPasteListener)
 
     // Insert initial string.
     uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
-    uno::Reference<text::XSimpleText> xBodyText(xTextDocument->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XSimpleText> xBodyText = xTextDocument->getText();
     xBodyText->insertString(xBodyText->getStart(), "ABCDEF", false);
 
     // Add paste listener.
@@ -521,6 +524,17 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testPasteListener)
     OUString aGraphicURL = m_directories.getURLFromSrc(DATA_DIRECTORY) + "test.jpg";
     rView.InsertGraphic(aGraphicURL, OUString(), /*bAsLink=*/false,
                         &GraphicFilter::GetGraphicFilter());
+
+    // Test that the pasted image is anchored as-char.
+    SwFlyFrame* pFly = pWrtShell->GetSelectedFlyFrame();
+    CPPUNIT_ASSERT(pFly);
+    SwFrameFormat* pFlyFormat = pFly->GetFormat();
+    CPPUNIT_ASSERT(pFlyFormat);
+    RndStdIds eFlyAnchor = pFlyFormat->GetAnchor().GetAnchorId();
+    // Without the working image listener in place, this test would have
+    // failed, eFlyAnchor was FLY_AT_PARA.
+    CPPUNIT_ASSERT_EQUAL(RndStdIds::FLY_AS_CHAR, eFlyAnchor);
+
     pTransfer->Cut();
     pListener->GetString().clear();
     SwTransferable::Paste(*pWrtShell, aHelper);
@@ -577,6 +591,108 @@ CPPUNIT_TEST_FIXTURE(SwUnoWriter, testImageCommentAtChar)
         const SwRect& rAnchor = pItem->pPostIt->GetAnchorRect();
         CPPUNIT_ASSERT_GREATEREQUAL(static_cast<long>(5892), rAnchor.Left());
     }
+}
+
+CPPUNIT_TEST_FIXTURE(SwUnoWriter, testViewCursorPageStyle)
+{
+    // Load a document with 2 pages, but a single paragraph.
+    load(mpTestDocumentPath, "view-cursor-page-style.fodt");
+    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xModel.is());
+    uno::Reference<text::XTextViewCursorSupplier> xController(xModel->getCurrentController(),
+                                                              uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xController.is());
+    uno::Reference<text::XPageCursor> xViewCursor(xController->getViewCursor(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xViewCursor.is());
+
+    // Go to the first page, which has an explicit page style.
+    xViewCursor->jumpToPage(1);
+    OUString aActualPageStyleName = getProperty<OUString>(xViewCursor, "PageStyleName");
+    CPPUNIT_ASSERT_EQUAL(OUString("First Page"), aActualPageStyleName);
+
+    // Go to the second page, which is still the first paragraph, but the page style is different,
+    // as the explicit 'First Page' page style has a next style defined (Standard).
+    xViewCursor->jumpToPage(2);
+    aActualPageStyleName = getProperty<OUString>(xViewCursor, "PageStyleName");
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: Standard
+    // - Actual  : First Page
+    // i.e. the cursor position was determined only based on the node index, ignoring the content
+    // index.
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"), aActualPageStyleName);
+}
+
+CPPUNIT_TEST_FIXTURE(SwUnoWriter, testXTextCursor_setPropertyValues)
+{
+    // Create a new document, type a character, pass a set of property/value pairs consisting of one
+    // unknown property and CharStyleName, assert that it threw UnknownPropertyException (actually
+    // wrapped into WrappedTargetException), and assert the style was set, not discarded.
+    loadURL("private:factory/swriter", nullptr);
+
+    uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
+    uno::Reference<text::XSimpleText> xBodyText = xTextDocument->getText();
+    xBodyText->insertString(xBodyText->getStart(), "x", false);
+
+    uno::Reference<text::XTextCursor> xCursor(xBodyText->createTextCursor());
+    xCursor->goLeft(1, true);
+
+    uno::Reference<beans::XMultiPropertySet> xCursorProps(xCursor, uno::UNO_QUERY);
+    uno::Sequence<OUString> aPropNames = { "OneUnknownProperty", "CharStyleName" };
+    uno::Sequence<uno::Any> aPropValues = { uno::Any(), uno::Any(OUString("Emphasis")) };
+    CPPUNIT_ASSERT_THROW(xCursorProps->setPropertyValues(aPropNames, aPropValues),
+                         lang::WrappedTargetException);
+    CPPUNIT_ASSERT_EQUAL(OUString("Emphasis"),
+                         getProperty<OUString>(xCursorProps, "CharStyleName"));
+}
+
+CPPUNIT_TEST_FIXTURE(SwUnoWriter, testShapeAllowOverlap)
+{
+    // Test the AllowOverlap frame/shape property.
+
+    // Create a new document and insert a rectangle.
+    loadURL("private:factory/swriter", nullptr);
+    uno::Reference<lang::XMultiServiceFactory> xDocument(mxComponent, uno::UNO_QUERY);
+    awt::Point aPoint(1000, 1000);
+    awt::Size aSize(10000, 10000);
+    uno::Reference<drawing::XShape> xShape(
+        xDocument->createInstance("com.sun.star.drawing.RectangleShape"), uno::UNO_QUERY);
+    xShape->setPosition(aPoint);
+    xShape->setSize(aSize);
+    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(xDocument, uno::UNO_QUERY);
+    xDrawPageSupplier->getDrawPage()->add(xShape);
+
+    // The property is on by default, turn it off & verify.
+    uno::Reference<beans::XPropertySet> xShapeProperties(xShape, uno::UNO_QUERY);
+    xShapeProperties->setPropertyValue("AllowOverlap", uno::makeAny(false));
+    CPPUNIT_ASSERT(!getProperty<bool>(xShapeProperties, "AllowOverlap"));
+
+    // Turn it back to on & verify.
+    xShapeProperties->setPropertyValue("AllowOverlap", uno::makeAny(true));
+    CPPUNIT_ASSERT(getProperty<bool>(xShapeProperties, "AllowOverlap"));
+}
+
+CPPUNIT_TEST_FIXTURE(SwUnoWriter, testTextConvertToTableLineSpacing)
+{
+    // Load a document which has a table with a single cell.
+    // The cell has both a table style and a paragraph style, with different line spacing
+    // heights.
+    load(mpTestDocumentPath, "table-line-spacing.docx");
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(),
+                                                    uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<table::XCell> xCell = xTable->getCellByName("A1");
+    uno::Reference<text::XText> xCellText(xCell, uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xParagraph = getParagraphOfText(1, xCellText);
+    style::LineSpacing aLineSpacing
+        = getProperty<style::LineSpacing>(xParagraph, "ParaLineSpacing");
+    // Make sure that we take the line spacing from the paragraph style, not from the table style.
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 388
+    // - Actual  : 635
+    // I.e. the 360 twips line spacing was taken from the table style, not the 220 twips one from
+    // the paragraph style.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(convertTwipToMm100(220)), aLineSpacing.Height);
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

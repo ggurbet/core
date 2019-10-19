@@ -21,10 +21,8 @@
 
 #include <ViewShell.hxx>
 #include <ViewShellBase.hxx>
-#include <slideshow.hxx>
 #include "slideshowimpl.hxx"
 #include <framework/FrameworkHelper.hxx>
-#include <framework/ConfigurationController.hxx>
 
 #include <com/sun/star/drawing/framework/XControllerManager.hpp>
 #include <com/sun/star/drawing/framework/XConfigurationController.hpp>
@@ -60,14 +58,13 @@ PaneHider::PaneHider (const ViewShell& rViewShell, SlideshowImpl* pSlideShow)
             if (mxConfiguration.is())
             {
                 // Iterate over the resources and deactivate the panes.
-                Sequence<Reference<XResourceId> > aResources (
+                const Sequence<Reference<XResourceId> > aResources (
                     mxConfiguration->getResources(
                         nullptr,
                         framework::FrameworkHelper::msPaneURLPrefix,
                         AnchorBindingMode_DIRECT));
-                for (sal_Int32 nIndex=0; nIndex<aResources.getLength(); ++nIndex)
+                for (const Reference<XResourceId>& xPaneId : aResources)
                 {
-                    Reference<XResourceId> xPaneId (aResources[nIndex]);
                     if ( xPaneId->getResourceURL() != FrameworkHelper::msCenterPaneURL )
                     {
                         mxConfigurationController->requestResourceDeactivation(xPaneId);

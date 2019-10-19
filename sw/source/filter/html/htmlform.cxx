@@ -18,6 +18,7 @@
  */
 
 #include <hintids.hxx>
+#include <comphelper/documentinfo.hxx>
 #include <comphelper/string.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
@@ -321,7 +322,7 @@ const uno::Reference< drawing::XShapes > & SwHTMLForm_Impl::GetShapes()
         GetDrawPage();
         if( m_xDrawPage.is() )
         {
-            m_xShapes.set( m_xDrawPage, UNO_QUERY );
+            m_xShapes = m_xDrawPage;
             OSL_ENSURE( m_xShapes.is(),
                     "XShapes not received from drawing::XDrawPage" );
         }
@@ -495,11 +496,7 @@ void SwHTMLImageWatcher::init( sal_Int32 Width, sal_Int32 Height )
         // To get to the SwXShape* we need an interface that is implemented by SwXShape
 
         uno::Reference< beans::XPropertySet > xPropSet( xShape, UNO_QUERY );
-        uno::Reference< XUnoTunnel> xTunnel( xPropSet, UNO_QUERY );
-        SwXShape *pSwShape = xTunnel.is() ?
-                    reinterpret_cast< SwXShape * >( sal::static_int_cast< sal_IntPtr>(
-                    xTunnel->getSomething(SwXShape::getUnoTunnelId()) ))
-                : nullptr;
+        SwXShape *pSwShape = comphelper::getUnoTunnelImplementation<SwXShape>(xPropSet);
 
         OSL_ENSURE( pSwShape, "Where is SW-Shape?" );
         if( pSwShape )
@@ -649,11 +646,7 @@ void SwHTMLParser::SetControlSize( const uno::Reference< drawing::XShape >& rSha
         }
     }
 
-    uno::Reference< XUnoTunnel> xTunnel( xPropSet, UNO_QUERY );
-    SwXShape *pSwShape = xTunnel.is() ?
-        reinterpret_cast< SwXShape *>( sal::static_int_cast< sal_IntPtr >(
-            xTunnel->getSomething(SwXShape::getUnoTunnelId()) ))
-        : nullptr;
+    SwXShape *pSwShape = comphelper::getUnoTunnelImplementation<SwXShape>(xPropSet);
 
     OSL_ENSURE( pSwShape, "Where is SW-Shape?" );
 
@@ -733,7 +726,7 @@ void SwHTMLParser::SetControlSize( const uno::Reference< drawing::XShape >& rSha
     rShape->setSize( aSz );
 }
 
-static void lcl_html_setEvents(
+static bool lcl_html_setEvents(
         const uno::Reference< script::XEventAttacherManager > & rEvtMn,
         sal_uInt32 nPos, const SvxMacroTableDtor& rMacroTable,
         const std::vector<OUString>& rUnoMacroTable,
@@ -762,7 +755,7 @@ static void lcl_html_setEvents(
     }
 
     if( 0==nEvents )
-        return;
+        return false;
 
     Sequence<script::ScriptEventDescriptor> aDescs( nEvents );
     script::ScriptEventDescriptor* pDescs = aDescs.getArray();
@@ -806,8 +799,7 @@ static void lcl_html_setEvents(
 
         if(!rUnoMacroParamTable.empty())
         {
-            OUString sSearch( sListener );
-            sSearch += "-" +sMethod + "-";
+            OUString sSearch = sListener + "-" +sMethod + "-";
             sal_Int32 nLen = sSearch.getLength();
             for(const auto & rParam : rUnoMacroParamTable)
             {
@@ -820,6 +812,7 @@ static void lcl_html_setEvents(
         }
     }
     rEvtMn->registerScriptEvents( nPos, aDescs );
+    return true;
 }
 
 static void lcl_html_getEvents( const OUString& rOption, const OUString& rValue,
@@ -828,14 +821,14 @@ static void lcl_html_getEvents( const OUString& rOption, const OUString& rValue,
 {
     if( rOption.startsWithIgnoreAsciiCase( OOO_STRING_SVTOOLS_HTML_O_sdevent ) )
     {
-        OUString aEvent( rOption.copy( strlen( OOO_STRING_SVTOOLS_HTML_O_sdevent ) ) );
-        aEvent += "-" + rValue;
+        OUString aEvent = rOption.copy( strlen( OOO_STRING_SVTOOLS_HTML_O_sdevent ) ) +
+            "-" + rValue;
         rUnoMacroTable.push_back(aEvent);
     }
     else if( rOption.startsWithIgnoreAsciiCase( OOO_STRING_SVTOOLS_HTML_O_sdaddparam ) )
     {
-        OUString aParam( rOption.copy( strlen( OOO_STRING_SVTOOLS_HTML_O_sdaddparam ) ) );
-        aParam += "-" + rValue;
+        OUString aParam = rOption.copy( strlen( OOO_STRING_SVTOOLS_HTML_O_sdaddparam ) ) +
+            "-" + rValue;
         rUnoMacroParamTable.push_back(aParam);
     }
 }
@@ -1188,10 +1181,12 @@ uno::Reference< drawing::XShape > SwHTMLParser::InsertControl(
     // To prevent previous JavaScript-Events from being called, these events will only be set retroactively
     if( !rMacroTable.empty() || !rUnoMacroTable.empty() )
     {
-        lcl_html_setEvents( m_pFormImpl->GetControlEventManager(),
+        bool bHasEvents = lcl_html_setEvents( m_pFormImpl->GetControlEventManager(),
                             rFormComps->getCount() - 1,
                             rMacroTable, rUnoMacroTable, rUnoMacroParamTable,
                             GetScriptTypeString(m_pFormImpl->GetHeaderAttrs()) );
+        if (bHasEvents)
+            NotifyMacroEventRead();
     }
 
     if( bSetFCompPropSet )
@@ -1353,10 +1348,14 @@ void SwHTMLParser::NewForm( bool bAppend )
     Any aAny( &xForm, cppu::UnoType<XForm>::get());
     rForms->insertByIndex( rForms->getCount(), aAny );
     if( !aMacroTable.empty() )
-        lcl_html_setEvents( m_pFormImpl->GetFormEventManager(),
+    {
+        bool bHasEvents = lcl_html_setEvents( m_pFormImpl->GetFormEventManager(),
                             rForms->getCount() - 1,
                             aMacroTable, aUnoMacroTable, aUnoMacroParamTable,
                             rDfltScriptType );
+        if (bHasEvents)
+            NotifyMacroEventRead();
+    }
 }
 
 void SwHTMLParser::EndForm( bool bAppend )
@@ -1595,8 +1594,8 @@ void SwHTMLParser::InsertInput()
     if( !rServiceFactory.is() )
         return;
 
-    OUString sServiceName("com.sun.star.form.component.");
-    sServiceName += OUString::createFromAscii(pType);
+    OUString sServiceName = "com.sun.star.form.component." +
+        OUString::createFromAscii(pType);
     uno::Reference< XInterface > xInt =
         rServiceFactory->createInstance( sServiceName );
     if( !xInt.is() )

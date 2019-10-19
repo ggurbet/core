@@ -24,13 +24,11 @@
 #include <svtools/extcolorcfg.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
-#include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <tools/color.hxx>
 #include <unotools/configitem.hxx>
-#include <unotools/configpaths.hxx>
 #include <com/sun/star/uno/Sequence.h>
-#include <svl/poolitem.hxx>
+#include <comphelper/sequence.hxx>
 #include <svl/hint.hxx>
 #include <osl/mutex.hxx>
 #include <sal/log.hxx>
@@ -40,7 +38,6 @@
 #include <vcl/settings.hxx>
 #include <vcl/event.hxx>
 #include <rtl/instance.hxx>
-#include <rtl/strbuf.hxx>
 
 
 using namespace utl;
@@ -76,7 +73,7 @@ class ExtendedColorConfig_Impl : public utl::ConfigItem, public SfxBroadcaster
     static bool     m_bBroadcastWhenUnlocked;
 
     uno::Sequence< OUString> GetPropertyNames(const OUString& rScheme);
-    void FillComponentColors(uno::Sequence < OUString >& _rComponents,const TDisplayNames& _rDisplayNames);
+    void FillComponentColors(const uno::Sequence < OUString >& _rComponents,const TDisplayNames& _rDisplayNames);
 
     virtual void                    ImplCommit() override;
 
@@ -306,7 +303,7 @@ void ExtendedColorConfig_Impl::Load(const OUString& rScheme)
     }
 }
 
-void ExtendedColorConfig_Impl::FillComponentColors(uno::Sequence < OUString >& _rComponents,const TDisplayNames& _rDisplayNames)
+void ExtendedColorConfig_Impl::FillComponentColors(const uno::Sequence < OUString >& _rComponents,const TDisplayNames& _rDisplayNames)
 {
     const OUString sColorEntries("/Entries");
     for(OUString const & component : _rComponents)
@@ -436,11 +433,7 @@ bool ExtendedColorConfig_Impl::ExistsScheme(const OUString& _sSchemeName)
 
     uno::Sequence < OUString > aComponentNames = GetPropertyNames(sBase);
     sBase += "/" + _sSchemeName;
-    const OUString* pCompIter = aComponentNames.getConstArray();
-    const OUString* pCompEnd  = pCompIter + aComponentNames.getLength();
-    for(;pCompIter != pCompEnd && *pCompIter != sBase;++pCompIter)
-        ;
-    return pCompIter != pCompEnd;
+    return comphelper::findValue(aComponentNames, sBase) != -1;
 }
 
 void ExtendedColorConfig_Impl::SetColorConfigValue(const OUString& _sName, const ExtendedColorConfigValue& rValue )

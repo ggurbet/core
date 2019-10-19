@@ -73,7 +73,9 @@ bool DocxExportFilter::exportDocument()
     aPam.SetMark();
     aPam.Move( fnMoveBackward, GoInDoc );
 
-    std::unique_ptr<SwPaM> pCurPam( new SwPaM( *aPam.End(), *aPam.Start() ) );
+    std::shared_ptr<SwUnoCursor> pCurPam(pDoc->CreateUnoCursor(*aPam.End(), false));
+    pCurPam->SetMark();
+    *pCurPam->GetPoint() = *aPam.Start();
 
     OUString aFilterName;
     getMediaDescriptor()[utl::MediaDescriptor::PROP_FILTERNAME()] >>= aFilterName;
@@ -82,7 +84,7 @@ bool DocxExportFilter::exportDocument()
     // export the document
     // (in a separate block so that it's destructed before the commit)
     {
-        DocxExport aExport(this, pDoc, pCurPam.get(), &aPam, bDocm, isExportTemplate());
+        DocxExport aExport(this, pDoc, pCurPam, &aPam, bDocm, isExportTemplate());
         aExport.ExportDocument( true ); // FIXME support exporting selection only
     }
 
@@ -99,7 +101,7 @@ bool DocxExportFilter::exportDocument()
 
 OUString DocxExportFilter::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Writer.DocxExport");
+    return "com.sun.star.comp.Writer.DocxExport";
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*

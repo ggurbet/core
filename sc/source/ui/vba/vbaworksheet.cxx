@@ -18,14 +18,12 @@
  */
 
 #include <vbahelper/helperdecl.hxx>
-#include <cppuhelper/queryinterface.hxx>
 
 #include "vbaworksheet.hxx"
 #include "vbanames.hxx"
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/XIntrospectionAccess.hpp>
-#include <com/sun/star/beans/XIntrospection.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/util/XProtectable.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
@@ -33,30 +31,23 @@
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/sheet/XCalculatable.hpp>
 #include <com/sun/star/sheet/XCellRangeAddressable.hpp>
-#include <com/sun/star/sheet/XCellRangeReferrer.hpp>
 #include <com/sun/star/sheet/XSheetCellRange.hpp>
 #include <com/sun/star/sheet/XSheetCellCursor.hpp>
 #include <com/sun/star/sheet/XSheetAnnotationsSupplier.hpp>
 #include <com/sun/star/sheet/XUsedAreaCursor.hpp>
 #include <com/sun/star/sheet/XSpreadsheets.hpp>
-#include <com/sun/star/sheet/XSheetPastable.hpp>
-#include <com/sun/star/sheet/XCellAddressable.hpp>
 #include <com/sun/star/sheet/XSheetOutline.hpp>
 #include <com/sun/star/sheet/XSheetPageBreak.hpp>
 #include <com/sun/star/sheet/XDataPilotTablesSupplier.hpp>
 #include <com/sun/star/sheet/XNamedRanges.hpp>
-#include <com/sun/star/util/XURLTransformer.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/table/XColumnRowRange.hpp>
 #include <com/sun/star/table/XTableChartsSupplier.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
-#include <com/sun/star/form/FormComponentType.hpp>
 #include <com/sun/star/form/XFormsSupplier.hpp>
 #include <ooo/vba/excel/XApplication.hpp>
 #include <ooo/vba/excel/XlEnableSelection.hpp>
 #include <ooo/vba/excel/XlSheetVisibility.hpp>
-#include <ooo/vba/excel/XWorkbook.hpp>
 #include <ooo/vba/XControlProvider.hpp>
 
 #include <basic/sberrors.hxx>
@@ -65,18 +56,10 @@
 #include <vbahelper/vbashapes.hxx>
 
 //zhangyun showdataform
-#include <sfx2/sfxdlg.hxx>
 #include <scabstdlg.hxx>
 #include <tabvwsh.hxx>
-#include <scitems.hxx>
 
-#include <svx/svdouno.hxx>
-#include <svx/svdpage.hxx>
-
-#include <cellsuno.hxx>
-#include <drwlayer.hxx>
 #include <tabprotection.hxx>
-#include <scextopt.hxx>
 #include "excelvbahelper.hxx"
 #include "service.hxx"
 #include "vbaoutline.hxx"
@@ -84,14 +67,12 @@
 #include "vbacomments.hxx"
 #include "vbachartobjects.hxx"
 #include "vbapivottables.hxx"
-#include "vbaoleobject.hxx"
 #include "vbaoleobjects.hxx"
 #include "vbapagesetup.hxx"
 #include "vbapagebreaks.hxx"
 #include "vbaworksheets.hxx"
 #include "vbahyperlinks.hxx"
 #include "vbasheetobjects.hxx"
-#include <markdata.hxx>
 #include <dbdata.hxx>
 
 #include <attrib.hxx>
@@ -203,8 +184,7 @@ ScVbaWorksheet::createSheetCopyInNewDoc(const OUString& aCurrSheetName)
 {
     uno::Reference< sheet::XSheetCellCursor > xSheetCellCursor = getSheet()->createCursor( );
     uno::Reference<sheet::XUsedAreaCursor> xUsedCursor(xSheetCellCursor,uno::UNO_QUERY_THROW);
-    uno::Reference< table::XCellRange > xRange1( xSheetCellCursor, uno::UNO_QUERY);
-    uno::Reference<excel::XRange> xRange =  new ScVbaRange( this, mxContext, xRange1);
+    uno::Reference<excel::XRange> xRange =  new ScVbaRange( this, mxContext, xSheetCellCursor);
     if (xRange.is())
         xRange->Select();
     excel::implnCopy(mxModel);
@@ -431,8 +411,7 @@ ScVbaWorksheet::getUsedRange()
     uno::Reference<sheet::XUsedAreaCursor> xUsedCursor(xSheetCellCursor,uno::UNO_QUERY_THROW);
     xUsedCursor->gotoStartOfUsedArea( false );
     xUsedCursor->gotoEndOfUsedArea( true );
-    uno::Reference< table::XCellRange > xRange( xSheetCellCursor, uno::UNO_QUERY);
-    return new ScVbaRange(this, mxContext, xRange);
+    return new ScVbaRange(this, mxContext, xSheetCellCursor);
 }
 
 uno::Reference< excel::XOutline >
@@ -541,9 +520,8 @@ ScVbaWorksheet::Move( const uno::Any& Before, const uno::Any& After )
     {
         uno::Reference< sheet::XSheetCellCursor > xSheetCellCursor = getSheet()->createCursor( );
         uno::Reference<sheet::XUsedAreaCursor> xUsedCursor(xSheetCellCursor,uno::UNO_QUERY_THROW);
-        uno::Reference< table::XCellRange > xRange1( xSheetCellCursor, uno::UNO_QUERY);
         // #FIXME needs worksheet as parent
-        uno::Reference<excel::XRange> xRange =  new ScVbaRange( this, mxContext, xRange1);
+        uno::Reference<excel::XRange> xRange =  new ScVbaRange( this, mxContext, xSheetCellCursor);
         if (xRange.is())
             xRange->Select();
         excel::implnCopy(mxModel);
@@ -938,7 +916,7 @@ ScVbaWorksheet::hasMethod( const OUString& /*aName*/ )
 }
 
 uno::Reference< container::XNameAccess >
-ScVbaWorksheet::getFormControls()
+ScVbaWorksheet::getFormControls() const
 {
     uno::Reference< container::XNameAccess > xFormControls;
     try
@@ -978,7 +956,7 @@ ScVbaWorksheet::getControlShape( const OUString& sName )
     // thiscomponent.currentcontroller.getControl( controlModel ) )
     // and the thing to realise is that it is only possible to get an XControl
     // for a currently displayed control :-( often we would want to modify
-    // a control not on the active sheet. But.. you can always access the
+    // a control not on the active sheet. But... you can always access the
     // XControlShape from the DrawPage whether that is the active drawpage or not
 
     uno::Reference< drawing::XDrawPageSupplier > xDrawPageSupplier( getSheet(), uno::UNO_QUERY_THROW );
@@ -1005,7 +983,7 @@ ScVbaWorksheet::getControlShape( const OUString& sName )
 OUString
 ScVbaWorksheet::getServiceImplName()
 {
-    return OUString("ScVbaWorksheet");
+    return "ScVbaWorksheet";
 }
 
 void SAL_CALL
@@ -1039,7 +1017,7 @@ ScVbaWorksheet::getCodeName()
 }
 
 sal_Int16
-ScVbaWorksheet::getSheetID()
+ScVbaWorksheet::getSheetID() const
 {
     uno::Reference< sheet::XCellRangeAddressable > xAddressable( mxSheet, uno::UNO_QUERY_THROW ); // if ActiveSheet, mxSheet is null.
     return xAddressable->getRangeAddress().Sheet;
@@ -1064,8 +1042,7 @@ ScVbaWorksheet::PrintOut( const uno::Any& From, const uno::Any& To, const uno::A
 sal_Int64 SAL_CALL
 ScVbaWorksheet::getSomething(const uno::Sequence<sal_Int8 > & rId)
 {
-    if (rId.getLength() == 16 &&
-        0 == memcmp( ScVbaWorksheet::getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ))
+    if (isUnoTunnelId<ScVbaWorksheet>(rId))
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }

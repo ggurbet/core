@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/field.hxx>
-#include <vcl/fixed.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/weld.hxx>
 #include <i18nlangtag/languagetag.hxx>
@@ -26,36 +24,24 @@
 #include <unotools/lingucfg.hxx>
 #include <unotools/linguprops.hxx>
 #include <editeng/unolingu.hxx>
-#include <svx/dlgutil.hxx>
-#include <linguistic/lngprops.hxx>
 #include <linguistic/misc.hxx>
-#include <sfx2/sfxuno.hxx>
-#include <sfx2/dispatch.hxx>
 #include <sfx2/sfxsids.hrc>
+#include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/diagnose_ex.h>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/linguistic2/LinguServiceManager.hpp>
 #include <com/sun/star/linguistic2/XSpellChecker.hpp>
 #include <com/sun/star/linguistic2/XProofreader.hpp>
 #include <com/sun/star/linguistic2/XHyphenator.hpp>
 #include <com/sun/star/linguistic2/XThesaurus.hpp>
-#include <com/sun/star/linguistic2/XAvailableLocales.hpp>
 #include <com/sun/star/linguistic2/XDictionary.hpp>
 #include <com/sun/star/linguistic2/XDictionaryList.hpp>
 #include <com/sun/star/linguistic2/XLinguProperties.hpp>
 #include <com/sun/star/lang/XServiceDisplayName.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
-#include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <unotools/extendedsecurityoptions.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/treelistbox.hxx>
-#include <vcl/treelistentry.hxx>
-#include <svtools/langhelp.hxx>
 #include <svl/eitem.hxx>
-#include <svl/intitem.hxx>
-#include <sfx2/viewfrm.hxx>
 #include <vcl/svapp.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
@@ -107,15 +93,9 @@ static bool KillFile_Impl( const OUString& rURL )
         Content aCnt( rURL, uno::Reference< css::ucb::XCommandEnvironment >(), comphelper::getProcessComponentContext() );
         aCnt.executeCommand( "delete", Any( true ) );
     }
-    catch( css::ucb::CommandAbortedException& )
-    {
-        SAL_WARN( "cui.options", "KillFile: CommandAbortedException" );
-        bRet = false;
-    }
     catch( ... )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "cui.options", "KillFile: Any other exception " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "cui.options", "KillFile" );
         bRet = false;
     }
 
@@ -831,8 +811,8 @@ void SvxLinguData_Impl::Reconfigure( const OUString &rDisplayName, bool bEnable 
 
 // class SvxLinguTabPage -------------------------------------------------
 
-SvxLinguTabPage::SvxLinguTabPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/optlingupage.ui", "OptLinguPage", &rSet)
+SvxLinguTabPage::SvxLinguTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/optlingupage.ui", "OptLinguPage", &rSet)
     , sCapitalWords   (CuiResId(RID_SVXSTR_CAPITAL_WORDS))
     , sWordsWithDigits(CuiResId(RID_SVXSTR_WORDS_WITH_DIGITS))
     , sSpellSpecial   (CuiResId(RID_SVXSTR_SPELL_SPECIAL))
@@ -913,19 +893,13 @@ SvxLinguTabPage::SvxLinguTabPage(TabPageParent pParent, const SfxItemSet& rSet)
 
 SvxLinguTabPage::~SvxLinguTabPage()
 {
-    disposeOnce();
-}
-
-void SvxLinguTabPage::dispose()
-{
     pLinguData.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxLinguTabPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SvxLinguTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                             const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxLinguTabPage>::Create( pParent, *rAttrSet );
+    return std::make_unique<SvxLinguTabPage>( pPage, pController, *rAttrSet );
 }
 
 bool SvxLinguTabPage::FillItemSet( SfxItemSet* rCoreSet )
@@ -1296,7 +1270,7 @@ void SvxLinguTabPage::Reset( const SfxItemSet* rSet )
                                          m_xLinguOptionsCLB->get_height_rows(5));
 }
 
-IMPL_LINK(SvxLinguTabPage, BoxDoubleClickHdl_Impl, weld::TreeView&, rBox, void)
+IMPL_LINK(SvxLinguTabPage, BoxDoubleClickHdl_Impl, weld::TreeView&, rBox, bool)
 {
     if (&rBox == m_xLinguModulesCLB.get())
     {
@@ -1310,6 +1284,7 @@ IMPL_LINK(SvxLinguTabPage, BoxDoubleClickHdl_Impl, weld::TreeView&, rBox, void)
     {
         ClickHdl_Impl(*m_xLinguOptionsEditPB);
     }
+    return true;
 }
 
 IMPL_LINK_NOARG(SvxLinguTabPage, PostDblClickHdl_Impl, void*, void)
@@ -1342,7 +1317,7 @@ IMPL_LINK(SvxLinguTabPage, ClickHdl_Impl, weld::Button&, rBtn, void)
             pLinguData.reset( new SvxLinguData_Impl );
 
         SvxLinguData_Impl   aOldLinguData( *pLinguData );
-        SvxEditModulesDlg aDlg(GetDialogFrameWeld(), *pLinguData);
+        SvxEditModulesDlg aDlg(GetFrameWeld(), *pLinguData);
         if (aDlg.run() != RET_OK)
             *pLinguData = aOldLinguData;
 
@@ -1371,10 +1346,10 @@ IMPL_LINK(SvxLinguTabPage, ClickHdl_Impl, weld::Button&, rBtn, void)
     else if (m_xLinguDicsNewPB.get() == &rBtn)
     {
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractSvxNewDictionaryDialog> aDlg(pFact->CreateSvxNewDictionaryDialog(GetDialogFrameWeld()));
+        ScopedVclPtr<AbstractSvxNewDictionaryDialog> aDlg(pFact->CreateSvxNewDictionaryDialog(GetFrameWeld()));
         uno::Reference< XDictionary >  xNewDic;
         if ( aDlg->Execute() == RET_OK )
-            xNewDic.set( aDlg->GetNewDictionary(), UNO_QUERY );
+            xNewDic = aDlg->GetNewDictionary();
         if ( xNewDic.is() )
         {
             // add new dics to the end
@@ -1400,7 +1375,7 @@ IMPL_LINK(SvxLinguTabPage, ClickHdl_Impl, weld::Button&, rBtn, void)
                 if (xDic.is())
                 {
                     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                    ScopedVclPtr<VclAbstractDialog> aDlg(pFact->CreateSvxEditDictionaryDialog(GetDialogFrameWeld(), xDic->getName()));
+                    ScopedVclPtr<VclAbstractDialog> aDlg(pFact->CreateSvxEditDictionaryDialog(GetFrameWeld(), xDic->getName()));
                     aDlg->Execute();
                 }
             }
@@ -1408,7 +1383,7 @@ IMPL_LINK(SvxLinguTabPage, ClickHdl_Impl, weld::Button&, rBtn, void)
     }
     else if (m_xLinguDicsDelPB.get() == &rBtn)
     {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querydeletedictionarydialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querydeletedictionarydialog.ui"));
         std::unique_ptr<weld::MessageDialog> xQuery(xBuilder->weld_message_dialog("QueryDeleteDictionaryDialog"));
         if (RET_NO == xQuery->run())
             return;
@@ -1470,11 +1445,11 @@ IMPL_LINK(SvxLinguTabPage, ClickHdl_Impl, weld::Button&, rBtn, void)
         DBG_ASSERT(nEntry != -1, "no entry selected");
         if (nEntry != -1)
         {
-            OptionsUserData aData(m_xLinguOptionsCLB->get_id(nEntry).toInt32());
+            OptionsUserData aData(m_xLinguOptionsCLB->get_id(nEntry).toUInt32());
             if (aData.HasNumericValue())
             {
                 sal_uInt16 nRID = aData.GetEntryId();
-                OptionsBreakSet aDlg(GetDialogFrameWeld(), nRID);
+                OptionsBreakSet aDlg(GetFrameWeld(), nRID);
                 aDlg.GetNumericFld().set_value(aData.GetNumericValue());
                 if (RET_OK == aDlg.run())
                 {
@@ -1562,7 +1537,7 @@ SvxEditModulesDlg::SvxEditModulesDlg(weld::Window* pParent, SvxLinguData_Impl& r
     , m_xBackPB(m_xBuilder->weld_button("back"))
     , m_xMoreDictsLink(m_xBuilder->weld_link_button("moredictslink"))
     , m_xClosePB(m_xBuilder->weld_button("close"))
-    , m_xLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box("language")))
+    , m_xLanguageLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("language")))
 {
     m_xModulesCLB->set_size_request(m_xModulesCLB->get_approximate_digit_width() * 40,
                                     m_xModulesCLB->get_height_rows(12));
@@ -1661,7 +1636,7 @@ IMPL_LINK_NOARG(SvxEditModulesDlg, LangSelectListBoxHdl_Impl, weld::ComboBox&, v
     LangSelectHdl_Impl(m_xLanguageLB.get());
 }
 
-void SvxEditModulesDlg::LangSelectHdl_Impl(const LanguageBox* pBox)
+void SvxEditModulesDlg::LangSelectHdl_Impl(const SvxLanguageBox* pBox)
 {
     LanguageType  eCurLanguage = m_xLanguageLB->get_active_id();
     static Locale aLastLocale;

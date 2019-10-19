@@ -20,14 +20,12 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_COLUMN_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_COLUMN_HXX
 
-#include <vcl/timer.hxx>
 #include <svtools/ctrlbox.hxx>
 #include <svtools/valueset.hxx>
 #include <sfx2/basedlgs.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <svx/colorbox.hxx>
 #include <svx/frmdirlbox.hxx>
-#include <fmtclbl.hxx>
 #include "colex.hxx"
 #include "prcntfld.hxx"
 
@@ -39,7 +37,7 @@ class SwColumnPage;
 class SwColumnDlg : public SfxDialogController
 {
     SwWrtShell&         m_rWrtShell;
-    VclPtr<SwColumnPage>       m_pTabPage;
+    std::unique_ptr<SwColumnPage> m_xTabPage;
     std::unique_ptr<SfxItemSet> m_pPageSet;
     std::unique_ptr<SfxItemSet> m_pSectionSet;
     std::unique_ptr<SfxItemSet> m_pSelectionSet;
@@ -160,9 +158,6 @@ class SwColumnPage : public SfxTabPage
     void            ResetColWidth();
     void            SetLabels( sal_uInt16 nVis );
 
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
-
     virtual void    ActivatePage(const SfxItemSet& rSet) override;
     virtual DeactivateRC   DeactivatePage(SfxItemSet *pSet) override;
 
@@ -173,11 +168,10 @@ class SwColumnPage : public SfxTabPage
     static const sal_uInt16 aPageRg[];
 
 public:
-    SwColumnPage(TabPageParent pParent, const SfxItemSet &rSet);
+    SwColumnPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet);
     virtual ~SwColumnPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet *rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet);
     static const sal_uInt16* GetRanges() { return aPageRg; }
 
     virtual bool    FillItemSet(SfxItemSet *rSet) override;

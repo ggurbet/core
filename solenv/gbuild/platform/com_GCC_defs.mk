@@ -67,6 +67,7 @@ gb_CFLAGS_COMMON := \
 	-fmessage-length=0 \
 	-fno-common \
 	-pipe \
+	-fstack-protector-strong \
 
 gb_CXXFLAGS_COMMON := \
 	-Wall \
@@ -81,8 +82,9 @@ gb_CXXFLAGS_COMMON := \
 	-fmessage-length=0 \
 	-fno-common \
 	-pipe \
+	-fstack-protector-strong \
 
-gb_Helper_disable_warnings = $(1) -w
+gb_CXXFLAGS_DISABLE_WARNINGS = -w
 
 ifeq ($(HAVE_BROKEN_GCC_WMAYBE_UNINITIALIZED),TRUE)
 gb_CXXFLAGS_COMMON += -Wno-maybe-uninitialized
@@ -104,7 +106,10 @@ gb_LinkTarget_LDFLAGS += -Wl,--gc-sections
 endif
 
 ifeq ($(COM_IS_CLANG),TRUE)
-gb_CXXFLAGS_COMMON += -Wimplicit-fallthrough
+gb_CXXFLAGS_COMMON += \
+	-Wimplicit-fallthrough \
+	-Wunused-exception-parameter \
+	-Wrange-loop-analysis
 else
 gb_CFLAGS_COMMON += \
     -Wduplicated-cond \
@@ -126,20 +131,12 @@ endif
 
 # If CC or CXX already include -fvisibility=hidden, don't duplicate it
 ifeq (,$(filter -fvisibility=hidden,$(CC)))
-ifeq ($(NEED_CLANG_LINUX_UBSAN_RTTI_VISIBILITY),TRUE)
-gb_VISIBILITY_FLAGS := -fvisibility-ms-compat
-else
 gb_VISIBILITY_FLAGS := -fvisibility=hidden
-endif
 endif
 gb_VISIBILITY_FLAGS_CXX := -fvisibility-inlines-hidden
 gb_CXXFLAGS_COMMON += $(gb_VISIBILITY_FLAGS_CXX)
 
-ifeq ($(HAVE_GCC_STACK_PROTECTOR_STRONG),TRUE)
-gb_CFLAGS_COMMON += -fstack-protector-strong
-gb_CXXFLAGS_COMMON += -fstack-protector-strong
 gb_LinkTarget_LDFLAGS += -fstack-protector-strong
-endif
 
 ifneq ($(ENABLE_PCH),)
 ifeq ($(COM_IS_CLANG),TRUE)
@@ -224,13 +221,13 @@ gb_LinkTarget_INCLUDE :=\
 ifeq ($(COM_IS_CLANG),TRUE)
 gb_COMPILER_TEST_FLAGS := -Xclang -plugin-arg-loplugin -Xclang --unit-test-mode
 ifeq ($(COMPILER_PLUGIN_TOOL),)
-gb_COMPILER_PLUGINS := -Xclang -load -Xclang $(BUILDDIR)/compilerplugins/obj/plugin.so -Xclang -add-plugin -Xclang loplugin
+gb_COMPILER_PLUGINS := -Xclang -load -Xclang $(BUILDDIR)/compilerplugins/clang/plugin.so -Xclang -add-plugin -Xclang loplugin
 ifneq ($(COMPILER_PLUGIN_WARNINGS_ONLY),)
 gb_COMPILER_PLUGINS += -Xclang -plugin-arg-loplugin -Xclang \
     --warnings-only='$(COMPILER_PLUGIN_WARNINGS_ONLY)'
 endif
 else
-gb_COMPILER_PLUGINS := -Xclang -load -Xclang $(BUILDDIR)/compilerplugins/obj/plugin.so -Xclang -plugin -Xclang loplugin $(foreach plugin,$(COMPILER_PLUGIN_TOOL), -Xclang -plugin-arg-loplugin -Xclang $(plugin))
+gb_COMPILER_PLUGINS := -Xclang -load -Xclang $(BUILDDIR)/compilerplugins/clang/plugin.so -Xclang -plugin -Xclang loplugin $(foreach plugin,$(COMPILER_PLUGIN_TOOL), -Xclang -plugin-arg-loplugin -Xclang $(plugin))
 ifneq ($(UPDATE_FILES),)
 gb_COMPILER_PLUGINS += -Xclang -plugin-arg-loplugin -Xclang --scope=$(UPDATE_FILES)
 endif

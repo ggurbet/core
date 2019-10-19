@@ -17,13 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <unotools/syslocale.hxx>
-
 #include <svl/zforlist.hxx>
 
 #include <svl/zformat.hxx>
 #include <svl/numuno.hxx>
-#include <rtl/math.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <tools/color.hxx>
 #include <osl/diagnose.h>
@@ -2029,7 +2026,7 @@ void SvXMLNumFormatContext::AddCurrency( const OUString& rContent, LanguageType 
         if ( nLang != LANGUAGE_SYSTEM )
         {
             //  '-' sign and language code in hex:
-            aFormatCode.append("-").append(OUString::number(sal_uInt16(nLang), 16).toAsciiUpperCase());
+            aFormatCode.append("-").append(OUString(OUString::number(sal_uInt16(nLang), 16)).toAsciiUpperCase());
         }
 
         aFormatCode.append( ']' );    // end of "new" currency symbol
@@ -2240,7 +2237,7 @@ void SvXMLNumFormatContext::UpdateCalendar( const OUString& rNewCalendar, bool b
     }
 }
 
-bool SvXMLNumFormatContext::IsSystemLanguage()
+bool SvXMLNumFormatContext::IsSystemLanguage() const
 {
     return nFormatLang == LANGUAGE_SYSTEM;
 }

@@ -86,8 +86,7 @@ public:
     virtual void markLastSectionGroup() override;
 
     // BinaryObj
-    virtual void data(const sal_uInt8* buf, size_t len,
-                      writerfilter::Reference<Properties>::Pointer_t ref) override;
+    virtual void data(const sal_uInt8* buf, size_t len) override;
 
     void sprmWithProps( Sprm& sprm, const PropertyMapPtr& pContext );
 
@@ -151,7 +150,6 @@ private:
                            writerfilter::Reference<Table>::Pointer_t ref) override;
     virtual void lcl_substream(Id name,
                                ::writerfilter::Reference<Stream>::Pointer_t ref) override;
-    virtual void lcl_info(const std::string & info) override;
     virtual void lcl_startGlossaryEntry() override;
     virtual void lcl_endGlossaryEntry() override;
 
@@ -160,7 +158,9 @@ private:
     virtual void lcl_sprm(Sprm & sprm) override;
 
     // Table
-    virtual void lcl_entry(int pos, writerfilter::Reference<Properties>::Pointer_t ref) override;
+    virtual void lcl_entry(writerfilter::Reference<Properties>::Pointer_t ref) override;
+
+    void finishParagraph(const bool bRemove = false);
 
     static void handleUnderlineType(const Id nId, const ::tools::SvRef<PropertyMap>& rContext);
     void handleParaJustification(const sal_Int32 nIntValue, const ::tools::SvRef<PropertyMap>& rContext, const bool bExchangeLeftRight);

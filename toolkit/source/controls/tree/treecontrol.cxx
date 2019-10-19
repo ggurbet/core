@@ -24,12 +24,12 @@
 #include <com/sun/star/awt/tree/XTreeDataModel.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/view/SelectionType.hpp>
+#include <toolkit/controls/unocontrolbase.hxx>
 #include <toolkit/helper/property.hxx>
 #include <osl/diagnose.h>
 #include <cppuhelper/implbase.hxx>
 
 #include <helper/unopropertyarrayhelper.hxx>
-#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -77,7 +77,7 @@ rtl::Reference<UnoControlModel> UnoTreeModel::Clone() const
 
 OUString UnoTreeModel::getServiceName()
 {
-    return OUString( "com.sun.star.awt.tree.TreeControlModel" );
+    return "com.sun.star.awt.tree.TreeControlModel";
 }
 
 Any UnoTreeModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
@@ -191,7 +191,7 @@ UnoTreeControl::UnoTreeControl()
 
 OUString UnoTreeControl::GetComponentServiceName()
 {
-    return OUString("Tree");
+    return "Tree";
 }
 
 

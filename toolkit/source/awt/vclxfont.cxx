@@ -18,15 +18,11 @@
  */
 
 #include <memory>
-#include <string.h>
 
 #include <toolkit/awt/vclxfont.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <toolkit/helper/macros.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/queryinterface.hxx>
-#include <rtl/uuid.h>
-#include <rtl/ustring.h>
 
 #include <vcl/metric.hxx>
 #include <vcl/outdev.hxx>
@@ -69,33 +65,8 @@ bool VCLXFont::ImplAssertValidFontMetric()
     return mpFontMetric != nullptr;
 }
 
-
-// css::uno::XInterface
-css::uno::Any VCLXFont::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = ::cppu::queryInterface( rType,
-                                        static_cast< css::awt::XFont* >(this),
-                                        static_cast< css::awt::XFont2* >(this),
-                                        static_cast< css::lang::XUnoTunnel* >(this),
-                                        static_cast< css::lang::XTypeProvider* >(this) );
-    return (aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType ));
-}
-
 // css::lang::XUnoTunnel
 UNO3_GETIMPLEMENTATION_IMPL( VCLXFont );
-
-IMPL_IMPLEMENTATION_ID( VCLXFont )
-
-// css::lang::XTypeProvider
-css::uno::Sequence< css::uno::Type > VCLXFont::getTypes()
-{
-    static const css::uno::Sequence< css::uno::Type > aTypeList {
-        cppu::UnoType<css::lang::XTypeProvider>::get(),
-        cppu::UnoType<css::awt::XFont2>::get()
-    };
-    return aTypeList;
-}
-
 
 css::awt::FontDescriptor VCLXFont::getFontDescriptor(  )
 {

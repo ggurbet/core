@@ -90,7 +90,7 @@ class SW_DLLPUBLIC SwNode
 public:
     /// sw_redlinehide: redline node merge state
     enum class Merge { None, First, NonFirst, Hidden };
-    bool IsCreateFrameWhenHidingRedlines() {
+    bool IsCreateFrameWhenHidingRedlines() const {
         return m_eMerge == Merge::None || m_eMerge == Merge::First;
     }
     void SetRedlineMergeFlag(Merge const eMerge) { m_eMerge = eMerge; }
@@ -262,7 +262,7 @@ public:
 
     /// Is node in the visible area of the Shell?
     bool IsInVisibleArea( SwViewShell const * pSh ) const;
-    /// Is node in an protected area?
+    /// Is node in a protected area?
     bool IsInProtectSect() const;
     /**  Is node in something that is protected (range, frame,
         table cells ... including anchor in case of frames or footnotes)? */
@@ -349,7 +349,7 @@ private:
 
 // SwContentNode
 
-class SW_DLLPUBLIC SwContentNode: public SwModify, public SwNode, public SwIndexReg
+class SW_DLLPUBLIC SwContentNode: public sw::BroadcastingModify, public SwNode, public SwIndexReg
 {
 
     sw::WriterMultiListener m_aCondCollListener;
@@ -484,7 +484,7 @@ private:
 
 // SwTableNode
 
-class SW_DLLPUBLIC SwTableNode : public SwStartNode, public SwModify
+class SW_DLLPUBLIC SwTableNode : public SwStartNode, public sw::BroadcastingModify
 {
     friend class SwNodes;
     std::unique_ptr<SwTable> m_pTable;

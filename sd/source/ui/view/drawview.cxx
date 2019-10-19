@@ -17,40 +17,24 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/dispatch.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <svx/svdpagv.hxx>
-#include <sfx2/request.hxx>
 #include <svl/style.hxx>
 #include <editeng/outliner.hxx>
-#include <svx/view3d.hxx>
-#include <svx/svxids.hrc>
 #include <svx/svdotext.hxx>
-#include <svx/svdograf.hxx>
-#include <svx/svdogrp.hxx>
-#include <svx/svdorect.hxx>
 #include <svl/poolitem.hxx>
 #include <editeng/eeitem.hxx>
-#include <editeng/bulletitem.hxx>
-#include <svl/itempool.hxx>
 #include <editeng/numitem.hxx>
 #include <svl/whiter.hxx>
 #include <sal/log.hxx>
 #include <tools/debug.hxx>
 
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/objface.hxx>
-#include <stlsheet.hxx>
-
-#include <svx/svdoutl.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 
 #include <strings.hrc>
 #include <View.hxx>
-#include <sdattr.hxx>
 #include <drawview.hxx>
 #include <drawdoc.hxx>
 #include <DrawDocShell.hxx>
@@ -59,16 +43,8 @@
 #include <DrawViewShell.hxx>
 #include <pres.hxx>
 #include <sdresid.hxx>
-#include <Window.hxx>
 #include <unchss.hxx>
-#include <FrameView.hxx>
-#include <anminfo.hxx>
 #include <slideshow.hxx>
-#include <vcl/virdev.hxx>
-#include <svx/sdrpaintwindow.hxx>
-#include <svx/sdr/contact/viewobjectcontact.hxx>
-#include <svx/sdr/contact/viewcontact.hxx>
-#include <svx/sdr/contact/displayinfo.hxx>
 
 #include <undo/undomanager.hxx>
 
@@ -316,7 +292,7 @@ bool DrawView::SetAttributes(const SfxItemSet& rSet,
     return bOk;
 }
 
-void DrawView::SetMasterAttributes( SdrObject* pObject, SdPage& rPage, SfxItemSet rSet, SfxStyleSheetBasePool* pStShPool, bool& bOk, bool /*bMaster*/, bool bSlide )
+void DrawView::SetMasterAttributes( SdrObject* pObject, const SdPage& rPage, SfxItemSet rSet, SfxStyleSheetBasePool* pStShPool, bool& bOk, bool bMaster, bool bSlide )
 {
    SdrInventor nInv    = pObject->GetObjInventor();
 
@@ -365,56 +341,61 @@ void DrawView::SetMasterAttributes( SdrObject* pObject, SdPage& rPage, SfxItemSe
         }
         else if (eObjKind == OBJ_OUTLINETEXT)
         {
-            // Presentation object outline
-            for (sal_uInt16 nLevel = 9; nLevel > 0; nLevel--)
+            if (bMaster)
             {
-                OUString aName = rPage.GetLayoutName() + " " +
-                    OUString::number(nLevel);
-                SfxStyleSheet* pSheet = static_cast<SfxStyleSheet*>(pStShPool->
-                                    Find(aName, SfxStyleFamily::Page));
-                DBG_ASSERT(pSheet, "StyleSheet not found");
-
-                SfxItemSet aTempSet( pSheet->GetItemSet() );
-
-                if( nLevel > 1 )
+                // Presentation object outline
+                for (sal_uInt16 nLevel = 9; nLevel > 0; nLevel--)
                 {
-                    // for all levels over 1, clear all items that will be
-                    // hard set to level 1
-                    SfxWhichIter aWhichIter(rSet);
-                    sal_uInt16 nWhich(aWhichIter.FirstWhich());
-                    while( nWhich )
+                    OUString aName = rPage.GetLayoutName() + " " +
+                        OUString::number(nLevel);
+                    SfxStyleSheet* pSheet = static_cast<SfxStyleSheet*>(pStShPool->
+                                        Find(aName, SfxStyleFamily::Page));
+                    DBG_ASSERT(pSheet, "StyleSheet not found");
+
+                    SfxItemSet aTempSet( pSheet->GetItemSet() );
+
+                    if( nLevel > 1 )
                     {
-                        if( SfxItemState::SET == rSet.GetItemState( nWhich ) )
-                            aTempSet.ClearItem( nWhich );
-                        nWhich = aWhichIter.NextWhich();
+                        // for all levels over 1, clear all items that will be
+                        // hard set to level 1
+                        SfxWhichIter aWhichIter(rSet);
+                        sal_uInt16 nWhich(aWhichIter.FirstWhich());
+                        while( nWhich )
+                        {
+                            if( SfxItemState::SET == rSet.GetItemState( nWhich ) )
+                                aTempSet.ClearItem( nWhich );
+                            nWhich = aWhichIter.NextWhich();
+                        }
+
+                    }
+                    else
+                    {
+                        // put the items hard into level one
+                        aTempSet.Put( rSet );
                     }
 
+                    aTempSet.ClearInvalidItems();
+
+                    // Undo-Action
+                    mpDocSh->GetUndoManager()->AddUndoAction(
+                        std::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
+
+                    pSheet->GetItemSet().Set(aTempSet,false);
+                    pSheet->Broadcast(SfxHint(SfxHintId::DataChanged));
                 }
-                else
+
+                // remove all hard set items from shape that are now set in style
+                SfxWhichIter aWhichIter(rSet);
+                sal_uInt16 nWhich(aWhichIter.FirstWhich());
+                while( nWhich )
                 {
-                    // put the items hard into level one
-                    aTempSet.Put( rSet );
+                    if( SfxItemState::SET == rSet.GetItemState( nWhich ) )
+                        pObject->ClearMergedItem( nWhich );
+                    nWhich = aWhichIter.NextWhich();
                 }
-
-                aTempSet.ClearInvalidItems();
-
-                // Undo-Action
-                mpDocSh->GetUndoManager()->AddUndoAction(
-                    std::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
-
-                pSheet->GetItemSet().Set(aTempSet,false);
-                pSheet->Broadcast(SfxHint(SfxHintId::DataChanged));
             }
-
-            // remove all hard set items from shape that are now set in style
-            SfxWhichIter aWhichIter(rSet);
-            sal_uInt16 nWhich(aWhichIter.FirstWhich());
-            while( nWhich )
-            {
-                if( SfxItemState::SET == rSet.GetItemState( nWhich ) )
-                    pObject->ClearMergedItem( nWhich );
-                nWhich = aWhichIter.NextWhich();
-            }
+            else
+                pObject->SetMergedItemSet(rSet);
 
             bOk = true;
         }

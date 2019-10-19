@@ -24,11 +24,12 @@
 #include <basic/sbuno.hxx>
 #include <osl/process.h>
 #include <vcl/dibtools.hxx>
+#include <vcl/window.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/sound.hxx>
 #include <tools/wintypes.hxx>
-#include <vcl/button.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/weld.hxx>
 #include <basic/sbx.hxx>
 #include <svl/zforlist.hxx>
@@ -777,9 +778,9 @@ void SbRtl_FileLen(StarBASIC *, SbxArray & rPar, bool)
         else
         {
             DirectoryItem aItem;
-            DirectoryItem::get( getFullPath( aStr ), aItem );
+            (void)DirectoryItem::get( getFullPath( aStr ), aItem );
             FileStatus aFileStatus( osl_FileStatus_Mask_FileSize );
-            aItem.getFileStatus( aFileStatus );
+            (void)aItem.getFileStatus( aFileStatus );
             nLen = static_cast<sal_Int32>(aFileStatus.getFileSize());
         }
         rPar.Get(0)->PutLong( static_cast<long>(nLen) );
@@ -1874,7 +1875,7 @@ void SbRtl_CDateToIso(StarBASIC *, SbxArray & rPar, bool)
 }
 
 // Function to convert date from ISO 8601 date format YYYYMMDD or YYYY-MM-DD
-// And even YYMMDD for compatibility, sigh..
+// And even YYMMDD for compatibility, sigh...
 void SbRtl_CDateFromIso(StarBASIC *, SbxArray & rPar, bool)
 {
     if ( rPar.Count() == 2 )
@@ -2966,9 +2967,9 @@ void SbRtl_GetAttr(StarBASIC * pBasic, SbxArray & rPar, bool bWrite)
         else
         {
             DirectoryItem aItem;
-            DirectoryItem::get( getFullPath( rPar.Get(1)->GetOUString() ), aItem );
+            (void)DirectoryItem::get( getFullPath( rPar.Get(1)->GetOUString() ), aItem );
             FileStatus aFileStatus( osl_FileStatus_Mask_Attributes | osl_FileStatus_Mask_Type );
-            aItem.getFileStatus( aFileStatus );
+            (void)aItem.getFileStatus( aFileStatus );
             sal_uInt64 nAttributes = aFileStatus.getAttributes();
             bool bReadOnly = (nAttributes & osl_File_Attribute_ReadOnly) != 0;
 
@@ -3052,7 +3053,7 @@ void SbRtl_FileDateTime(StarBASIC *, SbxArray & rPar, bool)
         // An empty date shall not result in a formatted null-date (1899-12-30
         // or 1900-01-01) or even worse -0001-12-03 or some such due to how
         // GetDayDiff() treats things. There should be an error set in this
-        // case anyway because of a missing file or other error above, but.. so
+        // case anyway because of a missing file or other error above, but... so
         // do not even bother to use the number formatter.
         OUString aRes;
         if (aDate.IsEmpty())
@@ -3517,8 +3518,7 @@ void SbRtl_Shell(StarBASIC *, SbxArray & rPar, bool)
             OUString tmp = rPar.Get(3)->GetOUString().trim();
             if (!tmp.isEmpty())
             {
-                aCmdLine += " ";
-                aCmdLine += tmp;
+                aCmdLine += " " + tmp;
             }
         }
         else if( aCmdLine.isEmpty() )
@@ -4245,7 +4245,7 @@ void SbRtl_Load(StarBASIC *, SbxArray & rPar, bool)
     }
 
 
-    SbxBase* pObj = static_cast<SbxObject*>(rPar.Get(1)->GetObject());
+    SbxBase* pObj = rPar.Get(1)->GetObject();
     if ( pObj )
     {
         if (SbUserFormModule* pModule = dynamic_cast<SbUserFormModule*>(pObj))
@@ -4273,7 +4273,7 @@ void SbRtl_Unload(StarBASIC *, SbxArray & rPar, bool)
     }
 
 
-    SbxBase* pObj = static_cast<SbxObject*>(rPar.Get(1)->GetObject());
+    SbxBase* pObj = rPar.Get(1)->GetObject();
     if ( pObj )
     {
         if (SbUserFormModule* pFormModule = dynamic_cast<SbUserFormModule*>(pObj))
@@ -4322,7 +4322,7 @@ void SbRtl_SavePicture(StarBASIC *, SbxArray & rPar, bool)
         return;
     }
 
-    SbxBase* pObj = static_cast<SbxObject*>(rPar.Get(1)->GetObject());
+    SbxBase* pObj = rPar.Get(1)->GetObject();
     if (SbStdPicture *pPicture = dynamic_cast<SbStdPicture*>(pObj))
     {
         SvFileStream aOStream( rPar.Get(2)->GetOUString(), StreamMode::WRITE | StreamMode::TRUNC );
@@ -4401,11 +4401,11 @@ void SbRtl_MsgBox(StarBASIC *, SbxArray & rPar, bool)
     {
         case 0: // MB_OK
         default:
-            xBox->add_button(Button::GetStandardText(StandardButtonType::OK), BasicResponse::Ok);
+            xBox->add_button(GetStandardText(StandardButtonType::OK), BasicResponse::Ok);
             break;
         case 1: // MB_OKCANCEL
-            xBox->add_button(Button::GetStandardText(StandardButtonType::OK), BasicResponse::Ok);
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), BasicResponse::Cancel);
+            xBox->add_button(GetStandardText(StandardButtonType::OK), BasicResponse::Ok);
+            xBox->add_button(GetStandardText(StandardButtonType::Cancel), BasicResponse::Cancel);
 
             if (nType & 256 || nType & 512)
                 xBox->set_default_response(BasicResponse::Cancel);
@@ -4414,9 +4414,9 @@ void SbRtl_MsgBox(StarBASIC *, SbxArray & rPar, bool)
 
             break;
         case 2: // MB_ABORTRETRYIGNORE
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Abort), BasicResponse::Abort);
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Retry), BasicResponse::Retry);
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Ignore), BasicResponse::Ignore);
+            xBox->add_button(GetStandardText(StandardButtonType::Abort), BasicResponse::Abort);
+            xBox->add_button(GetStandardText(StandardButtonType::Retry), BasicResponse::Retry);
+            xBox->add_button(GetStandardText(StandardButtonType::Ignore), BasicResponse::Ignore);
 
             if (nType & 256)
                 xBox->set_default_response(BasicResponse::Retry);
@@ -4427,9 +4427,9 @@ void SbRtl_MsgBox(StarBASIC *, SbxArray & rPar, bool)
 
             break;
         case 3: // MB_YESNOCANCEL
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Yes), BasicResponse::Yes);
-            xBox->add_button(Button::GetStandardText(StandardButtonType::No), BasicResponse::No);
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), BasicResponse::Cancel);
+            xBox->add_button(GetStandardText(StandardButtonType::Yes), BasicResponse::Yes);
+            xBox->add_button(GetStandardText(StandardButtonType::No), BasicResponse::No);
+            xBox->add_button(GetStandardText(StandardButtonType::Cancel), BasicResponse::Cancel);
 
             if (nType & 256 || nType & 512)
                 xBox->set_default_response(BasicResponse::Cancel);
@@ -4438,8 +4438,8 @@ void SbRtl_MsgBox(StarBASIC *, SbxArray & rPar, bool)
 
             break;
         case 4: // MB_YESNO
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Yes), BasicResponse::Yes);
-            xBox->add_button(Button::GetStandardText(StandardButtonType::No), BasicResponse::No);
+            xBox->add_button(GetStandardText(StandardButtonType::Yes), BasicResponse::Yes);
+            xBox->add_button(GetStandardText(StandardButtonType::No), BasicResponse::No);
 
             if (nType & 256 || nType & 512)
                 xBox->set_default_response(BasicResponse::No);
@@ -4448,8 +4448,8 @@ void SbRtl_MsgBox(StarBASIC *, SbxArray & rPar, bool)
 
             break;
         case 5: // MB_RETRYCANCEL
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Retry), BasicResponse::Retry);
-            xBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), BasicResponse::Cancel);
+            xBox->add_button(GetStandardText(StandardButtonType::Retry), BasicResponse::Retry);
+            xBox->add_button(GetStandardText(StandardButtonType::Cancel), BasicResponse::Cancel);
 
             if (nType & 256 || nType & 512)
                 xBox->set_default_response(BasicResponse::Cancel);
@@ -4743,7 +4743,7 @@ bool implDateSerial( sal_Int16 nYear, sal_Int16 nMonth, sal_Int16 nDay,
     /* TODO: we could enable the same rollover mechanism for StarBASIC to be
      * compatible with VBA (just with our wider supported date range), then
      * documentation would need to be adapted. As is, the DateSerial() runtime
-     * function works as dumb as documented.. (except that the resulting date
+     * function works as dumb as documented... (except that the resulting date
      * is checked for validity now and not just day<=31 and month<=12).
      * If change wanted then simply remove overriding RollOver here and adapt
      * documentation.*/

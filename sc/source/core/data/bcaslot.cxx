@@ -37,26 +37,21 @@
 
 // Number of slots per dimension
 // must be integer divisors of MAXCOLCOUNT respectively MAXROWCOUNT
-#define BCA_SLOTS_COL ((MAXCOLCOUNT_DEFINE) / 16)
-#define BCA_SLICE 128
-#define BCA_SLOTS_ROW ((MAXROWCOUNT_DEFINE) / BCA_SLICE)
-#define BCA_SLOT_COLS ((MAXCOLCOUNT_DEFINE) / BCA_SLOTS_COL)
-#define BCA_SLOT_ROWS ((MAXROWCOUNT_DEFINE) / BCA_SLOTS_ROW)
+constexpr SCCOL BCA_SLOTS_COL  = MAXCOLCOUNT / 16;
+constexpr SCROW BCA_SLICE = 128;
+constexpr SCROW BCA_SLOTS_ROW  = MAXROWCOUNT / BCA_SLICE;
+constexpr SCCOL BCA_SLOT_COLS  = MAXCOLCOUNT / BCA_SLOTS_COL;
+constexpr SCROW BCA_SLOT_ROWS  = MAXROWCOUNT / BCA_SLOTS_ROW;
 // multiple?
-#if (BCA_SLOT_COLS * BCA_SLOTS_COL) != (MAXCOLCOUNT_DEFINE)
-#error bad BCA_SLOTS_COL value!
-#endif
-#if (BCA_SLOT_ROWS * BCA_SLOTS_ROW) != (MAXROWCOUNT_DEFINE)
-#error bad BCA_SLOTS_ROW value!
-#endif
+static_assert((BCA_SLOT_COLS * BCA_SLOTS_COL) == MAXCOLCOUNT && "bad BCA_SLOTS_COL value");
+static_assert((BCA_SLOT_ROWS * BCA_SLOTS_ROW) == MAXROWCOUNT && "bad BCA_SLOTS_ROW value");
+
 // size of slot array if linear
-#define BCA_SLOTS_DEFINE (BCA_SLOTS_COL * BCA_SLOTS_ROW)
+constexpr int BCA_SLOTS  = BCA_SLOTS_COL * BCA_SLOTS_ROW;
 // Arbitrary 2**31/8, assuming size_t can hold at least 2^31 values and
 // sizeof_ptr is at most 8 bytes. You'd probably doom your machine's memory
-// anyway, once you reached these values..
-#if BCA_SLOTS_DEFINE > 268435456
-#error BCA_SLOTS_DEFINE DOOMed!
-#endif
+// anyway, once you reached these values...
+static_assert(BCA_SLOTS <= 268435456 && "DOOMed");
 
 struct ScSlotData
 {
@@ -161,7 +156,7 @@ bool ScBroadcastAreaSlot::StartListeningArea(
     if ( !rpArea )
     {
         // Even if most times the area doesn't exist yet and immediately trying
-        // to new and insert it would save an attempt to find it, on mass
+        // to new and insert it would save an attempt to find it, on massive
         // operations like identical large [HV]LOOKUP() areas the new/delete
         // would add quite some penalty for all but the first formula cell.
         ScBroadcastAreas::const_iterator aIter( FindBroadcastArea( rRange, bGroupListening));
@@ -526,28 +521,23 @@ void ScBroadcastAreaSlot::GetAllListeners(
 
         switch (eType)
         {
-            case sc::AreaInside:
+            case sc::AreaOverlapType::Inside:
                 if (!rRange.In(rAreaRange))
                     // The range needs to be fully inside specified range.
                     continue;
                 break;
-            case sc::AreaPartialOverlap:
-                if (!rRange.Intersects(rAreaRange) || rRange.In(rAreaRange))
-                    // The range needs to be only partially overlapping.
-                    continue;
-                break;
-            case sc::AreaInsideOrOverlap:
+            case sc::AreaOverlapType::InsideOrOverlap:
                 if (!rRange.Intersects(rAreaRange))
                     // The range needs to be partially overlapping or fully inside.
                     continue;
                 break;
-            case sc::OneRowInsideArea:
+            case sc::AreaOverlapType::OneRowInside:
                 if (rAreaRange.aStart.Row() != rAreaRange.aEnd.Row() || !rRange.In(rAreaRange))
                     // The range needs to be one single row and fully inside
                     // specified range.
                     continue;
                 break;
-            case sc::OneColumnInsideArea:
+            case sc::AreaOverlapType::OneColumnInside:
                 if (rAreaRange.aStart.Col() != rAreaRange.aEnd.Col() || !rRange.In(rAreaRange))
                     // The range needs to be one single column and fully inside
                     // specified range.
@@ -655,7 +645,7 @@ inline SCSIZE ScBroadcastAreaSlotMachine::ComputeSlotOffset(
         OSL_FAIL( "Row/Col invalid, using first slot!" );
         return 0;
     }
-    for (ScSlotData & i : aSlotDistribution)
+    for (const ScSlotData & i : aSlotDistribution)
     {
         if (nRow < i.nStopRow)
         {

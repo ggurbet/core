@@ -364,11 +364,8 @@ void ScColRowNameRangesDlg::UpdateNames()
     OUString rString;
     const ScAddress::Details aDetails(pDoc->GetAddressConvention());
 
-    OUString aString;
     OUString strDelim(" --- ");
-    aString = strDelim;
-    aString += ScResId( STR_COLUMN );
-    aString += strDelim;
+    OUString aString = strDelim + ScResId( STR_COLUMN ) + strDelim;
     m_xLbRange->append(OUString::number(nEntryDataDelim), aString);
     if ( (nCount = xColNameRanges->size()) > 0 )
     {
@@ -407,9 +404,7 @@ void ScColRowNameRangesDlg::UpdateNames()
             m_xLbRange->append(OUString::number(nEntryDataDelim), aInsStr);
         }
     }
-    aString = strDelim;
-    aString += ScResId( STR_ROW );
-    aString += strDelim;
+    aString = strDelim + ScResId( STR_ROW ) + strDelim;
     m_xLbRange->append(OUString::number(nEntryDataDelim), aString);
     if ( (nCount = xRowNameRanges->size()) > 0 )
     {
@@ -632,7 +627,7 @@ IMPL_LINK_NOARG(ScColRowNameRangesDlg, Range1SelectHdl, weld::TreeView&, void)
     while (nSelectPos != -1 && nSelectPos < nCnt && m_xLbRange->get_id(nSelectPos).toInt32() == nEntryDataDelim)
     {   // skip Delimiter
         ++nMoves;
-        m_xLbRange->select( ++nSelectPos );
+        ++nSelectPos;
     }
     OUString aRangeStr = m_xLbRange->get_selected_text();
     if ( nMoves )
@@ -641,7 +636,7 @@ IMPL_LINK_NOARG(ScColRowNameRangesDlg, Range1SelectHdl, weld::TreeView&, void)
         {   // if entries exist before the " --- Row --- " Delimiter then
             // do not stop at the delimiter
             nSelectPos = nCnt - 2;
-            m_xLbRange->select( nSelectPos );
+            m_xLbRange->select(nSelectPos);
             aRangeStr = m_xLbRange->get_selected_text();
         }
         else if ( nSelectPos > 2 && nSelectPos < nCnt && !aRangeStr.isEmpty()
@@ -651,6 +646,8 @@ IMPL_LINK_NOARG(ScColRowNameRangesDlg, Range1SelectHdl, weld::TreeView&, void)
             m_xLbRange->select( nSelectPos );
             aRangeStr = m_xLbRange->get_selected_text();
         }
+        else
+            m_xLbRange->select(nSelectPos);
     }
     NameRangeMap::const_iterator itr = aRangeMap.find(aRangeStr);
     if ( itr != aRangeMap.end() )

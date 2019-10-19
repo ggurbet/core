@@ -24,7 +24,7 @@
 
 #include <svtools/valueset.hxx>
 #include <vcl/transfer.hxx>
-#include <sfx2/shell.hxx>
+#include <sfx2/request.hxx>
 #include <xmloff/autolayout.hxx>
 
 namespace com { namespace sun { namespace star { namespace frame { class XStatusListener; } } } }
@@ -69,7 +69,7 @@ public:
     /** Return a numerical value representing the currently selected
         layout.
     */
-    AutoLayout GetSelectedAutoLayout();
+    AutoLayout GetSelectedAutoLayout() const;
 
     // From ILayoutableWindow
     virtual css::ui::LayoutSize GetHeightForWidth (const sal_Int32 nWidth) override;

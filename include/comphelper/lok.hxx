@@ -29,6 +29,9 @@ namespace LibreOfficeKit
 
 COMPHELPER_DLLPUBLIC void setActive(bool bActive = true);
 
+// Set LOK view to mobile
+COMPHELPER_DLLPUBLIC void setMobile(int nViewId, bool bIsMobile = true);
+
 enum class statusIndicatorCallbackType { Start, SetValue, Finish };
 
 COMPHELPER_DLLPUBLIC void setStatusIndicatorCallback(void (*callback)(void *data, statusIndicatorCallbackType type, int percent), void *data);
@@ -38,6 +41,9 @@ COMPHELPER_DLLPUBLIC void setStatusIndicatorCallback(void (*callback)(void *data
 
 // Check whether the code is running as invoked through LibreOfficeKit.
 COMPHELPER_DLLPUBLIC bool isActive();
+
+// Check whether we are serving to a mobile view/device
+COMPHELPER_DLLPUBLIC bool isMobile(int nViewId);
 
 /// Shift the coordinates before rendering each bitmap.
 /// Used by Calc to render each tile separately.
@@ -71,6 +77,16 @@ COMPHELPER_DLLPUBLIC bool isTiledAnnotations();
 COMPHELPER_DLLPUBLIC void setRangeHeaders(bool bTiledAnnotations);
 /// Check if range based header data is enabled
 COMPHELPER_DLLPUBLIC bool isRangeHeaders();
+
+enum Compat : sal_uInt32
+{
+    none = 0,
+    scNoGridBackground = 1,
+};
+/// Set compatibility flags
+COMPHELPER_DLLPUBLIC void setCompatFlag(Compat flag);
+/// Get compatibility flags
+COMPHELPER_DLLPUBLIC bool isCompatFlagSet(Compat flag);
 
 
 /// Check whether clients want viewId in visible cursor invalidation payload.

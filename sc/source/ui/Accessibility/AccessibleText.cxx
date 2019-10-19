@@ -430,7 +430,7 @@ void ScEditViewForwarder::SetInvalid()
     mpEditView = nullptr;
 }
 
-//  ScAccessibleCellTextData: shared data between sub objects of a accessible cell text object
+//  ScAccessibleCellTextData: shared data between sub objects of an accessible cell text object
 
 ScAccessibleCellTextData::ScAccessibleCellTextData(ScTabViewShell* pViewShell,
         const ScAddress& rP, ScSplitPos eSplitPos, ScAccessibleCell* pAccCell)
@@ -901,7 +901,7 @@ void ScAccessibleEditLineTextData::EndEdit()
     mpEditView = nullptr;
 }
 
-//  ScAccessiblePreviewCellTextData: shared data between sub objects of a accessible cell text object
+//  ScAccessiblePreviewCellTextData: shared data between sub objects of an accessible cell text object
 
 ScAccessiblePreviewCellTextData::ScAccessiblePreviewCellTextData(ScPreviewShell* pViewShell,
                             const ScAddress& rP)
@@ -969,7 +969,7 @@ ScDocShell* ScAccessiblePreviewCellTextData::GetDocShell(ScPreviewShell* pViewSh
     return pDocSh;
 }
 
-//  ScAccessiblePreviewHeaderCellTextData: shared data between sub objects of a accessible cell text object
+//  ScAccessiblePreviewHeaderCellTextData: shared data between sub objects of an accessible cell text object
 
 ScAccessiblePreviewHeaderCellTextData::ScAccessiblePreviewHeaderCellTextData(ScPreviewShell* pViewShell,
             const OUString& rText, const ScAddress& rP, bool bColHeader, bool bRowHeader)
@@ -1011,7 +1011,7 @@ SvxTextForwarder* ScAccessiblePreviewHeaderCellTextData::GetTextForwarder()
         if ( pDocShell )
         {
             ScDocument& rDoc = pDocShell->GetDocument();
-            pEditEngine = rDoc.CreateFieldEditEngine(/*bUpdateMode*/true);
+            pEditEngine = rDoc.CreateFieldEditEngine();
         }
         else
         {
@@ -1228,7 +1228,7 @@ SvxTextForwarder* ScAccessibleNoteTextData::GetTextForwarder()
         if ( mpDocSh )
         {
             ScDocument& rDoc = mpDocSh->GetDocument();
-            mpEditEngine = rDoc.CreateFieldEditEngine(/*bUpdateMode*/true);
+            mpEditEngine = rDoc.CreateFieldEditEngine();
         }
         else
         {
@@ -1283,10 +1283,10 @@ SvxViewForwarder* ScAccessibleNoteTextData::GetViewForwarder()
 
 class ScCsvViewForwarder : public SvxViewForwarder
 {
-    VclPtr<vcl::Window>         mpWindow;
+    VclPtr<OutputDevice>        mpWindow;
 
 public:
-    explicit                    ScCsvViewForwarder( vcl::Window* pWindow );
+    explicit                    ScCsvViewForwarder( OutputDevice* pWindow );
 
     virtual bool                IsValid() const override;
     virtual Point               LogicToPixel( const Point& rPoint, const MapMode& rMapMode ) const override;
@@ -1295,7 +1295,7 @@ public:
     void                        SetInvalid();
 };
 
-ScCsvViewForwarder::ScCsvViewForwarder( vcl::Window* pWindow ) :
+ScCsvViewForwarder::ScCsvViewForwarder( OutputDevice* pWindow ) :
     mpWindow( pWindow )
 {
 }
@@ -1323,7 +1323,7 @@ void ScCsvViewForwarder::SetInvalid()
 }
 
 ScAccessibleCsvTextData::ScAccessibleCsvTextData(
-        vcl::Window* pWindow, EditEngine* pEditEngine,
+        OutputDevice* pWindow, EditEngine* pEditEngine,
         const OUString& rCellText, const Size& rCellSize ) :
     mpWindow( pWindow ),
     mpEditEngine( pEditEngine ),

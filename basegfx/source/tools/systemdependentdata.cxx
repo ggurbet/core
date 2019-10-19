@@ -77,7 +77,7 @@ namespace basegfx
         if(0 == mnCalculatedCycles)
         {
             const sal_Int64 nBytes(estimateUsageInBytes());
-            const sal_uInt32 nSeconds(getHoldCyclesInSeconds());
+            const sal_uInt32 nSeconds = 60; // HoldCyclesInSeconds
 
             // default is Seconds (minimal is one)
             sal_uInt32 nResult(0 == nSeconds ? 1 : nSeconds);
@@ -109,16 +109,10 @@ namespace basegfx
             }
 
             // set locally (once, on-demand created, non-zero)
-            const_cast<SystemDependentData*>(this)->mnCalculatedCycles = nResult < 1 ? 1 : nResult;
+            const_cast<SystemDependentData*>(this)->mnCalculatedCycles = nResult;
         }
 
         return mnCalculatedCycles;
-    }
-
-    sal_uInt32 SystemDependentData::getHoldCyclesInSeconds() const
-    {
-        // default implementation returns 60(s)
-        return 60;
     }
 
     sal_Int64 SystemDependentData::estimateUsageInBytes() const
@@ -137,7 +131,7 @@ namespace basegfx
 
     SystemDependentDataHolder::~SystemDependentDataHolder()
     {
-        for(auto& candidate : maSystemDependentReferences)
+        for(const auto& candidate : maSystemDependentReferences)
         {
             basegfx::SystemDependentData_SharedPtr aData(candidate.second.lock());
 

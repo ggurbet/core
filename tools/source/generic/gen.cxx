@@ -18,29 +18,14 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <algorithm>
+#include <cassert>
 #include <sstream>
 #include <o3tl/safeint.hxx>
 #include <tools/gen.hxx>
 #include <tools/stream.hxx>
-
-SvStream& ReadPair( SvStream& rIStream, Pair& rPair )
-{
-    sal_Int32 nTmpA(0), nTmpB(0);
-    rIStream.ReadInt32( nTmpA ).ReadInt32( nTmpB );
-    rPair.nA = nTmpA;
-    rPair.nB = nTmpB;
-
-    return rIStream;
-}
-
-SvStream& WritePair( SvStream& rOStream, const Pair& rPair )
-{
-    rOStream.WriteInt32( rPair.nA ).WriteInt32( rPair.nB );
-
-    return rOStream;
-}
 
 OString Pair::toString() const
 {
@@ -88,13 +73,15 @@ void tools::Rectangle::SaturatingSetSize(const Size& rSize)
 
 void tools::Rectangle::SaturatingSetX(long x)
 {
-    nRight = o3tl::saturating_add(nRight, x - nLeft);
+    if (nRight != RECT_EMPTY)
+        nRight = o3tl::saturating_add(nRight, x - nLeft);
     nLeft = x;
 }
 
 void tools::Rectangle::SaturatingSetY(long y)
 {
-    nBottom = o3tl::saturating_add(nBottom, y - nTop);
+    if (nBottom != RECT_EMPTY)
+        nBottom = o3tl::saturating_add(nBottom, y - nTop);
     nTop = y;
 }
 
@@ -196,33 +183,6 @@ bool tools::Rectangle::IsOver( const tools::Rectangle& rRect ) const
     return !GetIntersection( rRect ).IsEmpty();
 }
 
-namespace tools
-{
-SvStream& ReadRectangle( SvStream& rIStream, tools::Rectangle& rRect )
-{
-    sal_Int32 nTmpL(0), nTmpT(0), nTmpR(0), nTmpB(0);
-
-    rIStream.ReadInt32( nTmpL ).ReadInt32( nTmpT ).ReadInt32( nTmpR ).ReadInt32( nTmpB );
-
-    rRect.nLeft = nTmpL;
-    rRect.nTop = nTmpT;
-    rRect.nRight = nTmpR;
-    rRect.nBottom = nTmpB;
-
-    return rIStream;
-}
-
-SvStream& WriteRectangle( SvStream& rOStream, const tools::Rectangle& rRect )
-{
-    rOStream.WriteInt32( rRect.nLeft )
-            .WriteInt32( rRect.nTop )
-            .WriteInt32( rRect.nRight )
-            .WriteInt32( rRect.nBottom );
-
-    return rOStream;
-}
-}
-
 OString tools::Rectangle::toString() const
 {
     std::stringstream ss;
@@ -231,6 +191,84 @@ OString tools::Rectangle::toString() const
     // LibreOfficeKit clients). So don't change.
     ss << getX() << ", " << getY() << ", " << getWidth() << ", " << getHeight();
     return ss.str().c_str();
+}
+
+void tools::Rectangle::expand(long nExpandBy)
+{
+    nLeft   -= nExpandBy;
+    nTop    -= nExpandBy;
+    if (nRight == RECT_EMPTY)
+        nRight = nLeft + nExpandBy - 1;
+    else
+        nRight += nExpandBy;
+    if (nBottom == RECT_EMPTY)
+        nBottom = nTop + nExpandBy - 1;
+    else
+        nBottom += nExpandBy;
+}
+
+void tools::Rectangle::shrink(long nShrinkBy)
+{
+    nLeft   += nShrinkBy;
+    nTop    += nShrinkBy;
+    if (nRight != RECT_EMPTY)
+        nRight -= nShrinkBy;
+    if (nBottom != RECT_EMPTY)
+        nBottom -= nShrinkBy;
+}
+
+long tools::Rectangle::AdjustRight(long nHorzMoveDelta)
+{
+    if (nRight == RECT_EMPTY)
+        nRight = nLeft + nHorzMoveDelta - 1;
+    else
+        nRight += nHorzMoveDelta;
+    return nRight;
+}
+
+long tools::Rectangle::AdjustBottom( long nVertMoveDelta )
+{
+    if (nBottom == RECT_EMPTY)
+        nBottom = nTop + nVertMoveDelta - 1;
+    else
+        nBottom += nVertMoveDelta;
+    return nBottom;
+}
+
+void tools::Rectangle::setX( long x )
+{
+    if (nRight != RECT_EMPTY)
+        nRight += x - nLeft;
+    nLeft = x;
+}
+
+void tools::Rectangle::setY( long y )
+{
+    if (nBottom != RECT_EMPTY)
+        nBottom += y - nTop;
+    nTop  = y;
+}
+
+long tools::Rectangle::Right() const
+{
+    return nRight == RECT_EMPTY ? nLeft : nRight;
+}
+
+long tools::Rectangle::Bottom() const
+{
+    return nBottom == RECT_EMPTY ? nTop : nBottom;
+}
+
+/// Returns the difference between right and left, assuming the range includes one end, but not the other.
+long tools::Rectangle::getWidth() const
+{
+    return nRight == RECT_EMPTY ? 0 : nRight - nLeft;
+}
+
+/// Returns the difference between bottom and top, assuming the range includes one end, but not the other.
+long tools::Rectangle::getHeight() const
+{
+    return nBottom == RECT_EMPTY ? 0 : nBottom - nTop;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

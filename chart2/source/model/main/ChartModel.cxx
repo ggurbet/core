@@ -93,7 +93,7 @@ ChartModel::ChartModel(uno::Reference<uno::XComponentContext > const & xContext)
     , m_aVisualAreaSize( ChartModelHelper::getDefaultPageSize() )
     , m_xPageBackground( new PageBackground )
     , m_xXMLNamespaceMap( createNameContainer( ::cppu::UnoType<OUString>::get(),
-                "com.sun.star.xml.NamespaceMap", "com.sun.star.comp.chart.XMLNameSpaceMap" ), uno::UNO_QUERY)
+                "com.sun.star.xml.NamespaceMap", "com.sun.star.comp.chart.XMLNameSpaceMap" ) )
     , mnStart(0)
     , mnEnd(0)
 {
@@ -298,7 +298,7 @@ void ChartModel::impl_adjustAdditionalShapesPositionAndSize( const awt::Size& aV
 
 OUString SAL_CALL ChartModel::getImplementationName()
 {
-    return OUString(CHART_MODEL_SERVICE_IMPLEMENTATION_NAME);
+    return CHART_MODEL_SERVICE_IMPLEMENTATION_NAME;
 }
 
 sal_Bool SAL_CALL ChartModel::supportsService( const OUString& rServiceName )
@@ -1201,8 +1201,7 @@ Reference< util::XNumberFormatsSupplier > const & ChartModel::getNumberFormatsSu
 // ____ XUnoTunnel ___
 ::sal_Int64 SAL_CALL ChartModel::getSomething( const Sequence< ::sal_Int8 >& aIdentifier )
 {
-    if( aIdentifier.getLength() == 16 && memcmp( SvNumberFormatsSupplierObj::getUnoTunnelId().getConstArray(),
-                                                         aIdentifier.getConstArray(), 16 ) == 0 )
+    if( isUnoTunnelId<SvNumberFormatsSupplierObj>(aIdentifier) )
     {
         Reference< lang::XUnoTunnel > xTunnel( getNumberFormatsSupplier(), uno::UNO_QUERY );
         if( xTunnel.is() )
@@ -1284,7 +1283,7 @@ bool ChartModel::isDataFromSpreadsheet()
     return !isDataFromPivotTable() && !hasInternalDataProvider();
 }
 
-bool ChartModel::isDataFromPivotTable()
+bool ChartModel::isDataFromPivotTable() const
 {
     uno::Reference<chart2::data::XPivotTableDataProvider> xPivotTableDataProvider(m_xDataProvider, uno::UNO_QUERY);
     return xPivotTableDataProvider.is();

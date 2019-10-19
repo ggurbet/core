@@ -9,6 +9,7 @@
 #
 
 import argparse
+import ntpath
 import os
 import os.path
 import shutil
@@ -1185,7 +1186,7 @@ class QtCreatorIntegrationGenerator(IdeIntegrationGenerator):
     def __init__(self, gbuildparser, ide):
         IdeIntegrationGenerator.__init__(self, gbuildparser, ide)
         self.target_by_location = {}
-        for target in set(self.gbuildparser.libs) | set(self.gbuildparser.exes):
+        for target in set(self.gbuildparser.libs) | set(self.gbuildparser.exes) | set(self.gbuildparser.tests):
             if target.location not in self.target_by_location:
                 self.target_by_location[target.location] = set()
             self.target_by_location[target.location] |= set([target])
@@ -1641,13 +1642,21 @@ class QtCreatorIntegrationGenerator(IdeIntegrationGenerator):
 
         self.data_libs = {}
 
-        all_libs = set(self.gbuildparser.libs) | set(self.gbuildparser.exes)
+        all_libs = set(self.gbuildparser.libs) | set(self.gbuildparser.exes) | set(self.gbuildparser.tests)
         for lib in all_libs:
             self._log("\nlibrary : %s, loc=%s" % (lib.short_name(), lib.location))
             lib_name = os.path.basename(lib.location)
             lib_folder = os.path.relpath(lib.location, self.base_folder)
 
             def lopath(path):
+                if platform =="cygwin":
+                    # absolute paths from GbuildToJson are Windows paths,
+                    # so convert everything to such ones
+                    abs_path = path
+                    if not ntpath.isabs(abs_path):
+                        abs_path = ntpath.join(self.gbuildparser.srcdir, path)
+                    return ntpath.relpath(abs_path, lib.location).replace('\\', '/')
+
                 return os.path.relpath(path, lib.location)
 
             defines_list = []
@@ -1685,10 +1694,11 @@ class QtCreatorIntegrationGenerator(IdeIntegrationGenerator):
             # List headers files from current lib
             for hdir in lib.include:
                 if hdir.startswith(lib.location):
-                    for hf in os.listdir(hdir):
-                        if hf.endswith(('.h', '.hxx', '.hpp', '.hrc')):
-                            hf_lopath = lopath(os.path.join(hdir, hf))
-                            headers_list.append(hf_lopath)
+                    for dirpath, _, files in os.walk(hdir):
+                        for hf in files:
+                            if hf.endswith(('.h', '.hxx', '.hpp', '.hrc')):
+                                hf_lopath = lopath(os.path.join(dirpath, hf))
+                                headers_list.append(hf_lopath)
 
             # List defines
             for key, value in lib.defs.items():
@@ -1777,7 +1787,7 @@ class QtCreatorIntegrationGenerator(IdeIntegrationGenerator):
         # create meta .pro file (lists all sub projects)
         qt_meta_pro_file = 'lo.pro'
         try:
-            subdirs = " \\\n".join(subdirs_list)
+            subdirs = " \\\n".join(sorted(subdirs_list))
             content = QtCreatorIntegrationGenerator.pro_meta_template % {'subdirs': subdirs}
             with open(qt_meta_pro_file, 'w+') as fmpro:
                 fmpro.write(content)

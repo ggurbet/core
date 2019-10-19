@@ -287,9 +287,9 @@ void SdrTextObj::NbcMirror(const Point& rRef1, const Point& rRef2)
 }
 
 
-SdrObject* SdrTextObj::ImpConvertContainedTextToSdrPathObjs(bool bToPoly) const
+SdrObjectUniquePtr SdrTextObj::ImpConvertContainedTextToSdrPathObjs(bool bToPoly) const
 {
-    SdrObject* pRetval = nullptr;
+    SdrObjectUniquePtr pRetval;
 
     if(!ImpCanConvTextToCurve())
     {
@@ -298,7 +298,7 @@ SdrObject* SdrTextObj::ImpConvertContainedTextToSdrPathObjs(bool bToPoly) const
     }
 
     // get primitives
-    const drawinglayer::primitive2d::Primitive2DContainer xSequence(GetViewContact().getViewIndependentPrimitive2DContainer());
+    const drawinglayer::primitive2d::Primitive2DContainer & xSequence(GetViewContact().getViewIndependentPrimitive2DContainer());
 
     if(!xSequence.empty())
     {
@@ -398,7 +398,7 @@ SdrObject* SdrTextObj::ImpConvertContainedTextToSdrPathObjs(bool bToPoly) const
             }
             else if(1 == pObjectList->GetObjCount())
             {
-                pRetval = pObjectList->RemoveObject(0);
+                pRetval.reset(pObjectList->RemoveObject(0));
 
                 // always use SdrObject::Free(...) for SdrObjects (!)
                 SdrObject* pTemp(pGroup);
@@ -406,7 +406,7 @@ SdrObject* SdrTextObj::ImpConvertContainedTextToSdrPathObjs(bool bToPoly) const
             }
             else
             {
-                pRetval = pGroup;
+                pRetval.reset(pGroup);
             }
         }
     }
@@ -415,7 +415,7 @@ SdrObject* SdrTextObj::ImpConvertContainedTextToSdrPathObjs(bool bToPoly) const
 }
 
 
-SdrObject* SdrTextObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
+SdrObjectUniquePtr SdrTextObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 {
     if(bAddText)
     {
@@ -430,7 +430,7 @@ bool SdrTextObj::ImpCanConvTextToCurve() const
     return !IsOutlText();
 }
 
-SdrObject* SdrTextObj::ImpConvertMakeObj(const basegfx::B2DPolyPolygon& rPolyPolygon, bool bClosed, bool bBezier) const
+SdrPathObjUniquePtr SdrTextObj::ImpConvertMakeObj(const basegfx::B2DPolyPolygon& rPolyPolygon, bool bClosed, bool bBezier) const
 {
     SdrObjKind ePathKind = bClosed ? OBJ_PATHFILL : OBJ_PATHLINE;
     basegfx::B2DPolyPolygon aB2DPolyPolygon(rPolyPolygon);
@@ -442,10 +442,10 @@ SdrObject* SdrTextObj::ImpConvertMakeObj(const basegfx::B2DPolyPolygon& rPolyPol
         ePathKind = bClosed ? OBJ_POLY : OBJ_PLIN;
     }
 
-    SdrPathObj* pPathObj = new SdrPathObj(
+    SdrPathObjUniquePtr pPathObj(new SdrPathObj(
         getSdrModelFromSdrObject(),
         ePathKind,
-        aB2DPolyPolygon);
+        aB2DPolyPolygon));
 
     if(bBezier)
     {
@@ -464,14 +464,14 @@ SdrObject* SdrTextObj::ImpConvertMakeObj(const basegfx::B2DPolyPolygon& rPolyPol
     return pPathObj;
 }
 
-SdrObject* SdrTextObj::ImpConvertAddText(SdrObject* pObj, bool bBezier) const
+SdrObjectUniquePtr SdrTextObj::ImpConvertAddText(SdrObjectUniquePtr pObj, bool bBezier) const
 {
     if(!ImpCanConvTextToCurve())
     {
         return pObj;
     }
 
-    SdrObject* pText = ImpConvertContainedTextToSdrPathObjs(!bBezier);
+    SdrObjectUniquePtr pText = ImpConvertContainedTextToSdrPathObjs(!bBezier);
 
     if(!pText)
     {
@@ -487,17 +487,17 @@ SdrObject* SdrTextObj::ImpConvertAddText(SdrObject* pObj, bool bBezier) const
     {
         // is already group object, add partial shape in front
         SdrObjList* pOL=pText->GetSubList();
-        pOL->InsertObject(pObj,0);
+        pOL->InsertObject(pObj.release(),0);
 
         return pText;
     }
     else
     {
         // not yet a group, create one and add partial and new shapes
-        SdrObjGroup* pGrp=new SdrObjGroup(getSdrModelFromSdrObject());
+        std::unique_ptr<SdrObjGroup, SdrObjectFreeOp> pGrp(new SdrObjGroup(getSdrModelFromSdrObject()));
         SdrObjList* pOL=pGrp->GetSubList();
-        pOL->InsertObject(pObj);
-        pOL->InsertObject(pText);
+        pOL->InsertObject(pObj.release());
+        pOL->InsertObject(pText.release());
 
         return pGrp;
     }

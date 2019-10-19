@@ -84,8 +84,6 @@ AquaSalFrame::AquaSalFrame( SalFrame* pParent, SalFrameStyleFlags salFrameStyle 
     mrClippingPath( nullptr ),
     mnICOptions( InputContextFlags::NONE )
 {
-    maSysData.nSize     = sizeof( SystemEnvData );
-
     mpParent = dynamic_cast<AquaSalFrame*>(pParent);
 
     initWindowAndView();
@@ -97,7 +95,7 @@ AquaSalFrame::AquaSalFrame( SalFrame* pParent, SalFrameStyleFlags salFrameStyle 
 AquaSalFrame::~AquaSalFrame()
 {
     if (mbFullScreen)
-        ShowFullScreen(false, maGeometry.nDisplayScreenNumber);
+        doShowFullScreen(false, maGeometry.nDisplayScreenNumber);
 
     assert( GetSalData()->mpInstance->IsMainThread() );
 
@@ -107,7 +105,7 @@ AquaSalFrame::~AquaSalFrame()
         AquaSalMenu::setDefaultMenu();
 
     // cleanup clipping stuff
-    ResetClipRegion();
+    doResetClipRegion();
 
     [SalFrameView unsetMouseFrame: this];
 
@@ -211,7 +209,7 @@ SAL_WNODEPRECATED_DECLARATIONS_POP
         mpNSWindow = [[SalFrameWindow alloc] initWithSalFrame: this];
         mpNSView = [[SalFrameView alloc] initWithSalFrame: this];
     }
-    @catch ( id exception )
+    @catch ( id )
     {
         std::abort();
     }
@@ -752,6 +750,11 @@ void AquaSalFrame::SetApplicationID( const OUString &/*rApplicationID*/ )
 
 void AquaSalFrame::ShowFullScreen( bool bFullScreen, sal_Int32 nDisplay )
 {
+    doShowFullScreen(bFullScreen, nDisplay);
+}
+
+void AquaSalFrame::doShowFullScreen( bool bFullScreen, sal_Int32 nDisplay )
+{
     if (!mpNSWindow)
     {
         if (Application::IsBitmapRendering() && bFullScreen)
@@ -922,7 +925,7 @@ NSCursor* AquaSalFrame::getCurrentCursor()
         pCursor = GetSalData()->getCursor( mePointerStyle );
         if( pCursor == nil )
         {
-            OSL_FAIL( "unmapped cursor" );
+            assert( false && "unmapped cursor" );
             pCursor = [NSCursor arrowCursor];
         }
         break;
@@ -1705,6 +1708,11 @@ void AquaSalFrame::CaptureMouse( bool bCapture )
 }
 
 void AquaSalFrame::ResetClipRegion()
+{
+    doResetClipRegion();
+}
+
+void AquaSalFrame::doResetClipRegion()
 {
     if ( !mpNSWindow )
         return;

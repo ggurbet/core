@@ -20,6 +20,8 @@
 #include <hintids.hxx>
 
 #include <o3tl/any.hxx>
+#include <vcl/event.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/help.hxx>
 #include <svl/stritem.hxx>
@@ -286,7 +288,7 @@ IMPL_LINK(SwGlossaryDlg, GrpSelect, weld::TreeView&, rBox, void)
         pParent = xEntry.get();
     GroupUserData* pGroupData = reinterpret_cast<GroupUserData*>(rBox.get_id(*pParent).toInt64());
     ::SetCurrGlosGroup(pGroupData->sGroupName
-        + OUStringLiteral1(GLOS_DELIM)
+        + OUStringChar(GLOS_DELIM)
         + OUString::number(pGroupData->nPathIdx));
     m_pGlossaryHdl->SetCurGroup(::GetCurrGlosGroup());
     // set current text block
@@ -413,11 +415,12 @@ IMPL_LINK(SwGlossaryDlg, NameModify, weld::Entry&, rEdit, void)
     }
 }
 
-IMPL_LINK( SwGlossaryDlg, NameDoubleClick, weld::TreeView&, rBox, void )
+IMPL_LINK( SwGlossaryDlg, NameDoubleClick, weld::TreeView&, rBox, bool )
 {
     std::unique_ptr<weld::TreeIter> xEntry = rBox.make_iterator();
     if (rBox.get_selected(xEntry.get()) && rBox.get_iter_depth(*xEntry) && !m_bIsDocReadOnly)
         m_xDialog->response(RET_OK);
+    return true;
 }
 
 IMPL_LINK_NOARG( SwGlossaryDlg, EnableHdl, weld::ToggleButton&, void )
@@ -575,7 +578,6 @@ IMPL_LINK(SwGlossaryDlg, MenuHdl, const OString&, rItemIdent, void)
         SvtPathOptions aPathOpt;
         xFP->setDisplayDirectory(aPathOpt.GetWorkPath() );
 
-        uno::Reference<XFilterManager> xFltMgr(xFP, UNO_QUERY);
         SfxFilterMatcher aMatcher( SwDocShell::Factory().GetFactoryName() );
         SfxFilterMatcherIter aIter( aMatcher );
         std::shared_ptr<const SfxFilter> pFilter = aIter.First();
@@ -583,15 +585,15 @@ IMPL_LINK(SwGlossaryDlg, MenuHdl, const OString&, rItemIdent, void)
         {
             if( pFilter->GetUserData() == FILTER_WW8 )
             {
-                xFltMgr->appendFilter( pFilter->GetUIName(),
+                xFP->appendFilter( pFilter->GetUIName(),
                             pFilter->GetWildcard().getGlob() );
-                xFltMgr->setCurrentFilter( pFilter->GetUIName() ) ;
+                xFP->setCurrentFilter( pFilter->GetUIName() ) ;
             }
             else if( pFilter->GetUserData() == FILTER_DOCX )
             {
-                xFltMgr->appendFilter( pFilter->GetUIName(),
+                xFP->appendFilter( pFilter->GetUIName(),
                             pFilter->GetWildcard().getGlob() );
-                xFltMgr->setCurrentFilter( pFilter->GetUIName() ) ;
+                xFP->setCurrentFilter( pFilter->GetUIName() ) ;
             }
 
             pFilter = aIter.Next();
@@ -666,7 +668,7 @@ IMPL_LINK_NOARG(SwGlossaryDlg, BibHdl, weld::Button&, void)
                     {
                         GroupUserData* pGroupData = reinterpret_cast<GroupUserData*>(m_xCategoryBox->get_id(*xEntry).toInt64());
                         const OUString sGroup = pGroupData->sGroupName
-                            + OUStringLiteral1(GLOS_DELIM)
+                            + OUStringChar(GLOS_DELIM)
                             + OUString::number(pGroupData->nPathIdx);
                         if(sGroup == sNewGroup)
                         {
@@ -778,8 +780,8 @@ void SwGlossaryDlg::Init()
         }
     }
 
-    m_xCategoryBox->make_sorted();
     m_xCategoryBox->thaw();
+    m_xCategoryBox->make_sorted();
 
     if (xSelEntry)
     {
@@ -861,7 +863,7 @@ OUString SwGlossaryDlg::GetCurrGrpName() const
         if (m_xCategoryBox->get_iter_depth(*xEntry))
             m_xCategoryBox->iter_parent(*xEntry);
         GroupUserData* pGroupData = reinterpret_cast<GroupUserData*>(m_xCategoryBox->get_id(*xEntry).toInt64());
-        return pGroupData->sGroupName + OUStringLiteral1(GLOS_DELIM) + OUString::number(pGroupData->nPathIdx);
+        return pGroupData->sGroupName + OUStringChar(GLOS_DELIM) + OUString::number(pGroupData->nPathIdx);
     }
     return OUString();
 }
@@ -934,8 +936,7 @@ void SwGlossaryDlg::ResumeShowAutoText()
                     uno::Any aEntry(xGroup->getByName(sShortName));
                     uno::Reference< XAutoTextEntry >  xEntry;
                     aEntry >>= xEntry;
-                    uno::Reference< XTextRange >  xRange(xCursor, uno::UNO_QUERY);
-                    xEntry->applyTo(xRange);
+                    xEntry->applyTo(xCursor);
                 }
             }
         }

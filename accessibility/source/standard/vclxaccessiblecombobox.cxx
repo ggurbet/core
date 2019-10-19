@@ -46,17 +46,14 @@ bool VCLXAccessibleComboBox::IsValid() const
 
 OUString VCLXAccessibleComboBox::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.toolkit.AccessibleComboBox" );
+    return "com.sun.star.comp.toolkit.AccessibleComboBox";
 }
 
 
 Sequence< OUString > VCLXAccessibleComboBox::getSupportedServiceNames()
 {
-    Sequence< OUString > aNames = VCLXAccessibleBox::getSupportedServiceNames();
-    sal_Int32 nLength = aNames.getLength();
-    aNames.realloc( nLength + 1 );
-    aNames[nLength] = "com.sun.star.accessibility.AccessibleComboBox";
-    return aNames;
+    return comphelper::concatSequences(VCLXAccessibleBox::getSupportedServiceNames(),
+                                       Sequence<OUString>{"com.sun.star.accessibility.AccessibleComboBox"});
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

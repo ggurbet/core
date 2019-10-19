@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <svx/sdr/contact/objectcontactofpageview.hxx>
 #include <sdr/contact/viewobjectcontactofunocontrol.hxx>
@@ -230,7 +230,7 @@ namespace sdr
             xPrimitiveSequence = rDrawPageVOContact.getPrimitive2DSequenceHierarchy(rDisplayInfo);
 #else
             // Hmm, !HAVE_FEATURE_DESKTOP && !ANDROID means iOS,
-            // right? But does it make sense to use a different code
+            // right? But does it makes sense to use a different code
             // path for iOS than for Android; both use tiled rendering
             // etc now.
 

@@ -43,21 +43,20 @@ namespace dbp
     using namespace ::com::sun::star::sdbcx;
     using namespace ::com::sun::star::container;
     using namespace ::com::sun::star::form;
-    using namespace ::svt;
     using namespace ::dbtools;
 
-    OListComboWizard::OListComboWizard( vcl::Window* _pParent,
+    OListComboWizard::OListComboWizard(weld::Window* _pParent,
             const Reference< XPropertySet >& _rxObjectModel, const Reference< XComponentContext >& _rxContext )
-        :OControlWizard(_pParent, _rxObjectModel, _rxContext)
-        ,m_bListBox(false)
-        ,m_bHadDataSelection(true)
+        : OControlWizard(_pParent, _rxObjectModel, _rxContext)
+        , m_bListBox(false)
+        , m_bHadDataSelection(true)
     {
         initControlSettings(&m_aSettings);
 
-        m_pPrevPage->SetHelpId(HID_LISTWIZARD_PREVIOUS);
-        m_pNextPage->SetHelpId(HID_LISTWIZARD_NEXT);
-        m_pCancel->SetHelpId(HID_LISTWIZARD_CANCEL);
-        m_pFinish->SetHelpId(HID_LISTWIZARD_FINISH);
+        m_xPrevPage->set_help_id(HID_LISTWIZARD_PREVIOUS);
+        m_xNextPage->set_help_id(HID_LISTWIZARD_NEXT);
+        m_xCancel->set_help_id(HID_LISTWIZARD_CANCEL);
+        m_xFinish->set_help_id(HID_LISTWIZARD_FINISH);
 
         // if we do not need the data source selection page ...
         if (!needDatasourceSelection())
@@ -66,7 +65,6 @@ namespace dbp
             m_bHadDataSelection = false;
         }
     }
-
 
     bool OListComboWizard::approveControl(sal_Int16 _nClassId)
     {
@@ -84,28 +82,29 @@ namespace dbp
         return false;
     }
 
-
-    VclPtr<TabPage> OListComboWizard::createPage(WizardState _nState)
+    std::unique_ptr<BuilderPage> OListComboWizard::createPage(WizardState _nState)
     {
+        OString sIdent(OString::number(_nState));
+        weld::Container* pPageContainer = m_xAssistant->append_page(sIdent);
+
         switch (_nState)
         {
             case LCW_STATE_DATASOURCE_SELECTION:
-                return VclPtr<OTableSelectionPage>::Create(this);
+                return std::make_unique<OTableSelectionPage>(pPageContainer, this);
             case LCW_STATE_TABLESELECTION:
-                return VclPtr<OContentTableSelection>::Create(this);
+                return std::make_unique<OContentTableSelection>(pPageContainer, this);
             case LCW_STATE_FIELDSELECTION:
-                return VclPtr<OContentFieldSelection>::Create(this);
+                return std::make_unique<OContentFieldSelection>(pPageContainer, this);
             case LCW_STATE_FIELDLINK:
-                return VclPtr<OLinkFieldsPage>::Create(this);
+                return std::make_unique<OLinkFieldsPage>(pPageContainer, this);
             case LCW_STATE_COMBODBFIELD:
-                return VclPtr<OComboDBFieldPage>::Create(this);
+                return std::make_unique<OComboDBFieldPage>(pPageContainer, this);
         }
 
-        return VclPtr<TabPage>();
+        return nullptr;
     }
 
-
-    WizardTypes::WizardState OListComboWizard::determineNextState( WizardState _nCurrentState ) const
+    vcl::WizardTypes::WizardState OListComboWizard::determineNextState( WizardState _nCurrentState ) const
     {
         switch (_nCurrentState)
         {
@@ -119,7 +118,6 @@ namespace dbp
 
         return WZS_INVALID_STATE;
     }
-
 
     void OListComboWizard::enterState(WizardState _nState)
     {
@@ -215,7 +213,7 @@ namespace dbp
         return true;
     }
 
-    Reference< XNameAccess > OLCPage::getTables()
+    Reference< XNameAccess > OLCPage::getTables() const
     {
         Reference< XConnection > xConn = getFormConnection();
         DBG_ASSERT(xConn.is(), "OLCPage::getTables: should have an active connection when reaching this page!");
@@ -255,218 +253,180 @@ namespace dbp
             }
             catch(const Exception&)
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN( "extensions.dbpilots", "OLinkFieldsPage::initializePage: caught an exception while retrieving the columns! " << exceptionToString(ex));
+                TOOLS_WARN_EXCEPTION( "extensions.dbpilots", "OLinkFieldsPage::initializePage: caught an exception while retrieving the columns");
             }
         }
         return aColumnNames;
     }
 
-    OContentTableSelection::OContentTableSelection( OListComboWizard* _pParent )
-        :OLCPage(_pParent, "TableSelectionPage", "modules/sabpilot/ui/contenttablepage.ui")
+    OContentTableSelection::OContentTableSelection(weld::Container* pPage, OListComboWizard* pWizard)
+        : OLCPage(pPage, pWizard, "modules/sabpilot/ui/contenttablepage.ui", "TableSelectionPage")
+        , m_xSelectTable(m_xBuilder->weld_tree_view("table"))
     {
-        get(m_pSelectTable, "table");
-
         enableFormDatasourceDisplay();
 
-        m_pSelectTable->SetDoubleClickHdl(LINK(this, OContentTableSelection, OnTableDoubleClicked));
-        m_pSelectTable->SetSelectHdl(LINK(this, OContentTableSelection, OnTableSelected));
+        m_xSelectTable->connect_row_activated(LINK(this, OContentTableSelection, OnTableDoubleClicked));
+        m_xSelectTable->connect_changed(LINK(this, OContentTableSelection, OnTableSelected));
     }
 
     OContentTableSelection::~OContentTableSelection()
     {
-        disposeOnce();
     }
 
-    void OContentTableSelection::dispose()
+    void OContentTableSelection::Activate()
     {
-        m_pSelectTable.clear();
-        OLCPage::dispose();
+        OLCPage::Activate();
+        m_xSelectTable->grab_focus();
     }
-
-    void OContentTableSelection::ActivatePage()
-    {
-        OLCPage::ActivatePage();
-        m_pSelectTable->GrabFocus();
-    }
-
 
     bool OContentTableSelection::canAdvance() const
     {
         if (!OLCPage::canAdvance())
             return false;
 
-        return 0 != m_pSelectTable->GetSelectedEntryCount();
+        return 0 != m_xSelectTable->count_selected_rows();
     }
 
-
-    IMPL_LINK_NOARG( OContentTableSelection, OnTableSelected, ListBox&, void )
+    IMPL_LINK_NOARG( OContentTableSelection, OnTableSelected, weld::TreeView&, void )
     {
         updateDialogTravelUI();
     }
 
-
-    IMPL_LINK( OContentTableSelection, OnTableDoubleClicked, ListBox&, _rListBox, void )
+    IMPL_LINK( OContentTableSelection, OnTableDoubleClicked, weld::TreeView&, _rListBox, bool )
     {
-        if (_rListBox.GetSelectedEntryCount())
+        if (_rListBox.count_selected_rows())
             getDialog()->travelNext();
+        return true;
     }
-
 
     void OContentTableSelection::initializePage()
     {
         OLCPage::initializePage();
 
         // fill the list with the table name
-        m_pSelectTable->Clear();
+        m_xSelectTable->clear();
         try
         {
             Reference< XNameAccess > xTables = getTables();
             Sequence< OUString > aTableNames;
             if (xTables.is())
                 aTableNames = xTables->getElementNames();
-            fillListBox(*m_pSelectTable, aTableNames);
+            fillListBox(*m_xSelectTable, aTableNames);
         }
         catch(const Exception&)
         {
             OSL_FAIL("OContentTableSelection::initializePage: could not retrieve the table names!");
         }
 
-        m_pSelectTable->SelectEntry(getSettings().sListContentTable);
+        m_xSelectTable->select_text(getSettings().sListContentTable);
     }
 
 
-    bool OContentTableSelection::commitPage( ::svt::WizardTypes::CommitPageReason _eReason )
+    bool OContentTableSelection::commitPage( ::vcl::WizardTypes::CommitPageReason _eReason )
     {
         if (!OLCPage::commitPage(_eReason))
             return false;
 
         OListComboSettings& rSettings = getSettings();
-        rSettings.sListContentTable = m_pSelectTable->GetSelectedEntry();
-        if (rSettings.sListContentTable.isEmpty() && (::svt::WizardTypes::eTravelBackward != _eReason))
+        rSettings.sListContentTable = m_xSelectTable->get_selected_text();
+        if (rSettings.sListContentTable.isEmpty() && (::vcl::WizardTypes::eTravelBackward != _eReason))
             // need to select a table
             return false;
 
         return true;
     }
 
-    OContentFieldSelection::OContentFieldSelection( OListComboWizard* _pParent )
-        :OLCPage(_pParent, "FieldSelectionPage", "modules/sabpilot/ui/contentfieldpage.ui")
+    OContentFieldSelection::OContentFieldSelection(weld::Container* pPage, OListComboWizard* pWizard)
+        : OLCPage(pPage, pWizard, "modules/sabpilot/ui/contentfieldpage.ui", "FieldSelectionPage")
+        , m_xSelectTableField(m_xBuilder->weld_tree_view("selectfield"))
+        , m_xDisplayedField(m_xBuilder->weld_entry("displayfield"))
+        , m_xInfo(m_xBuilder->weld_label("info"))
     {
-        get(m_pSelectTableField, "selectfield");
-        get(m_pDisplayedField, "displayfield");
-        get(m_pInfo, "info");
-        m_pInfo->SetText(compmodule::ModuleRes( isListBox() ? RID_STR_FIELDINFO_LISTBOX : RID_STR_FIELDINFO_COMBOBOX));
-        m_pSelectTableField->SetSelectHdl(LINK(this, OContentFieldSelection, OnFieldSelected));
-        m_pSelectTableField->SetDoubleClickHdl(LINK(this, OContentFieldSelection, OnTableDoubleClicked));
+        m_xInfo->set_label(compmodule::ModuleRes( isListBox() ? RID_STR_FIELDINFO_LISTBOX : RID_STR_FIELDINFO_COMBOBOX));
+        m_xSelectTableField->connect_changed(LINK(this, OContentFieldSelection, OnFieldSelected));
+        m_xSelectTableField->connect_row_activated(LINK(this, OContentFieldSelection, OnTableDoubleClicked));
     }
 
     OContentFieldSelection::~OContentFieldSelection()
     {
-        disposeOnce();
     }
-
-    void OContentFieldSelection::dispose()
-    {
-        m_pSelectTableField.clear();
-        m_pDisplayedField.clear();
-        m_pInfo.clear();
-        OLCPage::dispose();
-    }
-
 
     void OContentFieldSelection::initializePage()
     {
         OLCPage::initializePage();
 
         // fill the list of fields
-        fillListBox(*m_pSelectTableField, getTableFields());
+        fillListBox(*m_xSelectTableField, getTableFields());
 
-        m_pSelectTableField->SelectEntry(getSettings().sListContentField);
-        m_pDisplayedField->SetText(getSettings().sListContentField);
+        m_xSelectTableField->select_text(getSettings().sListContentField);
+        m_xDisplayedField->set_text(getSettings().sListContentField);
     }
-
 
     bool OContentFieldSelection::canAdvance() const
     {
         if (!OLCPage::canAdvance())
             return false;
 
-        return 0 != m_pSelectTableField->GetSelectedEntryCount();
+        return 0 != m_xSelectTableField->count_selected_rows();
     }
 
-
-    IMPL_LINK_NOARG( OContentFieldSelection, OnTableDoubleClicked, ListBox&, void )
+    IMPL_LINK_NOARG( OContentFieldSelection, OnTableDoubleClicked, weld::TreeView&, bool )
     {
-        if (m_pSelectTableField->GetSelectedEntryCount())
+        if (m_xSelectTableField->count_selected_rows())
             getDialog()->travelNext();
+        return true;
     }
 
-
-    IMPL_LINK_NOARG( OContentFieldSelection, OnFieldSelected, ListBox&, void )
+    IMPL_LINK_NOARG( OContentFieldSelection, OnFieldSelected, weld::TreeView&, void )
     {
         updateDialogTravelUI();
-        m_pDisplayedField->SetText(m_pSelectTableField->GetSelectedEntry());
+        m_xDisplayedField->set_text(m_xSelectTableField->get_selected_text());
     }
 
-
-    bool OContentFieldSelection::commitPage( ::svt::WizardTypes::CommitPageReason _eReason )
+    bool OContentFieldSelection::commitPage( ::vcl::WizardTypes::CommitPageReason _eReason )
     {
         if (!OLCPage::commitPage(_eReason))
             return false;
 
-        getSettings().sListContentField = m_pSelectTableField->GetSelectedEntry();
+        getSettings().sListContentField = m_xSelectTableField->get_selected_text();
 
         return true;
     }
 
-    OLinkFieldsPage::OLinkFieldsPage( OListComboWizard* _pParent )
-        :OLCPage(_pParent, "FieldLinkPage", "modules/sabpilot/ui/fieldlinkpage.ui")
+    OLinkFieldsPage::OLinkFieldsPage(weld::Container* pPage, OListComboWizard* pWizard)
+        : OLCPage(pPage, pWizard, "modules/sabpilot/ui/fieldlinkpage.ui", "FieldLinkPage")
+        , m_xValueListField(m_xBuilder->weld_combo_box("valuefield"))
+        , m_xTableField(m_xBuilder->weld_combo_box("listtable"))
     {
-        get(m_pValueListField, "valuefield");
-        get(m_pTableField, "listtable");
-
-        m_pValueListField->SetModifyHdl(LINK(this, OLinkFieldsPage, OnSelectionModified));
-        m_pTableField->SetModifyHdl(LINK(this, OLinkFieldsPage, OnSelectionModified));
-        m_pValueListField->SetSelectHdl(LINK(this, OLinkFieldsPage, OnSelectionModifiedCombBox));
-        m_pTableField->SetSelectHdl(LINK(this, OLinkFieldsPage, OnSelectionModifiedCombBox));
+        m_xValueListField->connect_changed(LINK(this, OLinkFieldsPage, OnSelectionModified));
+        m_xTableField->connect_changed(LINK(this, OLinkFieldsPage, OnSelectionModified));
     }
 
     OLinkFieldsPage::~OLinkFieldsPage()
     {
-        disposeOnce();
     }
 
-    void OLinkFieldsPage::dispose()
+    void OLinkFieldsPage::Activate()
     {
-        m_pValueListField.clear();
-        m_pTableField.clear();
-        OLCPage::dispose();
+        OLCPage::Activate();
+        m_xValueListField->grab_focus();
     }
-
-    void OLinkFieldsPage::ActivatePage()
-    {
-        OLCPage::ActivatePage();
-        m_pValueListField->GrabFocus();
-    }
-
 
     void OLinkFieldsPage::initializePage()
     {
         OLCPage::initializePage();
 
         // fill the value list
-        fillListBox(*m_pValueListField, getContext().aFieldNames);
+        fillListBox(*m_xValueListField, getContext().aFieldNames);
         // fill the table field list
-        fillListBox(*m_pTableField, getTableFields());
+        fillListBox(*m_xTableField, getTableFields());
 
         // the initial selections
-        m_pValueListField->SetText(getSettings().sLinkedFormField);
-        m_pTableField->SetText(getSettings().sLinkedListField);
+        m_xValueListField->set_entry_text(getSettings().sLinkedFormField);
+        m_xTableField->set_entry_text(getSettings().sLinkedListField);
 
         implCheckFinish();
     }
-
 
     bool OLinkFieldsPage::canAdvance() const
     {
@@ -474,38 +434,31 @@ namespace dbp
         return false;
     }
 
-
     void OLinkFieldsPage::implCheckFinish()
     {
-        bool bInvalidSelection = (COMBOBOX_ENTRY_NOTFOUND == m_pValueListField->GetEntryPos(m_pValueListField->GetText()));
-        bInvalidSelection |= (COMBOBOX_ENTRY_NOTFOUND == m_pTableField->GetEntryPos(m_pTableField->GetText()));
+        bool bInvalidSelection = (-1 == m_xValueListField->find_text(m_xValueListField->get_active_text()));
+        bInvalidSelection |= (-1 == m_xTableField->find_text(m_xTableField->get_active_text()));
         getDialog()->enableButtons(WizardButtonFlags::FINISH, !bInvalidSelection);
     }
 
-
-    IMPL_LINK_NOARG(OLinkFieldsPage, OnSelectionModified, Edit&, void)
+    IMPL_LINK_NOARG(OLinkFieldsPage, OnSelectionModified, weld::ComboBox&, void)
     {
         implCheckFinish();
     }
 
-    IMPL_LINK_NOARG(OLinkFieldsPage, OnSelectionModifiedCombBox, ComboBox&, void)
-    {
-        implCheckFinish();
-    }
-
-    bool OLinkFieldsPage::commitPage( ::svt::WizardTypes::CommitPageReason _eReason )
+    bool OLinkFieldsPage::commitPage( ::vcl::WizardTypes::CommitPageReason _eReason )
     {
         if (!OLCPage::commitPage(_eReason))
             return false;
 
-        getSettings().sLinkedFormField = m_pValueListField->GetText();
-        getSettings().sLinkedListField = m_pTableField->GetText();
+        getSettings().sLinkedFormField = m_xValueListField->get_active_text();
+        getSettings().sLinkedListField = m_xTableField->get_active_text();
 
         return true;
     }
 
-    OComboDBFieldPage::OComboDBFieldPage( OControlWizard* _pParent )
-        :ODBFieldPage(_pParent)
+    OComboDBFieldPage::OComboDBFieldPage(weld::Container* pPage, OControlWizard* pWizard)
+        : ODBFieldPage(pPage, pWizard)
     {
         setDescriptionText(compmodule::ModuleRes(RID_STR_COMBOWIZ_DBFIELD));
     }
@@ -515,9 +468,9 @@ namespace dbp
         return static_cast<OListComboWizard*>(getDialog())->getSettings().sLinkedFormField;
     }
 
-    void OComboDBFieldPage::ActivatePage()
+    void OComboDBFieldPage::Activate()
     {
-        ODBFieldPage::ActivatePage();
+        ODBFieldPage::Activate();
         getDialog()->enableButtons(WizardButtonFlags::FINISH, true);
     }
 

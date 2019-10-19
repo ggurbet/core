@@ -47,8 +47,8 @@ using namespace ::sw::mark;
 
 namespace
 {
-    // #i59534: If a paragraph will be splitted we have to restore some redline positions
-    // This help function checks a position compared with a node and an content index
+    // #i59534: If a paragraph will be split we have to restore some redline positions
+    // This help function checks a position compared with a node and a content index
 
     static const int BEFORE_NODE = 0;          // Position before the given node index
     static const int BEFORE_SAME_NODE = 1;     // Same node index but content index before given content index
@@ -398,7 +398,7 @@ void ContentIdxStoreImpl::RestoreFlys(SwDoc* pDoc, updater_t const & rUpdater, b
         else if( bAuto )
         {
             SwFrameFormat *pFrameFormat = (*pSpz)[ aEntry.m_nIdx ];
-            SfxPoolItem const *pAnchor = static_cast<SfxPoolItem const *>(&pFrameFormat->GetAnchor());
+            SfxPoolItem const *pAnchor = &pFrameFormat->GetAnchor();
             pFrameFormat->NotifyClients( pAnchor, pAnchor );
         }
     }
@@ -412,7 +412,7 @@ void ContentIdxStoreImpl::SaveUnoCursors(SwDoc* pDoc, sal_uLong nNode, sal_Int32
         auto pUnoCursor(pWeakUnoCursor.lock());
         if(!pUnoCursor)
             continue;
-        for(SwPaM& rPaM : pUnoCursor.get()->GetRingContainer())
+        for(SwPaM& rPaM : pUnoCursor->GetRingContainer())
         {
             lcl_ChkUnoCrsrPaMBoth(m_aUnoCursorEntries, nNode, nContent, rPaM);
         }

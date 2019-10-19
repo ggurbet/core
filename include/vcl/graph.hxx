@@ -101,6 +101,7 @@ public:
     bool            getSnapHorVerLines() const { return mbSnapHorVerLines; }
 };
 
+class Image;
 class VCL_DLLPUBLIC Graphic
 {
 private:
@@ -116,8 +117,9 @@ public:
                     Graphic();
                     Graphic( const GraphicExternalLink& rGraphicLink );
                     Graphic( const Graphic& rGraphic );
-                    Graphic( Graphic&& rGraphic );
+                    Graphic( Graphic&& rGraphic ) noexcept;
                     Graphic( const Bitmap& rBmp );
+                    Graphic( const Image& rImage );
                     Graphic( const BitmapEx& rBmpEx );
                     Graphic( const VectorGraphicDataPtr& rVectorGraphicDataPtr );
                     Graphic( const Animation& rAnimation );
@@ -125,7 +127,7 @@ public:
                     Graphic( const css::uno::Reference< css::graphic::XGraphic >& rxGraphic );
 
     Graphic&        operator=( const Graphic& rGraphic );
-    Graphic&        operator=( Graphic&& rGraphic );
+    Graphic&        operator=( Graphic&& rGraphic ) noexcept;
     bool            operator==( const Graphic& rGraphic ) const;
     bool            operator!=( const Graphic& rGraphic ) const;
 
@@ -205,12 +207,13 @@ public:
     std::shared_ptr<GraphicReader>& GetContext();
     void                            SetContext( const std::shared_ptr<GraphicReader> &pReader );
     void                            SetDummyContext(bool value);
-    bool                            IsDummyContext();
+    bool                            IsDummyContext() const;
 private:
     friend class GraphicObject;
 
 public:
     void            SetGfxLink(const std::shared_ptr<GfxLink>& rGfxLink);
+    std::shared_ptr<GfxLink> GetSharedGfxLink() const;
     GfxLink         GetGfxLink() const;
     bool            IsGfxLink() const;
 
@@ -223,8 +226,8 @@ public:
 
     const VectorGraphicDataPtr& getVectorGraphicData() const;
 
-    void setPdfData(const std::shared_ptr<css::uno::Sequence<sal_Int8>>& rPdfData);
-    const std::shared_ptr<css::uno::Sequence<sal_Int8>>& getPdfData() const;
+    void setPdfData(const std::shared_ptr<std::vector<sal_Int8>>& rPdfData);
+    const std::shared_ptr<std::vector<sal_Int8>> & getPdfData() const;
     bool hasPdfData() const;
 
     /// Set the page number of the multi-page source this Graphic is rendered from.

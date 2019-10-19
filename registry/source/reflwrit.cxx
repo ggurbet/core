@@ -165,6 +165,7 @@ sal_uInt32 writeDouble(sal_uInt8* buffer, double v)
 
 **************************************************************************/
 
+namespace {
 
 /**************************************************************************
 
@@ -174,16 +175,15 @@ sal_uInt32 writeDouble(sal_uInt8* buffer, double v)
 
 struct CPInfo
 {
-    CPInfoTag const m_tag;
     union
     {
         const sal_Char*     aUtf8;
         RTUik*              aUik;
         RTConstValueUnion   aConst;
     } m_value;
-
-    sal_uInt16      m_index;
     struct CPInfo*  m_next;
+    CPInfoTag const m_tag;
+    sal_uInt16      m_index;
 
     CPInfo(CPInfoTag tag, struct CPInfo* prev);
 
@@ -193,9 +193,9 @@ struct CPInfo
 };
 
 CPInfo::CPInfo(CPInfoTag tag, struct CPInfo* prev)
-    : m_tag(tag)
+    : m_next(nullptr)
+    , m_tag(tag)
     , m_index(0)
-    , m_next(nullptr)
 {
     if (prev)
     {
@@ -1099,6 +1099,7 @@ void TypeWriter::createBlop()
     m_blopSize = blopSize;
 }
 
+} // unnamed namespace
 
 /**************************************************************************
 

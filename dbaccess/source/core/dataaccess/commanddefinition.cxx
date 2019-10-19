@@ -37,7 +37,7 @@ namespace dbaccess
 
 void OCommandDefinition::registerProperties()
 {
-    OCommandDefinition_Impl& rCommandDefinition = dynamic_cast< OCommandDefinition_Impl& >( *m_pImpl.get() );
+    OCommandDefinition_Impl& rCommandDefinition = dynamic_cast< OCommandDefinition_Impl& >( *m_pImpl );
     registerProperty(PROPERTY_COMMAND, PROPERTY_ID_COMMAND, PropertyAttribute::BOUND,
                     &rCommandDefinition.m_sCommand, cppu::UnoType<decltype(rCommandDefinition.m_sCommand)>::get());
 
@@ -88,7 +88,7 @@ IMPLEMENT_PROPERTYCONTAINER_DEFAULTS2(OCommandDefinition,OCommandDefinition_PROP
 
 OUString SAL_CALL OCommandDefinition::getImplementationName()
 {
-    return OUString("com.sun.star.comp.dba.OCommandDefinition");
+    return "com.sun.star.comp.dba.OCommandDefinition";
 }
 
 css::uno::Sequence<OUString> SAL_CALL OCommandDefinition::getSupportedServiceNames()

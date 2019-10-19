@@ -50,7 +50,7 @@
 #include "finteraction.hxx"
 #include "DBSetupConnectionPages.hxx"
 #include <unotools/pathoptions.hxx>
-#include <svtools/roadmapwizard.hxx>
+#include <vcl/roadmapwizard.hxx>
 
 namespace
 {
@@ -158,7 +158,7 @@ namespace dbaui
         _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ComboBox>(m_xTextSeparator.get()));
         _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ComboBox>(m_xDecimalSeparator.get()));
         _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ComboBox>(m_xThousandsSeparator.get()));
-        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::CheckButton>(m_xRowHeader.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(m_xRowHeader.get()));
         _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ComboBox>(m_xCharSet->get_widget()));
     }
 
@@ -357,7 +357,7 @@ namespace dbaui
         }
     }
 
-    OUString OTextConnectionHelper::GetExtension()
+    OUString OTextConnectionHelper::GetExtension() const
     {
         OUString sExtension;
         if (m_xAccessTextFiles->get_active())

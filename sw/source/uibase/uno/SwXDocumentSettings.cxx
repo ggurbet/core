@@ -143,6 +143,7 @@ enum SwDocumentSettingsPropertyHandles
     HANDLE_SUBTRACT_FLYS,
     HANDLE_DISABLE_OFF_PAGE_POSITIONING,
     HANDLE_EMPTY_DB_FIELD_HIDES_PARA,
+    HANDLE_CONTINUOUS_ENDNOTES,
 };
 
 static MasterPropertySetInfo * lcl_createSettingsInfo()
@@ -227,6 +228,7 @@ static MasterPropertySetInfo * lcl_createSettingsInfo()
         { OUString("SubtractFlysAnchoredAtFlys"),       HANDLE_SUBTRACT_FLYS,         cppu::UnoType<bool>::get(),           0},
         { OUString("DisableOffPagePositioning"),       HANDLE_DISABLE_OFF_PAGE_POSITIONING,         cppu::UnoType<bool>::get(),           0},
         { OUString("EmptyDbFieldHidesPara"), HANDLE_EMPTY_DB_FIELD_HIDES_PARA, cppu::UnoType<bool>::get(), 0 },
+        { OUString("ContinuousEndnotes"), HANDLE_CONTINUOUS_ENDNOTES, cppu::UnoType<bool>::get(), 0 },
 /*
  * As OS said, we don't have a view when we need to set this, so I have to
  * find another solution before adding them to this property set - MTG
@@ -275,16 +277,16 @@ SwXDocumentSettings::~SwXDocumentSettings()
 
 Any SAL_CALL SwXDocumentSettings::queryInterface( const Type& rType )
 {
-        return ::cppu::queryInterface ( rType,
-                                        // OWeakObject interfaces
-                                        dynamic_cast< XInterface* > ( dynamic_cast< OWeakObject*  >(this) ),
-                                        dynamic_cast< XWeak* > ( this ),
-                                        // my own interfaces
-                                        dynamic_cast< XPropertySet*  > ( this ),
-                                        dynamic_cast< XPropertyState* > ( this ),
-                                        dynamic_cast< XMultiPropertySet* > ( this ),
-                                        dynamic_cast< XServiceInfo* > ( this ),
-                                        dynamic_cast< XTypeProvider* > ( this ) );
+        return ::cppu::queryInterface(rType,
+                                      // OWeakObject interfaces
+                                      &dynamic_cast<XInterface&>(dynamic_cast<OWeakObject&>(*this)),
+                                      &dynamic_cast<XWeak&>(*this),
+                                      // my own interfaces
+                                      &dynamic_cast<XPropertySet&>(*this),
+                                      &dynamic_cast<XPropertyState&>(*this),
+                                      &dynamic_cast<XMultiPropertySet&>(*this),
+                                      &dynamic_cast<XServiceInfo&>(*this),
+                                      &dynamic_cast<XTypeProvider&>(*this));
 }
 void SwXDocumentSettings::acquire ()
     throw ()
@@ -925,8 +927,18 @@ void SwXDocumentSettings::_setSingleValue( const comphelper::PropertyInfo & rInf
             }
         }
         break;
+        case HANDLE_CONTINUOUS_ENDNOTES:
+        {
+            bool bTmp;
+            if (rValue >>= bTmp)
+            {
+                mpDoc->getIDocumentSettingAccess().set(DocumentSettingId::CONTINUOUS_ENDNOTES,
+                                                       bTmp);
+            }
+        }
+        break;
         default:
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(OUString::number(rInfo.mnHandle));
     }
 }
 
@@ -1381,8 +1393,14 @@ void SwXDocumentSettings::_getSingleValue( const comphelper::PropertyInfo & rInf
                 DocumentSettingId::EMPTY_DB_FIELD_HIDES_PARA);
         }
         break;
+        case HANDLE_CONTINUOUS_ENDNOTES:
+        {
+            rValue
+                <<= mpDoc->getIDocumentSettingAccess().get(DocumentSettingId::CONTINUOUS_ENDNOTES);
+        }
+        break;
         default:
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(OUString::number(rInfo.mnHandle));
     }
 }
 
@@ -1395,7 +1413,7 @@ void SwXDocumentSettings::_postGetValues ()
 // XServiceInfo
 OUString SAL_CALL SwXDocumentSettings::getImplementationName(  )
 {
-    return OUString("SwXDocumentSettings");
+    return "SwXDocumentSettings";
 }
 
 sal_Bool SAL_CALL SwXDocumentSettings::supportsService( const OUString& ServiceName )
@@ -1405,11 +1423,7 @@ sal_Bool SAL_CALL SwXDocumentSettings::supportsService( const OUString& ServiceN
 
 Sequence< OUString > SAL_CALL SwXDocumentSettings::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSeq( 3 );
-    aSeq[0] = "com.sun.star.document.Settings";
-    aSeq[1] = "com.sun.star.text.DocumentSettings";
-    aSeq[2] = "com.sun.star.text.PrintSettings";
-    return aSeq;
+    return { "com.sun.star.document.Settings", "com.sun.star.text.DocumentSettings", "com.sun.star.text.PrintSettings" };
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

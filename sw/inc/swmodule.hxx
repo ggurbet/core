@@ -23,6 +23,7 @@
 
 #include <cstddef>
 
+#include <o3tl/deleter.hxx>
 #include <tools/fldunit.hxx>
 #include <svl/lstner.hxx>
 #include <unotools/options.hxx>
@@ -76,9 +77,9 @@ class SW_DLLPUBLIC SwModule final : public SfxModule, public SfxListener, public
     OUString            m_sActAuthor;
 
     // ConfigItems
-    std::unique_ptr<SwModuleOptions>     m_pModuleConfig;
-    std::unique_ptr<SwMasterUsrPref>     m_pUsrPref;
-    std::unique_ptr<SwMasterUsrPref>     m_pWebUsrPref;
+    std::unique_ptr<SwModuleOptions, o3tl::default_delete<SwModuleOptions>> m_pModuleConfig;
+    std::unique_ptr<SwMasterUsrPref, o3tl::default_delete<SwMasterUsrPref>> m_pUsrPref;
+    std::unique_ptr<SwMasterUsrPref, o3tl::default_delete<SwMasterUsrPref>> m_pWebUsrPref;
     std::unique_ptr<SwPrintOptions>      m_pPrintOptions;
     std::unique_ptr<SwPrintOptions>      m_pWebPrintOptions;
     std::unique_ptr<SwChapterNumRules>   m_pChapterNumRules;
@@ -207,8 +208,8 @@ public:
     void                GetDeletedAuthorAttr(std::size_t nAuthor, SfxItemSet &rSet);
     void                GetFormatAuthorAttr(std::size_t nAuthor, SfxItemSet &rSet);
 
-    sal_uInt16              GetRedlineMarkPos();
-    const Color&            GetRedlineMarkColor();
+    sal_uInt16              GetRedlineMarkPos() const;
+    const Color&            GetRedlineMarkColor() const;
 
     SwCompareMode      GetCompareMode() const;
     bool            IsUseRsid() const;
@@ -228,7 +229,7 @@ public:
     // Virtual methods for options dialog.
     virtual std::unique_ptr<SfxItemSet> CreateItemSet( sal_uInt16 nId ) override;
     virtual void         ApplyItemSet( sal_uInt16 nId, const SfxItemSet& rSet ) override;
-    virtual VclPtr<SfxTabPage> CreateTabPage( sal_uInt16 nId, TabPageParent pParent, const SfxItemSet& rSet ) override;
+    virtual std::unique_ptr<SfxTabPage> CreateTabPage( sal_uInt16 nId, weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet ) override;
     virtual std::unique_ptr<SfxStyleFamilies> CreateStyleFamilies() override;
 
     // Pool is created here and set at SfxShell.

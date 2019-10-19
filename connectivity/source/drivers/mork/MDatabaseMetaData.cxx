@@ -101,7 +101,7 @@ ODatabaseMetaDataResultSet::ORows ODatabaseMetaData::getColumnRows(
     aRow[18] = new ORowSetValueDecorator(OUString("YES"));
 
     // Iterate over all tables
-    for(OUString & table : tables) {
+    for(const OUString & table : tables) {
         if(match(tableNamePattern, table,'\0')) {
             // TABLE_NAME
             aRow[3] = new ORowSetValueDecorator( table );
@@ -258,7 +258,7 @@ OUString SAL_CALL ODatabaseMetaData::getCatalogTerm(  )
 OUString ODatabaseMetaData::impl_getIdentifierQuoteString_throw(  )
 {
     // normally this is "
-    return OUString( "\"");
+    return "\"";
 }
 
 OUString SAL_CALL ODatabaseMetaData::getExtraNameCharacters(  )
@@ -923,7 +923,7 @@ Reference< XResultSet > SAL_CALL ODatabaseMetaData::getTablePrivileges(
 
 
     // Iterate over all tables
-    for(OUString & table : tables) {
+    for(const OUString & table : tables) {
        if(match(tableNamePattern, table,'\0'))
            {
             // TABLE_NAME

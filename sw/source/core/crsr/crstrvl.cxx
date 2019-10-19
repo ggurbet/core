@@ -1804,9 +1804,9 @@ bool SwCursorShell::GetContentAtPos( const Point& rPt,
                 {
                     OUStringBuffer sAttrs;
                     SfxItemIter aIter( aSet );
-                    const SfxPoolItem* pItem = aIter.FirstItem();
+                    const SfxPoolItem* pItem = aIter.GetCurItem();
                     const IntlWrapper aInt(SvtSysLocale().GetUILanguageTag());
-                    while( true )
+                    do
                     {
                         if( !IsInvalidItem( pItem ))
                         {
@@ -1817,10 +1817,8 @@ bool SwCursorShell::GetContentAtPos( const Point& rPt,
                                 sAttrs.append(", ");
                             sAttrs.append(aStr);
                         }
-                        if( aIter.IsAtEnd() )
-                            break;
                         pItem = aIter.NextItem();
-                    }
+                    } while (pItem);
                     if (!sAttrs.isEmpty())
                     {
                         if( !rContentAtPos.sStr.isEmpty() )
@@ -2454,7 +2452,7 @@ bool SwCursorShell::SelectNxtPrvHyperlink( bool bNext )
                                         rAttr.GetStart(),
                                         *rAttr.GetEnd() - rAttr.GetStart() ) );
 
-                        sText = sText.replaceAll(OUStringLiteral1(0x0a), "");
+                        sText = sText.replaceAll("\x0a", "");
                         sText = comphelper::string::strip(sText, ' ');
 
                         if( !sText.isEmpty() )

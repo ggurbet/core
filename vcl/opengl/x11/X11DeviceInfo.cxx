@@ -246,7 +246,7 @@ void X11OpenGLDeviceInfo::GetData()
     else if (strstr(maVendor.getStr(), "ATI Technologies Inc"))
     {
         mbIsFGLRX = true;
-        // with the FGLRX driver, the version string only gives a OpenGL version :/ so let's return that.
+        // with the FGLRX driver, the version string only gives an OpenGL version: so let's return that.
         // that can at least give a rough idea of how old the driver is.
         whereToReadVersionNumbers = maVersion.getStr();
     }
@@ -283,8 +283,8 @@ bool X11OpenGLDeviceInfo::isDeviceBlocked()
     if (mnGLMajorVersion == 1)
         return true;
 
-    CrashReporter::AddKeyValue("AdapterVendorId", OStringToOUString(maVendor, RTL_TEXTENCODING_UTF8));
-    CrashReporter::AddKeyValue("AdapterDeviceId", OStringToOUString(maRenderer, RTL_TEXTENCODING_UTF8));
+    CrashReporter::addKeyValue("AdapterVendorId", OStringToOUString(maVendor, RTL_TEXTENCODING_UTF8), CrashReporter::AddItem);
+    CrashReporter::addKeyValue("AdapterDeviceId", OStringToOUString(maRenderer, RTL_TEXTENCODING_UTF8), CrashReporter::Write);
 
     SAL_INFO("vcl.opengl", "Vendor: " << maVendor);
     SAL_INFO("vcl.opengl", "Renderer: " << maRenderer);

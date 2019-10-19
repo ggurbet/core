@@ -24,8 +24,6 @@
 #include <com/sun/star/sheet/XSheetAnnotation.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
 
-#include "vbaglobals.hxx"
-
 using namespace ::ooo::vba;
 using namespace ::com::sun::star;
 
@@ -95,7 +93,7 @@ ScVbaComments::getElementType()
 OUString
 ScVbaComments::getServiceImplName()
 {
-    return OUString("ScVbaComments");
+    return "ScVbaComments";
 }
 
 css::uno::Sequence<OUString>

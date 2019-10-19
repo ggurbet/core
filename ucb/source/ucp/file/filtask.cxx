@@ -36,13 +36,16 @@
 #include <com/sun/star/lang/IllegalAccessException.hpp>
 #include <com/sun/star/task/InteractionClassification.hpp>
 #include <com/sun/star/ucb/ContentInfoAttribute.hpp>
+#include <com/sun/star/ucb/DuplicateCommandIdentifierException.hpp>
 #include <com/sun/star/ucb/IOErrorCode.hpp>
 #include <com/sun/star/ucb/InsertCommandArgument.hpp>
 #include <com/sun/star/ucb/InteractiveAugmentedIOException.hpp>
 #include <com/sun/star/ucb/NameClash.hpp>
 #include <com/sun/star/ucb/OpenCommandArgument.hpp>
 #include <com/sun/star/ucb/Store.hpp>
+#include <com/sun/star/ucb/TransferInfo.hpp>
 #include <comphelper/propertysequence.hxx>
+#include <rtl/ref.hxx>
 #include <rtl/uri.hxx>
 
 #include "filtask.hxx"
@@ -589,7 +592,7 @@ TaskManager::deassociate( const OUString& aUnqPath,
 
     it1 = properties.find( oldProperty );
     if( it1 == properties.end() )
-        throw beans::UnknownPropertyException( THROW_WHERE );
+        throw beans::UnknownPropertyException( PropertyName );
 
     properties.erase( it1 );
 
@@ -648,6 +651,7 @@ void TaskManager::page( sal_Int32 CommandId,
         err = aFile.read( static_cast<void*>(BFF),bfz,nrc );
         if(  err == osl::FileBase::E_None )
         {
+            // coverity[overrun-buffer-arg : FALSE] - coverity has difficulty with css::uno::Sequence
             uno::Sequence< sal_Int8 > seq( BFF, static_cast<sal_uInt32>(nrc) );
             try
             {
@@ -715,7 +719,7 @@ TaskManager::open( sal_Int32 CommandId,
              const OUString& aUnqPath,
              bool bLock )
 {
-    std::unique_ptr<XInputStream_impl> pInputStream(new XInputStream_impl( aUnqPath, bLock )); // from filinpstr.hxx
+    rtl::Reference<XInputStream_impl> pInputStream(new XInputStream_impl( aUnqPath, bLock )); // from filinpstr.hxx
 
     sal_Int32 ErrorCode = pInputStream->CtorSuccess();
 
@@ -725,10 +729,10 @@ TaskManager::open( sal_Int32 CommandId,
                       ErrorCode,
                       pInputStream->getMinorError() );
 
-        pInputStream.reset();
+        pInputStream.clear();
     }
 
-    return uno::Reference< io::XInputStream >( pInputStream.release() );
+    return uno::Reference< io::XInputStream >( pInputStream.get() );
 }
 
 
@@ -747,7 +751,7 @@ TaskManager::open_rw( sal_Int32 CommandId,
                 const OUString& aUnqPath,
                 bool bLock )
 {
-    std::unique_ptr<XStream_impl> pStream(new XStream_impl( aUnqPath, bLock ));  // from filstr.hxx
+    rtl::Reference<XStream_impl> pStream(new XStream_impl( aUnqPath, bLock ));  // from filstr.hxx
 
     sal_Int32 ErrorCode = pStream->CtorSuccess();
 
@@ -757,9 +761,9 @@ TaskManager::open_rw( sal_Int32 CommandId,
                       ErrorCode,
                       pStream->getMinorError() );
 
-        pStream.reset();
+        pStream.clear();
     }
-    return uno::Reference< io::XStream >( pStream.release() );
+    return uno::Reference< io::XStream >( pStream.get() );
 }
 
 
@@ -780,7 +784,7 @@ TaskManager::ls( sal_Int32 CommandId,
            const uno::Sequence< beans::Property >& seq,
            const uno::Sequence< NumberedSortingInfo >& seqSort )
 {
-    std::unique_ptr<XResultSet_impl> p(new XResultSet_impl( this,aUnqPath,OpenMode,seq,seqSort ));
+    rtl::Reference<XResultSet_impl> p(new XResultSet_impl( this,aUnqPath,OpenMode,seq,seqSort ));
 
     sal_Int32 ErrorCode = p->CtorSuccess();
 
@@ -790,10 +794,10 @@ TaskManager::ls( sal_Int32 CommandId,
                       ErrorCode,
                       p->getMinorError() );
 
-        p.reset();
+        p.clear();
     }
 
-    return uno::Reference< XDynamicResultSet > ( p.release() );
+    return uno::Reference< XDynamicResultSet > ( p.get() );
 }
 
 
@@ -1167,8 +1171,8 @@ TaskManager::move( sal_Int32 CommandId,
 
             osl::FileStatus aStatus(osl_FileStatus_Mask_Type|osl_FileStatus_Mask_LinkTargetURL);
             osl::DirectoryItem aItem;
-            osl::DirectoryItem::get(dstUnqPath,aItem);
-            aItem.getFileStatus(aStatus);
+            (void)osl::DirectoryItem::get(dstUnqPath,aItem);
+            (void)aItem.getFileStatus(aStatus);
 
             if( aStatus.isValid(osl_FileStatus_Mask_Type)          &&
                 aStatus.isValid(osl_FileStatus_Mask_LinkTargetURL) &&
@@ -2142,7 +2146,7 @@ bool TaskManager::ensuredir( sal_Int32 CommandId,
 
 
 //  Given a sequence of properties seq, this method determines the mask
-//  used to instantiate a osl::FileStatus, so that a call to
+//  used to instantiate an osl::FileStatus, so that a call to
 //  osl::DirectoryItem::getFileStatus fills the required fields.
 
 
@@ -2211,7 +2215,7 @@ TaskManager::load( const ContentMap::iterator& it, bool create )
             // Now put in all values in the storage in the local hash;
 
             PropertySet& properties = it->second.properties;
-            uno::Sequence< beans::Property > seq = xS->getPropertySetInfo()->getProperties();
+            const uno::Sequence< beans::Property > seq = xS->getPropertySetInfo()->getProperties();
 
             for( const auto& rProp : seq )
             {
@@ -2465,7 +2469,6 @@ TaskManager::commit( const TaskManager::ContentMap::iterator& it,
 
 bool
 TaskManager::getv(
-    Notifier* pNotifier,
     const uno::Sequence< beans::Property >& properties,
     osl::DirectoryItem& aDirItem,
     OUString& aUnqPath,
@@ -2501,7 +2504,7 @@ TaskManager::getv(
         // Assume failure
         aIsRegular = false;
         osl::DirectoryItem aTargetItem;
-        osl::DirectoryItem::get( aFileStatus.getLinkTargetURL(), aTargetItem );
+        (void)osl::DirectoryItem::get( aFileStatus.getLinkTargetURL(), aTargetItem );
         if ( aTargetItem.is() )
         {
             osl::FileStatus aTargetStatus( osl_FileStatus_Mask_Type );
@@ -2514,7 +2517,6 @@ TaskManager::getv(
     else
         aIsRegular = aFileStatus.getFileType() == osl::FileStatus::Regular;
 
-    registerNotifier( aUnqPath,pNotifier );
     insertDefaultProperties( aUnqPath );
     {
         osl::MutexGuard aGuard( m_aMutex );
@@ -2533,7 +2535,6 @@ TaskManager::getv(
                 return it1->getValue();
             });
     }
-    deregisterNotifier( aUnqPath,pNotifier );
 
     XRow_impl* p = new XRow_impl( this,seq );
     row = uno::Reference< sdbc::XRow >( p );
@@ -2715,21 +2716,24 @@ TaskManager::getContentExchangedEventListeners( const OUString& aOldPrefix,
 
                 m_aContent.erase( itold );
 
-                if( itnew != m_aContent.end() && !itnew->second.notifier.empty() )
+                if (itnew != m_aContent.end())
                 {
-                    std::vector<Notifier*>& listOfNotifiers = itnew->second.notifier;
-                    for (auto const& pointer : listOfNotifiers)
+                    if (!itnew->second.notifier.empty())
                     {
-                        std::unique_ptr<ContentEventNotifier> notifier = pointer->cEXC( aNewName );
-                        if( notifier )
-                            aVector.push_back( std::move(notifier) );
+                        std::vector<Notifier*>& listOfNotifiers = itnew->second.notifier;
+                        for (auto const& pointer : listOfNotifiers)
+                        {
+                            std::unique_ptr<ContentEventNotifier> notifier = pointer->cEXC( aNewName );
+                            if( notifier )
+                                aVector.push_back( std::move(notifier) );
+                        }
                     }
-                }
 
-                // Merge with preexisting notifiers
-                // However, these may be in status BaseContent::Deleted
-                for( const auto& rCopyPtr : copyList )
-                    itnew->second.notifier.push_back( rCopyPtr );
+                    // Merge with preexisting notifiers
+                    // However, these may be in status BaseContent::Deleted
+                    for( const auto& rCopyPtr : copyList )
+                        itnew->second.notifier.push_back( rCopyPtr );
+                }
             }
         }
     }
@@ -2820,7 +2824,7 @@ TaskManager::erasePersistentSet( const OUString& aUnqPath,
     }
 
     uno::Reference< container::XNameAccess > xName( m_xFileRegistry,uno::UNO_QUERY );
-    uno::Sequence< OUString > seqNames = xName->getElementNames();
+    const uno::Sequence< OUString > seqNames = xName->getElementNames();
 
     OUString old_Name = aUnqPath;
 
@@ -2852,7 +2856,7 @@ TaskManager::copyPersistentSetWithoutChildren( const OUString& srcUnqPath,
     if( ! x_src.is() )
         return;
 
-    uno::Sequence< beans::Property > seqProperty =
+    const uno::Sequence< beans::Property > seqProperty =
         x_src->getPropertySetInfo()->getProperties();
 
     if( ! seqProperty.hasElements() )
@@ -2889,7 +2893,7 @@ TaskManager::copyPersistentSet( const OUString& srcUnqPath,
     }
 
     uno::Reference< container::XNameAccess > xName( m_xFileRegistry,uno::UNO_QUERY );
-    uno::Sequence< OUString > seqNames = xName->getElementNames();
+    const uno::Sequence< OUString > seqNames = xName->getElementNames();
 
     OUString new_Name;
 
@@ -2944,16 +2948,14 @@ TaskManager::getScheme( OUString& Scheme )
 OUString
 TaskManager::getImplementationName_static()
 {
-  return OUString("com.sun.star.comp.ucb.FileProvider");
+  return "com.sun.star.comp.ucb.FileProvider";
 }
 
 
 uno::Sequence< OUString >
 TaskManager::getSupportedServiceNames_static()
 {
-  OUString Supported("com.sun.star.ucb.FileContentProvider");
-  css::uno::Sequence< OUString > Seq( &Supported,1 );
-  return Seq;
+  return { "com.sun.star.ucb.FileContentProvider" };
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

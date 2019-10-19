@@ -163,8 +163,8 @@ void ScSolverOptionsDialog::FillListBox()
 
     uno::Sequence<beans::PropertyValue> aNewSeq;
     aNewSeq.realloc( nCount );
-    for (sal_Int32 nPos=0; nPos<nCount; nPos++)
-        aNewSeq[nPos] = maProperties[ aDescriptions[nPos].nPosition ];
+    std::transform(aDescriptions.begin(), aDescriptions.end(), aNewSeq.begin(),
+        [this](const ScSolverOptionsEntry& rDescr) -> beans::PropertyValue { return maProperties[ rDescr.nPosition ]; });
     maProperties = aNewSeq;
 
     // fill the list box
@@ -198,8 +198,7 @@ void ScSolverOptionsDialog::FillListBox()
                 if (aValue >>= fDoubleValue)
                     m_aOptions.back()->SetDoubleValue(fDoubleValue);
 
-                OUString sTxt(aVisName);
-                sTxt += ": ";
+                OUString sTxt = aVisName + ": ";
                 sTxt += rtl::math::doubleToUString(fDoubleValue,
                     rtl_math_StringFormat_Automatic, rtl_math_DecimalPlaces_Max,
                     ScGlobal::GetpLocaleData()->getNumDecimalSep()[0], true );
@@ -212,9 +211,7 @@ void ScSolverOptionsDialog::FillListBox()
                 if (aValue >>= nIntValue)
                     m_aOptions.back()->SetIntValue(nIntValue);
 
-                OUString sTxt(aVisName);
-                sTxt += ": ";
-                sTxt += OUString::number(nIntValue);
+                OUString sTxt = aVisName + ": " + OUString::number(nIntValue);
 
                 m_xLbSettings->set_text(nPos, sTxt, 1);
             }
@@ -281,9 +278,10 @@ IMPL_LINK( ScSolverOptionsDialog, ButtonHdl, weld::Button&, rBtn, void )
         EditOption();
 }
 
-IMPL_LINK_NOARG(ScSolverOptionsDialog, SettingsDoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(ScSolverOptionsDialog, SettingsDoubleClickHdl, weld::TreeView&, bool)
 {
     EditOption();
+    return true;
 }
 
 IMPL_LINK_NOARG(ScSolverOptionsDialog, EngineSelectHdl, weld::ComboBox&, void)

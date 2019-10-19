@@ -228,9 +228,8 @@ UpdateDialog::Thread::Thread(
 {
     if( m_context.is() )
     {
-        m_xInteractionHdl.set(
-            task::InteractionHandler::createWithParent(m_context, dialog.getDialog()->GetXWindow()),
-            uno::UNO_QUERY );
+        m_xInteractionHdl =
+            task::InteractionHandler::createWithParent(m_context, dialog.getDialog()->GetXWindow());
         m_updateInformation->setInteractionHandler( m_xInteractionHdl );
     }
 }
@@ -532,23 +531,13 @@ IMPL_LINK(UpdateDialog, entryToggled, const row_col&, rRowCol, void)
     enableOk();
 }
 
-sal_uInt16 UpdateDialog::insertItem(UpdateDialog::Index *pEntry, bool bEnabledCheckBox)
+void UpdateDialog::insertItem(UpdateDialog::Index *pEntry, bool bEnabledCheckBox)
 {
     int nEntry = m_xUpdates->n_children();
     m_xUpdates->append();
     m_xUpdates->set_toggle(nEntry, bEnabledCheckBox ? TRISTATE_TRUE : TRISTATE_FALSE, 0);
     m_xUpdates->set_text(nEntry, pEntry->m_aName, 1);
     m_xUpdates->set_id(nEntry, OUString::number(reinterpret_cast<sal_Int64>(pEntry)));
-
-    for (sal_uInt16 i = nEntry; i != 0 ;)
-    {
-        i -= 1;
-        UpdateDialog::Index const * p = reinterpret_cast< UpdateDialog::Index const * >(m_xUpdates->get_id(i).toInt64());
-        if ( p == pEntry )
-            return i;
-    }
-    OSL_ASSERT(false);
-    return 0;
 }
 
 void UpdateDialog::addAdditional(UpdateDialog::Index * index, bool bEnabledCheckBox)

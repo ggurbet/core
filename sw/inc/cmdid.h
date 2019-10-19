@@ -131,17 +131,18 @@
 #define FN_EDIT_CURRENT_TOX          (FN_EDIT2 + 32) /* edit current index */
 #define FN_EDIT_AUTH_ENTRY_DLG       (FN_EDIT2 + 33) /* edit authorities entry*/
 #define FN_UPDATE_CHARTS             (FN_EDIT2 + 34) /* update all charts */
-
-#define FN_EDIT_HYPERLINK            (FN_EDIT2 + 35)    /* edit hyperlink */
+// free
 #define FN_NUM_CONTINUE              (FN_EDIT2 + 36)    /* continue previous numbering */
 #define FN_REDLINE_ACCEPT_DIRECT     (FN_EDIT2 + 37)    /* accept redline at current position*/
 #define FN_REDLINE_REJECT_DIRECT     (FN_EDIT2 + 38)    /* reject redline at current position*/
-#define FN_REMOVE_HYPERLINK          (FN_EDIT2 + 39)    /* remove hyperlink attribute */
-#define FN_COPY_HYPERLINK_LOCATION   (FN_EDIT2 + 40)    /* copy hyperlink URL to clipboard */
+// free
+// free
 #define FN_REDLINE_NEXT_CHANGE       (FN_EDIT2 + 41)    /* Go to the next change */
 #define FN_REDLINE_PREV_CHANGE       (FN_EDIT2 + 42)    /* Go to the previous change */
 #define FN_REDLINE_ACCEPT_ALL        (FN_EDIT2 + 43)    /* Redlining Accept All*/
 #define FN_REDLINE_REJECT_ALL        (FN_EDIT2 + 44)    /* Redlining Reject All*/
+#define FN_REDLINE_ACCEPT_TONEXT     (FN_EDIT2 + 45)    /* Redlining Accept and jump to next*/
+#define FN_REDLINE_REJECT_TONEXT     (FN_EDIT2 + 46)    /* Redlining Reject and jump to next*/
 
 // Region: Edit
 #define FN_REFRESH_VIEW         (FN_VIEW + 1)   /* Refresh/Redraw */
@@ -277,6 +278,8 @@
 #define FN_INSERT_CHECKBOX_FORMFIELD    (FN_INSERT2 + 23)
 #define FN_INSERT_DROPDOWN_FORMFIELD    (FN_INSERT2 + 24)
 
+// MSO content controls
+#define FN_INSERT_DATE_FORMFIELD        (FN_INSERT2 + 25)
 
 // Region: Format
 #define FN_AUTOFORMAT_APPLY     (FN_FORMAT + 1 ) /* apply autoformat options */
@@ -495,6 +498,7 @@
 #define FN_UNO_PARA_STYLE           (FN_EXTRA2 + 9)  // starting here are UNI-Ids for the PropertyMap listed
 #define FN_UNO_PAGE_STYLE           (FN_EXTRA2 + 10)
 
+#define FN_UNO_PARA_NUM_AUTO_FORMAT (FN_EXTRA2 + 11)
 #define FN_UNO_FRAME_STYLE_NAME     (FN_EXTRA2 + 12)
 #define FN_UNO_NUM_START_VALUE      (FN_EXTRA2 + 13)
 #define FN_UNO_NUM_LEVEL            (FN_EXTRA2 + 14)
@@ -704,7 +708,7 @@
 #define FN_SELECT_SENTENCE          (FN_SELECTION + 94)   /* select paragraph*/
 
 // QUERY-Block
-#define FN_TXTATR_INET              (FN_QUERY +29)      /* INet-Attribut */
+#define FN_TXTATR_INET              (FN_QUERY +29)      /* INet-Attribute */
 
 #define FN_GET_PRINT_AREA           (FN_QUERY +32)      /* Get attribute for printable area of page */
 #define FN_DB_CONNECTION_ANY            (FN_QUERY2 + 3)
@@ -728,6 +732,7 @@
 #define FN_DELETE_COMMENT           (FN_NOTES+6)
 #define FN_REPLY                    (FN_NOTES+7)
 #define FN_FORMAT_ALL_NOTES         (FN_NOTES+8)
+#define FN_RESOLVE_NOTE             (FN_NOTES+9)
 
 // Region: Parameter
 #define FN_PARAM_MOVE_COUNT         (FN_PARAM+2)

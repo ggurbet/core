@@ -68,8 +68,8 @@ using namespace com::sun::star;
 
 // Sort Criteria Tab page
 
-ScTabPageSortFields::ScTabPageSortFields(TabPageParent pParent, const SfxItemSet& rArgSet)
-    : SfxTabPage(pParent, "modules/scalc/ui/sortcriteriapage.ui", "SortCriteriaPage", &rArgSet)
+ScTabPageSortFields::ScTabPageSortFields(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet)
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/sortcriteriapage.ui", "SortCriteriaPage", &rArgSet)
     ,
 
         aStrUndefined   ( ScResId( SCSTR_UNDEFINED ) ),
@@ -100,15 +100,9 @@ ScTabPageSortFields::ScTabPageSortFields(TabPageParent pParent, const SfxItemSet
 
 ScTabPageSortFields::~ScTabPageSortFields()
 {
-    disposeOnce();
-}
-
-void ScTabPageSortFields::dispose()
-{
     m_aSortWin.m_aSortKeyItems.clear();
     m_xBox.reset();
     m_xScrolledWindow.reset();
-    SfxTabPage::dispose();
 }
 
 void ScTabPageSortFields::Init()
@@ -129,9 +123,9 @@ void ScTabPageSortFields::Init()
     }
 }
 
-VclPtr<SfxTabPage> ScTabPageSortFields::Create(TabPageParent pParent, const SfxItemSet* pArgSet)
+std::unique_ptr<SfxTabPage> ScTabPageSortFields::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* pArgSet)
 {
-    return VclPtr<ScTabPageSortFields>::Create(pParent, *pArgSet);
+    return std::make_unique<ScTabPageSortFields>(pPage, pController, *pArgSet);
 }
 
 void ScTabPageSortFields::Reset( const SfxItemSet* /* rArgSet */ )
@@ -479,8 +473,8 @@ void ScTabPageSortFields::AddSortKey( sal_uInt16 nItem )
 
 // Sort option Tab Page:
 
-ScTabPageSortOptions::ScTabPageSortOptions(TabPageParent pParent, const SfxItemSet& rArgSet)
-    : SfxTabPage(pParent, "modules/scalc/ui/sortoptionspage.ui", "SortOptionsPage", &rArgSet)
+ScTabPageSortOptions::ScTabPageSortOptions(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet)
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/sortoptionspage.ui", "SortOptionsPage", &rArgSet)
     , aStrRowLabel(ScResId(SCSTR_ROW_LABEL))
     , aStrColLabel(ScResId(SCSTR_COL_LABEL))
     , aStrUndefined(ScResId(SCSTR_UNDEFINED))
@@ -497,7 +491,7 @@ ScTabPageSortOptions::ScTabPageSortOptions(TabPageParent pParent, const SfxItemS
     , m_xEdOutPos(m_xBuilder->weld_entry("outareaed"))
     , m_xBtnSortUser(m_xBuilder->weld_check_button("sortuser"))
     , m_xLbSortUser(m_xBuilder->weld_combo_box("sortuserlb"))
-    , m_xLbLanguage(new LanguageBox(m_xBuilder->weld_combo_box("language")))
+    , m_xLbLanguage(new SvxLanguageBox(m_xBuilder->weld_combo_box("language")))
     , m_xFtAlgorithm(m_xBuilder->weld_label("algorithmft"))
     , m_xLbAlgorithm(m_xBuilder->weld_combo_box("algorithmlb"))
     , m_xBtnTopDown(m_xBuilder->weld_radio_button("topdown"))
@@ -580,9 +574,9 @@ void ScTabPageSortOptions::Init()
     m_xLbLanguage->InsertLanguage( LANGUAGE_SYSTEM );
 }
 
-VclPtr<SfxTabPage> ScTabPageSortOptions::Create(TabPageParent pParent, const SfxItemSet* rArgSet)
+std::unique_ptr<SfxTabPage> ScTabPageSortOptions::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rArgSet)
 {
-    return VclPtr<ScTabPageSortOptions>::Create(pParent, *rArgSet);
+    return std::make_unique<ScTabPageSortOptions>(pPage, pController, *rArgSet);
 }
 
 void ScTabPageSortOptions::Reset( const SfxItemSet* /* rArgSet */ )
@@ -753,7 +747,7 @@ DeactivateRC ScTabPageSortOptions::DeactivatePage( SfxItemSet* pSetP )
 
         if ( !bPosInputOk )
         {
-            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                       VclMessageType::Warning, VclButtonsType::Ok,
                                                       ScResId(STR_INVALID_TABREF)));
             xBox->run();
@@ -887,13 +881,11 @@ void ScTabPageSortOptions::FillAlgor()
     else
     {
         lang::Locale aLocale( LanguageTag::convertToLocale( eLang ));
-        uno::Sequence<OUString> aAlgos = m_xColWrap->listCollatorAlgorithms( aLocale );
+        const uno::Sequence<OUString> aAlgos = m_xColWrap->listCollatorAlgorithms( aLocale );
 
         long nCount = aAlgos.getLength();
-        const OUString* pArray = aAlgos.getConstArray();
-        for (long i=0; i<nCount; i++)
+        for (const OUString& sAlg : aAlgos)
         {
-            OUString sAlg = pArray[i];
             OUString sUser = m_xColRes->GetTranslation( sAlg );
             m_xLbAlgorithm->append_text(sUser);
         }

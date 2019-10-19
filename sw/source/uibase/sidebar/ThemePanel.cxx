@@ -35,6 +35,7 @@
 #include <vcl/virdev.hxx>
 #include <charatr.hxx>
 #include <charfmt.hxx>
+#include <docsh.hxx>
 #include <docstyle.hxx>
 #include <fmtcol.hxx>
 #include <format.hxx>
@@ -328,7 +329,7 @@ std::vector<FontSet> initFontSets()
 
 FontSet getFontSet(const OUString& rFontVariant, std::vector<FontSet>& aFontSets)
 {
-    for (FontSet & rFontSet : aFontSets)
+    for (const FontSet & rFontSet : aFontSets)
     {
         if (rFontSet.maName == rFontVariant)
             return rFontSet;
@@ -440,7 +441,7 @@ ThemePanel::ThemePanel(vcl::Window* pParent,
     mpValueSetColors->SetDoubleClickHdl(LINK(this, ThemePanel, DoubleClickValueSetHdl));
 
     std::vector<FontSet> aFontSets = initFontSets();
-    for (FontSet & rFontSet : aFontSets)
+    for (const FontSet & rFontSet : aFontSets)
     {
         mpListBoxFonts->InsertEntry(rFontSet.maName);
     }

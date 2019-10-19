@@ -14,7 +14,6 @@
 #include <conditio.hxx>
 #include <colorscale.hxx>
 #include <docsh.hxx>
-#include <miscuno.hxx>
 #include <compiler.hxx>
 #include <tokenarray.hxx>
 
@@ -341,14 +340,14 @@ sal_Int32 ScCondFormatsObj::createByRange(const uno::Reference< sheet::XSheetCel
     if (!xRanges.is())
         throw lang::IllegalArgumentException();
 
-    uno::Sequence<table::CellRangeAddress> aRanges =
+    const uno::Sequence<table::CellRangeAddress> aRanges =
         xRanges->getRangeAddresses();
 
     ScRangeList aCoreRange;
-    for (sal_Int32 i = 0, n = aRanges.getLength(); i < n; ++i)
+    for (const auto& rRange : aRanges)
     {
         ScRange aRange;
-        ScUnoConversion::FillScRange(aRange, aRanges[i]);
+        ScUnoConversion::FillScRange(aRange, rRange);
         aCoreRange.Join(aRange);
     }
 
@@ -564,7 +563,7 @@ void SAL_CALL ScCondFormatObj::setPropertyValue(
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     switch(pEntry->nWID)
     {
@@ -577,13 +576,13 @@ void SAL_CALL ScCondFormatObj::setPropertyValue(
             if (aValue >>= xRange)
             {
                 ScConditionalFormat* pFormat = getCoreObject();
-                uno::Sequence<table::CellRangeAddress> aRanges =
+                const uno::Sequence<table::CellRangeAddress> aRanges =
                     xRange->getRangeAddresses();
                 ScRangeList aTargetRange;
-                for (size_t i = 0, n = aRanges.getLength(); i < n; ++i)
+                for (const auto& rRange : aRanges)
                 {
                     ScRange aRange;
-                    ScUnoConversion::FillScRange(aRange, aRanges[i]);
+                    ScUnoConversion::FillScRange(aRange, rRange);
                     aTargetRange.Join(aRange);
                 }
                 pFormat->SetRange(aTargetRange);
@@ -602,7 +601,7 @@ uno::Any SAL_CALL ScCondFormatObj::getPropertyValue( const OUString& aPropertyNa
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     uno::Any aAny;
     switch(pEntry->nWID)
@@ -704,7 +703,7 @@ void SAL_CALL ScConditionEntryObj::setPropertyValue(
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     switch(pEntry->nWID)
     {
@@ -767,7 +766,7 @@ uno::Any SAL_CALL ScConditionEntryObj::getPropertyValue( const OUString& aProper
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     uno::Any aAny;
     switch(pEntry->nWID)
@@ -911,7 +910,7 @@ void SAL_CALL ScColorScaleFormatObj::setPropertyValue(
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     switch(pEntry->nWID)
     {
@@ -945,7 +944,7 @@ uno::Any SAL_CALL ScColorScaleFormatObj::getPropertyValue( const OUString& aProp
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     uno::Any aAny;
 
@@ -1161,7 +1160,7 @@ void SAL_CALL ScDataBarFormatObj::setPropertyValue(
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     switch(pEntry->nWID)
     {
@@ -1285,7 +1284,7 @@ uno::Any SAL_CALL ScDataBarFormatObj::getPropertyValue( const OUString& aPropert
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     uno::Any aAny;
     switch(pEntry->nWID)
@@ -1536,7 +1535,7 @@ void SAL_CALL ScIconSetFormatObj::setPropertyValue(
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     switch(pEntry->nWID)
     {
@@ -1607,7 +1606,7 @@ uno::Any SAL_CALL ScIconSetFormatObj::getPropertyValue( const OUString& aPropert
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     uno::Any aAny;
 
@@ -1801,7 +1800,7 @@ void SAL_CALL ScCondDateFormatObj::setPropertyValue(
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     switch(pEntry->nWID)
     {
@@ -1843,7 +1842,7 @@ uno::Any SAL_CALL ScCondDateFormatObj::getPropertyValue( const OUString& aProper
     const SfxItemPropertyMap& rPropertyMap = maPropSet.getPropertyMap();     // from derived class
     const SfxItemPropertySimpleEntry* pEntry = rPropertyMap.getByName( aPropertyName );
     if ( !pEntry )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     uno::Any aAny;
 

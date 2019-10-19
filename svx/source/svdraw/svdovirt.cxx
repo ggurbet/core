@@ -234,13 +234,13 @@ bool SdrVirtObj::supportsFullDrag() const
     return false;
 }
 
-SdrObject* SdrVirtObj::getFullDragClone() const
+SdrObjectUniquePtr SdrVirtObj::getFullDragClone() const
 {
     SdrObject& rReferencedObject = const_cast<SdrVirtObj*>(this)->ReferencedObj();
-    return new SdrGrafObj(
+    return SdrObjectUniquePtr(new SdrGrafObj(
         getSdrModelFromSdrObject(),
         SdrDragView::GetObjGraphic(rReferencedObject),
-        GetLogicRect());
+        GetLogicRect()));
 }
 
 bool SdrVirtObj::beginSpecialDrag(SdrDragStat& rDrag) const
@@ -544,7 +544,7 @@ bool SdrVirtObj::DoMacro(const SdrObjMacroHitRec& rRec)
     return rRefObj.DoMacro(rRec); // TODO: positioning offset
 }
 
-const Point SdrVirtObj::GetOffset() const
+Point SdrVirtObj::GetOffset() const
 {
     // #i73248# default offset of SdrVirtObj is aAnchor
     return aAnchor;

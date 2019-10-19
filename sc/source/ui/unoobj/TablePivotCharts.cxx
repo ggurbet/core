@@ -13,16 +13,12 @@
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/chart/ChartDataRowSource.hpp>
 #include <com/sun/star/chart2/data/XDataReceiver.hpp>
-#include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 
 #include <tools/gen.hxx>
-#include <svx/svditer.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdundo.hxx>
-#include <svx/charthelper.hxx>
-#include <sfx2/app.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/classids.hxx>
@@ -40,8 +36,6 @@
 #include <miscuno.hxx>
 #include <docsh.hxx>
 #include <drwlayer.hxx>
-#include <undodat.hxx>
-#include <convuno.hxx>
 
 using namespace css;
 
@@ -125,7 +119,7 @@ void SAL_CALL TablePivotCharts::addNewByName(OUString const & rName,
             sal_Int64 nAspect(embed::Aspects::MSOLE_CONTENT);
             MapUnit aMapUnit(VCLUnoHelper::UnoEmbed2VCLMapUnit(xObject->getMapUnit(nAspect)));
             Size aSize(aInsRect.GetSize());
-            aSize = vcl::Window::LogicToLogic(aSize, MapMode(MapUnit::Map100thMM), MapMode(aMapUnit));
+            aSize = OutputDevice::LogicToLogic(aSize, MapMode(MapUnit::Map100thMM), MapMode(aMapUnit));
             awt::Size aAwtSize;
             aAwtSize.Width = aSize.Width();
             aAwtSize.Height = aSize.Height();
@@ -136,10 +130,9 @@ void SAL_CALL TablePivotCharts::addNewByName(OUString const & rName,
             uno::Reference<chart2::data::XDataProvider> xDataProvider(pPivotTableDataProvider.release());
 
             uno::Reference<chart2::data::XDataReceiver> xReceiver;
-            uno::Reference<embed::XComponentSupplier> xCompSupp(xObject, uno::UNO_QUERY);
 
-            if (xCompSupp.is())
-                xReceiver.set(xCompSupp->getComponent(), uno::UNO_QUERY);
+            if (xObject.is())
+                xReceiver.set(xObject->getComponent(), uno::UNO_QUERY);
 
             if (xReceiver.is())
             {

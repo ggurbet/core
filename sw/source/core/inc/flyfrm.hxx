@@ -138,7 +138,7 @@ protected:
     virtual bool SetObjTop_( const SwTwips _nTop ) override;
     virtual bool SetObjLeft_( const SwTwips _nLeft ) override;
 
-    virtual const SwRect GetObjBoundRect() const override;
+    virtual SwRect GetObjBoundRect() const override;
     virtual void Modify( const SfxPoolItem*, const SfxPoolItem* ) override;
     virtual void SwClientNotify(const SwModify& rMod, const SfxHint& rHint) override;
 
@@ -224,7 +224,7 @@ public:
 
         definition found in /core/layout/paintfrm.cxx
 
-        @return true, if background color is transparent or a existing background
+        @return true, if background color is transparent or an existing background
         graphic is transparent.
     */
     bool IsBackgroundTransparent() const;
@@ -242,7 +242,7 @@ public:
     virtual SwFrameFormat& GetFrameFormat() override;
     virtual const SwFrameFormat& GetFrameFormat() const override;
 
-    virtual const SwRect GetObjRect() const override;
+    virtual SwRect GetObjRect() const override;
 
     /** method to determine if a format on the Writer fly frame is possible
 

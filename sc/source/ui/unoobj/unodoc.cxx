@@ -18,12 +18,10 @@
  */
 
 #include <rtl/ustring.hxx>
-#include <sfx2/docfac.hxx>
 #include <sfx2/sfxmodelfactory.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 #include <appluno.hxx>
-#include <scmod.hxx>
 #include <scdll.hxx>
 #include <vcl/svapp.hxx>
 
@@ -33,7 +31,7 @@ using namespace ::com::sun::star;
 
 OUString ScDocument_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.comp.Calc.SpreadsheetDocument" );
+    return "com.sun.star.comp.Calc.SpreadsheetDocument";
 }
 
 uno::Sequence< OUString > ScDocument_getSupportedServiceNames() throw()

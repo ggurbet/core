@@ -235,6 +235,7 @@ SfxObjectShell_Impl::SfxObjectShell_Impl( SfxObjectShell& _rDocShell )
     ,m_bSharedXMLFlag( false )
     ,m_bAllowShareControlFileClean( true )
     ,m_bConfigOptionsChecked( false )
+    ,m_bMacroCallsSeenWhileLoading( false )
     ,lErr(ERRCODE_NONE)
     ,nEventId ( SfxEventHintId::NONE )
     ,nLoadedFlags ( SfxLoadedFlags::ALL )
@@ -872,7 +873,7 @@ void SfxObjectShell::SetAutoStyleFilterIndex(sal_uInt16 nSet)
     pImpl->nStyleFilter = nSet;
 }
 
-sal_uInt16 SfxObjectShell::GetAutoStyleFilterIndex()
+sal_uInt16 SfxObjectShell::GetAutoStyleFilterIndex() const
 {
     return pImpl->nStyleFilter;
 }
@@ -1042,8 +1043,8 @@ Reference<lang::XComponent> SfxObjectShell::CreateAndLoadComponent( const SfxIte
     if ( pTargetItem )
         aTarget = pTargetItem->GetValue();
 
-    uno::Reference < frame::XComponentLoader > xLoader;
-    xLoader.set( frame::Desktop::create(comphelper::getProcessComponentContext()), uno::UNO_QUERY );
+    uno::Reference < frame::XComponentLoader > xLoader =
+            frame::Desktop::create(comphelper::getProcessComponentContext());
 
     Reference <lang::XComponent> xComp;
     try

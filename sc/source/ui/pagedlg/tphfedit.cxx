@@ -221,7 +221,7 @@ bool ScEditWindow::KeyInput( const KeyEvent& rKEvt )
         aObjectSelectLink.Call(*this);
         return true;
     }
-    return false;
+    return true;
 }
 
 void ScEditWindow::GetFocus()
@@ -250,6 +250,18 @@ void ScEditWindow::LoseFocus()
     else
         pAcc = nullptr;
     WeldEditView::LoseFocus();
+}
+
+bool ScEditWindow::MouseButtonDown(const MouseEvent& rMEvt)
+{
+    bool bHadFocus = HasFocus();
+    bool bRet = WeldEditView::MouseButtonDown(rMEvt);
+    if (!bHadFocus)
+    {
+        assert(HasFocus());
+        GetFocus();
+    }
+    return bRet;
 }
 
 css::uno::Reference< css::accessibility::XAccessible > ScEditWindow::CreateAccessible()

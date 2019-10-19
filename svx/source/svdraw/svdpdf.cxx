@@ -118,7 +118,7 @@ struct FPDFBitmapDeleter
 using namespace com::sun::star;
 
 ImpSdrPdfImport::ImpSdrPdfImport(SdrModel& rModel, SdrLayerID nLay, const tools::Rectangle& rRect,
-                                 const std::shared_ptr<uno::Sequence<sal_Int8>>& pPdfData)
+                                 const std::shared_ptr<std::vector<sal_Int8>>& pPdfData)
     : maTmpList()
     , mpVD(VclPtr<VirtualDevice>::Create())
     , maScaleRect(rRect)
@@ -166,7 +166,7 @@ ImpSdrPdfImport::ImpSdrPdfImport(SdrModel& rModel, SdrLayerID nLay, const tools:
     FPDF_InitLibraryWithConfig(&aConfig);
 
     // Load the buffer using pdfium.
-    mpPdfDocument = FPDF_LoadMemDocument(mpPdfData->getConstArray(), mpPdfData->getLength(),
+    mpPdfDocument = FPDF_LoadMemDocument(mpPdfData->data(), mpPdfData->size(),
                                          /*password=*/nullptr);
     if (!mpPdfDocument)
     {
@@ -527,7 +527,7 @@ void ImpSdrPdfImport::InsertObj(SdrObject* pObj, bool bScale)
 
                 // here text needs to be clipped; to do so, convert to SdrObjects with polygons
                 // and add these recursively. Delete original object, do not add in this run
-                SdrObject* pConverted = pSdrTextObj->ConvertToPolyObj(true, true);
+                SdrObjectUniquePtr pConverted = pSdrTextObj->ConvertToPolyObj(true, true);
                 SdrObject::Free(pObj);
 
                 if (pConverted)
@@ -557,9 +557,6 @@ void ImpSdrPdfImport::InsertObj(SdrObject* pObj, bool bScale)
                             OSL_ENSURE(false, "SdrObject::Clone() failed (!)");
                         }
                     }
-
-                    // cleanup temporary conversion objects
-                    SdrObject::Free(pConverted);
                 }
 
                 break;
@@ -992,7 +989,7 @@ void ImpSdrPdfImport::ImportImage(FPDF_PAGEOBJECT pPageObject, int /*nPageObject
     const int nWidth = FPDFBitmap_GetWidth(bitmap.get());
     const int nHeight = FPDFBitmap_GetHeight(bitmap.get());
     const int nStride = FPDFBitmap_GetStride(bitmap.get());
-    Bitmap aBitmap(Size(nWidth, nHeight), 24);
+    BitmapEx aBitmap(Size(nWidth, nHeight), 24);
 
     switch (format)
     {
@@ -1140,12 +1137,12 @@ void ImpSdrPdfImport::ImportPath(FPDF_PAGEOBJECT pPageObject, int /*nPageObjectI
     unsigned int nG;
     unsigned int nB;
     unsigned int nA;
-    FPDFPath_GetFillColor(pPageObject, &nR, &nG, &nB, &nA);
+    FPDFPageObj_GetFillColor(pPageObject, &nR, &nG, &nB, &nA);
     mpVD->SetFillColor(Color(nR, nG, nB));
 
     if (bStroke)
     {
-        FPDFPath_GetStrokeColor(pPageObject, &nR, &nG, &nB, &nA);
+        FPDFPageObj_GetStrokeColor(pPageObject, &nR, &nG, &nB, &nA);
         mpVD->SetLineColor(Color(nR, nG, nB));
     }
     else

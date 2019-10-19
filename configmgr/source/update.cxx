@@ -25,15 +25,12 @@
 
 #include <com/sun/star/configuration/XUpdate.hpp>
 #include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/weak.hxx>
 #include <osl/mutex.hxx>
 #include <rtl/ref.hxx>
-#include <rtl/ustring.h>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
 
@@ -151,7 +148,7 @@ css::uno::Reference< css::uno::XInterface > create(
 }
 
 OUString getImplementationName() {
-    return OUString("com.sun.star.comp.configuration.Update");
+    return "com.sun.star.comp.configuration.Update";
 }
 
 css::uno::Sequence< OUString > getSupportedServiceNames() {

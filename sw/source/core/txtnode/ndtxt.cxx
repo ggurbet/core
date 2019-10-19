@@ -277,7 +277,7 @@ void SwTextNode::FileLoadedInitHints()
 
 SwContentFrame *SwTextNode::MakeFrame( SwFrame* pSib )
 {
-    SwContentFrame *pFrame = new SwTextFrame( this, pSib );
+    SwContentFrame *pFrame = sw::MakeTextFrame(*this, pSib, sw::FrameMode::New);
     return pFrame;
 }
 
@@ -1126,7 +1126,8 @@ void SwTextNode::JoinPrev()
             pDoc->CorrAbs( aIdx, SwPosition( *this ), nLen, true );
         }
         SwNode::Merge const eOldMergeFlag(pTextNode->GetRedlineMergeFlag());
-        if (eOldMergeFlag == SwNode::Merge::First)
+        if (eOldMergeFlag == SwNode::Merge::First
+            && !IsCreateFrameWhenHidingRedlines())
         {
             sw::MoveDeletedPrevFrames(*pTextNode, *this);
         }
@@ -1244,8 +1245,7 @@ void SwTextNode::Update(
             const int coArrSz = RES_TXTATR_WITHEND_END - RES_CHRATR_BEGIN;
             std::vector<SwTextInputField*> aTextInputFields;
 
-            bool aDontExp[ coArrSz ];
-            memset( &aDontExp, 0, coArrSz * sizeof(bool) );
+            bool aDontExp[ coArrSz ] = {};
 
             for ( size_t n = 0; n < m_pSwpHints->Count(); ++n )
             {
@@ -2467,7 +2467,7 @@ void SwTextNode::CutImpl( SwTextNode * const pDest, const SwIndex & rDestStart,
                 // check all items in the property set
                 SfxItemIter aIter( *pDest->GetpSwAttrSet() );
                 const SfxPoolItem* pItem = aIter.GetCurItem();
-                while( true )
+                do
                 {
                     // check current item
                     sal_uInt16 nWhich = IsInvalidItem( pItem )
@@ -2488,10 +2488,8 @@ void SwTextNode::CutImpl( SwTextNode * const pDest, const SwIndex & rDestStart,
                     }
 
                     // let's check next item
-                    if( aIter.IsAtEnd() )
-                        break;
                     pItem = aIter.NextItem();
-                }
+                } while (pItem);
             }
         }
 
@@ -2997,7 +2995,7 @@ SwTextNode* SwTextNode::MakeNewTextNode( const SwNodeIndex& rPos, bool bNext,
             SetCountedInList(true);
     }
 
-    // In case the numbering caused a style form the pool to be assigned to
+    // In case the numbering caused a style from the pool to be assigned to
     // the new node, don't overwrite that here!
     if( pColl != pNode->GetTextColl() ||
         ( bChgFollow && pColl != GetTextColl() ))
@@ -3576,6 +3574,7 @@ bool SwTextNode::CopyExpandText(SwTextNode& rDestNd, const SwIndex* pDestIdx,
         sal_Unicode const cur(rDestNd.GetText()[aDestIdx.GetIndex()]);
         if (   (cChar == cur) // filter substituted hidden text
             || (CH_TXT_ATR_FIELDSTART  == cur) // filter all fieldmarks
+            || (CH_TXT_ATR_FIELDSEP    == cur)
             || (CH_TXT_ATR_FIELDEND    == cur)
             || (CH_TXT_ATR_FORMELEMENT == cur))
         {
@@ -4516,17 +4515,17 @@ OUString SwTextNode::GetLabelFollowedBy() const
             {
                 case SvxNumberFormat::LISTTAB:
                 {
-                    return OUString("\t");
+                    return "\t";
                 }
                 break;
                 case SvxNumberFormat::SPACE:
                 {
-                    return OUString(" ");
+                    return " ";
                 }
                 break;
                 case SvxNumberFormat::NEWLINE:
                 {
-                    return OUString("\n");
+                    return "\n";
                 }
                 break;
                 case SvxNumberFormat::NOTHING:
@@ -5289,7 +5288,7 @@ void SwTextNode::SwClientNotify( const SwModify& rModify, const SfxHint& rHint )
             {
                 SfxItemIter aIter(*static_cast<const SwAttrSetChg*>(pNewValue)->GetChgSet());
 
-                for(const SfxPoolItem* pItem = aIter.FirstItem(); pItem && !bReset; pItem = aIter.NextItem())
+                for(const SfxPoolItem* pItem = aIter.GetCurItem(); pItem && !bReset; pItem = aIter.NextItem())
                 {
                     bReset = !IsInvalidItem(pItem) && pItem->Which() >= XATTR_FILL_FIRST && pItem->Which() <= XATTR_FILL_LAST;
                 }

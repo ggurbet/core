@@ -18,7 +18,6 @@
  */
 
 #include <com/sun/star/uno/Sequence.hxx>
-#include <tools/stream.hxx>
 #include <tools/debug.hxx>
 #include <sal/log.hxx>
 #include "cfgchart.hxx"
@@ -276,13 +275,7 @@ bool SvxChartColorTableItem::operator==( const SfxPoolItem& rAttr ) const
 {
     assert(SfxPoolItem::operator==(rAttr));
 
-    const SvxChartColorTableItem * rCTItem( dynamic_cast<const SvxChartColorTableItem * >( & rAttr ));
-    if( rCTItem )
-    {
-        return (m_aColorTable == rCTItem->GetColorList());
-    }
-
-    return false;
+    return static_cast<const SvxChartColorTableItem & >( rAttr ).m_aColorTable == m_aColorTable;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

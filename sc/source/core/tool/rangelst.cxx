@@ -144,7 +144,7 @@ ScRefFlags ScRangeList::Parse( const OUString& rStr, const ScDocument* pDoc,
         return ScRefFlags::ZERO;
 }
 
-void ScRangeList::Format( OUString& rStr, ScRefFlags nFlags, ScDocument* pDoc,
+void ScRangeList::Format( OUString& rStr, ScRefFlags nFlags, const ScDocument* pDoc,
                           formula::FormulaGrammar::AddressConvention eConv,
                           sal_Unicode cDelimiter, bool bFullAddressNotation ) const
 {
@@ -158,7 +158,7 @@ void ScRangeList::Format( OUString& rStr, ScRefFlags nFlags, ScDocument* pDoc,
         if (bFirst)
             bFirst = false;
         else
-            aBuf.append(OUStringLiteral1(cDelimiter));
+            aBuf.append(OUStringChar(cDelimiter));
         aBuf.append(r.Format(nFlags, pDoc, eConv, bFullAddressNotation));
     }
     rStr = aBuf.makeStringAndClear();
@@ -404,7 +404,7 @@ bool ScRangeList::UpdateReference(
 void ScRangeList::InsertRow( SCTAB nTab, SCCOL nColStart, SCCOL nColEnd, SCROW nRowPos, SCSIZE nSize )
 {
     std::vector<ScRange> aNewRanges;
-    for(auto & rRange : maRanges)
+    for(const auto & rRange : maRanges)
     {
         if(rRange.aStart.Tab() <= nTab && rRange.aEnd.Tab() >= nTab)
         {
@@ -422,7 +422,7 @@ void ScRangeList::InsertRow( SCTAB nTab, SCCOL nColStart, SCCOL nColEnd, SCROW n
         }
     }
 
-    for(auto & rRange : aNewRanges)
+    for(const auto & rRange : aNewRanges)
     {
         if(!rRange.IsValid())
             continue;
@@ -434,7 +434,7 @@ void ScRangeList::InsertRow( SCTAB nTab, SCCOL nColStart, SCCOL nColEnd, SCROW n
 void ScRangeList::InsertCol( SCTAB nTab, SCROW nRowStart, SCROW nRowEnd, SCCOL nColPos, SCSIZE nSize )
 {
     std::vector<ScRange> aNewRanges;
-    for(auto & rRange : maRanges)
+    for(const auto & rRange : maRanges)
     {
         if(rRange.aStart.Tab() <= nTab && rRange.aEnd.Tab() >= nTab)
         {
@@ -450,7 +450,7 @@ void ScRangeList::InsertCol( SCTAB nTab, SCROW nRowStart, SCROW nRowEnd, SCCOL n
         }
     }
 
-    for(auto & rRange : aNewRanges)
+    for(const auto & rRange : aNewRanges)
     {
         if(!rRange.IsValid())
             continue;
@@ -954,7 +954,7 @@ bool ScRangeList::DeleteArea( SCCOL nCol1, SCROW nRow1, SCTAB nTab1,
             continue;
         }
     }
-    for(auto & rRange : aNewRanges)
+    for(const auto & rRange : aNewRanges)
         Join(rRange);
 
     return bChanged;
@@ -983,9 +983,9 @@ ScRangeList::ScRangeList( const ScRangeList& rList ) :
 {
 }
 
-ScRangeList::ScRangeList( const ScRangeList&& rList ) :
+ScRangeList::ScRangeList(ScRangeList&& rList) noexcept :
     SvRefBase(),
-    maRanges(rList.maRanges),
+    maRanges(std::move(rList.maRanges)),
     mnMaxRowUsed(rList.mnMaxRowUsed)
 {
 }
@@ -1004,7 +1004,7 @@ ScRangeList& ScRangeList::operator=(const ScRangeList& rList)
     return *this;
 }
 
-ScRangeList& ScRangeList::operator=(ScRangeList&& rList)
+ScRangeList& ScRangeList::operator=(ScRangeList&& rList) noexcept
 {
     maRanges = std::move(rList.maRanges);
     mnMaxRowUsed = rList.mnMaxRowUsed;

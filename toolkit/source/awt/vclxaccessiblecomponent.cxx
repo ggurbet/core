@@ -20,7 +20,6 @@
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
-#include <com/sun/star/accessibility/XAccessibleEventListener.hpp>
 #include <com/sun/star/accessibility/AccessibleRelationType.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <cppuhelper/supportsservice.hxx>
@@ -85,7 +84,7 @@ IMPLEMENT_FORWARD_XTYPEPROVIDER3( VCLXAccessibleComponent, OAccessibleExtendedCo
 
 OUString VCLXAccessibleComponent::getImplementationName()
 {
-    return OUString("com.sun.star.comp.toolkit.AccessibleWindow");
+    return "com.sun.star.comp.toolkit.AccessibleWindow";
 }
 
 sal_Bool VCLXAccessibleComponent::supportsService( const OUString& rServiceName )

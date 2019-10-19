@@ -82,6 +82,8 @@
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
 
+#include <sfx2/lokhelper.hxx>
+
 #define DRGPIX    2     // Drag MinMove in Pixel
 
 using namespace ::com::sun::star;
@@ -925,6 +927,10 @@ void ChartController::execute_MouseButtonUp( const MouseEvent& rMEvt )
 
 void ChartController::execute_DoubleClick( const Point* pMousePixel )
 {
+    bool isMobile = comphelper::LibreOfficeKit::isMobile(SfxLokHelper::getView());
+    if (isMobile)
+        return;
+
     bool bEditText = false;
     if ( m_aSelection.hasSelection() )
     {
@@ -2036,7 +2042,7 @@ void ChartController::impl_SetMousePointer( const MouseEvent & rEvent )
         pChartWindow->SetPointer( PointerStyle::Arrow );
 }
 
-css::uno::Reference<css::uno::XInterface> const & ChartController::getChartView()
+css::uno::Reference<css::uno::XInterface> const & ChartController::getChartView() const
 {
     return m_xChartView;
 }

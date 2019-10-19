@@ -7,22 +7,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <memory>
 #include <unordered_map>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
-#include <com/sun/star/packages/zip/ZipFileAccess.hpp>
 
 #include <i18nutil/unicode.hxx>
 #include <osl/module.hxx>
-#include <osl/file.hxx>
 #include <sal/log.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/resmgr.hxx>
-#include <vcl/aboutdialog.hxx>
 #include <vcl/builder.hxx>
-#include <vcl/builderfactory.hxx>
 #include <vcl/button.hxx>
 #include <vcl/calendar.hxx>
 #include <vcl/dialog.hxx>
@@ -44,7 +40,7 @@
 #include <vcl/svtabbx.hxx>
 #include <vcl/tabctrl.hxx>
 #include <vcl/tabpage.hxx>
-#include <vcl/throbber.hxx>
+#include <vcl/toolkit/throbber.hxx>
 #include <vcl/toolbox.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/vclmedit.hxx>
@@ -61,9 +57,11 @@
 #include <desktop/crashreport.hxx>
 #include <salinst.hxx>
 #include <strings.hrc>
+#include <aboutdialog.hxx>
 #include <treeglue.hxx>
 #include <tools/svlibrary.h>
 #include <tools/diagnose_ex.h>
+#include <wizdlg.hxx>
 
 #ifdef DISABLE_DYNLOADING
 #include <dlfcn.h>
@@ -79,13 +77,13 @@ namespace
     OUString mapStockToImageResource(const OUString& sType)
     {
         if (sType == "gtk-index")
-            return OUString(SV_RESID_BITMAP_INDEX);
+            return SV_RESID_BITMAP_INDEX;
         else if (sType == "gtk-refresh")
-            return OUString(SV_RESID_BITMAP_REFRESH);
+            return SV_RESID_BITMAP_REFRESH;
         else if (sType == "gtk-apply")
-            return OUString(IMG_APPLY);
+            return IMG_APPLY;
         else if (sType == "gtk-dialog-error")
-            return OUString(IMG_ERROR);
+            return IMG_ERROR;
         return OUString();
     }
 
@@ -242,10 +240,19 @@ namespace weld
         else
         {
             aStr = rLocaleData.getNum(nValue, nDecimalDigits, true, true);
-            if (m_eSrcUnit != FieldUnit::NONE && m_eSrcUnit != FieldUnit::DEGREE)
+            OUString aSuffix = MetricToString(m_eSrcUnit);
+            if (m_eSrcUnit != FieldUnit::NONE && m_eSrcUnit != FieldUnit::DEGREE && m_eSrcUnit != FieldUnit::INCH)
                 aStr += " ";
+            if (m_eSrcUnit == FieldUnit::INCH)
+            {
+                OUString sDoublePrime = u"\u2033";
+                if (aSuffix != "\"" && aSuffix != sDoublePrime)
+                    aStr += " ";
+                else
+                    aSuffix = sDoublePrime;
+            }
             assert(m_eSrcUnit != FieldUnit::PERCENT);
-            aStr += MetricToString(m_eSrcUnit);
+            aStr += aSuffix;
         }
 
         return aStr;
@@ -399,9 +406,13 @@ namespace weld
     }
 }
 
-VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUString& sUIFile, const OString& sID,
-                       const css::uno::Reference<css::frame::XFrame>& rFrame, bool bLegacy)
-    : m_sID(sID)
+VclBuilder::VclBuilder(vcl::Window* pParent, const OUString& sUIDir, const OUString& sUIFile,
+                       const OString& sID, const css::uno::Reference<css::frame::XFrame>& rFrame,
+                       bool bLegacy, const NotebookBarAddonsItem* pNotebookBarAddonsItem)
+    : m_pNotebookBarAddonsItem(pNotebookBarAddonsItem
+                                   ? new NotebookBarAddonsItem(*pNotebookBarAddonsItem)
+                                   : new NotebookBarAddonsItem{})
+    , m_sID(sID)
     , m_sHelpRoot(OUStringToOString(sUIFile, RTL_TEXTENCODING_UTF8))
     , m_pStringReplace(Translate::GetReadStringHook())
     , m_pParent(pParent)
@@ -418,7 +429,7 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
     sal_Int32 nIdx = m_sHelpRoot.lastIndexOf('.');
     if (nIdx != -1)
         m_sHelpRoot = m_sHelpRoot.copy(0, nIdx);
-    m_sHelpRoot = m_sHelpRoot + OString('/');
+    m_sHelpRoot += OString('/');
 
     OUString sUri = sUIDir + sUIFile;
 
@@ -431,7 +442,7 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
     catch (const css::uno::Exception &rExcept)
     {
         DBG_UNHANDLED_EXCEPTION("vcl.layout", "Unable to read .ui file");
-        CrashReporter::AddKeyValue("VclBuilderException", "Unable to read .ui file: " + rExcept.Message);
+        CrashReporter::addKeyValue("VclBuilderException", "Unable to read .ui file: " + rExcept.Message, CrashReporter::Write);
         throw;
     }
 
@@ -1604,7 +1615,7 @@ void VclBuilder::preload()
         "smlo",   "scuilo",    "basctllo",  "sduilo",
         "scnlo",  "xsltdlglo", "pcrlo" // "dbulo"
     };
-    for (auto & lib : aWidgetLibs)
+    for (const auto & lib : aWidgetLibs)
     {
         std::unique_ptr<NoAutoUnloadModule> pModule(new NoAutoUnloadModule);
         OUString sModule = SAL_DLLPREFIX + OUString::createFromAscii(lib) + SAL_DLLEXTENSION;
@@ -1619,6 +1630,59 @@ void VclBuilder::preload()
 extern "C" VclBuilder::customMakeWidget lo_get_custom_widget_func(const char* name);
 #endif
 
+namespace
+{
+// Takes a string like "sfxlo-SidebarToolBox"
+VclBuilder::customMakeWidget GetCustomMakeWidget(const OString& name)
+{
+    VclBuilder::customMakeWidget pFunction = nullptr;
+    if (sal_Int32 nDelim = name.indexOf('-'); nDelim != -1)
+    {
+        const OUString sFunction("make"
+                                 + OStringToOUString(name.copy(nDelim + 1), RTL_TEXTENCODING_UTF8));
+
+#ifndef DISABLE_DYNLOADING
+        const OUString sModule = SAL_DLLPREFIX
+                                 + OStringToOUString(name.copy(0, nDelim), RTL_TEXTENCODING_UTF8)
+                                 + SAL_DLLEXTENSION;
+        ModuleMap::iterator aI = g_aModuleMap.find(sModule);
+        if (aI == g_aModuleMap.end())
+        {
+            std::shared_ptr<NoAutoUnloadModule> pModule;
+#if ENABLE_MERGELIBS
+            if (!g_pMergedLib->is())
+                g_pMergedLib->loadRelative(&thisModule, SVLIBRARY("merged"));
+            if ((pFunction = reinterpret_cast<VclBuilder::customMakeWidget>(
+                     g_pMergedLib->getFunctionSymbol(sFunction))))
+                pModule = g_pMergedLib;
+#endif
+            if (!pFunction)
+            {
+                pModule.reset(new NoAutoUnloadModule);
+                bool ok = pModule->loadRelative(&thisModule, sModule);
+                assert(ok && "bad module name in .ui");
+                (void)ok;
+                pFunction = reinterpret_cast<VclBuilder::customMakeWidget>(
+                    pModule->getFunctionSymbol(sFunction));
+            }
+            g_aModuleMap.insert(std::make_pair(sModule, pModule));
+        }
+        else
+            pFunction = reinterpret_cast<VclBuilder::customMakeWidget>(
+                aI->second->getFunctionSymbol(sFunction));
+#elif !HAVE_FEATURE_DESKTOP
+        pFunction = lo_get_custom_widget_func(sFunction.toUtf8().getStr());
+        SAL_WARN_IF(!pFunction, "vcl.layout", "Could not find " << sFunction);
+        assert(pFunction);
+#else
+        pFunction = reinterpret_cast<VclBuilder::customMakeWidget>(
+            osl_getFunctionSymbol((oslModule)RTLD_DEFAULT, sFunction.pData));
+#endif
+    }
+    return pFunction;
+}
+}
+
 VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &name, const OString &id,
     stringmap &rMap)
 {
@@ -1629,7 +1693,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
                     pParent->GetType() == WindowType::VERTICALTABCONTROL))
     {
         bool bTopLevel(name == "GtkDialog" || name == "GtkMessageDialog" ||
-                       name == "GtkWindow" || name == "GtkPopover");
+                       name == "GtkWindow" || name == "GtkPopover" || name == "GtkAssistant");
         if (!bTopLevel)
         {
             if (pParent->GetType() == WindowType::TABCONTROL)
@@ -1649,7 +1713,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
 
                     //Make up a name for it
                     OString sTabPageId = get_by_window(pParent) +
-                        OString("-page") +
+                        "-page" +
                         OString::number(nNewPageCount);
                     m_aChildren.emplace_back(sTabPageId, pPage, false);
                     pPage->SetHelpId(m_sHelpRoot + sTabPageId);
@@ -1675,15 +1739,18 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     extractButtonImage(id, rMap, name == "GtkRadioButton");
 
     VclPtr<vcl::Window> xWindow;
-    if (name == "GtkDialog" || name == "GtkAboutDialog")
+    if (name == "GtkDialog" || name == "GtkAboutDialog" || name == "GtkAssistant")
     {
         WinBits nBits = WB_MOVEABLE|WB_3DLOOK|WB_CLOSEABLE;
         if (extractResizable(rMap))
             nBits |= WB_SIZEABLE;
-        if (name == "GtkAboutDialog")
-            xWindow = VclPtr<vcl::AboutDialog>::Create(pParent, nBits, !pParent ? Dialog::InitFlag::NoParent : Dialog::InitFlag::Default);
+        Dialog::InitFlag eInit = !pParent ? Dialog::InitFlag::NoParent : Dialog::InitFlag::Default;
+        if (name == "GtkAssistant")
+            xWindow = VclPtr<vcl::RoadmapWizard>::Create(pParent, nBits, eInit);
+        else if (name == "GtkAboutDialog")
+            xWindow = VclPtr<vcl::AboutDialog>::Create(pParent, nBits, eInit);
         else
-            xWindow = VclPtr<Dialog>::Create(pParent, nBits, !pParent ? Dialog::InitFlag::NoParent : Dialog::InitFlag::Default);
+            xWindow = VclPtr<Dialog>::Create(pParent, nBits, eInit);
 #if HAVE_FEATURE_DESKTOP
         if (!m_bLegacy && !extractModal(rMap))
             xWindow->SetType(WindowType::MODELESSDIALOG);
@@ -1885,7 +1952,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     }
     else if (name == "GtkLinkButton")
         xWindow = VclPtr<FixedHyperlink>::Create(pParent, WB_CENTER|WB_VCENTER|WB_3DLOOK|WB_NOLABEL);
-    else if ((name == "GtkComboBox") || (name == "GtkComboBoxText") || (name == "VclComboBoxText"))
+    else if (name == "GtkComboBox" || name == "GtkComboBoxText")
     {
         OUString sPattern = BuilderUtils::extractCustomProperty(rMap);
         extractModel(id, rMap);
@@ -1967,6 +2034,11 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     }
     else if (name == "GtkTreeView")
     {
+        if (!m_bLegacy)
+        {
+            assert(rMap.find(OString("model")) != rMap.end() && "GtkTreeView must have a model");
+        }
+
         //window we want to apply the packing props for this GtkTreeView to
         VclPtr<vcl::Window> xWindowForPackingProps;
         //To-Do
@@ -1981,6 +2053,10 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
             OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
             if (!sBorder.isEmpty())
                 nWinStyle |= WB_BORDER;
+        }
+        else
+        {
+            nWinStyle |= WB_HASBUTTONS | WB_HASBUTTONSATROOT;
         }
         //ListBox/SvHeaderTabListBox manages its own scrolling,
         vcl::Window *pRealParent = prepareWidgetOwnScrolling(pParent, nWinStyle);
@@ -2003,7 +2079,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
                 m_aChildren.emplace_back(containerid, xContainer, true);
 
                 VclPtrInstance<HeaderBar> xHeader(xContainer, WB_BUTTONSTYLE | WB_BORDER | WB_TABSTOP | WB_3DLOOK);
-                xHeader->set_width_request(0); // let the headerbar width not affect the size requistion
+                xHeader->set_width_request(0); // let the headerbar width not affect the size request
                 OString headerid(id + "-header");
                 xHeader->SetHelpId(m_sHelpRoot + headerid);
                 m_aChildren.emplace_back(headerid, xHeader, true);
@@ -2111,7 +2187,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     }
     else if (name == "GtkEntry")
     {
-        xWindow = VclPtr<Edit>::Create(pParent, WB_LEFT|WB_VCENTER|WB_BORDER|WB_3DLOOK|WB_NOHIDESELECTION);
+        xWindow = VclPtr<Edit>::Create(pParent, WB_LEFT|WB_VCENTER|WB_BORDER|WB_3DLOOK);
         BuilderUtils::ensureDefaultWidthChars(rMap);
     }
     else if (name == "GtkNotebook")
@@ -2130,7 +2206,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     {
         extractBuffer(id, rMap);
 
-        WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT|WB_NOHIDESELECTION;
+        WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT;
         if (m_bLegacy)
         {
             OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
@@ -2167,6 +2243,13 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     else if (name == "GtkToolbar")
     {
         xWindow = VclPtr<ToolBox>::Create(pParent, WB_3DLOOK | WB_TABSTOP);
+    }
+    else if(name == "NotebookBarAddonsToolMergePoint")
+    {
+        customMakeWidget pFunction = GetCustomMakeWidget("sfxlo-NotebookbarToolBox");
+        if(pFunction != nullptr)
+            NotebookBarAddonsMerger::MergeNotebookBarAddons(pParent, pFunction, m_xFrame, *m_pNotebookBarAddonsItem, rMap);
+        return nullptr;
     }
     else if (name == "GtkToolButton" || name == "GtkMenuToolButton" ||
              name == "GtkToggleToolButton" || name == "GtkRadioToolButton")
@@ -2251,61 +2334,17 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     }
     else
     {
-        sal_Int32 nDelim = name.indexOf('-');
-        if (nDelim != -1)
+        if (customMakeWidget pFunction = GetCustomMakeWidget(name))
         {
-            OUString sFunction(OStringToOUString(OString("make") + name.copy(nDelim+1), RTL_TEXTENCODING_UTF8));
-
-            customMakeWidget pFunction = nullptr;
-#ifndef DISABLE_DYNLOADING
-            OUStringBuffer sModuleBuf;
-            sModuleBuf.append(SAL_DLLPREFIX);
-            sModuleBuf.append(OStringToOUString(name.copy(0, nDelim), RTL_TEXTENCODING_UTF8));
-            sModuleBuf.append(SAL_DLLEXTENSION);
-
-            OUString sModule = sModuleBuf.makeStringAndClear();
-            ModuleMap::iterator aI = g_aModuleMap.find(sModule);
-            if (aI == g_aModuleMap.end())
+            pFunction(xWindow, pParent, rMap);
+            if (xWindow->GetType() == WindowType::PUSHBUTTON)
+                setupFromActionName(static_cast<Button*>(xWindow.get()), rMap, m_xFrame);
+            else if (xWindow->GetType() == WindowType::MENUBUTTON)
             {
-                std::shared_ptr<NoAutoUnloadModule> pModule;
-#if ENABLE_MERGELIBS
-                if (!g_pMergedLib->is())
-                    g_pMergedLib->loadRelative(&thisModule, SVLIBRARY("merged"));
-                if ((pFunction = reinterpret_cast<customMakeWidget>(g_pMergedLib->getFunctionSymbol(sFunction))))
-                    pModule = g_pMergedLib;
-#endif
-                if (!pFunction)
-                {
-                    pModule.reset(new NoAutoUnloadModule);
-                    bool ok = pModule->loadRelative(&thisModule, sModule);
-                    assert(ok && "bad module name in .ui");
-                    (void) ok;
-                    pFunction = reinterpret_cast<customMakeWidget>(pModule->getFunctionSymbol(sFunction));
-                }
-                g_aModuleMap.insert(std::make_pair(sModule, pModule));
-            }
-            else
-                pFunction = reinterpret_cast<customMakeWidget>(aI->second->getFunctionSymbol(sFunction));
-#elif !HAVE_FEATURE_DESKTOP
-            pFunction = lo_get_custom_widget_func(sFunction.toUtf8().getStr());
-            SAL_WARN_IF(!pFunction, "vcl.layout", "Could not find " << sFunction);
-            assert(pFunction);
-#else
-            pFunction = reinterpret_cast<customMakeWidget>(osl_getFunctionSymbol((oslModule) RTLD_DEFAULT, sFunction.pData));
-#endif
-            if (pFunction)
-            {
-                VclPtr<vcl::Window> xParent(pParent);
-                pFunction(xWindow, xParent, rMap);
-                if (xWindow->GetType() == WindowType::PUSHBUTTON)
-                    setupFromActionName(static_cast<Button*>(xWindow.get()), rMap, m_xFrame);
-                else if (xWindow->GetType() == WindowType::MENUBUTTON)
-                {
-                    OUString sMenu = BuilderUtils::extractCustomProperty(rMap);
-                    if (!sMenu.isEmpty())
-                        m_pParserState->m_aButtonMenuMaps.emplace_back(id, sMenu);
-                    setupFromActionName(static_cast<Button*>(xWindow.get()), rMap, m_xFrame);
-                }
+                OUString sMenu = BuilderUtils::extractCustomProperty(rMap);
+                if (!sMenu.isEmpty())
+                    m_pParserState->m_aButtonMenuMaps.emplace_back(id, sMenu);
+                setupFromActionName(static_cast<Button*>(xWindow.get()), rMap, m_xFrame);
             }
         }
     }
@@ -2672,11 +2711,11 @@ void VclBuilder::handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &read
         if (res == xmlreader::XmlReader::Result::Begin)
         {
             ++nLevel;
-            if (name.equals("object"))
+            if (name == "object")
             {
                 while (reader.nextAttribute(&nsId, &name))
                 {
-                    if (name.equals("id"))
+                    if (name == "id")
                     {
                         name = reader.getAttributeValue(false);
                         OString sID(name.begin, name.length);
@@ -2691,13 +2730,13 @@ void VclBuilder::handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &read
                     }
                 }
             }
-            else if (name.equals("style"))
+            else if (name == "style")
             {
                 int nPriority = 0;
                 context = handleStyle(reader, nPriority);
                 --nLevel;
             }
-            else if (name.equals("property"))
+            else if (name == "property")
                 collectProperty(reader, aProperties);
         }
 
@@ -2826,12 +2865,12 @@ void VclBuilder::handleChild(vcl::Window *pParent, xmlreader::XmlReader &reader)
 
     while (reader.nextAttribute(&nsId, &name))
     {
-        if (name.equals("type"))
+        if (name == "type")
         {
             name = reader.getAttributeValue(false);
             sType = OString(name.begin, name.length);
         }
-        else if (name.equals("internal-child"))
+        else if (name == "internal-child")
         {
             name = reader.getAttributeValue(false);
             sInternalChild = OString(name.begin, name.length);
@@ -2852,7 +2891,7 @@ void VclBuilder::handleChild(vcl::Window *pParent, xmlreader::XmlReader &reader)
 
         if (res == xmlreader::XmlReader::Result::Begin)
         {
-            if (name.equals("object") || name.equals("placeholder"))
+            if (name == "object" || name == "placeholder")
             {
                 pCurrentChild = handleObject(pParent, reader).get();
 
@@ -2921,15 +2960,15 @@ void VclBuilder::handleChild(vcl::Window *pParent, xmlreader::XmlReader &reader)
                     }
                 }
             }
-            else if (name.equals("packing"))
+            else if (name == "packing")
             {
                 handlePacking(pCurrentChild, pParent, reader);
             }
-            else if (name.equals("interface"))
+            else if (name == "interface")
             {
                 while (reader.nextAttribute(&nsId, &name))
                 {
-                    if (name.equals("domain"))
+                    if (name == "domain")
                     {
                         name = reader.getAttributeValue(false);
                         sType = OString(name.begin, name.length);
@@ -2963,12 +3002,12 @@ void VclBuilder::collectPangoAttribute(xmlreader::XmlReader &reader, stringmap &
 
     while (reader.nextAttribute(&nsId, &span))
     {
-        if (span.equals("name"))
+        if (span == "name")
         {
             span = reader.getAttributeValue(false);
             sProperty = OString(span.begin, span.length);
         }
-        else if (span.equals("value"))
+        else if (span == "value")
         {
             span = reader.getAttributeValue(false);
             sValue = OString(span.begin, span.length);
@@ -2989,12 +3028,12 @@ void VclBuilder::collectAtkRelationAttribute(xmlreader::XmlReader &reader, strin
 
     while (reader.nextAttribute(&nsId, &span))
     {
-        if (span.equals("type"))
+        if (span == "type")
         {
             span = reader.getAttributeValue(false);
             sProperty = OString(span.begin, span.length);
         }
-        else if (span.equals("target"))
+        else if (span == "target")
         {
             span = reader.getAttributeValue(false);
             sValue = OString(span.begin, span.length);
@@ -3017,7 +3056,7 @@ void VclBuilder::collectAtkRoleAttribute(xmlreader::XmlReader &reader, stringmap
 
     while (reader.nextAttribute(&nsId, &span))
     {
-        if (span.equals("type"))
+        if (span == "type")
         {
             span = reader.getAttributeValue(false);
             sProperty = OString(span.begin, span.length);
@@ -3048,7 +3087,7 @@ void VclBuilder::handleRow(xmlreader::XmlReader &reader, const OString &rID)
         if (res == xmlreader::XmlReader::Result::Begin)
         {
             ++nLevel;
-            if (name.equals("col"))
+            if (name == "col")
             {
                 bool bTranslated = false;
                 sal_uInt32 nId = 0;
@@ -3056,16 +3095,16 @@ void VclBuilder::handleRow(xmlreader::XmlReader &reader, const OString &rID)
 
                 while (reader.nextAttribute(&nsId, &name))
                 {
-                    if (name.equals("id"))
+                    if (name == "id")
                     {
                         name = reader.getAttributeValue(false);
                         nId = OString(name.begin, name.length).toInt32();
                     }
-                    else if (nId == 0 && name.equals("translatable") && reader.getAttributeValue(false).equals("yes"))
+                    else if (nId == 0 && name == "translatable" && reader.getAttributeValue(false) == "yes")
                     {
                         bTranslated = true;
                     }
-                    else if (name.equals("context"))
+                    else if (name == "context")
                     {
                         name = reader.getAttributeValue(false);
                         sContext = OString(name.begin, name.length);
@@ -3122,7 +3161,7 @@ void VclBuilder::handleListStore(xmlreader::XmlReader &reader, const OString &rI
 
         if (res == xmlreader::XmlReader::Result::Begin)
         {
-            if (name.equals("row"))
+            if (name == "row")
             {
                 bool bNotTreeStore = rClass != "GtkTreeStore";
                 if (bNotTreeStore)
@@ -3165,7 +3204,7 @@ void VclBuilder::handleAtkObject(xmlreader::XmlReader &reader, vcl::Window *pWin
         if (res == xmlreader::XmlReader::Result::Begin)
         {
             ++nLevel;
-            if (name.equals("property"))
+            if (name == "property")
                 collectProperty(reader, aProperties);
         }
 
@@ -3210,23 +3249,23 @@ std::vector<ComboBoxTextItem> VclBuilder::handleItems(xmlreader::XmlReader &read
         if (res == xmlreader::XmlReader::Result::Begin)
         {
             ++nLevel;
-            if (name.equals("item"))
+            if (name == "item")
             {
                 bool bTranslated = false;
                 OString sContext, sId;
 
                 while (reader.nextAttribute(&nsId, &name))
                 {
-                    if (name.equals("translatable") && reader.getAttributeValue(false).equals("yes"))
+                    if (name == "translatable" && reader.getAttributeValue(false) == "yes")
                     {
                         bTranslated = true;
                     }
-                    else if (name.equals("context"))
+                    else if (name == "context")
                     {
                         name = reader.getAttributeValue(false);
                         sContext = OString(name.begin, name.length);
                     }
-                    else if (name.equals("id"))
+                    else if (name == "id")
                     {
                         name = reader.getAttributeValue(false);
                         sId = OString(name.begin, name.length);
@@ -3268,7 +3307,7 @@ std::vector<ComboBoxTextItem> VclBuilder::handleItems(xmlreader::XmlReader &read
 
 void VclBuilder::handleMenu(xmlreader::XmlReader &reader, const OString &rID)
 {
-    VclPtr<PopupMenu> pCurrentMenu = VclPtr<PopupMenu>::Create();
+    VclPtr<Menu> pCurrentMenu = VclPtr<PopupMenu>::Create();
 
     int nLevel = 1;
 
@@ -3287,14 +3326,14 @@ void VclBuilder::handleMenu(xmlreader::XmlReader &reader, const OString &rID)
 
         if (res == xmlreader::XmlReader::Result::Begin)
         {
-            if (name.equals("child"))
+            if (name == "child")
             {
                 handleMenuChild(pCurrentMenu, reader);
             }
             else
             {
                 ++nLevel;
-                if (name.equals("property"))
+                if (name == "property")
                     collectProperty(reader, aProperties);
             }
         }
@@ -3311,7 +3350,7 @@ void VclBuilder::handleMenu(xmlreader::XmlReader &reader, const OString &rID)
     m_aMenus.emplace_back(rID, pCurrentMenu);
 }
 
-void VclBuilder::handleMenuChild(PopupMenu *pParent, xmlreader::XmlReader &reader)
+void VclBuilder::handleMenuChild(Menu *pParent, xmlreader::XmlReader &reader)
 {
     xmlreader::Span name;
     int nsId;
@@ -3324,7 +3363,7 @@ void VclBuilder::handleMenuChild(PopupMenu *pParent, xmlreader::XmlReader &reade
 
         if (res == xmlreader::XmlReader::Result::Begin)
         {
-            if (name.equals("object") || name.equals("placeholder"))
+            if (name == "object" || name == "placeholder")
             {
                 handleMenuObject(pParent, reader);
             }
@@ -3343,7 +3382,7 @@ void VclBuilder::handleMenuChild(PopupMenu *pParent, xmlreader::XmlReader &reade
     }
 }
 
-void VclBuilder::handleMenuObject(PopupMenu *pParent, xmlreader::XmlReader &reader)
+void VclBuilder::handleMenuObject(Menu *pParent, xmlreader::XmlReader &reader)
 {
     OString sClass;
     OString sID;
@@ -3355,12 +3394,12 @@ void VclBuilder::handleMenuObject(PopupMenu *pParent, xmlreader::XmlReader &read
 
     while (reader.nextAttribute(&nsId, &name))
     {
-        if (name.equals("class"))
+        if (name == "class")
         {
             name = reader.getAttributeValue(false);
             sClass = OString(name.begin, name.length);
         }
-        else if (name.equals("id"))
+        else if (name == "id")
         {
             name = reader.getAttributeValue(false);
             sID = OString(name.begin, name.length);
@@ -3391,19 +3430,19 @@ void VclBuilder::handleMenuObject(PopupMenu *pParent, xmlreader::XmlReader &read
 
         if (res == xmlreader::XmlReader::Result::Begin)
         {
-            if (name.equals("child"))
+            if (name == "child")
             {
                 size_t nChildMenuIdx = m_aMenus.size();
                 handleChild(nullptr, reader);
                 assert(m_aMenus.size() > nChildMenuIdx && "menu not inserted");
-                pSubMenu = m_aMenus[nChildMenuIdx].m_pMenu;
+                pSubMenu = dynamic_cast<PopupMenu*>(m_aMenus[nChildMenuIdx].m_pMenu.get());
             }
             else
             {
                 ++nLevel;
-                if (name.equals("property"))
+                if (name == "property")
                     collectProperty(reader, aProperties);
-                else if (name.equals("accelerator"))
+                else if (name == "accelerator")
                     collectAccelerator(reader, aAccelerators);
             }
         }
@@ -3441,11 +3480,11 @@ void VclBuilder::handleSizeGroup(xmlreader::XmlReader &reader)
         if (res == xmlreader::XmlReader::Result::Begin)
         {
             ++nLevel;
-            if (name.equals("widget"))
+            if (name == "widget")
             {
                 while (reader.nextAttribute(&nsId, &name))
                 {
-                    if (name.equals("name"))
+                    if (name == "name")
                     {
                         name = reader.getAttributeValue(false);
                         OString sWidget(name.begin, name.length);
@@ -3458,7 +3497,7 @@ void VclBuilder::handleSizeGroup(xmlreader::XmlReader &reader)
             }
             else
             {
-                if (name.equals("property"))
+                if (name == "property")
                     collectProperty(reader, rSizeGroup.m_aProperties);
             }
         }
@@ -3501,13 +3540,18 @@ namespace
     }
 }
 
-void VclBuilder::insertMenuObject(PopupMenu *pParent, PopupMenu *pSubMenu, const OString &rClass, const OString &rID,
+void VclBuilder::insertMenuObject(Menu *pParent, PopupMenu *pSubMenu, const OString &rClass, const OString &rID,
     stringmap &rProps, accelmap &rAccels)
 {
     sal_uInt16 nOldCount = pParent->GetItemCount();
     sal_uInt16 nNewId = ++m_pParserState->m_nLastMenuItemId;
 
-    if (rClass == "GtkMenuItem")
+    if(rClass == "NotebookBarAddonsMenuMergePoint")
+    {
+        NotebookBarAddonsMerger::MergeNotebookBarMenuAddons(pParent, nNewId, rID, *m_pNotebookBarAddonsItem);
+        m_pParserState->m_nLastMenuItemId = pParent->GetItemCount();
+    }
+    else if (rClass == "GtkMenuItem")
     {
         OUString sLabel(BuilderUtils::convertMnemonicMarkup(extractLabel(rProps)));
         OUString aCommand(extractActionName(rProps));
@@ -3552,8 +3596,6 @@ void VclBuilder::insertMenuObject(PopupMenu *pParent, PopupMenu *pSubMenu, const
                 pParent->SetTipHelpText(nNewId, rValue);
             else if (rKey == "visible")
                 pParent->ShowItem(nNewId, toBool(rValue));
-            else if (rKey == "has-default" && toBool(rValue))
-                pParent->SetSelectedEntry(nNewId);
             else
                 SAL_INFO("vcl.layout", "unhandled property: " << rKey);
         }
@@ -3610,12 +3652,12 @@ VclPtr<vcl::Window> VclBuilder::handleObject(vcl::Window *pParent, xmlreader::Xm
 
     while (reader.nextAttribute(&nsId, &name))
     {
-        if (name.equals("class"))
+        if (name == "class")
         {
             name = reader.getAttributeValue(false);
             sClass = OString(name.begin, name.length);
         }
-        else if (name.equals("id"))
+        else if (name == "id")
         {
             name = reader.getAttributeValue(false);
             sID = OString(name.begin, name.length);
@@ -3669,7 +3711,7 @@ VclPtr<vcl::Window> VclBuilder::handleObject(vcl::Window *pParent, xmlreader::Xm
 
         if (res == xmlreader::XmlReader::Result::Begin)
         {
-            if (name.equals("child"))
+            if (name == "child")
             {
                 if (!pCurrentChild)
                 {
@@ -3678,9 +3720,9 @@ VclPtr<vcl::Window> VclBuilder::handleObject(vcl::Window *pParent, xmlreader::Xm
                 }
                 handleChild(pCurrentChild, reader);
             }
-            else if (name.equals("items"))
+            else if (name == "items")
                 aItems = handleItems(reader);
-            else if (name.equals("style"))
+            else if (name == "style")
             {
                 int nPriority = 0;
                 std::vector<vcl::EnumContext::Context> aContext = handleStyle(reader, nPriority);
@@ -3702,15 +3744,15 @@ VclPtr<vcl::Window> VclBuilder::handleObject(vcl::Window *pParent, xmlreader::Xm
             else
             {
                 ++nLevel;
-                if (name.equals("property"))
+                if (name == "property")
                     collectProperty(reader, aProperties);
-                else if (name.equals("attribute"))
+                else if (name == "attribute")
                     collectPangoAttribute(reader, aPangoAttributes);
-                else if (name.equals("relation"))
+                else if (name == "relation")
                     collectAtkRelationAttribute(reader, aAtkAttributes);
-                else if (name.equals("role"))
+                else if (name == "role")
                     collectAtkRoleAttribute(reader, aAtkAttributes);
-                else if (name.equals("action-widget"))
+                else if (name == "action-widget")
                     handleActionWidget(reader);
             }
         }
@@ -3769,7 +3811,7 @@ void VclBuilder::handlePacking(vcl::Window *pCurrent, vcl::Window *pParent, xmlr
         if (res == xmlreader::XmlReader::Result::Begin)
         {
             ++nLevel;
-            if (name.equals("property"))
+            if (name == "property")
                 applyPackingProperty(pCurrent, pParent, reader);
         }
 
@@ -3811,7 +3853,7 @@ void VclBuilder::applyPackingProperty(vcl::Window *pCurrent,
 
     while (reader.nextAttribute(&nsId, &name))
     {
-        if (name.equals("name"))
+        if (name == "name")
         {
             name = reader.getAttributeValue(false);
             OString sKey(name.begin, name.length);
@@ -3907,7 +3949,7 @@ std::vector<vcl::EnumContext::Context> VclBuilder::handleStyle(xmlreader::XmlRea
         if (res == xmlreader::XmlReader::Result::Begin)
         {
             ++nLevel;
-            if (name.equals("class"))
+            if (name == "class")
             {
                 OString classStyle = getStyleClass(reader);
 
@@ -3950,7 +3992,7 @@ OString VclBuilder::getStyleClass(xmlreader::XmlReader &reader)
 
     while (reader.nextAttribute(&nsId, &name))
     {
-        if (name.equals("name"))
+        if (name == "name")
         {
             name = reader.getAttributeValue(false);
             aRet = OString (name.begin, name.length);
@@ -3971,17 +4013,17 @@ void VclBuilder::collectProperty(xmlreader::XmlReader &reader, stringmap &rMap) 
 
     while (reader.nextAttribute(&nsId, &name))
     {
-        if (name.equals("name"))
+        if (name == "name")
         {
             name = reader.getAttributeValue(false);
             sProperty = OString(name.begin, name.length);
         }
-        else if (name.equals("context"))
+        else if (name == "context")
         {
             name = reader.getAttributeValue(false);
             sContext = OString(name.begin, name.length);
         }
-        else if (name.equals("translatable") && reader.getAttributeValue(false).equals("yes"))
+        else if (name == "translatable" && reader.getAttributeValue(false) == "yes")
         {
             bTranslated = true;
         }
@@ -4017,7 +4059,7 @@ void VclBuilder::handleActionWidget(xmlreader::XmlReader &reader)
 
     while (reader.nextAttribute(&nsId, &name))
     {
-        if (name.equals("response"))
+        if (name == "response")
         {
             name = reader.getAttributeValue(false);
             sResponse = OString(name.begin, name.length);
@@ -4043,17 +4085,17 @@ void VclBuilder::collectAccelerator(xmlreader::XmlReader &reader, accelmap &rMap
 
     while (reader.nextAttribute(&nsId, &name))
     {
-        if (name.equals("key"))
+        if (name == "key")
         {
             name = reader.getAttributeValue(false);
             sValue = OString(name.begin, name.length);
         }
-        else if (name.equals("signal"))
+        else if (name == "signal")
         {
             name = reader.getAttributeValue(false);
             sProperty = OString(name.begin, name.length);
         }
-        else if (name.equals("modifiers"))
+        else if (name == "modifiers")
         {
             name = reader.getAttributeValue(false);
             sModifiers = OString(name.begin, name.length);
@@ -4087,7 +4129,7 @@ PopupMenu *VclBuilder::get_menu(const OString& sID)
     for (auto const& menu : m_aMenus)
     {
         if (menu.m_sID == sID)
-            return menu.m_pMenu;
+            return dynamic_cast<PopupMenu*>(menu.m_pMenu.get());
     }
 
     return nullptr;
@@ -4120,7 +4162,7 @@ void VclBuilder::set_response(const OString& sID, short nResponse)
             break;
     };
 
-    for (auto & child : m_aChildren)
+    for (const auto & child : m_aChildren)
     {
         if (child.m_sID == sID)
         {
@@ -4505,10 +4547,10 @@ VclBuilder::ParserState::ParserState()
     , m_nLastMenuItemId(0)
 {}
 
-VclBuilder::MenuAndId::MenuAndId(const OString &rId, PopupMenu *pMenu)
-            : m_sID(rId)
-            , m_pMenu(pMenu)
-{};
+VclBuilder::MenuAndId::MenuAndId(const OString &rId, Menu *pMenu)
+    : m_sID(rId)
+    , m_pMenu(pMenu)
+{}
 
 VclBuilder::MenuAndId::~MenuAndId() {}
 

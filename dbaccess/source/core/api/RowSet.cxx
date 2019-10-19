@@ -59,6 +59,7 @@
 #include <comphelper/property.hxx>
 #include <comphelper/seqstream.hxx>
 #include <comphelper/sequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/types.hxx>
 #include <comphelper/uno3.hxx>
 #include <connectivity/BlobHelper.hxx>
@@ -443,13 +444,13 @@ void SAL_CALL ORowSet::release() throw()
 // css::XUnoTunnel
 sal_Int64 SAL_CALL ORowSet::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    if (isUnoTunnelId<ORowSet>(rId))
         return reinterpret_cast<sal_Int64>(this);
 
     return 0;
 }
 
-Sequence< sal_Int8 > ORowSet::getUnoTunnelImplementationId()
+Sequence< sal_Int8 > ORowSet::getUnoTunnelId()
 {
     static ::cppu::OImplementationId s_Id;
 
@@ -468,7 +469,7 @@ Any SAL_CALL ORowSet::queryAggregation( const Type& rType )
 // css::XServiceInfo
 OUString SAL_CALL ORowSet::getImplementationName()
 {
-    return OUString("com.sun.star.comp.dba.ORowSet");
+    return "com.sun.star.comp.dba.ORowSet";
 }
 
 sal_Bool SAL_CALL ORowSet::supportsService( const OUString& _rServiceName )
@@ -478,13 +479,8 @@ sal_Bool SAL_CALL ORowSet::supportsService( const OUString& _rServiceName )
 
 Sequence< OUString > SAL_CALL ORowSet::getSupportedServiceNames()
 {
-    Sequence< OUString > aSNS( 5 );
-    aSNS[0] = SERVICE_SDBC_RESULTSET;
-    aSNS[1] = SERVICE_SDBC_ROWSET;
-    aSNS[2] = SERVICE_SDBCX_RESULTSET;
-    aSNS[3] = SERVICE_SDB_RESULTSET;
-    aSNS[4] = SERVICE_SDB_ROWSET;
-    return aSNS;
+    return { SERVICE_SDBC_RESULTSET, SERVICE_SDBC_ROWSET, SERVICE_SDBCX_RESULTSET,
+             SERVICE_SDB_RESULTSET, SERVICE_SDB_ROWSET };
 }
 
 // OComponentHelper
@@ -1238,9 +1234,9 @@ void ORowSet::impl_restoreDataColumnsWriteable_throw()
 {
     assert(m_aDataColumns.size() == m_aReadOnlyDataColumns.size() || m_aReadOnlyDataColumns.size() == 0 );
     TDataColumns::const_iterator aIter = m_aDataColumns.begin();
-    for (auto const& readOnlyDataColumn : m_aReadOnlyDataColumns)
+    for (bool readOnlyDataColumn : m_aReadOnlyDataColumns)
     {
-        (*aIter)->setPropertyValue(PROPERTY_ISREADONLY, makeAny( static_cast<bool>(readOnlyDataColumn)) );
+        (*aIter)->setPropertyValue(PROPERTY_ISREADONLY, makeAny(readOnlyDataColumn) );
         ++aIter;
     }
     m_aReadOnlyDataColumns.clear();
@@ -1258,7 +1254,7 @@ void SAL_CALL ORowSet::moveToCurrentRow(  )
         return;
 
     if ( rowDeleted() )
-        // this would perhaps even justify a RuntimeException ....
+        // this would perhaps even justify a RuntimeException...
         // if the current row is deleted, then no write access to this row should be possible. So,
         // m_bModified should be true. Also, as soon as somebody calls moveToInsertRow,
         // our current row should not be deleted anymore. So, we should not have survived the above
@@ -1454,7 +1450,7 @@ void SAL_CALL ORowSet::executeWithCompletion( const Reference< XInteractionHandl
         calcConnection( _rxHandler );
         m_bRebuildConnOnExecute = false;
 
-        Reference< XSingleSelectQueryComposer > xComposer = getCurrentSettingsComposer( this, m_aContext );
+        Reference< XSingleSelectQueryComposer > xComposer = getCurrentSettingsComposer( this, m_aContext, nullptr );
         Reference<XParametersSupplier>  xParameters(xComposer, UNO_QUERY);
 
         Reference<XIndexAccess>  xParamsAsIndicies = xParameters.is() ? xParameters->getParameters() : Reference<XIndexAccess>();
@@ -1475,8 +1471,7 @@ void SAL_CALL ORowSet::executeWithCompletion( const Reference< XInteractionHandl
     }
     catch(Exception const &)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("dbaccess", "ORowSet::executeWithCompletion: caught an unexpected exception type while filling in the parameters! " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("dbaccess", "ORowSet::executeWithCompletion: caught an unexpected exception type while filling in the parameters");
     }
 
     // we're done with the parameters, now for the real execution
@@ -2149,13 +2144,9 @@ void ORowSet::notifyRowSetAndClonesRowDelete( const Any& _rBookmark )
     // notify the clones
     for (auto const& elem : m_aClones)
     {
-        Reference< XUnoTunnel > xTunnel(elem.get(),UNO_QUERY);
-        if(xTunnel.is())
-        {
-            ORowSetClone* pClone = reinterpret_cast<ORowSetClone*>(xTunnel->getSomething(ORowSetClone::getUnoTunnelImplementationId()));
-            if(pClone)
-                pClone->onDeleteRow( _rBookmark );
-        }
+        auto pClone = comphelper::getUnoTunnelImplementation<ORowSetClone>(elem.get());
+        if(pClone)
+            pClone->onDeleteRow( _rBookmark );
     }
 }
 
@@ -2166,13 +2157,9 @@ void ORowSet::notifyRowSetAndClonesRowDeleted( const Any& _rBookmark, sal_Int32 
     // notify the clones
     for (auto const& clone : m_aClones)
     {
-        Reference< XUnoTunnel > xTunnel(clone.get(),UNO_QUERY);
-        if(xTunnel.is())
-        {
-            ORowSetClone* pClone = reinterpret_cast<ORowSetClone*>(xTunnel->getSomething(ORowSetClone::getUnoTunnelImplementationId()));
-            if(pClone)
-                pClone->onDeletedRow( _rBookmark, _nPos );
-        }
+        auto pClone = comphelper::getUnoTunnelImplementation<ORowSetClone>(clone.get());
+        if(pClone)
+            pClone->onDeletedRow( _rBookmark, _nPos );
     }
 }
 
@@ -2866,7 +2853,7 @@ void ORowSetClone::release() throw()
 // XServiceInfo
 OUString ORowSetClone::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.ORowSetClone");
+    return "com.sun.star.sdb.ORowSetClone";
 }
 
 sal_Bool ORowSetClone::supportsService( const OUString& _rServiceName )
@@ -2876,10 +2863,7 @@ sal_Bool ORowSetClone::supportsService( const OUString& _rServiceName )
 
 Sequence< OUString > ORowSetClone::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = SERVICE_SDBC_RESULTSET;
-    aSNS[1] = SERVICE_SDB_RESULTSET;
-    return aSNS;
+    return { SERVICE_SDBC_RESULTSET, SERVICE_SDB_RESULTSET };
 }
 
 // OComponentHelper
@@ -2918,7 +2902,7 @@ void ORowSetClone::close()
     return *::comphelper::OPropertyArrayUsageHelper<ORowSetClone>::getArrayHelper();
 }
 
-Sequence< sal_Int8 > ORowSetClone::getUnoTunnelImplementationId()
+Sequence< sal_Int8 > ORowSetClone::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 
@@ -2928,7 +2912,7 @@ Sequence< sal_Int8 > ORowSetClone::getUnoTunnelImplementationId()
 // css::XUnoTunnel
 sal_Int64 SAL_CALL ORowSetClone::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    if (isUnoTunnelId<ORowSetClone>(rId))
         return reinterpret_cast<sal_Int64>(this);
 
     return 0;

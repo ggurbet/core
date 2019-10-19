@@ -141,7 +141,7 @@ public:
     virtual ~SmCaretPos2LineVisitor() {}
     void Visit( SmTextNode* pNode ) override;
     using SmDefaultingVisitor::Visit;
-    const SmCaretLine& GetResult( ) {
+    const SmCaretLine& GetResult( ) const {
         return maLine;
     }
 private:
@@ -272,7 +272,7 @@ private:
  * denoted by | in "H|".
  *
  * Parameter variables:
- *  The following variables are used to transfer parameters in to calls and results out
+ *  The following variables are used to transfer parameters into calls and results out
  *  of calls.
  *      pRightMost : SmCaretPosGraphEntry*
  *

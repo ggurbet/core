@@ -107,7 +107,7 @@ public:
     virtual void UpdateSettings( AllSettings &rSettings ) override
     {
         // Clobber the UI fonts
-        vcl::Font aFont( OUString::fromUtf8( [[[UIFont systemFontOfSize:10] familyName] UTF8String] ), Size( 0, 10 ) );
+        vcl::Font aFont( "Helvetica", Size( 0, 10 ) );
 
         StyleSettings aStyleSet = rSettings.GetStyleSettings();
         aStyleSet.SetAppFont( aFont );
@@ -121,6 +121,12 @@ public:
         aStyleSet.SetIconFont( aFont );
         aStyleSet.SetTabFont( aFont );
         aStyleSet.SetGroupFont( aFont );
+
+        Color aBackgroundColor( 0xff, 0xff, 0xff );
+        aStyleSet.BatchSetBackgrounds( aBackgroundColor, false );
+        aStyleSet.SetMenuColor( aBackgroundColor );
+        aStyleSet.SetMenuBarColor( aBackgroundColor );
+        aStyleSet.SetDialogColor( aBackgroundColor );
 
         rSettings.SetStyleSettings( aStyleSet );
     }

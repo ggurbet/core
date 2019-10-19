@@ -10,7 +10,6 @@
 #ifndef INCLUDED_WRITERFILTER_SOURCE_RTFTOK_RTFLOOKAHEAD_HXX
 #define INCLUDED_WRITERFILTER_SOURCE_RTFTOK_RTFLOOKAHEAD_HXX
 
-#include <memory>
 #include <sal/types.h>
 #include <tools/ref.hxx>
 #include "rtflistener.hxx"
@@ -47,8 +46,8 @@ public:
     void setSkipUnknown(bool bSkipUnknown) override;
     void finishSubstream() override;
     bool isSubstream() const override;
-    bool hasTable() { return m_bHasTable; }
-    bool hasColumns() { return m_bHasColumns; }
+    bool hasTable() const { return m_bHasTable; }
+    bool hasColumns() const { return m_bHasColumns; }
 
 private:
     tools::SvRef<RTFTokenizer> m_pTokenizer;

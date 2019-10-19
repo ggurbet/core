@@ -39,7 +39,6 @@ using namespace com::sun::star::container;
 const char WRONG_TYPE_EXCEPTION[] = "Type must be css::uno::Sequence< css::beans::PropertyValue >";
 
 const int PROPHANDLE_UINAME     = 1;
-const int PROPCOUNT             = 1;
 const char PROPNAME_UINAME[]    = "UIName";
 
 namespace framework
@@ -143,7 +142,7 @@ Reference< XIndexAccess > RootItemContainer::deepCopyContainer( const Reference<
 // XUnoTunnel
 sal_Int64 RootItemContainer::getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier )
 {
-    if( ( rIdentifier.getLength() == 16 ) && ( 0 == memcmp( RootItemContainer::GetUnoTunnelId().getConstArray(), rIdentifier.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<RootItemContainer>(rIdentifier) )
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
     return 0;
 }
@@ -153,16 +152,9 @@ namespace
     class theRootItemContainerUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theRootItemContainerUnoTunnelId > {};
 }
 
-const Sequence< sal_Int8 >& RootItemContainer::GetUnoTunnelId() throw()
+const Sequence< sal_Int8 >& RootItemContainer::getUnoTunnelId() throw()
 {
     return theRootItemContainerUnoTunnelId::get().getSeq();
-}
-
-RootItemContainer* RootItemContainer::GetImplementation( const css::uno::Reference< css::uno::XInterface >& rxIFace ) throw()
-{
-    css::uno::Reference< css::lang::XUnoTunnel > xUT( rxIFace, css::uno::UNO_QUERY );
-    return xUT.is() ? reinterpret_cast< RootItemContainer* >(sal::static_int_cast< sal_IntPtr >(
-                          xUT->getSomething( RootItemContainer::GetUnoTunnelId() ))) : nullptr;
 }
 
 // XElementAccess
@@ -306,7 +298,7 @@ css::uno::Reference< css::beans::XPropertySetInfo > SAL_CALL RootItemContainer::
     return xInfo;
 }
 
-const css::uno::Sequence< css::beans::Property > RootItemContainer::impl_getStaticPropertyDescriptor()
+css::uno::Sequence< css::beans::Property > RootItemContainer::impl_getStaticPropertyDescriptor()
 {
     // Create a property array to initialize sequence!
     // Table of all predefined properties of this class. It's used from OPropertySetHelper-class!
@@ -315,16 +307,12 @@ const css::uno::Sequence< css::beans::Property > RootItemContainer::impl_getStat
     // ATTENTION:
     //      YOU MUST SORT FOLLOW TABLE BY NAME ALPHABETICAL !!!
 
-    const css::beans::Property pProperties[] =
+    return
     {
         css::beans::Property( PROPNAME_UINAME, PROPHANDLE_UINAME ,
                               cppu::UnoType<OUString>::get(),
                               css::beans::PropertyAttribute::TRANSIENT )
     };
-    // Use it to initialize sequence!
-    const css::uno::Sequence< css::beans::Property > lPropertyDescriptor( pProperties, PROPCOUNT );
-    // Return "PropertyDescriptor"
-    return lPropertyDescriptor;
 }
 
 } // namespace framework

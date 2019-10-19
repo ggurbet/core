@@ -46,6 +46,7 @@
 #include "wrapstreamforshare.hxx"
 
 #include <comphelper/seekableinput.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -76,7 +77,7 @@ using namespace cppu;
 
 namespace { struct lcl_CachedImplId : public rtl::Static< cppu::OImplementationId, lcl_CachedImplId > {}; }
 
-css::uno::Sequence < sal_Int8 > ZipPackageStream::static_getImplementationId()
+css::uno::Sequence < sal_Int8 > ZipPackageStream::getUnoTunnelId()
 {
     return lcl_CachedImplId::get().getImplementationId();
 }
@@ -237,9 +238,9 @@ uno::Sequence<sal_Int8> ZipPackageStream::GetEncryptionKey(Bugs const bugs)
         else
             throw uno::RuntimeException(THROW_WHERE "No expected key is provided!" );
 
-        for ( sal_Int32 nInd = 0; nInd < m_aStorageEncryptionKeys.getLength(); nInd++ )
-            if ( m_aStorageEncryptionKeys[nInd].Name == aNameToFind )
-                m_aStorageEncryptionKeys[nInd].Value >>= aResult;
+        for ( const auto& rKey : std::as_const(m_aStorageEncryptionKeys) )
+            if ( rKey.Name == aNameToFind )
+                rKey.Value >>= aResult;
 
         // empty keys are not allowed here
         // so it is not important whether there is no key, or the key is empty, it is an error
@@ -255,7 +256,7 @@ uno::Sequence<sal_Int8> ZipPackageStream::GetEncryptionKey(Bugs const bugs)
     return aResult;
 }
 
-sal_Int32 ZipPackageStream::GetStartKeyGenID()
+sal_Int32 ZipPackageStream::GetStartKeyGenID() const
 {
     // generally should all the streams use the same Start Key
     // but if raw copy without password takes place, we should preserve the imported algorithm
@@ -1119,8 +1120,7 @@ uno::Reference< io::XInputStream > SAL_CALL ZipPackageStream::getPlainRawStream(
 sal_Int64 SAL_CALL ZipPackageStream::getSomething( const Sequence< sal_Int8 >& aIdentifier )
 {
     sal_Int64 nMe = 0;
-    if ( aIdentifier.getLength() == 16 &&
-         0 == memcmp( static_getImplementationId().getConstArray(), aIdentifier.getConstArray(), 16 ) )
+    if ( isUnoTunnelId<ZipPackageStream>(aIdentifier) )
         nMe = reinterpret_cast < sal_Int64 > ( this );
     return nMe;
 }
@@ -1271,7 +1271,7 @@ void SAL_CALL ZipPackageStream::setPropertyValue( const OUString& aPropertyName,
         m_bCompressedIsSetFromOutside = true;
     }
     else
-        throw beans::UnknownPropertyException(THROW_WHERE );
+        throw beans::UnknownPropertyException(aPropertyName);
 }
 
 Any SAL_CALL ZipPackageStream::getPropertyValue( const OUString& PropertyName )
@@ -1305,7 +1305,7 @@ Any SAL_CALL ZipPackageStream::getPropertyValue( const OUString& PropertyName )
         return Any(m_aStorageEncryptionKeys);
     }
     else
-        throw beans::UnknownPropertyException(THROW_WHERE );
+        throw beans::UnknownPropertyException(PropertyName);
 }
 
 void ZipPackageStream::setSize ( const sal_Int64 nNewSize )
@@ -1316,7 +1316,7 @@ void ZipPackageStream::setSize ( const sal_Int64 nNewSize )
 }
 OUString ZipPackageStream::getImplementationName()
 {
-    return OUString ("ZipPackageStream");
+    return "ZipPackageStream";
 }
 
 Sequence< OUString > ZipPackageStream::getSupportedServiceNames()

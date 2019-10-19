@@ -20,43 +20,39 @@
 #ifndef INCLUDED_EXTENSIONS_SOURCE_ABPILOT_ABSPAGE_HXX
 #define INCLUDED_EXTENSIONS_SOURCE_ABPILOT_ABSPAGE_HXX
 
-#include <svtools/wizardmachine.hxx>
+#include <vcl/wizardmachine.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <strings.hrc>
 #include <componentmodule.hxx>
-#include <vcl/fixed.hxx>
-
 
 namespace abp
 {
-
-
     class OAddressBookSourcePilot;
     struct AddressSettings;
 
-    typedef ::svt::OWizardPage AddressBookSourcePage_Base;
+    typedef ::vcl::OWizardPage AddressBookSourcePage_Base;
     /// the base class for all tab pages in the address book source wizard
     class AddressBookSourcePage : public AddressBookSourcePage_Base
     {
+        OAddressBookSourcePilot* m_pDialog;
+
     protected:
-        AddressBookSourcePage(OAddressBookSourcePilot *pParent, const OString& rID, const OUString& rUIXMLDescription);
+        AddressBookSourcePage(weld::Container* pPage, OAddressBookSourcePilot* pController, const OUString& rUIXMLDescription, const OString& rID);
 
     protected:
         // helper
         OAddressBookSourcePilot* getDialog();
-        const OAddressBookSourcePilot*   getDialog() const;
+        const OAddressBookSourcePilot* getDialog() const;
         const css::uno::Reference< css::uno::XComponentContext > &
-                                getORB();
+                                getORB() const;
         AddressSettings&        getSettings();
         const AddressSettings&  getSettings() const;
 
-        // TabDialog overridables
-        virtual void        DeactivatePage() override;
+        // BuilderPage overridables
+        virtual void        Activate() override;
+        virtual void        Deactivate() override;
     };
-
-
 }   // namespace abp
-
 
 #endif // INCLUDED_EXTENSIONS_SOURCE_ABPILOT_ABSPAGE_HXX
 

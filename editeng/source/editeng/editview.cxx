@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <sal/macros.h>
+#include <vcl/builder.hxx>
 #include <vcl/image.hxx>
 
 #include <com/sun/star/i18n/WordType.hpp>
@@ -513,7 +514,7 @@ const SfxItemSet& EditView::GetEmptyItemSet()
 
 void EditView::SetAttribs( const SfxItemSet& rSet )
 {
-    DBG_ASSERT( !pImpEditView->aEditSelection.IsInvalid(), "Blind Selection in ...." );
+    DBG_ASSERT( !pImpEditView->aEditSelection.IsInvalid(), "Blind Selection in..." );
 
     pImpEditView->DrawSelectionXOR();
     pImpEditView->pEditEngine->SetAttribs( pImpEditView->GetEditSelection(), rSet, SetAttribsMode::WholeWord );
@@ -560,7 +561,7 @@ void EditView::RemoveCharAttribs( sal_Int32 nPara, sal_uInt16 nWhich )
 
 SfxItemSet EditView::GetAttribs()
 {
-    DBG_ASSERT( !pImpEditView->aEditSelection.IsInvalid(), "Blind Selection in ...." );
+    DBG_ASSERT( !pImpEditView->aEditSelection.IsInvalid(), "Blind Selection in..." );
     return pImpEditView->pEditEngine->pImpEditEngine->GetAttribs( pImpEditView->GetEditSelection() );
 }
 
@@ -596,7 +597,7 @@ void EditView::Cut()
     pImpEditView->CutCopy( aClipBoard, true );
 }
 
-css::uno::Reference< css::datatransfer::XTransferable > EditView::GetTransferable()
+css::uno::Reference< css::datatransfer::XTransferable > EditView::GetTransferable() const
 {
     uno::Reference< datatransfer::XTransferable > xData =
         GetEditEngine()->CreateTransferable( pImpEditView->GetEditSelection() );
@@ -632,7 +633,7 @@ void EditView::SetSelectionMode( EESelectionMode eMode )
     pImpEditView->SetSelectionMode( eMode );
 }
 
-OUString EditView::GetSelected()
+OUString EditView::GetSelected() const
 {
     return pImpEditView->pEditEngine->pImpEditEngine->GetSelected( pImpEditView->GetEditSelection() );
 }
@@ -975,7 +976,7 @@ void EditView::ExecuteSpellPopup( const Point& rPosPixel, Link<SpellCallbackInfo
             sal_uInt16 nDicCount = static_cast<sal_uInt16>(aDics.getLength());
             for (sal_uInt16 i = 0; i < nDicCount; i++)
             {
-                uno::Reference< linguistic2::XDictionary >  xDicTmp( pDic[i], uno::UNO_QUERY );
+                uno::Reference< linguistic2::XDictionary >  xDicTmp = pDic[i];
                 if (!xDicTmp.is() || LinguMgr::GetIgnoreAllList() == xDicTmp)
                     continue;
 
@@ -1213,7 +1214,7 @@ const SvxFieldItem* EditView::GetFieldAtSelection() const
         const sal_Int32 nXPos = aPaM.GetIndex();
         for (size_t nAttr = rAttrs.size(); nAttr; )
         {
-            const EditCharAttrib& rAttr = *rAttrs[--nAttr].get();
+            const EditCharAttrib& rAttr = *rAttrs[--nAttr];
             if (rAttr.GetStart() == nXPos)
                 if (rAttr.Which() == EE_FEATURE_FIELD)
                 {
@@ -1223,6 +1224,40 @@ const SvxFieldItem* EditView::GetFieldAtSelection() const
         }
     }
     return nullptr;
+}
+
+void EditView::SelectFieldAtCursor()
+{
+    const SvxFieldItem* pFieldItem = GetFieldAtSelection();
+    if (pFieldItem)
+    {
+        // Make sure the whole field is selected
+        ESelection aSel = GetSelection();
+        if (aSel.nStartPos == aSel.nEndPos)
+        {
+            aSel.nEndPos++;
+            SetSelection(aSel);
+        }
+    }
+    if (!pFieldItem)
+    {
+        // Cursor probably behind the field - extend selection to select the field
+        ESelection aSel = GetSelection();
+        if (aSel.nStartPos > 0 && aSel.nStartPos == aSel.nEndPos)
+        {
+            aSel.nStartPos--;
+            SetSelection(aSel);
+        }
+    }
+}
+
+const SvxFieldData* EditView::GetFieldAtCursor() const
+{
+    const SvxFieldItem* pFieldItem = GetFieldUnderMousePointer();
+    if (!pFieldItem)
+        pFieldItem = GetFieldAtSelection();
+
+    return pFieldItem ? pFieldItem->GetField() : nullptr;
 }
 
 void EditView::SetInvalidateMore( sal_uInt16 nPixel )

@@ -21,6 +21,7 @@
 
 #include <scabstdlg.hxx>
 #include <sfx2/sfxdlg.hxx>
+#include <vcl/virdev.hxx>
 
 #include <corodlg.hxx>
 #include <condformatmgr.hxx>
@@ -87,9 +88,11 @@ bool Class::selectPageByUIXMLDescription(const OString& rUIXMLDescription) \
 {                                                   \
    return pDlg->selectPageByUIXMLDescription(rUIXMLDescription);  \
 }                                                   \
-BitmapEx Class::createScreenshot() const              \
+BitmapEx Class::createScreenshot() const            \
 {                                                   \
-    return pDlg->createScreenshot();                \
+    VclPtr<VirtualDevice> xDialogSurface(VclPtr<VirtualDevice>::Create(DeviceFormat::DEFAULT)); \
+    pDlg->createScreenshot(*xDialogSurface);        \
+    return xDialogSurface->GetBitmapEx(Point(), xDialogSurface->GetOutputSizePixel()); \
 }                                                   \
 OString Class::GetScreenshotId() const              \
 {                                                   \
@@ -98,9 +101,19 @@ OString Class::GetScreenshotId() const              \
 
 class AbstractScImportAsciiDlg_Impl : public AbstractScImportAsciiDlg
 {
-    DECL_ABSTDLG_BASE(AbstractScImportAsciiDlg_Impl, ScImportAsciiDlg)
+    std::unique_ptr<ScImportAsciiDlg> m_xDlg;
+public:
+    explicit AbstractScImportAsciiDlg_Impl(std::unique_ptr<ScImportAsciiDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
     virtual void                        GetOptions( ScAsciiOptions& rOpt ) override;
     virtual void                        SaveParameters() override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScAutoFormatDlg_Impl : public AbstractScAutoFormatDlg
@@ -127,6 +140,10 @@ public:
     virtual short Execute() override;
     virtual bool IsCol() override;
     virtual bool IsRow() override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScCondFormatManagerDlg_Impl : public AbstractScCondFormatManagerDlg
@@ -154,7 +171,11 @@ public:
     {
     }
     virtual short Execute() override;
-    virtual void    GetValues( ScImportSourceDesc& rDesc ) override;
+    virtual void GetValues( ScImportSourceDesc& rDesc ) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScDataPilotSourceTypeDlg_Impl  :public AbstractScDataPilotSourceTypeDlg
@@ -171,6 +192,10 @@ public:
     virtual bool IsNamedRange() const override;
     virtual OUString GetSelectedNamedRange() const override;
     virtual void AppendNamedRange(const OUString& rName) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScDataPilotServiceDlg_Impl : public AbstractScDataPilotServiceDlg
@@ -199,6 +224,10 @@ public:
     }
     virtual short           Execute() override;
     virtual DelCellCmd GetDelCellCmd() const override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 //for dataform
@@ -212,6 +241,9 @@ public:
     }
     virtual short Execute() override;
 
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScDeleteContentsDlg_Impl : public AbstractScDeleteContentsDlg
@@ -225,6 +257,10 @@ public:
     virtual short   Execute() override;
     virtual void    DisableObjects() override;
     virtual InsertDeleteFlags GetDelContentsCmdBits() const override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScFillSeriesDlg_Impl:public AbstractScFillSeriesDlg
@@ -289,6 +325,10 @@ public:
     virtual void        SetChangeTrack( bool bSet ) override;
     virtual void        SetCellShiftDisabled( CellShiftDisabledFlags nDisable ) override;
     virtual InsCellCmd  GetMoveMode() override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScInsertTableDlg_Impl : public AbstractScInsertTableDlg
@@ -308,6 +348,9 @@ public:
     virtual sal_uInt16      GetTableCount() override;
     virtual const OUString* GetNextTable( sal_uInt16* pN ) override;
 
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScSelEntryDlg_Impl : public AbstractScSelEntryDlg
@@ -370,6 +413,10 @@ public:
     virtual void    GetTabNameString( OUString& rString ) const override;
     virtual void    SetForceCopyTable       () override;
     virtual void    EnableRenameTable       (bool bFlag) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScNameCreateDlg_Impl : public AbstractScNameCreateDlg
@@ -382,6 +429,10 @@ public:
     }
     virtual short           Execute() override;
     virtual CreateNameFlags GetFlags() const override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScNamePasteDlg_Impl : public AbstractScNamePasteDlg
@@ -525,6 +576,10 @@ public:
     }
     virtual short Execute() override;
     virtual OUString GetInputString() const override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScTabBgColorDlg_Impl :  public AbstractScTabBgColorDlg
@@ -537,6 +592,10 @@ public:
     }
     virtual short Execute() override;
     virtual void GetSelectedColor( Color& rColor ) const override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractScImportOptionsDlg_Impl : public AbstractScImportOptionsDlg
@@ -563,6 +622,10 @@ public:
     virtual short Execute() override;
     virtual LanguageType GetLanguageType() const override;
     virtual bool IsDateConversionSet() const override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class ScAbstractTabController_Impl : public SfxAbstractTabDialog
@@ -579,8 +642,13 @@ public:
     virtual const SfxItemSet*   GetOutputItemSet() const override;
     virtual const sal_uInt16*   GetInputRanges( const SfxItemPool& pItem ) override;
     virtual void                SetInputSet( const SfxItemSet* pInSet ) override;
-        //From class Window.
     virtual void        SetText( const OUString& rStr ) override;
+
+    // screenshotting
+    virtual std::vector<OString> getAllPageUIXMLDescriptions() const override;
+    virtual bool selectPageByUIXMLDescription(const OString& rUIXMLDescription) override;
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 //AbstractDialogFactory_Impl implementations
@@ -590,7 +658,7 @@ class ScAbstractDialogFactory_Impl : public ScAbstractDialogFactory
 public:
     virtual ~ScAbstractDialogFactory_Impl() {}
 
-    virtual VclPtr<AbstractScImportAsciiDlg> CreateScImportAsciiDlg(vcl::Window* pParent,
+    virtual VclPtr<AbstractScImportAsciiDlg> CreateScImportAsciiDlg(weld::Window* pParent,
                                                                     const OUString& aDatName,
                                                                     SvStream* pInStream,
                                                                     ScImportAsciiCall eCall) override;

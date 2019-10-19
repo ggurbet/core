@@ -38,7 +38,7 @@ $(eval $(call gb_Library_add_defs,svx,\
     -DBOOST_SPIRIT_USE_OLD_NAMESPACE \
 ))
 
-$(eval $(call gb_Library_set_precompiled_header,svx,$(SRCDIR)/svx/inc/pch/precompiled_svx))
+$(eval $(call gb_Library_set_precompiled_header,svx,svx/inc/pch/precompiled_svx))
 
 $(eval $(call gb_Library_use_libraries,svx,\
     $(call gb_Helper_optional,AVMEDIA,avmedia) \
@@ -125,7 +125,6 @@ $(eval $(call gb_Library_add_exception_objects,svx,\
     svx/source/dialog/dlgctrl \
     svx/source/dialog/docrecovery \
     svx/source/dialog/fntctrl \
-    svx/source/dialog/fontlb \
     svx/source/dialog/fontwork \
     svx/source/dialog/frmdirlbox \
     svx/source/dialog/frmsel \
@@ -158,6 +157,7 @@ $(eval $(call gb_Library_add_exception_objects,svx,\
     svx/source/dialog/swframeposstrings \
     svx/source/dialog/txencbox \
     svx/source/dialog/txenctab \
+    svx/source/dialog/weldeditview \
     svx/source/engine3d/float3d \
     svx/source/items/algitem \
     svx/source/items/autoformathelper \

@@ -17,28 +17,20 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <string.h>
-#include <stdio.h>
 #include <stdlib.h>
 
-#include <osl/module.hxx>
-
-#include <unx/salunx.h>
 #include <unx/saldata.hxx>
 #include <unx/saldisp.hxx>
 #include <unx/salinst.h>
 #include <unx/geninst.h>
 #include <unx/genpspgraphics.h>
 #include <unx/salframe.h>
-#include <unx/genprn.h>
 #include <unx/sm.hxx>
 #include <unx/i18n_im.hxx>
-#include <unx/helper.hxx>
 
 #include <vcl/inputtypes.hxx>
 
 #include <salwtype.hxx>
-#include <sal/macros.h>
 
 // plugin factory function
 extern "C"
@@ -216,9 +208,9 @@ void X11SalInstance::PostPrintersChanged()
         pDisp->PostEvent( pSalFrame, nullptr, SalEvent::PrinterChanged );
 }
 
-GenPspGraphics *X11SalInstance::CreatePrintGraphics()
+std::unique_ptr<GenPspGraphics> X11SalInstance::CreatePrintGraphics()
 {
-    return new GenPspGraphics();
+    return std::make_unique<GenPspGraphics>();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

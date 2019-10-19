@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
@@ -34,9 +33,8 @@
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <algorithm>
-#include <list>
 #include <osl/diagnose.h>
-#include <vcl/svapp.hxx>
+#include <rtl/ref.hxx>
 #include <svtools/unoevent.hxx>
 #include <svtools/unoimap.hxx>
 #include <vcl/imap.hxx>
@@ -386,11 +384,11 @@ OUString SAL_CALL SvUnoImageMapObject::getImplementationName()
     {
     case IMAP_OBJ_POLYGON:
     default:
-        return OUString("org.openoffice.comp.svt.ImageMapPolygonObject");
+        return "org.openoffice.comp.svt.ImageMapPolygonObject";
     case IMAP_OBJ_CIRCLE:
-        return OUString("org.openoffice.comp.svt.ImageMapCircleObject");
+        return "org.openoffice.comp.svt.ImageMapCircleObject";
     case IMAP_OBJ_RECTANGLE:
-        return OUString("org.openoffice.comp.svt.ImageMapRectangleObject");
+        return "org.openoffice.comp.svt.ImageMapRectangleObject";
     }
 }
 
@@ -650,7 +648,7 @@ sal_Bool SAL_CALL SvUnoImageMap::hasElements(  )
 // XSerivceInfo
 OUString SAL_CALL SvUnoImageMap::getImplementationName(  )
 {
-    return OUString( "org.openoffice.comp.svt.SvUnoImageMap" );
+    return "org.openoffice.comp.svt.SvUnoImageMap";
 }
 
 sal_Bool SAL_CALL SvUnoImageMap::supportsService( const OUString& ServiceName )

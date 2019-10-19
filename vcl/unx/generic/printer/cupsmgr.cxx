@@ -27,8 +27,7 @@
 #include <unx/cupsmgr.hxx>
 
 #include <osl/thread.h>
-#include <osl/diagnose.h>
-#include <osl/file.hxx>
+#include <osl/file.h>
 #include <osl/conditn.hxx>
 
 #include <rtl/ustrbuf.hxx>
@@ -313,11 +312,8 @@ void CUPSManager::initialize()
         OUString aPrinterName = OStringToOUString( pDest->name, aEncoding );
         if( pDest->instance && *pDest->instance )
         {
-            OUStringBuffer aBuf( 256 );
-            aBuf.append( aPrinterName );
-            aBuf.append( '/' );
-            aBuf.append( OStringToOUString( pDest->instance, aEncoding ) );
-            aPrinterName = aBuf.makeStringAndClear();
+            aPrinterName += "/" +
+                OStringToOUString( pDest->instance, aEncoding );
         }
 
         // initialize printer with possible configuration from psprint.conf
@@ -339,9 +335,6 @@ void CUPSManager::initialize()
                 aPrinter.m_aInfo.m_aAuthInfoRequired=OStringToOUString(pDest->options[k].value, aEncoding);
         }
 
-        OUStringBuffer aBuf( 256 );
-        aBuf.append( "CUPS:" );
-        aBuf.append( aPrinterName );
         // note: the parser that goes with the PrinterInfo
         // is created implicitly by the JobData::operator=()
         // when it detects the NULL ptr m_pParser.
@@ -358,7 +351,7 @@ void CUPSManager::initialize()
             aPrinter.m_aInfo.m_aContext = c_it->second;
         }
         aPrinter.m_aInfo.setDefaultBackend(bUsePDF);
-        aPrinter.m_aInfo.m_aDriverName = aBuf.makeStringAndClear();
+        aPrinter.m_aInfo.m_aDriverName = "CUPS:" + aPrinterName;
 
         m_aPrinters[ aPrinter.m_aInfo.m_aPrinterName ] = aPrinter;
         m_aCUPSDestMap[ aPrinter.m_aInfo.m_aPrinterName ] = nPrinter;
@@ -718,7 +711,14 @@ namespace
         OUString aText(m_xText->get_label());
         aText = aText.replaceFirst("%s", OStringToOUString(rServer, osl_getThreadTextEncoding()));
         m_xText->set_label(aText);
-        m_xUserEdit->set_text(OStringToOUString(rUserName, osl_getThreadTextEncoding()));
+        m_xDomainEdit->set_text("WORKGROUP");
+        if (rUserName.isEmpty())
+            m_xUserEdit->grab_focus();
+        else
+        {
+            m_xUserEdit->set_text(OStringToOUString(rUserName, osl_getThreadTextEncoding()));
+            m_xPassEdit->grab_focus();
+        }
     }
 
     bool AuthenticateQuery(const OString& rServer, OString& rUserName, OString& rPassword)
@@ -735,6 +735,35 @@ namespace
         }
 
         return bRet;
+    }
+}
+
+namespace
+{
+    OString EscapeCupsOption(const OString& rIn)
+    {
+        OStringBuffer sRet;
+        sal_Int32 nLen = rIn.getLength();
+        for (sal_Int32 i = 0; i < nLen; ++i)
+        {
+            switch(rIn[i])
+            {
+                case '\\':
+                case '\'':
+                case '\"':
+                case ',':
+                case ' ':
+                case '\f':
+                case '\n':
+                case '\r':
+                case '\t':
+                case '\v':
+                    sRet.append('\\');
+                    break;
+            }
+            sRet.append(rIn[i]);
+        }
+        return sRet.makeStringAndClear();
     }
 }
 
@@ -786,8 +815,9 @@ bool CUPSManager::endSpool( const OUString& rPrintername, const OUString& rJobTi
             if (bDomain || bUser || bPass)
             {
                 OString sPrinterName(OUStringToOString(rPrintername, RTL_TEXTENCODING_UTF8));
+                OString sUser = cupsUser();
                 vcl::Window* pWin = Application::GetDefDialogParent();
-                RTSPWDialog aDialog(pWin ? pWin->GetFrameWeld() : nullptr, sPrinterName, "");
+                RTSPWDialog aDialog(pWin ? pWin->GetFrameWeld() : nullptr, sPrinterName, sUser);
                 aDialog.SetDomainVisible(bDomain);
                 aDialog.SetUserVisible(bUser);
                 aDialog.SetPassVisible(bPass);
@@ -796,18 +826,18 @@ bool CUPSManager::endSpool( const OUString& rPrintername, const OUString& rJobTi
                 {
                     OString sAuth;
                     if (bDomain)
-                        sAuth = aDialog.getDomain().replaceAll(",", "\\,");
+                        sAuth = EscapeCupsOption(aDialog.getDomain());
                     if (bUser)
                     {
-                        if (!sAuth.isEmpty())
+                        if (bDomain)
                             sAuth += ",";
-                        sAuth += aDialog.getUserName().replaceAll(",", "\\,");
+                        sAuth += EscapeCupsOption(aDialog.getUserName());
                     }
                     if (bPass)
                     {
-                        if (!sAuth.isEmpty())
+                        if (bUser || bDomain)
                             sAuth += ",";
-                        sAuth += aDialog.getPassword().replaceAll(",", "\\,");
+                        sAuth += EscapeCupsOption(aDialog.getPassword());
                     }
                     nNumOptions = cupsAddOption("auth-info", sAuth.getStr(), nNumOptions, &pOptions);
                 }
@@ -836,8 +866,8 @@ bool CUPSManager::endSpool( const OUString& rPrintername, const OUString& rJobTi
                 "    option " << pOptions[n].name << "=" << pOptions[n].value);
 #if OSL_DEBUG_LEVEL > 1
         OString aCmd( "cp " );
-        aCmd = aCmd + it->second.getStr();
-        aCmd = aCmd + OString( " $HOME/cupsprint.ps" );
+        aCmd += it->second.getStr();
+        aCmd += OString( " $HOME/cupsprint.ps" );
         system( aCmd.getStr() );
 #endif
 

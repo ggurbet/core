@@ -11,6 +11,7 @@
 #define INCLUDED_SFX2_LOKHELPER_HXX
 
 #include <vcl/IDialogRenderable.hxx>
+#include <vcl/ITiledRenderable.hxx>
 #include <vcl/event.hxx>
 #include <sfx2/dllapi.h>
 #include <sfx2/viewsh.hxx>
@@ -46,6 +47,10 @@ public:
                              vcl::LOKWindowId nWindowId,
                              const OUString& rAction,
                              const std::vector<vcl::LOKPayloadItem>& rPayload = std::vector<vcl::LOKPayloadItem>());
+    /// Emits a LOK_CALLBACK_DOCUMENT_SIZE_CHANGED - if @bInvalidateAll - first invalidates all parts
+    static void notifyDocumentSizeChanged(SfxViewShell const* pThisView, const OString& rPayload, vcl::ITiledRenderable* pDoc, bool bInvalidateAll = true);
+    /// Emits a LOK_CALLBACK_DOCUMENT_SIZE_CHANGED for all views - if @bInvalidateAll - first invalidates all parts
+    static void notifyDocumentSizeChangedAllViews(vcl::ITiledRenderable* pDoc, bool bInvalidateAll = true);
     /// Emits a LOK_CALLBACK_INVALIDATE_TILES, but tweaks it according to setOptionalFeatures() if needed.
     static void notifyInvalidation(SfxViewShell const* pThisView, const OString& rPayload);
     /// Emits a LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR, but tweaks it according to setOptionalFeatures() if needed.
@@ -58,7 +63,11 @@ public:
 
     /// Helper for posting async key event
     static void postKeyEventAsync(const VclPtr<vcl::Window> &xWindow,
-                                  int nType, int nCharCode, int nKeyCode);
+                                  int nType, int nCharCode, int nKeyCode, int nRepeat = 0);
+
+    /// Helper for posting input event
+    static void postExtTextEventAsync(const VclPtr<vcl::Window> &xWindow,
+                                      int nType, const OUString &rText);
 
     /// Helper for posting async mouse event
     static void postMouseEventAsync(const VclPtr<vcl::Window> &xWindow,

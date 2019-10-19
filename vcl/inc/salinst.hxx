@@ -65,7 +65,6 @@ class SalInfoPrinter;
 class SalPrinter;
 class SalTimer;
 class ImplPrnQueueList;
-class SalI18NImeStatus;
 class SalSystem;
 class SalBitmap;
 struct SalItemParams;
@@ -128,9 +127,6 @@ public:
 
     // SalTimer
     virtual SalTimer*       CreateSalTimer() = 0;
-    // interface to ime status window, only used by the X11 backend
-    virtual std::unique_ptr<SalI18NImeStatus>
-                            CreateI18NImeStatus();
     // SalSystem
     virtual SalSystem*      CreateSalSystem() = 0;
     // SalBitmap
@@ -189,10 +185,9 @@ public:
     virtual void            AddToRecentDocumentList(const OUString& rFileUrl, const OUString& rMimeType, const OUString& rDocumentService) = 0;
 
     virtual bool            hasNativeFileSelection() const { return false; }
-
+    // if you override this, make sure to override hasNativeFileSelection too.
     virtual css::uno::Reference< css::ui::dialogs::XFilePicker2 > createFilePicker( const css::uno::Reference< css::uno::XComponentContext >& )
         { return css::uno::Reference< css::ui::dialogs::XFilePicker2 >(); }
-
     virtual css::uno::Reference< css::ui::dialogs::XFolderPicker2 > createFolderPicker( const css::uno::Reference< css::uno::XComponentContext >& )
         { return css::uno::Reference< css::ui::dialogs::XFolderPicker2 >(); }
 
@@ -204,7 +199,7 @@ public:
     virtual void            updateMainThread() {}
 
     /// get information about underlying versions
-    virtual OUString        getOSVersion() { return OUString("-"); }
+    virtual OUString        getOSVersion() { return "-"; }
 
     virtual const cairo_font_options_t* GetCairoFontOptions() { return nullptr; }
 

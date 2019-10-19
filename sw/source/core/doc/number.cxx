@@ -20,7 +20,6 @@
 #include <memory>
 #include <hintids.hxx>
 
-#include <string.h>
 #include <vcl/font.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/lrspitem.hxx>
@@ -77,7 +76,7 @@ const sal_uInt16 SwNumRule::maDefNumIndents[ MAXLEVEL ] = {
 
 OUString SwNumRule::GetOutlineRuleName()
 {
-    return OUString("Outline");
+    return "Outline";
 }
 
 const SwNumFormat& SwNumRule::Get( sal_uInt16 i ) const
@@ -372,6 +371,7 @@ SwNumRule::SwNumRule( const OUString& rNm,
     mbAbsSpaces( false ),
     mbHidden( false ),
     mbCountPhantoms( true ),
+    mbUsedByRedline( false ),
     meDefaultNumberFormatPositionAndSpaceMode( eDefaultNumberFormatPositionAndSpaceMode ),
     msDefaultListId()
 {
@@ -441,7 +441,6 @@ SwNumRule::SwNumRule( const OUString& rNm,
             SwNumRule::maLabelAlignmentBaseFormats[ OUTLINE_RULE ][ n ] = pFormat;
         }
     }
-    memset( maFormats, 0, sizeof( maFormats ));
     OSL_ENSURE( !msName.isEmpty(), "NumRule without a name!" );
 }
 
@@ -460,6 +459,7 @@ SwNumRule::SwNumRule( const SwNumRule& rNumRule )
       mbAbsSpaces( rNumRule.mbAbsSpaces ),
       mbHidden( rNumRule.mbHidden ),
       mbCountPhantoms( true ),
+      mbUsedByRedline( false ),
       meDefaultNumberFormatPositionAndSpaceMode( rNumRule.meDefaultNumberFormatPositionAndSpaceMode ),
       msDefaultListId( rNumRule.msDefaultListId )
 {

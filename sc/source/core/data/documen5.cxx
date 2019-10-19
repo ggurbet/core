@@ -55,13 +55,10 @@ static void lcl_GetChartParameters( const uno::Reference< chart2::XChartDocument
 
     if ( xProvider.is() )
     {
-        uno::Sequence< beans::PropertyValue > aArgs( xProvider->detectArguments( xDataSource ) );
+        const uno::Sequence< beans::PropertyValue > aArgs( xProvider->detectArguments( xDataSource ) );
 
-        const beans::PropertyValue* pPropArray = aArgs.getConstArray();
-        long nPropCount = aArgs.getLength();
-        for (long i = 0; i < nPropCount; i++)
+        for (const beans::PropertyValue& rProp : aArgs)
         {
-            const beans::PropertyValue& rProp = pPropArray[i];
             OUString aPropName(rProp.Name);
 
             if ( aPropName == "CellRangeRepresentation" )
@@ -375,14 +372,13 @@ void ScDocument::RestoreChartListener( const OUString& rName )
         uno::Reference< chart2::data::XDataReceiver > xReceiver( xComponent, uno::UNO_QUERY );
         if ( xChartDoc.is() && xReceiver.is() && !xChartDoc->hasInternalDataProvider())
         {
-            uno::Sequence<OUString> aRepresentations( xReceiver->getUsedRangeRepresentations() );
+            const uno::Sequence<OUString> aRepresentations( xReceiver->getUsedRangeRepresentations() );
             ScRangeListRef aRanges = new ScRangeList;
-            sal_Int32 nRangeCount = aRepresentations.getLength();
-            for ( sal_Int32 i=0; i<nRangeCount; i++ )
+            for ( const auto& rRepresentation : aRepresentations )
             {
                 ScRange aRange;
                 ScAddress::Details aDetails(GetAddressConvention(), 0, 0);
-                if ( aRange.ParseAny( aRepresentations[i], this, aDetails ) & ScRefFlags::VALID )
+                if ( aRange.ParseAny( rRepresentation, this, aDetails ) & ScRefFlags::VALID )
                     aRanges->push_back( aRange );
             }
 
@@ -613,9 +609,8 @@ void ScDocument::UpdateChartListenerCollection()
                 uno::Reference< embed::XEmbeddedObject > xIPObj = static_cast<SdrOle2Obj*>(pObject)->GetObjRef();
                 OSL_ENSURE( xIPObj.is(), "No embedded object is given!");
                 uno::Reference< css::chart2::data::XDataReceiver > xReceiver;
-                uno::Reference< embed::XComponentSupplier > xCompSupp( xIPObj, uno::UNO_QUERY );
-                if( xCompSupp.is())
-                    xReceiver.set( xCompSupp->getComponent(), uno::UNO_QUERY );
+                if( xIPObj.is())
+                    xReceiver.set( xIPObj->getComponent(), uno::UNO_QUERY );
 
                 // if the object is a chart2::XDataReceiver, we must attach as XDataProvider
                 if( xReceiver.is() &&

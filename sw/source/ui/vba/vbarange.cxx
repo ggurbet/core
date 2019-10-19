@@ -29,6 +29,7 @@
 #include <com/sun/star/text/XTextRangeCompare.hpp>
 #include <com/sun/star/text/XWordCursor.hpp>
 #include <com/sun/star/text/XParagraphCursor.hpp>
+#include <com/sun/star/text/XTextViewCursor.hpp>
 #include <ooo/vba/word/WdUnits.hpp>
 #include <ooo/vba/word/WdMovementType.hpp>
 #include "vbaparagraphformat.hxx"
@@ -41,6 +42,7 @@
 #include "vbabookmarks.hxx"
 #include "vbasections.hxx"
 #include "vbafield.hxx"
+#include "wordvbahelper.hxx"
 
 using namespace ::ooo::vba;
 using namespace ::com::sun::star;
@@ -412,7 +414,7 @@ SwVbaRange::Fields( const uno::Any& index )
 OUString
 SwVbaRange::getServiceImplName()
 {
-    return OUString("SwVbaRange");
+    return "SwVbaRange";
 }
 
 uno::Sequence< OUString >

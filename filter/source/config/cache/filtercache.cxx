@@ -638,7 +638,7 @@ void FilterCache::impl_flushByList(const css::uno::Reference< css::container::XN
                 // special case. no exception - but not a valid item => it must be finalized or mandatory!
                 // Reject flush operation by throwing an exception. At least one item couldn't be flushed.
                 if (!xItem.is())
-                    throw css::uno::Exception("Can not change item. Its finalized or mandatory!",
+                    throw css::uno::Exception("Can not change item. It's finalized or mandatory!",
                                               css::uno::Reference< css::uno::XInterface >());
 
                 CacheItemList::const_iterator pItem = rCache.find(item);
@@ -1518,7 +1518,6 @@ void FilterCache::impl_savePatchUINames(const css::uno::Reference< css::containe
                                         const CacheItem&                                           rItem)
 {
     css::uno::Reference< css::container::XNameContainer > xAdd  (xNode, css::uno::UNO_QUERY);
-    css::uno::Reference< css::container::XNameAccess >    xCheck(xNode, css::uno::UNO_QUERY);
 
     css::uno::Sequence< css::beans::PropertyValue > lUINames = rItem.getUnpackedValueOrDefault(PROPNAME_UINAMES, css::uno::Sequence< css::beans::PropertyValue >());
     sal_Int32                                       c        = lUINames.getLength();
@@ -1526,7 +1525,7 @@ void FilterCache::impl_savePatchUINames(const css::uno::Reference< css::containe
 
     for (sal_Int32 i=0; i<c; ++i)
     {
-        if (xCheck->hasByName(pUINames[i].Name))
+        if (xNode->hasByName(pUINames[i].Name))
             xNode->replaceByName(pUINames[i].Name, pUINames[i].Value);
         else
             xAdd->insertByName(pUINames[i].Name, pUINames[i].Value);
@@ -2050,8 +2049,8 @@ void FilterCache::impl_interpretDataVal4Filter(const OUString& sValue,
 void FilterCache::impl_readOldFormat()
 {
     // Attention: Opening/Reading of this old configuration format has to be handled gracefully.
-    // Its optional and should not disturb our normal work!
-    // E.g. we must check, if the package exists ...
+    // It's optional and should not disturb our normal work!
+    // E.g. we must check, if the package exists...
     try
     {
         css::uno::Reference< css::uno::XInterface > xInt = impl_openConfig(E_PROVIDER_OLD);
@@ -2082,7 +2081,7 @@ void FilterCache::impl_readOldFormat()
                 m_lFilters[pItems[i]] = impl_readOldItem(xSet, E_FILTER, pItems[i]);
         }
     }
-    /* corrupt filter addon? Because it's external (optional) code.. we can ignore it. Addon won't work then...
+    /* corrupt filter addon? Because it's external (optional) code... we can ignore it. Addon won't work then...
        but that seems to be acceptable.
        see #139088# for further information
     */

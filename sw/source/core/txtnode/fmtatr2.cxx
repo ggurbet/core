@@ -562,9 +562,8 @@ SwFormatMeta::~SwFormatMeta()
 
 bool SwFormatMeta::operator==( const SfxPoolItem & i_rOther ) const
 {
-    assert(SfxPoolItem::operator==(i_rOther));
     return SfxPoolItem::operator==( i_rOther )
-        && (m_pMeta == static_cast<SwFormatMeta const &>( i_rOther ).m_pMeta);
+        && m_pMeta == static_cast<SwFormatMeta const &>( i_rOther ).m_pMeta;
 }
 
 SfxPoolItem * SwFormatMeta::Clone( SfxItemPool * /*pPool*/ ) const
@@ -835,7 +834,7 @@ void MetaFieldManager::copyDocumentProperties(const SwDoc& rSource)
     m_xDocumentProperties.set(xCloneable->createClone(), uno::UNO_QUERY);
 }
 
-const uno::Reference<document::XDocumentProperties>& MetaFieldManager::getDocumentProperties()
+const uno::Reference<document::XDocumentProperties>& MetaFieldManager::getDocumentProperties() const
 {
     return m_xDocumentProperties;
 }

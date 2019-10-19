@@ -87,15 +87,13 @@ IMPLEMENT_GET_IMPLEMENTATION_ID( OTableColumnDescriptor )
 // css::lang::XServiceInfo
 OUString OTableColumnDescriptor::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.OTableColumnDescriptor");
+    return "com.sun.star.sdb.OTableColumnDescriptor";
 }
 
 Sequence< OUString > OTableColumnDescriptor::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = m_bActAsDescriptor ? OUString(SERVICE_SDBCX_COLUMNDESCRIPTOR) : OUString(SERVICE_SDBCX_COLUMN);
-    aSNS[1] = SERVICE_SDB_COLUMNSETTINGS;
-    return aSNS;
+    return { m_bActAsDescriptor? OUString(SERVICE_SDBCX_COLUMNDESCRIPTOR) : OUString(SERVICE_SDBCX_COLUMN),
+        SERVICE_SDB_COLUMNSETTINGS };
 }
 
 // comphelper::OPropertyArrayUsageHelper
@@ -146,7 +144,7 @@ IMPLEMENT_GET_IMPLEMENTATION_ID( OTableColumn )
 
 OUString OTableColumn::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.OTableColumn");
+    return "com.sun.star.sdb.OTableColumn";
 }
 
 ::cppu::IPropertyArrayHelper& SAL_CALL OTableColumn::getInfoHelper()
@@ -287,7 +285,7 @@ IMPLEMENT_GET_IMPLEMENTATION_ID( OQueryColumn )
 
 OUString SAL_CALL OQueryColumn::getImplementationName(  )
 {
-    return OUString( "org.openoffice.comp.dbaccess.OQueryColumn"  );
+    return "org.openoffice.comp.dbaccess.OQueryColumn";
 }
 
 ::cppu::IPropertyArrayHelper& SAL_CALL OQueryColumn::getInfoHelper()
@@ -433,15 +431,12 @@ IMPLEMENT_GET_IMPLEMENTATION_ID( OTableColumnDescriptorWrapper )
 // css::lang::XServiceInfo
 OUString OTableColumnDescriptorWrapper::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.OTableColumnDescriptorWrapper");
+    return "com.sun.star.sdb.OTableColumnDescriptorWrapper";
 }
 
 Sequence< OUString > OTableColumnDescriptorWrapper::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = SERVICE_SDBCX_COLUMNDESCRIPTOR;
-    aSNS[1] = SERVICE_SDB_COLUMNSETTINGS;
-    return aSNS;
+    return { SERVICE_SDBCX_COLUMNDESCRIPTOR, SERVICE_SDB_COLUMNSETTINGS };
 }
 
 // comphelper::OPropertyArrayUsageHelper
@@ -594,15 +589,12 @@ IMPLEMENT_GET_IMPLEMENTATION_ID( OTableColumnWrapper )
 
 OUString OTableColumnWrapper::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.OTableColumnWrapper" );
+    return "com.sun.star.sdb.OTableColumnWrapper";
 }
 
 Sequence< OUString > OTableColumnWrapper::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = SERVICE_SDBCX_COLUMN;
-    aSNS[1] = SERVICE_SDB_COLUMNSETTINGS;
-    return aSNS;
+    return { SERVICE_SDBCX_COLUMN, SERVICE_SDB_COLUMNSETTINGS };
 }
 
 ::cppu::IPropertyArrayHelper& OTableColumnWrapper::getInfoHelper()

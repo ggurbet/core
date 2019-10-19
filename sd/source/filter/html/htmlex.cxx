@@ -55,10 +55,9 @@
 #include <svx/svdoutl.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/svdotable.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <tools/urlobj.hxx>
 #include <svtools/sfxecode.hxx>
-#include <comphelper/anytostring.hxx>
-#include <cppuhelper/exc_hlp.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
@@ -71,7 +70,6 @@
 #include <strings.hrc>
 #include <strings.hxx>
 #include <anminfo.hxx>
-#include <imapinfo.hxx>
 #include <sdresid.hxx>
 #include "buttonset.hxx"
 
@@ -398,31 +396,29 @@ void HtmlExport::InitExportParameters( const Sequence< PropertyValue >& rParams 
 {
     mbImpress = mpDoc->GetDocumentType() == DocumentType::Impress;
 
-    sal_Int32 nArgs = rParams.getLength();
-    const PropertyValue* pParams = rParams.getConstArray();
     OUString aStr;
-    while( nArgs-- )
+    for( const PropertyValue& rParam : rParams )
     {
-        if ( pParams->Name == "PublishMode" )
+        if ( rParam.Name == "PublishMode" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             meMode = static_cast<HtmlPublishMode>(temp);
         }
-        else if ( pParams->Name == "IndexURL" )
+        else if ( rParam.Name == "IndexURL" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             maIndexUrl = aStr;
         }
-        else if ( pParams->Name == "Format" )
+        else if ( rParam.Name == "Format" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             meFormat = static_cast<PublishingFormat>(temp);
         }
-        else if ( pParams->Name == "Compression" )
+        else if ( rParam.Name == "Compression" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             OUString aTmp( aStr );
             if(!aTmp.isEmpty())
             {
@@ -430,138 +426,138 @@ void HtmlExport::InitExportParameters( const Sequence< PropertyValue >& rParams 
                 mnCompression = static_cast<sal_Int16>(aTmp.toInt32());
             }
         }
-        else if ( pParams->Name == "Width" )
+        else if ( rParam.Name == "Width" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mnWidthPixel = static_cast<sal_uInt16>(temp);
         }
-        else if ( pParams->Name == "UseButtonSet" )
+        else if ( rParam.Name == "UseButtonSet" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mnButtonThema = static_cast<sal_Int16>(temp);
         }
-        else if ( pParams->Name == "IsExportNotes" )
+        else if ( rParam.Name == "IsExportNotes" )
         {
             if( mbImpress )
             {
                 bool temp = false;
-                pParams->Value >>= temp;
+                rParam.Value >>= temp;
                 mbNotes = temp;
             }
         }
-        else if ( pParams->Name == "IsExportContentsPage" )
+        else if ( rParam.Name == "IsExportContentsPage" )
         {
             bool temp = false;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mbContentsPage = temp;
         }
-        else if ( pParams->Name == "Author" )
+        else if ( rParam.Name == "Author" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             maAuthor = aStr;
         }
-        else if ( pParams->Name == "EMail" )
+        else if ( rParam.Name == "EMail" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             maEMail = aStr;
         }
-        else if ( pParams->Name == "HomepageURL" )
+        else if ( rParam.Name == "HomepageURL" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             maHomePage = aStr;
         }
-        else if ( pParams->Name == "UserText" )
+        else if ( rParam.Name == "UserText" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             maInfo = aStr;
         }
-        else if ( pParams->Name == "EnableDownload" )
+        else if ( rParam.Name == "EnableDownload" )
         {
             bool temp = false;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mbDownload = temp;
         }
-        else if ( pParams->Name == "SlideSound" )
+        else if ( rParam.Name == "SlideSound" )
         {
             bool temp = true;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mbSlideSound = temp;
         }
-        else if ( pParams->Name == "HiddenSlides" )
+        else if ( rParam.Name == "HiddenSlides" )
         {
             bool temp = true;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mbHiddenSlides = temp;
         }
-        else if ( pParams->Name == "BackColor" )
+        else if ( rParam.Name == "BackColor" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             maBackColor = Color(temp);
             mbUserAttr = true;
         }
-        else if ( pParams->Name == "TextColor" )
+        else if ( rParam.Name == "TextColor" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             maTextColor = Color(temp);
             mbUserAttr = true;
         }
-        else if ( pParams->Name == "LinkColor" )
+        else if ( rParam.Name == "LinkColor" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             maLinkColor = Color(temp);
             mbUserAttr = true;
         }
-        else if ( pParams->Name == "VLinkColor" )
+        else if ( rParam.Name == "VLinkColor" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             maVLinkColor = Color(temp);
             mbUserAttr = true;
         }
-        else if ( pParams->Name == "ALinkColor" )
+        else if ( rParam.Name == "ALinkColor" )
         {
             sal_Int32 temp = 0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             maALinkColor = Color(temp);
             mbUserAttr = true;
         }
-        else if ( pParams->Name == "IsUseDocumentColors" )
+        else if ( rParam.Name == "IsUseDocumentColors" )
         {
             bool temp = false;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mbDocColors = temp;
         }
-        else if ( pParams->Name == "KioskSlideDuration" )
+        else if ( rParam.Name == "KioskSlideDuration" )
         {
             double temp = 0.0;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mfSlideDuration = temp;
             mbAutoSlide = true;
         }
-        else if ( pParams->Name == "KioskEndless" )
+        else if ( rParam.Name == "KioskEndless" )
         {
             bool temp = false;
-            pParams->Value >>= temp;
+            rParam.Value >>= temp;
             mbEndless = temp;
         }
-        else if ( pParams->Name == "WebCastCGIURL" )
+        else if ( rParam.Name == "WebCastCGIURL" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             maCGIPath = aStr;
         }
-        else if ( pParams->Name == "WebCastTargetURL" )
+        else if ( rParam.Name == "WebCastTargetURL" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             maURLPath = aStr;
         }
-        else if ( pParams->Name == "WebCastScriptLanguage" )
+        else if ( rParam.Name == "WebCastScriptLanguage" )
         {
-            pParams->Value >>= aStr;
+            rParam.Value >>= aStr;
             if ( aStr == "asp" )
             {
                 meScript = SCRIPT_ASP;
@@ -575,8 +571,6 @@ void HtmlExport::InitExportParameters( const Sequence< PropertyValue >& rParams 
         {
             OSL_FAIL("Unknown property for html export detected!");
         }
-
-        pParams++;
     }
 
     if( meMode == PUBLISH_KIOSK )
@@ -1159,9 +1153,8 @@ bool HtmlExport::WriteHtml( const OUString& rFileName, bool bAddExtension, const
     nErr = aFile.createStream(aFull , pStr);
     if(nErr == ERRCODE_NONE)
     {
-        OString aStr(OUStringToOString(rHtmlData,
-            RTL_TEXTENCODING_UTF8));
-        pStr->WriteCharPtr( aStr.getStr() );
+        OString aStr(OUStringToOString(rHtmlData, RTL_TEXTENCODING_UTF8));
+        pStr->WriteOString( aStr );
         aFile.close();
     }
 
@@ -1171,7 +1164,7 @@ bool HtmlExport::WriteHtml( const OUString& rFileName, bool bAddExtension, const
     return nErr == ERRCODE_NONE;
 }
 
-/** creates a outliner text for the title objects of a page
+/** creates an outliner text for the title objects of a page
  */
 OUString HtmlExport::CreateTextForTitle( SdrOutliner* pOutliner, SdPage* pPage, const Color& rBackgroundColor )
 {
@@ -1193,7 +1186,7 @@ OUString HtmlExport::CreateTextForTitle( SdrOutliner* pOutliner, SdPage* pPage, 
     return OUString();
 }
 
-// creates a outliner text for a page
+// creates an outliner text for a page
 OUString HtmlExport::CreateTextForPage(SdrOutliner* pOutliner, SdPage const * pPage,
                                        bool bHeadLine, const Color& rBackgroundColor)
 {
@@ -1362,7 +1355,7 @@ void HtmlExport::WriteOutlinerParagraph(OUStringBuffer& aStr, SdrOutliner* pOutl
     pOutliner->Clear();
 }
 
-// creates a outliner text for a note page
+// creates an outliner text for a note page
 OUString HtmlExport::CreateTextForNotesPage( SdrOutliner* pOutliner,
                                            SdPage* pPage,
                                            const Color& rBackgroundColor )
@@ -1553,7 +1546,7 @@ bool HtmlExport::CreateHtmlForPresPages()
             while (pObject)
             {
                 SdAnimationInfo* pInfo     = SdDrawDocument::GetAnimationInfo(pObject);
-                SdIMapInfo*      pIMapInfo = SdDrawDocument::GetIMapInfo(pObject);
+                SvxIMapInfo*      pIMapInfo = SvxIMapInfo::GetIMapInfo(pObject);
 
                 if ((pInfo &&
                      (pInfo->meClickAction == presentation::ClickAction_BOOKMARK  ||
@@ -1669,7 +1662,7 @@ bool HtmlExport::CreateHtmlForPresPages()
             for (SdrObject* pObject : aClickableObjects)
             {
                 SdAnimationInfo* pInfo     = SdDrawDocument::GetAnimationInfo(pObject);
-                SdIMapInfo*      pIMapInfo = SdDrawDocument::GetIMapInfo(pObject);
+                SvxIMapInfo*      pIMapInfo = SvxIMapInfo::GetIMapInfo(pObject);
 
                 ::tools::Rectangle aRect(pObject->GetCurrentBoundRect());
                 Point     aLogPos(aRect.TopLeft());
@@ -1691,7 +1684,7 @@ bool HtmlExport::CreateHtmlForPresPages()
 
                 /**
                     insert areas into Imagemap of the object, if the object has
-                    such a Imagemap
+                    such an Imagemap
                 */
                 if (pIMapInfo)
                 {
@@ -1711,7 +1704,7 @@ bool HtmlExport::CreateHtmlForPresPages()
 
                         if (nPgNum == SDRPAGE_NOTFOUND)
                         {
-                            // is the bookmark a object?
+                            // is the bookmark an object?
                             pObj = mpDoc->GetObj( aURL );
                             if (pObj)
                                 nPgNum = pObj->getSdrPageFromSdrObject()->GetPageNum();
@@ -1797,7 +1790,7 @@ bool HtmlExport::CreateHtmlForPresPages()
 
                             if( nPgNum == SDRPAGE_NOTFOUND )
                             {
-                                // is the bookmark a object?
+                                // is the bookmark an object?
                                 pObj = mpDoc->GetObj(pInfo->GetBookmark());
                                 if (pObj)
                                     nPgNum = pObj->getSdrPageFromSdrObject()->GetPageNum();
@@ -2713,7 +2706,7 @@ OUString HtmlExport::CreateLink( const OUString& aLink,
     return aStr.makeStringAndClear();
 }
 
-// creates a image tag
+// creates an image tag
 OUString HtmlExport::CreateImage( const OUString& aImage, const OUString& aAltText )
 {
     OUStringBuffer aStr( "<img src=\"");
@@ -2828,7 +2821,7 @@ OUString HtmlExport::StringToHTMLString( const OUString& rString )
     return OUString( static_cast<char const *>(aMemStm.GetData()), nLength, RTL_TEXTENCODING_UTF8 );
 }
 
-// creates a url for a specific page
+// creates a URL for a specific page
 OUString HtmlExport::CreatePageURL( sal_uInt16 nPgNum )
 {
     if(mbFrames)
@@ -2897,9 +2890,8 @@ bool HtmlExport::CopyScript( const OUString& rPath, const OUString& rSource, con
         nErr = aFile.createStream(aDest, pStr);
         if(nErr == ERRCODE_NONE)
         {
-            OString aStr(OUStringToOString(aScript,
-                RTL_TEXTENCODING_UTF8));
-            pStr->WriteCharPtr( aStr.getStr() );
+            OString aStr(OUStringToOString(aScript, RTL_TEXTENCODING_UTF8));
+            pStr->WriteOString( aStr );
             aFile.close();
         }
     }
@@ -3035,14 +3027,12 @@ bool HtmlExport::checkFileExists( Reference< css::ucb::XSimpleFileAccess3 > cons
 {
     try
     {
-        OUString url( maExportPath );
-        url += aFileName;
+        OUString url = maExportPath + aFileName;
         return xFileAccess->exists( url );
     }
     catch( css::uno::Exception& )
     {
-        SAL_WARN( "sd", "sd::HtmlExport::checkFileExists(), exception caught: "
-                    << exceptionToString( cppu::getCaughtException() ) );
+        TOOLS_WARN_EXCEPTION( "sd", "sd::HtmlExport::checkFileExists()" );
     }
 
     return false;
@@ -3092,8 +3082,7 @@ bool HtmlExport::checkForExistingFiles()
     }
     catch( Exception& )
     {
-        SAL_WARN( "sd", "sd::HtmlExport::checkForExistingFiles(), exception caught: "
-                    << exceptionToString( cppu::getCaughtException() ) );
+        TOOLS_WARN_EXCEPTION( "sd", "sd::HtmlExport::checkForExistingFiles()" );
         bFound = false;
     }
 

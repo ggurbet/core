@@ -18,6 +18,8 @@
  */
 
 #include <drawingml/chart/axisconverter.hxx>
+#include <ooxresid.hxx>
+#include <strings.hrc>
 
 #include <com/sun/star/chart/ChartAxisArrangeOrderType.hpp>
 #include <com/sun/star/chart/ChartAxisLabelPosition.hpp>
@@ -211,6 +213,7 @@ void AxisConverter::convertFromModel(
                     aScaleData.AxisType = (bDateAxis && !mrModel.mbAuto) ? cssc2::AxisType::DATE : cssc2::AxisType::CATEGORY;
                     aScaleData.AutoDateAxis = mrModel.mbAuto;
                     aScaleData.Categories = rTypeGroups.front()->createCategorySequence();
+                    aScaleData.ShiftedCategoryPosition = pCrossingAxis->mnCrossBetween == XML_between;
                 }
                 else
                 {
@@ -360,7 +363,7 @@ void AxisConverter::convertFromModel(
         {
             Reference< XTitled > xTitled( xAxis, UNO_QUERY_THROW );
             TitleConverter aTitleConv( *this, *mrModel.mxTitle );
-            aTitleConv.convertFromModel( xTitled, "Axis Title", OBJECTTYPE_AXISTITLE, nAxesSetIdx, nAxisIdx );
+            aTitleConv.convertFromModel( xTitled, OoxResId(STR_DIAGRAM_AXISTITLE), OBJECTTYPE_AXISTITLE, nAxesSetIdx, nAxisIdx );
         }
 
         // axis data unit label -----------------------------------------------

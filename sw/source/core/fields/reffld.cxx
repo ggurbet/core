@@ -295,7 +295,7 @@ static void lcl_formatReferenceLanguage( OUString& rRefText,
             0x00E1, 0x00C1, 0x00E9, 0x00C9, 0x00ED, 0x00CD,
             0x00F3, 0x00D3, 0x00F6, 0x00D6, 0x0151, 0x0150,
             0x00FA, 0x00DA, 0x00FC, 0x00DC, 0x0171, 0x0170, 0 };
-        static OUString sVowels = "aAeEiIoOuU" + OUString(sVowelsWithDiacritic);
+        static OUString sVowels = OUStringLiteral("aAeEiIoOuU") + sVowelsWithDiacritic;
 
         // handle more than 1-letter long Roman numbers and
         // their possible combinations with letters:
@@ -439,7 +439,7 @@ static void FilterText(OUString & rText, LanguageType const eLang,
     // remove all special characters (replace them with blanks)
     if (!rText.isEmpty())
     {
-        rText = rText.replaceAll(OUStringLiteral1(0xad), "");
+        rText = rText.replaceAll(u"\u00ad", "");
         OUStringBuffer aBuf(rText);
         const sal_Int32 l = aBuf.getLength();
         for (sal_Int32 i = 0; i < l; ++i)
@@ -1273,7 +1273,7 @@ public:
 
     void Check( SwDoc& rDoc, SwDoc& rDestDoc, SwGetRefField& rField, bool bField );
 
-    const OUString& GetName() { return aName; }
+    const OUString& GetName() const { return aName; }
 };
 
 /// Get a sorted list of the field IDs from a document.

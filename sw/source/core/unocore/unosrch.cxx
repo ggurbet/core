@@ -56,7 +56,7 @@ public:
     /// @throws lang::IllegalArgumentException
     /// @throws uno::RuntimeException
     void    SetProperties(const uno::Sequence< beans::PropertyValue >& aSearchAttribs);
-    const uno::Sequence< beans::PropertyValue > GetProperties() const;
+    uno::Sequence< beans::PropertyValue > GetProperties() const;
 
     void    FillItemSet(SfxItemSet& rSet, bool bIsValueSearch) const;
     bool    HasAttributes() const;
@@ -71,28 +71,25 @@ SwSearchProperties_Impl::SwSearchProperties_Impl() :
 
 void SwSearchProperties_Impl::SetProperties(const uno::Sequence< beans::PropertyValue >& aSearchAttribs)
 {
-    const beans::PropertyValue* pProps = aSearchAttribs.getConstArray();
-
     //delete all existing values
     for(size_t i = 0; i < aPropertyEntries.size(); ++i)
     {
         pValueArr[i].reset();
     }
 
-    const sal_uInt32 nLen = aSearchAttribs.getLength();
-    for(sal_uInt32 i = 0; i < nLen; ++i)
+    for(const beans::PropertyValue& rSearchAttrib : aSearchAttribs)
     {
-        const OUString& sName = pProps[i].Name;
+        const OUString& sName = rSearchAttrib.Name;
         auto aIt = std::find_if(aPropertyEntries.begin(), aPropertyEntries.end(),
             [&sName](const SfxItemPropertyNamedEntry& rProp) { return rProp.sName == sName; });
         if( aIt == aPropertyEntries.end() )
-            throw beans::UnknownPropertyException();
+            throw beans::UnknownPropertyException(sName);
         auto nIndex = static_cast<sal_uInt32>(std::distance(aPropertyEntries.begin(), aIt));
-        pValueArr[nIndex].reset( new beans::PropertyValue(pProps[i]) );
+        pValueArr[nIndex].reset( new beans::PropertyValue(rSearchAttrib) );
     }
 }
 
-const uno::Sequence< beans::PropertyValue > SwSearchProperties_Impl::GetProperties() const
+uno::Sequence< beans::PropertyValue > SwSearchProperties_Impl::GetProperties() const
 {
     sal_uInt32 nPropCount = 0;
     for( size_t i = 0; i < aPropertyEntries.size(); i++)
@@ -466,9 +463,7 @@ const uno::Sequence< sal_Int8 > & SwXTextSearch::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SwXTextSearch::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXTextSearch>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >(this) );
     }
@@ -645,7 +640,7 @@ bool    SwXTextSearch::HasReplaceAttributes() const
 
 OUString SwXTextSearch::getImplementationName()
 {
-    return OUString("SwXTextSearch");
+    return "SwXTextSearch";
 }
 
 sal_Bool SwXTextSearch::supportsService(const OUString& rServiceName)
@@ -655,11 +650,7 @@ sal_Bool SwXTextSearch::supportsService(const OUString& rServiceName)
 
 uno::Sequence< OUString > SwXTextSearch::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.util.SearchDescriptor";
-    pArray[1] = "com.sun.star.util.ReplaceDescriptor";
-    return aRet;
+    return { "com.sun.star.util.SearchDescriptor", "com.sun.star.util.ReplaceDescriptor" };
 }
 
 void SwXTextSearch::FillSearchOptions( i18nutil::SearchOptions2& rSearchOpt ) const

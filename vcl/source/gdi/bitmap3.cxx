@@ -18,7 +18,6 @@
  */
 
 #include <math.h>
-#include <stdlib.h>
 
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/bitmapex.hxx>
@@ -776,14 +775,6 @@ bool Bitmap::Scale( const double& rScaleX, const double& rScaleY, BmpScaleFlag n
 
     switch(nScaleFlag)
     {
-        case BmpScaleFlag::Fast:
-            bRetval = BitmapFilter::Filter(aBmpEx, BitmapFastScaleFilter(rScaleX, rScaleY));
-            break;
-
-        case BmpScaleFlag::Interpolate:
-            bRetval = BitmapFilter::Filter(aBmpEx, BitmapInterpolateScaleFilter(rScaleX, rScaleY));
-            break;
-
         case BmpScaleFlag::Default:
             if (GetSizePixel().Width() < 2 || GetSizePixel().Height() < 2)
                 bRetval = BitmapFilter::Filter(aBmpEx, BitmapFastScaleFilter(rScaleX, rScaleY));
@@ -791,8 +782,20 @@ bool Bitmap::Scale( const double& rScaleX, const double& rScaleY, BmpScaleFlag n
                 bRetval = BitmapFilter::Filter(aBmpEx, BitmapScaleSuperFilter(rScaleX, rScaleY));
             break;
 
-        case BmpScaleFlag::Lanczos:
+        case BmpScaleFlag::Fast:
+        case BmpScaleFlag::NearestNeighbor:
+            bRetval = BitmapFilter::Filter(aBmpEx, BitmapFastScaleFilter(rScaleX, rScaleY));
+            break;
+
+        case BmpScaleFlag::Interpolate:
+            bRetval = BitmapFilter::Filter(aBmpEx, BitmapInterpolateScaleFilter(rScaleX, rScaleY));
+            break;
+
+        case BmpScaleFlag::Super:
+            bRetval = BitmapFilter::Filter(aBmpEx, BitmapScaleSuperFilter(rScaleX, rScaleY));
+            break;
         case BmpScaleFlag::BestQuality:
+        case BmpScaleFlag::Lanczos:
             bRetval = BitmapFilter::Filter(aBmpEx, vcl::BitmapScaleLanczos3Filter(rScaleX, rScaleY));
             break;
 
@@ -881,7 +884,7 @@ void Bitmap::AdaptBitCount(Bitmap& rNew) const
             }
             default:
             {
-                OSL_ENSURE(false, "BitDepth adaption failed (!)");
+                OSL_ENSURE(false, "BitDepth adaptation failed (!)");
                 break;
             }
         }

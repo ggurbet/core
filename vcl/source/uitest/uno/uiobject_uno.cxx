@@ -10,13 +10,11 @@
 #include <memory>
 #include "uiobject_uno.hxx"
 #include <utility>
+#include <cppuhelper/supportsservice.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/idle.hxx>
-#include <vcl/scheduler.hxx>
 
 #include <set>
-#include <chrono>
-#include <thread>
 
 UIObjectUnoObj::UIObjectUnoObj(std::unique_ptr<UIObject> pObj):
     UIObjectBase(m_aMutex),
@@ -115,7 +113,7 @@ void SAL_CALL UIObjectUnoObj::executeAction(const OUString& rAction, const css::
 
         SolarMutexGuard aGuard;
         StringMap aMap;
-        for (const auto& rPropVal : mPropValues)
+        for (const auto& rPropVal : std::as_const(mPropValues))
         {
             OUString aVal;
             if (!(rPropVal.Value >>= aVal))
@@ -187,7 +185,7 @@ OUString SAL_CALL UIObjectUnoObj::getType()
 
 OUString SAL_CALL UIObjectUnoObj::getImplementationName()
 {
-    return OUString("org.libreoffice.uitest.UIObject");
+    return "org.libreoffice.uitest.UIObject";
 }
 
 sal_Bool UIObjectUnoObj::supportsService(OUString const & ServiceName)
@@ -197,9 +195,7 @@ sal_Bool UIObjectUnoObj::supportsService(OUString const & ServiceName)
 
 css::uno::Sequence<OUString> UIObjectUnoObj::getSupportedServiceNames()
 {
-    css::uno::Sequence<OUString> aServiceNames(1);
-    aServiceNames[0] = "com.sun.star.ui.test.UIObject";
-    return aServiceNames;
+    return { "com.sun.star.ui.test.UIObject" };
 }
 
 OUString SAL_CALL UIObjectUnoObj::getHierarchy()

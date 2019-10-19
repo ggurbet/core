@@ -289,7 +289,7 @@ void XclImpChRoot::FinishConversion( XclImpDffConverter& rDffConv ) const
 {
     rDffConv.Progress( EXC_CHART_PROGRESS_SIZE );
     // unlock the model
-    Reference< XModel > xModel( mxChData->mxChartDoc, UNO_QUERY );
+    Reference< XModel > xModel = mxChData->mxChartDoc;
     if( xModel.is() )
         xModel->unlockControllers();
     rDffConv.Progress( EXC_CHART_PROGRESS_SIZE );
@@ -715,7 +715,7 @@ Reference< XLabeledDataSequence > lclCreateLabeledDataSequence(
     // create the labeled data sequence, if values or title are present
     Reference< XLabeledDataSequence > xLabeledSeq;
     if( xValueSeq.is() || xTitleSeq.is() )
-        xLabeledSeq.set( LabeledDataSequence::create(comphelper::getProcessComponentContext()), UNO_QUERY );
+        xLabeledSeq = LabeledDataSequence::create(comphelper::getProcessComponentContext());
     if( xLabeledSeq.is() )
     {
         if( xValueSeq.is() )
@@ -3586,7 +3586,7 @@ void XclImpChAxesSet::Finalize()
 
         // finalize axis titles
         const XclImpChText* pDefText = GetChartData().GetDefaultText( EXC_CHTEXTTYPE_AXISTITLE );
-        OUString aAutoTitle("Axis Title");
+        OUString aAutoTitle(ScResId(STR_AXISTITLE));
         lclFinalizeTitle( mxXAxisTitle, pDefText, aAutoTitle );
         lclFinalizeTitle( mxYAxisTitle, pDefText, aAutoTitle );
         lclFinalizeTitle( mxZAxisTitle, pDefText, aAutoTitle );

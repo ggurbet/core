@@ -40,6 +40,7 @@
 #include <com/sun/star/util/XChangesNotifier.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <ucbhelper/getcomponentcontext.hxx>
+#include <ucbhelper/macros.hxx>
 
 using namespace com::sun::star;
 using namespace hierarchy_ucp;
@@ -191,61 +192,22 @@ HierarchyDataSource::~HierarchyDataSource()
 {
 }
 
-
-// XInterface methods.
-void SAL_CALL HierarchyDataSource::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL HierarchyDataSource::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL HierarchyDataSource::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< lang::XTypeProvider* >(this),
-                                               static_cast< lang::XServiceInfo* >(this),
-                                               static_cast< lang::XComponent* >(this),
-                                               static_cast< lang::XMultiServiceFactory* >(this)
-                                               );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-// XTypeProvider methods.
-
-
-XTYPEPROVIDER_IMPL_4( HierarchyDataSource,
-                      lang::XTypeProvider,
-                      lang::XServiceInfo,
-                      lang::XComponent,
-                      lang::XMultiServiceFactory );
-
-
 // XServiceInfo methods.
 
 XSERVICEINFO_COMMOM_IMPL( HierarchyDataSource,
-                          OUString( "com.sun.star.comp.ucb.HierarchyDataSource" ) )
+                          "com.sun.star.comp.ucb.HierarchyDataSource" )
 /// @throws css::uno::Exception
 static css::uno::Reference< css::uno::XInterface >
 HierarchyDataSource_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new HierarchyDataSource( ucbhelper::getComponentContext(rSMgr) ));
+    css::lang::XServiceInfo* pX = new HierarchyDataSource( ucbhelper::getComponentContext(rSMgr) );
     return css::uno::Reference< css::uno::XInterface >::query( pX );
 }
 
 css::uno::Sequence< OUString >
 HierarchyDataSource::getSupportedServiceNames_Static()
 {
-    uno::Sequence< OUString > aSNS( 2 );
-    aSNS[ 0 ] = "com.sun.star.ucb.DefaultHierarchyDataSource";
-    aSNS[ 1 ] = "com.sun.star.ucb.HierarchyDataSource";
-    return aSNS;
+    return { "com.sun.star.ucb.DefaultHierarchyDataSource", "com.sun.star.ucb.HierarchyDataSource" };
 }
 
 ONE_INSTANCE_SERVICE_FACTORY_IMPL( HierarchyDataSource );
@@ -611,7 +573,7 @@ uno::Sequence< uno::Type > SAL_CALL HierarchyDataAccess::getTypes()
 
 OUString SAL_CALL HierarchyDataAccess::getImplementationName()
 {
-    return OUString("com.sun.star.comp.ucb.HierarchyDataAccess");
+    return "com.sun.star.comp.ucb.HierarchyDataAccess";
 }
 
 sal_Bool SAL_CALL HierarchyDataAccess::supportsService( const OUString& ServiceName )

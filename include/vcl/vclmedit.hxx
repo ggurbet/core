@@ -82,7 +82,6 @@ private:
     Link<Edit&,void>  aModifyHdlLink;
 
     std::unique_ptr<Timer> pUpdateDataTimer;
-    Link<Edit&,void>  aUpdateDataHdlLink;
 
 protected:
 
@@ -111,14 +110,14 @@ public:
     void            SelectionChanged();
     void            CaretChanged();
     virtual void    Modify() override;
-    virtual void    UpdateData() override;
 
     virtual void    SetModifyFlag() override;
     virtual void    ClearModifyFlag() override;
     virtual bool    IsModified() const override;
 
-    virtual void    EnableUpdateData( sal_uLong nTimeout = EDIT_UPDATEDATA_TIMEOUT ) override;
-    virtual void    DisableUpdateData() override { pUpdateDataTimer.reset(); }
+    void            EnableUpdateData( sal_uLong nTimeout );
+    virtual void    UpdateData();
+    void            DisableUpdateData() { pUpdateDataTimer.reset(); }
 
     virtual void    SetReadOnly( bool bReadOnly = true ) override;
     virtual bool    IsReadOnly() const override;
@@ -153,8 +152,6 @@ public:
 
     void            SetModifyHdl( const Link<Edit&,void>& rLink ) override { aModifyHdlLink = rLink; }
     const Link<Edit&,void>&   GetModifyHdl() const override                { return aModifyHdlLink; }
-
-    void            SetUpdateDataHdl( const Link<Edit&,void>& rLink ) override { aUpdateDataHdlLink = rLink; }
 
     virtual void    Resize() override;
     virtual void    GetFocus() override;

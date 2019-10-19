@@ -92,7 +92,7 @@ namespace {
 
 OUString PresenterScreenJob::getImplementationName_static()
 {
-    return OUString("org.libreoffice.comp.PresenterScreenJob");
+    return "org.libreoffice.comp.PresenterScreenJob";
 }
 
 Sequence<OUString> PresenterScreenJob::getSupportedServiceNames_static()
@@ -128,30 +128,16 @@ Any SAL_CALL PresenterScreenJob::execute(
     const Sequence< beans::NamedValue >& Arguments )
 {
     Sequence< beans::NamedValue > lEnv;
-
-    sal_Int32               i = 0;
-    sal_Int32               c = Arguments.getLength();
-    const beans::NamedValue* p = Arguments.getConstArray();
-    for (i=0; i<c; ++i)
-    {
-        if ( p[i].Name == "Environment" )
-        {
-            p[i].Value >>= lEnv;
-            break;
-        }
-    }
+    auto pArg = std::find_if(Arguments.begin(), Arguments.end(),
+        [](const beans::NamedValue& rArg) { return rArg.Name == "Environment"; });
+    if (pArg != Arguments.end())
+        pArg->Value >>= lEnv;
 
     Reference<frame::XModel2> xModel;
-    c = lEnv.getLength();
-    p = lEnv.getConstArray();
-    for (i=0; i<c; ++i)
-    {
-        if ( p[i].Name == "Model" )
-        {
-            p[i].Value >>= xModel;
-            break;
-        }
-    }
+    auto pProp = std::find_if(lEnv.begin(), lEnv.end(),
+        [](const beans::NamedValue& rProp) { return rProp.Name == "Model"; });
+    if (pProp != lEnv.end())
+        pProp->Value >>= xModel;
 
     Reference< XServiceInfo > xInfo( xModel, UNO_QUERY );
     if( xInfo.is() && xInfo->supportsService("com.sun.star.presentation.PresentationDocument") )
@@ -432,14 +418,13 @@ sal_Int32 PresenterScreen::GetPresenterScreenNumber (
     sal_Int32 nScreenCount (1);
     try
     {
-        Reference<beans::XPropertySet> xProperties (rxPresentation, UNO_QUERY);
-        if ( ! xProperties.is())
+        if ( ! rxPresentation.is())
             return -1;
 
         // Determine the screen on which the full screen presentation is being
         // displayed.
         sal_Int32 nDisplayNumber (-1);
-        if ( ! (xProperties->getPropertyValue("Display") >>= nDisplayNumber))
+        if ( ! (rxPresentation->getPropertyValue("Display") >>= nDisplayNumber))
             return -1;
         if (nDisplayNumber == -1)
         {

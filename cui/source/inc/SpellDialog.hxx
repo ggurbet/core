@@ -20,26 +20,14 @@
 #define INCLUDED_CUI_SOURCE_INC_SPELLDIALOG_HXX
 
 #include <sfx2/basedlgs.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/button.hxx>
-#include <vcl/menubtn.hxx>
-#include <vcl/decoview.hxx>
-#include <vcl/image.hxx>
-#include <vcl/toolbox.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 
 
 #include <svx/langbox.hxx>
 #include <memory>
-#include <svtools/svmedit.hxx>
-#include <svl/lstner.hxx>
-#include <vcl/fixedhyper.hxx>
-#include <vcl/xtextedt.hxx>
-#include <vcl/txtattr.hxx>
+#include <svl/undo.hxx>
 #include <vcl/customweld.hxx>
-#include <editeng/weldeditview.hxx>
+#include <svx/weldeditview.hxx>
 #include <editeng/SpellPortions.hxx>
 
 #include <set>
@@ -121,7 +109,7 @@ public:
     void            ResetUndo();
     void            Undo();
     void            AddUndoAction( std::unique_ptr<SfxUndoAction> pAction );
-    size_t          GetUndoActionCount();
+    size_t          GetUndoActionCount() const;
     void            UndoActionStart( sal_uInt16 nId );
     void            UndoActionEnd();
 
@@ -160,7 +148,7 @@ private:
     std::unique_ptr<weld::Label> m_xNoSuggestionsFT;
     std::unique_ptr<weld::Label> m_xIgnoreOnceFT;
     std::unique_ptr<weld::Label> m_xLanguageFT;
-    std::unique_ptr<LanguageBox> m_xLanguageLB;
+    std::unique_ptr<SvxLanguageBox> m_xLanguageLB;
     std::unique_ptr<weld::Label> m_xExplainFT;
     std::unique_ptr<weld::LinkButton> m_xExplainLink;
     std::unique_ptr<weld::Label> m_xNotInDictFT;
@@ -183,7 +171,7 @@ private:
     std::unique_ptr<weld::CustomWeld> m_xSentenceEDWeld;
 
     DECL_LINK(ChangeHdl, weld::Button&, void);
-    DECL_LINK(DoubleClickChangeHdl, weld::TreeView&, void);
+    DECL_LINK(DoubleClickChangeHdl, weld::TreeView&, bool);
     DECL_LINK(ChangeAllHdl, weld::Button&, void);
     DECL_LINK(IgnoreAllHdl, weld::Button&, void);
     DECL_LINK(IgnoreHdl, weld::Button&, void);

@@ -29,7 +29,6 @@
 #include <vcl/image.hxx>
 #include <vcl/imagerepository.hxx>
 #include <vcl/ImageTree.hxx>
-#include "image.h"
 #include "ImageList.hxx"
 
 ImageList::ImageList()
@@ -41,49 +40,32 @@ ImageList::ImageList(const std::vector< OUString >& rNameVector,
 {
     SAL_INFO( "vcl", "vcl: ImageList::ImageList(const vector< OUString >& ..." );
 
-    ImplInit( sal::static_int_cast< sal_uInt16 >( rNameVector.size() ), Size() );
+    maImages.reserve( rNameVector.size() );
 
-    mpImplData->maPrefix = rPrefix;
+    maPrefix = rPrefix;
     for( size_t i = 0; i < rNameVector.size(); ++i )
-    {
-        mpImplData->AddImage( rNameVector[ i ], static_cast< sal_uInt16 >( i ) + 1, BitmapEx() );
-    }
-}
-
-void ImageList::ImplInit( sal_uInt16 nItems, const Size &rSize )
-{
-    mpImplData.reset(new ImplImageList);
-    mpImplData->maImages.reserve( nItems );
-    mpImplData->maImageSize = rSize;
+        ImplAddImage( rPrefix, rNameVector[ i ], static_cast< sal_uInt16 >( i ) + 1, Image() );
 }
 
 // FIXME: Rather a performance hazard
 BitmapEx ImageList::GetAsHorizontalStrip() const
 {
-    Size aSize( mpImplData->maImageSize );
-    sal_uInt16 nCount = GetImageCount();
+    sal_uInt16 nCount = maImages.size();
     if( !nCount )
         return BitmapEx();
-    aSize.setWidth( aSize.Width() * nCount );
+    Size aSize( maImageSize.Width() * nCount, maImageSize.Height() );
 
-    // Load any stragglers
-    for (sal_uInt16 nIdx = 0; nIdx < nCount; nIdx++)
-    {
-        ImageAryData *pData = mpImplData->maImages[ nIdx ].get();
-        if( pData->IsLoadable() )
-            pData->Load( mpImplData->maPrefix );
-    }
-
-    BitmapEx aTempl = mpImplData->maImages[ 0 ]->maBitmapEx;
+    BitmapEx aTempl = maImages[ 0 ]->maImage.GetBitmapEx();
     BitmapEx aResult( aTempl, Point(), aSize );
 
-    tools::Rectangle aSrcRect( Point( 0, 0 ), mpImplData->maImageSize );
+    tools::Rectangle aSrcRect( Point( 0, 0 ), maImageSize );
     for (sal_uInt16 nIdx = 0; nIdx < nCount; nIdx++)
     {
-        tools::Rectangle aDestRect( Point( nIdx * mpImplData->maImageSize.Width(), 0 ),
-                             mpImplData->maImageSize );
-        ImageAryData *pData = mpImplData->maImages[ nIdx ].get();
-        aResult.CopyPixel( aDestRect, aSrcRect, &pData->maBitmapEx);
+        tools::Rectangle aDestRect( Point( nIdx * maImageSize.Width(), 0 ),
+                             maImageSize );
+        ImageAryData *pData = maImages[ nIdx ].get();
+        BitmapEx aTmp = pData->maImage.GetBitmapEx();
+        aResult.CopyPixel( aDestRect, aSrcRect, &aTmp);
     }
 
     return aResult;
@@ -101,33 +83,32 @@ void ImageList::InsertFromHorizontalStrip( const BitmapEx &rBitmapEx,
     DBG_ASSERT (rBitmapEx.GetSizePixel().Width() % nItems == 0,
                 "ImageList::InsertFromHorizontalStrip - very odd size");
     aSize.setWidth( aSize.Width() / nItems );
-    ImplInit( nItems, aSize );
+    maImages.clear();
+    maNameHash.clear();
+    maImages.reserve( nItems );
+    maImageSize = aSize;
+    maPrefix.clear();
 
     for (sal_uInt16 nIdx = 0; nIdx < nItems; nIdx++)
     {
         BitmapEx aBitmap( rBitmapEx, Point( nIdx * aSize.Width(), 0 ), aSize );
-        mpImplData->AddImage( rNameVector[ nIdx ], nIdx + 1, aBitmap );
+        ImplAddImage( maPrefix, rNameVector[ nIdx ], nIdx + 1, Image( aBitmap ) );
     }
 }
 
 sal_uInt16 ImageList::ImplGetImageId( const OUString& rImageName ) const
 {
-    ImageAryData *pImg = mpImplData->maNameHash[ rImageName ];
-    if( pImg )
-        return pImg->mnId;
-    else
+    auto it = maNameHash.find( rImageName );
+    if (it == maNameHash.end())
         return 0;
+    return it->second->mnId;
 }
 
 void ImageList::AddImage( const OUString& rImageName, const Image& rImage )
 {
     SAL_WARN_IF( GetImagePos( rImageName ) != IMAGELIST_IMAGE_NOTFOUND, "vcl", "ImageList::AddImage() - ImageName already exists" );
 
-    if( !mpImplData )
-        ImplInit( 0, rImage.GetSizePixel() );
-
-    mpImplData->AddImage( rImageName, GetImageCount() + 1,
-                          rImage.GetBitmapEx() );
+    ImplAddImage( maPrefix, rImageName, GetImageCount() + 1, rImage );
 }
 
 void ImageList::ReplaceImage( const OUString& rImageName, const Image& rImage )
@@ -136,20 +117,20 @@ void ImageList::ReplaceImage( const OUString& rImageName, const Image& rImage )
 
     if( nId )
     {
-        //Just replace the bitmap rather than doing RemoveImage / AddImage
-        //which breaks index-based iteration.
-        ImageAryData *pImg = mpImplData->maNameHash[ rImageName ];
-        pImg->maBitmapEx = rImage.GetBitmapEx();
+        // Just replace the bitmap rather than doing RemoveImage / AddImage
+        // which breaks index-based iteration.
+        ImageAryData *pImg = maNameHash[ rImageName ];
+        pImg->maImage = rImage;
     }
 }
 
 void ImageList::RemoveImage( sal_uInt16 nId )
 {
-    for( size_t i = 0; i < mpImplData->maImages.size(); ++i )
+    for( size_t i = 0; i < maImages.size(); ++i )
     {
-        if( mpImplData->maImages[ i ]->mnId == nId )
+        if( maImages[ i ]->mnId == nId )
         {
-            mpImplData->RemoveImage( static_cast< sal_uInt16 >( i ) );
+            ImplRemoveImage( static_cast< sal_uInt16 >( i ) );
             break;
         }
     }
@@ -157,33 +138,24 @@ void ImageList::RemoveImage( sal_uInt16 nId )
 
 Image ImageList::GetImage( const OUString& rImageName ) const
 {
-    if( mpImplData )
-    {
-        ImageAryData *pImg = mpImplData->maNameHash[ rImageName ];
-
-        if( pImg )
-        {
-            if( pImg->IsLoadable() )
-                pImg->Load( mpImplData->maPrefix );
-            return Image( pImg->maBitmapEx );
-        }
-    }
-
-    return Image();
+    auto it = maNameHash.find( rImageName );
+    if (it == maNameHash.end())
+        return Image();
+    return it->second->maImage;
 }
 
 sal_uInt16 ImageList::GetImageCount() const
 {
-    return mpImplData ? static_cast< sal_uInt16 >( mpImplData->maImages.size() ) : 0;
+    return static_cast< sal_uInt16 >( maImages.size() );
 }
 
 sal_uInt16 ImageList::GetImagePos( const OUString& rImageName ) const
 {
-    if( mpImplData && !rImageName.isEmpty() )
+    if( !rImageName.isEmpty() )
     {
-        for( size_t i = 0; i < mpImplData->maImages.size(); i++ )
+        for( size_t i = 0; i < maImages.size(); i++ )
         {
-            if (mpImplData->maImages[i]->maName == rImageName)
+            if (maImages[i]->maName == rImageName)
                 return static_cast< sal_uInt16 >( i );
         }
     }
@@ -193,18 +165,12 @@ sal_uInt16 ImageList::GetImagePos( const OUString& rImageName ) const
 
 sal_uInt16 ImageList::GetImageId( sal_uInt16 nPos ) const
 {
-    if( mpImplData && (nPos < GetImageCount()) )
-        return mpImplData->maImages[ nPos ]->mnId;
-
-    return 0;
+    return maImages[ nPos ]->mnId;
 }
 
 OUString ImageList::GetImageName( sal_uInt16 nPos ) const
 {
-    if( mpImplData && (nPos < GetImageCount()) )
-        return mpImplData->maImages[ nPos ]->maName;
-
-    return OUString();
+    return maImages[ nPos ]->maName;
 }
 
 void ImageList::GetImageNames( std::vector< OUString >& rNames ) const
@@ -213,30 +179,33 @@ void ImageList::GetImageNames( std::vector< OUString >& rNames ) const
 
     rNames = std::vector< OUString >();
 
-    if( mpImplData )
+    for(auto const & pImage : maImages)
     {
-        for(auto const & pImage : mpImplData->maImages)
-        {
-            const OUString& rName( pImage->maName );
-            if( !rName.isEmpty())
-                rNames.push_back( rName );
-        }
+        const OUString& rName( pImage->maName );
+        if( !rName.isEmpty())
+            rNames.push_back( rName );
     }
 }
 
-bool ImageList::operator==( const ImageList& rImageList ) const
+void ImageList::ImplAddImage( const OUString &aPrefix, const OUString &aName,
+                              sal_uInt16 nId, const Image &aImage )
 {
-    bool bRet = false;
+    Image aInsert = aImage;
+    if (!aInsert)
+        aInsert = Image( "private:graphicrepository/" + aPrefix + aName );
 
-    if( rImageList.mpImplData == mpImplData )
-        bRet = true;
-    else if( !rImageList.mpImplData || !mpImplData )
-        bRet = false;
-    else if( rImageList.GetImageCount() == GetImageCount() &&
-              rImageList.mpImplData->maImageSize == mpImplData->maImageSize )
-        bRet = true; // strange semantic
+    ImageAryData *pImg = new ImageAryData{ aName, nId, aInsert };
+    maImages.emplace_back( pImg );
+    if( !aName.isEmpty() )
+        maNameHash [ aName ] = pImg;
+}
 
-    return bRet;
+void ImageList::ImplRemoveImage( sal_uInt16 nPos )
+{
+    ImageAryData *pImg = maImages[ nPos ].get();
+    if( !pImg->maName.isEmpty() )
+        maNameHash.erase( pImg->maName );
+    maImages.erase( maImages.begin() + nPos );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

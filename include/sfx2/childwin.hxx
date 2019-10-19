@@ -169,12 +169,10 @@ public:
     SfxChildAlignment   GetAlignment() const
                         { return eChildAlignment; }
     void                SetAlignment(SfxChildAlignment eAlign);
-    Size                GetSizePixel() const
-                        { return pWindow->GetSizePixel(); }
     virtual void        Hide();
     virtual void        Show( ShowFlags nFlags );
-    sal_uInt16          GetPosition();
-    sal_uInt16          GetType()
+    sal_uInt16          GetPosition() const;
+    sal_uInt16          GetType() const
                         { return nType; }
 
     void                CreateContext( sal_uInt16 nContextId, SfxBindings& );
@@ -199,7 +197,7 @@ public:
     bool                WantsFocus() const;
 
     virtual bool        QueryClose();
-    const css::uno::Reference< css::frame::XFrame >&   GetFrame();
+    const css::uno::Reference< css::frame::XFrame >&   GetFrame() const;
     void                SetFrame( const css::uno::Reference< css::frame::XFrame > & );
 
     SAL_DLLPRIVATE static void InitializeChildWinFactory_Impl(sal_uInt16, SfxChildWinInfo&);

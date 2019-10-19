@@ -774,11 +774,9 @@ extern "C" void SAL_CALL uno_dumpEnvironmentByName(
     }
     else
     {
-        OUStringBuffer buf( 32 );
-        buf.append( "environment \"" );
-        buf.append( pEnvDcp );
-        buf.append( "\" does not exist!" );
-        writeLine( stream, buf.makeStringAndClear(), pFilter );
+        writeLine(
+            stream, "environment \"" + OUString::unacquired(&pEnvDcp) + "\" does not exist!",
+            pFilter );
     }
 }
 
@@ -931,9 +929,9 @@ void EnvironmentsData::registerEnvironment( uno_Environment ** ppEnv )
     OSL_ENSURE( ppEnv, "### null ptr!" );
     uno_Environment * pEnv =  *ppEnv;
 
-    OUString aKey(
-        OUString::number( reinterpret_cast< sal_IntPtr >(pEnv->pContext) ) );
-    aKey += pEnv->pTypeName;
+    OUString aKey =
+        OUString::number( reinterpret_cast< sal_IntPtr >(pEnv->pContext) ) +
+        OUString::unacquired(&pEnv->pTypeName);
 
     // try to find registered environment
     OUString2EnvironmentMap::const_iterator const iFind(
@@ -1059,6 +1057,7 @@ extern "C"
 static uno_Environment * initDefaultEnvironment(
     const OUString & rEnvDcp, void * pContext )
 {
+    // coverity[leaked_storage : FALSE] - lifetime is controlled by acquire()/release() calls
     uno_Environment * pEnv = &(new uno_DefaultEnvironment( rEnvDcp, pContext ))->aBase;
     (*pEnv->acquire)( pEnv );
 

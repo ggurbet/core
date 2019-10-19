@@ -232,8 +232,7 @@ MasterScriptProvider::getScript( const OUString& scriptURI )
 
     Reference< uri::XUriReferenceFactory > xFac ( uri::UriReferenceFactory::create( m_xContext )  );
 
-    Reference<  uri::XUriReference > uriRef(
-        xFac->parse( scriptURI ), UNO_QUERY );
+    Reference<  uri::XUriReference > uriRef = xFac->parse( scriptURI );
 
     Reference < uri::XVndSunStarScriptUrl > sfUri( uriRef, UNO_QUERY );
 
@@ -299,10 +298,7 @@ MasterScriptProvider::getScript( const OUString& scriptURI )
          )
     {
         Reference< provider::XScriptProvider > xScriptProvider;
-        OUStringBuffer buf( 80 );
-        buf.append( "com.sun.star.script.provider.ScriptProviderFor");
-        buf.append( language );
-        OUString serviceName = buf.makeStringAndClear();
+        OUString serviceName = "com.sun.star.script.provider.ScriptProviderFor" + language;
         if ( !providerCache() )
         {
             throw provider::ScriptFrameworkErrorException(
@@ -457,7 +453,8 @@ template <typename Proc> bool FindProviderAndApply(ProviderCache& rCache, Proc p
     auto pass = [&rCache, &p]() -> bool
     {
         bool bResult = false;
-        for (auto& rProv : rCache.getAllProviders())
+        const Sequence<Reference<provider::XScriptProvider>> aAllProviders = rCache.getAllProviders();
+        for (const auto& rProv : aAllProviders)
         {
             Reference<container::XNameContainer> xCont(rProv, UNO_QUERY);
             if (!xCont.is())
@@ -657,7 +654,7 @@ sal_Bool SAL_CALL MasterScriptProvider::hasElements(  )
 
 OUString SAL_CALL MasterScriptProvider::getImplementationName( )
 {
-    return OUString( "com.sun.star.script.provider.MasterScriptProvider"  );
+    return "com.sun.star.script.provider.MasterScriptProvider";
 }
 
 sal_Bool SAL_CALL MasterScriptProvider::supportsService( const OUString& serviceName )
@@ -689,19 +686,15 @@ static Reference< XInterface > sp_create(
 
 static Sequence< OUString > sp_getSupportedServiceNames( )
 {
-    OUString names[3];
-
-    names[0] = "com.sun.star.script.provider.MasterScriptProvider";
-    names[1] = "com.sun.star.script.browse.BrowseNode";
-    names[2] = "com.sun.star.script.provider.ScriptProvider";
-
-    return Sequence< OUString >( names, 3 );
+    return { "com.sun.star.script.provider.MasterScriptProvider",
+             "com.sun.star.script.browse.BrowseNode",
+             "com.sun.star.script.provider.ScriptProvider" };
 }
 
 
 static OUString sp_getImplementationName( )
 {
-    return OUString( "com.sun.star.script.provider.MasterScriptProvider"  );
+    return "com.sun.star.script.provider.MasterScriptProvider";
 }
 
 // ***** registration or ScriptingFrameworkURIHelper
@@ -719,8 +712,7 @@ static Sequence< OUString > urihelper_getSupportedServiceNames( )
 
 static OUString urihelper_getImplementationName( )
 {
-    return OUString(
-        "com.sun.star.script.provider.ScriptURIHelper");
+    return "com.sun.star.script.provider.ScriptURIHelper";
 }
 
 static const struct cppu::ImplementationEntry s_entries [] =

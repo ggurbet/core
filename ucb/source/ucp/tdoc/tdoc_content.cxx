@@ -45,7 +45,11 @@
 #include <com/sun/star/io/XActiveDataSink.hpp>
 #include <com/sun/star/io/XActiveDataStreamer.hpp>
 #include <com/sun/star/lang/IllegalAccessException.hpp>
+#include <com/sun/star/packages/WrongPasswordException.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
+#include <com/sun/star/task/DocumentPasswordRequest.hpp>
+#include <com/sun/star/task/XInteractionPassword.hpp>
+#include <com/sun/star/ucb/CommandFailedException.hpp>
 #include <com/sun/star/ucb/ContentAction.hpp>
 #include <com/sun/star/ucb/ContentInfoAttribute.hpp>
 #include <com/sun/star/ucb/IllegalIdentifierException.hpp>
@@ -263,7 +267,7 @@ uno::Sequence< uno::Type > SAL_CALL Content::getTypes()
 // virtual
 OUString SAL_CALL Content::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.ucb.TransientDocumentsContent" );
+    return "com.sun.star.comp.ucb.TransientDocumentsContent";
 }
 
 
@@ -925,10 +929,9 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
 
                 if ( !bTriedToGetAdditionalPropSet && !xAdditionalPropSet.is() )
                 {
-                    xAdditionalPropSet.set(
+                    xAdditionalPropSet =
                             pProvider->getAdditionalPropertySet( rContentId,
-                                                                 false ),
-                            uno::UNO_QUERY );
+                                                                 false );
                     bTriedToGetAdditionalPropSet = true;
                 }
 
@@ -1019,9 +1022,8 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
 
         // Append all Additional Core Properties.
 
-        uno::Reference< beans::XPropertySet > xSet(
-            pProvider->getAdditionalPropertySet( rContentId, false ),
-            uno::UNO_QUERY );
+        uno::Reference< beans::XPropertySet > xSet =
+            pProvider->getAdditionalPropertySet( rContentId, false );
         xRow->appendPropertySet( xSet );
     }
 
@@ -2131,12 +2133,7 @@ bool Content::hasData( ContentProvider const * pProvider, const Uri & rUri )
         if ( !xStorage.is() )
             return false;
 
-        uno::Reference< container::XNameAccess > xParentNA(
-            xStorage, uno::UNO_QUERY );
-
-        OSL_ENSURE( xParentNA.is(), "Got no css.container.XNameAccess!" );
-
-        return xParentNA->hasByName( rUri.getDecodedName() );
+        return xStorage->hasByName( rUri.getDecodedName() );
     }
 }
 
@@ -2378,7 +2375,7 @@ void Content::renameData(
     }
     catch ( embed::InvalidStorageException const & )
     {
-        // this storage is in invalid state for eny reason
+        // this storage is in invalid state for any reason
         OSL_FAIL( "Caught InvalidStorageException!" );
         return;
     }
@@ -2442,7 +2439,7 @@ bool Content::removeData()
     }
     catch ( embed::InvalidStorageException const & )
     {
-        // this storage is in invalid state for eny reason
+        // this storage is in invalid state for any reason
         OSL_FAIL( "Caught InvalidStorageException!" );
         return false;
     }
@@ -2507,7 +2504,7 @@ bool Content::copyData( const Uri & rSourceUri, const OUString & rNewName )
     }
     catch ( embed::InvalidStorageException const & )
     {
-        // this storage is in invalid state for eny reason
+        // this storage is in invalid state for any reason
         OSL_FAIL( "Caught InvalidStorageException!" );
         return false;
     }

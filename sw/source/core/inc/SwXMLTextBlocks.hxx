@@ -57,7 +57,7 @@ public:
     static OUString GeneratePackageName ( const OUString& rShort );
     virtual ~SwXMLTextBlocks() override;
     virtual ErrCode Delete( sal_uInt16 ) override;
-    virtual ErrCode Rename( sal_uInt16, const OUString&, const OUString& ) override;
+    virtual ErrCode Rename( sal_uInt16, const OUString& ) override;
     virtual void  ClearDoc() override;
     virtual ErrCode GetDoc( sal_uInt16 ) override;
     virtual ErrCode BeginPutDoc( const OUString&, const OUString& ) override;
@@ -65,7 +65,6 @@ public:
     virtual ErrCode PutText( const OUString&, const OUString&, const OUString& ) override;
     virtual ErrCode MakeBlockList() override;
 
-    virtual FileType GetFileType() const override;
     virtual ErrCode OpenFile( bool bReadOnly = true ) override;
     virtual void  CloseFile() override;
 

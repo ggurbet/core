@@ -46,6 +46,7 @@ class Test : public test::BootstrapFixture, public XmlTestTools
     void testFontsizeRelative();
     void testTdf45771();
     void testTdf97941();
+    void testTdf104339();
     void testTdf85770();
     void testTdf79163();
     void testTdf97542_1();
@@ -53,16 +54,20 @@ class Test : public test::BootstrapFixture, public XmlTestTools
     void testTdf97543();
     void testRGBColor();
     void testRGBAColor();
+    void testNoneColor();
     void testTdf97936();
     void testClipPathAndParentStyle();
     void testClipPathAndStyle();
     void testi125329();
     void testMaskingPath07b();
+    void test123926();
     void test47446();
     void test47446b();
     void testMaskText();
     void testTdf99994();
+    void testTdf99115();
     void testTdf101237();
+    void testTdf94765();
     void testBehaviourWhenWidthAndHeightIsOrIsNotSet();
 
     Primitive2DSequence parseSvg(const OUString& aSource);
@@ -76,6 +81,7 @@ public:
     CPPUNIT_TEST(testFontsizeRelative);
     CPPUNIT_TEST(testTdf45771);
     CPPUNIT_TEST(testTdf97941);
+    CPPUNIT_TEST(testTdf104339);
     CPPUNIT_TEST(testTdf85770);
     CPPUNIT_TEST(testTdf79163);
     CPPUNIT_TEST(testTdf97542_1);
@@ -83,16 +89,20 @@ public:
     CPPUNIT_TEST(testTdf97543);
     CPPUNIT_TEST(testRGBColor);
     CPPUNIT_TEST(testRGBAColor);
+    CPPUNIT_TEST(testNoneColor);
     CPPUNIT_TEST(testTdf97936);
     CPPUNIT_TEST(testClipPathAndParentStyle);
     CPPUNIT_TEST(testClipPathAndStyle);
     CPPUNIT_TEST(testi125329);
     CPPUNIT_TEST(testMaskingPath07b);
+    CPPUNIT_TEST(test123926);
     CPPUNIT_TEST(test47446);
     CPPUNIT_TEST(test47446b);
     CPPUNIT_TEST(testMaskText);
     CPPUNIT_TEST(testTdf99994);
+    CPPUNIT_TEST(testTdf99115);
     CPPUNIT_TEST(testTdf101237);
+    CPPUNIT_TEST(testTdf94765);
     CPPUNIT_TEST(testBehaviourWhenWidthAndHeightIsOrIsNotSet);
     CPPUNIT_TEST_SUITE_END();
 };
@@ -138,17 +148,9 @@ void Test::checkRectPrimitive(Primitive2DSequence const & rPrimitive)
 
 bool arePrimitive2DSequencesEqual(const Primitive2DSequence& rA, const Primitive2DSequence& rB)
 {
-    const sal_Int32 nCount(rA.getLength());
-
-    if(nCount != rB.getLength())
-        return false;
-
-    for(sal_Int32 a(0); a < nCount; a++) {
-        if(!drawinglayer::primitive2d::arePrimitive2DReferencesEqual(rA[a], rB[a]))
-            return false;
-    }
-
-    return true;
+    return std::equal(rA.begin(), rA.end(), rB.begin(), rB.end(),
+        [](const Primitive2DReference& a, const Primitive2DReference& b) {
+            return drawinglayer::primitive2d::arePrimitive2DReferencesEqual(a, b); });
 }
 
 // Attributes for an object (like rect as in this case) can be defined
@@ -331,6 +333,18 @@ void Test::testTdf97941()
     assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[1]", "familyname", "Times New Roman");
 }
 
+void Test::testTdf104339()
+{
+    Primitive2DSequence aSequenceTdf104339 = parseSvg("/svgio/qa/cppunit/data/tdf104339.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequenceTdf104339.getLength()));
+
+    drawinglayer::tools::Primitive2dXmlDump dumper;
+    xmlDocPtr pDocument = dumper.dumpAndParse(comphelper::sequenceToContainer<Primitive2DContainer>(aSequenceTdf104339));
+
+    CPPUNIT_ASSERT (pDocument);
+    assertXPath(pDocument, "/primitive2D/transform/transform/transform/transform/transform/polypolygoncolor", "color", "#000000");
+}
+
 void Test::testTdf85770()
 {
     Primitive2DSequence aSequenceTdf85770 = parseSvg("/svgio/qa/cppunit/data/tdf85770.svg");
@@ -396,8 +410,8 @@ void Test::testTdf97542_2()
 
     CPPUNIT_ASSERT (pDocument);
 
-    assertXPath(pDocument, "/primitive2D/transform/objectinfo/svgradialgradient[1]", "x", "1");
-    assertXPath(pDocument, "/primitive2D/transform/objectinfo/svgradialgradient[1]", "y", "1");
+    assertXPath(pDocument, "/primitive2D/transform/objectinfo/svgradialgradient[1]", "focusx", "1");
+    assertXPath(pDocument, "/primitive2D/transform/objectinfo/svgradialgradient[1]", "focusy", "1");
     assertXPath(pDocument, "/primitive2D/transform/objectinfo/svgradialgradient[1]", "radius", "3");
 }
 
@@ -451,6 +465,22 @@ void Test::testRGBAColor()
     CPPUNIT_ASSERT (pDocument);
 
     assertXPath(pDocument, "/primitive2D/transform/unifiedtransparence", "transparence", "0.5");
+}
+
+void Test::testNoneColor()
+{
+    Primitive2DSequence aSequenceRGBAColor = parseSvg("/svgio/qa/cppunit/data/noneColor.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequenceRGBAColor.getLength()));
+
+    drawinglayer::tools::Primitive2dXmlDump dumper;
+    xmlDocPtr pDocument = dumper.dumpAndParse(comphelper::sequenceToContainer<Primitive2DContainer>(aSequenceRGBAColor));
+
+    CPPUNIT_ASSERT (pDocument);
+
+    //No polypolygoncolor exists
+    assertXPath(pDocument, "/primitive2D/transform/mask/polypolygoncolor", 0);
+    assertXPath(pDocument, "/primitive2D/transform/mask/polypolygonstroke/line", "color", "#000000");
+    assertXPath(pDocument, "/primitive2D/transform/mask/polypolygonstroke/line", "width", "3");
 }
 
 void Test::testTdf97936()
@@ -527,15 +557,15 @@ void Test::testi125329()
 
     CPPUNIT_ASSERT (pDocument);
 
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygoncolor", "color", "#c0c0c0"); // rect background color
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygoncolor/polypolygon", "height", "30"); // rect background height
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygoncolor/polypolygon", "width", "50"); // rect background width
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygoncolor/polypolygon", "minx", "15");
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygoncolor/polypolygon", "miny", "15");
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygoncolor/polypolygon", "maxx", "65");
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygoncolor/polypolygon", "maxy", "45");
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygonstroke/line", "color", "#008000"); // rect stroke color
-    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygonstroke/line", "width", "1"); // rect stroke width
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygoncolor", "color", "#c0c0c0"); // rect background color
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygoncolor/polypolygon", "height", "30"); // rect background height
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygoncolor/polypolygon", "width", "50"); // rect background width
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygoncolor/polypolygon", "minx", "15");
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygoncolor/polypolygon", "miny", "15");
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygoncolor/polypolygon", "maxx", "65");
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygoncolor/polypolygon", "maxy", "45");
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygonstroke/line", "color", "#008000"); // rect stroke color
+    assertXPath(pDocument, "/primitive2D/transform/transform/objectinfo/polypolygonstroke/line", "width", "1"); // rect stroke width
 }
 
 void Test::testMaskingPath07b()
@@ -550,6 +580,19 @@ void Test::testMaskingPath07b()
 
     CPPUNIT_ASSERT (pDocument);
 
+}
+
+void Test::test123926()
+{
+    Primitive2DSequence aSequence123926 = parseSvg("/svgio/qa/cppunit/data/tdf123926.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequence123926.getLength()));
+
+    drawinglayer::tools::Primitive2dXmlDump dumper;
+    xmlDocPtr pDocument = dumper.dumpAndParse(comphelper::sequenceToContainer<Primitive2DContainer>(aSequence123926));
+
+    CPPUNIT_ASSERT (pDocument);
+
+    assertXPath(pDocument, "/primitive2D/transform/transform/transform/unifiedtransparence/polypolygoncolor", "color", "#7cb5ec");
 }
 
 void Test::test47446()
@@ -617,6 +660,54 @@ void Test::testTdf99994()
     assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[1]", "familyname", "Sans");
 }
 
+void Test::testTdf99115()
+{
+    //Check that styles are resolved correctly where there is a * css selector
+    Primitive2DSequence aSequenceTdf99115 = parseSvg("/svgio/qa/cppunit/data/tdf99115.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequenceTdf99115.getLength()));
+
+    drawinglayer::tools::Primitive2dXmlDump dumper;
+    xmlDocPtr pDocument = dumper.dumpAndParse(comphelper::sequenceToContainer<Primitive2DContainer>(aSequenceTdf99115) );
+
+    CPPUNIT_ASSERT (pDocument);
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[1]", "text", "red 1");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[1]", "fontcolor", "#ff0000");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[1]", "height", "18");
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[2]", "text", "red 2");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[2]", "fontcolor", "#ff0000");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[2]", "height", "18");
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[3]", "text", "red 3");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[3]", "fontcolor", "#ff0000");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[3]", "height", "18");
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[4]", "text", "blue 4");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[4]", "fontcolor", "#0000ff");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[4]", "height", "18");
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[5]", "text", "blue 5");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[5]", "fontcolor", "#0000ff");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[5]", "height", "18");
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[6]", "text", "blue 6");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[6]", "fontcolor", "#0000ff");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[6]", "height", "18");
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[7]", "text", "green 7");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[7]", "fontcolor", "#008000");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[7]", "height", "18");
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[8]", "text", "green 8");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[8]", "fontcolor", "#008000");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[8]", "height", "18");
+
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[9]", "text", "green 9");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[9]", "fontcolor", "#008000");
+    assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[9]", "height", "18");
+}
+
 void Test::testTdf101237()
 {
     //Check that fill color, stroke color and stroke-width are inherited from use element
@@ -634,6 +725,23 @@ void Test::testTdf101237()
     assertXPath(pDocument, "/primitive2D/transform/polypolygonstroke/line", "width", "5");
 }
 
+void Test::testTdf94765()
+{
+    Primitive2DSequence aSequenceTdf94765 = parseSvg("/svgio/qa/cppunit/data/tdf94765.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequenceTdf94765.getLength()));
+
+    drawinglayer::tools::Primitive2dXmlDump dumper;
+    xmlDocPtr pDocument = dumper.dumpAndParse(comphelper::sequenceToContainer<Primitive2DContainer>(aSequenceTdf94765));
+
+    CPPUNIT_ASSERT (pDocument);
+
+    //Check that both rectangles use the gradient as fill
+    assertXPath(pDocument, "/primitive2D/transform/transform/svglineargradient[1]", "endx", "2");
+    assertXPath(pDocument, "/primitive2D/transform/transform/svglineargradient[1]", "endy", "1");
+    assertXPath(pDocument, "/primitive2D/transform/transform/svglineargradient[2]", "endx", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform/svglineargradient[2]", "endy", "0");
+}
+
 void Test::testBehaviourWhenWidthAndHeightIsOrIsNotSet()
 {
     // This test checks the behaviour when width and height attributes
@@ -647,7 +755,7 @@ void Test::testBehaviourWhenWidthAndHeightIsOrIsNotSet()
     // the container.
 
     {
-        Primitive2DSequence aSequence = parseSvg("svgio/qa/cppunit/data/Drawing_WithWidthHeight.svg");
+        const Primitive2DSequence aSequence = parseSvg("svgio/qa/cppunit/data/Drawing_WithWidthHeight.svg");
         CPPUNIT_ASSERT(aSequence.hasElements());
 
         geometry::RealRectangle2D aRealRect;
@@ -671,7 +779,7 @@ void Test::testBehaviourWhenWidthAndHeightIsOrIsNotSet()
     }
 
     {
-        Primitive2DSequence aSequence = parseSvg("svgio/qa/cppunit/data/Drawing_NoWidthHeight.svg");
+        const Primitive2DSequence aSequence = parseSvg("svgio/qa/cppunit/data/Drawing_NoWidthHeight.svg");
         CPPUNIT_ASSERT(aSequence.hasElements());
 
 

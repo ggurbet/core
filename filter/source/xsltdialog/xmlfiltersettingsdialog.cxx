@@ -157,9 +157,10 @@ IMPL_LINK_NOARG(XMLFilterSettingsDialog, SelectionChangedHdl_Impl, weld::TreeVie
     updateStates();
 }
 
-IMPL_LINK_NOARG(XMLFilterSettingsDialog, DoubleClickHdl_Impl, weld::TreeView&, void)
+IMPL_LINK_NOARG(XMLFilterSettingsDialog, DoubleClickHdl_Impl, weld::TreeView&, bool)
 {
     onEdit();
+    return true;
 }
 
 void XMLFilterSettingsDialog::UpdateWindow()
@@ -340,7 +341,7 @@ OUString XMLFilterSettingsDialog::createUniqueInterfaceName( const OUString& rIn
 
     try
     {
-        Sequence< OUString > aFilterNames( mxFilterContainer->getElementNames() );
+        const Sequence< OUString > aFilterNames( mxFilterContainer->getElementNames() );
 
         Sequence< PropertyValue > aValues;
         for( OUString const & filterName : aFilterNames)
@@ -449,8 +450,7 @@ bool XMLFilterSettingsDialog::insertOrEdit( filter_info_impl* pNewInfo, const fi
             INetURLObject aSourceURL( pFilterEntry->maImportTemplate );
             if (!aSourceURL.GetLastName().isEmpty())
             {
-                OUString aDestURL( m_sTemplatePath );
-                aDestURL += pFilterEntry->maFilterName + "/";
+                OUString aDestURL = m_sTemplatePath + pFilterEntry->maFilterName + "/";
                 if( createDirectory( aDestURL ) )
                 {
                     aDestURL += aSourceURL.GetLastName();
@@ -851,8 +851,8 @@ void XMLFilterSettingsDialog::onSave()
         FileDialogFlags::NONE, m_xDialog.get());
 
     OUString aExtensions( "*.jar" );
-    OUString aFilterName(XsltResId(STR_FILTER_PACKAGE));
-    aFilterName += " (" + aExtensions + ")";
+    OUString aFilterName = XsltResId(STR_FILTER_PACKAGE) +
+        " (" + aExtensions + ")";
 
     aDlg.AddFilter( aFilterName, aExtensions );
 
@@ -896,8 +896,8 @@ void XMLFilterSettingsDialog::onOpen()
     FileDialogFlags::NONE, m_xDialog.get());
 
     OUString aExtensions( "*.jar" );
-    OUString aFilterName(XsltResId(STR_FILTER_PACKAGE));
-    aFilterName += " (" + aExtensions + ")";
+    OUString aFilterName = XsltResId(STR_FILTER_PACKAGE) +
+        " (" + aExtensions + ")";
 
     aDlg.AddFilter( aFilterName, aExtensions );
 
@@ -960,7 +960,7 @@ void XMLFilterSettingsDialog::initFilterList()
 {
     if( mxFilterContainer.is() )
     {
-        Sequence< OUString > aFilterNames( mxFilterContainer->getElementNames() );
+        const Sequence< OUString > aFilterNames( mxFilterContainer->getElementNames() );
 
         Sequence< PropertyValue > aValues;
 

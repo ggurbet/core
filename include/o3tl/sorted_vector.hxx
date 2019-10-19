@@ -45,6 +45,18 @@ public:
     typedef typename std::vector<Value>::difference_type difference_type;
     typedef typename std::vector<Value>::size_type size_type;
 
+    constexpr sorted_vector( std::initializer_list<Value> init )
+        : m_vector(init)
+    {
+        std::sort(m_vector.begin(), m_vector.end(), Compare());
+    }
+    sorted_vector() = default;
+    sorted_vector(sorted_vector const&) = default;
+    sorted_vector(sorted_vector&&) = default;
+
+    sorted_vector& operator=(sorted_vector const&) = default;
+    sorted_vector& operator=(sorted_vector&&) = default;
+
     // MODIFIERS
 
     std::pair<const_iterator,bool> insert( Value&& x )

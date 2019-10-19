@@ -24,14 +24,9 @@ ifneq ($(OS),MACOSX)
 ifneq ($(OS),WNT)
 $(eval $(call gb_UnpackedTarball_add_patches,libwps,\
 	external/libwps/libwps-bundled-soname.patch.0 \
+	external/libwps/libwps-lotus-version-tdf127887.patch.1 \
 ))
 endif
-endif
-
-ifeq ($(NEED_CLANG_LINUX_UBSAN_RTTI_VISIBILITY),TRUE)
-$(eval $(call gb_UnpackedTarball_add_patches,libwps, \
-    external/libwps/ubsan-visibility.patch.0 \
-))
 endif
 
 # vim: set noet sw=4 ts=4:

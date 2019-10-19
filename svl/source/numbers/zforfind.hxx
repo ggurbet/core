@@ -68,6 +68,10 @@ public:
 
     void InvalidateDateAcceptancePatterns();
 
+    /** Whether 'T' separator was detected in an ISO 8601 date+time format.
+     */
+    bool HasIso8601Tsep() const { return bIso8601Tsep; }
+
 private:
     SvNumberFormatter*  pFormatter;
     const SvNumberformat* mpFormat;                            //* The format to compare against, if any
@@ -393,8 +397,12 @@ private:
 
     /** Obtain date format order, from accepted date pattern if available or
         otherwise the locale's default order.
+
+        @param  bFromFormatIfNoPattern
+                If <TRUE/> and no pattern was matched, obtain date order from
+                format if available, instead from format's or current locale.
      */
-    DateOrder GetDateOrder();
+    DateOrder GetDateOrder( bool bFromFormatIfNoPattern = false );
 
     /** Whether input may be an ISO 8601 date format, yyyy-mm-dd...
 

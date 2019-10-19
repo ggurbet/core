@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/svapp.hxx>
 #include <scitems.hxx>
 #include <svx/algitem.hxx>
 #include <editeng/brushitem.hxx>
@@ -30,11 +29,14 @@
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
+#include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
+#include <vcl/keycodes.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <unotools/charclass.hxx>
 #include <unotools/securityoptions.hxx>
 #include <osl/diagnose.h>
@@ -692,9 +694,9 @@ void ScGlobal::AddQuotes( OUString& rString, sal_Unicode cQuote, bool bEscapeEmb
         pQ[0] = pQ[1] = cQuote;
         pQ[2] = 0;
         OUString aQuotes( pQ );
-        rString = rString.replaceAll( OUStringLiteral1(cQuote), aQuotes);
+        rString = rString.replaceAll( OUStringChar(cQuote), aQuotes);
     }
-    rString = OUStringLiteral1( cQuote ) + rString + OUStringLiteral1( cQuote );
+    rString = OUStringChar( cQuote ) + rString + OUStringChar( cQuote );
 }
 
 void ScGlobal::EraseQuotes( OUString& rString, sal_Unicode cQuote, bool bUnescapeEmbedded )
@@ -708,7 +710,7 @@ void ScGlobal::EraseQuotes( OUString& rString, sal_Unicode cQuote, bool bUnescap
             pQ[0] = pQ[1] = cQuote;
             pQ[2] = 0;
             OUString aQuotes( pQ );
-            rString = rString.replaceAll( aQuotes, OUStringLiteral1(cQuote));
+            rString = rString.replaceAll( aQuotes, OUStringChar(cQuote));
         }
     }
 }
@@ -773,26 +775,13 @@ bool ScGlobal::EETextObjEqual( const EditTextObject* pObj1,
     return false;
 }
 
-void ScGlobal::OpenURL(const OUString& rURL, const OUString& rTarget)
+void ScGlobal::OpenURL(const OUString& rURL, const OUString& rTarget, bool bIgnoreSettings)
 {
     // OpenURL is always called in the GridWindow by mouse clicks in some way or another.
     // That's why pScActiveViewShell and nScClickMouseModifier are correct.
-    // SvtSecurityOptions to access Libreoffice global security parameters
-    SvtSecurityOptions aSecOpt;
-    bool bCtrlClickHappened = (nScClickMouseModifier & KEY_MOD1);
-    bool bCtrlClickSecOption = aSecOpt.IsOptionSet( SvtSecurityOptions::EOption::CtrlClickHyperlink );
-    if( bCtrlClickHappened && ! bCtrlClickSecOption )
-    {
-        // return since ctrl+click happened when the
-        // ctrl+click security option was disabled, link should not open
+
+    if (!bIgnoreSettings && !ShouldOpenURL())
         return;
-    }
-    else if( ! bCtrlClickHappened && bCtrlClickSecOption )
-    {
-        // ctrl+click did not happen; only click happened maybe with some
-        // other key combo. and security option is set, so return
-        return;
-    }
 
     SfxViewFrame* pViewFrm = SfxViewFrame::Current();
     if (!pViewFrm)
@@ -849,6 +838,26 @@ void ScGlobal::OpenURL(const OUString& rURL, const OUString& rTarget)
     pViewFrm->GetDispatcher()->ExecuteList(SID_OPENDOC,
             SfxCallMode::ASYNCHRON | SfxCallMode::RECORD,
             { &aUrl, &aTarget, &aFrm, &aReferer, &aNewView, &aBrowsing });
+}
+
+bool ScGlobal::ShouldOpenURL()
+{
+    SvtSecurityOptions aSecOpt;
+    bool bCtrlClickHappened = (nScClickMouseModifier & KEY_MOD1);
+    bool bCtrlClickSecOption = aSecOpt.IsOptionSet( SvtSecurityOptions::EOption::CtrlClickHyperlink );
+    if( bCtrlClickHappened && ! bCtrlClickSecOption )
+    {
+        // return since ctrl+click happened when the
+        // ctrl+click security option was disabled, link should not open
+        return false;
+    }
+    else if( ! bCtrlClickHappened && bCtrlClickSecOption )
+    {
+        // ctrl+click did not happen; only click happened maybe with some
+        // other key combo. and security option is set, so return
+        return false;
+    }
+    return true;
 }
 
 bool ScGlobal::IsSystemRTL()

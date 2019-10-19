@@ -234,6 +234,42 @@ void ScTransferObj::AddSupportedFormats()
     }
 }
 
+static ScRange lcl_reduceBlock(const ScDocumentUniquePtr &pDoc, ScRange aReducedBlock, bool bIncludeVisual = false)
+{
+    if ((aReducedBlock.aEnd.Col() == MAXCOL || aReducedBlock.aEnd.Row() == MAXROW) &&
+        aReducedBlock.aStart.Tab() == aReducedBlock.aEnd.Tab())
+    {
+        // Shrink the block here so we don't waste time creating huge
+        // output when whole columns or rows are selected.
+
+        SCCOL nPrintAreaEndCol = 0;
+        SCROW nPrintAreaEndRow = 0;
+        if (bIncludeVisual)
+            pDoc->GetPrintArea( aReducedBlock.aStart.Tab(), nPrintAreaEndCol, nPrintAreaEndRow, true );
+
+        // Shrink the area to allow pasting to external applications.
+        // Shrink to real data area for HTML, RTF and RICHTEXT, but include
+        // all objects and top-left area for BITMAP and PNG.
+        SCCOL nStartCol = aReducedBlock.aStart.Col();
+        SCROW nStartRow = aReducedBlock.aStart.Row();
+        SCCOL nEndCol = aReducedBlock.aEnd.Col();
+        SCROW nEndRow = aReducedBlock.aEnd.Row();
+        bool bShrunk = false;
+        pDoc->ShrinkToUsedDataArea( bShrunk, aReducedBlock.aStart.Tab(), nStartCol, nStartRow, nEndCol, nEndRow,
+                                      false, bIncludeVisual /*bStickyTopRow*/, bIncludeVisual /*bStickyLeftCol*/,
+                                      bIncludeVisual /*bConsiderCellNotes*/, bIncludeVisual /*bConsiderCellDrawObjects*/);
+
+        if ( nPrintAreaEndRow > nEndRow )
+            nEndRow = nPrintAreaEndRow;
+
+        if ( nPrintAreaEndCol > nEndCol )
+            nEndCol = nPrintAreaEndCol;
+
+        aReducedBlock = ScRange(nStartCol, nStartRow, aReducedBlock.aStart.Tab(), nEndCol, nEndRow, aReducedBlock.aEnd.Tab());
+    }
+    return aReducedBlock;
+}
+
 bool ScTransferObj::GetData( const datatransfer::DataFlavor& rFlavor, const OUString& /*rDestDoc*/ )
 {
     SotClipboardFormatId nFormat = SotExchange::GetFormat( rFlavor );
@@ -250,39 +286,11 @@ bool ScTransferObj::GetData( const datatransfer::DataFlavor& rFlavor, const OUSt
             || nFormat == SotClipboardFormatId::BITMAP
             || nFormat == SotClipboardFormatId::PNG;
 
-        if (bReduceBlockFormat && (m_aBlock.aEnd.Col() == MAXCOL || m_aBlock.aEnd.Row() == MAXROW) &&
-                m_aBlock.aStart.Tab() == m_aBlock.aEnd.Tab())
-        {
-            // Shrink the block here so we don't waste time creating huge
-            // output when whole columns or rows are selected.
+        const bool bIncludeVisual = (nFormat == SotClipboardFormatId::BITMAP ||
+                                     nFormat == SotClipboardFormatId::PNG);
 
-            SCCOL nPrintAreaEndCol = 0;
-            SCROW nPrintAreaEndRow = 0;
-            const bool bIncludeVisual = (nFormat == SotClipboardFormatId::BITMAP ||
-                    nFormat == SotClipboardFormatId::PNG);
-            if (bIncludeVisual)
-                m_pDoc->GetPrintArea( m_aBlock.aStart.Tab(), nPrintAreaEndCol, nPrintAreaEndRow, true );
-
-            // Shrink the area to allow pasting to external applications.
-            // Shrink to real data area for HTML, RTF and RICHTEXT, but include
-            // all objects and top-left area for BITMAP and PNG.
-            SCCOL nStartCol = aReducedBlock.aStart.Col();
-            SCROW nStartRow = aReducedBlock.aStart.Row();
-            SCCOL nEndCol = aReducedBlock.aEnd.Col();
-            SCROW nEndRow = aReducedBlock.aEnd.Row();
-            bool bShrunk = false;
-            m_pDoc->ShrinkToUsedDataArea( bShrunk, aReducedBlock.aStart.Tab(), nStartCol, nStartRow, nEndCol, nEndRow,
-                    false, bIncludeVisual /*bStickyTopRow*/, bIncludeVisual /*bStickyLeftCol*/,
-                    bIncludeVisual /*bConsiderCellNotes*/, bIncludeVisual /*bConsiderCellDrawObjects*/);
-
-            if ( nPrintAreaEndRow > nEndRow )
-                nEndRow = nPrintAreaEndRow;
-
-            if ( nPrintAreaEndCol > nEndCol )
-                nEndCol = nPrintAreaEndCol;
-
-            aReducedBlock = ScRange(nStartCol, nStartRow, aReducedBlock.aStart.Tab(), nEndCol, nEndRow, aReducedBlock.aEnd.Tab());
-        }
+        if (bReduceBlockFormat)
+            aReducedBlock = lcl_reduceBlock(m_pDoc, m_aBlock, bIncludeVisual);
 
         if ( nFormat == SotClipboardFormatId::LINKSRCDESCRIPTOR || nFormat == SotClipboardFormatId::OBJECTDESCRIPTOR )
         {
@@ -373,7 +381,7 @@ bool ScTransferObj::GetData( const datatransfer::DataFlavor& rFlavor, const OUSt
             }
             else if ( rFlavor.DataType.equals( cppu::UnoType<uno::Sequence< sal_Int8 >>::get() ) )
             {
-                //  SetObject converts a stream into a Int8-Sequence
+                //  SetObject converts a stream into an Int8-Sequence
                 bOK = SetObject( &aObj, SCTRANS_TYPE_IMPEX, rFlavor );
             }
             else
@@ -535,6 +543,15 @@ bool ScTransferObj::WriteObject( tools::SvRef<SotStorageStream>& rxOStm, void* p
     return bRet;
 }
 
+sal_Bool SAL_CALL ScTransferObj::isComplex()
+{
+    ScRange aReduced = lcl_reduceBlock(m_pDoc, m_aBlock);
+    size_t nCells = (aReduced.aEnd.Col() - aReduced.aStart.Col() + 1) *
+                    (aReduced.aEnd.Row() - aReduced.aStart.Row() + 1) *
+                    (aReduced.aEnd.Tab() - aReduced.aStart.Tab() + 1);
+    return nCells > 1000;
+}
+
 void ScTransferObj::DragFinished( sal_Int8 nDropAction )
 {
     if ( nDropAction == DND_ACTION_MOVE && !m_bDragWasInternal && !(m_nDragSourceFlags & ScDragSrc::Navigator) )
@@ -627,7 +644,7 @@ ScDocShell* ScTransferObj::GetSourceDocShell()
     return nullptr;    // none set
 }
 
-ScMarkData ScTransferObj::GetSourceMarkData()
+ScMarkData ScTransferObj::GetSourceMarkData() const
 {
     ScMarkData aMarkData;
     ScCellRangesBase* pRangesObj = comphelper::getUnoTunnelImplementation<ScCellRangesBase>( m_xDragSourceRanges );
@@ -910,8 +927,7 @@ const css::uno::Sequence< sal_Int8 >& ScTransferObj::getUnoTunnelId()
 sal_Int64 SAL_CALL ScTransferObj::getSomething( const css::uno::Sequence< sal_Int8 >& rId )
 {
     sal_Int64 nRet;
-    if( ( rId.getLength() == 16 ) &&
-        ( 0 == memcmp( getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<ScTransferObj>(rId) )
     {
         nRet = reinterpret_cast< sal_Int64 >( this );
     }

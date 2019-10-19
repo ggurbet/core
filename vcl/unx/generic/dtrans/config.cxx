@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <cstdio>
 #include <o3tl/any.hxx>
 #include <unotools/configitem.hxx>
 
@@ -71,7 +70,7 @@ DtransX11ConfigItem::DtransX11ConfigItem() :
     m_nSelectionTimeout( 3 )
 {
     Sequence<OUString> aKeys { SELECTION_PROPERTY };
-    Sequence< Any > aValues = GetProperties( aKeys );
+    const Sequence< Any > aValues = GetProperties( aKeys );
 #if OSL_DEBUG_LEVEL > 1
     fprintf( stderr, "found %" SAL_PRIdINT32 " properties for %s\n", aValues.getLength(), SELECTION_PROPERTY );
 #endif

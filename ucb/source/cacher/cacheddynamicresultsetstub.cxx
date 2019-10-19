@@ -26,6 +26,7 @@
 #include <osl/diagnose.h>
 #include <comphelper/processfactory.hxx>
 #include <ucbhelper/getcomponentcontext.hxx>
+#include <ucbhelper/macros.hxx>
 #include <cppuhelper/queryinterface.hxx>
 
 using namespace com::sun::star::lang;
@@ -123,7 +124,7 @@ XTYPEPROVIDER_IMPL_5( CachedDynamicResultSetStub
 
 OUString SAL_CALL CachedDynamicResultSetStub::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.ucb.CachedDynamicResultSetStub" );
+    return "com.sun.star.comp.ucb.CachedDynamicResultSetStub";
 }
 
 sal_Bool SAL_CALL CachedDynamicResultSetStub::supportsService( const OUString& ServiceName )
@@ -151,49 +152,15 @@ CachedDynamicResultSetStubFactory::~CachedDynamicResultSetStubFactory()
 {
 }
 
-
-// CachedDynamicResultSetStubFactory XInterface methods.
-void SAL_CALL CachedDynamicResultSetStubFactory::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL CachedDynamicResultSetStubFactory::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL CachedDynamicResultSetStubFactory::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< XTypeProvider* >(this),
-                                               static_cast< XServiceInfo* >(this),
-                                               static_cast< XCachedDynamicResultSetStubFactory* >(this)
-                                               );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-// CachedDynamicResultSetStubFactory XTypeProvider methods.
-
-
-XTYPEPROVIDER_IMPL_3( CachedDynamicResultSetStubFactory,
-                      XTypeProvider,
-                         XServiceInfo,
-                      XCachedDynamicResultSetStubFactory );
-
-
 // CachedDynamicResultSetStubFactory XServiceInfo methods.
 
 XSERVICEINFO_COMMOM_IMPL( CachedDynamicResultSetStubFactory,
-                          OUString( "com.sun.star.comp.ucb.CachedDynamicResultSetStubFactory" ) )
+                          "com.sun.star.comp.ucb.CachedDynamicResultSetStubFactory" )
 /// @throws css::uno::Exception
 static css::uno::Reference< css::uno::XInterface >
 CachedDynamicResultSetStubFactory_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new CachedDynamicResultSetStubFactory( ucbhelper::getComponentContext(rSMgr) ));
+    css::lang::XServiceInfo* pX = new CachedDynamicResultSetStubFactory( ucbhelper::getComponentContext(rSMgr) );
     return css::uno::Reference< css::uno::XInterface >::query( pX );
 }
 

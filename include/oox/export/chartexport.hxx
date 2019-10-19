@@ -51,6 +51,7 @@ namespace com { namespace sun { namespace star {
         namespace data
         {
             class XDataSequence;
+            class XLabeledDataSequence;
         }
     }
     namespace drawing {
@@ -105,6 +106,7 @@ private:
 
     // members filled by InitRangeSegmentationProperties (retrieved from DataProvider)
     bool mbHasCategoryLabels; //if the categories are only automatically generated this will be false
+    bool mbIsCategoryPositionShifted; //if the value axis crosses the category axis between tickmarks this will be true
 
     //css::uno::Reference< css::drawing::XShapes > mxAdditionalShapes;
     css::uno::Reference< css::chart2::data::XDataSequence > mxCategoriesValues;
@@ -120,6 +122,8 @@ private:
 private:
     sal_Int32 getChartType();
 
+    css::uno::Sequence< css::uno::Sequence< rtl::OUString > > getSplitCategoriesList(const OUString& rRange);
+
     OUString parseFormula( const OUString& rRange );
     void InitPlotArea();
 
@@ -133,8 +137,8 @@ private:
                               css::chart::XChartDocument >& rChartDoc );
     void exportLegend( const css::uno::Reference<
                           css::chart::XChartDocument >& rChartDoc );
-    void exportTitle( const css::uno::Reference<
-                          css::drawing::XShape >& xShape );
+    void exportTitle( const css::uno::Reference< css::drawing::XShape >& xShape,
+                          const OUString* pSubText = nullptr );
     void exportPlotArea( const css::uno::Reference<
                              css::chart::XChartDocument >& rChartDoc );
     void exportFill( const css::uno::Reference< css::beans::XPropertySet >& xPropSet );
@@ -217,7 +221,7 @@ public:
 
     void SetURLTranslator(const std::shared_ptr<URLTransformer>& pTransformer);
 
-    const css::uno::Reference< css::frame::XModel >& getModel(){ return mxChartModel; }
+    const css::uno::Reference< css::frame::XModel >& getModel() const { return mxChartModel; }
 
     void WriteChartObj( const css::uno::Reference< css::drawing::XShape >& xShape, sal_Int32 nID, sal_Int32 nChartCount );
 

@@ -358,7 +358,7 @@ static size_t GetElementsMax( size_t nMemory )
 {
     // Arbitrarily assuming 12 bytes per element, 8 bytes double plus
     // overhead. Stored as an array in an mdds container it's less, but for
-    // strings or mixed matrix it can be much more..
+    // strings or mixed matrix it can be much more...
     constexpr size_t nPerElem = 12;
     if (nMemory)
         return nMemory / nPerElem;
@@ -1198,10 +1198,10 @@ public:
     WalkElementBlocksMultipleValues( const WalkElementBlocksMultipleValues& ) = delete;
     WalkElementBlocksMultipleValues& operator= ( const WalkElementBlocksMultipleValues& ) = delete;
 
-    WalkElementBlocksMultipleValues( WalkElementBlocksMultipleValues&& r ) :
+    WalkElementBlocksMultipleValues(WalkElementBlocksMultipleValues&& r) noexcept :
         mpOp(r.mpOp), maRes(std::move(r.maRes)), mbFirst(r.mbFirst) {}
 
-    WalkElementBlocksMultipleValues& operator= ( WalkElementBlocksMultipleValues&& r )
+    WalkElementBlocksMultipleValues& operator=(WalkElementBlocksMultipleValues&& r) noexcept
     {
         mpOp = r.mpOp;
         maRes = std::move(r.maRes);
@@ -1689,13 +1689,13 @@ public:
     CompareMatrixFunc( const CompareMatrixFunc& ) = delete;
     CompareMatrixFunc& operator= ( const CompareMatrixFunc& ) = delete;
 
-    CompareMatrixFunc( CompareMatrixFunc&& r ) :
+    CompareMatrixFunc(CompareMatrixFunc&& r) noexcept :
         mrComp(r.mrComp),
         mnMatPos(r.mnMatPos),
         mpOptions(r.mpOptions),
         maResValues(std::move(r.maResValues)) {}
 
-    CompareMatrixFunc& operator= ( CompareMatrixFunc&& r )
+    CompareMatrixFunc& operator=(CompareMatrixFunc&& r) noexcept
     {
         mrComp = r.mrComp;
         mnMatPos = r.mnMatPos;
@@ -1815,13 +1815,13 @@ public:
     CompareMatrixToNumericFunc( const CompareMatrixToNumericFunc& ) = delete;
     CompareMatrixToNumericFunc& operator= ( const CompareMatrixToNumericFunc& ) = delete;
 
-    CompareMatrixToNumericFunc( CompareMatrixToNumericFunc&& r ) :
+    CompareMatrixToNumericFunc(CompareMatrixToNumericFunc&& r) noexcept :
         mrComp(r.mrComp),
         mfRightValue(r.mfRightValue),
         mpOptions(r.mpOptions),
         maResValues(std::move(r.maResValues)) {}
 
-    CompareMatrixToNumericFunc& operator= ( CompareMatrixToNumericFunc&& r )
+    CompareMatrixToNumericFunc& operator=(CompareMatrixToNumericFunc&& r) noexcept
     {
         mrComp = r.mrComp;
         mfRightValue = r.mfRightValue;
@@ -1913,13 +1913,13 @@ public:
     ToDoubleArray( const ToDoubleArray& ) = delete;
     ToDoubleArray& operator= ( const ToDoubleArray& ) = delete;
 
-    ToDoubleArray( ToDoubleArray&& r ) :
+    ToDoubleArray(ToDoubleArray&& r) noexcept :
         mfNaN(r.mfNaN), mbEmptyAsZero(r.mbEmptyAsZero)
     {
         moveArray(r);
     }
 
-    ToDoubleArray& operator= ( ToDoubleArray&& r )
+    ToDoubleArray& operator=(ToDoubleArray&& r) noexcept
     {
         mfNaN = r.mfNaN;
         mbEmptyAsZero = r.mbEmptyAsZero;
@@ -1935,8 +1935,8 @@ public:
         {
             case mdds::mtm::element_numeric:
             {
-                numeric_element_block::const_iterator it = numeric_element_block::begin(*node.data);
-                numeric_element_block::const_iterator itEnd = numeric_element_block::end(*node.data);
+                double_element_block::const_iterator it = double_element_block::begin(*node.data);
+                double_element_block::const_iterator itEnd = double_element_block::end(*node.data);
                 for (; it != itEnd; ++it, ++miPos)
                     *miPos = *it;
             }
@@ -2012,8 +2012,8 @@ public:
         {
             case mdds::mtm::element_numeric:
             {
-                numeric_element_block::const_iterator it = numeric_element_block::begin(*node.data);
-                numeric_element_block::const_iterator itEnd = numeric_element_block::end(*node.data);
+                double_element_block::const_iterator it = double_element_block::begin(*node.data);
+                double_element_block::const_iterator itEnd = double_element_block::end(*node.data);
                 for (; it != itEnd; ++it, ++miPos)
                 {
                     if (GetDoubleErrorValue(*miPos) == FormulaError::ElementNaN)
@@ -3308,7 +3308,7 @@ struct COp<T, double>
 
 /** A template for operations where operands are supposed to be numeric.
     A non-numeric (string) operand leads to the configured conversion to number
-    method being called if in interpreter context and an FormulaError::NoValue DoubleError
+    method being called if in interpreter context and a FormulaError::NoValue DoubleError
     if conversion was not possible, else to an unconditional FormulaError::NoValue
     DoubleError.
     An empty operand evaluates to 0.

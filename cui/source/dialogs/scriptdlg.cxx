@@ -24,12 +24,12 @@
 #include <sfx2/objsh.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
+#include <uno/current_context.hxx>
 
 #include <strings.hrc>
 #include <bitmaps.hlst>
 #include <scriptdlg.hxx>
 #include <dialmgr.hxx>
-#include <cfgutil.hxx>
 
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/script/provider/ScriptFrameworkErrorException.hpp>
@@ -47,15 +47,13 @@
 #include <com/sun/star/script/XInvocation.hpp>
 #include <com/sun/star/document/XEmbeddedScripts.hpp>
 
+#include <comphelper/DisableInteractionHelper.hxx>
 #include <comphelper/documentinfo.hxx>
 #include <comphelper/processfactory.hxx>
 
-#include <basic/sbx.hxx>
 #include <svtools/imagemgr.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/diagnose_ex.h>
-#include <vector>
-#include <algorithm>
 
 using namespace ::com::sun::star;
 using namespace css::uno;
@@ -69,7 +67,7 @@ static void ShowErrorDialog( const Any& aException )
     pDlg->Execute();
 }
 
-void SvxScriptOrgDialog::delUserData(weld::TreeIter& rIter)
+void SvxScriptOrgDialog::delUserData(const weld::TreeIter& rIter)
 {
     SFEntry* pUserData = reinterpret_cast<SFEntry*>(m_xScriptsBox->get_id(rIter).toInt64());
     if (pUserData)
@@ -247,14 +245,24 @@ SvxScriptOrgDialog::getLangNodeFromRootNode( Reference< browse::XBrowseNode > co
 
     try
     {
-        Sequence < Reference< browse::XBrowseNode > > children = rootNode->getChildNodes();
-        for ( sal_Int32 n = 0; n < children.getLength(); n++ )
+        auto tryFind = [&] {
+            const Sequence<Reference<browse::XBrowseNode>> children = rootNode->getChildNodes();
+            const auto it = std::find_if(children.begin(), children.end(),
+                                         [&](const Reference<browse::XBrowseNode>& child) {
+                                             return child->getName() == language;
+                                         });
+            return (it != children.end()) ? *it : nullptr;
+        };
         {
-            if ( children[ n ]->getName() == language )
-            {
-                langNode = children[ n ];
-                break;
-            }
+            // First try without Java interaction, to avoid warnings for non-JRE-dependent providers
+            css::uno::ContextLayer layer(
+                new comphelper::NoEnableJavaInteractionContext(css::uno::getCurrentContext()));
+            langNode = tryFind();
+        }
+        if (!langNode)
+        {
+            // Now try with Java interaction enabled
+            langNode = tryFind();
         }
     }
     catch ( Exception& )
@@ -658,8 +666,7 @@ IMPL_LINK(SvxScriptOrgDialog, ButtonHdl, weld::Button&, rButton, void)
                 }
                 catch( Exception const & )
                 {
-                    css::uno::Any ex( cppu::getCaughtException() );
-                    SAL_WARN("cui.dialogs", "Caught exception trying to invoke " << exceptionToString(ex) );
+                    TOOLS_WARN_EXCEPTION("cui.dialogs", "Caught exception trying to invoke" );
                 }
             }
         }
@@ -827,8 +834,7 @@ void SvxScriptOrgDialog::createEntry(weld::TreeIter& rEntry)
         }
         catch( Exception const & )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("cui.dialogs", "Caught exception trying to Create " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION("cui.dialogs", "Caught exception trying to Create" );
         }
     }
     if ( aChildNode.is() )
@@ -875,7 +881,7 @@ void SvxScriptOrgDialog::createEntry(weld::TreeIter& rEntry)
     }
 }
 
-void SvxScriptOrgDialog::renameEntry(weld::TreeIter& rEntry)
+void SvxScriptOrgDialog::renameEntry(const weld::TreeIter& rEntry)
 {
 
     Reference< browse::XBrowseNode >  aChildNode;
@@ -911,8 +917,7 @@ void SvxScriptOrgDialog::renameEntry(weld::TreeIter& rEntry)
         }
         catch( Exception const & )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("cui.dialogs", "Caught exception trying to Rename " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION("cui.dialogs", "Caught exception trying to Rename" );
         }
     }
     if ( aChildNode.is() )
@@ -960,8 +965,7 @@ void SvxScriptOrgDialog::deleteEntry(weld::TreeIter& rEntry)
         }
         catch( Exception const & )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("cui.dialogs", "Caught exception trying to delete " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION("cui.dialogs", "Caught exception trying to delete" );
         }
     }
 

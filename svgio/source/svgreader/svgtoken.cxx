@@ -353,14 +353,14 @@ namespace svgio
             }
         }
 
-        const OUString getStrTitle()
+        OUString getStrTitle()
         {
-            return OUString(aSVGStrTitle);
+            return aSVGStrTitle;
         }
 
-        const OUString getStrDesc()
+        OUString getStrDesc()
         {
-            return OUString(aSVGStrDesc);
+            return aSVGStrDesc;
         }
     } // end of namespace svgreader
 } // end of namespace svgio

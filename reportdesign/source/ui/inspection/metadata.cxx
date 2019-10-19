@@ -118,6 +118,7 @@ namespace rptui
             ,DEF_INFO_1( POSITIONY,                     POSITIONY,                  RPT_POSITIONY,              Composeable )
             ,DEF_INFO_1( WIDTH,                         WIDTH,                      RPT_WIDTH,                  Composeable )
             ,DEF_INFO_1( HEIGHT,                        HEIGHT,                     RPT_HEIGHT,                 Composeable )
+            ,DEF_INFO_1( AUTOGROW,                      AUTOGROW,                   RPT_AUTOGROW,               Composeable )
             ,DEF_INFO_1( FONT,                          FONT,                       RPT_FONT,                   Composeable )
             ,DEF_INFO_1( PREEVALUATED,                  PREEVALUATED,               PREEVALUATED,               Composeable )
             ,DEF_INFO_1( DEEPTRAVERSING,                DEEPTRAVERSING,             DEEPTRAVERSING,             Composeable )
@@ -226,7 +227,7 @@ namespace rptui
 
     void OPropertyInfoService::getExcludeProperties(::std::vector< beans::Property >& _rExcludeProperties,const css::uno::Reference< css::inspection::XPropertyHandler >& _xFormComponentHandler)
     {
-        uno::Sequence< beans::Property > aProps = _xFormComponentHandler->getSupportedProperties();
+        const uno::Sequence< beans::Property > aProps = _xFormComponentHandler->getSupportedProperties();
         static const OUStringLiteral pExcludeProperties[] =
         {
                 "Enabled",
@@ -268,6 +269,7 @@ namespace rptui
                 ,PROPERTY_POSITIONY
                 ,PROPERTY_WIDTH
                 ,PROPERTY_HEIGHT
+                ,PROPERTY_AUTOGROW
                 ,PROPERTY_FONT
                 ,PROPERTY_LABEL
                 ,PROPERTY_LINECOLOR

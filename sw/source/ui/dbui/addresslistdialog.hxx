@@ -47,7 +47,7 @@ class SwAddressListDialog : public SfxDialogController
 
     bool            m_bInSelectHdl;
 
-    VclPtr<SwMailMergeAddressBlockPage> m_xAddressPage;
+    SwMailMergeAddressBlockPage* m_pAddressPage;
 
     css::uno::Reference< css::sdb::XDatabaseContext> m_xDBContext;
 
@@ -59,6 +59,7 @@ class SwAddressListDialog : public SfxDialogController
     std::unique_ptr<weld::Label>    m_xConnecting;
     std::unique_ptr<weld::TreeView> m_xListLB;
     std::unique_ptr<weld::Button>   m_xLoadListPB;
+    std::unique_ptr<weld::Button>   m_xRemovePB;
     std::unique_ptr<weld::Button>   m_xCreateListPB;
     std::unique_ptr<weld::Button>   m_xFilterPB;
     std::unique_ptr<weld::Button>   m_xEditPB;
@@ -71,10 +72,11 @@ class SwAddressListDialog : public SfxDialogController
     DECL_LINK(FilterHdl_Impl, weld::Button&, void);
     DECL_LINK(LoadHdl_Impl, weld::Button&, void);
     DECL_LINK(CreateHdl_Impl, weld::Button&, void);
+    DECL_LINK(RemoveHdl_Impl, weld::Button&, void);
     DECL_LINK(ListBoxSelectHdl_Impl, weld::TreeView&, void);
     DECL_LINK(EditHdl_Impl, weld::Button&, void);
     DECL_LINK(TableSelectHdl_Impl, weld::Button&, void);
-    void TableSelectHdl(weld::Button* pButton);
+    void TableSelectHdl(const weld::Button* pButton);
     DECL_LINK(OKHdl_Impl, weld::Button&, void);
 
     DECL_LINK(StaticListBoxSelectHdl_Impl, void*, void);
@@ -84,15 +86,15 @@ public:
     virtual ~SwAddressListDialog() override;
 
     css::uno::Reference< css::sdbc::XDataSource>
-                        GetSource();
+                        GetSource() const;
 
-    SharedConnection    GetConnection();
+    SharedConnection    GetConnection() const;
 
     css::uno::Reference< css::sdbcx::XColumnsSupplier>
-                        GetColumnsSupplier();
+                        GetColumnsSupplier() const;
 
     const SwDBData&     GetDBData() const       {return m_aDBData;}
-    OUString     GetFilter();
+    OUString     GetFilter() const;
 };
 #endif
 

@@ -108,7 +108,8 @@ public:
     void WriteHyperlinkData(const ::sw::mark::IFieldmark& rFieldmark) override;
 
     void DoComboBox(const OUString& rName, const OUString& rHelp, const OUString& ToolTip,
-                    const OUString& rSelected, css::uno::Sequence<OUString>& rListItems) override;
+                    const OUString& rSelected,
+                    const css::uno::Sequence<OUString>& rListItems) override;
 
     void DoFormText(const SwInputField* pField) override;
 
@@ -149,8 +150,8 @@ protected:
 
 public:
     /// Pass the pDocument, pCurrentPam and pOriginalPam to the base class.
-    RtfExport(RtfExportFilter* pFilter, SwDoc* pDocument, SwPaM* pCurrentPam, SwPaM* pOriginalPam,
-              Writer* pWriter, bool bOutOutlineOnly = false);
+    RtfExport(RtfExportFilter* pFilter, SwDoc* pDocument, std::shared_ptr<SwUnoCursor>& pCurrentPam,
+              SwPaM* pOriginalPam, Writer* pWriter, bool bOutOutlineOnly = false);
 
     RtfExport(const RtfExport&) = delete;
 
@@ -200,7 +201,7 @@ public:
     void InsStyle(sal_uInt16 nId, const OString& rStyle);
     OString* GetStyle(sal_uInt16 nId);
 
-    const SfxItemSet* GetFirstPageItemSet() { return m_pFirstPageItemSet; }
+    const SfxItemSet* GetFirstPageItemSet() const { return m_pFirstPageItemSet; }
 
 private:
     void WriteFonts();

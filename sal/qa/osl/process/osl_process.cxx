@@ -73,8 +73,8 @@ static OUString getExecutablePath()
     osl::Module::getUrlFromAddress(
         reinterpret_cast<oslGenericFunction>(&getExecutablePath), dirPath);
     dirPath = dirPath.copy( 0, dirPath.lastIndexOf('/') );
-    dirPath = dirPath.copy( 0, dirPath.lastIndexOf('/') + 1);
-    dirPath += "Executable";
+    dirPath = dirPath.copy( 0, dirPath.lastIndexOf('/') + 1) +
+        "Executable";
     return dirPath;
 }
 
@@ -302,7 +302,7 @@ public:
 
     // test that parent and child process have the
     // same environment when osl_executeProcess will
-    // be called with out setting new environment
+    // be called without setting new environment
     // variables
    void osl_execProc_parent_equals_child_environment()
     {

@@ -80,7 +80,7 @@ static Sequence< OUString > getSupportedServiceNames_StringResourceImpl()
 
 static OUString getImplementationName_StringResourceImpl()
 {
-    return OUString( "com.sun.star.comp.scripting.StringResource" );
+    return "com.sun.star.comp.scripting.StringResource";
 }
 
 static Reference< XInterface > create_StringResourceImpl(
@@ -272,7 +272,7 @@ Sequence< Locale > StringResourceImpl::getLocales(  )
     Sequence< Locale > aLocalSeq( nSize );
     Locale* pLocales = aLocalSeq.getArray();
     int iTarget = 0;
-    for( auto& pLocaleItem : m_aLocaleItemVector )
+    for( const auto& pLocaleItem : m_aLocaleItemVector )
     {
         pLocales[iTarget] = pLocaleItem->m_locale;
         iTarget++;
@@ -489,7 +489,7 @@ void StringResourceImpl::removeLocale( const Locale& locale )
                 m_pDefaultLocaleItem  == pRemoveItem )
             {
                 LocaleItem* pFallbackItem = nullptr;
-                for( auto& pLocaleItem : m_aLocaleItemVector )
+                for( const auto& pLocaleItem : m_aLocaleItemVector )
                 {
                     if( pLocaleItem.get() != pRemoveItem )
                     {
@@ -610,7 +610,7 @@ LocaleItem* StringResourceImpl::getClosestMatchItemForLocale( const Locale& loca
 
     ::std::vector< Locale > aLocales( m_aLocaleItemVector.size());
     size_t i = 0;
-    for( auto& pLocaleItem : m_aLocaleItemVector )
+    for( const auto& pLocaleItem : m_aLocaleItemVector )
     {
         aLocales[i] = (pLocaleItem ? pLocaleItem->m_locale : Locale());
         ++i;
@@ -683,7 +683,7 @@ StringResourcePersistenceImpl::~StringResourcePersistenceImpl()
 
 OUString StringResourcePersistenceImpl::getImplementationName(  )
 {
-    return OUString( "com.sun.star.comp.scripting.StringResource");
+    return "com.sun.star.comp.scripting.StringResource";
 }
 
 
@@ -1532,11 +1532,8 @@ void StringResourcePersistenceImpl::implScanLocaleNames( const Sequence< OUStrin
     Locale aDefaultLocale;
     bool bDefaultFound = false;
 
-    sal_Int32 nCount = aContentSeq.getLength();
-    const OUString* pFiles = aContentSeq.getConstArray();
-    for( int i = 0 ; i < nCount ; i++ )
+    for( const OUString& aCompleteName : aContentSeq )
     {
-        OUString aCompleteName = pFiles[i];
         OUString aPureName;
         OUString aExtension;
         sal_Int32 iDot = aCompleteName.lastIndexOf( '.' );
@@ -1631,21 +1628,18 @@ static OUString implGetNameScemeForLocaleItem( const LocaleItem* pLocaleItem )
         "StringResourcePersistenceImpl::implGetNameScemeForLocaleItem(): pLocaleItem == NULL" );
     Locale aLocale = pLocaleItem->m_locale;
 
-    OUString aRetStr = aUnder;
-    aRetStr += aLocale.Language;
+    OUString aRetStr = aUnder + aLocale.Language;
 
     OUString aCountry  = aLocale.Country;
     if( !aCountry.isEmpty() )
     {
-        aRetStr += aUnder;
-        aRetStr += aCountry;
+        aRetStr += aUnder + aCountry;
     }
 
     OUString aVariant  = aLocale.Variant;
     if( !aVariant.isEmpty() )
     {
-        aRetStr += aUnder;
-        aRetStr += aVariant;
+        aRetStr += aUnder + aVariant;
     }
     return aRetStr;
 }
@@ -2068,7 +2062,7 @@ static Sequence< OUString > getSupportedServiceNames_StringResourceWithStorageIm
 
 static OUString getImplementationName_StringResourceWithStorageImpl()
 {
-    return OUString( "com.sun.star.comp.scripting.StringResourceWithStorage" );
+    return "com.sun.star.comp.scripting.StringResourceWithStorage";
 }
 
 static Reference< XInterface > create_StringResourceWithStorageImpl(
@@ -2304,10 +2298,9 @@ void StringResourceWithStorageImpl::setStorage( const Reference< XStorage >& Sto
 // Scan locale properties files
 void StringResourceWithStorageImpl::implScanLocales()
 {
-    Reference< container::XNameAccess > xNameAccess( m_xStorage, UNO_QUERY );
-    if( xNameAccess.is() )
+    if( m_xStorage.is() )
     {
-        Sequence< OUString > aContentSeq = xNameAccess->getElementNames();
+        Sequence< OUString > aContentSeq = m_xStorage->getElementNames();
         implScanLocaleNames( aContentSeq );
     }
 
@@ -2355,7 +2348,7 @@ static Sequence< OUString > getSupportedServiceNames_StringResourceWithLocationI
 
 static OUString getImplementationName_StringResourceWithLocationImpl()
 {
-    return OUString( "com.sun.star.comp.scripting.StringResourceWithLocation" );
+    return "com.sun.star.comp.scripting.StringResourceWithLocation";
 }
 
 static Reference< XInterface > create_StringResourceWithLocationImpl(
@@ -2651,7 +2644,7 @@ bool StringResourceWithLocationImpl::implLoadLocale( LocaleItem* pLocaleItem )
     return bSuccess;
 }
 
-const Reference< ucb::XSimpleFileAccess3 > StringResourceWithLocationImpl::getFileAccess()
+const Reference< ucb::XSimpleFileAccess3 > & StringResourceWithLocationImpl::getFileAccess()
 {
     ::osl::MutexGuard aGuard( getMutex() );
 

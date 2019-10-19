@@ -18,7 +18,6 @@
  */
 
 #include <tools/diagnose_ex.h>
-#include <tools/stream.hxx>
 #include <sal/log.hxx>
 
 #include <comphelper/lok.hxx>
@@ -28,22 +27,12 @@
 #include <vcl/event.hxx>
 #include <vcl/help.hxx>
 #include <vcl/floatwin.hxx>
-#include <vcl/wrkwin.hxx>
-#include <vcl/timer.hxx>
 #include <vcl/decoview.hxx>
-#include <vcl/bitmap.hxx>
 #include <vcl/menu.hxx>
-#include <vcl/button.hxx>
-#include <vcl/gradient.hxx>
-#include <vcl/i18nhelp.hxx>
 #include <vcl/taskpanelist.hxx>
 #include <vcl/controllayout.hxx>
-#include <vcl/toolbox.hxx>
-#include <vcl/dockingarea.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandinfoprovider.hxx>
-#include <vcl/IDialogRenderable.hxx>
-#include <impglyphitem.hxx>
 
 #include <salinst.hxx>
 #include <svdata.hxx>
@@ -59,14 +48,9 @@
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/accessibility/XAccessible.hpp>
-#include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <vcl/toolkit/unowrap.hxx>
 
-#include <vcl/unohelp.hxx>
 #include <vcl/configsettings.hxx>
-
-#include <vcl/lazydelete.hxx>
-#include <vcl/vcllayout.hxx>
 
 #include <map>
 #include <string_view>
@@ -1828,12 +1812,9 @@ void Menu::ImplPaint(vcl::RenderContext& rRenderContext, Size const & rSize,
                             nState |= ControlState::ENABLED;
                         if (bHighlighted)
                             nState |= ControlState::SELECTED;
-                        int nSepPad = ImplGetSVData()->maNWFData.mnMenuSeparatorBorderX;
-                        Point aMpos (aPos);
-                        aMpos.AdjustX(nSepPad );
                         Size aSz(pData->aSz);
-                        aSz.setWidth( aOutSz.Width() - 2*nOuterSpaceX - 2 * nSepPad );
-                        tools::Rectangle aItemRect(aMpos, aSz);
+                        aSz.setWidth( aOutSz.Width() - 2*nOuterSpaceX );
+                        tools::Rectangle aItemRect(aPos, aSz);
                         MenupopupValue aVal(nTextPos - GUTTERBORDER, aItemRect);
                         bNativeOk = rRenderContext.DrawNativeControl(ControlType::MenuPopup, ControlPart::Separator,
                                                                      aItemRect, nState, aVal, OUString());
@@ -1976,7 +1957,7 @@ void Menu::ImplPaint(vcl::RenderContext& rRenderContext, Size const & rSize,
                                                 : rRenderContext.GetSettings().GetStyleSettings().GetMenuColor();
                         rRenderContext.SetBackground(Wallpaper(aBg));
                     }
-                    // how much space is there for the text ?
+                    // how much space is there for the text?
                     long nMaxItemTextWidth = aOutSz.Width() - aTmpPos.X() - nExtra - nOuterSpaceX;
                     if (!IsMenuBar() && pData->aAccelKey.GetCode() && !ImplAccelDisabled())
                     {
@@ -2538,7 +2519,7 @@ bool MenuBar::ImplHandleCmdEvent( const CommandEvent& rCEvent )
         if (rCEvent.GetCommand() == CommandEventId::ModKeyChange && ImplGetSVData()->maNWFData.mbAutoAccel)
         {
             const CommandModKeyData* pCData = rCEvent.GetModKeyData ();
-            if (pWin->nHighlightedItem == ITEMPOS_INVALID)
+            if (pWin->m_nHighlightedItem == ITEMPOS_INVALID)
             {
                 if (pCData && pCData->IsMod2() && pCData->IsDown())
                     pWin->SetMBWHideAccel(false);

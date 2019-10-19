@@ -17,12 +17,9 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <string.h>
 #include <tools/debug.hxx>
-#include <vcl/svapp.hxx>
 #include <tools/poly.hxx>
 #include <vcl/event.hxx>
-#include <vcl/i18nhelp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/vcllayout.hxx>
 #include <vcl/virdev.hxx>
@@ -381,7 +378,7 @@ void Ruler::ImplInvertLines(vcl::RenderContext& rRenderContext)
         aRect.SetRight( nY );
 
     // Draw lines
-    for (RulerLine & rLine : mpData->pLines)
+    for (const RulerLine & rLine : mpData->pLines)
     {
         const long n = rLine.nPos + nNullWinOff;
         if ((n >= nRulX1) && (n < nRulX2))
@@ -959,7 +956,7 @@ void Ruler::ImplDrawTab(vcl::RenderContext& rRenderContext, const Point& rPos, s
 
 void Ruler::ImplDrawTabs(vcl::RenderContext& rRenderContext, long nMin, long nMax, long nVirTop, long nVirBottom)
 {
-    for (RulerTab & rTab : mpData->pTabs)
+    for (const RulerTab & rTab : mpData->pTabs)
     {
         if (rTab.nStyle & RULER_STYLE_INVISIBLE)
             continue;
@@ -2726,7 +2723,7 @@ long Ruler::GetMargin2() const
 }
 
 
-bool Ruler::GetTextRTL()
+bool Ruler::GetTextRTL() const
 {
     return mpData->bTextRTL;
 }

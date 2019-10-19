@@ -31,6 +31,7 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <com/sun/star/datatransfer/XTransferable2.hpp>
+#include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboardOwner.hpp>
 #include <com/sun/star/datatransfer/dnd/DNDConstants.hpp>
 #include <com/sun/star/datatransfer/dnd/XDragGestureListener.hpp>
@@ -170,6 +171,8 @@ private:
     std::unique_ptr<TransferableObjectDescriptor>                             mxObjDesc;
 
 protected:
+    ~TransferableHelper();
+
     const css::uno::Reference< css::datatransfer::clipboard::XClipboard >&
         getOwnClipboard() const { return mxClipboard; }
 
@@ -183,6 +186,7 @@ private:
     // Transferable2
     virtual css::uno::Any SAL_CALL getTransferData2(
         const css::datatransfer::DataFlavor& rFlavor, const OUString& rDestDoc ) override;
+    virtual sal_Bool SAL_CALL isComplex() override;
 
     // XEventListener
     virtual void SAL_CALL disposing( const css::lang::EventObject& Source ) override;
@@ -248,8 +252,13 @@ public:
 
     void                PrepareOLE( const TransferableObjectDescriptor& rObjDesc );
 
+    void                CopyToClipboard(const css::uno::Reference<css::datatransfer::clipboard::XClipboard> &rClipboard) const;
+    void                CopyToSelection(const css::uno::Reference<css::datatransfer::clipboard::XClipboard> &rClipboard) const;
+
+    // convenience versions of the above which extract the XClipboard from the pWindow
     void                CopyToClipboard( vcl::Window *pWindow ) const;
     void                CopyToSelection( vcl::Window *pWindow ) const;
+
     void                StartDrag( vcl::Window* pWindow, sal_Int8 nDragSourceActions );
 
     static void         ClearSelection( vcl::Window *pWindow );
@@ -282,7 +291,7 @@ public:
 
                                 TransferableDataHelper();
                                 TransferableDataHelper( const TransferableDataHelper& rDataHelper );
-                                TransferableDataHelper( TransferableDataHelper&& rDataHelper );
+                                TransferableDataHelper( TransferableDataHelper&& rDataHelper ) noexcept;
                                 TransferableDataHelper( const css::uno::Reference< css::datatransfer::XTransferable >& rxTransferable );
                                 ~TransferableDataHelper();
 
@@ -502,6 +511,9 @@ public:
     void                StartDrag( vcl::Window* pWindow, sal_Int8 nDragSourceActions,
                                    const Link<sal_Int8,void>& rCallbck );
 };
+
+css::uno::Reference<css::datatransfer::clipboard::XClipboard> VCL_DLLPUBLIC GetSystemClipboard();
+css::uno::Reference<css::datatransfer::clipboard::XClipboard> VCL_DLLPUBLIC GetSystemPrimarySelection();
 
 #endif
 

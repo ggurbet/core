@@ -480,7 +480,7 @@ void CustomAnimationList::StartDrag( sal_Int8 nAction, const Point& rPosPixel )
         }
     }
 
-    // Allow normal proccessing; this calls our NotifyStartDrag().
+    // Allow normal processing; this calls our NotifyStartDrag().
     SvTreeListBox::StartDrag( nAction, rPosPixel );
 }
 
@@ -693,7 +693,7 @@ sal_Int8 CustomAnimationList::ExecuteDrop( const ExecuteDropEvent& /*rEvt*/ )
 
         // Build list of effects
         std::vector< CustomAnimationEffectPtr > aEffects;
-        for( auto &pEntry : mDndEffectsSelected )
+        for( const auto &pEntry : mDndEffectsSelected )
         {
             CustomAnimationListEntry* pCustomAnimationEffect = static_cast< CustomAnimationListEntry* >( pEntry );
             aEffects.push_back( pCustomAnimationEffect->getEffect() );
@@ -915,8 +915,7 @@ void CustomAnimationList::update()
             {
                 SvTreeListEntry* pLBoxEntry = new CustomAnimationListEntry;
                 pLBoxEntry->AddItem(std::make_unique<SvLBoxContextBmp>(Image(), Image(), false));
-                OUString aDescription = SdResId(STR_CUSTOMANIMATION_TRIGGER);
-                aDescription += ": ";
+                OUString aDescription = SdResId(STR_CUSTOMANIMATION_TRIGGER) + ": ";
                 aDescription += getShapeDescription( xShape, false );
                 pLBoxEntry->AddItem(std::make_unique<CustomAnimationTriggerEntryItem>(aDescription));
                 Insert( pLBoxEntry );

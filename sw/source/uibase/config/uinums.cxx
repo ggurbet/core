@@ -121,14 +121,8 @@ SwNumRulesWithName::SwNumRulesWithName( const SwNumRule &rCopy,
     }
 }
 
-SwNumRulesWithName::SwNumRulesWithName()
-{
-    memset(aFormats, 0, sizeof(aFormats));
-}
-
 SwNumRulesWithName::SwNumRulesWithName( const SwNumRulesWithName& rCopy )
 {
-    memset( aFormats, 0, sizeof( aFormats ));
     *this = rCopy;
 }
 
@@ -198,13 +192,11 @@ SwNumRulesWithName::SwNumFormatGlobal::SwNumFormatGlobal( const SwNumFormat& rFo
         {
             SfxItemIter aIter( pFormat->GetAttrSet() );
             const SfxPoolItem *pCurr = aIter.GetCurItem();
-            while( true )
+            do
             {
                 m_Items.push_back(std::unique_ptr<SfxPoolItem>(pCurr->Clone()));
-                if( aIter.IsAtEnd() )
-                    break;
                 pCurr = aIter.NextItem();
-            }
+            } while (pCurr);
         }
 
         aFormat.SetCharFormat( nullptr );

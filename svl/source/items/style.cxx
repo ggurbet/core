@@ -327,10 +327,9 @@ OUString SfxStyleSheetBase::GetDescription( MapUnit eMetric )
 {
     SfxItemIter aIter( GetItemSet() );
     OUStringBuffer aDesc;
-    const SfxPoolItem* pItem = aIter.FirstItem();
 
     IntlWrapper aIntlWrapper(SvtSysLocale().GetUILanguageTag());
-    while ( pItem )
+    for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
     {
         OUString aItemPresentation;
 
@@ -343,7 +342,6 @@ OUString SfxStyleSheetBase::GetDescription( MapUnit eMetric )
             if ( !aItemPresentation.isEmpty() )
                 aDesc.append(aItemPresentation);
         }
-        pItem = aIter.NextItem();
     }
     return aDesc.makeStringAndClear();
 }
@@ -637,7 +635,7 @@ SfxStyleSheetBase* SfxStyleSheetBasePool::Create( const SfxStyleSheetBase& r )
 
 SfxStyleSheetBase& SfxStyleSheetBasePool::Make( const OUString& rName, SfxStyleFamily eFam, SfxStyleSearchBits mask)
 {
-    OSL_ENSURE( eFam != SfxStyleFamily::All, "svl::SfxStyleSheetBasePool::Make(), FamilyAll is not a allowed Familie" );
+    OSL_ENSURE( eFam != SfxStyleFamily::All, "svl::SfxStyleSheetBasePool::Make(), FamilyAll is not an allowed Family" );
 
     SfxStyleSheetIterator aIter(this, eFam, mask);
     rtl::Reference< SfxStyleSheetBase > xStyle( aIter.Find( rName ) );
@@ -742,7 +740,7 @@ void SfxStyleSheetBasePool::Remove( SfxStyleSheetBase* p )
     if( !bWasRemoved )
         return;
 
-    // Adapt all styles which have this style as parant
+    // Adapt all styles which have this style as parent
     ChangeParent( p->GetName(), p->GetParent() );
 
     // #120015# Do not dispose, the removed StyleSheet may still be used in
@@ -790,7 +788,7 @@ struct StyleSheetDisposerFunctor final : public svl::StyleSheetDisposer
     void
     Dispose(rtl::Reference<SfxStyleSheetBase> styleSheet) override
     {
-        cppu::OWeakObject* weakObject = static_cast< ::cppu::OWeakObject* >(styleSheet.get());
+        cppu::OWeakObject* weakObject = styleSheet.get();
         css::uno::Reference< css::lang::XComponent > xComp( weakObject, css::uno::UNO_QUERY );
         if( xComp.is() ) try
         {
@@ -914,11 +912,7 @@ SfxUnoStyleSheet* SfxUnoStyleSheet::getUnoStyleSheet( const css::uno::Reference<
 {
     SfxUnoStyleSheet* pRet = dynamic_cast< SfxUnoStyleSheet* >( xStyle.get() );
     if( !pRet )
-    {
-        css::uno::Reference< css::lang::XUnoTunnel > xUT( xStyle, css::uno::UNO_QUERY );
-        if( xUT.is() )
-            pRet = reinterpret_cast<SfxUnoStyleSheet*>(sal::static_int_cast<sal_uIntPtr>(xUT->getSomething( SfxUnoStyleSheet::getIdentifier())));
-    }
+        pRet = comphelper::getUnoTunnelImplementation<SfxUnoStyleSheet>(xStyle);
     return pRet;
 }
 
@@ -927,14 +921,12 @@ SfxUnoStyleSheet* SfxUnoStyleSheet::getUnoStyleSheet( const css::uno::Reference<
  */
 ::sal_Int64 SAL_CALL SfxUnoStyleSheet::getSomething( const css::uno::Sequence< ::sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16 && 0 == memcmp( getIdentifier().getConstArray(), rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SfxUnoStyleSheet>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
     }
-    else
-    {
-        return 0;
-    }
+
+    return 0;
 }
 
 void
@@ -948,7 +940,7 @@ namespace
     class theSfxUnoStyleSheetIdentifier : public rtl::Static< UnoTunnelIdInit, theSfxUnoStyleSheetIdentifier > {};
 }
 
-const css::uno::Sequence< ::sal_Int8 >& SfxUnoStyleSheet::getIdentifier()
+const css::uno::Sequence< ::sal_Int8 >& SfxUnoStyleSheet::getUnoTunnelId()
 {
     return theSfxUnoStyleSheetIdentifier::get().getSeq();
 }

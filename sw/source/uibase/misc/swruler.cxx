@@ -119,7 +119,7 @@ void SwCommentRuler::DrawCommentControl(vcl::RenderContext& rRenderContext)
 
     // Paint comment control background
     // TODO Check if these are best colors to be used
-    Color aBgColor = GetFadedColor( rStyleSettings.GetDarkShadowColor(), rStyleSettings.GetWorkspaceColor() );
+    Color aBgColor = GetFadedColor( rStyleSettings.GetDialogColor(), rStyleSettings.GetWorkspaceColor() );
     maVirDev->SetFillColor( aBgColor );
 
     if ( mbIsHighlighted || !bIsCollapsed )
@@ -188,8 +188,7 @@ void SwCommentRuler::DrawCommentControl(vcl::RenderContext& rRenderContext)
 
     // Draw arrow
     // FIXME consistence of button colors. https://opengrok.libreoffice.org/xref/core/vcl/source/control/button.cxx#785
-    Color aArrowColor = GetFadedColor(COL_BLACK, rStyleSettings.GetShadowColor());
-    ImplDrawArrow(*maVirDev, aArrowPos.X(), aArrowPos.Y(), aArrowColor, bArrowToRight);
+    ImplDrawArrow(*maVirDev, aArrowPos.X(), aArrowPos.Y(), aTextColor, bArrowToRight);
 
     // Blit comment control
     rRenderContext.DrawOutDev(aControlRect.TopLeft(), aControlRect.GetSize(), Point(), aControlRect.GetSize(), *maVirDev);
@@ -254,7 +253,7 @@ void SwCommentRuler::MouseButtonDown( const MouseEvent& rMEvt )
     Invalidate();
 }
 
-const std::string SwCommentRuler::CreateJsonNotification()
+std::string SwCommentRuler::CreateJsonNotification()
 {
     boost::property_tree::ptree jsonNotif;
 
@@ -269,8 +268,7 @@ const std::string SwCommentRuler::CreateJsonNotification()
 
     std::stringstream aStream;
     boost::property_tree::write_json(aStream, jsonNotif);
-    std::string aPayload = aStream.str();
-    return aPayload;
+    return aStream.str();
 }
 
 void SwCommentRuler::NotifyKit()

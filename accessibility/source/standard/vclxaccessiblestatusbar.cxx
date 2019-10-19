@@ -220,7 +220,7 @@ void VCLXAccessibleStatusBar::ProcessWindowEvent( const VclWindowEvent& rVclWind
                 m_pStatusBar = nullptr;
 
                 // dispose all children
-                for (Reference<XAccessible>& i : m_aAccessibleChildren)
+                for (const Reference<XAccessible>& i : m_aAccessibleChildren)
                 {
                     Reference< XComponent > xComponent( i, UNO_QUERY );
                     if ( xComponent.is() )
@@ -250,7 +250,7 @@ void VCLXAccessibleStatusBar::disposing()
         m_pStatusBar = nullptr;
 
         // dispose all children
-        for (Reference<XAccessible>& i : m_aAccessibleChildren)
+        for (const Reference<XAccessible>& i : m_aAccessibleChildren)
         {
             Reference< XComponent > xComponent( i, UNO_QUERY );
             if ( xComponent.is() )
@@ -266,7 +266,7 @@ void VCLXAccessibleStatusBar::disposing()
 
 OUString VCLXAccessibleStatusBar::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.toolkit.AccessibleStatusBar" );
+    return "com.sun.star.comp.toolkit.AccessibleStatusBar";
 }
 
 

@@ -23,10 +23,8 @@
 #include <rtl/ustring.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <svx/langbox.hxx>
-#include <svx/fontlb.hxx>
 #include <tools/color.hxx>
 #include <vcl/customweld.hxx>
-#include <vcl/toolbox.hxx>
 #include <vcl/weld.hxx>
 
 class SvxNumberFormatShell;
@@ -59,16 +57,13 @@ public:
 
 class SvxNumberFormatTabPage : public SfxTabPage
 {
-    friend class VclPtr<SvxNumberFormatTabPage>;
-    using SfxTabPage::DeactivatePage;
     static const sal_uInt16 pRanges[];
 
 public:
-    virtual ~SvxNumberFormatTabPage() override;
-    virtual void dispose() override;
-
-    static VclPtr<SfxTabPage>      Create( TabPageParent pParent,
+    SvxNumberFormatTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                     const SfxItemSet* rAttrSet );
+    virtual ~SvxNumberFormatTabPage() override;
     // Returns area information.
     static const sal_uInt16* GetRanges() { return pRanges; }
 
@@ -78,9 +73,8 @@ public:
 
     void                    HideLanguage(bool bFlag=true);
     virtual void            PageCreated(const SfxAllItemSet& aSet) override;
-private:
-    SvxNumberFormatTabPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs);
 
+private:
     std::unique_ptr<SvxNumberInfoItem>    pNumItem;
     std::unique_ptr<SvxNumberFormatShell> pNumFmtShell;
     sal_uLong               nInitFormat;
@@ -118,7 +112,7 @@ private:
     std::unique_ptr<weld::Button> m_xIbRemove;
     std::unique_ptr<weld::Label> m_xFtComment;
     std::unique_ptr<weld::Entry> m_xEdComment;
-    std::unique_ptr<LanguageBox> m_xLbLanguage;
+    std::unique_ptr<SvxLanguageBox> m_xLbLanguage;
     std::unique_ptr<weld::CustomWeld> m_xWndPreview;
 
     void    Init_Impl();
@@ -138,7 +132,7 @@ private:
     bool    Click_Impl(weld::Button& rIB);
     // Handler
     DECL_LINK(LostFocusHdl_Impl, weld::Widget&, void);
-    DECL_LINK(DoubleClickHdl_Impl, weld::TreeView&, void);
+    DECL_LINK(DoubleClickHdl_Impl, weld::TreeView&, bool);
     DECL_LINK(SelFormatListBoxHdl_Impl, weld::ComboBox&, void);
     DECL_LINK(SelFormatTreeListBoxHdl_Impl, weld::TreeView&, void);
     DECL_LINK(SelFormatClickHdl_Impl, weld::Button&, void);

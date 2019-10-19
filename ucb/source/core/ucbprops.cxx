@@ -34,6 +34,7 @@
 #include <com/sun/star/ucb/SynchronizePolicy.hpp>
 #include <com/sun/star/ucb/VerificationMode.hpp>
 #include <com/sun/star/ucb/XDataContainer.hpp>
+#include <ucbhelper/macros.hxx>
 
 #include "ucbprops.hxx"
 
@@ -195,7 +196,7 @@ UcbPropertiesManager::~UcbPropertiesManager()
 // XServiceInfo methods.
 
 XSERVICEINFO_COMMOM_IMPL( UcbPropertiesManager,
-                          OUString( "com.sun.star.comp.ucb.UcbPropertiesManager" ) )
+                          "com.sun.star.comp.ucb.UcbPropertiesManager" )
 /// @throws css::uno::Exception
 static css::uno::Reference< css::uno::XInterface >
 UcbPropertiesManager_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & /*rSMgr*/ )
@@ -231,7 +232,7 @@ Property SAL_CALL UcbPropertiesManager::getPropertyByName( const OUString& aName
     if ( queryProperty( aName, aProp ) )
         return aProp;
 
-    throw UnknownPropertyException();
+    throw UnknownPropertyException(aName);
 }
 
 

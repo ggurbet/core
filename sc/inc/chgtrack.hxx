@@ -426,7 +426,7 @@ public:
     short               GetCutOffTo() const { return nCutOffTo; }
 };
 
-class ScChangeActionDel : public ScChangeAction
+class ScChangeActionDel final : public ScChangeAction
 {
     friend class ScChangeTrack;
     friend void ScChangeAction::Accept();
@@ -499,7 +499,7 @@ public:
 };
 
 //  ScChangeActionMove
-class ScChangeActionMove : public ScChangeAction
+class ScChangeActionMove final : public ScChangeAction
 {
     friend class ScChangeTrack;
     friend struct std::default_delete<ScChangeActionMove>; // for std::unique_ptr
@@ -920,7 +920,7 @@ class SAL_DLLPUBLIC_RTTI ScChangeTrack : public utl::ConfigurationListener
     void                Remove( ScChangeAction* );
     void                MasterLinks( ScChangeAction* );
 
-                                // Content on top an Position
+                                // Content on top at Position
     ScChangeActionContent*  SearchContentAt( const ScBigAddress&,
                                     const ScChangeAction* pButNotThis ) const;
     void                DeleteGeneratedDelContent(

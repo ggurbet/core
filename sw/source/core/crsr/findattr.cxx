@@ -24,22 +24,18 @@
 #include <i18nutil/searchopt.hxx>
 #include <unotools/syslocale.hxx>
 #include <hintids.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/settings.hxx>
 #include <svl/itemiter.hxx>
 #include <svl/whiter.hxx>
-#include <editeng/formatbreakitem.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/fontitem.hxx>
 #include <fmtpdsc.hxx>
 #include <txatbase.hxx>
-#include <fchrfmt.hxx>
 #include <charfmt.hxx>
+#include <crsrsh.hxx>
 #include <doc.hxx>
 #include <IDocumentUndoRedo.hxx>
 #include <IDocumentState.hxx>
 #include <swcrsr.hxx>
-#include <editsh.hxx>
 #include <ndtxt.hxx>
 #include <pamtyp.hxx>
 #include <txtfrm.hxx>
@@ -287,7 +283,7 @@ void SwAttrCheckArr::SetNewSet( const SwTextNode& rTextNd, const SwPaM& rPam )
     const SfxPoolItem* pFndItem;
     sal_uInt16 nWhich;
 
-    while( true )
+    do
     {
         if( IsInvalidItem( pItem ) )
         {
@@ -316,10 +312,8 @@ void SwAttrCheckArr::SetNewSet( const SwTextNode& rTextNd, const SwPaM& rPam )
             }
         }
 
-        if( aIter.IsAtEnd() )
-            break;
         pItem = aIter.NextItem();
-    }
+    } while (pItem);
 }
 
 static bool
@@ -864,7 +858,7 @@ static bool lcl_Search( const SwContentNode& rCNd, const SfxItemSet& rCmpSet, bo
     const SfxPoolItem* pNdItem;
     sal_uInt16 nWhich;
 
-    while( true )
+    do
     {
         if( IsInvalidItem( pItem ))
         {
@@ -881,10 +875,8 @@ static bool lcl_Search( const SwContentNode& rCNd, const SfxItemSet& rCmpSet, bo
                 return false;
         }
 
-        if( aIter.IsAtEnd() )
-            break;
         pItem = aIter.NextItem();
-    }
+    } while (pItem);
     return true; // found
 }
 
@@ -1198,9 +1190,12 @@ static bool FindAttrsImpl(SwPaM & rSearchPam,
         }
     }
 
-    // if backward search, switch point and mark
-    if( bFound && !bSrchForward )
-        rSearchPam.Exchange();
+    // in search direction, mark precedes point, because the next iteration
+    // starts at point
+    if (bFound)
+    {
+        rSearchPam.Normalize(!bSrchForward);
+    }
 
     return bFound;
 }
@@ -1352,17 +1347,15 @@ int SwFindParaAttr::DoFind(SwPaM & rCursor, SwMoveFnCollection const & fnMove,
 
             SfxItemIter aIter( *pSet );
             const SfxPoolItem* pItem = aIter.GetCurItem();
-            while( true )
+            do
             {
                 // reset all that are not set with pool defaults
                 if( !IsInvalidItem( pItem ) && SfxItemState::SET !=
                     pReplSet->GetItemState( pItem->Which(), false ))
                     aSet.Put( pPool->GetDefaultItem( pItem->Which() ));
 
-                if( aIter.IsAtEnd() )
-                    break;
                 pItem = aIter.NextItem();
-            }
+            } while (pItem);
             aSet.Put( *pReplSet );
             rCursor.GetDoc()->getIDocumentContentOperations().InsertItemSet(
                     rCursor, aSet, SetAttrMode::DEFAULT, m_pLayout);

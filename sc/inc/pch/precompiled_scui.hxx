@@ -13,7 +13,7 @@
  manual changes will be rewritten by the next run of update_pch.sh (which presumably
  also fixes all possible problems, so it's usually better to use it).
 
- Generated on 2019-04-29 21:16:41 using:
+ Generated on 2019-10-15 16:58:12 using:
  ./bin/update_pch sc scui --cutoff=1 --exclude:system --exclude:module --include:local
 
  If after updating build fails, use the following command to locate conflicting headers:
@@ -22,6 +22,7 @@
 
 #if PCH_LEVEL >= 1
 #include <memory>
+#include <utility>
 #include <vector>
 #endif // PCH_LEVEL >= 1
 #if PCH_LEVEL >= 2
@@ -33,19 +34,16 @@
 #include <rtl/ustrbuf.hxx>
 #include <sal/config.h>
 #include <sal/types.h>
-#include <vcl/builder.hxx>
 #include <vcl/button.hxx>
 #include <vcl/combobox.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/event.hxx>
 #include <vcl/field.hxx>
 #include <vcl/fixed.hxx>
-#include <vcl/layout.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/ptrstyle.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/waitobj.hxx>
 #include <vcl/weld.hxx>
 #endif // PCH_LEVEL >= 2
 #if PCH_LEVEL >= 3
@@ -86,7 +84,6 @@
 #include <svl/cjkoptions.hxx>
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
-#include <svl/memberid.h>
 #include <svl/sharedstringpool.hxx>
 #include <svl/style.hxx>
 #include <svl/typedwhich.hxx>
@@ -104,8 +101,9 @@
 #include <svx/numinf.hxx>
 #include <svx/pageitem.hxx>
 #include <svx/txencbox.hxx>
-#include <svx/unomid.hxx>
 #include <tools/color.hxx>
+#include <tools/fldunit.hxx>
+#include <tools/lineend.hxx>
 #include <unotools/collatorwrapper.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/transliterationwrapper.hxx>

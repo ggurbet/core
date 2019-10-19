@@ -223,7 +223,7 @@ double ScInterpreter::GetCellValueOrZero( const ScAddress& rPos, ScRefCellValue&
         {
             fValue = rCell.mfValue;
             nCurFmtIndex = pDok->GetNumberFormat( mrContext, rPos );
-            nCurFmtType = pFormatter->GetType( nCurFmtIndex );
+            nCurFmtType = mrContext.GetNumberFormatType( nCurFmtIndex );
             if ( bCalcAsShown && fValue != 0.0 )
                 fValue = pDok->RoundValueAsShown( fValue, nCurFmtIndex, &mrContext );
         }
@@ -1373,7 +1373,7 @@ void ScInterpreter::PopRefListPushMatrixOrRef()
             {
                 // Only single cells can be stuffed into a column vector.
                 // XXX NOTE: Excel doesn't do this but returns #VALUE! instead.
-                // Though there's no compelling reason not to..
+                // Though there's no compelling reason not to...
                 for (const auto & rRef : *pv)
                 {
                     if (rRef.Ref1 != rRef.Ref2)
@@ -1627,7 +1627,7 @@ ScMatrixRef ScInterpreter::PopMatrix()
             case svMatrix:
                 {
                     // ScMatrix itself maintains an im/mutable flag that should
-                    // be obeyed where necessary.. so we can return ScMatrixRef
+                    // be obeyed where necessary... so we can return ScMatrixRef
                     // here instead of ScConstMatrixRef.
                     ScMatrix* pMat = const_cast<FormulaToken*>(p)->GetMatrix();
                     if ( pMat )
@@ -1929,7 +1929,7 @@ void ScInterpreter::PushNoValue()
     PushError( FormulaError::NoValue);
 }
 
-bool ScInterpreter::IsMissing()
+bool ScInterpreter::IsMissing() const
 {
     return sp && pStack[sp - 1]->GetType() == svMissing;
 }
@@ -2660,7 +2660,7 @@ void ScInterpreter::ScExternal()
                 else
                 {
                     // enable asyncs after loading
-                    rArr.AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
+                    pArr->AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
                     // assure identical handler with identical call?
                     double nErg = 0.0;
                     ppParam[0] = &nErg;
@@ -3020,7 +3020,7 @@ void ScInterpreter::ScExternal()
 
             if ( aCall.HasVarRes() )                        // handle async functions
             {
-                rArr.AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
+                pArr->AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
                 uno::Reference<sheet::XVolatileResult> xRes = aCall.GetVarRes();
                 ScAddInListener* pLis = ScAddInListener::Get( xRes );
                 // In case there is no pMyFormulaCell, i.e. while interpreting
@@ -3767,10 +3767,10 @@ void ScInterpreter::ScTTT()
 }
 
 ScInterpreter::ScInterpreter( ScFormulaCell* pCell, ScDocument* pDoc, ScInterpreterContext& rContext,
-        const ScAddress& rPos, ScTokenArray& r )
+        const ScAddress& rPos, ScTokenArray& r, bool bForGroupThreading )
     : aCode(r)
     , aPos(rPos)
-    , rArr(r)
+    , pArr(&r)
     , mrContext(rContext)
     , pDok(pDoc)
     , mpLinkManager(pDok->GetLinkManager())
@@ -3804,7 +3804,10 @@ ScInterpreter::ScInterpreter( ScFormulaCell* pCell, ScDocument* pDoc, ScInterpre
     else
         bMatrixFormula = false;
 
-    if (!bGlobalStackInUse)
+    // Lets not use the global stack while formula-group-threading.
+    // as it complicates its life-cycle mgmt since for threading formula-groups,
+    // ScInterpreter is preallocated (in main thread) for each worker thread.
+    if (!bGlobalStackInUse && !bForGroupThreading)
     {
         bGlobalStackInUse = true;
         if (!pGlobalStack)
@@ -3824,6 +3827,28 @@ ScInterpreter::~ScInterpreter()
         bGlobalStackInUse = false;
     else
         delete pStackObj;
+}
+
+void ScInterpreter::Init( ScFormulaCell* pCell, const ScAddress& rPos, ScTokenArray& rTokArray )
+{
+    aCode.ReInit(rTokArray);
+    aPos = rPos;
+    pArr = &rTokArray;
+    xResult = nullptr;
+    pMyFormulaCell = pCell;
+    pCur = nullptr;
+    nGlobalError = FormulaError::NONE;
+    sp = 0;
+    maxsp = 0;
+    nFuncFmtIndex = 0;
+    nCurFmtIndex = 0;
+    nRetFmtIndex = 0;
+    nFuncFmtType = SvNumFormatType::ALL;
+    nCurFmtType = SvNumFormatType::ALL;
+    nRetFmtType = SvNumFormatType::ALL;
+    mnStringNoValueError = FormulaError::NoValue;
+    mnSubTotalFlags = SubtotalFlags::NONE;
+    cPar = 0;
 }
 
 ScCalcConfig& ScInterpreter::GetOrCreateGlobalConfig()
@@ -4503,7 +4528,7 @@ StackVar ScInterpreter::Interpret()
         {
             if ( !nErrorFunctionCount )
             {   // count of errorcode functions in formula
-                FormulaTokenArrayPlainIterator aIter(rArr);
+                FormulaTokenArrayPlainIterator aIter(*pArr);
                 for ( FormulaToken* t = aIter.FirstRPN(); t; t = aIter.NextRPN() )
                 {
                     if ( IsErrFunc(t->GetOpCode()) )
@@ -4707,7 +4732,7 @@ StackVar ScInterpreter::Interpret()
     if (eType == svMatrix)
         // Results are immutable in case they would be reused as input for new
         // interpreters.
-        xResult.get()->GetMatrix()->SetImmutable();
+        xResult->GetMatrix()->SetImmutable();
     return eType;
 }
 

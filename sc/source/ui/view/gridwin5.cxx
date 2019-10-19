@@ -17,24 +17,17 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <editeng/eeitem.hxx>
-
 #include <editeng/flditem.hxx>
 
-#include <editeng/editview.hxx>
+#include <svx/fmpage.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdpagv.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <vcl/imapobj.hxx>
-#include <vcl/cursor.hxx>
 #include <vcl/help.hxx>
-#include <vcl/svapp.hxx>
 #include <tools/urlobj.hxx>
-#include <sfx2/viewfrm.hxx>
+#include <sfx2/sfxhelp.hxx>
 
-#include <unotools/localedatawrapper.hxx>
-#include <unotools/securityoptions.hxx>
-
-#include <viewuno.hxx>
 #include <AccessibleDocument.hxx>
 #include <com/sun/star/accessibility/XAccessible.hpp>
 
@@ -42,18 +35,14 @@
 #include <viewdata.hxx>
 #include <drawview.hxx>
 #include <drwlayer.hxx>
-#include <drawpage.hxx>
 #include <document.hxx>
 #include <notemark.hxx>
 #include <chgtrack.hxx>
 #include <chgviset.hxx>
 #include <dbfunc.hxx>
-#include <tabvwsh.hxx>
 #include <userdat.hxx>
 #include <postit.hxx>
 #include <global.hxx>
-#include <globstr.hrc>
-#include <scresid.hxx>
 
 bool ScGridWindow::ShowNoteMarker( SCCOL nPosX, SCROW nPosY, bool bKeyboard )
 {
@@ -216,23 +205,6 @@ bool ScGridWindow::ShowNoteMarker( SCCOL nPosX, SCROW nPosY, bool bKeyboard )
 
 void ScGridWindow::RequestHelp(const HelpEvent& rHEvt)
 {
-    //To know whether to prefix STR_CTRLCLICKHYERLINK or STR_CLICKHYPERLINK
-    //to hyperlink tooltips/help text
-    SvtSecurityOptions aSecOpt;
-    bool bCtrlClickHlink = aSecOpt.IsOptionSet( SvtSecurityOptions::EOption::CtrlClickHyperlink );
-    //Global string STR_CTRLCLICKHYPERLINK i.e,
-    // "ctrl-click to follow link:" for not MacOS
-    // "⌘-click to follow link:" for MacOs
-    vcl::KeyCode aCode( KEY_SPACE );
-    vcl::KeyCode aModifiedCode( KEY_SPACE, KEY_MOD1 );
-    OUString aModStr( aModifiedCode.GetName() );
-    aModStr = aModStr.replaceFirst(aCode.GetName(), "");
-    aModStr = aModStr.replaceAll("+", "");
-    OUString aCtrlClickHlinkStr = ScResId( STR_CTRLCLICKHYPERLINK );
-
-    aCtrlClickHlinkStr = aCtrlClickHlinkStr.replaceAll("%s", aModStr);
-    //Global string STR_CLICKHYPERLINK i.e, "click to open hyperlink"
-    OUString aClickHlinkStr = ScResId( STR_CLICKHYPERLINK );
     bool bDone = false;
     bool bHelpEnabled = bool(rHEvt.GetMode() & ( HelpEventMode::BALLOON | HelpEventMode::QUICK ));
     SdrView* pDrView = pViewData->GetScDrawView();
@@ -283,28 +255,18 @@ void ScGridWindow::RequestHelp(const HelpEvent& rHEvt)
             if ( eHit != SdrHitKind::NONE && aVEvt.pObj != nullptr )
             {
                 // URL for IMapObject below Pointer is help text
-                if ( ScDrawLayer::GetIMapInfo( aVEvt.pObj ) )
+                if ( SvxIMapInfo::GetIMapInfo( aVEvt.pObj ) )
                 {
                     Point aLogicPos = PixelToLogic( aPosPixel );
-                    IMapObject* pIMapObj = ScDrawLayer::GetHitIMapObject(
-                                                    aVEvt.pObj, aLogicPos, *this );
+                    IMapObject* pIMapObj = SvxIMapInfo::GetHitIMapObject(
+                                                    aVEvt.pObj, aLogicPos, this );
 
                     if ( pIMapObj )
                     {
                         // For image maps show the description, if available
                         aHelpText = pIMapObj->GetAltText();
                         if (aHelpText.isEmpty())
-                            aHelpText = pIMapObj->GetURL();
-                        if( bCtrlClickHlink )
-                        {
-                            //prefix STR_CTRLCLICKHYPERLINK to aHelpText
-                            aHelpText = aCtrlClickHlinkStr + aHelpText;
-                        }
-                        else
-                        {
-                            //Option not set, so prefix STR_CLICKHYPERLINK
-                            aHelpText = aClickHlinkStr + aHelpText;
-                        }
+                            aHelpText = SfxHelp::GetURLHelpText(pIMapObj->GetURL());
                         aPixRect = LogicToPixel(aVEvt.pObj->GetLogicRect());
                     }
                 }
@@ -313,7 +275,7 @@ void ScGridWindow::RequestHelp(const HelpEvent& rHEvt)
                 {
                     if( aVEvt.eEvent == SdrEventKind::ExecuteUrl )
                     {
-                        aHelpText = aVEvt.pURLField->GetURL();
+                        aHelpText = SfxHelp::GetURLHelpText(aVEvt.pURLField->GetURL());
                         aPixRect = LogicToPixel(aVEvt.pObj->GetLogicRect());
                     }
                     else
@@ -333,18 +295,7 @@ void ScGridWindow::RequestHelp(const HelpEvent& rHEvt)
                             if ( pInfo && (pInfo->GetHlink().getLength() > 0) )
                             {
                                 aPixRect = LogicToPixel(aVEvt.pObj->GetLogicRect());
-                                aHelpText = pInfo->GetHlink();
-                                if( bCtrlClickHlink )
-                                {
-                                    //prefix STR_CTRLCLICKHYPERLINK to aHelpText
-                                    aHelpText = aCtrlClickHlinkStr + aHelpText;
-                                }
-                                else
-                                {
-                                    //Option not set, so prefix STR_CLICKHYPERLINK
-                                    aHelpText = aClickHlinkStr + aHelpText;
-                                }
-
+                                aHelpText = SfxHelp::GetURLHelpText(pInfo->GetHlink());
                             }
                         }
                     }
@@ -357,19 +308,8 @@ void ScGridWindow::RequestHelp(const HelpEvent& rHEvt)
             OUString aUrl;
             if ( GetEditUrl( aPosPixel, nullptr, &aUrl ) )
             {
-                aHelpText = INetURLObject::decode( aUrl,
-                    INetURLObject::DecodeMechanism::Unambiguous );
-
-                if( bCtrlClickHlink )
-                {
-                    //prefix STR_CTRLCLICKHYPERLINK to aHelpText
-                    aHelpText = aCtrlClickHlinkStr + aHelpText;
-                }
-                else
-                {
-                    //Option not set, so prefix STR_CLICKHYPERLINK
-                    aHelpText = aClickHlinkStr + aHelpText;
-                }
+                aHelpText = SfxHelp::GetURLHelpText(
+                    INetURLObject::decode(aUrl, INetURLObject::DecodeMechanism::Unambiguous));
 
                 ScDocument* pDoc = pViewData->GetDocument();
                 SCCOL nPosX;
@@ -386,7 +326,7 @@ void ScGridWindow::RequestHelp(const HelpEvent& rHEvt)
         if ( !aHelpText.isEmpty() )
         {
             tools::Rectangle aScreenRect(OutputToScreenPixel(aPixRect.TopLeft()),
-                                    OutputToScreenPixel(aPixRect.BottomRight()));
+                                         OutputToScreenPixel(aPixRect.BottomRight()));
 
             if ( rHEvt.GetMode() & HelpEventMode::BALLOON )
                 Help::ShowBalloon(this,rHEvt.GetMousePosPixel(), aScreenRect, aHelpText);

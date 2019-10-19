@@ -19,7 +19,7 @@
 
 #include <svx/svdograf.hxx>
 #include <svx/svdoole2.hxx>
-#include <sfx2/app.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <sfx2/viewfrm.hxx>
 
 #include <strings.hrc>
@@ -28,7 +28,6 @@
 #include <drwlayer.hxx>
 #include "imapwrap.hxx"
 #include <viewdata.hxx>
-#include <dbfunc.hxx>
 #include <document.hxx>
 #include <userdat.hxx>
 #include <tabvwsh.hxx>
@@ -101,10 +100,12 @@ void ScDrawView::SetCellAnchored(bool bResizeWithCell)
         EndUndo();
 
         if ( pViewData )
+        {
             pViewData->GetDocShell()->SetDrawModified();
 
-        // Set the anchor object.
-        AddCustomHdl();
+            // Set the anchor object.
+            AddCustomHdl();
+        }
     }
 }
 
@@ -209,7 +210,7 @@ void ScDrawView::UpdateIMap( SdrObject* pObj )
     {
         Graphic     aGraphic;
         TargetList  aTargetList;
-        ScIMapInfo* pIMapInfo = ScDrawLayer::GetIMapInfo( pObj );
+        SvxIMapInfo* pIMapInfo = SvxIMapInfo::GetIMapInfo( pObj );
         const ImageMap* pImageMap = nullptr;
         if ( pIMapInfo )
             pImageMap = &pIMapInfo->GetImageMap();

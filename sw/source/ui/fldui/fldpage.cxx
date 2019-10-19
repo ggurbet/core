@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/lstbox.hxx>
 #include <svl/stritem.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/htmlmode.hxx>
@@ -39,18 +38,17 @@
 #include <cmdid.h>
 #include <globals.hrc>
 #include <sfx2/bindings.hxx>
-#include <calbck.hxx>
 
 using namespace ::com::sun::star;
 
 // note: pAttrSet may be null if the dialog is restored on startup
-SwFieldPage::SwFieldPage(TabPageParent pParent, const OUString& rUIXMLDescription,
+SwFieldPage::SwFieldPage(weld::Container* pPage, weld::DialogController* pController, const OUString& rUIXMLDescription,
         const OString& rID, const SfxItemSet *pAttrSet)
-    : SfxTabPage(pParent, rUIXMLDescription, rID, pAttrSet)
+    : SfxTabPage(pPage, pController, rUIXMLDescription, rID, pAttrSet)
     , m_pCurField(nullptr)
     , m_pWrtShell(nullptr)
-    , m_nTypeSel(LISTBOX_ENTRY_NOTFOUND)
-    , m_nSelectionSel(LISTBOX_ENTRY_NOTFOUND)
+    , m_nTypeSel(-1)
+    , m_nSelectionSel(-1)
     , m_bFieldEdit(false)
     , m_bInsert(true)
     , m_bFieldDlgHtmlMode(false)
@@ -99,7 +97,7 @@ void SwFieldPage::Init()
 }
 
 // newly initialise page
-void SwFieldPage::ActivatePage()
+void SwFieldPage::Activate()
 {
     EnableInsert(m_bInsert);
 }
@@ -107,18 +105,16 @@ void SwFieldPage::ActivatePage()
 // complete reset; edit new field
 void SwFieldPage::EditNewField( bool bOnlyActivate )
 {
-    if( !bOnlyActivate )
-    {
-        m_nTypeSel = LISTBOX_ENTRY_NOTFOUND;
-    }
-    m_nSelectionSel = LISTBOX_ENTRY_NOTFOUND;
+    if (!bOnlyActivate)
+        m_nTypeSel = -1;
+    m_nSelectionSel = -1;
     m_bRefresh = true;
     Reset(nullptr);
     m_bRefresh = false;
 }
 
 // insert field
-void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUString& rPar1,
+void SwFieldPage::InsertField(SwFieldTypesEnum nTypeId, sal_uInt16 nSubType, const OUString& rPar1,
                             const OUString& rPar2, sal_uInt32 nFormatId,
                             sal_Unicode cSeparator, bool bIsAutomaticLanguage)
 {
@@ -136,11 +132,11 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
                 pView->GetViewFrame()->GetBindings().GetRecorder();
         if ( xRecorder.is() )
         {
-            bool bRecordDB = TYP_DBFLD == nTypeId ||
-                            TYP_DBSETNUMBERFLD == nTypeId ||
-                            TYP_DBNUMSETFLD == nTypeId ||
-                            TYP_DBNEXTSETFLD == nTypeId ||
-                            TYP_DBNAMEFLD == nTypeId ;
+            bool bRecordDB = SwFieldTypesEnum::Database == nTypeId ||
+                            SwFieldTypesEnum::DatabaseSetNumber == nTypeId ||
+                            SwFieldTypesEnum::DatabaseNumberSet == nTypeId ||
+                            SwFieldTypesEnum::DatabaseNextSet == nTypeId ||
+                            SwFieldTypesEnum::DatabaseName == nTypeId ;
 
             SfxRequest aReq( pView->GetViewFrame(),
                     bRecordDB ?  FN_INSERT_DBFIELD : FN_INSERT_FIELD );
@@ -163,7 +159,7 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
                         (FN_PARAM_3, OUString(cSeparator)));
                 aReq.AppendItem(SfxUInt16Item(FN_PARAM_FIELD_SUBTYPE, nSubType));
             }
-            aReq.AppendItem(SfxUInt16Item(FN_PARAM_FIELD_TYPE   , nTypeId));
+            aReq.AppendItem(SfxUInt16Item(FN_PARAM_FIELD_TYPE   , static_cast<sal_uInt16>(nTypeId)));
             aReq.AppendItem(SfxStringItem(FN_PARAM_FIELD_CONTENT, rPar2));
             aReq.AppendItem(SfxUInt32Item(FN_PARAM_FIELD_FORMAT , nFormatId));
             aReq.Done();
@@ -178,16 +174,16 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
         OUString sPar2(rPar2);
         switch( nTypeId )
         {
-        case TYP_DATEFLD:
-        case TYP_TIMEFLD:
-            nSubType = static_cast< sal_uInt16 >(((nTypeId == TYP_DATEFLD) ? DATEFLD : TIMEFLD) |
+        case SwFieldTypesEnum::Date:
+        case SwFieldTypesEnum::Time:
+            nSubType = static_cast< sal_uInt16 >(((nTypeId == SwFieldTypesEnum::Date) ? DATEFLD : TIMEFLD) |
                        ((nSubType == DATE_VAR) ? 0 : FIXEDFLD));
             break;
 
-        case TYP_DBNAMEFLD:
-        case TYP_DBNEXTSETFLD:
-        case TYP_DBNUMSETFLD:
-        case TYP_DBSETNUMBERFLD:
+        case SwFieldTypesEnum::DatabaseName:
+        case SwFieldTypesEnum::DatabaseNextSet:
+        case SwFieldTypesEnum::DatabaseNumberSet:
+        case SwFieldTypesEnum::DatabaseSetNumber:
             {
                 sal_Int32 nPos = 0;
                 SwDBData aData;
@@ -201,7 +197,7 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
             }
             break;
 
-        case TYP_DBFLD:
+        case SwFieldTypesEnum::Database:
             {
                 SwDBData aData;
                 sal_Int32 nIdx{ 0 };
@@ -228,7 +224,7 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
             }
             break;
 
-        case TYP_SEQFLD:
+        case SwFieldTypesEnum::Sequence:
             {
                 SwSetExpFieldType* pTyp = static_cast<SwSetExpFieldType*>(pTmpField->GetTyp());
                 pTyp->SetOutlineLvl( static_cast< sal_uInt8 >(nSubType & 0xff));
@@ -238,7 +234,7 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
             }
             break;
 
-        case TYP_INPUTFLD:
+        case SwFieldTypesEnum::Input:
             {
                 // User- or SetField ?
                 if (m_aMgr.GetFieldType(SwFieldIds::User, sPar1) == nullptr &&
@@ -250,7 +246,7 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
                 }
             }
             break;
-        case TYP_DOCINFOFLD:
+        case SwFieldTypesEnum::DocumentInfo:
             {
                 if( nSubType == nsSwDocInfoSubType::DI_CUSTOM )
                 {
@@ -259,6 +255,7 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
                 }
             }
             break;
+        default: break;
         }
 
         pSh->StartAllAction();
@@ -272,10 +269,11 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
 
         switch (nTypeId)
         {
-            case TYP_HIDDENTXTFLD:
-            case TYP_HIDDENPARAFLD:
+            case SwFieldTypesEnum::HiddenText:
+            case SwFieldTypesEnum::HiddenParagraph:
                 m_aMgr.EvalExpFields(pSh);
                 break;
+            default: break;
         }
 
         pSh->SetUndoNoResetModified();
@@ -302,9 +300,10 @@ void SwFieldPage::RestorePos(weld::TreeView& rLst1)
 }
 
 // Insert new fields
-IMPL_LINK( SwFieldPage, TreeViewInsertHdl, weld::TreeView&, rBox, void )
+IMPL_LINK( SwFieldPage, TreeViewInsertHdl, weld::TreeView&, rBox, bool )
 {
     InsertHdl(&rBox);
+    return true;
 }
 
 void SwFieldPage::InsertHdl(weld::Widget* pBtn)
@@ -340,9 +339,10 @@ void SwFieldPage::EnableInsert(bool bEnable)
     m_bInsert = bEnable;
 }
 
-IMPL_LINK_NOARG(SwFieldPage, NumFormatHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SwFieldPage, NumFormatHdl, weld::TreeView&, bool)
 {
     InsertHdl(nullptr);
+    return true;
 }
 
 void SwFieldPage::SetWrtShell( SwWrtShell* pShell )

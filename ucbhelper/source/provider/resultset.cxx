@@ -208,56 +208,11 @@ ResultSet::~ResultSet()
 }
 
 
-// XInterface methods.
-
-void SAL_CALL ResultSet::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL ResultSet::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL ResultSet::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< lang::XTypeProvider* >(this),
-                                               static_cast< lang::XServiceInfo* >(this),
-                                               static_cast< lang::XComponent* >(this),
-                                               static_cast< css::ucb::XContentAccess* >(this),
-                                               static_cast< sdbc::XResultSet* >(this),
-                                               static_cast< sdbc::XResultSetMetaDataSupplier* >(this),
-                                               static_cast< sdbc::XRow* >(this),
-                                               static_cast< sdbc::XCloseable* >(this),
-                                               static_cast< beans::XPropertySet* >(this)
-                                               );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-// XTypeProvider methods.
-
-
-XTYPEPROVIDER_IMPL_9( ResultSet,
-                      lang::XTypeProvider,
-                      lang::XServiceInfo,
-                      lang::XComponent,
-                      css::ucb::XContentAccess,
-                      sdbc::XResultSet,
-                      sdbc::XResultSetMetaDataSupplier,
-                      sdbc::XRow,
-                      sdbc::XCloseable,
-                      beans::XPropertySet );
-
-
 // XServiceInfo methods.
 
 OUString SAL_CALL ResultSet::getImplementationName()
 {
-    return OUString( "ResultSet" );
+    return "ResultSet";
 }
 
 sal_Bool SAL_CALL ResultSet::supportsService( const OUString& ServiceName )
@@ -513,7 +468,7 @@ sal_Bool SAL_CALL ResultSet::absolute( sal_Int32 row )
 
     If the given row number is negative, the cursor moves to an absolute row
     position with respect to the end of the result set. For example, calling
-    absolaute( -1 ) positions the cursor on the last row, absolaute( -2 )
+    absolute( -1 ) positions the cursor on the last row, absolute( -2 )
     indicates the next-to-last row, and so on.
 
     An attempt to position the cursor beyond the first/last row in the result
@@ -1245,9 +1200,6 @@ ResultSet::getPropertySetInfo()
 void SAL_CALL ResultSet::setPropertyValue( const OUString& aPropertyName,
                                            const uno::Any& )
 {
-    if ( aPropertyName.isEmpty() )
-        throw beans::UnknownPropertyException();
-
     if ( aPropertyName == "RowCount" )
     {
         // property is read-only.
@@ -1260,7 +1212,7 @@ void SAL_CALL ResultSet::setPropertyValue( const OUString& aPropertyName,
     }
     else
     {
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
     }
 }
 
@@ -1269,9 +1221,6 @@ void SAL_CALL ResultSet::setPropertyValue( const OUString& aPropertyName,
 uno::Any SAL_CALL ResultSet::getPropertyValue(
         const OUString& PropertyName )
 {
-    if ( PropertyName.isEmpty() )
-        throw beans::UnknownPropertyException();
-
     uno::Any aValue;
 
     if ( PropertyName == "RowCount" )
@@ -1284,7 +1233,7 @@ uno::Any SAL_CALL ResultSet::getPropertyValue(
     }
     else
     {
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(PropertyName);
     }
 
     return aValue;
@@ -1303,7 +1252,7 @@ void SAL_CALL ResultSet::addPropertyChangeListener(
     if ( !aPropertyName.isEmpty() &&
          aPropertyName != "RowCount" &&
          aPropertyName != "IsRowCountFinal" )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     if ( !m_pImpl->m_pPropertyChangeListeners )
         m_pImpl->m_pPropertyChangeListeners.reset(
@@ -1324,7 +1273,7 @@ void SAL_CALL ResultSet::removePropertyChangeListener(
     if ( !aPropertyName.isEmpty() &&
          aPropertyName != "RowCount" &&
          aPropertyName != "IsRowCountFinal" )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(aPropertyName);
 
     if ( m_pImpl->m_pPropertyChangeListeners )
         m_pImpl->m_pPropertyChangeListeners->removeInterface(
@@ -1515,7 +1464,7 @@ beans::Property SAL_CALL PropertySetInfo::getPropertyByName(
     if ( queryProperty( aName, aProp ) )
         return aProp;
 
-    throw beans::UnknownPropertyException();
+    throw beans::UnknownPropertyException(aName);
 }
 
 

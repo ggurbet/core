@@ -22,7 +22,7 @@
 #include "DBTypeWizDlg.hxx"
 #include <dbwiz.hxx>
 #include <comphelper/processfactory.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
+#include <vcl/svapp.hxx>
 
 using namespace dbaui;
 
@@ -60,7 +60,7 @@ OUString SAL_CALL ODBTypeWizDialog::getImplementationName()
 
 OUString ODBTypeWizDialog::getImplementationName_Static()
 {
-    return OUString("org.openoffice.comp.dbu.ODBTypeWizDialog");
+    return "org.openoffice.comp.dbu.ODBTypeWizDialog";
 }
 
 css::uno::Sequence<OUString> SAL_CALL ODBTypeWizDialog::getSupportedServiceNames()
@@ -92,9 +92,9 @@ Reference<XPropertySetInfo>  SAL_CALL ODBTypeWizDialog::getPropertySetInfo()
     return new ::cppu::OPropertyArrayHelper(aProps);
 }
 
-svt::OGenericUnoDialog::Dialog ODBTypeWizDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
+std::unique_ptr<weld::DialogController> ODBTypeWizDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
 {
-    return svt::OGenericUnoDialog::Dialog(VclPtr<ODbTypeWizDialog>::Create(VCLUnoHelper::GetWindow(rParent), m_pDatasourceItems.get(), m_aContext, m_aInitialSelection));
+    return std::make_unique<ODbTypeWizDialog>(Application::GetFrameWeld(rParent), m_pDatasourceItems.get(), m_aContext, m_aInitialSelection);
 }
 
 }   // namespace dbaui

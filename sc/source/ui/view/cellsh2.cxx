@@ -23,7 +23,6 @@
 #include <scitems.hxx>
 #include <comphelper/lok.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/sfxdlg.hxx>
 #include <svl/aeitem.hxx>
@@ -36,24 +35,21 @@
 #include <unotools/moduleoptions.hxx>
 
 #include <com/sun/star/frame/FrameSearchFlag.hpp>
-#include <com/sun/star/sdbc/XResultSet.hpp>
 #include <com/sun/star/sheet/TableValidationVisibility.hpp>
 
 #include <cellsh.hxx>
+#include <dbdata.hxx>
+#include <queryparam.hxx>
 #include <tabvwsh.hxx>
 #include <sc.hrc>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <global.hxx>
-#include <globalnames.hxx>
 #include <scmod.hxx>
 #include <docsh.hxx>
 #include <document.hxx>
 #include <uiitems.hxx>
-#include <dbfunc.hxx>
 #include <dbdocfun.hxx>
-#include <filtdlg.hxx>
-#include <dbnamdlg.hxx>
 #include <reffact.hxx>
 #include <validat.hxx>
 #include <validate.hxx>
@@ -217,7 +213,7 @@ namespace
     {
         std::shared_ptr<SfxDialogController> m_xDlg;
     public:
-        ScValidationRegisteredDlg(weld::Window* pParent, std::shared_ptr<SfxDialogController>& rDlg)
+        ScValidationRegisteredDlg(weld::Window* pParent, const std::shared_ptr<SfxDialogController>& rDlg)
             : m_xDlg(rDlg)
         {
             SC_MOD()->RegisterRefController(static_cast<sal_uInt16>(ScValidationDlg::SLOTID), m_xDlg, pParent);
@@ -873,8 +869,8 @@ void ScCellShell::ExecuteDB( SfxRequest& rReq )
                             bShowHelp = pOldData->GetInput( aHelpTitle, aHelpText );
                             bShowError = pOldData->GetErrMsg( aErrTitle, aErrText, eErrStyle );
 
-                            aArgSet.Put( SfxAllEnumItem( FID_VALID_MODE,        sal::static_int_cast<sal_uInt16>(eMode) ) );
-                            aArgSet.Put( SfxAllEnumItem( FID_VALID_CONDMODE,    sal::static_int_cast<sal_uInt16>(eOper) ) );
+                            aArgSet.Put( SfxUInt16Item( FID_VALID_MODE,         sal::static_int_cast<sal_uInt16>(eMode) ) );
+                            aArgSet.Put( SfxUInt16Item( FID_VALID_CONDMODE,     sal::static_int_cast<sal_uInt16>(eOper) ) );
                             aArgSet.Put( SfxStringItem(  FID_VALID_VALUE1,      aExpr1 ) );
                             aArgSet.Put( SfxStringItem(  FID_VALID_VALUE2,      aExpr2 ) );
                             aArgSet.Put( SfxBoolItem(    FID_VALID_BLANK,       bBlank ) );
@@ -883,7 +879,7 @@ void ScCellShell::ExecuteDB( SfxRequest& rReq )
                             aArgSet.Put( SfxStringItem(  FID_VALID_HELPTITLE,   aHelpTitle ) );
                             aArgSet.Put( SfxStringItem(  FID_VALID_HELPTEXT,    aHelpText ) );
                             aArgSet.Put( SfxBoolItem(    FID_VALID_SHOWERR,     bShowError ) );
-                            aArgSet.Put( SfxAllEnumItem( FID_VALID_ERRSTYLE,    sal::static_int_cast<sal_uInt16>(eErrStyle) ) );
+                            aArgSet.Put( SfxUInt16Item( FID_VALID_ERRSTYLE,     sal::static_int_cast<sal_uInt16>(eErrStyle) ) );
                             aArgSet.Put( SfxStringItem(  FID_VALID_ERRTITLE,    aErrTitle ) );
                             aArgSet.Put( SfxStringItem(  FID_VALID_ERRTEXT,     aErrText ) );
                         }
@@ -901,9 +897,9 @@ void ScCellShell::ExecuteDB( SfxRequest& rReq )
                         const SfxItemSet* pOutSet = static_cast<ScValidationDlg*>(xDlg.get())->GetOutputItemSet();
 
                         if ( pOutSet->GetItemState( FID_VALID_MODE, true, &pItem ) == SfxItemState::SET )
-                            eMode = static_cast<ScValidationMode>(static_cast<const SfxAllEnumItem*>(pItem)->GetValue());
+                            eMode = static_cast<ScValidationMode>(static_cast<const SfxUInt16Item*>(pItem)->GetValue());
                         if ( pOutSet->GetItemState( FID_VALID_CONDMODE, true, &pItem ) == SfxItemState::SET )
-                            eOper = static_cast<ScConditionMode>(static_cast<const SfxAllEnumItem*>(pItem)->GetValue());
+                            eOper = static_cast<ScConditionMode>(static_cast<const SfxUInt16Item*>(pItem)->GetValue());
                         if ( pOutSet->GetItemState( FID_VALID_VALUE1, true, &pItem ) == SfxItemState::SET )
                         {
                             OUString aTemp1 = static_cast<const SfxStringItem*>(pItem)->GetValue();
@@ -970,7 +966,7 @@ void ScCellShell::ExecuteDB( SfxRequest& rReq )
                         if ( pOutSet->GetItemState( FID_VALID_SHOWERR, true, &pItem ) == SfxItemState::SET )
                             bShowError = static_cast<const SfxBoolItem*>(pItem)->GetValue();
                         if ( pOutSet->GetItemState( FID_VALID_ERRSTYLE, true, &pItem ) == SfxItemState::SET )
-                            eErrStyle = static_cast<ScValidErrorStyle>(static_cast<const SfxAllEnumItem*>(pItem)->GetValue());
+                            eErrStyle = static_cast<ScValidErrorStyle>(static_cast<const SfxUInt16Item*>(pItem)->GetValue());
                         if ( pOutSet->GetItemState( FID_VALID_ERRTITLE, true, &pItem ) == SfxItemState::SET )
                             aErrTitle = static_cast<const SfxStringItem*>(pItem)->GetValue();
                         if ( pOutSet->GetItemState( FID_VALID_ERRTEXT, true, &pItem ) == SfxItemState::SET )
@@ -1020,7 +1016,7 @@ void ScCellShell::ExecuteDB( SfxRequest& rReq )
 
                     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
                     ScopedVclPtr<AbstractScImportAsciiDlg> pDlg(pFact->CreateScImportAsciiDlg(
-                            nullptr, OUString(), &aStream, SC_TEXTTOCOLUMNS));
+                            pTabViewShell->GetFrameWeld(), OUString(), &aStream, SC_TEXTTOCOLUMNS));
 
                     if ( pDlg->Execute() == RET_OK )
                     {
@@ -1254,12 +1250,7 @@ void ScCellShell::GetDBState( SfxItemSet& rSet )
                 }
                 break;
             case SID_MANAGE_XML_SOURCE:
-                {
-                    SvtMiscOptions aMiscOptions;
-                    if ( !aMiscOptions.IsExperimentalMode() )
-                        rSet.DisableItem( nWhich );
-                }
-            break;
+                break;
         }
         nWhich = aIter.NextWhich();
     }

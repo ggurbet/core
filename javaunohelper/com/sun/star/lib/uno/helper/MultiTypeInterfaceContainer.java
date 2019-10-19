@@ -41,15 +41,14 @@ public class MultiTypeInterfaceContainer
         if ( (size=map.size()) > 0)
         {
             Type [] arTypes= new Type[size];
-            Iterator<Object> it= map.keySet().iterator();
 
             int countTypes= 0;
-            while (it.hasNext())
+            for (Map.Entry<Object,InterfaceContainer> entry : map.entrySet())
             {
-                Object key= it.next();
-                InterfaceContainer cont= map.get(key);
+                InterfaceContainer cont= entry.getValue();
                 if (cont != null && cont.size() > 0)
                 {
+                    Object key = entry.getKey();
                     if (key == null)
                         arTypes[countTypes++]= new Type();
                     else if (key instanceof Type)
@@ -81,10 +80,9 @@ public class MultiTypeInterfaceContainer
     synchronized public InterfaceContainer getContainer(Object key)
     {
         InterfaceContainer retVal= null;
-        Iterator<Object> it= map.keySet().iterator();
-        while (it.hasNext())
+        for (Map.Entry<Object,InterfaceContainer> entry : map.entrySet())
         {
-            Object obj= it.next();
+            Object obj= entry.getKey();
             if (obj == null && key == null)
             {
                 retVal= map.get(null);
@@ -92,7 +90,7 @@ public class MultiTypeInterfaceContainer
             }
             else if( obj != null && obj.equals(key))
             {
-                retVal= map.get(obj);
+                retVal= entry.getValue();
                 break;
             }
         }

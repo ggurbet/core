@@ -24,10 +24,8 @@
 #include <i18nlangtag/lang.h>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/frame/XModel.hpp>
-#include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/style/XStyle.hpp>
 #include <ooo/vba/word/XFont.hpp>
-#include <ooo/vba/word/XListTemplate.hpp>
 
 typedef InheritedHelperInterfaceWeakImpl< ooo::vba::word::XStyle > SwVbaStyle_BASE;
 
@@ -68,7 +66,7 @@ public:
     virtual ::sal_Int32 SAL_CALL getListLevelNumber() override;
 
     //XDefaultProperty
-    virtual OUString SAL_CALL getDefaultPropertyName(  ) override { return OUString("Name"); }
+    virtual OUString SAL_CALL getDefaultPropertyName(  ) override { return "Name"; }
 
     // XHelperInterface
     virtual OUString getServiceImplName() override;

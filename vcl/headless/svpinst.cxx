@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
 #include <sal/config.h>
 
 #include <mutex>
@@ -34,7 +35,7 @@
 #include <vcl/virdev.hxx>
 #include <vcl/inputtypes.hxx>
 #include <vcl/lok.hxx>
-#ifndef LIBO_HEADLESS
+#if HAVE_FEATURE_UI
 # include <vcl/opengl/OpenGLContext.hxx>
 #endif
 
@@ -229,7 +230,7 @@ void SvpSalInstance::DestroyFrame( SalFrame* pFrame )
 
 SalObject* SvpSalInstance::CreateObject( SalFrame*, SystemWindowData*, bool )
 {
-    return new SvpSalObject();
+    return new SvpSalObject;
 }
 
 void SvpSalInstance::DestroyObject( SalObject* pObject )
@@ -239,14 +240,24 @@ void SvpSalInstance::DestroyObject( SalObject* pObject )
 
 #ifndef IOS
 
-std::unique_ptr<SalVirtualDevice> SvpSalInstance::CreateVirtualDevice( SalGraphics* pGraphics,
+std::unique_ptr<SalVirtualDevice> SvpSalInstance::CreateVirtualDevice(SalGraphics* pGraphics,
                                                        long &nDX, long &nDY,
                                                        DeviceFormat eFormat,
-                                                       const SystemGraphicsData* /* pData */ )
+                                                       const SystemGraphicsData* pGd)
 {
     SvpSalGraphics *pSvpSalGraphics = dynamic_cast<SvpSalGraphics*>(pGraphics);
     assert(pSvpSalGraphics);
-    std::unique_ptr<SalVirtualDevice> pNew(new SvpSalVirtualDevice(eFormat, pSvpSalGraphics->getSurface()));
+#ifndef ANDROID
+    // tdf#127529 normally pPreExistingTarget is null and we are a true virtualdevice drawing to a backing buffer.
+    // Occasionally, for canvas/slideshow, pPreExistingTarget is pre-provided as a hack to use the vcl drawing
+    // apis to render onto a preexisting cairo surface. The necessity for that precedes the use of cairo in vcl proper
+    cairo_surface_t* pPreExistingTarget = pGd ? static_cast<cairo_surface_t*>(pGd->pSurface) : nullptr;
+#else
+    //ANDROID case
+    (void)pGd;
+    cairo_surface_t* pPreExistingTarget = nullptr;
+#endif
+    std::unique_ptr<SalVirtualDevice> pNew(new SvpSalVirtualDevice(eFormat, pSvpSalGraphics->getSurface(), pPreExistingTarget));
     pNew->SetSize( nDX, nDY );
     return pNew;
 }
@@ -562,18 +573,7 @@ std::shared_ptr<vcl::BackendCapabilities> SvpSalInstance::GetBackendCapabilities
 
 //obviously doesn't actually do anything, it's just a nonfunctional stub
 
-#ifdef LIBO_HEADLESS
-
-class SvpOpenGLContext
-{
-};
-
-OpenGLContext* SvpSalInstance::CreateOpenGLContext()
-{
-    return nullptr;
-}
-
-#else
+#if HAVE_FEATURE_UI
 
 class SvpOpenGLContext : public OpenGLContext
 {
@@ -587,6 +587,18 @@ OpenGLContext* SvpSalInstance::CreateOpenGLContext()
 {
     return new SvpOpenGLContext;
 }
+
+#else
+
+class SvpOpenGLContext
+{
+};
+
+OpenGLContext* SvpSalInstance::CreateOpenGLContext()
+{
+    return nullptr;
+}
+
 
 #endif
 

@@ -63,9 +63,9 @@ IMPL_LINK(SwFootNoteOptionDlg, OkHdl, weld::Button&, rBtn, void)
     SfxTabDialogController::OkHdl(rBtn);
 }
 
-SwEndNoteOptionPage::SwEndNoteOptionPage(TabPageParent pParent, bool bEN,
+SwEndNoteOptionPage::SwEndNoteOptionPage(weld::Container* pPage, weld::DialogController* pController, bool bEN,
     const SfxItemSet &rSet)
-    : SfxTabPage(pParent,
+    : SfxTabPage(pPage, pController,
         bEN ? OUString("modules/swriter/ui/endnotepage.ui") : OUString("modules/swriter/ui/footnotepage.ui"),
         bEN ? OString("EndnotePage") : OString("FootnotePage"),
         &rSet)
@@ -105,7 +105,6 @@ SwEndNoteOptionPage::SwEndNoteOptionPage(TabPageParent pParent, bool bEN,
 
 SwEndNoteOptionPage::~SwEndNoteOptionPage()
 {
-    disposeOnce();
 }
 
 void SwEndNoteOptionPage::Reset( const SfxItemSet* )
@@ -210,9 +209,9 @@ void SwEndNoteOptionPage::Reset( const SfxItemSet* )
     m_xPageTemplBox->set_active_text(pInf->GetPageDesc(*pSh->GetDoc())->GetName());
 }
 
-VclPtr<SfxTabPage> SwEndNoteOptionPage::Create( TabPageParent pParent, const SfxItemSet *rSet )
+std::unique_ptr<SfxTabPage> SwEndNoteOptionPage::Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet )
 {
-    return VclPtr<SwEndNoteOptionPage>::Create(pParent, true, *rSet);
+    return std::make_unique<SwEndNoteOptionPage>(pPage, pController, true, *rSet);
 }
 
 // Different kinds of numbering; because the Listbox has varying numbers of
@@ -370,8 +369,8 @@ bool SwEndNoteOptionPage::FillItemSet( SfxItemSet * )
     return true;
 }
 
-SwFootNoteOptionPage::SwFootNoteOptionPage(TabPageParent pParent, const SfxItemSet &rSet)
-    : SwEndNoteOptionPage(pParent, false, rSet)
+SwFootNoteOptionPage::SwFootNoteOptionPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet)
+    : SwEndNoteOptionPage(pPage, pController, false, rSet)
 {
 }
 
@@ -379,9 +378,9 @@ SwFootNoteOptionPage::~SwFootNoteOptionPage()
 {
 }
 
-VclPtr<SfxTabPage> SwFootNoteOptionPage::Create(TabPageParent pParent, const SfxItemSet *rSet )
+std::unique_ptr<SfxTabPage> SwFootNoteOptionPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet )
 {
-    return VclPtr<SwFootNoteOptionPage>::Create(pParent, *rSet);
+    return std::make_unique<SwFootNoteOptionPage>(pPage, pController, *rSet);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

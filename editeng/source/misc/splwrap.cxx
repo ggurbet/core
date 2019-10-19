@@ -144,7 +144,6 @@ SvxSpellWrapper::SvxSpellWrapper( vcl::Window* pWn,
 
     pWin        ( pWn ),
     bOtherCntnt ( false ),
-    bHyphen     ( false ),
     bStartChk   ( false ),
     bRevAllowed ( true ),
     bAllRight   ( bIsAllRight )
@@ -163,7 +162,6 @@ SvxSpellWrapper::SvxSpellWrapper( vcl::Window* pWn,
     pWin        ( pWn ),
     xHyph       ( xHyphenator ),
     bOtherCntnt ( bOther ),
-    bHyphen     ( false ),
     bReverse    ( false ),
     bStartDone  ( bOther || bStart ),
     bEndDone    ( false ),
@@ -228,12 +226,6 @@ sal_Int16 SvxSpellWrapper::CheckHyphLang(
 void SvxSpellWrapper::SpellStart( SvxSpellArea /*eSpell*/ )
 { // Here, the necessary preparations be made for SpellContinue in the
 } // given area.
-
-
-bool SvxSpellWrapper::HasOtherCnt()
-{
-    return false; // Is there a special area?
-}
 
 
 bool SvxSpellWrapper::SpellMore()
@@ -343,14 +335,7 @@ bool SvxSpellWrapper::SpellNext( )
     }
     else if ( bStartDone && bEndDone )
     {
-        bool bIsSpellSpecial = xProp.is() && xProp->getIsSpellSpecial();
-        // Body area done, ask for special area
-        if( !IsHyphen() && bIsSpellSpecial && HasOtherCnt() )
-        {
-            SpellStart( SvxSpellArea::Other );
-            bOtherCntnt = bGoOn = true;
-        }
-        else if ( SpellMore() )  // check another document?
+        if ( SpellMore() )  // check another document?
         {
             bOtherCntnt = false;
             bStartDone = !bReverse;
@@ -401,7 +386,7 @@ Reference< XDictionary >  SvxSpellWrapper::GetAllRightDic()
         sal_Int32 i = 0;
         while (!xDic.is()  &&  i < nCount)
         {
-            Reference< XDictionary >  xTmp( pDic[i], UNO_QUERY );
+            Reference< XDictionary >  xTmp = pDic[i];
             if (xTmp.is())
             {
                 if ( xTmp->isActive() &&
@@ -457,8 +442,8 @@ bool SvxSpellWrapper::FindSpellError()
             else
             {
                 // look up in ChangeAllList for misspelled word
-                Reference< XDictionary >    xChangeAllList(
-                        LinguMgr::GetChangeAllList(), UNO_QUERY );
+                Reference< XDictionary >    xChangeAllList =
+                        LinguMgr::GetChangeAllList();
                 Reference< XDictionaryEntry >   xEntry;
                 if (xChangeAllList.is())
                     xEntry = xChangeAllList->getEntry( xAlt->getWord() );

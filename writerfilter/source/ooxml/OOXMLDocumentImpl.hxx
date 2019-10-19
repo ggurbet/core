@@ -82,9 +82,7 @@ private:
     getSubStream(const OUString & rId);
 
     writerfilter::Reference<Stream>::Pointer_t
-    getXNoteStream(OOXMLStream::StreamType_t nType,
-                   Id aType,
-                   const sal_Int32 nNoteId);
+    getXNoteStream(OOXMLStream::StreamType_t nType, const sal_Int32 nNoteId);
 
     void resolveCustomXmlStream(Stream & rStream);
     void resolveGlossaryStream(Stream & rStream);
@@ -122,7 +120,6 @@ public:
     virtual css::uno::Reference<css::io::XInputStream> getInputStreamForId(const OUString & rId) override;
     virtual void setXNoteId(const sal_Int32 nId) override;
     virtual sal_Int32 getXNoteId() const override;
-    virtual void setXNoteType(Id aId) override;
     virtual const OUString & getTarget() const override;
     virtual css::uno::Reference<css::xml::sax::XFastShapeContextHandler> getShapeContext( ) override;
     virtual void setShapeContext( css::uno::Reference<css::xml::sax::XFastShapeContextHandler> xContext ) override;
@@ -136,9 +133,9 @@ public:
     virtual css::uno::Sequence<css::beans::PropertyValue >  getEmbeddingsList() override;
 
     void incrementProgress();
-    bool IsSkipImages() { return mbSkipImages; };
-    OUString const& GetDocumentBaseURL() { return m_rBaseURL; };
-    const css::uno::Sequence<css::beans::PropertyValue>& getMediaDescriptor();
+    bool IsSkipImages() const { return mbSkipImages; };
+    OUString const& GetDocumentBaseURL() const { return m_rBaseURL; };
+    const css::uno::Sequence<css::beans::PropertyValue>& getMediaDescriptor() const;
 };
 }}
 #endif // OOXML_DOCUMENT_IMPL_HXX

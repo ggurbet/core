@@ -23,7 +23,6 @@
 #include <osl/module.h>
 #include <tools/stream.hxx>
 #include <tools/link.hxx>
-#include <vcl/bitmap.hxx>
 #include <sane/sane.h>
 #include "scanner.hxx"
 
@@ -103,7 +102,7 @@ public:
 
     static bool         IsSane()
         { return pSaneLib != nullptr; }
-    bool            IsOpen()
+    bool            IsOpen() const
         { return maHandle != nullptr; }
     static int              CountDevices()
         { return nDevices; }
@@ -148,7 +147,7 @@ public:
     bool            ActivateButtonOption( int );
 
     int             CountOptions() { return mnOptions; }
-    int             GetDeviceNumber() { return mnDevice; }
+    int             GetDeviceNumber() const { return mnDevice; }
 
     bool            Open( const char* );
     bool            Open( int );

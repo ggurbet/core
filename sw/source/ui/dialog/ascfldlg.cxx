@@ -62,11 +62,11 @@ SwAsciiFilterDlg::SwAsciiFilterDlg( weld::Window* pParent, SwDocShell& rDocSh,
                                     SvStream* pStream )
     : SfxDialogController(pParent, "modules/swriter/ui/asciifilterdialog.ui", "AsciiFilterDialog")
     , m_bSaveLineStatus(true)
-    , m_xCharSetLB(new TextEncodingBox(m_xBuilder->weld_combo_box("charset")))
+    , m_xCharSetLB(new SvxTextEncodingBox(m_xBuilder->weld_combo_box("charset")))
     , m_xFontFT(m_xBuilder->weld_label("fontft"))
     , m_xFontLB(m_xBuilder->weld_combo_box("font"))
     , m_xLanguageFT(m_xBuilder->weld_label("languageft"))
-    , m_xLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box("language")))
+    , m_xLanguageLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("language")))
     , m_xCRLF_RB(m_xBuilder->weld_radio_button("crlf"))
     , m_xCR_RB(m_xBuilder->weld_radio_button("cr"))
     , m_xLF_RB(m_xBuilder->weld_radio_button("lf"))
@@ -194,7 +194,7 @@ SwAsciiFilterDlg::SwAsciiFilterDlg( weld::Window* pParent, SwDocShell& rDocSh,
                 bDelPrinter = true;
             }
 
-            // get the set of disctinct available family names
+            // get the set of distinct available family names
             std::set< OUString > aFontNames;
             int nFontNames = pPrt->GetDevFontCount();
             for( int i = 0; i < nFontNames; i++ )
@@ -296,7 +296,7 @@ void SwAsciiFilterDlg::FillOptions( SwAsciiOptions& rOptions )
             if( -1 != nEnd )
                 m_sExtraData = m_sExtraData.replaceAt( nStt, nEnd - nStt + 1, "" );
         }
-        m_sExtraData += sFindNm + sData + OUStringLiteral1(cDialogExtraDataClose);
+        m_sExtraData += sFindNm + sData + OUStringChar(cDialogExtraDataClose);
     }
 }
 

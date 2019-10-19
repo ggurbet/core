@@ -19,6 +19,7 @@
 
 
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/presentation/AnimationSpeed.hpp>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
@@ -33,9 +34,6 @@
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/xmlexp.hxx>
-#include <xmloff/xmlement.hxx>
-#include <xmloff/nmspmap.hxx>
-#include <xmloff/shapeexport.hxx>
 #include <anim.hxx>
 
 

@@ -25,15 +25,12 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
-#include <com/sun/star/lang/NotInitializedException.hpp>
 
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/uno3.hxx>
 #include <comphelper/propertycontainer.hxx>
 #include <comphelper/broadcasthelper.hxx>
 #include <tools/link.hxx>
-#include <vcl/dialog.hxx>
-#include <vcl/vclptr.hxx>
 #include <vcl/weld.hxx>
 
 namespace com :: sun :: star :: awt { class XWindow; }
@@ -63,62 +60,11 @@ namespace svt
             ,public ::comphelper::OMutexAndBroadcastHelper
             ,public ::comphelper::OPropertyContainer
     {
-    public:
-        struct Dialog
-        {
-            VclPtr<::Dialog> m_xVclDialog;
-            std::unique_ptr<weld::DialogController> m_xWeldDialog;
-
-            Dialog()
-            {
-            }
-
-            Dialog(const VclPtr<::Dialog>& rVclDialog)
-                : m_xVclDialog(rVclDialog)
-            {
-            }
-
-            Dialog(std::unique_ptr<weld::DialogController> pWeldDialog)
-                : m_xWeldDialog(std::move(pWeldDialog))
-            {
-            }
-
-            explicit operator bool() const
-            {
-                return m_xVclDialog || m_xWeldDialog;
-            }
-
-            void set_title(const OUString& rTitle)
-            {
-                if (m_xWeldDialog)
-                    m_xWeldDialog->set_title(rTitle);
-                else if (m_xVclDialog)
-                    m_xVclDialog->SetText(rTitle);
-            }
-
-            OString get_help_id() const
-            {
-                if (m_xWeldDialog)
-                    return m_xWeldDialog->get_help_id();
-                else if (m_xVclDialog)
-                    return m_xVclDialog->GetHelpId();
-                return OString();
-            }
-
-            void set_help_id(const OString& rHelpId)
-            {
-                if (m_xWeldDialog)
-                    return m_xWeldDialog->set_help_id(rHelpId);
-                else if (m_xVclDialog)
-                    return m_xVclDialog->SetHelpId(rHelpId);
-            }
-        };
     protected:
-        OGenericUnoDialog::Dialog   m_aDialog;                  /// the dialog to execute
+        std::unique_ptr<weld::DialogController> m_xDialog;      /// the dialog to execute
         bool                        m_bExecuting : 1;           /// we're currently executing the dialog
         bool                        m_bTitleAmbiguous : 1;      /// m_sTitle has not been set yet
         bool                        m_bInitialized : 1;         /// has "initialize" been called?
-        bool                        m_bNeedInitialization : 1;  /// do we need to be initialized before any other API call is allowed?
 
         // <properties>
         OUString                                         m_sTitle;   /// title of the dialog
@@ -126,9 +72,6 @@ namespace svt
         // </properties>
 
         css::uno::Reference<css::uno::XComponentContext> m_aContext;
-
-    public:
-        bool needInitialization() const { return m_bNeedInitialization && !m_bInitialized; }
 
     protected:
         OGenericUnoDialog(const css::uno::Reference< css::uno::XComponentContext >& _rxContext);
@@ -164,7 +107,7 @@ namespace svt
             but the application-wide solar mutex is (to guard the not thread-safe ctor of the dialog).
             @param      pParent     the parent window for the new dialog
         */
-        virtual OGenericUnoDialog::Dialog createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) = 0;
+        virtual std::unique_ptr<weld::DialogController> createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) = 0;
 
         /// called to destroy the dialog used. deletes m_pDialog and resets it to NULL
         void destroyDialog();
@@ -177,13 +120,12 @@ namespace svt
         /** smaller form of <method>initialize</method>.<p/>
             The <method>initialize</method> method is called with a sequence of com.sun.star.uno::Any's,
             which is split up into the single elements, which are passed to implInitialize. The default implementation
-            tries to extract an com.sun.star.beans::PropertyValue from the value an pass it to the
+            tries to extract a com.sun.star.beans::PropertyValue from the value a pass it to the
             com.sun.star.beans::XPropertySet interface of the object.
         */
         virtual void implInitialize(const css::uno::Any& _rValue);
 
     private:
-        DECL_LINK( OnDialogDying, VclWindowEvent&, void );
 
         /** ensures that m_pDialog is not <NULL/>
 
@@ -201,15 +143,13 @@ namespace svt
         bool    impl_ensureDialog_lck();
     };
 
-    /// helper class for guarding access to methods of a OGenericUnoDialog
+    /// helper class for guarding access to methods of an OGenericUnoDialog
     class UnoDialogEntryGuard
     {
     public:
         UnoDialogEntryGuard( OGenericUnoDialog& _rDialog )
             :m_aGuard( _rDialog.GetMutex() )
         {
-            if ( _rDialog.needInitialization() )
-                throw css::lang::NotInitializedException();
         }
 
     private:

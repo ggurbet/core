@@ -26,7 +26,7 @@
 
 #include <sax/tools/converter.hxx>
 
-#include <tools/diagnose_ex.h>
+#include <osl/diagnose.h>
 #include <tools/time.hxx>
 
 namespace xmloff
@@ -40,12 +40,6 @@ namespace xmloff
     //= VCLTimeHandler
     VCLTimeHandler::VCLTimeHandler()
     {
-    }
-
-    OUString VCLTimeHandler::getAttributeValue( const PropertyValues& /*i_propertyValues*/ ) const
-    {
-        OSL_ENSURE( false, "VCLTimeHandler::getAttributeValue: unexpected call!" );
-        return OUString();
     }
 
     OUString VCLTimeHandler::getAttributeValue( const Any& i_propertyValue ) const

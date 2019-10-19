@@ -32,6 +32,7 @@
 #include "fltshell.hxx"
 #include <shellio.hxx>
 #include <svl/zforlist.hxx>
+#include <svl/listener.hxx>
 
 class SwDoc;
 class SwPaM;
@@ -131,10 +132,10 @@ namespace sw
             Additionally it then has to avoid name collisions such as
 
             a) styles "Normal" and "Default" in a single document, where
-            we can use the original distinct names "Normal" and "Default" and..
+            we can use the original distinct names "Normal" and "Default" and...
             b) styles "Normal" and "Default" in a single document, where
             we can not use the original names, and must come up with an
-            alternative name for one of them..
+            alternative name for one of them...
 
             And it needs to report to the importer if the style being mapped to
             was already in existence, for the cut and paste/insert file mode we
@@ -144,7 +145,7 @@ namespace sw
         class ParaStyleMapper
         {
         private:
-            //I hate these things stupid pImpl things, but its warranted here
+            //I hate these things stupid pImpl things, but it's warranted here
              std::unique_ptr<::myImplHelpers::StyleMapperImpl<SwTextFormatColl> > mpImpl;
         public:
             explicit ParaStyleMapper(SwDoc &rDoc);
@@ -171,7 +172,7 @@ namespace sw
                 for this word style.
 
                 It will only return a failure in the pathological case of
-                catastropic failure elsewhere of there exist already styles
+                catastrophic failure elsewhere of there exist already styles
                 rName and WW-rName[0..SAL_MAX_INT32], which is both unlikely
                 and impossible.
             */
@@ -188,10 +189,10 @@ namespace sw
             Additionally it then has to avoid name collisions such as
 
             a) styles "Normal" and "Default" in a single document, where
-            we can use the original distinct names "Normal" and "Default" and..
+            we can use the original distinct names "Normal" and "Default" and...
             b) styles "Normal" and "Default" in a single document, where
             we can not use the original names, and must come up with an
-            alternative name for one of them..
+            alternative name for one of them...
 
             And it needs to report to the importer if the style being mapped to
             was already in existence, for the cut and paste/insert file mode we
@@ -201,7 +202,7 @@ namespace sw
         class CharStyleMapper
         {
         private:
-            //I hate these things stupid pImpl things, but its warranted here
+            //I hate these things stupid pImpl things, but it's warranted here
             std::unique_ptr<::myImplHelpers::StyleMapperImpl<SwCharFormat>> mpImpl;
         public:
             explicit CharStyleMapper(SwDoc &rDoc);
@@ -228,7 +229,7 @@ namespace sw
                 for this word style.
 
                 It will only return a failure in the pathological case of
-                catastropic failure elsewhere of there exist already styles
+                catastrophic failure elsewhere of there exist already styles
                 rName and WW-rName[0..SAL_MAX_INT32], which is both unlikely
                 and impossible.
             */
@@ -250,11 +251,13 @@ namespace sw
             explicit FontMapExport(const OUString &rFontDescription);
         };
 
-        class InsertedTableClient : public SwClient
+        class InsertedTableListener: public SvtListener
         {
+            SwTableNode* m_pTableNode;
         public:
-            explicit InsertedTableClient(SwTableNode & rNode);
-            SwTableNode * GetTableNode();
+            explicit InsertedTableListener(SwTableNode& rNode);
+            SwTableNode* GetTableNode();
+            virtual void Notify(const SfxHint&) override;
         };
 
         /** Handle requirements for table formatting in insert->file mode.
@@ -276,7 +279,7 @@ namespace sw
         class InsertedTablesManager
         {
         public:
-            typedef std::map<InsertedTableClient *, SwNodeIndex *> TableMap;
+            typedef std::map<std::unique_ptr<InsertedTableListener>, SwNodeIndex*> TableMap;
             void DelAndMakeTableFrames();
             void InsertTable(SwTableNode &rTableNode, SwPaM &rPaM);
             explicit InsertedTablesManager(const SwDoc &rDoc);

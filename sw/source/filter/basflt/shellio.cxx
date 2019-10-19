@@ -240,27 +240,11 @@ ErrCode SwReader::Read( const Reader& rOptions )
                 // ok, here IsAlive is a misnomer...
                 if (!aFlyFrameArr.IsAlive(pFrameFormat))
                 {
-                    SwPosition const*const pFrameAnchor(
-                            rAnchor.GetContentAnchor());
                     if  (   (RndStdIds::FLY_AT_PAGE == rAnchor.GetAnchorId())
-                        ||  (   pFrameAnchor
-                            &&  (   (   (RndStdIds::FLY_AT_PARA == rAnchor.GetAnchorId())
-                                    &&  (   (pUndoPam->GetPoint()->nNode ==
-                                             pFrameAnchor->nNode)
-                                        ||  (pUndoPam->GetMark()->nNode ==
-                                             pFrameAnchor->nNode)
-                                        )
-                                    )
-                                // #i97570# also check frames anchored AT char
-                                ||  (   (RndStdIds::FLY_AT_CHAR == rAnchor.GetAnchorId())
-                                    &&  !IsDestroyFrameAnchoredAtChar(
-                                              *pFrameAnchor,
-                                              *pUndoPam->GetPoint(),
-                                              *pUndoPam->GetMark())
-                                    )
-                                )
-                            )
-                        )
+                        // TODO: why is this not handled via SetInsertRange?
+                        ||  SwUndoInserts::IsCreateUndoForNewFly(rAnchor,
+                                pUndoPam->GetPoint()->nNode.GetIndex(),
+                                pUndoPam->GetMark()->nNode.GetIndex()))
                     {
                         if( bChkHeaderFooter &&
                             (RndStdIds::FLY_AT_PARA == rAnchor.GetAnchorId()) &&
@@ -362,7 +346,6 @@ ErrCode SwReader::Read( const Reader& rOptions )
     mxDoc->UpdateNumRule();
     mxDoc->ChkCondColls();
     mxDoc->SetAllUniqueFlyNames();
-    mxDoc->getIDocumentState().SetLoaded();
     // Clear unassigned cell styles, because they aren't needed anymore.
     mxDoc->GetCellStyles().clear();
 
@@ -746,6 +729,7 @@ ErrCode SwWriter::Write( WriterRef const & rxWriter, const OUString* pRealFileNa
     SwPauseThreadStarting aPauseThreadStarting;
 
     bool bHasMark = false;
+    std::shared_ptr<SwUnoCursor> pTempCursor;
     SwPaM * pPam;
 
     rtl::Reference<SwDoc> xDoc;
@@ -812,7 +796,9 @@ ErrCode SwWriter::Write( WriterRef const & rxWriter, const OUString* pRealFileNa
     {
         // no Shell or write-everything -> create a Pam
         SwDoc* pOutDoc = xDoc.is() ? xDoc.get() : &rDoc;
-        pPam = new SwPaM( pOutDoc->GetNodes().GetEndOfContent() );
+        pTempCursor = pOutDoc->CreateUnoCursor(
+                SwPosition(pOutDoc->GetNodes().GetEndOfContent()), false);
+        pPam = pTempCursor.get();
         if( pOutDoc->IsClipBoard() )
         {
             pPam->Move( fnMoveBackward, GoInDoc );
@@ -893,7 +879,6 @@ ErrCode SwWriter::Write( WriterRef const & rxWriter, const OUString* pRealFileNa
     }
     else
     {
-        delete pPam;            // delete the created Pam
         // Everything was written successfully? Tell the document!
         if ( !nError.IsError() && !xDoc.is() )
         {

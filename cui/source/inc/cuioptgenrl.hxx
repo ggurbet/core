@@ -21,7 +21,6 @@
 
 // include ---------------------------------------------------------------
 
-#include <svx/optgenrl.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <vcl/weld.hxx>
 
@@ -31,7 +30,6 @@
 
 class SvxGeneralTabPage : public SfxTabPage
 {
-    using TabPage::DeactivatePage;
 private:
     // the "Use data for document properties" checkbox
     std::unique_ptr<weld::CheckButton> m_xUseDataCB;
@@ -62,10 +60,10 @@ protected:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
-    SvxGeneralTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SvxGeneralTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxGeneralTabPage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet );
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

@@ -37,15 +37,9 @@
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart2/XChartTypeContainer.hpp>
 #include <com/sun/star/chart2/XInternalDataProvider.hpp>
-#include <com/sun/star/chart/ChartSeriesAddress.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/beans/XPropertySetInfo.hpp>
-#include <com/sun/star/beans/PropertyAttribute.hpp>
 
-#include <com/sun/star/chart2/XDiagram.hpp>
-#include <com/sun/star/chart2/XAxis.hpp>
 #include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
-#include <com/sun/star/chart2/AxisType.hpp>
 
 #include <vector>
 #include <algorithm>
@@ -919,8 +913,7 @@ void SchXMLTableHelper::switchRangesFromOuterToInternalIfNecessary(
                 }
                 else if( ! lcl_tableOfRangeMatches( aRange, rTable.aTableNameOfFile ))
                 {
-                    OUString aRep("label ");
-                    aRep += OUString::number( rLSeq.first.first );
+                    OUString aRep = "label " + OUString::number( rLSeq.first.first );
 
                     Reference< chart2::data::XDataSequence > xNewSeq(
                         xDataProv->createDataSequenceByRangeRepresentation( aRep ));
@@ -950,17 +943,17 @@ void SchXMLTableHelper::switchRangesFromOuterToInternalIfNecessary(
         try
         {
             Reference< chart2::XCoordinateSystemContainer > xCooSysCnt( xChartDoc->getFirstDiagram(), uno::UNO_QUERY_THROW );
-            Sequence< Reference< chart2::XCoordinateSystem > > aCooSysSeq( xCooSysCnt->getCoordinateSystems() );
+            const Sequence< Reference< chart2::XCoordinateSystem > > aCooSysSeq( xCooSysCnt->getCoordinateSystems() );
             for( const auto& rCooSys : aCooSysSeq )
             {
                 Reference< chart2::XChartTypeContainer > xCooSysContainer( rCooSys, uno::UNO_QUERY_THROW );
-                Sequence< Reference< chart2::XChartType > > aChartTypeSeq( xCooSysContainer->getChartTypes());
+                const Sequence< Reference< chart2::XChartType > > aChartTypeSeq( xCooSysContainer->getChartTypes());
                 for( const auto& rChartType : aChartTypeSeq )
                 {
                     Reference< chart2::XDataSeriesContainer > xSeriesContainer( rChartType, uno::UNO_QUERY );
                     if(!xSeriesContainer.is())
                         continue;
-                    Sequence< Reference< chart2::XDataSeries > > aSeriesSeq( xSeriesContainer->getDataSeries() );
+                    const Sequence< Reference< chart2::XDataSeries > > aSeriesSeq( xSeriesContainer->getDataSeries() );
                     std::vector< Reference< chart2::XDataSeries > > aRemainingSeries;
 
                     for( const auto& rSeries : aSeriesSeq )
@@ -970,7 +963,7 @@ void SchXMLTableHelper::switchRangesFromOuterToInternalIfNecessary(
                         {
                             bool bHasUnhiddenColumns = false;
                             OUString aRange;
-                            uno::Sequence< Reference< chart2::data::XLabeledDataSequence > > aSequences( xDataSource->getDataSequences() );
+                            const uno::Sequence< Reference< chart2::data::XLabeledDataSequence > > aSequences( xDataSource->getDataSequences() );
                             for( const auto& xLabeledSequence : aSequences )
                             {
                                 if(!xLabeledSequence.is())
@@ -1011,7 +1004,7 @@ void SchXMLTableHelper::switchRangesFromOuterToInternalIfNecessary(
                             //first detect which columns are really used
                             std::map< sal_Int32, bool > aUsageMap;
                             OUString aRange;
-                            Sequence< Reference< chart2::data::XLabeledDataSequence > > aUsedSequences( xDataSource->getDataSequences() );
+                            const Sequence< Reference< chart2::data::XLabeledDataSequence > > aUsedSequences( xDataSource->getDataSequences() );
                             for( const auto& xLabeledSequence : aUsedSequences )
                             {
                                 if(!xLabeledSequence.is())

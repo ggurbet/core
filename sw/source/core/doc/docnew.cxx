@@ -19,6 +19,8 @@
 
 #include <config_features.h>
 
+#include <unordered_set>
+
 #include <doc.hxx>
 #include <dcontact.hxx>
 #include <proofreadingiterator.hxx>
@@ -163,7 +165,7 @@ bool SwDoc::StartGrammarChecking( bool bSkipStart )
     //!! only documents with visible views need to be checked
     //!! (E.g. don't check temporary documents created for printing, see printing of notes and selections.
     //!! Those get created on the fly and get hard deleted a bit later as well, and no one should have
-    //!! a uno reference to them)
+    //!! a UNO reference to them)
     if (bVisible)
     {
         uno::Reference< linguistic2::XProofreadingIterator > xGCIterator( GetGCIterator() );
@@ -924,13 +926,31 @@ static OUString lcl_FindUniqueName(SwWrtShell* pTargetShell, const OUString& rSt
 {
     do
     {
-        OUString sTest = rStartingPageDesc;
-        sTest += OUString::number( nDocNo );
+        OUString sTest = rStartingPageDesc + OUString::number( nDocNo );
         if( !pTargetShell->FindPageDescByName( sTest ) )
             return sTest;
         ++nDocNo;
     }
     while( true );
+}
+
+/** Returns whether the passed SwPageDesc& or any of its (transitive) follows
+   contains a header or footer. */
+static bool lcl_PageDescOrFollowContainsHeaderFooter(const SwPageDesc& rPageDesc)
+{
+    // remember already checked page descs to avoid cycle
+    std::unordered_set<const SwPageDesc*> aCheckedPageDescs;
+    const SwPageDesc* pCurPageDesc = &rPageDesc;
+    while (aCheckedPageDescs.count(pCurPageDesc) == 0)
+    {
+        const SwFrameFormat& rMaster = pCurPageDesc->GetMaster();
+        if (rMaster.GetHeader().IsActive() || rMaster.GetFooter().IsActive())
+            return true;
+
+        aCheckedPageDescs.insert(pCurPageDesc);
+        pCurPageDesc = pCurPageDesc->GetFollow();
+    }
+    return false;
 }
 
 static void lcl_CopyFollowPageDesc(
@@ -949,7 +969,7 @@ static void lcl_CopyFollowPageDesc(
     do
     {
         const SwPageDesc* pFollowPageDesc = pCurSourcePageDesc->GetFollow();
-        OUString sFollowPageDesc = pFollowPageDesc->GetName();
+        const OUString& sFollowPageDesc = pFollowPageDesc->GetName();
         if (sFollowPageDesc == pCurSourcePageDesc->GetName())
         {
             break;
@@ -1032,12 +1052,10 @@ SwNodeIndex SwDoc::AppendDoc(const SwDoc& rSource, sal_uInt16 const nStartPageNu
             // if the source uses headers or footers the target document
             // needs inidividual page styles
             const SwWrtShell *pSourceShell = rSource.GetDocShell()->GetWrtShell();
-            const SwPageDesc *pSourcePageDesc = &pSourceShell->GetPageDesc(
+            const SwPageDesc& rSourcePageDesc = pSourceShell->GetPageDesc(
                                                     pSourceShell->GetCurPageDesc());
-            const OUString sStartingPageDesc = pSourcePageDesc->GetName();
-            const SwFrameFormat& rMaster = pSourcePageDesc->GetMaster();
-            const bool bPageStylesWithHeaderFooter = rMaster.GetHeader().IsActive() ||
-                                                     rMaster.GetFooter().IsActive();
+            const OUString& sStartingPageDesc = rSourcePageDesc.GetName();
+            const bool bPageStylesWithHeaderFooter = lcl_PageDescOrFollowContainsHeaderFooter(rSourcePageDesc);
             if( bPageStylesWithHeaderFooter )
             {
                 // create a new pagestyle
@@ -1047,8 +1065,8 @@ SwNodeIndex SwDoc::AppendDoc(const SwDoc& rSource, sal_uInt16 const nStartPageNu
                 pTargetPageDesc = MakePageDesc( sNewPageDescName );
                 if( pTargetPageDesc )
                 {
-                    CopyPageDesc( *pSourcePageDesc, *pTargetPageDesc, false );
-                    lcl_CopyFollowPageDesc( *pTargetShell, *pSourcePageDesc, *pTargetPageDesc, nDocNo );
+                    CopyPageDesc( rSourcePageDesc, *pTargetPageDesc, false );
+                    lcl_CopyFollowPageDesc( *pTargetShell, rSourcePageDesc, *pTargetPageDesc, nDocNo );
                 }
             }
             else
@@ -1065,7 +1083,7 @@ SwNodeIndex SwDoc::AppendDoc(const SwDoc& rSource, sal_uInt16 const nStartPageNu
             bool bIsTextNode = aBreakIdx.GetNode().IsTextNode();
             if ( !bIsTextNode )
                 getIDocumentContentOperations().AppendTextNode( aBreakPos );
-            OUString name = pTargetPageDesc->GetName();
+            const OUString& name = pTargetPageDesc->GetName();
             pTargetShell->InsertPageBreak( &name, nStartPageNumber );
             if ( !bIsTextNode )
             {

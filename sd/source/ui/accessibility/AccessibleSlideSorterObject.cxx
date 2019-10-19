@@ -383,7 +383,7 @@ sal_Int32 SAL_CALL AccessibleSlideSorterObject::getBackground()
 OUString SAL_CALL
        AccessibleSlideSorterObject::getImplementationName()
 {
-    return OUString("AccessibleSlideSorterObject");
+    return "AccessibleSlideSorterObject";
 }
 
 sal_Bool SAL_CALL AccessibleSlideSorterObject::supportsService (const OUString& sServiceName)
@@ -412,7 +412,7 @@ void AccessibleSlideSorterObject::ThrowIfDisposed()
     }
 }
 
-bool AccessibleSlideSorterObject::IsDisposed()
+bool AccessibleSlideSorterObject::IsDisposed() const
 {
     return (rBHelper.bDisposed || rBHelper.bInDispose);
 }

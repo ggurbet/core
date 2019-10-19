@@ -262,7 +262,7 @@ static sal_Int32 iterateCodePoints(const OUString& Text, sal_Int32 &nStartPos, s
             ch = Text.iterateCodePoints(&nStartPos, inc);
             // Fix for #i80436#.
             // erAck: 2009-06-30T21:52+0200  This logic looks somewhat
-            // suspicious as if it cures a symptom.. anyway, had to add
+            // suspicious as if it cures a symptom... anyway, had to add
             // nStartPos < Text.getLength() to silence the (correct) assertion
             // in rtl_uString_iterateCodePoints() if Text was one character
             // (codepoint) only, made up of a surrogate pair.
@@ -531,7 +531,7 @@ sal_Int16  BreakIteratorImpl::getScriptClass(sal_uInt32 currentChar)
 bool BreakIteratorImpl::createLocaleSpecificBreakIterator(const OUString& aLocaleName)
 {
     // to share service between same Language but different Country code, like zh_CN and zh_TW
-    for (lookupTableItem& listItem : lookupTable) {
+    for (const lookupTableItem& listItem : lookupTable) {
         if (aLocaleName == listItem.aLocale.Language) {
             xBI = listItem.xBI;
             return true;
@@ -576,32 +576,31 @@ BreakIteratorImpl::getLocaleSpecificBreakIterator(const Locale& rLocale)
     else if (m_xContext.is()) {
         aLocale = rLocale;
 
-        for (lookupTableItem& listItem : lookupTable) {
+        for (const lookupTableItem& listItem : lookupTable) {
             if (rLocale == listItem.aLocale)
                 return xBI = listItem.xBI;
         }
 
-        sal_Unicode under = '_';
+        OUStringLiteral under("_");
 
         sal_Int32 l = rLocale.Language.getLength();
         sal_Int32 c = rLocale.Country.getLength();
         sal_Int32 v = rLocale.Variant.getLength();
-        OUStringBuffer aBuf(l+c+v+3);
 
         if ((l > 0 && c > 0 && v > 0 &&
                     // load service with name <base>_<lang>_<country>_<variant>
-                    createLocaleSpecificBreakIterator(aBuf.append(rLocale.Language).append(under).append(
-                            rLocale.Country).append(under).append(rLocale.Variant).makeStringAndClear())) ||
+                    createLocaleSpecificBreakIterator(rLocale.Language + under +
+                            rLocale.Country + under + rLocale.Variant)) ||
                 (l > 0 && c > 0 &&
                  // load service with name <base>_<lang>_<country>
-                 createLocaleSpecificBreakIterator(aBuf.append(rLocale.Language).append(under).append(
-                         rLocale.Country).makeStringAndClear())) ||
+                 createLocaleSpecificBreakIterator(rLocale.Language + under +
+                         rLocale.Country)) ||
                 (l > 0 && c > 0 && rLocale.Language == "zh" &&
                  (rLocale.Country == "HK" ||
                   rLocale.Country == "MO" ) &&
                  // if the country code is HK or MO, one more step to try TW.
-                 createLocaleSpecificBreakIterator(aBuf.append(rLocale.Language).append(under).append(
-                         "TW").makeStringAndClear())) ||
+                 createLocaleSpecificBreakIterator(rLocale.Language + under +
+                         "TW")) ||
                 (l > 0 &&
                  // load service with name <base>_<lang>
                  createLocaleSpecificBreakIterator(rLocale.Language)) ||
@@ -617,7 +616,7 @@ BreakIteratorImpl::getLocaleSpecificBreakIterator(const Locale& rLocale)
 OUString SAL_CALL
 BreakIteratorImpl::getImplementationName()
 {
-    return OUString("com.sun.star.i18n.BreakIterator");
+    return "com.sun.star.i18n.BreakIterator";
 }
 
 sal_Bool SAL_CALL
@@ -629,8 +628,7 @@ BreakIteratorImpl::supportsService(const OUString& rServiceName)
 Sequence< OUString > SAL_CALL
 BreakIteratorImpl::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet { "com.sun.star.i18n.BreakIterator" };
-    return aRet;
+    return { "com.sun.star.i18n.BreakIterator" };
 }
 
 }

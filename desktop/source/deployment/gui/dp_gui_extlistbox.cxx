@@ -187,6 +187,7 @@ ExtensionBox_Impl::ExtensionBox_Impl(std::unique_ptr<weld::ScrolledWindow> xScro
     , m_bInDelete( false )
     , m_nActive( 0 )
     , m_nTopIndex( 0 )
+    , m_nStdHeight( 0 )
     , m_nActiveHeight( 0 )
     , m_aSharedImage(StockImage::Yes, RID_BMP_SHARED)
     , m_aLockedImage(StockImage::Yes, RID_BMP_LOCKED)
@@ -277,8 +278,6 @@ void ExtensionBox_Impl::CalcActiveHeight( const long nPos )
 
     // calc description height
     Size aSize = GetOutputSizePixel();
-    if ( m_bHasScrollBar )
-        aSize.AdjustWidth(-m_xScrollBar->get_vscroll_width());
 
     aSize.AdjustWidth( -(ICON_OFFSET) );
     aSize.setHeight( 10000 );
@@ -306,9 +305,6 @@ tools::Rectangle ExtensionBox_Impl::GetEntryRect( const long nPos ) const
     const ::osl::MutexGuard aGuard( m_entriesMutex );
 
     Size aSize( GetOutputSizePixel() );
-
-    if ( m_bHasScrollBar )
-        aSize.AdjustWidth(-m_xScrollBar->get_vscroll_width());
 
     if ( m_vEntries[ nPos ]->m_bActive )
         aSize.setHeight( m_nActiveHeight );
@@ -448,11 +444,11 @@ void ExtensionBox_Impl::DrawRow(vcl::RenderContext& rRenderContext, const tools:
         nMaxTitleWidth -= nLinkWidth + (2 * SPACE_BETWEEN);
     }
     long aVersionWidth = rRenderContext.GetTextWidth(rEntry->m_sVersion);
-    long aTitleWidth = rRenderContext.GetTextWidth(rEntry->m_sTitle) + (aTextHeight / 3);
 
     aPos = rRect.TopLeft() + Point(ICON_OFFSET, TOP_OFFSET);
 
     rRenderContext.SetFont(aBoldFont);
+    long aTitleWidth = rRenderContext.GetTextWidth(rEntry->m_sTitle) + (aTextHeight / 3);
     if (aTitleWidth > nMaxTitleWidth - aVersionWidth)
     {
         aTitleWidth = nMaxTitleWidth - aVersionWidth - (aTextHeight / 3);
@@ -650,9 +646,6 @@ void ExtensionBox_Impl::Paint(vcl::RenderContext& rRenderContext, const tools::R
     Point aStart( 0, -m_nTopIndex );
     Size aSize(GetOutputSizePixel());
 
-    if ( m_bHasScrollBar )
-        aSize.AdjustWidth(-m_xScrollBar->get_vscroll_width());
-
     const ::osl::MutexGuard aGuard( m_entriesMutex );
 
     for (auto const& entry : m_vEntries)
@@ -709,6 +702,7 @@ void ExtensionBox_Impl::SetupScrollBar()
 void ExtensionBox_Impl::Resize()
 {
     RecalcAll();
+    Invalidate();
 }
 
 void ExtensionBox_Impl::SetDrawingArea(weld::DrawingArea* pDrawingArea)

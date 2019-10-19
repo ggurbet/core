@@ -18,8 +18,10 @@
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
 #include <com/sun/star/ui/ItemType.hpp>
 #include <fstream>
+#include <comphelper/documentinfo.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
+#include <sfx2/objsh.hxx>
 #include <tools/diagnose_ex.h>
 #include <unotools/configmgr.hxx>
 #include <vcl/graph.hxx>
@@ -387,7 +389,7 @@ SwCTB::~SwCTB()
 {
 }
 
-bool SwCTB::IsMenuToolbar()
+bool SwCTB::IsMenuToolbar() const
 {
     return tb.IsMenuToolbar();
 }
@@ -579,7 +581,7 @@ SwTBC::ImportToolBarControl( SwCTBWrapper& rWrapper, const css::uno::Reference< 
                     return false;
                 if ( !bIsMenuBar )
                 {
-                    if ( !helper.createMenu( pMenu->Name(), uno::Reference< container::XIndexAccess >( xMenuDesc, uno::UNO_QUERY ) ) )
+                    if ( !helper.createMenu( pMenu->Name(), xMenuDesc ) )
                         return false;
                 }
                 else
@@ -703,7 +705,7 @@ bool Tcg255::processSubStruct( sal_uInt8 nId, SvStream &rS )
 bool Tcg255::ImportCustomToolBar( SfxObjectShell& rDocSh )
 {
     // Find the SwCTBWrapper
-    for ( auto & rSubStruct : rgtcgData )
+    for ( const auto & rSubStruct : rgtcgData )
     {
         if ( rSubStruct->id() == 0x12 )
         {
@@ -711,6 +713,10 @@ bool Tcg255::ImportCustomToolBar( SfxObjectShell& rDocSh )
             SwCTBWrapper* pCTBWrapper =  dynamic_cast< SwCTBWrapper* > ( rSubStruct.get() );
             if ( pCTBWrapper )
             {
+                // tdf#127048 set this flag if we might import something
+                uno::Reference<frame::XModel> const xModel(rDocSh.GetBaseModel());
+                comphelper::DocumentInfo::notifyMacroEventRead(xModel);
+
                 if ( !pCTBWrapper->ImportCustomToolBar( rDocSh ) )
                     return false;
             }

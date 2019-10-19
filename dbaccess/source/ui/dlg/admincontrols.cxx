@@ -30,205 +30,7 @@ namespace dbaui
 {
 
     // MySQLNativeSettings
-    MySQLNativeSettings::MySQLNativeSettings( vcl::Window& _rParent, const Link<void*,void>& _rControlModificationLink )
-        :TabPage( &_rParent, "MysqlNativeSettings", "dbaccess/ui/mysqlnativesettings.ui" ),
-        m_aControlModificationLink(_rControlModificationLink)
-    {
-        get(m_pDatabaseNameLabel, "dbnamelabel");
-        get(m_pDatabaseName, "dbname");
-        get(m_pHostPortRadio, "hostport");
-        get(m_pSocketRadio, "socketlabel");
-        get(m_pNamedPipeRadio, "namedpipelabel");
-        get(m_pHostNameLabel, "serverlabel");
-        get(m_pHostName, "server");
-        get(m_pPortLabel, "portlabel");
-        get(m_pPort, "port");
-        m_pPort->SetUseThousandSep(false);
-        get(m_pDefaultPort, "defaultport");
-        get(m_pSocket, "socket");
-        get(m_pNamedPipe, "namedpipe");
-
-        m_pHostName->SetText("localhost");
-
-        m_pDatabaseName->SetModifyHdl( LINK(this, MySQLNativeSettings, EditModifyHdl) );
-        m_pHostName->SetModifyHdl( LINK(this, MySQLNativeSettings, EditModifyHdl) );
-        m_pPort->SetModifyHdl( LINK(this, MySQLNativeSettings, EditModifyHdl) );
-        m_pSocket->SetModifyHdl( LINK(this, MySQLNativeSettings, EditModifyHdl) );
-        m_pNamedPipe->SetModifyHdl( LINK(this, MySQLNativeSettings, EditModifyHdl) );
-        m_pSocketRadio->SetToggleHdl( LINK(this, MySQLNativeSettings, RadioToggleHdl) );
-        m_pNamedPipeRadio->SetToggleHdl( LINK(this, MySQLNativeSettings, RadioToggleHdl) );
-        m_pHostPortRadio->SetToggleHdl( LINK(this, MySQLNativeSettings, RadioToggleHdl) );
-
-        // sockets are available on Unix systems only, named pipes only on Windows
-#ifdef UNX
-        m_pNamedPipeRadio->Hide();
-        m_pNamedPipe->Hide();
-#else
-        m_pSocketRadio->Hide();
-        m_pSocket->Hide();
-#endif
-    }
-
-    IMPL_LINK(MySQLNativeSettings, RadioToggleHdl, RadioButton&, rRadioButton, void)
-    {
-        if (&rRadioButton == &*m_pSocketRadio || &rRadioButton == &*m_pNamedPipeRadio)
-            m_aControlModificationLink.Call(&rRadioButton);
-        m_pHostNameLabel->Enable(m_pHostPortRadio->IsChecked());
-        m_pHostName->Enable(m_pHostPortRadio->IsChecked());
-        m_pPortLabel->Enable(m_pHostPortRadio->IsChecked());
-        m_pPort->Enable(m_pHostPortRadio->IsChecked());
-        m_pDefaultPort->Enable(m_pHostPortRadio->IsChecked());
-        m_pSocket->Enable(m_pSocketRadio->IsChecked());
-        m_pNamedPipe->Enable(m_pNamedPipeRadio->IsChecked());
-        if (&rRadioButton == &*m_pHostPortRadio)
-        {
-            if (rRadioButton.IsChecked())
-                m_pHostName->SetText(m_sHostNameUserText);
-            else
-                m_pHostName->SetText("localhost");
-        }
-    }
-
-    IMPL_LINK(MySQLNativeSettings, EditModifyHdl, Edit&, rEdit, void)
-    {
-        m_aControlModificationLink.Call(&rEdit);
-
-        if (&rEdit == m_pHostName.get())
-        {
-            if (m_pHostName->IsEnabled())
-                m_sHostNameUserText = m_pHostName->GetText();
-        }
-    }
-
-    MySQLNativeSettings::~MySQLNativeSettings()
-    {
-        disposeOnce();
-    }
-
-    void MySQLNativeSettings::dispose()
-    {
-        m_pDatabaseNameLabel.clear();
-        m_pDatabaseName.clear();
-        m_pHostPortRadio.clear();
-        m_pSocketRadio.clear();
-        m_pNamedPipeRadio.clear();
-        m_pHostNameLabel.clear();
-        m_pHostName.clear();
-        m_pPortLabel.clear();
-        m_pPort.clear();
-        m_pDefaultPort.clear();
-        m_pSocket.clear();
-        m_pNamedPipe.clear();
-        TabPage::dispose();
-    }
-
-    void MySQLNativeSettings::fillControls( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
-    {
-        _rControlList.emplace_back( new OSaveValueWrapper< Edit >( m_pDatabaseName ) );
-        _rControlList.emplace_back( new OSaveValueWrapper< Edit >( m_pHostName ) );
-        _rControlList.emplace_back( new OSaveValueWrapper< Edit >( m_pPort ) );
-        _rControlList.emplace_back( new OSaveValueWrapper< Edit >( m_pSocket ) );
-        _rControlList.emplace_back( new OSaveValueWrapper< Edit >( m_pNamedPipe ) );
-    }
-
-    void MySQLNativeSettings::fillWindows( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
-    {
-        _rControlList.emplace_back( new ODisableWrapper< FixedText >( m_pDatabaseNameLabel ) );
-        _rControlList.emplace_back( new ODisableWrapper< FixedText >( m_pHostNameLabel ) );
-        _rControlList.emplace_back( new ODisableWrapper< FixedText >( m_pPortLabel ) );
-        _rControlList.emplace_back( new ODisableWrapper< FixedText >( m_pDefaultPort ) );
-        _rControlList.emplace_back( new ODisableWrapper< RadioButton >( m_pSocketRadio ) );
-        _rControlList.emplace_back( new ODisableWrapper< RadioButton >( m_pNamedPipeRadio ) );
-    }
-
-    bool MySQLNativeSettings::FillItemSet( SfxItemSet* _rSet )
-    {
-        bool bChangedSomething = false;
-
-        OGenericAdministrationPage::fillString( *_rSet, m_pHostName,     DSID_CONN_HOSTNAME,    bChangedSomething );
-        OGenericAdministrationPage::fillString( *_rSet, m_pDatabaseName, DSID_DATABASENAME,     bChangedSomething );
-        OGenericAdministrationPage::fillInt32 ( *_rSet, m_pPort,         DSID_MYSQL_PORTNUMBER, bChangedSomething );
-#ifdef UNX
-        OGenericAdministrationPage::fillString( *_rSet, m_pSocket,       DSID_CONN_SOCKET,      bChangedSomething );
-#else
-        OGenericAdministrationPage::fillString( *_rSet, m_pNamedPipe,    DSID_NAMED_PIPE,       bChangedSomething );
-#endif
-
-        return bChangedSomething;
-    }
-
-    void MySQLNativeSettings::implInitControls(const SfxItemSet& _rSet )
-    {
-        const SfxBoolItem* pInvalid = _rSet.GetItem<SfxBoolItem>(DSID_INVALID_SELECTION);
-        bool bValid = !pInvalid || !pInvalid->GetValue();
-        if ( !bValid )
-            return;
-
-        const SfxStringItem* pDatabaseName = _rSet.GetItem<SfxStringItem>(DSID_DATABASENAME);
-        const SfxStringItem* pHostName = _rSet.GetItem<SfxStringItem>(DSID_CONN_HOSTNAME);
-        const SfxInt32Item* pPortNumber = _rSet.GetItem<SfxInt32Item>(DSID_MYSQL_PORTNUMBER);
-        const SfxStringItem* pSocket = _rSet.GetItem<SfxStringItem>(DSID_CONN_SOCKET);
-        const SfxStringItem* pNamedPipe = _rSet.GetItem<SfxStringItem>(DSID_NAMED_PIPE);
-
-        m_pDatabaseName->SetText( pDatabaseName->GetValue() );
-        m_pDatabaseName->ClearModifyFlag();
-
-        m_pHostName->SetText( pHostName->GetValue() );
-        m_pHostName->ClearModifyFlag();
-
-        m_pPort->SetValue( pPortNumber->GetValue() );
-        m_pPort->ClearModifyFlag();
-
-        m_pSocket->SetText( pSocket->GetValue() );
-        m_pSocket->ClearModifyFlag();
-
-        m_pNamedPipe->SetText( pNamedPipe->GetValue() );
-        m_pNamedPipe->ClearModifyFlag();
-
-        // if a socket (on Unix) or a pipe name (on Windows) is given, this is preferred over
-        // the port
-#ifdef UNX
-        RadioButton& rSocketPipeRadio = *m_pSocketRadio;
-        const SfxStringItem* pSocketPipeItem = pSocket;
-#else
-        RadioButton& rSocketPipeRadio = *m_pNamedPipeRadio;
-        const SfxStringItem* pSocketPipeItem = pNamedPipe;
-#endif
-        const OUString& sSocketPipe( pSocketPipeItem->GetValue() );
-        if ( !sSocketPipe.isEmpty() )
-            rSocketPipeRadio.Check();
-        else
-            m_pHostPortRadio->Check();
-    }
-
-    bool MySQLNativeSettings::canAdvance() const
-    {
-        if ( m_pDatabaseName->GetText().isEmpty() )
-            return false;
-
-        if  (   m_pHostPortRadio->IsChecked()
-            &&  (   ( m_pHostName->GetText().isEmpty() )
-                ||  ( m_pPort->GetText().isEmpty() )
-                )
-            )
-            return false;
-
-#ifdef UNX
-        if  (   ( m_pSocketRadio->IsChecked() )
-            &&  ( m_pSocket->GetText().isEmpty() )
-            )
-#else
-        if  (   ( m_pNamedPipeRadio->IsChecked() )
-            &&  ( m_pNamedPipe->GetText().isEmpty() )
-            )
-#endif
-            return false;
-
-        return true;
-    }
-
-    // MySQLNativeSettings
-    DBMySQLNativeSettings::DBMySQLNativeSettings(weld::Widget* pParent, const Link<void*,void>& rControlModificationLink)
+    MySQLNativeSettings::MySQLNativeSettings(weld::Widget* pParent, const Link<weld::Widget*,void>& rControlModificationLink)
         : m_xBuilder(Application::CreateBuilder(pParent, "dbaccess/ui/mysqlnativesettings.ui"))
         , m_xContainer(m_xBuilder->weld_widget("MysqlNativeSettings"))
         , m_xDatabaseNameLabel(m_xBuilder->weld_label("dbnamelabel"))
@@ -245,14 +47,14 @@ namespace dbaui
         , m_xNamedPipe(m_xBuilder->weld_entry("namedpipe"))
         , m_aControlModificationLink(rControlModificationLink)
     {
-        m_xDatabaseName->connect_changed( LINK(this, DBMySQLNativeSettings, EditModifyHdl) );
-        m_xHostName->connect_changed( LINK(this, DBMySQLNativeSettings, EditModifyHdl) );
-        m_xPort->connect_value_changed( LINK(this, DBMySQLNativeSettings, SpinModifyHdl) );
-        m_xSocket->connect_changed( LINK(this, DBMySQLNativeSettings, EditModifyHdl) );
-        m_xNamedPipe->connect_changed( LINK(this, DBMySQLNativeSettings, EditModifyHdl) );
-        m_xSocketRadio->connect_toggled( LINK(this, DBMySQLNativeSettings, RadioToggleHdl) );
-        m_xNamedPipeRadio->connect_toggled( LINK(this, DBMySQLNativeSettings, RadioToggleHdl) );
-        m_xHostPortRadio->connect_toggled( LINK(this, DBMySQLNativeSettings, RadioToggleHdl) );
+        m_xDatabaseName->connect_changed( LINK(this, MySQLNativeSettings, EditModifyHdl) );
+        m_xHostName->connect_changed( LINK(this, MySQLNativeSettings, EditModifyHdl) );
+        m_xPort->connect_value_changed( LINK(this, MySQLNativeSettings, SpinModifyHdl) );
+        m_xSocket->connect_changed( LINK(this, MySQLNativeSettings, EditModifyHdl) );
+        m_xNamedPipe->connect_changed( LINK(this, MySQLNativeSettings, EditModifyHdl) );
+        m_xSocketRadio->connect_toggled( LINK(this, MySQLNativeSettings, RadioToggleHdl) );
+        m_xNamedPipeRadio->connect_toggled( LINK(this, MySQLNativeSettings, RadioToggleHdl) );
+        m_xHostPortRadio->connect_toggled( LINK(this, MySQLNativeSettings, RadioToggleHdl) );
 
         // sockets are available on Unix systems only, named pipes only on Windows
 #ifdef UNX
@@ -265,7 +67,7 @@ namespace dbaui
         m_xContainer->show();
     }
 
-    IMPL_LINK(DBMySQLNativeSettings, RadioToggleHdl, weld::ToggleButton&, rRadioButton, void)
+    IMPL_LINK(MySQLNativeSettings, RadioToggleHdl, weld::ToggleButton&, rRadioButton, void)
     {
         m_aControlModificationLink.Call(&rRadioButton);
 
@@ -280,17 +82,17 @@ namespace dbaui
         m_xNamedPipe->set_sensitive(m_xNamedPipeRadio->get_active());
     }
 
-    IMPL_LINK(DBMySQLNativeSettings, EditModifyHdl, weld::Entry&, rEdit, void)
+    IMPL_LINK(MySQLNativeSettings, EditModifyHdl, weld::Entry&, rEdit, void)
     {
         m_aControlModificationLink.Call(&rEdit);
     }
 
-    IMPL_LINK(DBMySQLNativeSettings, SpinModifyHdl, weld::SpinButton&, rEdit, void)
+    IMPL_LINK(MySQLNativeSettings, SpinModifyHdl, weld::SpinButton&, rEdit, void)
     {
         m_aControlModificationLink.Call(&rEdit);
     }
 
-    void DBMySQLNativeSettings::fillControls( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
+    void MySQLNativeSettings::fillControls( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
     {
         _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xDatabaseName.get()));
         _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xHostName.get()));
@@ -299,7 +101,7 @@ namespace dbaui
         _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xNamedPipe.get()));
     }
 
-    void DBMySQLNativeSettings::fillWindows( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
+    void MySQLNativeSettings::fillWindows( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
     {
         _rControlList.emplace_back( new ODisableWidgetWrapper<weld::Label>( m_xDatabaseNameLabel.get() ) );
         _rControlList.emplace_back( new ODisableWidgetWrapper<weld::Label>( m_xHostNameLabel.get() ) );
@@ -309,7 +111,7 @@ namespace dbaui
         _rControlList.emplace_back( new ODisableWidgetWrapper<weld::RadioButton>( m_xNamedPipeRadio.get() ) );
     }
 
-    bool DBMySQLNativeSettings::FillItemSet( SfxItemSet* _rSet )
+    bool MySQLNativeSettings::FillItemSet( SfxItemSet* _rSet )
     {
         bool bChangedSomething = false;
 
@@ -325,7 +127,7 @@ namespace dbaui
         return bChangedSomething;
     }
 
-    void DBMySQLNativeSettings::implInitControls(const SfxItemSet& _rSet )
+    void MySQLNativeSettings::implInitControls(const SfxItemSet& _rSet )
     {
         const SfxBoolItem* pInvalid = _rSet.GetItem<SfxBoolItem>(DSID_INVALID_SELECTION);
         bool bValid = !pInvalid || !pInvalid->GetValue();
@@ -367,6 +169,32 @@ namespace dbaui
             rSocketPipeRadio.set_active(true);
         else
             m_xHostPortRadio->set_active(true);
+    }
+
+    bool MySQLNativeSettings::canAdvance() const
+    {
+        if (m_xDatabaseName->get_text().isEmpty())
+            return false;
+
+        if  (   m_xHostPortRadio->get_active()
+            &&  (   ( m_xHostName->get_text().isEmpty() )
+                ||  ( m_xPort->get_text().isEmpty() )
+                )
+            )
+            return false;
+
+#ifdef UNX
+        if  (   ( m_xSocketRadio->get_active() )
+            &&  ( m_xSocket->get_text().isEmpty() )
+            )
+#else
+        if  (   ( m_xNamedPipeRadio->get_active() )
+            &&  ( m_xNamedPipe->get_text().isEmpty() )
+            )
+#endif
+            return false;
+
+        return true;
     }
 
 } // namespace dbaui

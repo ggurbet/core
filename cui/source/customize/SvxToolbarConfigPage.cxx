@@ -20,82 +20,31 @@
 #include <sal/config.h>
 #include <sal/log.hxx>
 
-#include <cassert>
-#include <stdlib.h>
-#include <time.h>
-#include <typeinfo>
-
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/event.hxx>
-#include <vcl/help.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/decoview.hxx>
-#include <vcl/virdev.hxx>
-#include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 
-#include <sfx2/app.hxx>
-#include <sfx2/sfxdlg.hxx>
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/viewsh.hxx>
-#include <sfx2/msg.hxx>
-#include <sfx2/msgpool.hxx>
-#include <sfx2/minfitem.hxx>
-#include <sfx2/objsh.hxx>
-#include <sfx2/request.hxx>
-#include <sfx2/filedlghelper.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <svl/stritem.hxx>
-#include <svtools/miscopt.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <algorithm>
 #include <helpids.h>
 #include <strings.hrc>
 
-#include <acccfg.hxx>
 #include <cfg.hxx>
 #include <SvxToolbarConfigPage.hxx>
 #include <SvxConfigPageHelper.hxx>
 #include <dialmgr.hxx>
 
 #include <comphelper/processfactory.hxx>
-#include <unotools/configmgr.hxx>
-#include <com/sun/star/embed/ElementModes.hpp>
-#include <com/sun/star/embed/FileSystemStorageFactory.hpp>
-#include <com/sun/star/frame/UnknownModuleException.hpp>
-#include <com/sun/star/frame/XFrames.hpp>
-#include <com/sun/star/frame/XLayoutManager.hpp>
-#include <com/sun/star/frame/FrameSearchFlag.hpp>
-#include <com/sun/star/frame/ModuleManager.hpp>
-#include <com/sun/star/frame/XController.hpp>
-#include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/graphic/GraphicProvider.hpp>
-#include <com/sun/star/io/IOException.hpp>
-#include <com/sun/star/lang/IllegalAccessException.hpp>
-#include <com/sun/star/ui/ItemType.hpp>
-#include <com/sun/star/ui/ItemStyle.hpp>
-#include <com/sun/star/ui/ImageManager.hpp>
-#include <com/sun/star/ui/theModuleUIConfigurationManagerSupplier.hpp>
-#include <com/sun/star/ui/XUIConfiguration.hpp>
-#include <com/sun/star/ui/XUIConfigurationListener.hpp>
-#include <com/sun/star/ui/XUIConfigurationManagerSupplier.hpp>
-#include <com/sun/star/ui/XUIConfigurationPersistence.hpp>
-#include <com/sun/star/ui/XUIConfigurationStorage.hpp>
-#include <com/sun/star/ui/XModuleUIConfigurationManager.hpp>
-#include <com/sun/star/ui/XUIElement.hpp>
-#include <com/sun/star/ui/UIElementType.hpp>
 #include <com/sun/star/ui/ImageType.hpp>
-#include <com/sun/star/ui/theWindowStateConfiguration.hpp>
-#include <com/sun/star/ui/dialogs/ExtendedFilePickerElementIds.hpp>
-#include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
-#include <com/sun/star/ui/dialogs/XFilePickerControlAccess.hpp>
-#include <com/sun/star/util/thePathSettings.hpp>
 
 #include <dlgname.hxx>
 
-SvxToolbarConfigPage::SvxToolbarConfigPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SvxConfigPage(pParent, rSet)
+SvxToolbarConfigPage::SvxToolbarConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SvxConfigPage(pPage, pController, rSet)
 {
     m_xGearBtn = m_xBuilder->weld_menu_button("toolbargearbtn");
     m_xGearBtn->show();
@@ -207,11 +156,6 @@ IMPL_LINK_NOARG(SvxToolbarConfigPage, ListModifiedHdl, weld::TreeView&, void)
 
 SvxToolbarConfigPage::~SvxToolbarConfigPage()
 {
-    disposeOnce();
-}
-
-void SvxToolbarConfigPage::dispose()
-{
     for (int i = 0, nCount = m_xSaveInListBox->get_count(); i < nCount; ++i)
     {
         ToolbarSaveInData* pData =
@@ -219,8 +163,6 @@ void SvxToolbarConfigPage::dispose()
         delete pData;
     }
     m_xSaveInListBox->clear();
-
-    SvxConfigPage::dispose();
 }
 
 void SvxToolbarConfigPage::DeleteSelectedTopLevel()
@@ -284,7 +226,7 @@ void SvxToolbarConfigPage::DeleteSelectedContent()
         if ( m_xContentsListBox->n_children() == 0 &&
              GetTopLevelSelection()->IsDeletable() )
         {
-            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            CuiResId(RID_SXVSTR_CONFIRM_DELETE_TOOLBAR)));
             if (xQueryBox->run() == RET_YES)
@@ -382,7 +324,7 @@ IMPL_LINK( SvxToolbarConfigPage, GearHdl, const OString&, rIdent, void )
         OUString aNewURL =
             SvxConfigPageHelper::generateCustomURL( GetSaveInData()->GetEntries() );
 
-        SvxNewToolbarDialog aNameDialog(GetDialogFrameWeld(), aNewName);
+        SvxNewToolbarDialog aNameDialog(GetFrameWeld(), aNewName);
 
         // Reflect the actual m_xSaveInListBox into the new toolbar dialog
         for (int i = 0, nCount = m_xSaveInListBox->get_count(); i < nCount; ++i)
@@ -442,7 +384,7 @@ IMPL_LINK( SvxToolbarConfigPage, GearHdl, const OString&, rIdent, void )
         OUString sCurrentName( SvxConfigPageHelper::stripHotKey( pToolbar->GetName() ) );
         OUString sDesc = CuiResId( RID_SVXSTR_LABEL_NEW_NAME );
 
-        SvxNameDialog aNameDialog(GetDialogFrameWeld(), sCurrentName, sDesc);
+        SvxNameDialog aNameDialog(GetFrameWeld(), sCurrentName, sDesc);
         aNameDialog.set_help_id(HID_SVX_CONFIG_RENAME_TOOLBAR);
         aNameDialog.set_title(CuiResId(RID_SVXSTR_RENAME_TOOLBAR));
 
@@ -558,7 +500,7 @@ IMPL_LINK(SvxToolbarConfigPage, ModifyItemHdl, const OString&, rIdent, void)
         OUString aNewName( SvxConfigPageHelper::stripHotKey( pEntry->GetName() ) );
         OUString aDesc = CuiResId( RID_SVXSTR_LABEL_NEW_NAME );
 
-        SvxNameDialog aNameDialog(GetDialogFrameWeld(), aNewName, aDesc);
+        SvxNameDialog aNameDialog(GetFrameWeld(), aNewName, aDesc);
         aNameDialog.set_help_id(HID_SVX_CONFIG_RENAME_TOOLBAR_ITEM);
         aNameDialog.set_title(CuiResId(RID_SVXSTR_RENAME_TOOLBAR));
 
@@ -581,7 +523,7 @@ IMPL_LINK(SvxToolbarConfigPage, ModifyItemHdl, const OString&, rIdent, void)
         SvxConfigEntry* pEntry =
             reinterpret_cast<SvxConfigEntry*>(m_xContentsListBox->get_id(nActEntry).toInt64());
 
-        SvxIconSelectorDialog aIconDialog(GetDialogFrameWeld(),
+        SvxIconSelectorDialog aIconDialog(GetFrameWeld(),
                 GetSaveInData()->GetImageManager(),
                 GetSaveInData()->GetParentImageManager());
 
@@ -750,7 +692,7 @@ IMPL_LINK_NOARG(SvxToolbarConfigPage, ResetToolbarHdl, weld::Button&, void)
     SvxConfigEntry* pToolbar =
         reinterpret_cast<SvxConfigEntry*>(m_xTopLevelListBox->get_id(nSelectionPos).toInt64());
 
-    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                    VclMessageType::Question, VclButtonsType::YesNo,
                                                    CuiResId(RID_SVXSTR_CONFIRM_RESTORE_DEFAULT)));
     if (xQueryBox->run() == RET_YES)
@@ -795,7 +737,7 @@ short SvxToolbarConfigPage::QueryReset()
 
     OUString label = SvxConfigPageHelper::replaceSaveInName( msg, saveInName );
 
-    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                    VclMessageType::Question, VclButtonsType::YesNo,
                                                    label));
     return xQueryBox->run();
@@ -865,7 +807,7 @@ void SvxToolbarConfigPage::AddFunction(int nTarget)
 
     // Add the command to the contents listbox of the selected toolbar
     int nNewLBEntry =
-        SvxConfigPage::AddFunction(nTarget, /*bFront*/false, true/*bAllowDuplicates*/);
+        SvxConfigPage::AddFunction(nTarget, true/*bAllowDuplicates*/);
 
     if (nNewLBEntry == -1)
         return;
@@ -911,10 +853,10 @@ void SvxToolbarEntriesListBox::ChangedVisibility(int nRow)
     {
         pEntryData->SetVisible(m_xControl->get_toggle(nRow, 0) == TRISTATE_TRUE);
 
-        SvxConfigEntry* pToolbar = pPage->GetTopLevelSelection();
+        SvxConfigEntry* pToolbar = m_pPage->GetTopLevelSelection();
 
         ToolbarSaveInData* pToolbarSaveInData = static_cast<ToolbarSaveInData*>(
-            pPage->GetSaveInData() );
+            m_pPage->GetSaveInData() );
 
         pToolbarSaveInData->ApplyToolbar( pToolbar );
     }

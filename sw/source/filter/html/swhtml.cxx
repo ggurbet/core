@@ -261,7 +261,6 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
                             bool bNoHTMLComments,
                             const OUString& rNamespace )
     : SfxHTMLParser( rIn, bReadNewDoc, pMed ),
-    SwClient( nullptr ),
     m_aPathToFile( rPath ),
     m_sBaseURL( rBaseURL ),
     m_xAttrTab(new HTMLAttrTable),
@@ -311,6 +310,7 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
     m_bRemoveHidden( false ),
     m_bBodySeen( false ),
     m_bReadingHeaderOrFooter( false ),
+    m_bNotifyMacroEventRead( false ),
     m_isInTableStructure(false),
     m_nTableDepth( 0 ),
     m_pTempViewFrame(nullptr)
@@ -479,7 +479,7 @@ SwHTMLParser::~SwHTMLParser()
     if( !m_aSetAttrTab.empty() )
     {
         OSL_ENSURE( m_aSetAttrTab.empty(),"There are still attributes on the stack" );
-        for ( auto& rpAttr : m_aSetAttrTab )
+        for ( const auto& rpAttr : m_aSetAttrTab )
             delete rpAttr;
         m_aSetAttrTab.clear();
     }
@@ -489,7 +489,7 @@ SwHTMLParser::~SwHTMLParser()
     DeleteFormImpl();
     DeleteFootEndNoteImpl();
 
-    OSL_ENSURE(!m_xTable.get(), "It exists still a open table");
+    OSL_ENSURE(!m_xTable.get(), "It exists still an open table");
     m_pImageMaps.reset();
 
     OSL_ENSURE( m_vPendingStack.empty(),
@@ -574,7 +574,7 @@ SvParserState SwHTMLParser::CallParser()
         rInput.ResetError();
     }
 
-    m_xDoc->GetPageDesc( 0 ).Add( this );
+    StartListening(m_xDoc->GetPageDesc( 0 ).GetNotifier());
 
     SvParserState eRet = HTMLParser::CallParser();
     return eRet;
@@ -856,7 +856,7 @@ void SwHTMLParser::Continue( HtmlTokenId nToken )
         }
 
         // adjust AutoLoad in DocumentProperties
-        if( IsNewDoc() )
+        if (!utl::ConfigManager::IsFuzzing() && IsNewDoc())
         {
             SwDocShell *pDocShell(m_xDoc->GetDocShell());
             OSL_ENSURE(pDocShell, "no SwDocShell");
@@ -928,18 +928,12 @@ void SwHTMLParser::Continue( HtmlTokenId nToken )
 #endif
 }
 
-void SwHTMLParser::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew )
+void SwHTMLParser::Notify(const SfxHint& rHint)
 {
-    switch( pOld ? pOld->Which() : pNew ? pNew->Which() : 0 )
+    if(rHint.GetId() == SfxHintId::Dying)
     {
-    case RES_OBJECTDYING:
-        if (pOld && static_cast<const SwPtrMsgPoolItem *>(pOld)->pObject == GetRegisteredIn())
-        {
-            // then we kill ourself
-            EndListeningAll();
-            ReleaseRef();                   // otherwise we're done!
-        }
-        break;
+        EndListeningAll();
+        ReleaseRef();
     }
 }
 
@@ -2019,9 +2013,8 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
             }
             else
             {
-                OUStringBuffer aComment;
-                aComment.append('<').append(aToken).append('>');
-                InsertComment( aComment.makeStringAndClear() );
+                OUString aComment = "<" + aToken + ">";
+                InsertComment( aComment );
             }
         }
         break;
@@ -3956,7 +3949,7 @@ void SwHTMLParser::NewPara()
     // progress bar
     ShowStatline();
 
-    OSL_ENSURE( m_nOpenParaToken == HtmlTokenId::NONE, "Now a open paragraph element will be lost." );
+    OSL_ENSURE( m_nOpenParaToken == HtmlTokenId::NONE, "Now an open paragraph element will be lost." );
     m_nOpenParaToken = HtmlTokenId::PARABREAK_ON;
 }
 

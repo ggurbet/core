@@ -21,10 +21,8 @@
 #include <cmath>
 #include <vcl/virdev.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/event.hxx>
-#include <vcl/field.hxx>
 #include <vcl/settings.hxx>
 #include <svtools/colorcfg.hxx>
 #include <i18nlangtag/languagetag.hxx>
@@ -112,7 +110,7 @@ void DialControlBmp::DrawElements( const OUString& rText, sal_Int32 nAngle )
     DrawEllipse( tools::Rectangle( nX - nSize, nY - nSize, nX + nSize, nY + nSize ) );
 }
 
-const Color& DialControlBmp::GetBackgroundColor() const
+Color DialControlBmp::GetBackgroundColor() const
 {
     return GetSettings().GetStyleSettings().GetDialogColor();
 }
@@ -635,7 +633,7 @@ void SvxDialControl::SaveValue()
     mpImpl->mnInitialAngle = mpImpl->mnAngle;
 }
 
-bool SvxDialControl::IsValueModified()
+bool SvxDialControl::IsValueModified() const
 {
     return mpImpl->mnInitialAngle != mpImpl->mnAngle;
 }

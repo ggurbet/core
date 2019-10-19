@@ -44,7 +44,6 @@
 using namespace ftp;
 using namespace com::sun::star::ucb;
 using namespace com::sun::star::uno;
-using namespace com::sun::star::io;
 
 namespace {
 
@@ -563,11 +562,11 @@ OUString FTPURL::net_title() const
             throw curl_exception(err);
 #endif
         else if(try_more && err == CURLE_FTP_ACCESS_DENIED) {
-            // We  were  either denied access when trying to login to
+            // We were either denied access when trying to login to
             //  an FTP server or when trying to change working directory
             //  to the one given in the URL.
             if(!m_aPathSegmentVec.empty())
-                // determine title form url
+                // determine title from URL
                 aNetTitle = decodePathSegment(m_aPathSegmentVec.back());
             else
                 // must be root
@@ -605,7 +604,7 @@ FTPDirentry FTPURL::direntry() const
 
         std::vector<FTPDirentry> aList = aURL.list(OpenMode::ALL);
 
-        for(FTPDirentry & d : aList) {
+        for(const FTPDirentry & d : aList) {
             if(d.m_aName == nettitle) { // the relevant file is found
                 aDirentry = d;
                 break;
@@ -676,8 +675,8 @@ void FTPURL::mkdir(bool ReplaceExisting) const
         // will give an error
         title = OString("/");
 
-    OString aDel("del "); aDel += title;
-    OString mkd("mkd "); mkd += title;
+    OString aDel = "del " + title;
+    OString mkd = "mkd " + title;
 
     struct curl_slist *slist = nullptr;
 
@@ -771,10 +770,10 @@ void FTPURL::del() const
             } catch(const curl_exception&) {
             }
         }
-        dele = OString("RMD ") + dele;
+        dele = "RMD " + dele;
     }
     else if(aDirentry.m_nMode != INETCOREFTP_FILEMODE_UNKNOWN)
-        dele = OString("DELE ") + dele;
+        dele = "DELE " + dele;
     else
         return;
 

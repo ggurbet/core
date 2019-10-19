@@ -208,19 +208,15 @@ public:
     TextPaM             CursorEndOfDoc();
 
     /**
-        Drag and Drop, deleting and selection regards all text that has an attribute
-        TEXTATTR_PROTECTED set as one entity. Drag and dropped text is automatically
-        attributed as protected.
-     */
-    void                SupportProtectAttribute(bool bSupport);
-
-    /**
         Returns the number in paragraph of the line in which the cursor is blinking
         if enabled, -1 otherwise.
      */
     sal_Int32           GetLineNumberOfCursorInSelection() const;
 
     void                MatchGroup();
+
+    // tdf#49482: Moves the start of the PaM to the center of the textview
+    void                CenterPaM( const TextPaM& rPaM );
 
     bool                Search( const i18nutil::SearchOptions& rSearchOptions, bool bForward );
     sal_uInt16          Replace( const i18nutil::SearchOptions& rSearchOptions, bool bAll, bool bForward );

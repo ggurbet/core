@@ -26,6 +26,41 @@
 #include <tools/link.hxx>
 #include <com/sun/star/frame/XFrame.hpp>
 
+#include <cfgutil.hxx>
+#include <cui/cuicharmap.hxx>
+#include <cuifmsearch.hxx>
+#include <cuigaldlg.hxx>
+#include <cuigrfflt.hxx>
+#include <cuihyperdlg.hxx>
+#include <cuiimapwnd.hxx>
+#include <cuisrchdlg.hxx>
+#include <cuitabarea.hxx>
+#include <cuitbxform.hxx>
+#include <dlgname.hxx>
+#include <DiagramDialog.hxx>
+#include <dstribut.hxx>
+#include <hangulhanjadlg.hxx>
+#include <hyphen.hxx>
+#include <insdlg.hxx>
+#include <labdlg.hxx>
+#include <linkdlg.hxx>
+#include <multipat.hxx>
+#include <optdict.hxx>
+#include <passwdomdlg.hxx>
+#include <pastedlg.hxx>
+#include <postdlg.hxx>
+#include <QrCodeGenDialog.hxx>
+#include <screenshotannotationdlg.hxx>
+#include <showcols.hxx>
+#include <SignatureLineDialog.hxx>
+#include <SignSignatureLineDialog.hxx>
+#include <SpellDialog.hxx>
+#include <srchxtra.hxx>
+#include <thesdlg.hxx>
+#include <tipofthedaydlg.hxx>
+#include <transfrm.hxx>
+#include <zoom.hxx>
+
 class SfxSingleTabDialogController;
 class SfxItemPool;
 class FmShowColsDialog;
@@ -77,11 +112,6 @@ bool Class::StartExecuteAsync(VclAbstractDialog::AsyncContext &rCtx) \
     return pDlg->StartExecuteAsync(rCtx);           \
 }
 
-class CuiVclAbstractDialog_Impl : public VclAbstractDialog
-{
-    DECL_ABSTDLG_BASE(CuiVclAbstractDialog_Impl,Dialog)
-};
-
 class CuiAbstractController_Impl : public VclAbstractDialog
 {
     std::unique_ptr<weld::DialogController> m_xDlg;
@@ -122,8 +152,13 @@ public:
     virtual const SfxItemSet*   GetOutputItemSet() const override;
     virtual const sal_uInt16*   GetInputRanges( const SfxItemPool& pItem ) override;
     virtual void                SetInputSet( const SfxItemSet* pInSet ) override;
-        //From class Window.
     virtual void        SetText( const OUString& rStr ) override;
+
+    // screenshotting
+    virtual std::vector<OString> getAllPageUIXMLDescriptions() const override;
+    virtual bool selectPageByUIXMLDescription(const OString& rUIXMLDescription) override;
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class SvxDistributeDialog;
@@ -561,16 +596,19 @@ public:
 
 class AbstractPasteDialog_Impl : public SfxAbstractPasteDialog
 {
-    std::unique_ptr<SvPasteObjectDialog> m_xDlg;
+    std::shared_ptr<SvPasteObjectDialog> m_xDlg;
 public:
     explicit AbstractPasteDialog_Impl(std::unique_ptr<SvPasteObjectDialog> p)
         : m_xDlg(std::move(p))
     {
     }
     virtual short Execute() override;
+    virtual bool StartExecuteAsync(AsyncContext &rCtx) override;
 public:
     virtual void Insert( SotClipboardFormatId nFormat, const OUString & rFormatName ) override;
     virtual void SetObjName( const SvGlobalName & rClass, const OUString & rObjName ) override;
+    virtual void PreGetFormat( const TransferableDataHelper& aHelper ) override;
+    virtual SotClipboardFormatId GetFormatOnly() override;
     virtual SotClipboardFormatId GetFormat( const TransferableDataHelper& aHelper ) override;
 };
 
@@ -646,7 +684,14 @@ public:
 class ScreenshotAnnotationDlg;
 class AbstractScreenshotAnnotationDlg_Impl : public AbstractScreenshotAnnotationDlg
 {
-    DECL_ABSTDLG_BASE(AbstractScreenshotAnnotationDlg_Impl, ScreenshotAnnotationDlg)
+    std::unique_ptr<ScreenshotAnnotationDlg> m_xDlg;
+
+public:
+    explicit AbstractScreenshotAnnotationDlg_Impl(std::unique_ptr<ScreenshotAnnotationDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
 };
 
 class SignatureLineDialog;
@@ -656,6 +701,19 @@ class AbstractSignatureLineDialog_Impl : public AbstractSignatureLineDialog
 
 public:
     explicit AbstractSignatureLineDialog_Impl(std::unique_ptr<SignatureLineDialog> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+};
+
+class QrCodeGenDialog;
+class AbstractQrCodeGenDialog_Impl : public AbstractQrCodeGenDialog
+{
+    std::unique_ptr<QrCodeGenDialog> m_xDlg;
+
+public:
+    explicit AbstractQrCodeGenDialog_Impl(std::unique_ptr<QrCodeGenDialog> p)
         : m_xDlg(std::move(p))
     {
     }
@@ -690,11 +748,27 @@ public:
     virtual short Execute() override;
 };
 
+class DiagramDialog;
+
+/** Edit Diagram dialog */
+class AbstractDiagramDialog_Impl : public AbstractDiagramDialog
+{
+protected:
+    std::unique_ptr<DiagramDialog> m_xDlg;
+
+public:
+    explicit AbstractDiagramDialog_Impl(std::unique_ptr<DiagramDialog> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+};
+
 //AbstractDialogFactory_Impl implementations
 class AbstractDialogFactory_Impl : public SvxAbstractDialogFactory
 {
 public:
-    virtual VclPtr<VclAbstractDialog>    CreateVclDialog( vcl::Window* pParent, sal_uInt32 nResId ) override;
+    virtual VclPtr<VclAbstractDialog>    CreateVclDialog(weld::Window* pParent, sal_uInt32 nResId) override;
 
     virtual VclPtr<VclAbstractDialog>    CreateAboutDialog(weld::Window* pParent) override;
 
@@ -708,7 +782,7 @@ public:
     virtual VclPtr<SfxAbstractDialog>    CreateEventConfigDialog(weld::Widget* pParent,
                                                                  const SfxItemSet& rAttr,
                                                                  const css::uno::Reference< css::frame::XFrame >& rFrame) override;
-    virtual VclPtr<VclAbstractDialog>    CreateFrameDialog(vcl::Window* pParent, const css::uno::Reference< css::frame::XFrame >& rxFrame,
+    virtual VclPtr<VclAbstractDialog>    CreateFrameDialog(weld::Window* pParent, const css::uno::Reference< css::frame::XFrame >& rxFrame,
                                                            sal_uInt32 nResId,
                                                            const OUString& rParameter ) override;
     virtual VclPtr<SfxAbstractTabDialog> CreateAutoCorrTabDialog(weld::Window* pParent, const SfxItemSet* pAttrSet) override;
@@ -859,9 +933,9 @@ public:
 
     virtual VclPtr<SvxAbstractInsRowColDlg> CreateSvxInsRowColDlg(weld::Window* pParent, bool bCol, const OString& rHelpId) override;
 
-    virtual VclPtr<AbstractPasswordToOpenModifyDialog> CreatePasswordToOpenModifyDialog(weld::Window * pParent, sal_uInt16 nMaxPasswdLen, bool bIsPasswordToModify) override;
+    virtual VclPtr<AbstractPasswordToOpenModifyDialog> CreatePasswordToOpenModifyDialog(weld::Window* pParent, sal_uInt16 nMaxPasswdLen, bool bIsPasswordToModify) override;
 
-    virtual VclPtr<AbstractScreenshotAnnotationDlg> CreateScreenshotAnnotationDlg(vcl::Window * pParent, Dialog& rParentDialog) override;
+    virtual VclPtr<AbstractScreenshotAnnotationDlg> CreateScreenshotAnnotationDlg(weld::Dialog& rParentDialog) override;
 
     virtual VclPtr<AbstractSignatureLineDialog>
     CreateSignatureLineDialog(weld::Window* pParent,
@@ -871,7 +945,15 @@ public:
     CreateSignSignatureLineDialog(weld::Window* pParent,
                                   const css::uno::Reference<css::frame::XModel> xModel) override;
 
+    virtual VclPtr<AbstractQrCodeGenDialog>
+    CreateQrCodeGenDialog(weld::Window* pParent,
+                              const css::uno::Reference<css::frame::XModel> xModel, bool bEditExisting) override;
+
     virtual VclPtr<AbstractTipOfTheDayDialog> CreateTipOfTheDayDialog(weld::Window* pParent) override;
+
+    virtual VclPtr<AbstractDiagramDialog> CreateDiagramDialog(
+        weld::Window* pParent,
+        std::shared_ptr<DiagramDataInterface> pDiagramData) override;
 };
 
 #endif

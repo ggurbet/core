@@ -22,6 +22,7 @@
 
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
+#include <tools/diagnose_ex.h>
 
 #define IMPL_IMPLEMENTATION_ID( ClassName ) \
 css::uno::Sequence< sal_Int8 > ClassName::getImplementationId() \
@@ -143,7 +144,7 @@ void ClassName::MethodName( const EventType& evt ) \
 IMPL_LISTENERMULTIPLEXER_LISTENERMETHOD_BODY( ClassName, InterfaceName, MethodName, EventType )
 
 #define DECLIMPL_SERVICEINFO_DERIVED( ImplName, BaseClass, ServiceName ) \
-    OUString SAL_CALL getImplementationName(  ) override { return OUString("stardiv.Toolkit." #ImplName ); } \
+    OUString SAL_CALL getImplementationName(  ) override { return "stardiv.Toolkit." #ImplName; } \
     css::uno::Sequence< OUString > SAL_CALL getSupportedServiceNames() override   \
                             { \
                                 css::uno::Sequence< OUString > aNames = BaseClass::getSupportedServiceNames( ); \

@@ -24,9 +24,9 @@
 #include <bitmaps.hlst>
 #include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdb/SQLContext.hpp>
-#include <vcl/button.hxx>
-#include <vcl/weld.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/weld.hxx>
 #include <osl/diagnose.h>
 #include <connectivity/dbexception.hxx>
 #include <connectivity/sqlerror.hxx>
@@ -212,7 +212,7 @@ namespace
             SQLExceptionInfo aCurrentElement;
             iter.next( aCurrentElement );
 
-            const SQLException* pCurrentError = static_cast<const SQLException*>(aCurrentElement);
+            const SQLException* pCurrentError = aCurrentElement;
             OSL_ENSURE( pCurrentError, "lcl_buildExceptionChain: iterator failure!" );
                 // hasMoreElements should not have returned <TRUE/> in this case
 
@@ -238,7 +238,7 @@ namespace
 
             if ( aCurrentElement.getType() == SQLExceptionInfo::TYPE::SQLContext )
             {
-                const SQLContext* pContext = static_cast<const SQLContext*>(aCurrentElement);
+                const SQLContext* pContext = aCurrentElement;
                 if ( !pContext->Details.isEmpty() )
                 {
                     ExceptionDisplayInfo aSubInfo( aCurrentElement.getType() );
@@ -376,27 +376,27 @@ namespace
         {
             case StandardButtonType::Yes:
                 nButtonID = RET_YES;
-                pDialog->add_button(Button::GetStandardText(StandardButtonType::Yes), nButtonID);
+                pDialog->add_button(GetStandardText(StandardButtonType::Yes), nButtonID);
                 break;
             case StandardButtonType::No:
                 nButtonID = RET_NO;
-                pDialog->add_button(Button::GetStandardText(StandardButtonType::No), nButtonID);
+                pDialog->add_button(GetStandardText(StandardButtonType::No), nButtonID);
                 break;
             case StandardButtonType::OK:
                 nButtonID = RET_OK;
-                pDialog->add_button(Button::GetStandardText(StandardButtonType::OK), nButtonID);
+                pDialog->add_button(GetStandardText(StandardButtonType::OK), nButtonID);
                 break;
             case StandardButtonType::Cancel:
                 nButtonID = RET_CANCEL;
-                pDialog->add_button(Button::GetStandardText(StandardButtonType::Cancel), nButtonID);
+                pDialog->add_button(GetStandardText(StandardButtonType::Cancel), nButtonID);
                 break;
             case StandardButtonType::Retry:
                 nButtonID = RET_RETRY;
-                pDialog->add_button(Button::GetStandardText(StandardButtonType::Retry), nButtonID);
+                pDialog->add_button(GetStandardText(StandardButtonType::Retry), nButtonID);
                 break;
             case StandardButtonType::Help:
                 nButtonID = RET_HELP;
-                pDialog->add_button(Button::GetStandardText(StandardButtonType::Help), nButtonID);
+                pDialog->add_button(GetStandardText(StandardButtonType::Help), nButtonID);
                 break;
             default:
                 OSL_FAIL( "lcl_addButton: invalid button id!" );
@@ -508,8 +508,8 @@ void OSQLMessageBox::impl_addDetailsButton()
 
     if ( bMoreDetailsAvailable )
     {
-        m_xDialog->add_button(Button::GetStandardText(StandardButtonType::More), RET_MORE);
-        m_xMoreButton.reset(m_xDialog->get_widget_for_response(RET_MORE));
+        m_xDialog->add_button(GetStandardText(StandardButtonType::More), RET_MORE);
+        m_xMoreButton.reset(m_xDialog->weld_widget_for_response(RET_MORE));
         m_xMoreButton->connect_clicked(LINK(this, OSQLMessageBox, ButtonClickHdl));
     }
 }

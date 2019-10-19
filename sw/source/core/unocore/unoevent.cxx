@@ -106,7 +106,7 @@ SwHyperlinkEventDescriptor::~SwHyperlinkEventDescriptor()
 
 OUString SwHyperlinkEventDescriptor::getImplementationName()
 {
-    return OUString("SwHyperlinkEventDescriptor");
+    return "SwHyperlinkEventDescriptor";
 }
 
 void SwHyperlinkEventDescriptor::copyMacrosFromINetFormat(
@@ -141,12 +141,10 @@ void SwHyperlinkEventDescriptor::copyMacrosFromNameReplace(
         container::XNameReplace> const & xReplace)
 {
     // iterate over all names (all names that *we* support)
-    Sequence<OUString> aNames = getElementNames();
-    sal_Int32 nCount = aNames.getLength();
-    for(sal_Int32 i = 0; i < nCount; i++)
+    const Sequence<OUString> aNames = getElementNames();
+    for(const OUString& rName : aNames)
     {
         // copy element for that name
-        const OUString& rName = aNames[i];
         if (xReplace->hasByName(rName))
         {
             SvBaseEventDescriptor::replaceByName(rName,
@@ -159,7 +157,6 @@ void SwHyperlinkEventDescriptor::copyMacrosFromNameReplace(
 SwFrameEventDescriptor::SwFrameEventDescriptor(
     SwXTextFrame& rFrameRef ) :
         SvEventDescriptor(static_cast<text::XTextFrame&>(rFrameRef), aFrameEvents),
-        sSwFrameEventDescriptor("SwFrameEventDescriptor"),
         rFrame(rFrameRef)
 {
 }
@@ -199,7 +196,7 @@ sal_uInt16 SwFrameEventDescriptor::getMacroItemWhich() const
 
 OUString SwFrameEventDescriptor::getImplementationName()
 {
-    return sSwFrameEventDescriptor;
+    return "SwFrameEventDescriptor";
 }
 
 SwFrameStyleEventDescriptor::SwFrameStyleEventDescriptor(
@@ -229,7 +226,7 @@ const SvxMacroItem& SwFrameStyleEventDescriptor::getMacroItem()
 
 OUString SwFrameStyleEventDescriptor::getImplementationName()
 {
-    return OUString("SwFrameStyleEventDescriptor");
+    return "SwFrameStyleEventDescriptor";
 }
 
 sal_uInt16 SwFrameStyleEventDescriptor::getMacroItemWhich() const

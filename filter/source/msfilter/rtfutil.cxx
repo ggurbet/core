@@ -36,7 +36,7 @@ OString OutHex(sal_uLong nHex, sal_uInt8 nLen)
             *pStr += 39;
         nHex >>= 4;
     }
-    return OString(pStr);
+    return pStr;
 }
 
 // Ideally, this function should work on (sal_uInt32) Unicode scalar values
@@ -171,7 +171,7 @@ static bool TryOutString(const OUString& rStr, rtl_TextEncoding eDestEnc)
 OString OutStringUpr(const sal_Char* pToken, const OUString& rStr, rtl_TextEncoding eDestEnc)
 {
     if (TryOutString(rStr, eDestEnc))
-        return OString("{") + pToken + " " + OutString(rStr, eDestEnc) + "}";
+        return OStringLiteral("{") + pToken + " " + OutString(rStr, eDestEnc) + "}";
 
     OStringBuffer aRet;
     aRet.append("{" OOO_STRING_SVTOOLS_RTF_UPR "{");
@@ -220,7 +220,7 @@ OString WriteHex(const sal_uInt8* pData, sal_uInt32 nSize, SvStream* pStream, sa
                 aRet.append('0');
         }
         if (pStream)
-            pStream->WriteCharPtr(sNo.getStr());
+            pStream->WriteOString(sNo);
         else
             aRet.append(sNo);
         if (++nBreak == nLimit)

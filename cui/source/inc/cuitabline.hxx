@@ -21,10 +21,14 @@
 #define INCLUDED_CUI_SOURCE_INC_CUITABLINE_HXX
 
 #include <vector>
+#include <editeng/brushitem.hxx>
+#include <sfx2/tabdlg.hxx>
 #include <svx/svdpage.hxx>
-#include <svx/tabline.hxx>
 #include <svx/tabarea.hxx>
 #include <svx/xlnasit.hxx>
+#include <svx/xtable.hxx>
+#include <svx/dlgctrl.hxx>
+#include <vcl/customweld.hxx>
 
 enum class PageType;
 class ColorListBox;
@@ -83,8 +87,6 @@ struct SvxBmpItemInfo
 
 class SvxLineTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
     static const sal_uInt16 pLineRanges[];
 private:
     //#58425# symbols on a line (e. g. StarChart) ->
@@ -198,13 +200,12 @@ public:
 
     void ShowSymbolControls(bool bOn);
 
-    SvxLineTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxLineTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxLineTabPage() override;
-    virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     static const sal_uInt16* GetRanges() { return pLineRanges; }
 
     virtual bool FillItemSet( SfxItemSet* ) override;
@@ -229,15 +230,12 @@ public:
     void    SetColorChgd( ChangeType* pIn ) { m_pnColorListState = pIn; }
 
     virtual void PageCreated(const SfxAllItemSet& aSet) override;
-    virtual void    DataChanged( const DataChangedEvent& rDCEvt ) override;
 };
 
 /*************************************************************************/
 
 class SvxLineDefTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
 private:
     const SfxItemSet&   rOutAttrs;
     XDash               aDash;
@@ -293,13 +291,12 @@ private:
     void CheckChanges_Impl();
 
 public:
-    SvxLineDefTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxLineDefTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxLineDefTabPage() override;
-    virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -313,17 +310,12 @@ public:
     void    SetPosDashLb( sal_Int32* pInPos ) { pPosDashLb = pInPos; }
 
     void    SetDashChgd( ChangeType* pIn ) { pnDashListState = pIn; }
-
-    virtual void    DataChanged( const DataChangedEvent& rDCEvt ) override;
 };
 
 /*************************************************************************/
 
 class SvxLineEndDefTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 private:
     const SfxItemSet&   rOutAttrs;
     const SdrObject*    pPolyObj;
@@ -359,13 +351,12 @@ private:
     void CheckChanges_Impl();
 
 public:
-    SvxLineEndDefTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxLineEndDefTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxLineEndDefTabPage() override;
-    virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -380,9 +371,6 @@ public:
     void    SetPosLineEndLb( sal_Int32* pInPos ) { pPosLineEndLb = pInPos; }
 
     void    SetLineEndChgd( ChangeType* pIn ) { pnLineEndListState = pIn; }
-
-    virtual void DataChanged( const DataChangedEvent& rDCEvt ) override;
-    virtual void Resize() override;
 };
 
 #endif // INCLUDED_CUI_SOURCE_INC_CUITABLINE_HXX

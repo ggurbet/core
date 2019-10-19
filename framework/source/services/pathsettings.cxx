@@ -80,7 +80,7 @@ sal_Int32 impl_getPropGroup(sal_Int32 nID)
     return (nID % IDGROUP_COUNT);
 }
 
-/* enable it if you wish to migrate old user settings (using the old cfg schema) on demand ....
+/* enable it if you wish to migrate old user settings (using the old cfg schema) on demand...
    disable it in case only the new schema must be used.
  */
 
@@ -175,7 +175,7 @@ public:
 
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.framework.PathSettings");
+        return "com.sun.star.comp.framework.PathSettings";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override

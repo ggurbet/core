@@ -50,6 +50,18 @@ using namespace ::com::sun::star;
 using namespace ::std;
 
 #define DEF_BORDER_DIST 190  //0,19cm
+#define CNF_FIRST_ROW               0x800
+#define CNF_LAST_ROW                0x400
+#define CNF_FIRST_COLUMN            0x200
+#define CNF_LAST_COLUMN             0x100
+#define CNF_ODD_VBAND               0x080
+#define CNF_EVEN_VBAND              0x040
+#define CNF_ODD_HBAND               0x020
+#define CNF_EVEN_HBAND              0x010
+#define CNF_FIRST_ROW_LAST_COLUMN   0x008
+#define CNF_FIRST_ROW_FIRST_COLUMN  0x004
+#define CNF_LAST_ROW_LAST_COLUMN    0x002
+#define CNF_LAST_ROW_FIRST_COLUMN   0x001
 
 DomainMapperTableHandler::DomainMapperTableHandler(
             css::uno::Reference<css::text::XTextAppendAndConvert> const& xText,
@@ -253,7 +265,7 @@ bool lcl_extractTableBorderProperty(const PropertyMapPtr& pTableProperties, cons
 void lcl_extractHoriOrient(std::vector<beans::PropertyValue>& rFrameProperties, sal_Int32& nHoriOrient)
 {
     // Shifts the frame left by the given value.
-    for (beans::PropertyValue & rFrameProperty : rFrameProperties)
+    for (const beans::PropertyValue & rFrameProperty : rFrameProperties)
     {
         if (rFrameProperty.Name == "HoriOrient")
         {
@@ -427,6 +439,13 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
                 m_aTableProperties->dumpXml();
                 TagLogger::getInstance().endElement();
 #endif
+                if (pTableStyle)
+                {
+                    // apply tblHeader setting of the table style
+                    PropertyMapPtr pHeaderStyleProps = pTableStyle->GetProperties(CNF_FIRST_ROW);
+                    if ( pHeaderStyleProps->getProperty(PROP_HEADER_ROW_COUNT) )
+                        m_aTableProperties->Insert(PROP_HEADER_ROW_COUNT, uno::makeAny( sal_Int32(1)), false);
+                }
             }
         }
 
@@ -629,19 +648,6 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
 
     return pTableStyle;
 }
-
-#define CNF_FIRST_ROW               0x800
-#define CNF_LAST_ROW                0x400
-#define CNF_FIRST_COLUMN            0x200
-#define CNF_LAST_COLUMN             0x100
-#define CNF_ODD_VBAND               0x080
-#define CNF_EVEN_VBAND              0x040
-#define CNF_ODD_HBAND               0x020
-#define CNF_EVEN_HBAND              0x010
-#define CNF_FIRST_ROW_LAST_COLUMN   0x008
-#define CNF_FIRST_ROW_FIRST_COLUMN  0x004
-#define CNF_LAST_ROW_LAST_COLUMN    0x002
-#define CNF_LAST_ROW_FIRST_COLUMN   0x001
 
 CellPropertyValuesSeq_t DomainMapperTableHandler::endTableGetCellProperties(TableInfo & rInfo, std::vector<HorizontallyMergedCell>& rMerges)
 {
@@ -870,7 +876,7 @@ CellPropertyValuesSeq_t DomainMapperTableHandler::endTableGetCellProperties(Tabl
 /// Do all cells in this row have a CellHideMark property?
 static bool lcl_hideMarks(PropertyMapVector1& rCellProperties)
 {
-    for (PropertyMapPtr & p : rCellProperties)
+    for (const PropertyMapPtr & p : rCellProperties)
     {
         // if anything is vertically merged, the row must not be set to fixed
         // as Writer's layout doesn't handle that well

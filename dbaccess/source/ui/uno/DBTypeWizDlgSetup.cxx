@@ -26,8 +26,9 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/sdb/XOfficeDatabaseDocument.hpp>
 #include <com/sun/star/sdbc/XDataSource.hpp>
+#include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
 #include <comphelper/processfactory.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
+#include <vcl/svapp.hxx>
 
 using namespace dbaui;
 
@@ -75,7 +76,7 @@ OUString SAL_CALL ODBTypeWizDialogSetup::getImplementationName()
 
 OUString ODBTypeWizDialogSetup::getImplementationName_Static()
 {
-    return OUString("org.openoffice.comp.dbu.ODBTypeWizDialogSetup");
+    return "org.openoffice.comp.dbu.ODBTypeWizDialogSetup";
 }
 
 css::uno::Sequence<OUString> SAL_CALL ODBTypeWizDialogSetup::getSupportedServiceNames()
@@ -106,16 +107,16 @@ Reference<XPropertySetInfo>  SAL_CALL ODBTypeWizDialogSetup::getPropertySetInfo(
     return new ::cppu::OPropertyArrayHelper(aProps);
 }
 
-svt::OGenericUnoDialog::Dialog ODBTypeWizDialogSetup::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
+std::unique_ptr<weld::DialogController> ODBTypeWizDialogSetup::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
 {
-    return svt::OGenericUnoDialog::Dialog(VclPtr<ODbTypeWizDialogSetup>::Create(VCLUnoHelper::GetWindow(rParent), m_pDatasourceItems.get(), m_aContext, m_aInitialSelection));
+    return std::make_unique<ODbTypeWizDialogSetup>(Application::GetFrameWeld(rParent), m_pDatasourceItems.get(), m_aContext, m_aInitialSelection);
 }
 
-void ODBTypeWizDialogSetup::executedDialog(sal_Int16 _nExecutionResult)
+void ODBTypeWizDialogSetup::executedDialog(sal_Int16 nExecutionResult)
 {
-    if ( _nExecutionResult == RET_OK )
+    if (nExecutionResult == css::ui::dialogs::ExecutableDialogResults::OK)
     {
-        const ODbTypeWizDialogSetup* pDialog = static_cast<ODbTypeWizDialogSetup*>(m_aDialog.m_xVclDialog.get());
+        const ODbTypeWizDialogSetup* pDialog = static_cast<ODbTypeWizDialogSetup*>(m_xDialog.get());
         m_bOpenDatabase = pDialog->IsDatabaseDocumentToBeOpened();
         m_bStartTableWizard = pDialog->IsTableWizardToBeStarted();
     }

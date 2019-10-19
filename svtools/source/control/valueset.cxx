@@ -28,9 +28,7 @@
 #include <vcl/commandevent.hxx>
 #include <vcl/virdev.hxx>
 
-#include <com/sun/star/accessibility/AccessibleEventObject.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
-#include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <rtl/ustring.hxx>
 #include <sal/log.hxx>
@@ -149,7 +147,8 @@ void ValueSet::ApplySettings(vcl::RenderContext& rRenderContext)
         aColor = rStyleSettings.GetWindowColor();
     else
         aColor = rStyleSettings.GetFaceColor();
-    ApplyControlBackground(rRenderContext, aColor);
+    if (GetBackground().GetColor() == COL_TRANSPARENT)
+        ApplyControlBackground(rRenderContext, aColor);
 }
 
 void ValueSet::ImplInitSettings(bool bFont, bool bForeground, bool bBackground)
@@ -1434,6 +1433,28 @@ void ValueSet::DataChanged( const DataChangedEvent& rDataChangedEvent )
     }
 }
 
+boost::property_tree::ptree ValueSet::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(Control::DumpAsPropertyTree());
+    boost::property_tree::ptree aEntries;
+
+    const size_t nSize = mItemList.size();
+
+    for ( size_t nIt = 0; nIt < nSize; ++nIt )
+    {
+        boost::property_tree::ptree aEntry;
+        ValueSetItem* pItem = mItemList[nIt].get();
+        aEntry.put("id", pItem->mnId);
+        aEntry.put("text", pItem->maText);
+        aEntry.put("image", pItem->maImage.GetStock());
+        aEntries.push_back(std::make_pair("", aEntry));
+    }
+
+    aTree.put("type", "valueset");
+    aTree.add_child("entries", aEntries);
+    return aTree;
+}
+
 void ValueSet::Select()
 {
     maSelectHdl.Call( this );
@@ -2133,7 +2154,7 @@ Size ValueSet::GetLargestItemSize()
 {
     Size aLargestItem;
 
-    for (std::unique_ptr<ValueSetItem>& pItem : mItemList)
+    for (const std::unique_ptr<ValueSetItem>& pItem : mItemList)
     {
         if (!pItem->mbVisible)
             continue;
@@ -3872,7 +3893,7 @@ Size SvtValueSet::GetLargestItemSize()
 {
     Size aLargestItem;
 
-    for (std::unique_ptr<SvtValueSetItem>& pItem : mItemList)
+    for (const std::unique_ptr<SvtValueSetItem>& pItem : mItemList)
     {
         if (!pItem->mbVisible)
             continue;

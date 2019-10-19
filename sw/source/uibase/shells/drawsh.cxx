@@ -126,7 +126,7 @@ void SwDrawShell::InsertPictureFromFile(SdrObject& rObject)
 
     if(pSdrView)
     {
-        SvxOpenGraphicDialog aDlg(SwResId(STR_INSERT_GRAPHIC), GetView().GetViewFrame()->GetWindow().GetFrameWeld());
+        SvxOpenGraphicDialog aDlg(SwResId(STR_INSERT_GRAPHIC), GetView().GetFrameWeld());
 
         if (ERRCODE_NONE == aDlg.Execute())
         {
@@ -227,7 +227,7 @@ void SwDrawShell::Execute(SfxRequest &rReq)
             }
             GetView().FlipDrawSelMode();
             pSdrView->SetFrameDragSingles(GetView().IsDrawSelMode());
-            GetView().AttrChangedNotify(&rSh); // Shell switch
+            GetView().AttrChangedNotify(nullptr); // Shell switch
             break;
 
         case SID_OBJECT_HELL:
@@ -559,7 +559,7 @@ void SwDrawShell::ExecFormText(SfxRequest const & rReq)
         if ( pDrView->IsTextEdit() )
         {
             pDrView->SdrEndTextEdit( true );
-            GetView().AttrChangedNotify(&rSh);
+            GetView().AttrChangedNotify(nullptr);
         }
 
         pDrView->SetAttributes(rSet);

@@ -494,8 +494,8 @@ void FmFormShell::Execute(SfxRequest &rReq)
             {
                 //  #99013# if selected with control key, return focus to current view
                 // do this asynchron, so that the creation can be finished first
-                // reusing the SID_FM_TOGGLECONTROLFOCUS is somewhat hacky ... which it wouldn't if it would have another
-                // name, so I do not really have a big problem with this ....
+                // reusing the SID_FM_TOGGLECONTROLFOCUS is somewhat hacky... which it wouldn't if it would have another
+                // name, so I do not really have a big problem with this...
                 SfxBoolItem aGrabFocusIndicatorItem( SID_FM_TOGGLECONTROLFOCUS, true );
                 GetViewShell()->GetViewFrame()->GetDispatcher()->ExecuteList(
                         nSlot, SfxCallMode::ASYNCHRON,
@@ -759,7 +759,7 @@ void FmFormShell::Execute(SfxRequest &rReq)
                 Reference<runtime::XFormController> const xController(GetImpl()->getActiveController_Lock());
 
                 if  (   GetViewShell()->GetViewFrame()->HasChildWindow( SID_FM_FILTER_NAVIGATOR )
-                        // closing the window was denied, for instance because of a invalid criterion
+                        // closing the window was denied, for instance because of an invalid criterion
 
                     ||  (   xController.is()
                         &&  !GetImpl()->getActiveControllerFeatures_Lock()->commitCurrentControl()

@@ -39,6 +39,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objitem.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <vcl/unohelp2.hxx>
 #include <vcl/weld.hxx>
 #include <sfx2/request.hxx>
@@ -415,7 +416,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
                 // open the dialog "Tools/Options/Language Settings - Language"
                 // to set the documents default language
                 SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-                ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateVclDialog( GetView().GetWindow(), SID_LANGUAGE_OPTIONS ));
+                ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateVclDialog(GetView().GetFrameWeld(), SID_LANGUAGE_OPTIONS));
                 pDlg->Execute();
             }
             else
@@ -739,7 +740,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
                     rReq.Ignore();
                     break;
 
-                case 2:
+                case 102:
                     xDlg->Execute();
                     rReq.Done();
                     break;
@@ -803,7 +804,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
         case FN_GOTO_REFERENCE:
         {
             SwField *pField = rWrtSh.GetCurField();
-            if(pField && pField->GetTypeId() == TYP_GETREFFLD)
+            if(pField && pField->GetTypeId() == SwFieldTypesEnum::GetRef)
             {
                 rWrtSh.StartAllAction();
                 rWrtSh.SwCursorShell::GotoRefMark( static_cast<SwGetRefField*>(pField)->GetSetRefName(),
@@ -841,7 +842,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
                     rWrtSh.EnterStdMode();
                 }
 
-                if( !bDelSel && aFieldMgr.GetCurField() && TYP_FORMELFLD == aFieldMgr.GetCurTypeId() )
+                if( !bDelSel && aFieldMgr.GetCurField() && SwFieldTypesEnum::Formel == aFieldMgr.GetCurTypeId() )
                     aFieldMgr.UpdateCurField( aFieldMgr.GetCurField()->GetFormat(), OUString(), sFormula );
                 else if( !sFormula.isEmpty() )
                 {
@@ -856,7 +857,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
                     {
                         SvNumberFormatter* pFormatter = rWrtSh.GetNumberFormatter();
                         const sal_uInt32 nSysNumFormat = pFormatter->GetFormatIndex( NF_NUMBER_STANDARD, LANGUAGE_SYSTEM);
-                        SwInsertField_Data aData(TYP_FORMELFLD, nsSwGetSetExpType::GSE_FORMULA, OUString(), sFormula, nSysNumFormat);
+                        SwInsertField_Data aData(SwFieldTypesEnum::Formel, nsSwGetSetExpType::GSE_FORMULA, OUString(), sFormula, nSysNumFormat);
                         aFieldMgr.InsertField(aData);
                     }
                 }
@@ -882,10 +883,10 @@ void SwTextShell::Execute(SfxRequest &rReq)
             rWrtSh.UnProtectTables();
         }
         break;
-        case FN_EDIT_HYPERLINK:
+        case SID_EDIT_HYPERLINK:
             GetView().GetViewFrame()->SetChildWindow(SID_HYPERLINK_DIALOG, true);
         break;
-        case FN_REMOVE_HYPERLINK:
+        case SID_REMOVE_HYPERLINK:
         {
             bool bSel = rWrtSh.HasSelection();
             if(!bSel)
@@ -1300,7 +1301,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
     }
     break;
     case SID_OPEN_HYPERLINK:
-    case FN_COPY_HYPERLINK_LOCATION:
+    case SID_COPY_HYPERLINK_LOCATION:
     {
         SfxItemSet aSet(GetPool(),
                         svl::Items<RES_TXTATR_INETFMT,
@@ -1309,7 +1310,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
         if(SfxItemState::SET <= aSet.GetItemState( RES_TXTATR_INETFMT ))
         {
             const SwFormatINetFormat& rINetFormat = dynamic_cast<const SwFormatINetFormat&>( aSet.Get(RES_TXTATR_INETFMT) );
-            if( nSlot == FN_COPY_HYPERLINK_LOCATION )
+            if( nSlot == SID_COPY_HYPERLINK_LOCATION )
             {
                 ::uno::Reference< datatransfer::clipboard::XClipboard > xClipboard = GetView().GetEditWin().GetClipboard();
                 vcl::unohelper::TextDataObject::CopyStringTo(
@@ -1371,7 +1372,21 @@ void SwTextShell::Execute(SfxRequest &rReq)
                 rWrtSh.InvalidateWindows( rWrtSh.GetView().GetVisArea() );
                 rWrtSh.UpdateCursor(); // cursor position might be invalid
                 // Hide the button here and make it visible later, to make transparent background work with SAL_USE_VCLPLUGIN=gen
-                dynamic_cast<::sw::mark::DropDownFieldmark*>(pFieldBM)->HideButton();
+                dynamic_cast<::sw::mark::DropDownFieldmark&>(*pFieldBM).HideButton();
+            }
+        }
+        else if ( pFieldBM && pFieldBM->GetFieldname() == ODF_FORMDATE )
+        {
+            SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
+            sw::mark::DateFieldmark& rDateField = dynamic_cast<sw::mark::DateFieldmark&>(*pFieldBM);
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateDateFormFieldDialog(rWrtSh.GetView().GetFrameWeld(), &rDateField, GetView().GetDocShell()->GetDoc()));
+            if (pDlg->Execute() == RET_OK)
+            {
+                rDateField.Invalidate();
+                rWrtSh.InvalidateWindows( rWrtSh.GetView().GetVisArea() );
+                rWrtSh.UpdateCursor(); // cursor position might be invalid
+                // Hide the button here and make it visible later, to make transparent background work with SAL_USE_VCLPLUGIN=gen
+                rDateField.HideButton();
             }
         }
         else
@@ -1418,7 +1433,20 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                 OUString aCurrentLang = "*";
                 nLang = SwLangHelper::GetCurrentLanguage( rSh );
                 if (nLang != LANGUAGE_DONTKNOW)
+                {
                     aCurrentLang = SvtLanguageTable::GetLanguageString( nLang );
+                    if (comphelper::LibreOfficeKit::isActive())
+                    {
+                        if (nLang == LANGUAGE_NONE)
+                        {
+                            aCurrentLang += ";-";
+                        }
+                        else
+                        {
+                            aCurrentLang += ";" + LanguageTag(nLang).getBcp47(false);
+                        }
+                    }
+                }
 
                 // build sequence for status value
                 uno::Sequence< OUString > aSeq( 4 );
@@ -1535,7 +1563,7 @@ void SwTextShell::GetState( SfxItemSet &rSet )
         case FN_GOTO_REFERENCE:
             {
                 SwField *pField = rSh.GetCurField();
-                if ( !pField || (pField->GetTypeId() != TYP_GETREFFLD) )
+                if ( !pField || (pField->GetTypeId() != SwFieldTypesEnum::GetRef) )
                     rSet.DisableItem(nWhich);
             }
             break;
@@ -1548,7 +1576,7 @@ void SwTextShell::GetState( SfxItemSet &rSet )
         case SID_DEC_INDENT:
         case SID_INC_INDENT:
         {
-            //if the paragrah has bullet we'll do the following things:
+            //if the paragraph has bullet we'll do the following things:
             //1: if the bullet level is the first level, disable the decrease-indent button
             //2: if the bullet level is the last level, disable the increase-indent button
             if ( rSh.GetNumRuleAtCurrCursorPos() && !rSh.HasReadonlySel() )
@@ -1665,7 +1693,7 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                     uno::Reference< XNameAccess > xFamilies = xSupplier->getStyleFamilies();
                     if (xFamilies->getByName("PageStyles") >>= xContainer)
                     {
-                        uno::Sequence< OUString > aSeqNames = xContainer->getElementNames();
+                        const uno::Sequence< OUString > aSeqNames = xContainer->getElementNames();
                         for (const auto& rName : aSeqNames)
                         {
                             aStyleName = rName;
@@ -1732,8 +1760,9 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                 }
                 break;
 
-            case FN_EDIT_HYPERLINK:
-            case FN_COPY_HYPERLINK_LOCATION:
+            case SID_EDIT_HYPERLINK:
+            case SID_REMOVE_HYPERLINK:
+            case SID_COPY_HYPERLINK_LOCATION:
                 {
                     SfxItemSet aSet(GetPool(),
                         svl::Items<RES_TXTATR_INETFMT,
@@ -1744,22 +1773,6 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                         rSet.DisableItem(nWhich);
                     }
                 }
-            break;
-            case FN_REMOVE_HYPERLINK:
-            {
-                SfxItemSet aSet(GetPool(),
-                                svl::Items<RES_TXTATR_INETFMT,
-                                RES_TXTATR_INETFMT>{});
-                rSh.GetCurAttr(aSet);
-
-                // If a hyperlink is selected, either alone or along with other text...
-                if ((aSet.GetItemState(RES_TXTATR_INETFMT) < SfxItemState::SET &&
-                    aSet.GetItemState(RES_TXTATR_INETFMT) != SfxItemState::DONTCARE) ||
-                    rSh.HasReadonlySel())
-                {
-                    rSet.DisableItem(nWhich);
-                }
-            }
             break;
             case SID_TRANSLITERATE_HALFWIDTH:
             case SID_TRANSLITERATE_FULLWIDTH:
@@ -1942,7 +1955,7 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                     --aPos.nContent;
                     pFieldBM = GetShell().getIDocumentMarkAccess()->getFieldmarkFor(aPos);
                 }
-                if ( pFieldBM && pFieldBM->GetFieldname() == ODF_FORMDROPDOWN )
+                if ( pFieldBM && (pFieldBM->GetFieldname() == ODF_FORMDROPDOWN || pFieldBM->GetFieldname() == ODF_FORMDATE) )
                 {
                     bDisable = false;
                 }
@@ -1951,6 +1964,13 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                     rSet.DisableItem(nWhich);
             }
             break;
+            case SID_COPY:
+            case SID_CUT:
+            {
+                if (GetShell().GetView().isContentExtractionLocked())
+                    rSet.DisableItem(nWhich);
+                break;
+            }
         }
         nWhich = aIter.NextWhich();
     }

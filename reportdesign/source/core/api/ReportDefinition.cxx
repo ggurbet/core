@@ -96,6 +96,7 @@
 #include <comphelper/propertystatecontainer.hxx>
 #include <comphelper/seqstream.hxx>
 #include <comphelper/sequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/uno3.hxx>
 #include <connectivity/CommonTools.hxx>
@@ -434,19 +435,15 @@ void SAL_CALL OStyle::setAllPropertiesToDefault(  )
 
 void SAL_CALL OStyle::setPropertiesToDefault( const uno::Sequence< OUString >& aPropertyNames )
 {
-    const OUString* pIter = aPropertyNames.getConstArray();
-    const OUString* pEnd   = pIter + aPropertyNames.getLength();
-    for(;pIter != pEnd;++pIter)
-        setPropertyToDefault(*pIter);
+    for(const OUString& rName : aPropertyNames)
+        setPropertyToDefault(rName);
 }
 
 uno::Sequence< uno::Any > SAL_CALL OStyle::getPropertyDefaults( const uno::Sequence< OUString >& aPropertyNames )
 {
     uno::Sequence< uno::Any > aRet(aPropertyNames.getLength());
-    const OUString* pIter = aPropertyNames.getConstArray();
-    const OUString* pEnd   = pIter + aPropertyNames.getLength();
-    for(sal_Int32 i = 0;pIter != pEnd;++pIter,++i)
-        aRet[i] = getPropertyDefault(*pIter);
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aRet.begin(),
+        [this](const OUString& rName) -> uno::Any { return getPropertyDefault(rName); });
     return aRet;
 }
 
@@ -681,7 +678,7 @@ void SAL_CALL OReportDefinition::disposing()
 
 OUString OReportDefinition::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.report.OReportDefinition");
+    return "com.sun.star.comp.report.OReportDefinition";
 }
 
 OUString SAL_CALL OReportDefinition::getImplementationName(  )
@@ -1515,8 +1512,7 @@ bool OReportDefinition::WriteThroughComponent(
     // prepare arguments (prepend doc handler to given arguments)
     uno::Sequence<uno::Any> aArgs( 1 + rArguments.getLength() );
     aArgs[0] <<= xSaxWriter;
-    for(sal_Int32 i = 0; i < rArguments.getLength(); i++)
-        aArgs[i+1] = rArguments[i];
+    std::copy(rArguments.begin(), rArguments.end(), std::next(aArgs.begin()));
 
     // get filter component
     uno::Reference< document::XExporter > xExporter(
@@ -1840,7 +1836,7 @@ uno::Reference< container::XIndexAccess > SAL_CALL OReportDefinition::getViewDat
     ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
     if ( !m_pImpl->m_xViewData.is() )
     {
-        m_pImpl->m_xViewData.set( document::IndexedPropertyValues::create(m_aProps->m_xContext), uno::UNO_QUERY);
+        m_pImpl->m_xViewData = document::IndexedPropertyValues::create(m_aProps->m_xContext);
         uno::Reference< container::XIndexContainer > xContainer(m_pImpl->m_xViewData,uno::UNO_QUERY);
         for (const auto& rxController : m_pImpl->m_aControllers)
         {
@@ -1907,7 +1903,7 @@ uno::Sequence< OUString > SAL_CALL OReportDefinition::getDocumentSubStoragesName
 {
     ::osl::MutexGuard aGuard(m_aMutex);
     ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
-    uno::Reference<container::XNameAccess> xNameAccess(m_pImpl->m_xStorage,uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xNameAccess = m_pImpl->m_xStorage;
     return xNameAccess.is() ? xNameAccess->getElementNames() : uno::Sequence< OUString >();
 }
 
@@ -1942,7 +1938,7 @@ uno::Sequence< OUString > SAL_CALL OReportDefinition::getAvailableMimeTypes(  )
 sal_Int64 SAL_CALL OReportDefinition::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
     sal_Int64 nRet = 0;
-    if (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    if (isUnoTunnelId<OReportDefinition>(rId) )
         nRet = reinterpret_cast<sal_Int64>(this);
     else
     {
@@ -1966,7 +1962,7 @@ uno::Sequence< sal_Int8 > SAL_CALL OReportDefinition::getImplementationId(  )
     return css::uno::Sequence<sal_Int8>();
 }
 
-uno::Sequence< sal_Int8 > OReportDefinition::getUnoTunnelImplementationId()
+uno::Sequence< sal_Int8 > OReportDefinition::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 
@@ -1983,19 +1979,16 @@ uno::Reference< uno::XComponentContext > OReportDefinition::getContext()
 std::shared_ptr<rptui::OReportModel> OReportDefinition::getSdrModel(const uno::Reference< report::XReportDefinition >& _xReportDefinition)
 {
     std::shared_ptr<rptui::OReportModel> pReportModel;
-    uno::Reference< lang::XUnoTunnel > xUT( _xReportDefinition, uno::UNO_QUERY );
-    if( xUT.is() )
-        pReportModel = reinterpret_cast<OReportDefinition*>(
-                           sal::static_int_cast<sal_uIntPtr>(
-                               xUT->getSomething( OReportDefinition::getUnoTunnelImplementationId()))
-                        )->m_pImpl->m_pReportModel;
+    auto pReportDefinition = comphelper::getUnoTunnelImplementation<OReportDefinition>(_xReportDefinition);
+    if (pReportDefinition)
+        pReportModel = pReportDefinition->m_pImpl->m_pReportModel;
     return pReportModel;
 }
 
 SdrModel& OReportDefinition::getSdrModelFromUnoModel() const
 {
     OSL_ENSURE(m_pImpl->m_pReportModel.get(), "No SdrModel in ReportDesign, should not happen");
-    return *m_pImpl->m_pReportModel.get();
+    return *m_pImpl->m_pReportModel;
 }
 
 uno::Reference< uno::XInterface > SAL_CALL OReportDefinition::createInstanceWithArguments( const OUString& aServiceSpecifier, const uno::Sequence< uno::Any >& _aArgs)
@@ -2007,12 +2000,10 @@ uno::Reference< uno::XInterface > SAL_CALL OReportDefinition::createInstanceWith
     if ( aServiceSpecifier.startsWith( "com.sun.star.document.ImportEmbeddedObjectResolver") )
     {
         uno::Reference< embed::XStorage > xStorage;
-        const uno::Any* pIter = _aArgs.getConstArray();
-        const uno::Any* pEnd  = pIter + _aArgs.getLength();
-        for(;pIter != pEnd ;++pIter)
+        for(const uno::Any& rArg : _aArgs)
         {
             beans::NamedValue aValue;
-            *pIter >>= aValue;
+            rArg >>= aValue;
             if ( aValue.Name == "Storage" )
                 aValue.Value >>= xStorage;
         }
@@ -2169,7 +2160,7 @@ uno::Sequence< OUString > SAL_CALL OReportDefinition::getAvailableServiceNames()
         pStrings[nIdx] = aSvxComponentServiceNameList[nIdx];
 
     uno::Sequence< OUString > aParentSeq( SvxUnoDrawMSFactory::getAvailableServiceNames() );
-    return concatServiceNames( aParentSeq, aSeq );
+    return comphelper::concatSequences( aParentSeq, aSeq );
 }
 
 // XShape
@@ -2219,7 +2210,7 @@ OUString SAL_CALL OReportDefinition::getShapeType(  )
     ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
     if ( m_aProps->m_xShape.is() )
         return m_aProps->m_xShape->getShapeType();
-    return OUString("com.sun.star.drawing.OLE2Shape");
+    return "com.sun.star.drawing.OLE2Shape";
 }
 
 typedef ::cppu::WeakImplHelper< container::XNameContainer,
@@ -2475,7 +2466,7 @@ OUString OReportDefinition::getDocumentBaseURL() const
 
     ::osl::MutexGuard aGuard(m_aMutex);
     ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
-    for (beans::PropertyValue const& it : m_pImpl->m_aArgs)
+    for (beans::PropertyValue const& it : std::as_const(m_pImpl->m_aArgs))
     {
         if (it.Name == "DocumentBaseURL")
             return it.Value.get<OUString>();

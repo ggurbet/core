@@ -7,7 +7,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <cppuhelper/implbase.hxx>
 #include <test/bootstrapfixture.hxx>
 #include <unotest/macros_test.hxx>
 
@@ -15,11 +14,9 @@
 #include <com/sun/star/awt/XUnoControlDialog.hpp>
 #include <com/sun/star/awt/XControlModel.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/lang/XMultiComponentFactory.hpp>
 
 #include <comphelper/processfactory.hxx>
-#include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/vclptr.hxx>
 #include <vcl/window.hxx>
@@ -59,8 +56,7 @@ CPPUNIT_TEST_FIXTURE(DialogTest, testDialogSizeable)
 
     uno::Reference<awt::XUnoControlDialog> xControl = awt::UnoControlDialog::create(mxContext);
     xControl->setModel(xControlModel);
-    uno::Reference<awt::XWindow> xWindow(xControl, uno::UNO_QUERY);
-    xWindow->setVisible(true);
+    xControl->setVisible(true);
     xDialog.set(xControl, uno::UNO_QUERY_THROW);
     xDialog->execute();
 

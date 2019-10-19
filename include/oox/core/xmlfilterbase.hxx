@@ -24,7 +24,6 @@
 #include <vector>
 
 #include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/uno/RuntimeException.hpp>
 #include <oox/core/filterbase.hxx>
 #include <oox/core/relations.hxx>
 #include <oox/dllapi.h>
@@ -103,7 +102,7 @@ public:
     virtual void useInternalChartDataTable( bool /*bInternal*/ ) { }
 
     /** Has to be implemented by each filter to return the table style list. */
-    virtual const ::oox::drawingml::table::TableStyleListPtr getTableStyles() = 0;
+    virtual ::oox::drawingml::table::TableStyleListPtr getTableStyles() = 0;
 
 
     OUString getFragmentPathFromFirstTypeFromOfficeDoc( const OUString& rPart );

@@ -174,10 +174,12 @@ namespace logging
             m_pFile.reset( new ::osl::File( m_sFileURL ) );
             // check whether the log file already exists
             ::osl::DirectoryItem aFileItem;
-            ::osl::DirectoryItem::get( m_sFileURL, aFileItem );
-            ::osl::FileStatus aStatus( osl_FileStatus_Mask_Validate );
-            if ( ::osl::FileBase::E_None == aFileItem.getFileStatus( aStatus ) )
-                ::osl::File::remove( m_sFileURL );
+            if (osl::FileBase::E_None == ::osl::DirectoryItem::get(m_sFileURL, aFileItem))
+            {
+                ::osl::FileStatus aStatus(osl_FileStatus_Mask_Validate);
+                if (::osl::FileBase::E_None == aFileItem.getFileStatus(aStatus))
+                    ::osl::File::remove(m_sFileURL);
+            }
 
             ::osl::FileBase::RC res = m_pFile->open( osl_File_OpenFlag_Write | osl_File_OpenFlag_Create );
             m_eFileValidity =   res == ::osl::FileBase::E_None
@@ -330,7 +332,7 @@ namespace logging
 
     OUString SAL_CALL FileHandler::getImplementationName()
     {
-        return OUString("com.sun.star.comp.extensions.FileHandler");
+        return "com.sun.star.comp.extensions.FileHandler";
     }
 
     sal_Bool SAL_CALL FileHandler::supportsService( const OUString& _rServiceName )

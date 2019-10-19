@@ -40,7 +40,6 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/mimeconfighelper.hxx>
-#include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
 
 #include "olepersist.hxx"
@@ -290,7 +289,7 @@ bool OwnView_Impl::ReadContentsAndGenerateTempFile( const uno::Reference< io::XI
                 aReadSeq[0] == '.'
                )
             {
-                aFileSuffix += OUStringLiteral1( aReadSeq[0] );
+                aFileSuffix += OUStringChar( aReadSeq[0] );
             }
 
         } while( aReadSeq[0] );

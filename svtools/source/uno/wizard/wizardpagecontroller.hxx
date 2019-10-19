@@ -20,10 +20,8 @@
 #ifndef INCLUDED_SVTOOLS_SOURCE_UNO_WIZARD_WIZARDPAGECONTROLLER_HXX
 #define INCLUDED_SVTOOLS_SOURCE_UNO_WIZARD_WIZARDPAGECONTROLLER_HXX
 
-#include <svtools/wizardmachine.hxx>
-
+#include <vcl/wizardmachine.hxx>
 #include <com/sun/star/ui/dialogs/XWizardController.hpp>
-
 
 namespace svt { namespace uno
 {
@@ -34,11 +32,11 @@ namespace svt { namespace uno
 
     //= WizardPageController
 
-    class WizardPageController : public IWizardPageController
+    class WizardPageController : public vcl::IWizardPageController
     {
     public:
         WizardPageController(
-            WizardShell& i_rParent,
+            weld::Container* pParent,
             const css::uno::Reference< css::ui::dialogs::XWizardController >& i_rController,
             const sal_Int16 i_nPageId
         );
@@ -46,12 +44,11 @@ namespace svt { namespace uno
 
         // IWizardPageController overridables
         virtual void        initializePage() override;
-        virtual bool        commitPage( WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( vcl::WizardTypes::CommitPageReason _eReason ) override;
         virtual bool        canAdvance() const override;
 
         const css::uno::Reference< css::ui::dialogs::XWizardPage >&
                             getWizardPage() const { return m_xWizardPage; }
-        TabPage*            getTabPage() const;
 
     private:
         const css::uno::Reference< css::ui::dialogs::XWizardController >  m_xController;

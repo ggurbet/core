@@ -24,18 +24,20 @@
 class SvStream;
 namespace dbaui
 {
+    class OCopyTableWizard;
+
     // Wizard Page: OWizHTMLExtend
     class OWizHTMLExtend : public OWizTypeSelect
     {
     protected:
         virtual void createReaderAndCallParser(sal_Int32 _nRows) override;
     public:
-        OWizHTMLExtend(vcl::Window* pParent, SvStream& _rStream)
-            : OWizTypeSelect( pParent, &_rStream )
+        OWizHTMLExtend(weld::Container* pPage, OCopyTableWizard* pWizard, SvStream& rStream)
+            : OWizTypeSelect(pPage, pWizard, &rStream)
         {
         }
 
-        static VclPtr<OWizTypeSelect> Create( vcl::Window* _pParent, SvStream& _rInput ) { return VclPtr<OWizHTMLExtend>::Create( _pParent, _rInput ); }
+        static std::unique_ptr<OWizTypeSelect> Create(weld::Container* pPage, OCopyTableWizard* pWizard, SvStream& rInput ) { return std::make_unique<OWizHTMLExtend>(pPage, pWizard, rInput); }
     };
     // Wizard Page: OWizRTFExtend
     class OWizRTFExtend : public OWizTypeSelect
@@ -43,12 +45,12 @@ namespace dbaui
     protected:
         virtual void createReaderAndCallParser(sal_Int32 _nRows) override;
     public:
-        OWizRTFExtend(vcl::Window* pParent,SvStream& _rStream)
-            : OWizTypeSelect( pParent, &_rStream )
+        OWizRTFExtend(weld::Container* pPage, OCopyTableWizard* pWizard, SvStream& rStream)
+            : OWizTypeSelect(pPage, pWizard, &rStream)
         {
         }
 
-        static VclPtr<OWizTypeSelect> Create( vcl::Window* _pParent, SvStream& _rInput ) { return VclPtr<OWizRTFExtend>::Create( _pParent, _rInput ); }
+        static std::unique_ptr<OWizTypeSelect> Create(weld::Container* pPage, OCopyTableWizard* pWizard, SvStream& rInput) { return std::make_unique<OWizRTFExtend>(pPage, pWizard, rInput); }
     };
 
     // Wizard Page: OWizNormalExtend
@@ -57,7 +59,11 @@ namespace dbaui
     protected:
         virtual void createReaderAndCallParser(sal_Int32 _nRows) override;
     public:
-        OWizNormalExtend(vcl::Window* pParent);
+        OWizNormalExtend(weld::Container* pPage, OCopyTableWizard* pWizard)
+            : OWizTypeSelect(pPage, pWizard)
+        {
+            EnableAuto(false);
+        }
     };
 }
 #endif // INCLUDED_DBACCESS_SOURCE_UI_INC_WEXTENDPAGES_HXX

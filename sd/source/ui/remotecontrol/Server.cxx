@@ -6,11 +6,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-#include <stdlib.h>
+
 #include <algorithm>
 #include <vector>
 
-#include <officecfg/Office/Common.hxx>
 #include <officecfg/Office/Impress.hxx>
 
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -20,6 +19,7 @@
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/configuration.hxx>
+#include <comphelper/sequence.hxx>
 #include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 #include <osl/socket.hxx>
@@ -28,7 +28,6 @@
 
 #include "DiscoveryService.hxx"
 #include "Listener.hxx"
-#include "Receiver.hxx"
 #include <RemoteServer.hxx>
 #include "BluetoothServer.hxx"
 #include "Communicator.hxx"
@@ -145,13 +144,13 @@ void RemoteServer::execute()
 
             // Check if we already have this server.
             Reference< XNameAccess > const xConfig = officecfg::Office::Impress::Misc::AuthorisedRemotes::get();
-            Sequence< OUString > aNames = xConfig->getElementNames();
+            const Sequence< OUString > aNames = xConfig->getElementNames();
             bool aFound = false;
-            for ( int i = 0; i < aNames.getLength(); i++ )
+            for ( const auto& rName : aNames )
             {
-                if ( aNames[i] == pClient->mName )
+                if ( rName == pClient->mName )
                 {
-                    Reference<XNameAccess> xSetItem( xConfig->getByName(aNames[i]), UNO_QUERY );
+                    Reference<XNameAccess> xSetItem( xConfig->getByName(rName), UNO_QUERY );
                     Any axPin(xSetItem->getByName("PIN"));
                     OUString sPin;
                     axPin >>= sPin;
@@ -163,7 +162,6 @@ void RemoteServer::execute()
                         break;
                     }
                 }
-
             }
             // Pin not found so inform the client.
             if ( !aFound )
@@ -255,10 +253,9 @@ std::vector< std::shared_ptr< ClientInfo > > RemoteServer::getClients()
     // authorised AND connected client.
     Reference< XNameAccess > const xConfig = officecfg::Office::Impress::Misc::AuthorisedRemotes::get();
     Sequence< OUString > aNames = xConfig->getElementNames();
-    for ( int i = 0; i < aNames.getLength(); i++ )
-    {
-        aClients.push_back( std::make_shared< ClientInfo > ( aNames[i], true ) );
-    }
+    std::transform(aNames.begin(), aNames.end(), std::back_inserter(aClients),
+        [](const OUString& rName) -> std::shared_ptr<ClientInfo> {
+            return std::make_shared<ClientInfo>(rName, true); });
 
     return aClients;
 }
@@ -289,18 +286,10 @@ bool RemoteServer::connectClient( const std::shared_ptr< ClientInfo >& pClient, 
         if (xChild.is())
         {
             // Check whether the client is already saved
-            bool aSaved = false;
             Sequence< OUString > aNames = xConfig->getElementNames();
-            for ( int i = 0; i < aNames.getLength(); i++ )
-            {
-                if ( aNames[i] == apClient->mName )
-                {
-                    xConfig->replaceByName( apClient->mName, makeAny( xChild ) );
-                    aSaved = true;
-                    break;
-                }
-            }
-            if ( !aSaved )
+            if (comphelper::findValue(aNames, apClient->mName) != -1)
+                xConfig->replaceByName( apClient->mName, makeAny( xChild ) );
+            else
                 xConfig->insertByName( apClient->mName, makeAny( xChild ) );
             aValue <<= apClient->mPin;
             xChild->replaceByName("PIN", aValue);

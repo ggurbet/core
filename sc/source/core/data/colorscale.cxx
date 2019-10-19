@@ -78,11 +78,11 @@ void ScFormulaListener::startListening(const ScTokenArray* pArr, const ScRange& 
                     {   // automagically
                         if ( rRef1.IsColRel() )
                         {   // ColName
-                            aRange1.aEnd.SetRow(MAXROW);
+                            aRange1.aEnd.SetRow(mpDoc->MaxRow());
                         }
                         else
                         {   // RowName
-                            aRange1.aEnd.SetCol(MAXCOL);
+                            aRange1.aEnd.SetCol(mpDoc->MaxCol());
                         }
                     }
                     mpDoc->StartListeningArea(aRange1, false, this);
@@ -151,24 +151,24 @@ bool ScFormulaListener::NeedsRepaint() const
 
 ScColorScaleEntry::ScColorScaleEntry():
     mnVal(0),
-    meType(COLORSCALE_VALUE),
-    mpFormat(nullptr)
+    mpFormat(nullptr),
+    meType(COLORSCALE_VALUE)
 {
 }
 
 ScColorScaleEntry::ScColorScaleEntry(double nVal, const Color& rCol, ScColorScaleEntryType eType):
     mnVal(nVal),
+    mpFormat(nullptr),
     maColor(rCol),
-    meType(eType),
-    mpFormat(nullptr)
+    meType(eType)
 {
 }
 
 ScColorScaleEntry::ScColorScaleEntry(const ScColorScaleEntry& rEntry):
     mnVal(rEntry.mnVal),
+    mpFormat(rEntry.mpFormat),
     maColor(rEntry.maColor),
-    meType(rEntry.meType),
-    mpFormat(rEntry.mpFormat)
+    meType(rEntry.meType)
 {
     setListener();
     if(rEntry.mpCell)
@@ -181,10 +181,10 @@ ScColorScaleEntry::ScColorScaleEntry(const ScColorScaleEntry& rEntry):
 
 ScColorScaleEntry::ScColorScaleEntry(ScDocument* pDoc, const ScColorScaleEntry& rEntry):
     mnVal(rEntry.mnVal),
-    maColor(rEntry.maColor),
     mpCell(),
-    meType(rEntry.meType),
-    mpFormat(rEntry.mpFormat)
+    mpFormat(rEntry.mpFormat),
+    maColor(rEntry.maColor),
+    meType(rEntry.meType)
 {
     setListener();
     if(rEntry.mpCell)

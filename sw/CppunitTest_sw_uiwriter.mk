@@ -11,12 +11,14 @@
 
 $(eval $(call gb_CppunitTest_CppunitTest,sw_uiwriter))
 
+$(eval $(call gb_CppunitTest_use_common_precompiled_header,sw_uiwriter))
+
 $(eval $(call gb_CppunitTest_add_exception_objects,sw_uiwriter, \
     sw/qa/extras/uiwriter/uiwriter \
     sw/qa/extras/uiwriter/uiwriter2 \
 ))
 
-# note: this links msword only for the reason to have a order dependency,
+# note: this links msword only for the reason to have an order dependency,
 # because "make sw.check" will not see the dependency through services.rdb
 $(eval $(call gb_CppunitTest_use_libraries,sw_uiwriter, \
     comphelper \
@@ -69,6 +71,11 @@ $(eval $(call gb_CppunitTest_use_configuration,sw_uiwriter))
 
 $(eval $(call gb_CppunitTest_use_uiconfigs,sw_uiwriter, \
     modules/swriter \
+))
+
+$(eval $(call gb_CppunitTest_use_packages,sw_uiwriter, \
+    oox_customshapes \
+    sfx2_classification \
 ))
 
 $(call gb_CppunitTest_get_target,sw_uiwriter): \

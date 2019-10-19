@@ -8,36 +8,28 @@
  */
 
 #include "optaboutconfig.hxx"
-#include "optHeaderTabListbox.hxx"
 
-#include <vcl/button.hxx>
-#include <vcl/event.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/treelistentry.hxx>
-#include <vcl/fixed.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
-#include <com/sun/star/beans/Property.hpp>
-#include <com/sun/star/beans/XProperty.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/container/XNameReplace.hpp>
 #include <com/sun/star/container/XHierarchicalName.hpp>
-#include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 #include <com/sun/star/util/XChangesBatch.hpp>
 #include <com/sun/star/util/SearchFlags.hpp>
 #include <com/sun/star/util/SearchAlgorithms2.hpp>
 #include <unotools/textsearch.hxx>
+#include <vcl/event.hxx>
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 
 #include <memory>
 #include <vector>
 #include <iostream>
 
-using namespace svx;
 using namespace ::com::sun::star;
 using namespace com::sun::star::uno;
 using namespace com::sun::star::container;
@@ -137,99 +129,112 @@ IMPL_LINK(CuiAboutConfigValueDialog, KeyInputHdl, const KeyEvent&, rKeyEvent, bo
     return !bValid;
 }
 
-CuiAboutConfigTabPage::CuiAboutConfigTabPage( vcl::Window* pParent/*, const SfxItemSet& rItemSet*/ ) :
-    ModalDialog( pParent, "AboutConfig", "cui/ui/aboutconfigdialog.ui"),
-    m_pPrefCtrl( get<SvSimpleTableContainer>("preferences") ),
-    m_pResetBtn( get<PushButton>("reset") ),
-    m_pEditBtn( get<PushButton>("edit") ),
-    m_pSearchBtn( get<PushButton>("searchButton") ),
-    m_pSearchEdit( get<Edit>("searchEntry") ),
-    m_vectorOfModified(),
-    m_pPrefBox( VclPtr<SvSimpleTable>::Create(*m_pPrefCtrl, WB_SCROLL | WB_HSCROLL | WB_VSCROLL ) )
+CuiAboutConfigTabPage::CuiAboutConfigTabPage(weld::Window* pParent)
+    : GenericDialogController(pParent, "cui/ui/aboutconfigdialog.ui", "AboutConfig")
+    , m_xResetBtn(m_xBuilder->weld_button("reset"))
+    , m_xEditBtn(m_xBuilder->weld_button("edit"))
+    , m_xSearchBtn(m_xBuilder->weld_button("searchButton"))
+    , m_xSearchEdit(m_xBuilder->weld_entry("searchEntry"))
+    , m_xPrefBox(m_xBuilder->weld_tree_view("preferences"))
+    , m_xScratchIter(m_xPrefBox->make_iterator())
+    , m_vectorOfModified()
+    , m_bSorted(false)
 {
-    Size aControlSize(LogicToPixel(Size(385, 230), MapMode(MapUnit::MapAppFont)));
-    m_pPrefCtrl->set_width_request(aControlSize.Width());
-    m_pPrefCtrl->set_height_request(aControlSize.Height());
+    m_xPrefBox->set_size_request(m_xPrefBox->get_approximate_digit_width() * 100,
+                                 m_xPrefBox->get_height_rows(28));
+    m_xPrefBox->connect_column_clicked(LINK(this, CuiAboutConfigTabPage, HeaderBarClick));
 
-    m_pEditBtn->SetClickHdl( LINK( this, CuiAboutConfigTabPage, StandardHdl_Impl ) );
-    m_pResetBtn->SetClickHdl( LINK( this, CuiAboutConfigTabPage, ResetBtnHdl_Impl ) );
-    m_pPrefBox->SetDoubleClickHdl( LINK(this, CuiAboutConfigTabPage, DoubleClickHdl_Impl) );
-    m_pPrefBox->SetExpandingHdl( LINK(this, CuiAboutConfigTabPage, ExpandingHdl_Impl) );
-    m_pSearchBtn->SetClickHdl( LINK(this, CuiAboutConfigTabPage, SearchHdl_Impl) );
-
-    m_pPrefBox->InsertHeaderEntry(get<FixedText>("preference")->GetText());
-    m_pPrefBox->InsertHeaderEntry(get<FixedText>("property")->GetText());
-    m_pPrefBox->InsertHeaderEntry(get<FixedText>("type")->GetText());
-    m_pPrefBox->InsertHeaderEntry(get<FixedText>("value")->GetText());
-
-    float fWidth = approximate_char_width();
-
-    long aTabs[] = {0,0,0,0};
-    aTabs[1] = fWidth * 65;
-    aTabs[2] = aTabs[1] + fWidth * 20;
-    aTabs[3] = aTabs[2] + fWidth * 8;
+    m_xEditBtn->connect_clicked(LINK( this, CuiAboutConfigTabPage, StandardHdl_Impl));
+    m_xResetBtn->connect_clicked(LINK( this, CuiAboutConfigTabPage, ResetBtnHdl_Impl));
+    m_xPrefBox->connect_row_activated(LINK(this, CuiAboutConfigTabPage, DoubleClickHdl_Impl));
+    m_xPrefBox->connect_expanding(LINK(this, CuiAboutConfigTabPage, ExpandingHdl_Impl));
+    m_xSearchBtn->connect_clicked(LINK(this, CuiAboutConfigTabPage, SearchHdl_Impl));
 
     m_options.AlgorithmType2 = util::SearchAlgorithms2::ABSOLUTE;
     m_options.transliterateFlags |= TransliterationFlags::IGNORE_CASE;
     m_options.searchFlag |= (util::SearchFlags::REG_NOT_BEGINOFLINE |
                                         util::SearchFlags::REG_NOT_ENDOFLINE);
 
-    m_pPrefBox->SetTabs(SAL_N_ELEMENTS(aTabs), aTabs, MapUnit::MapPixel);
-    m_pPrefBox->SetAlternatingRowColors( true );
+    float fWidth = m_xPrefBox->get_approximate_digit_width();
+    std::vector<int> aWidths;
+    aWidths.push_back(fWidth * 65);
+    aWidths.push_back(fWidth * 20);
+    aWidths.push_back(fWidth * 8);
+    m_xPrefBox->set_column_fixed_widths(aWidths);
+}
+
+IMPL_LINK(CuiAboutConfigTabPage, HeaderBarClick, int, nColumn, void)
+{
+    if (!m_bSorted)
+    {
+        m_xPrefBox->make_sorted();
+        m_bSorted = true;
+    }
+
+    bool bSortAtoZ = m_xPrefBox->get_sort_order();
+
+    //set new arrow positions in headerbar
+    if (nColumn == m_xPrefBox->get_sort_column())
+    {
+        bSortAtoZ = !bSortAtoZ;
+        m_xPrefBox->set_sort_order(bSortAtoZ);
+    }
+    else
+    {
+        m_xPrefBox->set_sort_indicator(TRISTATE_INDET, m_xPrefBox->get_sort_column());
+        m_xPrefBox->set_sort_column(nColumn);
+    }
+
+    if (nColumn != -1)
+    {
+        //sort lists
+        m_xPrefBox->set_sort_indicator(bSortAtoZ ? TRISTATE_TRUE : TRISTATE_FALSE, nColumn);
+    }
 }
 
 CuiAboutConfigTabPage::~CuiAboutConfigTabPage()
 {
-    disposeOnce();
-}
-
-void CuiAboutConfigTabPage::dispose()
-{
-    m_pPrefBox.disposeAndClear();
-    m_pPrefCtrl.clear();
-    m_pResetBtn.clear();
-    m_pEditBtn.clear();
-    m_pSearchBtn.clear();
-    m_pSearchEdit.clear();
-    ModalDialog::dispose();
 }
 
 void CuiAboutConfigTabPage::InsertEntry(const OUString& rPropertyPath, const OUString& rProp, const OUString& rStatus,
-                                        const OUString& rType, const OUString& rValue, SvTreeListEntry *pParentEntry,
+                                        const OUString& rType, const OUString& rValue, const weld::TreeIter* pParentEntry,
                                         bool bInsertToPrefBox)
 {
-    SvTreeListEntry* pEntry = new SvTreeListEntry;
-    pEntry->AddItem(std::make_unique<SvLBoxContextBmp>(
-        Image(), Image(), false)); //It is needed, otherwise causes crash
-    pEntry->AddItem(std::make_unique<SvLBoxString>(rProp));
-    pEntry->AddItem(std::make_unique<SvLBoxString>(rStatus));
-    pEntry->AddItem(std::make_unique<SvLBoxString>(rType));
-    pEntry->AddItem(std::make_unique<SvLBoxString>(rValue));
     m_vectorUserData.push_back(std::make_unique<UserData>(rPropertyPath));
-    pEntry->SetUserData(m_vectorUserData.back().get());
-
-    if(bInsertToPrefBox)
-        m_pPrefBox->Insert( pEntry, pParentEntry );
+    if (bInsertToPrefBox)
+    {
+        OUString sId(OUString::number(reinterpret_cast<sal_Int64>(m_vectorUserData.back().get())));
+        m_xPrefBox->insert(pParentEntry, -1, &rProp, &sId, nullptr, nullptr, nullptr, false, m_xScratchIter.get());
+        m_xPrefBox->set_text(*m_xScratchIter, rStatus, 1);
+        m_xPrefBox->set_text(*m_xScratchIter, rType, 2);
+        m_xPrefBox->set_text(*m_xScratchIter, rValue, 3);
+    }
     else
-        m_prefBoxEntries.push_back(std::unique_ptr<SvTreeListEntry>(pEntry));
+    {
+        m_prefBoxEntries.push_back({rProp, rStatus, rType, rValue, m_vectorUserData.back().get()});
+    }
 }
 
 void CuiAboutConfigTabPage::Reset()
 {
-    m_pPrefBox->Clear();
-
+    m_xPrefBox->clear();
     m_vectorOfModified.clear();
-    m_pPrefBox->GetModel()->SetSortMode( SortNone );
+    if (m_bSorted)
+    {
+        m_xPrefBox->set_sort_indicator(TRISTATE_INDET, m_xPrefBox->get_sort_column());
+        m_xPrefBox->make_unsorted();
+        m_bSorted = false;
+    }
     m_prefBoxEntries.clear();
     m_modifiedPrefBoxEntries.clear();
 
-    m_pPrefBox->SetUpdateMode(false);
+    m_xPrefBox->freeze();
     Reference< XNameAccess > xConfigAccess = getConfigAccess( "/", false );
     //Load all XNameAccess to m_prefBoxEntries
     FillItems( xConfigAccess, nullptr, 0, true );
     //Load xConfigAccess' children to m_prefBox
     FillItems( xConfigAccess );
-    m_pPrefBox->SetUpdateMode(true);
+    m_xPrefBox->thaw();
 }
 
 void CuiAboutConfigTabPage::FillItemSet()
@@ -247,7 +252,7 @@ void CuiAboutConfigTabPage::FillItemSet()
     }
 }
 
-void CuiAboutConfigTabPage::FillItems(const Reference< XNameAccess >& xNameAccess, SvTreeListEntry *pParentEntry,
+void CuiAboutConfigTabPage::FillItems(const Reference< XNameAccess >& xNameAccess, const weld::TreeIter* pParentEntry,
                                       int lineage, bool bLoadAll)
 {
     OUString sPath = Reference< XHierarchicalName >(
@@ -277,31 +282,25 @@ void CuiAboutConfigTabPage::FillItems(const Reference< XNameAccess >& xNameAcces
             else
             {
                 // not leaf node
-                SvTreeListEntry* pEntry = new SvTreeListEntry;
-                pEntry->AddItem(std::make_unique<SvLBoxContextBmp>(
-                    SvTreeListBox::GetDefaultExpandedNodeImage(),
-                    SvTreeListBox::GetDefaultCollapsedNodeImage(), false));
-                pEntry->AddItem(std::make_unique<SvLBoxString>(seqItems[i]));
-                //It is needed, without this the selection line will be truncated.
-                pEntry->AddItem(std::make_unique<SvLBoxString>(""));
-                pEntry->AddItem(std::make_unique<SvLBoxString>(""));
-                pEntry->AddItem(std::make_unique<SvLBoxString>(""));
-
                 m_vectorUserData.push_back(std::make_unique<UserData>(xNextNameAccess, lineage + 1));
-                pEntry->SetUserData(m_vectorUserData.back().get());
-                pEntry->EnableChildrenOnDemand();
-                m_pPrefBox->Insert( pEntry, pParentEntry );
+                OUString sId(OUString::number(reinterpret_cast<sal_Int64>(m_vectorUserData.back().get())));
+
+                m_xPrefBox->insert(pParentEntry, -1, &seqItems[i], &sId, nullptr, nullptr, nullptr, true, m_xScratchIter.get());
+                //It is needed, without this the selection line will be truncated.
+                m_xPrefBox->set_text(*m_xScratchIter, "", 1);
+                m_xPrefBox->set_text(*m_xScratchIter, "", 2);
+                m_xPrefBox->set_text(*m_xScratchIter, "", 3);
             }
         }
         else
         {
             // leaf node
             OUString sPropertyName = seqItems[i];
-            SvTreeListEntries::iterator it = std::find_if(m_modifiedPrefBoxEntries.begin(), m_modifiedPrefBoxEntries.end(),
-              [&sPath, &sPropertyName](std::unique_ptr<SvTreeListEntry> const& pEntry) -> bool
+            auto it = std::find_if(m_modifiedPrefBoxEntries.begin(), m_modifiedPrefBoxEntries.end(),
+              [&sPath, &sPropertyName](const prefBoxEntry& rEntry) -> bool
               {
-                  return static_cast<UserData*>(pEntry->GetUserData())->sPropertyPath == sPath
-                      && static_cast<SvLBoxString&>(pEntry->GetItem(2)).GetText() == sPropertyName;
+                  return rEntry.pUserData->sPropertyPath == sPath
+                      && rEntry.sStatus == sPropertyName;
               }
             );
 
@@ -309,7 +308,7 @@ void CuiAboutConfigTabPage::FillItems(const Reference< XNameAccess >& xNameAcces
             OUStringBuffer sValue;
 
             if (it != m_modifiedPrefBoxEntries.end())
-                sValue = static_cast< SvLBoxString& >( (*it)->GetItem(4) ).GetText();
+                sValue = it->sValue;
             else
             {
                 switch( aNode.getValueType().getTypeClass() )
@@ -553,30 +552,29 @@ CuiAboutConfigValueDialog::~CuiAboutConfigValueDialog()
 {
 }
 
-IMPL_LINK_NOARG( CuiAboutConfigTabPage, ResetBtnHdl_Impl, Button*, void )
+IMPL_LINK_NOARG( CuiAboutConfigTabPage, ResetBtnHdl_Impl, weld::Button&, void )
 {
     Reset();
 }
 
-IMPL_LINK_NOARG( CuiAboutConfigTabPage, DoubleClickHdl_Impl, SvTreeListBox*, bool )
+IMPL_LINK_NOARG(CuiAboutConfigTabPage, DoubleClickHdl_Impl, weld::TreeView&, bool)
 {
-    StandardHdl_Impl(nullptr);
+    StandardHdl_Impl(*m_xEditBtn);
     return true;
 }
 
-IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
+IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, weld::Button&, void )
 {
-    SvTreeListEntry* pEntry = m_pPrefBox->GetHdlEntry();
-    if(pEntry == nullptr)
+    if (!m_xPrefBox->get_selected(m_xScratchIter.get()))
         return;
 
-    UserData *pUserData = static_cast<UserData*>(pEntry->GetUserData());
-    if(pUserData && pUserData->bIsPropertyPath)
+    UserData *pUserData = reinterpret_cast<UserData*>(m_xPrefBox->get_id(*m_xScratchIter).toInt64());
+    if (pUserData && pUserData->bIsPropertyPath)
     {
         //if selection is a node
-        OUString sPropertyName = SvTabListBox::GetEntryText( pEntry, 1 );
-        OUString sPropertyType = SvTabListBox::GetEntryText( pEntry, 2 );
-        OUString sPropertyValue = SvTabListBox::GetEntryText( pEntry, 3 );
+        OUString sPropertyName = m_xPrefBox->get_text(*m_xScratchIter, 1);
+        OUString sPropertyType = m_xPrefBox->get_text(*m_xScratchIter, 2);
+        OUString sPropertyValue = m_xPrefBox->get_text(*m_xScratchIter, 3);
 
         std::shared_ptr< Prop_Impl > pProperty (new Prop_Impl( pUserData->sPropertyPath, sPropertyName, Any( sPropertyValue ) ) );
         bool bSaveChanges = false;
@@ -626,7 +624,7 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                 else if( sPropertyType == "hyper" )
                     limit = HYPER_LEN_LIMIT;
 
-                CuiAboutConfigValueDialog aValueDialog(GetFrameWeld(), sDialogValue, limit);
+                CuiAboutConfigValueDialog aValueDialog(m_xDialog.get(), sDialogValue, limit);
 
                 if (aValueDialog.run() == RET_OK )
                 {
@@ -638,7 +636,7 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                         sal_Int32 nNumb = sNewValue.toInt32();
 
                         //if the value is 0 and length is not 1, there is something wrong
-                        if( ( nNumb==0 && sNewValue.getLength()!=1 ) || nNumb >= SAL_MAX_INT16 || nNumb <= SAL_MIN_INT16)
+                        if( ( nNumb==0 && sNewValue.getLength()!=1 ) || nNumb > SAL_MAX_INT16 || nNumb < SAL_MIN_INT16)
                             throw uno::Exception("out of range short", nullptr);
                         nShort = static_cast<sal_Int16>(nNumb);
                         pProperty->Value <<= nShort;
@@ -646,28 +644,28 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                     else if( sPropertyType == "long" )
                     {
                         sal_Int32 nLong = sNewValue.toInt32();
-                        if( ( nLong==0 && sNewValue.getLength()!=1 ) || nLong >= SAL_MAX_INT32 || nLong <= SAL_MIN_INT32)
+                        if( nLong==0 && sNewValue.getLength()!=1)
                             throw uno::Exception("out of range long", nullptr);
                         pProperty->Value <<= nLong;
                     }
                     else if( sPropertyType == "hyper")
                     {
                         sal_Int64 nHyper = sNewValue.toInt64();
-                        if( ( nHyper==0 && sNewValue.getLength()!=1 ) || nHyper >= SAL_MAX_INT32 || nHyper <= SAL_MIN_INT32)
+                        if( nHyper==0 && sNewValue.getLength()!=1)
                             throw uno::Exception("out of range hyper", nullptr);
                         pProperty->Value <<= nHyper;
                     }
                     else if( sPropertyType == "double")
                     {
                         double nDoub = sNewValue.toDouble();
-                        if( ( nDoub ==0 && sNewValue.getLength()!=1 ) || nDoub >= SAL_MAX_INT32 || nDoub <= SAL_MIN_INT32)
+                        if( nDoub ==0 && sNewValue.getLength()!=1)
                             throw uno::Exception("out of range double", nullptr);
                         pProperty->Value <<= nDoub;
                     }
                     else if( sPropertyType == "float")
                     {
                         float nFloat = sNewValue.toFloat();
-                        if( ( nFloat ==0 && sNewValue.getLength()!=1 ) || nFloat >= SAL_MAX_INT32 || nFloat <= SAL_MIN_INT32)
+                        if( nFloat ==0 && sNewValue.getLength()!=1)
                             throw uno::Exception("out of range float", nullptr);
                         pProperty->Value <<= nFloat;
                     }
@@ -747,38 +745,35 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                 AddToModifiedVector( pProperty );
 
                 //update listbox value.
-                m_pPrefBox->SetEntryText( sDialogValue,  pEntry, 3 );
+                m_xPrefBox->set_text(*m_xScratchIter, sDialogValue, 3);
                 //update m_prefBoxEntries
-                SvTreeListEntries::iterator it = std::find_if(m_prefBoxEntries.begin(), m_prefBoxEntries.end(),
-                  [&pUserData, &sPropertyName](std::unique_ptr<SvTreeListEntry> const& rpEntry) -> bool
+                auto it = std::find_if(m_prefBoxEntries.begin(), m_prefBoxEntries.end(),
+                  [&pUserData, &sPropertyName](const prefBoxEntry& rEntry) -> bool
                   {
-                      return static_cast<UserData*>(rpEntry->GetUserData())->sPropertyPath == pUserData->sPropertyPath
-                          && static_cast<SvLBoxString&>(rpEntry->GetItem(2)).GetText() == sPropertyName;
+                      return rEntry.pUserData->sPropertyPath == pUserData->sPropertyPath
+                          && rEntry.sStatus == sPropertyName;
                   }
                 );
                 if (it != m_prefBoxEntries.end())
                 {
-                    (*it)->ReplaceItem(std::make_unique<SvLBoxString>(sDialogValue), 4);
+                    it->sValue = sDialogValue;
 
-                    SvTreeListEntries::iterator modifiedIt = std::find_if(
+                    auto modifiedIt = std::find_if(
                                 m_modifiedPrefBoxEntries.begin(), m_modifiedPrefBoxEntries.end(),
-                                [&pUserData, &sPropertyName](std::unique_ptr<SvTreeListEntry> const& rpEntry) -> bool
+                                [&pUserData, &sPropertyName](const prefBoxEntry& rEntry) -> bool
                                 {
-                                    return static_cast<UserData*>(rpEntry->GetUserData())->sPropertyPath == pUserData->sPropertyPath
-                                        && static_cast<SvLBoxString&>(rpEntry->GetItem(2)).GetText() == sPropertyName;
+                                    return rEntry.pUserData->sPropertyPath == pUserData->sPropertyPath
+                                        && rEntry.sStatus == sPropertyName;
                                 }
                     );
 
-                    if( modifiedIt != m_modifiedPrefBoxEntries.end())
+                    if (modifiedIt != m_modifiedPrefBoxEntries.end())
                     {
-                        (*modifiedIt)->ReplaceItem(std::make_unique<SvLBoxString>(sDialogValue), 4);
+                        modifiedIt->sValue = sDialogValue;
                     }
                     else
                     {
-                        std::unique_ptr<SvTreeListEntry> pCloneEntry(
-                                new SvTreeListEntry);
-                        pCloneEntry->Clone((*it).get());
-                        m_modifiedPrefBoxEntries.push_back(std::move(pCloneEntry));
+                        m_modifiedPrefBoxEntries.push_back(*it);
                     }
                 }
             }
@@ -789,64 +784,71 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
     }
 }
 
-IMPL_LINK_NOARG( CuiAboutConfigTabPage, SearchHdl_Impl, Button*, void)
+IMPL_LINK_NOARG( CuiAboutConfigTabPage, SearchHdl_Impl, weld::Button&, void)
 {
-    m_pPrefBox->Clear();
-    m_pPrefBox->SetUpdateMode( false );
+    m_xPrefBox->clear();
+    m_xPrefBox->freeze();
 
-    SvSortMode sortMode = m_pPrefBox->GetModel()->GetSortMode();
-    sal_uInt16 sortedCol = m_pPrefBox->GetSortedCol();
+    if (m_bSorted)
+        m_xPrefBox->make_unsorted();
 
-    if( sortMode != SortNone )
-        m_pPrefBox->SortByCol( 0xFFFF );
-
-    if( m_pSearchEdit->GetText().isEmpty() )
+    if (m_xSearchEdit->get_text().isEmpty())
     {
-        m_pPrefBox->Clear();
+        m_xPrefBox->clear();
         Reference< XNameAccess > xConfigAccess = getConfigAccess( "/", false );
         FillItems( xConfigAccess );
     }
     else
     {
-        m_options.searchString = m_pSearchEdit->GetText();
+        m_options.searchString = m_xSearchEdit->get_text();
         utl::TextSearch textSearch( m_options );
         for (auto const& it : m_prefBoxEntries)
         {
             sal_Int32 endPos, startPos = 0;
 
-            for(size_t i = 1; i < it->ItemCount(); ++i)
+            for(size_t i = 0; i < 5; ++i)
             {
                 OUString scrTxt;
-                if(i == 1)
-                    scrTxt = static_cast< UserData* >( it->GetUserData() )->sPropertyPath;
-                else
-                    scrTxt = static_cast< SvLBoxString& >( it->GetItem(i) ).GetText();
+
+                if (i == 0)
+                    scrTxt = it.pUserData->sPropertyPath;
+                else if (i == 1)
+                    scrTxt = it.sProp;
+                else if (i == 2)
+                    scrTxt = it.sStatus;
+                else if (i == 3)
+                    scrTxt = it.sType;
+                else if (i == 4)
+                    scrTxt = it.sValue;
+
                 endPos = scrTxt.getLength();
-                if( textSearch.SearchForward( scrTxt, &startPos, &endPos ) )
+                if (textSearch.SearchForward(scrTxt, &startPos, &endPos))
                 {
-                    SvTreeListEntry* pEntry = new SvTreeListEntry;
-                    pEntry->Clone( it.get() );
-                    InsertEntry( pEntry );
+                    InsertEntry(it);
                     break;
                 }
             }
         }
     }
 
-    if( sortMode != SortNone )
-        m_pPrefBox->SortByCol(sortedCol, sortMode == SortAscending);
+    m_xPrefBox->thaw();
+    if (m_bSorted)
+        m_xPrefBox->make_sorted();
 
-    m_pPrefBox->SetUpdateMode( true );
+    m_xPrefBox->all_foreach([this](weld::TreeIter& rEntry) {
+        m_xPrefBox->expand_row(rEntry);
+        return false;
+    });
 }
 
-void CuiAboutConfigTabPage::InsertEntry( SvTreeListEntry *pEntry)
+void CuiAboutConfigTabPage::InsertEntry(const prefBoxEntry& rEntry)
 {
-    OUString sPathWithProperty = static_cast< UserData* >(pEntry->GetUserData())->sPropertyPath;
-    sal_Int32 index = sPathWithProperty.lastIndexOf(static_cast< SvLBoxString& >(pEntry->GetItem(1)).GetText());
+    OUString sPathWithProperty = rEntry.pUserData->sPropertyPath;
+    sal_Int32 index = sPathWithProperty.lastIndexOf(rEntry.sProp);
     OUString sPath = sPathWithProperty.copy(0, index);
     index = 0;
-    SvTreeListEntry* pParentEntry;
-    SvTreeListEntry* pGrandParentEntry = nullptr;
+    std::unique_ptr<weld::TreeIter> xParentEntry(m_xPrefBox->make_iterator());
+    std::unique_ptr<weld::TreeIter> xGrandParentEntry;
 
     do
     {
@@ -855,62 +857,68 @@ void CuiAboutConfigTabPage::InsertEntry( SvTreeListEntry *pEntry)
         // deal with no parent case (tdf#107811)
         if (index < 0)
         {
-            m_pPrefBox->Insert( pEntry, nullptr);
+            OUString sId(OUString::number(reinterpret_cast<sal_Int64>(rEntry.pUserData)));
+            m_xPrefBox->insert(nullptr, -1, &rEntry.sProp, &sId, nullptr, nullptr, nullptr, false, m_xScratchIter.get());
+            m_xPrefBox->set_text(*m_xScratchIter, rEntry.sStatus, 1);
+            m_xPrefBox->set_text(*m_xScratchIter, rEntry.sType, 2);
+            m_xPrefBox->set_text(*m_xScratchIter, rEntry.sValue, 3);
             return;
         }
         OUString sParentName = sPath.copy(prevIndex+1, index - prevIndex - 1);
 
         bool hasEntry = false;
-        for(pParentEntry = m_pPrefBox->FirstChild(pGrandParentEntry); pParentEntry != nullptr; pParentEntry = pParentEntry->NextSibling())
-            if(static_cast< SvLBoxString& >(pParentEntry->GetItem(1)).GetText() == sParentName)
-            {
-                hasEntry = true;
-                break;
-            }
+        bool bStartOk;
 
-        if(!hasEntry)
+        if (!xGrandParentEntry)
+            bStartOk = m_xPrefBox->get_iter_first(*xParentEntry);
+        else
         {
-            pParentEntry = new SvTreeListEntry;
-            pParentEntry->AddItem(std::make_unique<SvLBoxContextBmp>(
-                   SvTreeListBox::GetDefaultExpandedNodeImage(),
-                   SvTreeListBox::GetDefaultCollapsedNodeImage(), false));
-            pParentEntry->AddItem(std::make_unique<SvLBoxString>(sParentName));
-            //It is needed, without this the selection line will be truncated.
-            pParentEntry->AddItem(std::make_unique<SvLBoxString>(""));
-            pParentEntry->AddItem(std::make_unique<SvLBoxString>(""));
-            pParentEntry->AddItem(std::make_unique<SvLBoxString>(""));
-            pParentEntry->EnableChildrenOnDemand(false);
-            m_pPrefBox->Insert( pParentEntry, pGrandParentEntry );
+            m_xPrefBox->copy_iterator(*xGrandParentEntry, *xParentEntry);
+            bStartOk = m_xPrefBox->iter_children(*xParentEntry);
         }
 
-        if(pGrandParentEntry)
-            m_pPrefBox->Expand( pGrandParentEntry );
-        pGrandParentEntry = pParentEntry;
+        if (bStartOk)
+        {
+            do
+            {
+                if (m_xPrefBox->get_text(*xParentEntry, 0) == sParentName)
+                {
+                    hasEntry = true;
+                    break;
+                }
+            } while (m_xPrefBox->iter_next_sibling(*xParentEntry));
+        }
+
+        if (!hasEntry)
+        {
+            m_xPrefBox->insert(xGrandParentEntry.get(), -1, &sParentName, nullptr, nullptr, nullptr, nullptr, false, xParentEntry.get());
+            //It is needed, without this the selection line will be truncated.
+            m_xPrefBox->set_text(*xParentEntry, "", 1);
+            m_xPrefBox->set_text(*xParentEntry, "", 2);
+            m_xPrefBox->set_text(*xParentEntry, "", 3);
+        }
+
+        xGrandParentEntry = m_xPrefBox->make_iterator(xParentEntry.get());
     } while(index < sPath.getLength() - 1);
 
-    m_pPrefBox->Insert( pEntry, pParentEntry );
-    m_pPrefBox->Expand( pParentEntry );
+    OUString sId(OUString::number(reinterpret_cast<sal_Int64>(rEntry.pUserData)));
+    m_xPrefBox->insert(xParentEntry.get(), -1, &rEntry.sProp, &sId, nullptr, nullptr, nullptr, false, m_xScratchIter.get());
+    m_xPrefBox->set_text(*m_xScratchIter, rEntry.sStatus, 1);
+    m_xPrefBox->set_text(*m_xScratchIter, rEntry.sType, 2);
+    m_xPrefBox->set_text(*m_xScratchIter, rEntry.sValue, 3);
 }
 
-IMPL_LINK_NOARG( CuiAboutConfigTabPage, ExpandingHdl_Impl, SvTreeListBox*, bool )
+IMPL_LINK(CuiAboutConfigTabPage, ExpandingHdl_Impl, const weld::TreeIter&, rEntry, bool)
 {
-    SvTreeListEntry* pEntry = m_pPrefBox->GetHdlEntry();
-
-    if(pEntry != nullptr && pEntry->HasChildrenOnDemand())
+    if (m_xPrefBox->iter_has_child(rEntry))
+        return true;
+    UserData *pUserData = reinterpret_cast<UserData*>(m_xPrefBox->get_id(rEntry).toInt64());
+    if (pUserData && !pUserData->bIsPropertyPath)
     {
-        pEntry->EnableChildrenOnDemand(false);
-        SvTreeListEntry *pFirstChild = m_pPrefBox->FirstChild(pEntry);
-        if(pFirstChild)
-            m_pPrefBox->RemoveEntry(pFirstChild);
-
-        if(pEntry->GetUserData() != nullptr)
-        {
-            UserData *pUserData = static_cast<UserData*>(pEntry->GetUserData());
-            FillItems( pUserData->aXNameAccess, pEntry, pUserData->aLineage );
-        }
+        assert(pUserData->aXNameAccess.is());
+        FillItems(pUserData->aXNameAccess, &rEntry, pUserData->aLineage);
     }
-
-    return pEntry && pEntry->HasChildren();
+    return true;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

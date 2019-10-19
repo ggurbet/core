@@ -32,7 +32,7 @@
 
 /** defines for DeclPrimitive2DIDBlock and ImplPrimitive2DIDBlock
     Added to be able to simply change identification stuff later, e.g. add
-    a identification string and/or ID to the interface and to the implementation
+    an identification string and/or ID to the interface and to the implementation
     ATM used to delclare implement getPrimitive2DID()
 */
 
@@ -76,16 +76,18 @@ namespace drawinglayer { namespace primitive2d {
         explicit Primitive2DContainer( size_type count ) : deque(count) {}
         virtual ~Primitive2DContainer() override;
         Primitive2DContainer( const Primitive2DContainer& other ) : deque(other) {}
-        Primitive2DContainer( const Primitive2DContainer&& other ) : deque(other) {}
+        Primitive2DContainer( Primitive2DContainer&& other ) noexcept : deque(std::move(other)) {}
         Primitive2DContainer( const std::deque< Primitive2DReference >& other ) : deque(other) {}
         Primitive2DContainer( std::initializer_list<Primitive2DReference> init ) : deque(init) {}
+        template <class Iter>
+        Primitive2DContainer(Iter first, Iter last) : deque(first, last) {}
 
         virtual void append(const Primitive2DReference&) override;
         virtual void append(const Primitive2DContainer& rSource) override;
         virtual void append(Primitive2DContainer&& rSource) override;
         void append(const Primitive2DSequence& rSource);
         Primitive2DContainer& operator=(const Primitive2DContainer& r) { deque::operator=(r); return *this; }
-        Primitive2DContainer& operator=(const Primitive2DContainer&& r) { deque::operator=(r); return *this; }
+        Primitive2DContainer& operator=(Primitive2DContainer&& r) noexcept { deque::operator=(std::move(r)); return *this; }
         bool operator==(const Primitive2DContainer& rB) const;
         bool operator!=(const Primitive2DContainer& rB) const { return !operator==(rB); }
         basegfx::B2DRange getB2DRange(const geometry::ViewInformation2D& aViewInformation) const;

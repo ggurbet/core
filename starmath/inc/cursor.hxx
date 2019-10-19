@@ -62,7 +62,7 @@ class SmDocShell;
 /** Formula cursor
  *
  * This class is used to represent a cursor in a formula, which can be used to manipulate
- * an formula programmatically.
+ * a formula programmatically.
  * @remarks This class is a very intimate friend of SmDocShell.
  */
 class SmCursor{
@@ -83,7 +83,7 @@ public:
     const SmCaretPos& GetPosition() const { return mpPosition->CaretPos; }
 
     /** True, if the cursor has a selection */
-    bool HasSelection() { return mpAnchor != mpPosition; }
+    bool HasSelection() const { return mpAnchor != mpPosition; }
 
     /** Move the position of this cursor */
     void Move(OutputDevice* pDev, SmMovementDirection direction, bool bMoveAnchor = true);
@@ -140,7 +140,7 @@ public:
 
     /** Insert a new row or newline
      *
-     * Inserts a new row if position is in an matrix or stack command.
+     * Inserts a new row if position is in a matrix or stack command.
      * Otherwise a newline is inserted if we're in a toplevel line.
      *
      * @returns True, if a new row/line could be inserted.

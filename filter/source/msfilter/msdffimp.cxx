@@ -934,7 +934,7 @@ void DffPropertyReader::ApplyLineAttributes( SfxItemSet& rSet, const MSO_SPT eSh
         sal_Int32 nLineWidth = static_cast<sal_Int32>(GetPropertyValue( DFF_Prop_lineWidth, 9525 ));
 
         // support LineCap
-        const MSO_LineCap eLineCap(static_cast<MSO_LineCap>(GetPropertyValue(DFF_Prop_lineEndCapStyle, mso_lineEndCapSquare)));
+        const MSO_LineCap eLineCap(static_cast<MSO_LineCap>(GetPropertyValue(DFF_Prop_lineEndCapStyle, mso_lineEndCapFlat)));
 
         switch(eLineCap)
         {
@@ -961,63 +961,97 @@ void DffPropertyReader::ApplyLineAttributes( SfxItemSet& rSet, const MSO_SPT eSh
             rSet.Put(XLineStyleItem( drawing::LineStyle_SOLID ) );
         else
         {
-            sal_uInt16  nDots = 1;
-            sal_uInt32  nDotLen = nLineWidth / 360;
-            sal_uInt16  nDashes = 0;
-            const bool bHugeWidth = static_cast<sal_uInt32>(nLineWidth) >= SAL_MAX_UINT32/8U; //then rougher approx is fine
-            sal_uInt32  nDashLen = bHugeWidth ? (nDotLen * 8U) : ((8U * nLineWidth) / 360);
-            sal_uInt32  nDistance = bHugeWidth ? (nDotLen * 3U) : ((3U * nLineWidth) / 360);
+            // Despite of naming "dot" and "dash", that are all dashes and a "dot" can be longer
+            // than a "dash". The naming indicates the order, "dot" is always the first dash and
+            // "dash" is always the second dash. MS Office always starts with the longer dash, so
+            // set it here accordingly.
+            // The preset from binary is essentially the same as from OOXML. So here the same
+            // setting is used as in oox import. The comment corresponds to
+            // "dots, dotLen, dashes, dashLen, distance" there.
+            // MS Office uses always relative length, so no need to consider nLineWidth
+            // here. Values are of kind 300 for 300% in css::drawing::DashStyle, for example.
 
+            sal_uInt16  nDots = 1; // in all cases, "solid" is treated above
+            // initialize, will be changed if necessary
+            sal_uInt32  nDotLen = 300;
+            sal_uInt16  nDashes = 0;
+            sal_uInt32  nDashLen = 0;
+            sal_uInt32  nDistance = 300;
             switch ( eLineDashing )
             {
                 default:
-                case mso_lineDotSys :
+                case mso_lineDotSys : // 1 1 0 0 1
                 {
-                    nDots = 1;
-                    nDashes = 0;
-                    nDistance = nDotLen;
+                    nDotLen =100;
+                    nDistance = 100;
                 }
                 break;
 
-                case mso_lineDashGEL :
+                case mso_lineDashGEL : // 1 4 0 0 3
                 {
-                    nDots = 0;
-                    nDashes = 1;
-                    nDashLen = bHugeWidth ? (nDotLen * 4U) : ((4U * nLineWidth) / 360);
+                    nDotLen = 400;
                 }
                 break;
 
-                case mso_lineDashDotGEL :
+                case mso_lineDashDotGEL : // 1 4 1 1 3
                 {
-                    nDots = 1;
+                    nDotLen = 400;
                     nDashes = 1;
-                    nDashLen = bHugeWidth ? (nDotLen * 4U) : ((4U * nLineWidth) / 360);
+                    nDashLen = 100;
                 }
                 break;
 
-                case mso_lineLongDashGEL :
+                case mso_lineLongDashGEL : // 1 8 0 0 3
                 {
-                    nDots = 0;
-                    nDashes = 1;
+                    nDotLen = 800;
                 }
                 break;
 
-                case mso_lineLongDashDotGEL :
+                case mso_lineLongDashDotGEL : // 1 8 1 1 3
                 {
-                    nDots = 1;
+                    nDotLen = 800;
                     nDashes = 1;
+                    nDashLen = 100;
                 }
                 break;
 
-                case mso_lineLongDashDotDotGEL:
+                case mso_lineLongDashDotDotGEL: // 1 8 2 1 3
                 {
-                    nDots = 2;
+                    nDotLen = 800;
+                    nDashes = 2;
+                    nDashLen = 100;
+                }
+                break;
+
+                case mso_lineDotGEL: // 1 1 0 0 3
+                {
+                    nDotLen = 100;
+                }
+                break;
+
+                case mso_lineDashSys: // 1 3 0 0 1
+                {
+                    nDistance = 100;
+                }
+                break;
+
+                case mso_lineDashDotSys: // 1 3 1 1 1
+                {
                     nDashes = 1;
+                    nDashLen = 100;
+                    nDistance = 100;
+                }
+                break;
+
+                case mso_lineDashDotDotSys: // 1 3 2 1 1
+                {
+                    nDashes = 2;
+                    nDashLen = 100;
+                    nDistance = 100;
                 }
                 break;
             }
-
-            rSet.Put( XLineDashItem( OUString(), XDash( css::drawing::DashStyle_RECT, nDots, nDotLen, nDashes, nDashLen, nDistance ) ) );
+            rSet.Put( XLineDashItem( OUString(), XDash( css::drawing::DashStyle_RECTRELATIVE, nDots, nDotLen, nDashes, nDashLen, nDistance ) ) );
             rSet.Put( XLineStyleItem( drawing::LineStyle_DASH ) );
         }
         rSet.Put( XLineColorItem( OUString(), rManager.MSO_CLR_ToColor( GetPropertyValue( DFF_Prop_lineColor, 0 ) ) ) );
@@ -2866,7 +2900,7 @@ void DffPropertyReader::ImportGradientColor( SfxItemSet& aSet,MSO_FillType eMSO_
         nChgColors ^= 1;
     }
     //if the type is linear or axial, just save focus to nFocusX and nFocusY for export
-    //Core function does no need them. They serves for rect gradient(CenterXY).
+    //Core function does no need them. They serve for rect gradient(CenterXY).
     sal_uInt16 nFocusX = static_cast<sal_uInt16>(nFocus);
     sal_uInt16 nFocusY = static_cast<sal_uInt16>(nFocus);
 
@@ -2968,7 +3002,7 @@ void DffRecordManager::Consume( SvStream& rIn, sal_uInt32 nStOfs )
     }
     if ( nStOfs )
     {
-        pCList = static_cast<DffRecordList*>(this);
+        pCList = this;
         while ( pCList->pNext )
             pCList = pCList->pNext.get();
         while (rIn.good() && ( ( rIn.Tell() + 8 ) <=  nStOfs ))
@@ -2987,7 +3021,7 @@ void DffRecordManager::Consume( SvStream& rIn, sal_uInt32 nStOfs )
 
 void DffRecordManager::Clear()
 {
-    pCList = static_cast<DffRecordList*>(this);
+    pCList = this;
     pNext.reset();
     nCurrent = 0;
     nCount = 0;
@@ -3004,7 +3038,7 @@ DffRecordHeader* DffRecordManager::Current()
 DffRecordHeader* DffRecordManager::First()
 {
     DffRecordHeader* pRet = nullptr;
-    pCList = static_cast<DffRecordList*>(this);
+    pCList = this;
     if ( pCList->nCount )
     {
         pCList->nCurrent = 0;
@@ -4567,7 +4601,6 @@ SdrObject* SvxMSDffManager::ImportShape( const DffRecordHeader& rHd, SvStream& r
                         double fEndAngle(0.0);
                         css::uno::Sequence< css::drawing::EnhancedCustomShapeAdjustmentValue > seqAdjustmentValues;
                         const uno::Any* pAny = aGeometryItem.GetPropertyValueByName(sAdjustmentValues);
-                        pAny = aGeometryItem.GetPropertyValueByName(sAdjustmentValues);
                         if (pAny && (*pAny >>= seqAdjustmentValues) && seqAdjustmentValues.getLength() > 1)
                         {
                             if (seqAdjustmentValues[0].State == css::beans::PropertyState_DEFAULT_VALUE)
@@ -5975,7 +6008,7 @@ void SvxMSDffManager::GetCtrlData(sal_uInt32 nOffsDggL)
 
             if( !bOk )
             {
-                nPos++;                // ????????? TODO: trying to get an one-hit wonder, this code should be rewritten...
+                nPos++;                // ????????? TODO: trying to get a one-hit wonder, this code should be rewritten...
                 if (nPos != rStCtrl.Seek(nPos))
                     break;
                 bOk = ReadCommonRecordHeader( rStCtrl, nVer, nInst, nFbt, nLength )
@@ -7007,40 +7040,40 @@ static const char* GetInternalServerName_Impl( const SvGlobalName& aGlobName )
 OUString SvxMSDffManager::GetFilterNameFromClassID( const SvGlobalName& aGlobName )
 {
     if ( aGlobName == SvGlobalName( SO3_SW_OLE_EMBED_CLASSID_60 ) )
-        return OUString( "StarOffice XML (Writer)" );
+        return "StarOffice XML (Writer)";
 
     if ( aGlobName == SvGlobalName( SO3_SW_OLE_EMBED_CLASSID_8 ) )
-        return OUString( "writer8" );
+        return "writer8";
 
     if ( aGlobName == SvGlobalName( SO3_SC_OLE_EMBED_CLASSID_60 ) )
-        return OUString( "StarOffice XML (Calc)" );
+        return "StarOffice XML (Calc)";
 
     if ( aGlobName == SvGlobalName( SO3_SC_OLE_EMBED_CLASSID_8 ) )
-        return OUString( "calc8" );
+        return "calc8";
 
     if ( aGlobName == SvGlobalName( SO3_SIMPRESS_OLE_EMBED_CLASSID_60 ) )
-        return OUString( "StarOffice XML (Impress)" );
+        return "StarOffice XML (Impress)";
 
     if ( aGlobName == SvGlobalName( SO3_SIMPRESS_OLE_EMBED_CLASSID_8 ) )
-        return OUString( "impress8" );
+        return "impress8";
 
     if ( aGlobName == SvGlobalName( SO3_SDRAW_OLE_EMBED_CLASSID_60 ) )
-        return OUString( "StarOffice XML (Draw)" );
+        return "StarOffice XML (Draw)";
 
     if ( aGlobName == SvGlobalName( SO3_SDRAW_OLE_EMBED_CLASSID_8 ) )
-        return OUString( "draw8" );
+        return "draw8";
 
     if ( aGlobName == SvGlobalName( SO3_SM_OLE_EMBED_CLASSID_60 ) )
-        return OUString( "StarOffice XML (Math)" );
+        return "StarOffice XML (Math)";
 
     if ( aGlobName == SvGlobalName( SO3_SM_OLE_EMBED_CLASSID_8 ) )
-        return OUString( "math8" );
+        return "math8";
 
     if ( aGlobName == SvGlobalName( SO3_SCH_OLE_EMBED_CLASSID_60 ) )
-        return OUString( "StarOffice XML (Chart)" );
+        return "StarOffice XML (Chart)";
 
     if ( aGlobName == SvGlobalName( SO3_SCH_OLE_EMBED_CLASSID_8 ) )
-        return OUString( "chart8" );
+        return "chart8";
 
     return OUString();
 }
@@ -7144,8 +7177,7 @@ css::uno::Reference < css::embed::XEmbeddedObject >  SvxMSDffManager::CheckForCo
         if ( pName || pFilter )
         {
             //Reuse current ole name
-            OUString aDstStgName(MSO_OLE_Obj);
-            aDstStgName += OUString::number(nMSOleObjCntr);
+            OUString aDstStgName = MSO_OLE_Obj + OUString::number(nMSOleObjCntr);
 
             OUString aFilterName;
             if ( pFilter )

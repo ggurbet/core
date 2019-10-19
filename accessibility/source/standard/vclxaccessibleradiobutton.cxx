@@ -81,10 +81,12 @@ void VCLXAccessibleRadioButton::FillAccessibleRelationSet( utl::AccessibleRelati
         std::vector< VclPtr<RadioButton> > aGroup(pRadioButton->GetRadioButtonGroup());
         if (!aGroup.empty())
         {
-            Sequence< Reference< XInterface > > aSequence( static_cast< sal_Int32 >( aGroup.size() ) );
-            std::transform(aGroup.begin(), aGroup.end(), aSequence.getArray(),
+            std::vector< Reference< XInterface > > aVec;
+            aVec.reserve(aGroup.size());
+            std::transform(aGroup.begin(), aGroup.end(), std::back_inserter(aVec),
                 [](const VclPtr<RadioButton>& rxItem) { return rxItem->GetAccessible(); });
-            rRelationSet.AddRelation( AccessibleRelation( AccessibleRelationType::MEMBER_OF, aSequence ) );
+            rRelationSet.AddRelation( AccessibleRelation( AccessibleRelationType::MEMBER_OF,
+                                                          comphelper::containerToSequence(aVec) ) );
         }
     }
 }
@@ -121,7 +123,7 @@ IMPLEMENT_FORWARD_XTYPEPROVIDER2( VCLXAccessibleRadioButton, VCLXAccessibleTextC
 
 OUString VCLXAccessibleRadioButton::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.toolkit.AccessibleRadioButton" );
+    return "com.sun.star.comp.toolkit.AccessibleRadioButton";
 }
 
 
@@ -163,7 +165,7 @@ OUString VCLXAccessibleRadioButton::getAccessibleActionDescription ( sal_Int32 n
     if ( nIndex != 0 )
         throw IndexOutOfBoundsException();
 
-    return OUString(RID_STR_ACC_ACTION_SELECT);
+    return RID_STR_ACC_ACTION_SELECT;
 }
 
 Reference< XAccessibleKeyBinding > VCLXAccessibleRadioButton::getAccessibleActionKeyBinding( sal_Int32 nIndex )

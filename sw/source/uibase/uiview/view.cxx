@@ -182,7 +182,7 @@ void SwView::GotFocus() const
     if ( pAsFormShell )
     {
         pAsFormShell->ForgetActiveControl();
-        const_cast< SwView* >( this )->AttrChangedNotify( m_pWrtShell.get() );
+        const_cast< SwView* >( this )->AttrChangedNotify(nullptr);
     }
     else if ( m_pPostItMgr )
     {
@@ -190,7 +190,7 @@ void SwView::GotFocus() const
         if ( pAsAnnotationShell )
         {
             m_pPostItMgr->SetActiveSidebarWin(nullptr);
-            const_cast< SwView* >( this )->AttrChangedNotify( m_pWrtShell.get() );
+            const_cast< SwView* >( this )->AttrChangedNotify(nullptr);
         }
     }
     if( GetWrtShellPtr() )
@@ -219,7 +219,7 @@ IMPL_LINK_NOARG(SwView, FormControlActivated, LinkParamNone*, void)
         if ( pSdrView && pSdrView->IsTextEdit() )
             pSdrView->SdrEndTextEdit( true );
 
-        AttrChangedNotify( m_pWrtShell.get() );
+        AttrChangedNotify(nullptr);
     }
 }
 
@@ -504,7 +504,7 @@ extern "C"
     }
 }
 
-IMPL_LINK_NOARG(SwView, AttrChangedNotify, SwCursorShell*, void)
+IMPL_LINK_NOARG(SwView, AttrChangedNotify, LinkParamNone*, void)
 {
     if ( GetEditWin().IsChainMode() )
         GetEditWin().SetChainMode( false );
@@ -744,10 +744,27 @@ SwView::SwView( SfxViewFrame *_pFrame, SfxViewShell* pOldSh )
     m_nRightBorderDistance( 0 ),
     m_eLastSearchCommand( static_cast<SvxSearchCmd>(0xFFFF) ),
     m_bWheelScrollInProgress(false),
+    m_bCenterCursor(false),
+    m_bTopCursor(false),
+    m_bTabColFromDoc(false),
+    m_bTabRowFromDoc(false),
+    m_bSetTabColFromDoc(false),
+    m_bSetTabRowFromDoc(false),
+    m_bAttrChgNotified(false),
+    m_bAttrChgNotifiedWithRegistrations(false),
+    m_bVerbsActive(false),
+    m_bDrawRotate(false),
+    m_bDrawSelMode(true),
+    m_bShowAtResize(true),
+    m_bInOuterResizePixel(false),
+    m_bInInnerResizePixel(false),
+    m_bPasteState(false),
+    m_bPasteSpecialState(false),
     m_bInMailMerge(false),
     m_bInDtor(false),
     m_bOldShellWasPagePreview(false),
     m_bIsPreviewDoubleClick(false),
+    m_bMakeSelectionVisible(false),
     m_nLOKPageUpDownOffset(0)
 {
     static bool bRequestDoubleBuffering = getenv("VCL_DOUBLEBUFFERING_ENABLE");
@@ -761,12 +778,7 @@ SwView::SwView( SfxViewFrame *_pFrame, SfxViewShell* pOldSh )
     // If the view is switch from one to another, the 'old' view is given by
     // parameter <pOldSh>.
 
-    m_bCenterCursor = m_bTopCursor = m_bTabColFromDoc = m_bTabRowFromDoc =
-    m_bSetTabColFromDoc = m_bSetTabRowFromDoc = m_bAttrChgNotified = m_bAttrChgNotifiedWithRegistrations =
-    m_bVerbsActive = m_bDrawRotate = m_bInOuterResizePixel = m_bInInnerResizePixel =
-    m_bPasteState = m_bPasteSpecialState = m_bMakeSelectionVisible = false;
-
-    m_bShowAtResize = m_bDrawSelMode = bDocSzUpdated = true;
+    bDocSzUpdated = true;
 
     CreateScrollbar( true );
     CreateScrollbar( false );
@@ -962,7 +974,7 @@ SwView::SwView( SfxViewFrame *_pFrame, SfxViewShell* pOldSh )
 
     m_pWrtShell->SetUIOptions( aUsrPref );
     m_pWrtShell->SetReadOnlyAvailable( aUsrPref.IsCursorInProtectedArea() );
-    m_pWrtShell->ApplyAccessiblityOptions(SW_MOD()->GetAccessibilityOptions());
+    m_pWrtShell->ApplyAccessibilityOptions(SW_MOD()->GetAccessibilityOptions());
 
     if( m_pWrtShell->GetDoc()->getIDocumentState().IsUpdateExpField() )
     {
@@ -1627,7 +1639,7 @@ void SwView::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
             GetDrawFuncPtr()->Deactivate();
             SetDrawFuncPtr(nullptr);
             LeaveDrawCreate();
-            AttrChangedNotify(m_pWrtShell.get());
+            AttrChangedNotify(nullptr);
         }
     }
     else

@@ -27,8 +27,6 @@
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/util/URLTransformer.hpp>
 #include <vcl/svapp.hxx>
-#include <svtools/imgdef.hxx>
-#include <svtools/miscopt.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/toolbox.hxx>
 #include <comphelper/processfactory.hxx>
@@ -173,9 +171,9 @@ void SAL_CALL ToolboxController::initialize( const Sequence< Any >& aArguments )
     m_bInitialized = true;
     m_bSupportVisible = false;
     PropertyValue aPropValue;
-    for ( int i = 0; i < aArguments.getLength(); i++ )
+    for ( const auto& rArgument : aArguments )
     {
-        if ( aArguments[i] >>= aPropValue )
+        if ( rArgument >>= aPropValue )
         {
             if ( aPropValue.Name == "Frame" )
                 m_xFrame.set(aPropValue.Value,UNO_QUERY);
@@ -630,7 +628,7 @@ void ToolboxController::updateStatus( const OUString& aCommandURL )
 
     // Catch exception as we release our mutex, it is possible that someone else
     // has already disposed this instance!
-    // Add/remove status listener to get a update status information from the
+    // Add/remove status listener to get an update status information from the
     // requested command.
     try
     {

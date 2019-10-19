@@ -17,33 +17,19 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <stdlib.h>
-
-#include <tools/urlobj.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xflftrit.hxx>
 #include <svx/xflgrit.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/xbtmpit.hxx>
-#include <svx/xpool.hxx>
 #include <svx/xflbckit.hxx>
 #include <svx/sdshtitm.hxx>
-#include <svx/xtable.hxx>
-#include <svx/xlineit0.hxx>
-#include <svx/drawitem.hxx>
 #include <svx/xfltrit.hxx>
 #include <cuitabarea.hxx>
-#include <dlgname.hxx>
-#include <svx/dlgutil.hxx>
 #include <svl/intitem.hxx>
-#include <sfx2/request.hxx>
-
-#include <sfx2/opengrf.hxx>
 
 using namespace com::sun::star;
 
@@ -205,8 +191,8 @@ void SvxTransparenceTabPage::SetControlState_Impl(css::awt::GradientStyle eXGS)
     }
 }
 
-SvxTransparenceTabPage::SvxTransparenceTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/transparencytabpage.ui", "TransparencyTabPage", &rInAttrs)
+SvxTransparenceTabPage::SvxTransparenceTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/transparencytabpage.ui", "TransparencyTabPage", &rInAttrs)
     , rOutAttrs(rInAttrs)
     , nPageType(PageType::Area)
     , nDlgType(0)
@@ -258,9 +244,9 @@ SvxTransparenceTabPage::SvxTransparenceTabPage(TabPageParent pParent, const SfxI
     SetExchangeSupport();
 }
 
-VclPtr<SfxTabPage> SvxTransparenceTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrs)
+std::unique_ptr<SfxTabPage> SvxTransparenceTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrs)
 {
-    return VclPtr<SvxTransparenceTabPage>::Create(pParent, *rAttrs);
+    return std::make_unique<SvxTransparenceTabPage>(pPage, pController, *rAttrs);
 }
 
 bool SvxTransparenceTabPage::FillItemSet(SfxItemSet* rAttrs)

@@ -22,6 +22,7 @@
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/util/XFlushable.hpp>
+#include <comphelper/sequence.hxx>
 #include <osl/file.hxx>
 
 #include <stdlib.h>
@@ -335,10 +336,7 @@ void SfxApplication::GetOptions( SfxItemSet& rSet )
                         if (!aSecurityOptions.IsReadOnly(SvtSecurityOptions::EOption::SecureUrls))
                         {
                             css::uno::Sequence< OUString > seqURLs = aSecurityOptions.GetSecureURLs();
-                            std::vector<OUString> aList;
-                            sal_uInt32 nCount = seqURLs.getLength();
-                            for( sal_uInt32 nURL=0; nURL<nCount; ++nURL )
-                                aList.push_back(seqURLs[nURL]);
+                            auto aList = comphelper::sequenceToContainer<std::vector<OUString>>(seqURLs);
 
                             if( !rSet.Put( SfxStringListItem( rPool.GetWhich(SID_SECURE_URL), &aList ) ) )
                                 bRet = false;
@@ -438,7 +436,7 @@ void SfxApplication::GetOptions( SfxItemSet& rSet )
                             case SvtPathOptions::PATH_USERCONFIG:   aValue = aPathCfg.GetUserConfigPath(); break;
                             case SvtPathOptions::PATH_WORK:         aValue = aPathCfg.GetWorkPath(); break;
                         }
-                        aValues.InsertValue( nProp, aValue );
+                        aValues.SetTextByPos( nProp, aValue );
                     }
 
                     if (rSet.Put(aValues))
@@ -730,11 +728,11 @@ void SfxApplication::SetOptions(const SfxItemSet &rSet)
     {
         DBG_ASSERT(dynamic_cast< const SfxAllEnumItem *>( pItem ) !=  nullptr, "AllEnumItem expected");
         const SfxAllEnumItem* pEnumItem = static_cast<const SfxAllEnumItem *>(pItem);
-        sal_uInt32 nCount = pEnumItem->GetValueCount();
+        sal_uInt32 nCount = pEnumItem->GetTextCount();
         OUString aNoChangeStr( ' ' );
         for( sal_uInt32 nPath=0; nPath<nCount; ++nPath )
         {
-            const OUString& sValue = pEnumItem->GetValueTextByPos(static_cast<sal_uInt16>(nPath));
+            const OUString& sValue = pEnumItem->GetTextByPos(static_cast<sal_uInt16>(nPath));
             if ( sValue != aNoChangeStr )
             {
                 switch( nPath )

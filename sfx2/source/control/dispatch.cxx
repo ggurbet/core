@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <algorithm>
 #include <deque>
@@ -321,9 +321,8 @@ void SfxDispatcher::Call_Impl(SfxShell& rShell, const SfxSlot &rSlot, SfxRequest
     if ( GetFrame() )
     {
         // Recording may start
-        css::uno::Reference< css::frame::XFrame > xFrame(
-                GetFrame()->GetFrame().GetFrameInterface(),
-                css::uno::UNO_QUERY);
+        css::uno::Reference< css::frame::XFrame > xFrame =
+                GetFrame()->GetFrame().GetFrameInterface();
 
         css::uno::Reference< css::beans::XPropertySet > xSet(
                 xFrame,
@@ -462,7 +461,7 @@ SfxDispatcher::~SfxDispatcher()
     }
 }
 
-/** With this method, one or more <SfxShell> are poped from the SfxDispatcher.
+/** With this method, one or more <SfxShell> are popped from the SfxDispatcher.
     The SfxShell is marked for popping and a timer is set up. Only when the
     timer has reached the end, the pop is actually performed
     ( <SfxDispatcher::Flush()> ) and the <SfxBindings> is invalidated.
@@ -766,11 +765,11 @@ void SfxDispatcher::DoDeactivate_Impl(bool bMDI, SfxViewFrame const * pNew)
     bool bHidePopups = bMDI && xImp->pFrame;
     if ( pNew && xImp->pFrame )
     {
-        css::uno::Reference< css::frame::XFrame > xOldFrame(
-            pNew->GetFrame().GetFrameInterface()->getCreator(), css::uno::UNO_QUERY );
+        css::uno::Reference< css::frame::XFrame > xOldFrame =
+            pNew->GetFrame().GetFrameInterface()->getCreator();
 
-        css::uno::Reference< css::frame::XFrame > xMyFrame(
-            GetFrame()->GetFrame().GetFrameInterface(), css::uno::UNO_QUERY );
+        css::uno::Reference< css::frame::XFrame > xMyFrame =
+            GetFrame()->GetFrame().GetFrameInterface();
 
         if ( xOldFrame == xMyFrame )
             bHidePopups = false;
@@ -902,7 +901,7 @@ const SfxPoolItem* SfxDispatcher::Execute(sal_uInt16 nSlot, SfxCallMode nCall,
         if ( pArgs )
         {
             SfxItemIter aIter(*pArgs);
-            for ( const SfxPoolItem *pArg = aIter.FirstItem();
+            for ( const SfxPoolItem *pArg = aIter.GetCurItem();
                 pArg;
                 pArg = aIter.NextItem() )
                 MappedPut_Impl( aSet, *pArg );
@@ -992,7 +991,7 @@ const SfxPoolItem* SfxDispatcher::Execute(sal_uInt16 nSlot, SfxCallMode eCall,
     {
         SfxAllItemSet aSet( pShell->GetPool() );
         SfxItemIter aIter(rArgs);
-        for ( const SfxPoolItem *pArg = aIter.FirstItem();
+        for ( const SfxPoolItem *pArg = aIter.GetCurItem();
               pArg;
               pArg = aIter.NextItem() )
             MappedPut_Impl( aSet, *pArg );
@@ -1159,7 +1158,7 @@ void SfxDispatcher::Update_Impl( bool bForce )
         return;
 
     SfxViewFrame* pTop = xImp->pFrame ? xImp->pFrame->GetTopViewFrame() : nullptr;
-    bool bUIActive = pTop && pTop->GetBindings().GetDispatcher() == this && !comphelper::LibreOfficeKit::isActive();
+    bool bUIActive = pTop && pTop->GetBindings().GetDispatcher() == this;
 
     if ( !bUIActive && pTop && GetBindings() == &pTop->GetBindings() )
         // keep own tools internally for collecting
@@ -1213,7 +1212,7 @@ void SfxDispatcher::Update_Impl( bool bForce )
         bIsActive = true;
 
     Update_Impl_( bUIActive, !bIsIPActive, bIsIPActive, pWorkWin );
-    if ( (bUIActive || bIsActive) && !comphelper::LibreOfficeKit::isActive() )
+    if (bUIActive || bIsActive)
         pWorkWin->UpdateObjectBars_Impl();
 
     if ( pBindings )
@@ -1692,7 +1691,7 @@ bool SfxDispatcher::FindServer_(sal_uInt16 nSlot, SfxSlotServer& rServer)
             bool bIsServerShell = !xImp->pFrame || bIsInPlace;
 
             // Of course ShellServer-Slots are also executable even when it is
-            // executed on a container dispatcher without a IPClient.
+            // executed on a container dispatcher without an IPClient.
             if ( !bIsServerShell )
             {
                 SfxViewShell *pViewSh = xImp->pFrame->GetViewShell();
@@ -1766,7 +1765,7 @@ bool SfxDispatcher::FillState_(const SfxSlotServer& rSvr, SfxItemSet& rState,
         {
             SfxInterface *pIF = pSh->GetInterface();
             SfxItemIter aIter( rState );
-            for ( const SfxPoolItem *pItem = aIter.FirstItem();
+            for ( const SfxPoolItem *pItem = aIter.GetCurItem();
                   pItem;
                   pItem = aIter.NextItem() )
             {

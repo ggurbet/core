@@ -588,8 +588,7 @@ void SwHTMLParser::InsertCommentText( const sal_Char *pTag )
     m_aContents += aToken;
     if( bEmpty && pTag )
     {
-        OUString aTmp( m_aContents );
-        m_aContents = "HTML: <" + OUString( *pTag ) + ">" + aTmp;
+        m_aContents = OUStringLiteral("HTML: <") + OUStringChar(*pTag) + ">" + m_aContents;
     }
 }
 
@@ -598,9 +597,9 @@ void SwHTMLParser::InsertComment( const OUString& rComment, const sal_Char *pTag
     OUString aComment( rComment );
     if( pTag )
     {
-        aComment += "</";
-        aComment += OUString::createFromAscii(pTag);
-        aComment += ">";
+        aComment += "</" +
+            OUString::createFromAscii(pTag) +
+            ">";
     }
 
     // MIB 24.06.97: If a PostIt should be insert after a space, we

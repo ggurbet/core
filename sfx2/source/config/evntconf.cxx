@@ -106,7 +106,7 @@ static uno::Any CreateEventData_Impl( const SvxMacro *pMacro )
 /*
     This function converts a SvxMacro into an Any containing three
     properties. These properties are EventType and Script. Possible
-    values for EventType ar StarBasic, JavaScript, ...
+    values for EventType are StarBasic, JavaScript, ...
     The Script property should contain the URL to the macro and looks
     like "macro://./standard.module1.main()"
 
@@ -183,8 +183,7 @@ static void PropagateEvent_Impl( SfxObjectShell const *pDoc, const OUString& aEv
     }
     else
     {
-        xSupplier.set( frame::theGlobalEventBroadcaster::get(::comphelper::getProcessComponentContext()),
-                       uno::UNO_QUERY );
+        xSupplier = frame::theGlobalEventBroadcaster::get(::comphelper::getProcessComponentContext());
     }
 
     if ( !xSupplier.is() )

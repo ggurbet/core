@@ -393,7 +393,7 @@ struct WW8LSTInfo   // sorted by nIdLst (in WW8 used list-Id)
 {
     std::vector<ww::bytes> maParaSprms;
     WW8aIdSty   aIdSty;          // Style Id's for each level
-    WW8aCFormat    aCharFormat;        // Character Style Pointer
+    WW8aCFormat    aCharFormat = {};   // Character Style Pointer
 
     SwNumRule*  pNumRule;        // Pointer to list-template in Writer
     sal_uInt32      nIdLst;          // WW8Id of this list
@@ -406,7 +406,6 @@ struct WW8LSTInfo   // sorted by nIdLst (in WW8 used list-Id)
         bSimpleList(aLST.bSimpleList), bUsedInDoc(false)
     {
         memcpy( aIdSty, aLST.aIdSty, sizeof( aIdSty   ));
-        memset(&aCharFormat, 0,  sizeof( aCharFormat ));
     }
 
 };
@@ -485,7 +484,7 @@ static void lcl_CopyGreaterEight(OUString &rDest, OUString const &rSrc,
     {
         sal_Unicode nChar = rSrc[nI];
         if (nChar > WW8ListManager::nMaxLevel)
-            rDest += OUStringLiteral1(nChar);
+            rDest += OUStringChar(nChar);
     }
 }
 
@@ -530,11 +529,10 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
 
     OUString        sPrefix;
     OUString        sPostfix;
-    WW8LVL          aLVL;
+    WW8LVL          aLVL = {};
 
     // 1. read LVLF
 
-    memset(&aLVL, 0, sizeof( aLVL ));
     rSt.ReadInt32( aLVL.nStartAt );
     rSt.ReadUChar( aLVL.nNFC );
     rSt.ReadUChar( aBits1 );
@@ -672,8 +670,7 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
 
     if( aLVL.nLenGrpprlChpx )
     {
-        sal_uInt8 aGrpprlChpx[ 255 ];
-        memset(&aGrpprlChpx, 0, sizeof( aGrpprlChpx ));
+        sal_uInt8 aGrpprlChpx[ 255 ] = {};
         if (aLVL.nLenGrpprlChpx != rSt.ReadBytes(&aGrpprlChpx, aLVL.nLenGrpprlChpx))
             return false;
 
@@ -1017,24 +1014,22 @@ void WW8ListManager::AdjustLVL( sal_uInt8 nLevel, SwNumRule& rNumRule,
                 && (pLowerLevelItemSet->Count() == pThisLevelItemSet->Count()) )
             {
                 nIdenticalItemSetLevel = nLowerLevel;
-                sal_uInt16 nWhich = aIter.GetCurItem()->Which();
-                while (true)
+                const SfxPoolItem* pItemIter = aIter.GetCurItem();
+                do
                 {
                     if(  // search for appropriate pItem in pLowerLevelItemSet
                          (SfxItemState::SET != pLowerLevelItemSet->GetItemState(
-                                            nWhich, false, &pItem ) )
+                                            pItemIter->Which(), false, &pItem ) )
                         || // use virtual "!=" Operator
-                         (*pItem != *aIter.GetCurItem() ) )
+                         (*pItem != *pItemIter) )
                     // if no Item with equal nWhich was found or Item value was not equal
                     // store inequality and break!
                     {
                         nIdenticalItemSetLevel = nMaxLevel;
                         break;
                     }
-                    if( aIter.IsAtEnd() )
-                        break;
-                    nWhich = aIter.NextItem()->Which();
-                }
+                    pItemIter = aIter.NextItem();
+                } while (pItemIter);
 
                 if( nIdenticalItemSetLevel != nMaxLevel )
                     break;
@@ -1184,8 +1179,7 @@ WW8ListManager::WW8ListManager(SvStream& rSt_, SwWW8ImplReader& rReader_)
         if (nRemainingPlcfLst < cbLSTF)
             break;
 
-        WW8LST aLST;
-        memset(&aLST, 0, sizeof( aLST ));
+        WW8LST aLST = {};
 
         // 1.1.1 read Data
 
@@ -1292,8 +1286,7 @@ WW8ListManager::WW8ListManager(SvStream& rSt_, SwWW8ImplReader& rReader_)
     {
         bOk = false;
 
-        WW8LFO aLFO;
-        memset(&aLFO, 0, sizeof( aLFO ));
+        WW8LFO aLFO = {};
 
         rSt.ReadUInt32( aLFO.nIdLst );
         rSt.SeekRel( 8 );
@@ -1377,8 +1370,7 @@ WW8ListManager::WW8ListManager(SvStream& rSt_, SwWW8ImplReader& rReader_)
                 // 2.2.2 read all LFOLVL (and LVL) for the new NumRule
 
                 WW8aISet aItemSet;       // Character attributes from GrpprlChpx
-                WW8aCFormat aCharFormat;       // Character Style Pointer
-                memset(&aCharFormat, 0,  sizeof( aCharFormat ));
+                WW8aCFormat aCharFormat = {};  // Character Style Pointer
 
                 //2.2.2.0 skip inter-group of override header ?
                 //See #i25438# for why I moved this here, compare
@@ -1964,7 +1956,7 @@ void SwWW8ImplReader::Read_LFOPosition(sal_uInt16, const sal_uInt8* pData,
             /*
             If you have a paragraph in word with left and/or hanging indent
             and remove its numbering, then the indentation appears to get
-            reset, but not back to the base style, instead its goes to a blank
+            reset, but not back to the base style, instead it goes to a blank
             setting.
             Unless it's a broken ww6 list in 97 in which case more hackery is
             required, some more details about broken ww6 list in

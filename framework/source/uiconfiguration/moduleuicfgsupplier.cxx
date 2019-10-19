@@ -67,7 +67,7 @@ public:
 
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.comp.framework.ModuleUIConfigurationManagerSupplier");
+        return "com.sun.star.comp.framework.ModuleUIConfigurationManagerSupplier";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -152,8 +152,7 @@ Reference< XUIConfigurationManager > SAL_CALL ModuleUIConfigurationManagerSuppli
         try
         {
             Sequence< PropertyValue > lProps;
-            Reference< XNameAccess > xCont(m_xModuleMgr, UNO_QUERY);
-            xCont->getByName(sModuleIdentifier) >>= lProps;
+            m_xModuleMgr->getByName(sModuleIdentifier) >>= lProps;
             for (sal_Int32 i=0; i<lProps.getLength(); ++i)
             {
                 if ( lProps[i].Name == "ooSetupFactoryShortName" )

@@ -17,18 +17,16 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-
 #include <svtools/genericunodialog.hxx>
 
+#include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/ucb/AlreadyInitializedException.hpp>
 
-#include <toolkit/awt/vclxwindow.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/queryinterface.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <osl/diagnose.h>
 #include <tools/diagnose_ex.h>
 #include <osl/mutex.hxx>
@@ -49,7 +47,6 @@ OGenericUnoDialog::OGenericUnoDialog(const Reference< XComponentContext >& _rxCo
         ,m_bExecuting(false)
         ,m_bTitleAmbiguous(true)
         ,m_bInitialized( false )
-        ,m_bNeedInitialization( false )
         ,m_aContext(_rxContext)
 {
     registerProperty(UNODIALOG_PROPERTY_TITLE, UNODIALOG_PROPERTY_ID_TITLE, PropertyAttribute::TRANSIENT,
@@ -61,11 +58,11 @@ OGenericUnoDialog::OGenericUnoDialog(const Reference< XComponentContext >& _rxCo
 
 OGenericUnoDialog::~OGenericUnoDialog()
 {
-    if (m_aDialog)
+    if (m_xDialog)
     {
         SolarMutexGuard aSolarGuard;
         ::osl::MutexGuard aGuard( m_aMutex );
-        if (m_aDialog)
+        if (m_xDialog)
             destroyDialog();
     }
 }
@@ -111,8 +108,8 @@ void OGenericUnoDialog::setFastPropertyValue_NoBroadcast( sal_Int32 nHandle, con
         // from now on m_sTitle is valid
         m_bTitleAmbiguous = false;
 
-        if (m_aDialog)
-            m_aDialog.set_title(m_sTitle);
+        if (m_xDialog)
+            m_xDialog->set_title(m_sTitle);
     }
 }
 
@@ -160,7 +157,7 @@ void SAL_CALL OGenericUnoDialog::setTitle( const OUString& _rTitle )
 
 bool OGenericUnoDialog::impl_ensureDialog_lck()
 {
-    if (m_aDialog)
+    if (m_xDialog)
         return true;
 
     // get the parameters for the dialog from the current settings
@@ -168,22 +165,16 @@ bool OGenericUnoDialog::impl_ensureDialog_lck()
     // the title
     OUString sTitle = m_sTitle;
 
-    OGenericUnoDialog::Dialog aDialog(createDialog(m_xParent));
-    OSL_ENSURE(aDialog, "OGenericUnoDialog::impl_ensureDialog_lck: createDialog returned nonsense!");
-    if (!aDialog)
+    auto xDialog(createDialog(m_xParent));
+    OSL_ENSURE(xDialog, "OGenericUnoDialog::impl_ensureDialog_lck: createDialog returned nonsense!");
+    if (!xDialog)
         return false;
 
     // do some initialisations
     if (!m_bTitleAmbiguous)
-        aDialog.set_title(sTitle);
+        xDialog->set_title(sTitle);
 
-    if (aDialog.m_xVclDialog)
-    {
-        // be notified when the dialog is killed by somebody else #i65958#
-        aDialog.m_xVclDialog->AddEventListener(LINK(this, OGenericUnoDialog, OnDialogDying));
-    }
-
-    m_aDialog = std::move(aDialog);
+    m_xDialog = std::move(xDialog);
 
     return true;
 }
@@ -193,7 +184,6 @@ sal_Int16 SAL_CALL OGenericUnoDialog::execute()
     // both creation and execution of the dialog must be guarded with the SolarMutex, so be generous here
     SolarMutexGuard aSolarGuard;
 
-    ::Dialog* pVclDialogToExecute = nullptr;
     // create the dialog, if necessary
     {
         UnoDialogEntryGuard aGuard( *this );
@@ -208,16 +198,12 @@ sal_Int16 SAL_CALL OGenericUnoDialog::execute()
 
         if ( !impl_ensureDialog_lck() )
             return 0;
-
-        pVclDialogToExecute = m_aDialog.m_xVclDialog;
     }
 
     // start execution
     sal_Int16 nReturn(0);
-    if (pVclDialogToExecute)
-        nReturn = pVclDialogToExecute->Execute();
-    else if (m_aDialog.m_xWeldDialog)
-        nReturn = m_aDialog.m_xWeldDialog->run();
+    if (m_xDialog)
+        nReturn = m_xDialog->run();
 
     {
         ::osl::MutexGuard aGuard(m_aMutex);
@@ -253,36 +239,23 @@ void OGenericUnoDialog::implInitialize(const Any& _rValue)
     }
 }
 
-
 void SAL_CALL OGenericUnoDialog::initialize( const Sequence< Any >& aArguments )
 {
     ::osl::MutexGuard aGuard( m_aMutex );
     if ( m_bInitialized )
         throw AlreadyInitializedException( OUString(), *this );
 
-    const Any* pArguments = aArguments.getConstArray();
-    for (sal_Int32 i=0; i<aArguments.getLength(); ++i, ++pArguments)
-        implInitialize(*pArguments);
+    for (const Any& rArgument : aArguments)
+        implInitialize(rArgument);
 
     m_bInitialized = true;
 }
 
-
 void OGenericUnoDialog::destroyDialog()
 {
     SolarMutexGuard aSolarGuard;
-    m_aDialog.m_xVclDialog.disposeAndClear();
-    m_aDialog.m_xWeldDialog.reset();
+    m_xDialog.reset();
 }
-
-
-IMPL_LINK( OGenericUnoDialog, OnDialogDying, VclWindowEvent&, _rEvent, void )
-{
-    OSL_ENSURE( _rEvent.GetWindow() == m_aDialog.m_xVclDialog, "OGenericUnoDialog::OnDialogDying: where does this come from?" );
-    if ( _rEvent.GetId() == VclEventId::ObjectDying )
-        m_aDialog.m_xVclDialog = nullptr;
-}
-
 
 }   // namespace svt
 

@@ -67,7 +67,7 @@ static const KnownTagSet & getKnowns()
             {
                 // Do not use the BCP47 string here to initialize the
                 // LanguageTag because then canonicalize() would call this
-                // getKnowns() again..
+                // getKnowns() again...
                 ::std::vector< OUString > aFallbacks( LanguageTag( elemDefined.mnLang).getFallbackStrings( true));
                 for (auto const& fallback : aFallbacks)
                 {
@@ -204,8 +204,7 @@ void LiblangtagDataRef::setupDataPath()
 
     // Check if data is in our own installation, else assume system
     // installation.
-    OUString aData( aURL);
-    aData += "/language-subtag-registry.xml";
+    OUString aData = aURL + "/language-subtag-registry.xml";
     osl::DirectoryItem aDirItem;
     if (osl::DirectoryItem::get( aData, aDirItem) == osl::DirectoryItem::E_None)
     {
@@ -253,11 +252,12 @@ private:
 
     mutable css::lang::Locale               maLocale;
     mutable OUString                        maBcp47;
-    mutable OUString                        maCachedLanguage;   ///< cache getLanguage()
-    mutable OUString                        maCachedScript;     ///< cache getScript()
-    mutable OUString                        maCachedCountry;    ///< cache getCountry()
-    mutable OUString                        maCachedVariants;   ///< cache getVariants()
-    mutable lt_tag_t*                       mpImplLangtag;      ///< liblangtag pointer
+    mutable OUString                        maCachedLanguage;    ///< cache getLanguage()
+    mutable OUString                        maCachedScript;      ///< cache getScript()
+    mutable OUString                        maCachedCountry;     ///< cache getCountry()
+    mutable OUString                        maCachedVariants;    ///< cache getVariants()
+    mutable OUString                        maCachedGlibcString; ///< cache getGlibcLocaleString()
+    mutable lt_tag_t*                       mpImplLangtag;       ///< liblangtag pointer
     mutable LanguageType                    mnLangID;
     mutable LanguageTag::ScriptType         meScriptType;
     mutable Decision                        meIsValid;
@@ -272,6 +272,7 @@ private:
     mutable bool                            mbCachedScript      : 1;
     mutable bool                            mbCachedCountry     : 1;
     mutable bool                            mbCachedVariants    : 1;
+    mutable bool                            mbCachedGlibcString : 1;
 
     OUString const &    getBcp47() const;
     OUString const &    getLanguage() const;
@@ -385,7 +386,8 @@ LanguageTagImpl::LanguageTagImpl( const LanguageTag & rLanguageTag )
         mbCachedLanguage( false),
         mbCachedScript( false),
         mbCachedCountry( false),
-        mbCachedVariants( false)
+        mbCachedVariants( false),
+        mbCachedGlibcString( false)
 {
 }
 
@@ -398,6 +400,7 @@ LanguageTagImpl::LanguageTagImpl( const LanguageTagImpl & rLanguageTagImpl )
         maCachedScript( rLanguageTagImpl.maCachedScript),
         maCachedCountry( rLanguageTagImpl.maCachedCountry),
         maCachedVariants( rLanguageTagImpl.maCachedVariants),
+        maCachedGlibcString( rLanguageTagImpl.maCachedGlibcString),
         mpImplLangtag( rLanguageTagImpl.mpImplLangtag ?
                 lt_tag_copy( rLanguageTagImpl.mpImplLangtag) : nullptr),
         mnLangID( rLanguageTagImpl.mnLangID),
@@ -413,7 +416,8 @@ LanguageTagImpl::LanguageTagImpl( const LanguageTagImpl & rLanguageTagImpl )
         mbCachedLanguage( rLanguageTagImpl.mbCachedLanguage),
         mbCachedScript( rLanguageTagImpl.mbCachedScript),
         mbCachedCountry( rLanguageTagImpl.mbCachedCountry),
-        mbCachedVariants( rLanguageTagImpl.mbCachedVariants)
+        mbCachedVariants( rLanguageTagImpl.mbCachedVariants),
+        mbCachedGlibcString( rLanguageTagImpl.mbCachedGlibcString)
 {
     if (mpImplLangtag)
         theDataRef::get().init();
@@ -431,6 +435,7 @@ LanguageTagImpl& LanguageTagImpl::operator=( const LanguageTagImpl & rLanguageTa
     maCachedScript      = rLanguageTagImpl.maCachedScript;
     maCachedCountry     = rLanguageTagImpl.maCachedCountry;
     maCachedVariants    = rLanguageTagImpl.maCachedVariants;
+    maCachedGlibcString = rLanguageTagImpl.maCachedGlibcString;
     lt_tag_t * oldTag = mpImplLangtag;
     mpImplLangtag       = rLanguageTagImpl.mpImplLangtag ?
                             lt_tag_copy( rLanguageTagImpl.mpImplLangtag) : nullptr;
@@ -449,6 +454,7 @@ LanguageTagImpl& LanguageTagImpl::operator=( const LanguageTagImpl & rLanguageTa
     mbCachedScript      = rLanguageTagImpl.mbCachedScript;
     mbCachedCountry     = rLanguageTagImpl.mbCachedCountry;
     mbCachedVariants    = rLanguageTagImpl.mbCachedVariants;
+    mbCachedGlibcString = rLanguageTagImpl.mbCachedGlibcString;
     if (mpImplLangtag && !oldTag)
         theDataRef::get().init();
     return *this;
@@ -1085,7 +1091,7 @@ bool LanguageTagImpl::canonicalize()
             }
             else
             {
-                // Now this is getting funny.. we only have some BCP47 string
+                // Now this is getting funny... we only have some BCP47 string
                 // and want to determine if parsing it would be possible
                 // without using liblangtag just to see if it is a simple known
                 // locale or could fall back to one.
@@ -1905,7 +1911,9 @@ OUString LanguageTag::getVariants() const
 
 OUString LanguageTagImpl::getGlibcLocaleString() const
 {
-    OUString sLocale;
+    if (mbCachedGlibcString)
+        return maCachedGlibcString;
+
     if (!mpImplLangtag)
     {
         meIsLiblangtagNeeded = DECISION_YES;
@@ -1916,11 +1924,12 @@ OUString LanguageTagImpl::getGlibcLocaleString() const
         char* pLang = lt_tag_convert_to_locale(mpImplLangtag, nullptr);
         if (pLang)
         {
-            sLocale = OUString::createFromAscii( pLang);
+            maCachedGlibcString = OUString::createFromAscii( pLang);
+            mbCachedGlibcString = true;
             free(pLang);
         }
     }
-    return sLocale;
+    return maCachedGlibcString;
 }
 
 OUString LanguageTag::getGlibcLocaleString( const OUString & rEncoding ) const
@@ -2344,7 +2353,7 @@ LanguageTag & LanguageTag::makeFallback()
 OUString LanguageTag::getBcp47MS() const
 {
     if (getLanguageType() == LANGUAGE_SPANISH_DATED)
-        return OUString("es-ES_tradnl");
+        return "es-ES_tradnl";
     return getBcp47();
 }
 
@@ -2560,7 +2569,7 @@ LanguageTagImpl::Extraction LanguageTagImpl::simpleExtract( const OUString& rBcp
                 rLanguage = "es";
                 rScript.clear();
                 rCountry  = "ES";
-                rVariants = "tradnl";   // this is nonsense, but.. ignored.
+                rVariants = "tradnl";   // this is nonsense, but... ignored.
                 eRet = EXTRACTED_KNOWN_BAD;
             }
         }
@@ -2745,7 +2754,7 @@ OUString LanguageTag::convertToBcp47( const css::lang::Locale& rLocale, bool bRe
 OUString LanguageTag::convertToBcp47( LanguageType nLangID )
 {
     lang::Locale aLocale( LanguageTag::convertToLocale( nLangID ));
-    // If system for some reason (should not happen.. haha) could not be
+    // If system for some reason (should not happen... haha) could not be
     // resolved DO NOT CALL LanguageTag::convertToBcp47(Locale) because that
     // would recurse into this method here!
     if (aLocale.Language.isEmpty())

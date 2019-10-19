@@ -20,6 +20,7 @@
 #define INCLUDED_SW_SOURCE_FILTER_INC_FLTSHELL_HXX
 
 #include <hintids.hxx>
+#include <svl/listener.hxx>
 #include <tools/datetime.hxx>
 #include <mdiexp.hxx>
 #include <ndindex.hxx>
@@ -109,7 +110,7 @@ public:
     void SetEndCP(sal_Int32 nCP) {mnEndCP = nCP;}
     sal_Int32 GetStartCP() const {return mnStartCP;}
     sal_Int32 GetEndCP() const {return mnEndCP;}
-    bool IsParaEnd(){ return bIsParaEnd;}
+    bool IsParaEnd() const { return bIsParaEnd;}
     void SetIsParaEnd(bool bArg){ bIsParaEnd = bArg;}
 };
 
@@ -177,12 +178,12 @@ public:
     void DeleteAndDestroy(Entries::size_type nCnt);
 };
 
-class SwFltAnchorClient;
+class SwFltAnchorListener;
 
-class SW_DLLPUBLIC SwFltAnchor : public SfxPoolItem
+class SW_DLLPUBLIC SwFltAnchor: public SfxPoolItem
 {
     SwFrameFormat* pFrameFormat;
-    std::unique_ptr<SwFltAnchorClient> pClient;
+    std::unique_ptr<SwFltAnchorListener> pListener;
 
 public:
     SwFltAnchor(SwFrameFormat* pFlyFormat);
@@ -192,43 +193,32 @@ public:
     // "purely virtual methods" of SfxPoolItem
     virtual bool operator==(const SfxPoolItem&) const override;
     virtual SfxPoolItem* Clone(SfxItemPool* = nullptr) const override;
-    void SetFrameFormat(SwFrameFormat * _pFrameFormat);
-    const SwFrameFormat* GetFrameFormat() const { return pFrameFormat;}
-          SwFrameFormat* GetFrameFormat() { return pFrameFormat;}
+    void SetFrameFormat(SwFrameFormat* _pFrameFormat);
+    const SwFrameFormat* GetFrameFormat() const { return pFrameFormat; }
+          SwFrameFormat* GetFrameFormat() { return pFrameFormat; }
 };
 
-class SwFltAnchorClient : public SwClient
+class SwFltAnchorListener : public SvtListener
 {
-    SwFltAnchor * m_pFltAnchor;
-
-public:
-    SwFltAnchorClient(SwFltAnchor * pFltAnchor);
-
-    virtual void Modify (const SfxPoolItem *pOld, const SfxPoolItem *pNew) override;
+    SwFltAnchor* m_pFltAnchor;
+    public:
+        SwFltAnchorListener(SwFltAnchor* pFltAnchor);
+        virtual void Notify(const SfxHint&) override;
 };
 
 class SW_DLLPUBLIC SwFltRedline : public SfxPoolItem
 {
 public:
     DateTime const        aStamp;
-    DateTime const        aStampPrev;
-    RedlineType const   eType;
-    RedlineType const   eTypePrev;
+    RedlineType const     eType;
     std::size_t const     nAutorNo;
-    std::size_t const     nAutorNoPrev;
-
-    static constexpr auto NoPrevAuthor
-        = std::numeric_limits<std::size_t>::max();
 
     SwFltRedline(RedlineType   eType_,
                  std::size_t     nAutorNo_,
-                 const DateTime& rStamp_,
-                 RedlineType   eTypePrev_    = RedlineType::Insert,
-                 std::size_t     nAutorNoPrev_ = NoPrevAuthor)
+                 const DateTime& rStamp_)
         : SfxPoolItem(RES_FLTR_REDLINE), aStamp(rStamp_),
-        aStampPrev( DateTime::EMPTY ),
         eType(eType_),
-        eTypePrev(eTypePrev_), nAutorNo(nAutorNo_), nAutorNoPrev(nAutorNoPrev_)
+        nAutorNo(nAutorNo_)
     {
     }
 
@@ -293,7 +283,7 @@ public:
     // "purely virtual methods" of SfxPoolItem
     virtual bool operator==(const SfxPoolItem&) const override;
     virtual SfxPoolItem* Clone(SfxItemPool* = nullptr) const override;
-    const SwTOXBase& GetBase() { return *m_xTOXBase; }
+    const SwTOXBase& GetBase() const { return *m_xTOXBase; }
     void SetHadBreakItem(    bool bVal ) { bHadBreakItem    = bVal; }
     void SetHadPageDescItem( bool bVal ) { bHadPageDescItem = bVal; }
     bool HadBreakItem()    const { return bHadBreakItem; }

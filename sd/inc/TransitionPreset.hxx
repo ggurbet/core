@@ -23,6 +23,7 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 #include <list>
+#include <map>
 #include <memory>
 #include <unordered_map>
 
@@ -42,7 +43,6 @@ class TransitionPreset
 {
 public:
     static const TransitionPresetList& getTransitionPresetList();
-    static bool importTransitionPresetList( TransitionPresetList& rList );
 
     sal_Int16 getTransition() const { return mnTransition; }
     sal_Int16 getSubtype() const { return mnSubtype; }
@@ -56,6 +56,9 @@ public:
 
 private:
     TransitionPreset( const css::uno::Reference< css::animations::XAnimationNode >& xNode );
+
+    static bool importTransitionPresetList(TransitionPresetList& rList);
+    static std::map<OUString, TransitionPresetList> mPresetsMap;
 
     sal_Int16 mnTransition;
     sal_Int16 mnSubtype;

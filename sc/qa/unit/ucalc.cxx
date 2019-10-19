@@ -1619,8 +1619,7 @@ void Test::testInsertNameList()
         ScAddress aExprPos = aPos;
         aExprPos.IncCol();
         OUString aExpr = m_pDoc->GetString(aExprPos);
-        OUString aExpected = "=";
-        aExpected += OUString::createFromAscii(aNames[i].mpExpr);
+        OUString aExpected = "=" + OUString::createFromAscii(aNames[i].mpExpr);
         CPPUNIT_ASSERT_EQUAL(aExpected, aExpr);
     }
 
@@ -2129,7 +2128,7 @@ void Test::testDataArea()
     CPPUNIT_ASSERT_MESSAGE("Sheet is expected to be empty.", m_pDoc->IsPrintEmpty(0, 0, 0, 100, 100));
     CPPUNIT_ASSERT_MESSAGE("Sheet is expected to be empty.", m_pDoc->IsBlockEmpty(0, 0, 0, 100, 100));
 
-    // Now, set borders in some cells....
+    // Now, set borders in some cells...
     ::editeng::SvxBorderLine aLine(nullptr, 50, SvxBorderLineStyle::SOLID);
     SvxBoxItem aBorderItem(ATTR_BORDER);
     aBorderItem.SetLine(&aLine, SvxBoxItemLine::LEFT);
@@ -2766,7 +2765,7 @@ void Test::testGraphicsInGroup()
     {
         // Add a circle.
         tools::Rectangle aOrigRect(10,10,210,210); // 200 x 200
-        SdrCircObj* pObj = new SdrCircObj(*pDrawLayer, OBJ_CIRC, aOrigRect);
+        SdrCircObj* pObj = new SdrCircObj(*pDrawLayer, SdrCircKind::Full, aOrigRect);
         pPage->InsertObject(pObj);
         const tools::Rectangle& rNewRect = pObj->GetLogicRect();
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Position and size of the circle shouldn't change when inserted into the page.",
@@ -4225,7 +4224,7 @@ void Test::testCopyPasteRepeatOneFormula()
     ScRange aWholeSheet(0,0,0,MAXCOL,MAXROW,0);
     ScBroadcastAreaSlotMachine* pBASM = m_pDoc->GetBASM();
     CPPUNIT_ASSERT(pBASM);
-    std::vector<sc::AreaListener> aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaInside);
+    std::vector<sc::AreaListener> aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaOverlapType::Inside);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aListeners.size());
     const sc::AreaListener* pListener = aListeners.data();
     CPPUNIT_ASSERT_EQUAL(ScRange(0,0,0,1,0,0), pListener->maArea);
@@ -4258,7 +4257,7 @@ void Test::testCopyPasteRepeatOneFormula()
 #if !defined(USE_FORMULA_GROUP_LISTENER) || USE_FORMULA_GROUP_LISTENER
     // At this point, there should only be one area listener and it should be
     // a group listener listening on A1:B10.
-    aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaInside);
+    aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaOverlapType::Inside);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aListeners.size());
     pListener = aListeners.data();
     CPPUNIT_ASSERT_EQUAL(ScRange(0,0,0,1,9,0), pListener->maArea);
@@ -4276,7 +4275,7 @@ void Test::testCopyPasteRepeatOneFormula()
     // This check makes only sense if group listeners are activated.
 #if !defined(USE_FORMULA_GROUP_LISTENER) || USE_FORMULA_GROUP_LISTENER
     // Make there we only have one group area listener listening on A2:B11.
-    aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaInside);
+    aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaOverlapType::Inside);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aListeners.size());
     pListener = aListeners.data();
     CPPUNIT_ASSERT_EQUAL(ScRange(0,1,0,1,10,0), pListener->maArea);
@@ -4303,7 +4302,7 @@ void Test::testCopyPasteRepeatOneFormula()
     // This check makes only sense if group listeners are activated.
 #if !defined(USE_FORMULA_GROUP_LISTENER) || USE_FORMULA_GROUP_LISTENER
     // Check the group area listener again to make sure it's listening on A1:B10 once again.
-    aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaInside);
+    aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaOverlapType::Inside);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aListeners.size());
     pListener = aListeners.data();
     CPPUNIT_ASSERT_EQUAL(ScRange(0,0,0,1,9,0), pListener->maArea);
@@ -4821,7 +4820,7 @@ void Test::testAutoFillSimple()
         }
         else
         {
-            OString aMsg = OString("wrong value in row: ") + OString::number(nRow);
+            OString aMsg = "wrong value in row: " + OString::number(nRow);
             double nVal = m_pDoc->GetValue(0, nRow, 0);
             CPPUNIT_ASSERT_EQUAL_MESSAGE(aMsg.getStr(), 10.0, nVal);
         }
@@ -6793,9 +6792,9 @@ void Test::checkPrecisionAsShown( OUString& rCode, double fValue, double fExpect
         CPPUNIT_ASSERT_EQUAL( sal_Int32(0), nCheckPos );
     }
     double fRoundValue = m_pDoc->RoundValueAsShown( fValue, nFormat );
-    OString aMessage = "Format \"";
-    aMessage += OUStringToOString( rCode, RTL_TEXTENCODING_ASCII_US );
-    aMessage += "\" is not correctly rounded";
+    OString aMessage = "Format \"" +
+        OUStringToOString( rCode, RTL_TEXTENCODING_ASCII_US ) +
+        "\" is not correctly rounded";
     CPPUNIT_ASSERT_EQUAL_MESSAGE( aMessage.getStr(), fExpectedRoundVal, fRoundValue );
 }
 

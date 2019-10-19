@@ -19,7 +19,6 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_TABLE_TABLEPG_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_TABLE_TABLEPG_HXX
 #include <sfx2/tabdlg.hxx>
-#include <actctrl.hxx>
 #include <prcntfld.hxx>
 #include <swtypes.hxx>
 #include <svx/frmdirlbox.hxx>
@@ -74,14 +73,11 @@ class SwFormatTablePage : public SfxTabPage
     void RightModify();
     DECL_LINK(ValueChangedHdl, weld::MetricSpinButton&, void);
 
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 public:
-    SwFormatTablePage(TabPageParent pParent, const SfxItemSet& rSet );
+    SwFormatTablePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
     virtual ~SwFormatTablePage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
     virtual void        ActivatePage( const SfxItemSet& rSet ) override;
@@ -94,6 +90,7 @@ public:
 class SwTableColumnPage : public SfxTabPage
 {
     SwTableRep*     pTableData;
+    ImplSVEvent*    m_pSizeHdlEvent;
     SwTwips         nTableWidth;
     SwTwips         nMinWidth;
     sal_uInt16      nMetFields;
@@ -122,15 +119,13 @@ class SwTableColumnPage : public SfxTabPage
     void        UpdateCols( sal_uInt16 nCurrentPos );
     SwTwips     GetVisibleWidth(sal_uInt16 nPos);
     void        SetVisibleWidth(sal_uInt16 nPos, SwTwips nNewWidth);
-
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
+    DECL_LINK(SizeHdl, void*, void);
 
 public:
-    SwTableColumnPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwTableColumnPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
     virtual ~SwTableColumnPage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
     virtual void        ActivatePage( const SfxItemSet& rSet ) override;
@@ -171,9 +166,9 @@ class SwTextFlowPage : public SfxTabPage
     DECL_LINK(HeadLineCBClickHdl, weld::ToggleButton&, void);
 
 public:
-    SwTextFlowPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwTextFlowPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
     virtual ~SwTextFlowPage() override;
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
 

@@ -27,6 +27,7 @@
 #include <xmloff/odffields.hxx>
 #include <IDocumentMarkAccess.hxx>
 #include <IMark.hxx>
+#include <com/sun/star/awt/FontWeight.hpp>
 
 class Test : public SwModelTestBase
 {
@@ -50,6 +51,8 @@ public:
     void testTextFormField();
     void testCheckBoxFormField();
     void testDropDownFormField();
+    void testDateFormField();
+    void testDateFormFieldCharacterFormatting();
 
     CPPUNIT_TEST_SUITE(Test);
     CPPUNIT_TEST(testEmbeddedGraphicRoundtrip);
@@ -68,6 +71,8 @@ public:
     CPPUNIT_TEST(testTextFormField);
     CPPUNIT_TEST(testCheckBoxFormField);
     CPPUNIT_TEST(testDropDownFormField);
+    CPPUNIT_TEST(testDateFormField);
+    CPPUNIT_TEST(testDateFormFieldCharacterFormatting);
     CPPUNIT_TEST_SUITE_END();
 };
 
@@ -104,9 +109,9 @@ void Test::testEmbeddedGraphicRoundtrip()
 
         // Check whether graphic exported well after it was swapped out
         uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-        uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+        uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
         CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), static_cast<sal_Int32>(2), xDraws->getCount());
 
         // First image
@@ -158,7 +163,7 @@ void Test::testLinkedGraphicRT()
             mxComponent->dispose();
         mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/document_with_linked_graphic.odt"), "com.sun.star.text.TextDocument");
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
 
         // Export the document and import again for a check
         uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
@@ -241,9 +246,9 @@ void Test::testImageWithSpecialID()
 
         // Check whether graphic exported well
         uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-        uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+        uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
         CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), static_cast<sal_Int32>(2), xDraws->getCount());
 
         uno::Reference<drawing::XShape> xImage = getShape(1);
@@ -339,9 +344,9 @@ void Test::testGraphicShape()
 
         // Check whether graphic exported well
         uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-        uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+        uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
         CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), static_cast<sal_Int32>(2), xDraws->getCount());
 
         uno::Reference<drawing::XShape> xImage = lcl_getShape(mxComponent, true);
@@ -366,7 +371,7 @@ void Test::testGraphicShape()
         // Second image is a linked one
         xImage = lcl_getShape(mxComponent, false);
         XPropSet.set(xImage, uno::UNO_QUERY);
-        const OString sFailedImageLoad = OString("Couldn't load the shape/image for ") + rFilterName.toUtf8();
+        const OString sFailedImageLoad = OStringLiteral("Couldn't load the shape/image for ") + rFilterName.toUtf8();
         CPPUNIT_ASSERT_MESSAGE(sFailedImageLoad.getStr(), xImage.is());
 
         // Check size
@@ -406,7 +411,7 @@ void Test::testCharHighlightBody()
         mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/char_highlight.docx"),
                                       "com.sun.star.text.TextDocument");
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
 
         // Export the document and import again for a check
         uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
@@ -594,7 +599,7 @@ void Test::testMSCharBackgroundEditing()
         mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/char_background_editing.docx"),
                                       "com.sun.star.text.TextDocument");
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
 
         // Check whether import was done on the right way
         uno::Reference< text::XTextRange > xPara = getParagraph(1);
@@ -634,9 +639,8 @@ void Test::testMSCharBackgroundEditing()
             xRun->setPropertyValue("CharHighlight", uno::makeAny(static_cast<sal_Int32>(COL_TRANSPARENT)));
             // Remove shading marker
             uno::Sequence<beans::PropertyValue> aGrabBag = getProperty<uno::Sequence<beans::PropertyValue> >(xRun,"CharInteropGrabBag");
-            for (int j = 0; j < aGrabBag.getLength(); ++j)
+            for (beans::PropertyValue& rProp : aGrabBag)
             {
-                beans::PropertyValue& rProp = aGrabBag[j];
                 if (rProp.Name == "CharShadingMarker")
                 {
                     CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), true, rProp.Value.get<bool>());
@@ -707,7 +711,7 @@ void Test::testCharBackgroundToHighlighting()
         mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/char_background.odt"),
                                       "com.sun.star.text.TextDocument");
 
-        OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
 
 
         SvtFilterOptions& rOpt = SvtFilterOptions::Get();
@@ -776,7 +780,7 @@ void Test::testSkipImages()
     for (auto const & rFilterNamePair : aFilterNames)
     {
         bool bSkipImages = !rFilterNamePair.second.isEmpty();
-        OString sFailedMessage = OString("Failed on filter: ") + rFilterNamePair.first.toUtf8();
+        OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterNamePair.first.toUtf8();
 
         if (mxComponent.is())
             mxComponent->dispose();
@@ -788,7 +792,7 @@ void Test::testSkipImages()
                     { "FilterOptions", uno::Any(rFilterNamePair.second) }
             }));
             mxComponent = loadFromDesktop(m_directories.getURLFromSrc(rFilterNamePair.first), "com.sun.star.text.TextDocument", args);
-            sFailedMessage = sFailedMessage + " - " + rFilterNamePair.second.toUtf8();
+            sFailedMessage += " - " + rFilterNamePair.second.toUtf8();
         }
         else
         {
@@ -797,7 +801,7 @@ void Test::testSkipImages()
 
         // Check shapes (images, textboxes, custom shapes)
         uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-        uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+        uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
         uno::Reference<drawing::XShape> xShape;
         uno::Reference<graphic::XGraphic> xGraphic;
         uno::Reference< beans::XPropertySet > XPropSet;
@@ -886,7 +890,7 @@ void Test::testRedlineFlags()
 
         // tdf#97103 check that redline mode is properly restored
         CPPUNIT_ASSERT_EQUAL_MESSAGE(
-            OString(OString("redline mode not restored in ") + rFilterName.toUtf8()).getStr(),
+            OString(OStringLiteral("redline mode not restored in ") + rFilterName.toUtf8()).getStr(),
             static_cast<int>(nRedlineFlags), static_cast<int>(rIDRA.GetRedlineFlags()));
     }
 }
@@ -902,7 +906,7 @@ void Test::testBulletAsImage()
 
     for (OUString const & rFilterName : aFilterNames)
     {
-        OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
 
         if (mxComponent.is())
             mxComponent->dispose();
@@ -921,7 +925,7 @@ void Test::testBulletAsImage()
             awt::Size aSize;
             sal_Int16 nNumberingType = -1;
 
-            for (beans::PropertyValue const & rProperty : aProperties)
+            for (beans::PropertyValue const & rProperty : std::as_const(aProperties))
             {
                 if (rProperty.Name == "NumberingType")
                 {
@@ -981,7 +985,7 @@ void Test::testBulletAsImage()
             awt::Size aSize;
             sal_Int16 nNumberingType = -1;
 
-            for (beans::PropertyValue const & rProperty : aProperties)
+            for (beans::PropertyValue const & rProperty : std::as_const(aProperties))
             {
                 if (rProperty.Name == "NumberingType")
                 {
@@ -1045,7 +1049,7 @@ void Test::testTextFormField()
             mxComponent->dispose();
         mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/text_form_field.odt"), "com.sun.star.text.TextDocument");
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
 
         // Export the document and import again for a check
         uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
@@ -1100,7 +1104,7 @@ void Test::testCheckBoxFormField()
             mxComponent->dispose();
         mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/checkbox_form_field.odt"), "com.sun.star.text.TextDocument");
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
 
         // Export the document and import again for a check
         uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
@@ -1166,7 +1170,7 @@ void Test::testDropDownFormField()
             mxComponent->dispose();
         mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/dropdown_form_field.odt"), "com.sun.star.text.TextDocument");
 
-        const OString sFailedMessage = OString("Failed on filter: ") + rFilterName.toUtf8();
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
 
         // Export the document and import again for a check
         uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
@@ -1207,7 +1211,7 @@ void Test::testDropDownFormField()
             {
                 pListEntries->second >>= vListEntries;
 
-                if(vListEntries.getLength())
+                if(vListEntries.hasElements())
                 {
                     auto pResult = pParameters->find(ODF_FORMDROPDOWN_RESULT);
                     if (pResult != pParameters->end())
@@ -1220,7 +1224,7 @@ void Test::testDropDownFormField()
             // The first one is empty
             if(nIndex == 0)
             {
-                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(0), vListEntries.getLength());
+                CPPUNIT_ASSERT_MESSAGE(sFailedMessage.getStr(), !vListEntries.hasElements());
                 CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(-1), nSelection);
             }
             else // The second one has list and also a selected item
@@ -1235,6 +1239,170 @@ void Test::testDropDownFormField()
             ++nIndex;
         }
         CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), int(2), nIndex);
+    }
+}
+
+void Test::testDateFormField()
+{
+    const OUString aFilterNames[] = {
+        "writer8",
+        "Office Open XML Text",
+    };
+
+    for (const OUString& rFilterName : aFilterNames)
+    {
+        if (mxComponent.is())
+            mxComponent->dispose();
+        mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/date_form_field.odt"), "com.sun.star.text.TextDocument");
+
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
+
+        // Export the document and import again for a check
+        uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+        utl::MediaDescriptor aMediaDescriptor;
+        aMediaDescriptor["FilterName"] <<= rFilterName;
+        utl::TempFile aTempFile;
+        aTempFile.EnableKillingFile();
+        xStorable->storeToURL(aTempFile.GetURL(), aMediaDescriptor.getAsConstPropertyValueList());
+        uno::Reference< lang::XComponent > xComponent(xStorable, uno::UNO_QUERY);
+        xComponent->dispose();
+        mxComponent = loadFromDesktop(aTempFile.GetURL(), "com.sun.star.text.TextDocument");
+
+        // Check the document after round trip
+        SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+        CPPUNIT_ASSERT_MESSAGE(sFailedMessage.getStr(), pTextDoc);
+        SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+        IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(5), pMarkAccess->getAllMarksCount());
+
+        int nIndex = 0;
+        for(auto aIter = pMarkAccess->getAllMarksBegin(); aIter != pMarkAccess->getAllMarksEnd(); ++aIter)
+        {
+            ::sw::mark::IDateFieldmark* pFieldmark = dynamic_cast<::sw::mark::IDateFieldmark*>(*aIter);
+            CPPUNIT_ASSERT_MESSAGE(sFailedMessage.getStr(), pFieldmark);
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString(ODF_FORMDATE), pFieldmark->GetFieldname());
+
+            // Check date form field's parameters.
+            const sw::mark::IFieldmark::parameter_map_t* const pParameters = pFieldmark->GetParameters();
+            OUString sDateFormat;
+            auto pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT);
+            if (pResult != pParameters->end())
+            {
+                pResult->second >>= sDateFormat;
+            }
+
+            OUString sLang;
+            pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT_LANGUAGE);
+            if (pResult != pParameters->end())
+            {
+                pResult->second >>= sLang;
+            }
+
+            OUString sCurrentDate = pFieldmark->GetContent();
+
+            // The first one has the default field content
+            if(nIndex == 0)
+            {
+
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("MM/DD/YY"), sDateFormat);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("en-US"), sLang);
+                sal_Unicode vEnSpaces[ODF_FORMFIELD_DEFAULT_LENGTH] = {8194, 8194, 8194, 8194, 8194};
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString(vEnSpaces, 5), sCurrentDate);
+
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_uLong(9), pFieldmark->GetMarkStart().nNode.GetIndex());
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(5), pFieldmark->GetMarkStart().nContent.GetIndex());
+            }
+            else if (nIndex == 1) // The second has the default format
+            {
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("MM/DD/YY"), sDateFormat);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("en-US"), sLang);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("06/12/19"), sCurrentDate);
+
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_uLong(9), pFieldmark->GetMarkStart().nNode.GetIndex());
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(19), pFieldmark->GetMarkStart().nContent.GetIndex());
+            }
+            else if (nIndex == 2) // The third one has special format
+            {
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("[NatNum12 MMMM=abbreviation]YYYY\". \"MMMM D."), sDateFormat);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("hu-HU"), sLang);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("2019. febr. 12."), sCurrentDate);
+
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_uLong(9), pFieldmark->GetMarkStart().nNode.GetIndex());
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(38), pFieldmark->GetMarkStart().nContent.GetIndex());
+
+            }
+            else if (nIndex == 3) // The fourth one has placeholder text
+            {
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("D, MMM YY"), sDateFormat);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("bm-ML"), sLang);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("[select date]"), sCurrentDate);
+
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_uLong(9), pFieldmark->GetMarkStart().nNode.GetIndex());
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(59), pFieldmark->GetMarkStart().nContent.GetIndex());
+
+            }
+            else // The last one is really empty
+            {
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("MM/DD/YY"), sDateFormat);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString("en-US"), sLang);
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString(""), sCurrentDate);
+
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_uLong(9), pFieldmark->GetMarkStart().nNode.GetIndex());
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(78), pFieldmark->GetMarkStart().nContent.GetIndex());
+
+            }
+            ++nIndex;
+        }
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), int(5), nIndex);
+    }
+}
+
+void Test::testDateFormFieldCharacterFormatting()
+{
+    const OUString aFilterNames[] = {
+        "writer8",
+        "Office Open XML Text",
+    };
+
+    for (const OUString& rFilterName : aFilterNames)
+    {
+        if (mxComponent.is())
+            mxComponent->dispose();
+        mxComponent = loadFromDesktop(m_directories.getURLFromSrc("/sw/qa/extras/globalfilter/data/date_form_field_char_formatting.odt"), "com.sun.star.text.TextDocument");
+
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + rFilterName.toUtf8();
+
+        // Export the document and import again for a check
+        uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+        utl::MediaDescriptor aMediaDescriptor;
+        aMediaDescriptor["FilterName"] <<= rFilterName;
+        utl::TempFile aTempFile;
+        aTempFile.EnableKillingFile();
+        xStorable->storeToURL(aTempFile.GetURL(), aMediaDescriptor.getAsConstPropertyValueList());
+        uno::Reference< lang::XComponent > xComponent(xStorable, uno::UNO_QUERY);
+        xComponent->dispose();
+        mxComponent = loadFromDesktop(aTempFile.GetURL(), "com.sun.star.text.TextDocument");
+
+        // Check the document after round trip
+        SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+        CPPUNIT_ASSERT_MESSAGE(sFailedMessage.getStr(), pTextDoc);
+        SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+        IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+
+        // Check that we have the field at the right place
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(1), pMarkAccess->getAllMarksCount());
+        ::sw::mark::IDateFieldmark* pFieldmark = dynamic_cast<::sw::mark::IDateFieldmark*>(*pMarkAccess->getAllMarksBegin());
+        CPPUNIT_ASSERT_MESSAGE(sFailedMessage.getStr(), pFieldmark);
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString(ODF_FORMDATE), pFieldmark->GetFieldname());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(0), pFieldmark->GetMarkStart().nContent.GetIndex());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(10), pFieldmark->GetMarkEnd().nContent.GetIndex());
+
+        // We have one date field, first half of the field has bold character weight and second part has red character color
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), awt::FontWeight::BOLD, getProperty<float>(getRun(getParagraph(1), 2), "CharWeight"));
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(COL_AUTO), getProperty<sal_Int32>(getRun(getParagraph(1), 2), "CharColor"));
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), awt::FontWeight::NORMAL, getProperty<float>(getRun(getParagraph(1), 3), "CharWeight"));
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), sal_Int32(0xff0000), getProperty<sal_Int32>(getRun(getParagraph(1), 3), "CharColor"));
     }
 }
 

@@ -30,7 +30,6 @@
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/awt/Rectangle.hpp>
 #include <com/sun/star/awt/Point.hpp>
-#include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/drawing/PointSequence.hpp>
 #include <xmloff/xmlexp.hxx>
 #include <xmloff/xmlnmspe.hxx>
@@ -134,7 +133,7 @@ void XMLImageMapExport::ExportMapEntry(
     enum XMLTokenEnum eType = XML_TOKEN_INVALID;
 
     // distinguish map entries by their service name
-    Sequence<OUString> sServiceNames =
+    const Sequence<OUString> sServiceNames =
         xServiceInfo->getSupportedServiceNames();
     for( const OUString& rName : sServiceNames )
     {

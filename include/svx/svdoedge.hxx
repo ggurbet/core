@@ -88,7 +88,7 @@ public:
     long                        nAngle2;           // exit angle at Obj2
     sal_uInt16                  nObj1Lines;        // 1..3
     sal_uInt16                  nObj2Lines;        // 1..3
-    sal_uInt16                  nMiddleLine;       // 0xFFFF=none, otherwiese point number of the beginning of the line
+    sal_uInt16                  nMiddleLine;       // 0xFFFF=none, otherwise point number of the beginning of the line
 
 public:
     SdrEdgeInfoRec()
@@ -199,7 +199,6 @@ public:
     virtual sal_uInt16 GetObjIdentifier() const override;
     virtual const tools::Rectangle& GetCurrentBoundRect() const override;
     virtual const tools::Rectangle& GetSnapRect() const override;
-    virtual bool IsNode() const override;
     virtual SdrGluePoint GetVertexGluePoint(sal_uInt16 nNum) const override;
     virtual SdrGluePoint GetCornerGluePoint(sal_uInt16 nNum) const override;
     virtual const SdrGluePointList* GetGluePointList() const override;
@@ -236,7 +235,7 @@ public:
     virtual OUString getSpecialDragComment(const SdrDragStat& rDrag) const override;
 
     // FullDrag support
-    virtual SdrObject* getFullDragClone() const override;
+    virtual SdrObjectUniquePtr getFullDragClone() const override;
 
     virtual void NbcSetSnapRect(const tools::Rectangle& rRect) override;
     virtual void NbcMove(const Size& aSize) override;
@@ -257,7 +256,7 @@ public:
     virtual void BrkCreate(SdrDragStat& rStat) override;
     virtual basegfx::B2DPolyPolygon TakeCreatePoly(const SdrDragStat& rDrag) const override;
     virtual PointerStyle GetCreatePointer() const override;
-    virtual SdrObject* DoConvertToPolyObj(bool bBezier, bool bAddText) const override;
+    virtual SdrObjectUniquePtr DoConvertToPolyObj(bool bBezier, bool bAddText) const override;
 
     virtual sal_uInt32 GetSnapPointCount() const override;
     virtual Point GetSnapPoint(sal_uInt32 i) const override;
@@ -288,7 +287,7 @@ public:
     // for geometry access
     ::basegfx::B2DPolygon getEdgeTrack() const;
 
-    // helper method for SdrDragMethod::AddConnectorOverlays. Adds a overlay polygon for
+    // helper method for SdrDragMethod::AddConnectorOverlays. Adds an overlay polygon for
     // this connector to rResult.
     basegfx::B2DPolygon ImplAddConnectorOverlay(SdrDragMethod& rDragMethod, bool bTail1, bool bTail2, bool bDetail) const;
 };

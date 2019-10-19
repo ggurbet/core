@@ -19,12 +19,12 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_DRPCPS_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_DRPCPS_HXX
 
-#include <com/sun/star/i18n/BreakIterator.hpp>
+#include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <editeng/svxfont.hxx>
 #include <sfx2/basedlgs.hxx>
-#include <sfx2/printer.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <vcl/customweld.hxx>
+#include <vcl/print.hxx>
 
 class SwWrtShell;
 
@@ -38,7 +38,7 @@ class SwDropCapsPage;
 
 class SwDropCapsPict : public weld::CustomWidgetController
 {
-    VclPtr<SwDropCapsPage> mpPage;
+    SwDropCapsPage* mpPage;
     OUString        maText;
     OUString        maScriptText;
     Color           maBackColor;
@@ -144,16 +144,13 @@ friend class SwDropCapsPict;
     DECL_LINK(SelectHdl, weld::ComboBox&, void);
     DECL_LINK(WholeWordHdl, weld::ToggleButton&, void);
 
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
-
     static const sal_uInt16 aPageRg[];
 
 public:
-    SwDropCapsPage(TabPageParent pParent, const SfxItemSet &rSet);
+    SwDropCapsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rSet);
     virtual ~SwDropCapsPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet *rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *rSet);
     static const sal_uInt16* GetRanges() { return aPageRg; }
 
 

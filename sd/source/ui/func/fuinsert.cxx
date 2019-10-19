@@ -26,7 +26,6 @@
 #include <svx/svxdlg.hxx>
 #include <com/sun/star/embed/EmbedVerbs.hpp>
 #include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
-#include <com/sun/star/embed/XComponentSupplier.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
@@ -75,6 +74,8 @@
 
 #include <vcl/GraphicNativeTransform.hxx>
 #include <vcl/GraphicNativeMetadata.hxx>
+
+#include <comphelper/lok.hxx>
 
 using namespace com::sun::star;
 
@@ -304,14 +305,10 @@ void FuInsertOLE::DoExecute( SfxRequest& rReq )
                 GetEmbeddedObjectContainer().CreateEmbeddedObject( aName.GetByteSequence(), aObjName );
         if ( xObj.is() )
         {
-            uno::Reference<embed::XComponentSupplier> xCompSupp(xObj, uno::UNO_QUERY);
-            if (xCompSupp.is())
-            {
-                // Create default chart type.
-                uno::Reference<chart2::XChartDocument> xChartDoc(xCompSupp->getComponent(), uno::UNO_QUERY);
-                if (xChartDoc.is())
-                    xChartDoc->createDefaultChart();
-            }
+            // Create default chart type.
+            uno::Reference<chart2::XChartDocument> xChartDoc(xObj->getComponent(), uno::UNO_QUERY);
+            if (xChartDoc.is())
+                xChartDoc->createDefaultChart();
 
             sal_Int64 nAspect = embed::Aspects::MSOLE_CONTENT;
 
@@ -394,8 +391,10 @@ void FuInsertOLE::DoExecute( SfxRequest& rReq )
             else
                 bRet = mpView->InsertObjectAtView(pOleObj, *pPV, SdrInsertFlags::SETDEFLAYER);
 
-            if( bRet )
+            if (bRet && !comphelper::LibreOfficeKit::isActive())
             {
+                // Let the chart be activated after the inserting (unless
+                // via LibreOfficeKit)
                 if (nSlotId == SID_INSERT_DIAGRAM)
                 {
                     pOleObj->SetProgName( "StarChart");
@@ -669,6 +668,7 @@ rtl::Reference<FuPoor> FuInsertAVMedia::Create( ViewShell* pViewSh, ::sd::Window
 
 void FuInsertAVMedia::DoExecute( SfxRequest& rReq )
 {
+#if HAVE_FEATURE_AVMEDIA
     OUString     aURL;
     const SfxItemSet*   pReqArgs = rReq.GetArgs();
     bool                bAPI = false;
@@ -686,9 +686,7 @@ void FuInsertAVMedia::DoExecute( SfxRequest& rReq )
 
     bool bLink(true);
     if (!(bAPI
-#if HAVE_FEATURE_AVMEDIA
         || ::avmedia::MediaWindow::executeMediaURLDialog(mpWindow ? mpWindow->GetFrameWeld() : nullptr, aURL, & bLink)
-#endif
        ))
         return;
 
@@ -697,7 +695,6 @@ void FuInsertAVMedia::DoExecute( SfxRequest& rReq )
     if( mpWindow )
         mpWindow->EnterWait();
 
-#if HAVE_FEATURE_AVMEDIA
     if( !::avmedia::MediaWindow::isMediaURL( aURL, "", true, &aPrefSize ) )
     {
         if( mpWindow )
@@ -735,10 +732,7 @@ void FuInsertAVMedia::DoExecute( SfxRequest& rReq )
             mpWindow->LeaveWait();
     }
 #else
-    if( mpWindow )
-        mpWindow->LeaveWait();
-    (void) aPrefSize;
-    (void) bLink;
+    (void)rReq;
 #endif
 }
 

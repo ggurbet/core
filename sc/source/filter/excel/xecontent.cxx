@@ -447,7 +447,7 @@ XclExpHyperlink::XclExpHyperlink( const XclExpRoot& rRoot, const SvxURLField& rU
         mnFlags |= EXC_HLINK_MARK;
 
         OUString location = XclXmlUtils::ToOUString(*mxTextMark);
-        if (msTarget.endsWith(location))
+        if (!location.isEmpty() && msTarget.endsWith("#" + location))
             msTarget = msTarget.copy(0, msTarget.getLength() - location.getLength() - 1);
     }
 
@@ -989,8 +989,8 @@ bool RequiresFixedFormula(ScConditionMode eMode)
 OString GetFixedFormula(ScConditionMode eMode, const ScAddress& rAddress, const OString& rText)
 {
     OStringBuffer aBuffer;
-    OStringBuffer aPosBuffer = XclXmlUtils::ToOString(aBuffer, rAddress);
-    OString aPos = aPosBuffer.makeStringAndClear();
+    XclXmlUtils::ToOString(aBuffer, rAddress);
+    OString aPos = aBuffer.makeStringAndClear();
     switch (eMode)
     {
         case ScConditionMode::Error:
@@ -1009,7 +1009,7 @@ OString GetFixedFormula(ScConditionMode eMode, const ScAddress& rAddress, const 
         break;
     }
 
-    return OString("");
+    return "";
 }
 
 }
@@ -1255,7 +1255,7 @@ OString createHexStringFromDigit(sal_uInt8 nDigit)
 {
     OString aString = OString::number( nDigit, 16 );
     if(aString.getLength() == 1)
-        aString = aString + OString::number(0);
+        aString += OString::number(0);
     return aString;
 }
 
@@ -1507,7 +1507,7 @@ void XclExpDataBar::SaveXml( XclExpXmlStream& rStrm )
         XML_uri, "{B025F937-C7B1-47D3-B67F-A62EFF666E3E}");
 
     rWorksheet->startElementNS( XML_x14, XML_id );
-    rWorksheet->write( maGUID.getStr() );
+    rWorksheet->write(maGUID);
     rWorksheet->endElementNS( XML_x14, XML_id );
 
     rWorksheet->endElement( XML_ext );

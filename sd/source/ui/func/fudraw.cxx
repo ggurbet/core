@@ -29,9 +29,10 @@
 #include <vcl/help.hxx>
 #include <svx/bmpmask.hxx>
 #include <svx/svdotext.hxx>
-#include <sfx2/app.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/sfxhelp.hxx>
 #include <svx/svdpagv.hxx>
 #include <vcl/imapobj.hxx>
 #include <svx/svxids.hrc>
@@ -39,12 +40,10 @@
 #include <svx/scene3d.hxx>
 #include <sfx2/viewfrm.hxx>
 
-#include <anminfo.hxx>
 #include <strings.hrc>
 
 
 #include <sdmod.hxx>
-#include <GraphicDocShell.hxx>
 #include <fudraw.hxx>
 #include <ViewShell.hxx>
 #include <FrameView.hxx>
@@ -53,12 +52,9 @@
 #include <drawdoc.hxx>
 #include <DrawDocShell.hxx>
 #include <sdresid.hxx>
-#include <drawview.hxx>
 #include <fusel.hxx>
 #include <vcl/weld.hxx>
-#include <slideshow.hxx>
 #include <svx/sdrhittesthelper.hxx>
-#include <unotools/securityoptions.hxx>
 
 using namespace ::com::sun::star;
 
@@ -586,9 +582,9 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
  *
  * @return True when pointer was set
  */
-bool FuDraw::SetPointer(SdrObject* pObj, const Point& rPos)
+bool FuDraw::SetPointer(const SdrObject* pObj, const Point& rPos)
 {
-    bool bImageMapInfo = SdDrawDocument::GetIMapInfo(pObj) != nullptr;
+    bool bImageMapInfo = SvxIMapInfo::GetIMapInfo(pObj) != nullptr;
 
     if (!bImageMapInfo)
         return false;
@@ -617,7 +613,7 @@ bool FuDraw::SetPointer(SdrObject* pObj, const Point& rPos)
                                      pVisiLayer, false)))
     {
         // hit inside the object (without margin) or open object
-        if (SdDrawDocument::GetHitIMapObject(pObj, rPos))
+        if (SvxIMapInfo::GetHitIMapObject(pObj, rPos))
         {
             mpWindow->SetPointer(PointerStyle::RefHand);
             return true;
@@ -732,11 +728,11 @@ bool FuDraw::RequestHelp(const HelpEvent& rHEvt)
     return bReturn;
 }
 
-bool FuDraw::SetHelpText(SdrObject* pObj, const Point& rPosPixel, const SdrViewEvent& rVEvt)
+bool FuDraw::SetHelpText(const SdrObject* pObj, const Point& rPosPixel, const SdrViewEvent& rVEvt)
 {
     OUString aHelpText;
     Point aPos(mpWindow->PixelToLogic(mpWindow->ScreenToOutputPixel(rPosPixel)));
-    IMapObject* pIMapObj = SdDrawDocument::GetHitIMapObject(pObj, aPos);
+    IMapObject* pIMapObj = SvxIMapInfo::GetHitIMapObject(pObj, aPos);
 
     if (!rVEvt.pURLField && !pIMapObj)
         return false;
@@ -756,27 +752,7 @@ bool FuDraw::SetHelpText(SdrObject* pObj, const Point& rPosPixel, const SdrViewE
     else
         return false;
 
-    SvtSecurityOptions aSecOpt;
-    if (aSecOpt.IsOptionSet(SvtSecurityOptions::EOption::CtrlClickHyperlink))
-    {
-        // Hint about Ctrl-click to open hyperlink, but need to detect "Ctrl" key for MacOs
-        vcl::KeyCode aCode(KEY_SPACE);
-        vcl::KeyCode aModifiedCode(KEY_SPACE, KEY_MOD1);
-        OUString aModStr(aModifiedCode.GetName());
-        aModStr = aModStr.replaceFirst(aCode.GetName(), "");
-        aModStr = aModStr.replaceAll("+", "");
-
-        OUString aCtrlClickHlinkStr = SdResId(STR_CTRLCLICKHYPERLINK);
-
-        aCtrlClickHlinkStr = aCtrlClickHlinkStr.replaceAll("%s", aModStr);
-
-        aHelpText = aCtrlClickHlinkStr + aURL;
-    }
-    else
-    {
-        // Hint about just clicking hyperlink
-        aHelpText = SdResId(STR_CLICKHYPERLINK) + aURL;
-    }
+    aHelpText = SfxHelp::GetURLHelpText(aURL);
 
     if (aHelpText.isEmpty())
         return false;
@@ -797,7 +773,7 @@ bool FuDraw::SetHelpText(SdrObject* pObj, const Point& rPosPixel, const SdrViewE
     This is used when a function gets a KEY_ESCAPE but can also
     be called directly.
 
-    @returns true if a active function was aborted
+    @returns true if an active function was aborted
 */
 bool FuDraw::cancel()
 {

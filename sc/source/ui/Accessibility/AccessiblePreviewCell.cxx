@@ -172,7 +172,7 @@ uno::Reference<XAccessibleStateSet> SAL_CALL ScAccessiblePreviewCell::getAccessi
 
 OUString SAL_CALL ScAccessiblePreviewCell::getImplementationName()
 {
-    return OUString("ScAccessiblePreviewCell");
+    return "ScAccessiblePreviewCell";
 }
 
 uno::Sequence<OUString> SAL_CALL ScAccessiblePreviewCell::getSupportedServiceNames()
@@ -248,7 +248,7 @@ bool ScAccessiblePreviewCell::IsEditable(
     return false;
 }
 
-bool ScAccessiblePreviewCell::IsOpaque()
+bool ScAccessiblePreviewCell::IsOpaque() const
 {
     // test whether there is a background color
     //! could be moved to ScAccessibleCellBase

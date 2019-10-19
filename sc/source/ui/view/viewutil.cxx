@@ -29,24 +29,19 @@
 #include <svl/cjkoptions.hxx>
 #include <svl/ctloptions.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/wrkwin.hxx>
 #include <vcl/settings.hxx>
-#include <sfx2/request.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <svl/stritem.hxx>
 #include <svl/eitem.hxx>
 #include <osl/diagnose.h>
 
 #include <viewutil.hxx>
-#include <global.hxx>
 #include <chgtrack.hxx>
 #include <chgviset.hxx>
 #include <markdata.hxx>
 #include <document.hxx>
 
 #include <svx/svxdlg.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <memory>
 
@@ -153,13 +148,9 @@ bool ScViewUtil::IsActionShown( const ScChangeAction& rAction,
 
     if ( rSettings.HasComment() )
     {
-        OUStringBuffer aBuf(rAction.GetComment());
-        aBuf.append(" (");
         OUString aTmp;
         rAction.GetDescription(aTmp, &rDocument);
-        aBuf.append(aTmp);
-        aBuf.append(')');
-        OUString aComStr = aBuf.makeStringAndClear();
+        OUString aComStr = rAction.GetComment() + " (" + aTmp + ")";
 
         if(!rSettings.IsValidComment(&aComStr))
             return false;

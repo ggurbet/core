@@ -28,10 +28,6 @@
 #include <svdata.hxx>
 #include <salframe.hxx>
 #include <config_features.h>
-#include <com/sun/star/awt/MouseEvent.hpp>
-#include <com/sun/star/awt/KeyModifier.hpp>
-#include <com/sun/star/awt/MouseButton.hpp>
-#include <com/sun/star/awt/XWindow.hpp>
 #include <comphelper/scopeguard.hxx>
 
 namespace vcl {
@@ -238,7 +234,7 @@ void Window::CallEventListeners( VclEventId nEvent, void* pData )
                 }
             }
         );
-        for ( Link<VclWindowEvent&,void>& rLink : aCopy )
+        for ( const Link<VclWindowEvent&,void>& rLink : aCopy )
         {
             if (xWindow->IsDisposed()) break;
             // check this hasn't been removed in some re-enterancy scenario fdo#47368
@@ -271,7 +267,7 @@ void Window::CallEventListeners( VclEventId nEvent, void* pData )
                     }
                 }
             );
-            for ( Link<VclWindowEvent&,void>& rLink : aCopy )
+            for ( const Link<VclWindowEvent&,void>& rLink : aCopy )
             {
                 if (xWindow->IsDisposed())
                     return;

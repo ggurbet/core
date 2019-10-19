@@ -20,6 +20,7 @@
 #include <sal/config.h>
 
 #include <osl/diagnose.h>
+#include <svl/style.hxx>
 #include <vcl/svapp.hxx>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/sheet/ConditionOperator2.hpp>
@@ -32,7 +33,6 @@
 #include <validat.hxx>
 #include <document.hxx>
 #include <unonames.hxx>
-#include <styleuno.hxx>
 #include <tokenarray.hxx>
 #include <tokenuno.hxx>
 #include <stylehelper.hxx>
@@ -161,7 +161,7 @@ ScTableConditionalFormat::ScTableConditionalFormat(
                 {
                     ScCondFormatEntryItem aItem;
                     const ScFormatEntry* pFrmtEntry = pFormat->GetEntry(i);
-                    if(pFrmtEntry->GetType() != ScFormatEntry::Type::Condition ||
+                    if(pFrmtEntry->GetType() != ScFormatEntry::Type::Condition &&
                        pFrmtEntry->GetType() != ScFormatEntry::Type::ExtCondition)
                         continue;
 
@@ -254,12 +254,8 @@ void SAL_CALL ScTableConditionalFormat::addNew(
     ScCondFormatEntryItem aEntry;
     aEntry.meMode = ScConditionMode::NONE;
 
-    const beans::PropertyValue* pPropArray = aConditionalEntry.getConstArray();
-    long nPropCount = aConditionalEntry.getLength();
-    for (long i = 0; i < nPropCount; i++)
+    for (const beans::PropertyValue& rProp : aConditionalEntry)
     {
-        const beans::PropertyValue& rProp = pPropArray[i];
-
         if ( rProp.Name == SC_UNONAME_OPERATOR )
         {
             sal_Int32 eOper = ScUnoHelpFunctions::GetEnumFromAny( rProp.Value );
@@ -401,8 +397,7 @@ sal_Bool SAL_CALL ScTableConditionalFormat::hasElements()
 
 static OUString lcl_GetEntryNameFromIndex( sal_Int32 nIndex )
 {
-    OUString aRet( "Entry" );
-    aRet += OUString::number( nIndex );
+    OUString aRet = "Entry" + OUString::number( nIndex );
     return aRet;
 }
 

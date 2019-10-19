@@ -21,14 +21,13 @@
 #define INCLUDED_EXTENSIONS_SOURCE_DBPILOTS_UNOAUTOPILOT_HXX
 
 #include <svtools/genericunodialog.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/proparrhlp.hxx>
 #include <componentmodule.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
-
+#include <vcl/svapp.hxx>
 
 namespace dbp
 {
@@ -105,9 +104,9 @@ namespace dbp
 
     private:
         // OGenericUnoDialog overridables
-        virtual svt::OGenericUnoDialog::Dialog createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override
+        virtual std::unique_ptr<weld::DialogController> createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override
         {
-            return svt::OGenericUnoDialog::Dialog(VclPtr<TYPE>::Create(VCLUnoHelper::GetWindow(rParent), m_xObjectModel, m_aContext));
+            return std::make_unique<TYPE>(Application::GetFrameWeld(rParent), m_xObjectModel, m_aContext);
         }
 
         virtual void implInitialize(const css::uno::Any& _rValue) override

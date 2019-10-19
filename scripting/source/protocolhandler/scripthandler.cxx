@@ -49,6 +49,7 @@
 
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/uri/XUriReference.hpp>
+#include <com/sun/star/uri/XVndSunStarScriptUrlReference.hpp>
 #include <com/sun/star/uri/UriReferenceFactory.hpp>
 
 #include <memory>
@@ -93,8 +94,7 @@ Reference< XDispatch > SAL_CALL ScriptProtocolHandler::queryDispatch(
     // get scheme of url
 
     Reference< uri::XUriReferenceFactory > xFac = uri::UriReferenceFactory::create( m_xContext );
-    Reference<  uri::XUriReference > uriRef(
-        xFac->parse( aURL.Complete ), UNO_QUERY );
+    Reference<  uri::XUriReference > uriRef = xFac->parse( aURL.Complete );
     if ( uriRef.is() )
     {
         if ( uriRef->getScheme() == "vnd.sun.star.script" )
@@ -112,12 +112,9 @@ const Sequence < DispatchDescriptor >& seqDescriptor )
 {
     sal_Int32 nCount = seqDescriptor.getLength();
     Sequence< Reference< XDispatch > > lDispatcher( nCount );
-    for ( sal_Int32 i = 0; i < nCount; ++i )
-    {
-        lDispatcher[ i ] = queryDispatch( seqDescriptor[ i ].FeatureURL,
-                                                seqDescriptor[ i ].FrameName,
-                                                seqDescriptor[ i ].SearchFlags );
-    }
+    std::transform(seqDescriptor.begin(), seqDescriptor.end(), lDispatcher.begin(),
+        [this](const DispatchDescriptor& rDescr) -> Reference<XDispatch> {
+            return queryDispatch(rDescr.FeatureURL, rDescr.FrameName, rDescr.SearchFlags); });
     return lDispatcher;
 }
 
@@ -125,7 +122,6 @@ void SAL_CALL ScriptProtocolHandler::dispatchWithNotification(
     const URL& aURL, const Sequence < PropertyValue >& lArgs,
     const Reference< XDispatchResultListener >& xListener )
 {
-
     bool bSuccess = false;
     Any invokeResult;
     bool bCaughtException = false;
@@ -135,8 +131,12 @@ void SAL_CALL ScriptProtocolHandler::dispatchWithNotification(
     {
         try
         {
-            bool bIsDocumentScript = ( aURL.Complete.indexOf( "document" ) !=-1 );
-                // TODO: isn't this somewhat strange? This should be a test for a location=document parameter, shouldn't it?
+            css::uno::Reference<css::uri::XUriReferenceFactory> urifac(
+                css::uri::UriReferenceFactory::create(m_xContext));
+            css::uno::Reference<css::uri::XVndSunStarScriptUrlReference> uri(
+                urifac->parse(aURL.Complete), css::uno::UNO_QUERY_THROW);
+            auto const loc = uri->getParameter("location");
+            bool bIsDocumentScript = loc == "document";
 
             if ( bIsDocumentScript )
             {
@@ -185,18 +185,18 @@ void SAL_CALL ScriptProtocolHandler::dispatchWithNotification(
             if ( lArgs.hasElements() )
             {
                int argCount = 0;
-               for ( int index = 0; index < lArgs.getLength(); index++ )
+               for ( const auto& rArg : lArgs )
                {
                    // Sometimes we get a propertyval with name = "Referer" or "SynchronMode". These
                    // are not actual arguments to be passed to script, but flags describing the
                    // call, so ignore. Who thought that passing such "meta-arguments" mixed in with
                    // real arguments was a good idea?
-                   if ( (lArgs[ index ].Name != "Referer" &&
-                         lArgs[ index ].Name != "SynchronMode") ||
-                        lArgs[ index ].Name.isEmpty() ) //TODO:???
+                   if ( (rArg.Name != "Referer" &&
+                         rArg.Name != "SynchronMode") ||
+                        rArg.Name.isEmpty() ) //TODO:???
                    {
                        inArgs.realloc( ++argCount );
-                       inArgs[ argCount - 1 ] = lArgs[ index ].Value;
+                       inArgs[ argCount - 1 ] = rArg.Value;
                    }
                }
             }
@@ -324,13 +324,12 @@ ScriptProtocolHandler::getScriptInvocation()
         }
         else
         {
-            Reference< XFrame > xFrame( m_xFrame.get(), UNO_QUERY );
-            if ( xFrame.is() )
+            if ( m_xFrame.is() )
             {
                 SfxFrame* pFrame = nullptr;
                 for ( pFrame = SfxFrame::GetFirst(); pFrame; pFrame = SfxFrame::GetNext( *pFrame ) )
                 {
-                    if ( pFrame->GetFrameInterface() == xFrame )
+                    if ( pFrame->GetFrameInterface() == m_xFrame )
                         break;
                 }
                 SfxObjectShell* pDocShell = pFrame ? pFrame->GetCurrentDocument() : SfxObjectShell::Current();
@@ -439,7 +438,7 @@ Sequence< OUString > ScriptProtocolHandler::impl_getStaticSupportedServiceNames(
 /* Helper for XServiceInfo */
 OUString ScriptProtocolHandler::impl_getStaticImplementationName()
 {
-    return OUString("com.sun.star.comp.ScriptProtocolHandler");
+    return "com.sun.star.comp.ScriptProtocolHandler";
 }
 
 /* Helper for registry */

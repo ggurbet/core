@@ -34,6 +34,7 @@
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <ucbhelper/getcomponentcontext.hxx>
+#include <ucbhelper/macros.hxx>
 #include <memory>
 
 using namespace com::sun::star::beans;
@@ -162,7 +163,7 @@ bool CachedContentResultSet::CCRS_Cache
 }
 
 sal_Int32 CachedContentResultSet::CCRS_Cache
-    ::getMaxRow()
+    ::getMaxRow() const
 {
     if( !m_pResult )
         return 0;
@@ -174,7 +175,7 @@ sal_Int32 CachedContentResultSet::CCRS_Cache
 }
 
 bool CachedContentResultSet::CCRS_Cache
-    ::hasKnownLast()
+    ::hasKnownLast() const
 {
     if( !m_pResult )
         return false;
@@ -533,14 +534,11 @@ Sequence< Property > SAL_CALL CCRS_PropertySetInfo
 Property SAL_CALL CCRS_PropertySetInfo
     ::getPropertyByName( const OUString& aName )
 {
-    if ( aName.isEmpty() )
-        throw UnknownPropertyException();
-
     Property aProp;
     if ( impl_queryProperty( aName, aProp ) )
         return aProp;
 
-    throw UnknownPropertyException();
+    throw UnknownPropertyException(aName);
 }
 
 //virtual
@@ -939,7 +937,7 @@ XTYPEPROVIDER_IMPL_11( CachedContentResultSet
 
 OUString SAL_CALL CachedContentResultSet::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.ucb.CachedContentResultSet" );
+    return "com.sun.star.comp.ucb.CachedContentResultSet";
 }
 
 sal_Bool SAL_CALL CachedContentResultSet::supportsService( const OUString& ServiceName )
@@ -2068,49 +2066,15 @@ CachedContentResultSetFactory::~CachedContentResultSetFactory()
 {
 }
 
-
-// CachedContentResultSetFactory XInterface methods.
-void SAL_CALL CachedContentResultSetFactory::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL CachedContentResultSetFactory::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL CachedContentResultSetFactory::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< XTypeProvider* >(this),
-                                               static_cast< XServiceInfo* >(this),
-                                               static_cast< XCachedContentResultSetFactory* >(this)
-                                               );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-// CachedContentResultSetFactory XTypeProvider methods.
-
-
-XTYPEPROVIDER_IMPL_3( CachedContentResultSetFactory,
-                      XTypeProvider,
-                         XServiceInfo,
-                      XCachedContentResultSetFactory );
-
-
 // CachedContentResultSetFactory XServiceInfo methods.
 
 XSERVICEINFO_COMMOM_IMPL( CachedContentResultSetFactory,
-                          OUString( "com.sun.star.comp.ucb.CachedContentResultSetFactory" ) )
+                          "com.sun.star.comp.ucb.CachedContentResultSetFactory" )
 /// @throws css::uno::Exception
 static css::uno::Reference< css::uno::XInterface >
 CachedContentResultSetFactory_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new CachedContentResultSetFactory( ucbhelper::getComponentContext(rSMgr) ));
+    css::lang::XServiceInfo* pX = new CachedContentResultSetFactory( ucbhelper::getComponentContext(rSMgr) );
     return css::uno::Reference< css::uno::XInterface >::query( pX );
 }
 

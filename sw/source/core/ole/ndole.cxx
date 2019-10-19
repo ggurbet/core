@@ -58,6 +58,7 @@
 #include <comphelper/threadpool.hxx>
 #include <atomic>
 #include <deque>
+#include <libxml/xmlwriter.h>
 
 using namespace utl;
 using namespace com::sun::star::uno;
@@ -246,7 +247,7 @@ const Graphic* SwOLENode::GetGraphic()
 }
 
 /**
- * Loading a OLE object that has been moved to the Undo Area
+ * Loading an OLE object that has been moved to the Undo Area
  */
 bool SwOLENode::RestorePersistentData()
 {
@@ -257,7 +258,7 @@ bool SwOLENode::RestorePersistentData()
         SfxObjectShell* p = GetDoc()->GetPersist();
         if( !p )
         {
-            // TODO/LATER: Isn't a EmbeddedObjectContainer sufficient here?
+            // TODO/LATER: Isn't an EmbeddedObjectContainer sufficient here?
             // What happens to this document?
             OSL_ENSURE( false, "Why are we creating a DocShell here?" );
             p = new SwDocShell( GetDoc(), SfxObjectCreateMode::INTERNAL );
@@ -285,6 +286,18 @@ bool SwOLENode::RestorePersistentData()
     }
 
     return true;
+}
+
+void SwOLENode::dumpAsXml(xmlTextWriterPtr pWriter) const
+{
+    xmlTextWriterStartElement(pWriter, BAD_CAST("SwOLENode"));
+    xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("ptr"), "%p", this);
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("index"),
+                                BAD_CAST(OString::number(GetIndex()).getStr()));
+
+    GetOLEObj().dumpAsXml(pWriter);
+
+    xmlTextWriterEndElement(pWriter);
 }
 
 /**
@@ -857,7 +870,7 @@ void SwOLEObj::SetNode( SwOLENode* pNode )
         SfxObjectShell* p = pDoc->GetPersist();
         if( !p )
         {
-            // TODO/LATER: Isn't a EmbeddedObjectContainer sufficient here?
+            // TODO/LATER: Isn't an EmbeddedObjectContainer sufficient here?
             // What happens to the document?
             OSL_ENSURE( false, "Why are we creating a DocShell here??" );
             p = new SwDocShell( pDoc, SfxObjectCreateMode::INTERNAL );
@@ -1102,6 +1115,19 @@ void SwOLEObj::resetBufferedData()
         m_pDeflateData->waitFinished();
         m_pDeflateData.reset();
     }
+}
+
+void SwOLEObj::dumpAsXml(xmlTextWriterPtr pWriter) const
+{
+    xmlTextWriterStartElement(pWriter, BAD_CAST("SwOLEObj"));
+    xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("ptr"), "%p", this);
+
+    xmlTextWriterStartElement(pWriter, BAD_CAST("m_xOLERef"));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("symbol"),
+                                BAD_CAST(typeid(*m_xOLERef.GetObject()).name()));
+    xmlTextWriterEndElement(pWriter);
+
+    xmlTextWriterEndElement(pWriter);
 }
 
 SwOLELRUCache::SwOLELRUCache()

@@ -52,8 +52,6 @@
 #include <xmloff/XMLEventsImportContext.hxx>
 #include <XMLImageMapContext.hxx>
 #include "XMLTextFrameContext.hxx"
-#include "XMLTextListBlockContext.hxx"
-#include "XMLTextListItemContext.hxx"
 #include <xmloff/attrlist.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
@@ -464,8 +462,7 @@ void XMLTextFrameContext_Impl::Create()
             }
             else
             {
-                OUString sURL( "vnd.sun.star.ServiceName:" );
-                sURL += sFilterService;
+                OUString sURL = "vnd.sun.star.ServiceName:" + sFilterService;
                 xPropSet = GetImport().GetTextImport()
                             ->createAndInsertOLEObject( GetImport(), sURL,
                                                         sStyleName,
@@ -708,7 +705,7 @@ void XMLTextFrameContext_Impl::Create()
     }
 
     // Make adding the shape to Z-Ordering dependent from if we are
-    // inside a inside_deleted_section (redlining). That is necessary
+    // inside an inside_deleted_section (redlining). That is necessary
     // since the shape will be removed again later. It would lead to
     // errors if it would stay inside the Z-Ordering. Thus, the
     // easiest way to solve that conflict is to not add it here.
@@ -1227,8 +1224,7 @@ void XMLTextFrameContext_Impl::Characters( const OUString& rChars )
                 OUString sChars;
                 if( !sBase64CharsLeft.isEmpty() )
                 {
-                    sChars = sBase64CharsLeft;
-                    sChars += sTrimmedChars;
+                    sChars = sBase64CharsLeft + sTrimmedChars;
                     sBase64CharsLeft.clear();
                 }
                 else
@@ -1526,7 +1522,7 @@ SvXMLImportContextRef XMLTextFrameContext::CreateChildContext(
 
                 if(getSupportsMultipleContents() && XML_TEXT_FRAME_GRAPHIC == nFrameType)
                 {
-                    addContent(*m_xImplContext.get());
+                    addContent(*m_xImplContext);
                 }
             }
         }
@@ -1539,7 +1535,7 @@ SvXMLImportContextRef XMLTextFrameContext::CreateChildContext(
             m_eDefaultAnchorType, XML_TEXT_FRAME_GRAPHIC, m_xAttrList, true);
 
         m_xImplContext = xContext;
-        addContent(*m_xImplContext.get());
+        addContent(*m_xImplContext);
     }
     else if( m_bSupportsReplacement && !m_xReplImplContext.is() &&
              XML_NAMESPACE_DRAW == p_nPrefix &&
@@ -1662,6 +1658,15 @@ SvXMLImportContextRef XMLTextFrameContext::CreateChildContext(
         xContext = m_xImplContext->CreateChildContext( p_nPrefix, rLocalName, xAttrList );
     }
     else if (p_nPrefix == XML_NAMESPACE_LO_EXT && (IsXMLToken(rLocalName, XML_SIGNATURELINE)))
+    {
+        if (getSupportsMultipleContents())
+        {   // tdf#103567 ensure props are set on surviving shape
+            // note: no more draw:image can be added once we get here
+            m_xImplContext = solveMultipleImages();
+        }
+        xContext = m_xImplContext->CreateChildContext(p_nPrefix, rLocalName, xAttrList);
+    }
+    else if (p_nPrefix == XML_NAMESPACE_LO_EXT && (IsXMLToken(rLocalName, XML_QRCODE)))
     {
         if (getSupportsMultipleContents())
         {   // tdf#103567 ensure props are set on surviving shape

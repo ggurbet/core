@@ -18,47 +18,22 @@
  */
 
 #include <sal/config.h>
-#include <sal/log.hxx>
-
-#include <cassert>
-#include <stdlib.h>
-#include <time.h>
-#include <typeinfo>
 
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/event.hxx>
-#include <vcl/help.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/decoview.hxx>
-#include <vcl/virdev.hxx>
-#include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 
-#include <sfx2/app.hxx>
-#include <sfx2/sfxdlg.hxx>
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/viewsh.hxx>
-#include <sfx2/msg.hxx>
-#include <sfx2/msgpool.hxx>
-#include <sfx2/minfitem.hxx>
-#include <sfx2/objsh.hxx>
-#include <sfx2/request.hxx>
-#include <sfx2/filedlghelper.hxx>
-#include <sfx2/sfxsids.hrc>
-#include <svl/stritem.hxx>
-#include <svtools/miscopt.hxx>
-#include <tools/diagnose_ex.h>
-
 #include <algorithm>
+#include <cstddef>
+
 #include <helpids.h>
 #include <strings.hrc>
 
-#include <acccfg.hxx>
 #include <cfg.hxx>
 #include <SvxNotebookbarConfigPage.hxx>
 #include <SvxConfigPageHelper.hxx>
 #include <dialmgr.hxx>
-#include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
 #include <osl/file.hxx>
 #include <CustomNotebookbarGenerator.hxx>
@@ -66,6 +41,7 @@
 #include <unotools/configmgr.hxx>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/frame/theUICommandDescription.hpp>
+#include <com/sun/star/ui/ImageType.hpp>
 
 namespace uno = com::sun::star::uno;
 namespace frame = com::sun::star::frame;
@@ -74,8 +50,8 @@ namespace container = com::sun::star::container;
 namespace beans = com::sun::star::beans;
 namespace graphic = com::sun::star::graphic;
 
-static bool isCategoryAvailable(OUString& sClassId, OUString& sUIItemId, OUString& sActiveCategory,
-                                bool& isCategory)
+static bool isCategoryAvailable(const OUString& sClassId, const OUString& sUIItemId,
+                                const OUString& sActiveCategory, bool& isCategory)
 {
     if (sUIItemId == sActiveCategory)
         return true;
@@ -90,7 +66,7 @@ static bool isCategoryAvailable(OUString& sClassId, OUString& sUIItemId, OUStrin
 static OUString charToString(const char* cString)
 {
     OUStringBuffer aString;
-    for (unsigned long i = 0; i < strlen(cString); i++)
+    for (std::size_t i = 0; i < strlen(cString); i++)
     {
         aString.append(cString[i]);
     }
@@ -114,19 +90,21 @@ static OUString getFileName(const OUString& aFileName)
 static OUString getModuleId(const OUString& sModuleName)
 {
     if (sModuleName == "Writer")
-        return OUString("com.sun.star.text.TextDocument");
+        return "com.sun.star.text.TextDocument";
     else if (sModuleName == "Draw")
-        return OUString("com.sun.star.drawing.DrawingDocument");
+        return "com.sun.star.drawing.DrawingDocument";
     else if (sModuleName == "Impress")
-        return OUString("com.sun.star.presentation.PresentationDocument");
+        return "com.sun.star.presentation.PresentationDocument";
     else if (sModuleName == "Calc")
-        return OUString("com.sun.star.sheet.SpreadsheetDocument");
+        return "com.sun.star.sheet.SpreadsheetDocument";
     else
-        return OUString("None");
+        return "None";
 }
 
-SvxNotebookbarConfigPage::SvxNotebookbarConfigPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SvxConfigPage(pParent, rSet)
+SvxNotebookbarConfigPage::SvxNotebookbarConfigPage(weld::Container* pPage,
+                                                   weld::DialogController* pController,
+                                                   const SfxItemSet& rSet)
+    : SvxConfigPage(pPage, pController, rSet)
 {
     m_xDescriptionFieldLb->set_visible(false);
     m_xSearchEdit->set_visible(false);
@@ -178,7 +156,7 @@ SvxNotebookbarConfigPage::SvxNotebookbarConfigPage(TabPageParent pParent, const 
     rTreeView.show();
 }
 
-SvxNotebookbarConfigPage::~SvxNotebookbarConfigPage() { disposeOnce(); }
+SvxNotebookbarConfigPage::~SvxNotebookbarConfigPage() {}
 
 void SvxNotebookbarConfigPage::DeleteSelectedTopLevel() {}
 
@@ -226,7 +204,7 @@ short SvxNotebookbarConfigPage::QueryReset()
     OUString label = SvxConfigPageHelper::replaceSaveInName(msg, saveInName);
 
     std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(
-        GetDialogFrameWeld(), VclMessageType::Question, VclButtonsType::YesNo, label));
+        GetFrameWeld(), VclMessageType::Question, VclButtonsType::YesNo, label));
     int nValue = xQueryBox->run();
     if (nValue == RET_YES)
     {
@@ -244,8 +222,9 @@ short SvxNotebookbarConfigPage::QueryReset()
     return nValue;
 }
 
-void SvxConfigPage::InsertEntryIntoNotebookbarTabUI(OUString& sClassId, OUString& sUIItemId,
-                                                    OUString& sUIItemCommand, int nPos,
+void SvxConfigPage::InsertEntryIntoNotebookbarTabUI(const OUString& sClassId,
+                                                    const OUString& sUIItemId,
+                                                    const OUString& sUIItemCommand, int nPos,
                                                     int nStartCol)
 {
     OUString sAppName, sFileName;
@@ -481,7 +460,7 @@ void SvxNotebookbarConfigPage::SelectElement()
 
     if (m_xTopLevelListBox->get_count() == 1)
     {
-        for (unsigned long nIdx = 0; nIdx < aCategoryList.size(); nIdx++)
+        for (std::size_t nIdx = 0; nIdx < aCategoryList.size(); nIdx++)
             m_xTopLevelListBox->append(aCategoryList[nIdx].sUIItemId,
                                        aCategoryList[nIdx].sDisplayName);
     }
@@ -491,7 +470,7 @@ void SvxNotebookbarConfigPage::SelectElement()
         nStart = 1;
 
     std::vector<NotebookbarEntries> aTempEntries;
-    for (unsigned long nIdx = nStart; nIdx < aEntries.size(); nIdx++)
+    for (std::size_t nIdx = nStart; nIdx < aEntries.size(); nIdx++)
     {
         if (aEntries[nIdx].sClassId == "svtlo-ManagedMenuButton")
         {
@@ -500,7 +479,7 @@ void SvxNotebookbarConfigPage::SelectElement()
             sal_Int32 rPos = 1;
             sActiveCategory = aEntries[nIdx].sUIItemId.getToken(rPos, ':', rPos);
             FillFunctionsList(aGtkEntries, aCategoryList, sActiveCategory);
-            for (unsigned long Idx = 0; Idx < aGtkEntries.size(); Idx++)
+            for (std::size_t Idx = 0; Idx < aGtkEntries.size(); Idx++)
                 aTempEntries.push_back(aGtkEntries[Idx]);
             aGtkEntries.clear();
         }
@@ -512,7 +491,7 @@ void SvxNotebookbarConfigPage::SelectElement()
     aTempEntries.clear();
 
     sal_Int64 nId = 0;
-    for (unsigned long nIdx = 0; nIdx < aEntries.size(); nIdx++)
+    for (std::size_t nIdx = 0; nIdx < aEntries.size(); nIdx++)
     {
         OUString sId(OUString::number(nId));
         m_xContentsListBox->insert(nIdx, sId);
@@ -545,8 +524,8 @@ SvxNotebookbarEntriesListBox::SvxNotebookbarEntriesListBox(std::unique_ptr<weld:
 
 SvxNotebookbarEntriesListBox::~SvxNotebookbarEntriesListBox() {}
 
-static void EditRegistryFile(OUString& sUIItemId, OUString& sSetEntry,
-                             OUString& sNotebookbarInterface)
+static void EditRegistryFile(const OUString& sUIItemId, const OUString& sSetEntry,
+                             const OUString& sNotebookbarInterface)
 {
     int nFlag = 0;
     Sequence<OUString> aOldEntries

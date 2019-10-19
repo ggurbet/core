@@ -36,7 +36,6 @@
 #include <filter/msfilter/dffrecordheader.hxx>
 #include <filter/msfilter/escherex.hxx>
 #include <filter/msfilter/msfilterdllapi.h>
-#include <rtl/string.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
 #include <svx/msdffdef.hxx>
@@ -654,7 +653,7 @@ public:
     bool GetBLIP( sal_uLong nIdx, Graphic& rData, tools::Rectangle* pVisArea = nullptr );
 
 // TODO: provide proper documentation here
-    /** read a BLIP out of a already positioned stream
+    /** read a BLIP out of an already positioned stream
 
         @param[in] rBLIPStream already positioned stream (mandatory)
         @param[out] rData      already converted data (insert directly as

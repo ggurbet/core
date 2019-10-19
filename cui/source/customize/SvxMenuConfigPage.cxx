@@ -20,80 +20,26 @@
 #include <sal/config.h>
 #include <sal/log.hxx>
 
-#include <cassert>
-#include <stdlib.h>
-#include <time.h>
-#include <typeinfo>
-
 #include <vcl/commandinfoprovider.hxx>
-#include <vcl/help.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/decoview.hxx>
-#include <vcl/virdev.hxx>
-#include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
-
-#include <sfx2/app.hxx>
-#include <sfx2/sfxdlg.hxx>
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/viewsh.hxx>
-#include <sfx2/msg.hxx>
-#include <sfx2/msgpool.hxx>
-#include <sfx2/minfitem.hxx>
-#include <sfx2/objsh.hxx>
-#include <sfx2/request.hxx>
-#include <sfx2/filedlghelper.hxx>
-#include <svl/stritem.hxx>
-#include <svtools/miscopt.hxx>
-#include <tools/diagnose_ex.h>
 
 #include <algorithm>
 #include <strings.hrc>
 #include <helpids.h>
 
-#include <acccfg.hxx>
 #include <cfg.hxx>
 #include <SvxMenuConfigPage.hxx>
 #include <SvxConfigPageHelper.hxx>
 #include <dialmgr.hxx>
 
 #include <comphelper/processfactory.hxx>
-#include <unotools/configmgr.hxx>
-#include <com/sun/star/embed/ElementModes.hpp>
-#include <com/sun/star/embed/FileSystemStorageFactory.hpp>
-#include <com/sun/star/frame/UnknownModuleException.hpp>
-#include <com/sun/star/frame/XFrames.hpp>
-#include <com/sun/star/frame/XLayoutManager.hpp>
-#include <com/sun/star/frame/FrameSearchFlag.hpp>
-#include <com/sun/star/frame/ModuleManager.hpp>
-#include <com/sun/star/frame/XController.hpp>
-#include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/graphic/GraphicProvider.hpp>
-#include <com/sun/star/io/IOException.hpp>
-#include <com/sun/star/lang/IllegalAccessException.hpp>
-#include <com/sun/star/ui/ItemType.hpp>
-#include <com/sun/star/ui/ItemStyle.hpp>
-#include <com/sun/star/ui/ImageManager.hpp>
-#include <com/sun/star/ui/theModuleUIConfigurationManagerSupplier.hpp>
-#include <com/sun/star/ui/XUIConfiguration.hpp>
-#include <com/sun/star/ui/XUIConfigurationListener.hpp>
-#include <com/sun/star/ui/XUIConfigurationManagerSupplier.hpp>
-#include <com/sun/star/ui/XUIConfigurationPersistence.hpp>
-#include <com/sun/star/ui/XUIConfigurationStorage.hpp>
-#include <com/sun/star/ui/XModuleUIConfigurationManager.hpp>
-#include <com/sun/star/ui/XUIElement.hpp>
-#include <com/sun/star/ui/UIElementType.hpp>
 #include <com/sun/star/ui/ImageType.hpp>
-#include <com/sun/star/ui/theWindowStateConfiguration.hpp>
-#include <com/sun/star/ui/dialogs/ExtendedFilePickerElementIds.hpp>
-#include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
-#include <com/sun/star/ui/dialogs/XFilePickerControlAccess.hpp>
-#include <com/sun/star/util/thePathSettings.hpp>
 
 #include <dlgname.hxx>
 
-SvxMenuConfigPage::SvxMenuConfigPage(TabPageParent pParent, const SfxItemSet& rSet, bool bIsMenuBar)
-    : SvxConfigPage(pParent, rSet)
+SvxMenuConfigPage::SvxMenuConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet, bool bIsMenuBar)
+    : SvxConfigPage(pPage, pController, rSet)
     , m_bIsMenuBar(bIsMenuBar)
 {
     m_xGearBtn = m_xBuilder->weld_menu_button("menugearbtn");
@@ -188,7 +134,9 @@ IMPL_LINK(SvxMenuConfigPage, MenuEntriesSizeAllocHdl, const Size&, rSize, void)
 
 SvxMenuConfigPage::~SvxMenuConfigPage()
 {
-    disposeOnce();
+    for (int i = 0, nCount = m_xSaveInListBox->get_count(); i < nCount; ++i)
+        delete reinterpret_cast<SaveInData*>(m_xSaveInListBox->get_id(i).toInt64());
+    m_xSaveInListBox->clear();
 }
 
 // Populates the Menu combo box
@@ -208,15 +156,6 @@ void SvxMenuConfigPage::Init()
         m_xFrame,
         vcl::CommandInfoProvider::GetModuleIdentifier(m_xFrame));
     m_xCommandCategoryListBox->categorySelected(m_xFunctions.get(), OUString(), GetSaveInData());
-}
-
-void SvxMenuConfigPage::dispose()
-{
-    for (int i = 0, nCount = m_xSaveInListBox->get_count(); i < nCount; ++i)
-        delete reinterpret_cast<SaveInData*>(m_xSaveInListBox->get_id(i).toInt64());
-    m_xSaveInListBox->clear();
-
-    SvxConfigPage::dispose();
 }
 
 IMPL_LINK_NOARG(SvxMenuConfigPage, SelectMenuEntry, weld::TreeView&, void)
@@ -318,7 +257,7 @@ short SvxMenuConfigPage::QueryReset()
 
     OUString label = SvxConfigPageHelper::replaceSaveInName( msg, saveInName );
 
-    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                    VclMessageType::Question, VclButtonsType::YesNo,
                                                    label));
     return xQueryBox->run();
@@ -351,7 +290,7 @@ IMPL_LINK(SvxMenuConfigPage, GearHdl, const OString&, rIdent, void)
 {
     if (rIdent == "menu_gear_add")
     {
-        SvxMainMenuOrganizerDialog aDialog(GetDialogFrameWeld(),
+        SvxMainMenuOrganizerDialog aDialog(GetFrameWeld(),
             GetSaveInData()->GetEntries(), nullptr, true );
 
         if (aDialog.run() == RET_OK)
@@ -372,7 +311,7 @@ IMPL_LINK(SvxMenuConfigPage, GearHdl, const OString&, rIdent, void)
         OUString sCurrentName( SvxConfigPageHelper::stripHotKey( pMenuData->GetName() ) );
         OUString sDesc = CuiResId( RID_SVXSTR_LABEL_NEW_NAME );
 
-        SvxNameDialog aNameDialog(GetDialogFrameWeld(), sCurrentName, sDesc);
+        SvxNameDialog aNameDialog(GetFrameWeld(), sCurrentName, sDesc);
         aNameDialog.set_help_id(HID_SVX_CONFIG_RENAME_MENU);
         aNameDialog.set_title(CuiResId(RID_SVXSTR_RENAME_MENU));
 
@@ -394,7 +333,7 @@ IMPL_LINK(SvxMenuConfigPage, GearHdl, const OString&, rIdent, void)
     {
         SvxConfigEntry* pMenuData = GetTopLevelSelection();
 
-        SvxMainMenuOrganizerDialog aDialog(GetDialogFrameWeld(), GetSaveInData()->GetEntries(),
+        SvxMainMenuOrganizerDialog aDialog(GetFrameWeld(), GetSaveInData()->GetEntries(),
                 pMenuData, false );
         if (aDialog.run() == RET_OK)
         {
@@ -424,7 +363,7 @@ IMPL_LINK_NOARG(SvxMenuConfigPage, SelectCategory, weld::ComboBox&, void)
 
 IMPL_LINK_NOARG( SvxMenuConfigPage, AddCommandHdl, weld::Button&, void )
 {
-    int nPos = AddFunction();
+    int nPos = AddFunction(-1, /*bAllowDuplicates*/false);
     if (nPos == -1)
         return;
     SvxConfigEntry* pEntry =
@@ -455,7 +394,7 @@ IMPL_LINK(SvxMenuConfigPage, InsertHdl, const OString&, rIdent, void)
         OUString aNewName;
         OUString aDesc = CuiResId( RID_SVXSTR_SUBMENU_NAME );
 
-        SvxNameDialog aNameDialog(GetDialogFrameWeld(), aNewName, aDesc);
+        SvxNameDialog aNameDialog(GetFrameWeld(), aNewName, aDesc);
         aNameDialog.set_help_id(HID_SVX_CONFIG_NAME_SUBMENU);
         aNameDialog.set_title(CuiResId( RID_SVXSTR_ADD_SUBMENU));
 
@@ -504,7 +443,7 @@ IMPL_LINK(SvxMenuConfigPage, ModifyItemHdl, const OString&, rIdent, void)
         OUString aNewName( SvxConfigPageHelper::stripHotKey( pEntry->GetName() ) );
         OUString aDesc = CuiResId( RID_SVXSTR_LABEL_NEW_NAME );
 
-        SvxNameDialog aNameDialog(GetDialogFrameWeld(), aNewName, aDesc);
+        SvxNameDialog aNameDialog(GetFrameWeld(), aNewName, aDesc);
         aNameDialog.set_help_id(HID_SVX_CONFIG_RENAME_MENU_ITEM);
         aNameDialog.set_title(CuiResId(RID_SVXSTR_RENAME_MENU));
 
@@ -542,7 +481,7 @@ IMPL_LINK_NOARG(SvxMenuConfigPage, ResetMenuHdl, weld::Button&, void)
         return;
     }
 
-    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                    VclMessageType::Question, VclButtonsType::YesNo,
                                                    CuiResId(RID_SVXSTR_CONFIRM_RESTORE_DEFAULT_MENU)));
 

@@ -125,7 +125,6 @@
 #include <fmtfollowtextflow.hxx>
 #include <fmtwrapinfluenceonobjpos.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
-#include <calbck.hxx>
 #include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <sal/log.hxx>
@@ -293,7 +292,7 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
     // use brush items, but *only* if no FillStyle properties are used; if both are used and when applying both
     // in the obvious order some attributes may be wrong since they are set by the 1st set, but not
     // redefined as needed by the 2nd set when they are default (and thus no tset) in the 2nd set. If
-    // it is necessary for any reason to set both (it should not) a in-between step will be needed
+    // it is necessary for any reason to set both (it should not) an in-between step will be needed
     // that resets the items for FillAttributes in rToSet to default.
     // Note: There are other mechanisms in XMLOFF to pre-sort this relationship already, but this version
     // was used initially, is tested and works. Keep it to be able to react when another feed adds attributes
@@ -943,10 +942,15 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
     // #i28701# - RES_WRAP_INFLUENCE_ON_OBJPOS
     const ::uno::Any* pWrapInfluenceOnObjPos = nullptr;
     GetProperty(RES_WRAP_INFLUENCE_ON_OBJPOS, MID_WRAP_INFLUENCE, pWrapInfluenceOnObjPos);
-    if ( pWrapInfluenceOnObjPos )
+    const ::uno::Any* pAllowOverlap = nullptr;
+    GetProperty(RES_WRAP_INFLUENCE_ON_OBJPOS, MID_ALLOW_OVERLAP, pAllowOverlap);
+    if ( pWrapInfluenceOnObjPos || pAllowOverlap )
     {
         SwFormatWrapInfluenceOnObjPos aFormatWrapInfluenceOnObjPos;
-        aFormatWrapInfluenceOnObjPos.PutValue( *pWrapInfluenceOnObjPos, MID_WRAP_INFLUENCE );
+        if (pWrapInfluenceOnObjPos)
+            aFormatWrapInfluenceOnObjPos.PutValue( *pWrapInfluenceOnObjPos, MID_WRAP_INFLUENCE );
+        if (pAllowOverlap)
+            aFormatWrapInfluenceOnObjPos.PutValue( *pAllowOverlap, MID_ALLOW_OVERLAP );
         rToSet.Put(aFormatWrapInfluenceOnObjPos);
     }
 
@@ -1174,9 +1178,7 @@ const ::uno::Sequence< sal_Int8 > & SwXFrame::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SwXFrame::getSomething( const ::uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXFrame>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >(this) );
     }
@@ -1186,7 +1188,7 @@ sal_Int64 SAL_CALL SwXFrame::getSomething( const ::uno::Sequence< sal_Int8 >& rI
 
 OUString SwXFrame::getImplementationName()
 {
-    return OUString("SwXFrame");
+    return "SwXFrame";
 }
 
 sal_Bool SwXFrame::supportsService(const OUString& rServiceName)
@@ -1196,15 +1198,12 @@ sal_Bool SwXFrame::supportsService(const OUString& rServiceName)
 
 uno::Sequence< OUString > SwXFrame::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(3);
-    aRet[0] = "com.sun.star.text.BaseFrame";
-    aRet[1] = "com.sun.star.text.TextContent";
-    aRet[2] = "com.sun.star.document.LinkTarget";
-    return aRet;
+    return { "com.sun.star.text.BaseFrame", "com.sun.star.text.TextContent", "com.sun.star.document.LinkTarget" };
 }
 
 SwXFrame::SwXFrame(FlyCntType eSet, const ::SfxItemPropertySet* pSet, SwDoc *pDoc)
     : m_pImpl(new Impl)
+    , m_pFrameFormat(nullptr)
     , m_pPropSet(pSet)
     , m_pDoc(pDoc)
     , eType(eSet)
@@ -1214,7 +1213,7 @@ SwXFrame::SwXFrame(FlyCntType eSet, const ::SfxItemPropertySet* pSet, SwDoc *pDo
     , m_nVisibleAreaHeight(0)
 {
     // Register ourselves as a listener to the document (via the page descriptor)
-    pDoc->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->Add(this);
+    StartListening(pDoc->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->GetNotifier());
     // get the property set for the default style data
     // First get the model
     uno::Reference < XModel > xModel = pDoc->GetDocShell()->GetBaseModel();
@@ -1258,8 +1257,8 @@ SwXFrame::SwXFrame(FlyCntType eSet, const ::SfxItemPropertySet* pSet, SwDoc *pDo
 }
 
 SwXFrame::SwXFrame(SwFrameFormat& rFrameFormat, FlyCntType eSet, const ::SfxItemPropertySet* pSet)
-    : SwClient(&rFrameFormat)
-    , m_pImpl(new Impl)
+    : m_pImpl(new Impl)
+    , m_pFrameFormat(&rFrameFormat)
     , m_pPropSet(pSet)
     , m_pDoc(nullptr)
     , eType(eSet)
@@ -1268,6 +1267,7 @@ SwXFrame::SwXFrame(SwFrameFormat& rFrameFormat, FlyCntType eSet, const ::SfxItem
     , m_nVisibleAreaWidth(0)
     , m_nVisibleAreaHeight(0)
 {
+    StartListening(rFrameFormat.GetNotifier());
 }
 
 SwXFrame::~SwXFrame()
@@ -1479,11 +1479,10 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
                     else if(aValue >>= aParam)
                     {
                         tools::PolyPolygon aPoly(static_cast<sal_uInt16>(aParam.getLength()));
-                        for(sal_Int32 i = 0; i < aParam.getLength(); i++)
+                        for(const ::drawing::PointSequence& rPointSeq : std::as_const(aParam))
                         {
-                            const ::drawing::PointSequence* pPointSeq = aParam.getConstArray();
-                            sal_Int32 nPoints = pPointSeq[i].getLength();
-                            const ::awt::Point* pPoints = pPointSeq[i].getConstArray();
+                            sal_Int32 nPoints = rPointSeq.getLength();
+                            const ::awt::Point* pPoints = rPointSeq.getConstArray();
                             tools::Polygon aSet( static_cast<sal_uInt16>(nPoints) );
                             for(sal_Int32 j = 0; j < nPoints; j++)
                             {
@@ -1730,10 +1729,7 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
             uno::Reference<text::XTextFrame> xFrame;
             if(aValue >>= xFrame)
             {
-                uno::Reference<lang::XUnoTunnel> xTunnel(xFrame, uno::UNO_QUERY);
-                SwXFrame* pFrame = xTunnel.is() ?
-                        reinterpret_cast< SwXFrame * >( sal::static_int_cast< sal_IntPtr >( xTunnel->getSomething(SwXFrame::getUnoTunnelId()) ))
-                        : nullptr;
+                SwXFrame* pFrame = comphelper::getUnoTunnelImplementation<SwXFrame>(xFrame);
                 if(pFrame && this != pFrame && pFrame->GetFrameFormat() && pFrame->GetFrameFormat()->GetDoc() == pDoc)
                 {
                     SfxItemSet aSet( pDoc->GetAttrPool(),
@@ -2461,8 +2457,7 @@ uno::Sequence< beans::PropertyState > SwXFrame::getPropertyStates(
     }
     else if(IsDescriptor())
     {
-        for(int i = 0; i < aPropertyNames.getLength(); i++)
-            pStates[i] = beans::PropertyState_DIRECT_VALUE;
+        std::fill(aStates.begin(), aStates.end(), beans::PropertyState_DIRECT_VALUE);
     }
     else
         throw uno::RuntimeException();
@@ -2599,13 +2594,8 @@ void SAL_CALL SwXFrame::removeEventListener(
     m_pImpl->m_EventListeners.removeInterface(xListener);
 }
 
-void SwXFrame::Modify(const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwXFrame::DisposeInternal()
 {
-    ClientModify(this, pOld, pNew);
-    if (GetRegisteredIn())
-    {
-        return; // core object still alive
-    }
     mxStyleData.clear();
     mxStyleFamily.clear();
     m_pDoc = nullptr;
@@ -2616,14 +2606,22 @@ void SwXFrame::Modify(const SfxPoolItem* pOld, const SfxPoolItem *pNew)
     }
     lang::EventObject const ev(xThis);
     m_pImpl->m_EventListeners.disposeAndClear(ev);
+    m_pFrameFormat = nullptr;
+    EndListeningAll();
+}
+void SwXFrame::Notify(const SfxHint& rHint)
+{
+    if(rHint.GetId() == SfxHintId::Dying)
+        DisposeInternal();
 }
 
 void SwXFrame::dispose()
 {
     SolarMutexGuard aGuard;
     SwFrameFormat* pFormat = GetFrameFormat();
-    if ( pFormat )
+    if (pFormat)
     {
+        DisposeInternal();
         SdrObject* pObj = pFormat->FindSdrObject();
         // OD 11.09.2003 #112039# - add condition to perform delete of
         // format/anchor sign, not only if the object is inserted, but also
@@ -2801,7 +2799,9 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
         }
         if(pFormat)
         {
-            pFormat->Add(this);
+            EndListeningAll();
+            m_pFrameFormat = pFormat;
+            StartListening(pFormat->GetNotifier());
             if(!m_sName.isEmpty())
                 pDoc->SetFlyName(*pFormat, m_sName);
         }
@@ -2853,7 +2853,9 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
                                         ->GetIndex()+1 ]->GetGrfNode();
             if (pGrfNd)
                 pGrfNd->SetChgTwipSize( !bSizeFound );
-            pFormat->Add(this);
+            m_pFrameFormat = pFormat;
+            EndListeningAll();
+            StartListening(m_pFrameFormat->GetNotifier());
             if(!m_sName.isEmpty())
                 pDoc->SetFlyName(*pFormat, m_sName);
 
@@ -2979,7 +2981,9 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
                 assert(pFormat2 && "Doc->Insert(notxt) failed.");
 
                 pDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT, nullptr);
-                pFormat2->Add(this);
+                m_pFrameFormat = pFormat2;
+                EndListeningAll();
+                StartListening(m_pFrameFormat->GetNotifier());
                 if(!m_sName.isEmpty())
                     pDoc->SetFlyName(*pFormat2, m_sName);
             }
@@ -3014,7 +3018,9 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
             }
 
             pDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT, nullptr);
-            pFrameFormat->Add(this);
+            m_pFrameFormat = pFrameFormat;
+            EndListeningAll();
+            StartListening(m_pFrameFormat->GetNotifier());
             if(!m_sName.isEmpty())
                 pDoc->SetFlyName(*pFrameFormat, m_sName);
         }
@@ -3040,7 +3046,9 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
             SwFlyFrameFormat* pFrameFormat
                 = pDoc->getIDocumentContentOperations().InsertEmbObject(aPam, xObj, &aFrameSet);
             pDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT, nullptr);
-            pFrameFormat->Add(this);
+            m_pFrameFormat = pFrameFormat;
+            EndListeningAll();
+            StartListening(m_pFrameFormat->GetNotifier());
             if(!m_sName.isEmpty())
                 pDoc->SetFlyName(*pFrameFormat, m_sName);
         }
@@ -3079,6 +3087,8 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
 
 void SwXFrame::attach(const uno::Reference< text::XTextRange > & xTextRange)
 {
+    SolarMutexGuard g;
+
     SwFrameFormat* pFormat;
     if(IsDescriptor())
         attachToRange(xTextRange);
@@ -3130,7 +3140,7 @@ void SwXFrame::setSize(const awt::Size& aSize)
 
 OUString SwXFrame::getShapeType()
 {
-    return OUString("FrameShape");
+    return "FrameShape";
 }
 
 SwXTextFrame::SwXTextFrame( SwDoc *_pDoc ) :
@@ -3331,7 +3341,7 @@ void SwXTextFrame::removeEventListener(const uno::Reference< lang::XEventListene
 
 OUString SwXTextFrame::getImplementationName()
 {
-    return OUString("SwXTextFrame");
+    return "SwXTextFrame";
 }
 
 sal_Bool SwXTextFrame::supportsService(const OUString& rServiceName)
@@ -3403,7 +3413,7 @@ SwXTextGraphicObject::CreateXTextGraphicObject(SwDoc & rDoc, SwFrameFormat *cons
 
 OUString SwXTextGraphicObject::getImplementationName()
 {
-    return OUString("SwXTextGraphicObject");
+    return "SwXTextGraphicObject";
 }
 
 sal_Bool SwXTextGraphicObject::supportsService(const OUString& rServiceName)
@@ -3541,7 +3551,7 @@ uno::Reference< graphic::XGraphic > SAL_CALL SwXTextEmbeddedObject::getReplaceme
 
 OUString SwXTextEmbeddedObject::getImplementationName()
 {
-    return OUString("SwXTextEmbeddedObject");
+    return "SwXTextEmbeddedObject";
 }
 
 sal_Bool SwXTextEmbeddedObject::supportsService(const OUString& rServiceName)

@@ -877,6 +877,14 @@
         </info>
         <value>true</value>
       </prop>
+      <prop oor:name="ReduceTransparencyMinArea" oor:type="xs:int" oor:nillable="false">
+        <info>
+           <desc>Specifies minimal area of an object for applying "Reduce Transparency"
+           printer configuration option (removing object transparency). This value
+           is counted in percents of the printable area.</desc>
+        </info>
+        <value>25</value>
+      </prop>
     </group>
     <group oor:name="InternalMSExport">
       <info>
@@ -1515,6 +1523,14 @@
             <label>Image Object Release Timeout</label>
           </info>
           <value>600</value>
+        </prop>
+        <prop oor:name="GraphicSwappingEnabled" oor:type="xs:boolean" oor:nillable="false">
+          <info>
+            <desc>Whether graphics will be swapped to disk when `GraphicMemoryLimit`
+            is reached. Disable at your own risk.</desc>
+            <label>Graphic Swapping Enabled</label>
+          </info>
+          <value>true</value>
         </prop>
         <prop oor:name="GraphicMemoryLimit" oor:type="xs:int" oor:nillable="false">
           <info>
@@ -3784,6 +3800,23 @@
         <desc>Specifies default settings of Microsoft-, Graphic- and HTML
         filters.</desc>
       </info>
+      <group oor:name="Adobe">
+        <info>
+          <desc>Specifies default settings of Adobe filters.</desc>
+        </info>
+        <group oor:name="Import">
+          <info>
+            <desc>Specifies default settings of Adobe import filters.</desc>
+          </info>
+          <prop oor:name="PDFToDraw" oor:type="xs:boolean" oor:nillable="false">
+            <info>
+              <desc>Specifies if convertible PDF OLE objects are converted
+              into Draw objects.</desc>
+            </info>
+            <value>true</value>
+          </prop>
+        </group>
+      </group>
       <group oor:name="Microsoft">
         <info>
           <desc>Specifies default settings of Microsoft filters.</desc>
@@ -3839,6 +3872,13 @@
               the lock file and show it for the user.</desc>
             </info>
             <value>false</value>
+          </prop>
+          <prop oor:name="VisioToDraw" oor:type="xs:boolean" oor:nillable="false">
+            <info>
+              <desc>Specifies if convertible Visio OLE objects are converted
+              into Draw objects.</desc>
+            </info>
+            <value>true</value>
           </prop>
         </group>
         <group oor:name="Export">
@@ -4938,6 +4978,13 @@
             </info>
             <value>false</value>
           </prop>
+          <prop oor:name="SinglePageSheets" oor:type="xs:boolean" oor:nillable="false">
+            <info>
+              <desc>Specifies if each sheet is exported to PDF as a single page.
+              (Available in Calc documents only).</desc>
+            </info>
+            <value>false</value>
+          </prop>
           <prop oor:name="ExportFormFields" oor:type="xs:boolean" oor:nillable="false">
             <info>
               <desc>Specifies whether form fields are exported as widgets or
@@ -5463,6 +5510,13 @@
         </info>
         <value>false</value>
       </prop>
+      <prop oor:name="CrashReport" oor:type="xs:boolean" oor:nillable="false">
+        <!-- UIHints: Tools - Options - General -->
+        <info>
+          <desc>Enable sending crash reports to The Document Foundation</desc>
+        </info>
+        <value>true</value>
+      </prop>
       <prop oor:name="ShowTipOfTheDay" oor:type="xs:boolean" oor:nillable="false">
         <!-- UIHints: Tools - Options - General -->
         <info>
@@ -5473,6 +5527,12 @@
       <prop oor:name="LastTipOfTheDayShown" oor:type="xs:int" oor:nillable="false">
           <info>
               <desc>The last time when the Tip-of-the-day dialog was shown.</desc>
+          </info>
+          <value>-1</value> <!-- +1 every 24h -->
+      </prop>
+      <prop oor:name="LastTipOfTheDayID" oor:type="xs:int" oor:nillable="false">
+          <info>
+              <desc>The last shown Tip-of-the-day.</desc>
           </info>
           <value>0</value>
       </prop>
@@ -5804,7 +5864,7 @@
         <info>
           <desc>Determines the type of character distance compression in Asian
           text: 0 - no compression; 1 - compress punctuation only; 2 - compress
-          interpunction an japanese kana.</desc>
+          interpunction a Japanese kana.</desc>
           <label>CompressCharacterDistance</label>
         </info>
         <value>0</value>

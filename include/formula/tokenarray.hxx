@@ -429,11 +429,11 @@ public:
                                 { return (nMode & ScRecalcMode::EMask) <= ScRecalcMode::ONLOAD_ONCE; }
 
                             /** Get OpCode of the most outer function */
-    inline OpCode           GetOuterFuncOpCode();
+    inline OpCode           GetOuterFuncOpCode() const;
 
                             /** Operators +,-,*,/,^,&,=,<>,<,>,<=,>=
                                 with DoubleRef in Formula? */
-    bool                    HasMatrixDoubleRefOps();
+    bool                    HasMatrixDoubleRefOps() const;
 
     virtual FormulaToken* AddOpCode(OpCode e);
 
@@ -505,7 +505,7 @@ public:
     void ReinternStrings( svl::SharedStringPool& rPool );
 };
 
-inline OpCode FormulaTokenArray::GetOuterFuncOpCode()
+inline OpCode FormulaTokenArray::GetOuterFuncOpCode() const
 {
     if ( pRPN && nRPN )
         return pRPN[nRPN-1]->GetOpCode();
@@ -562,6 +562,10 @@ public:
     void Jump( short nStart, short nNext, short nStop = SHRT_MAX );
     void Push( const FormulaTokenArray* );
     void Pop();
+
+    /** Reconstruct the iterator afresh from a token array
+    */
+    void ReInit( const FormulaTokenArray& );
 
 private:
     const FormulaToken* GetNonEndOfPathToken( short nIdx ) const;

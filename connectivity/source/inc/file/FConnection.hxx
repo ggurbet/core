@@ -90,7 +90,7 @@ namespace connectivity
             virtual sal_Bool SAL_CALL getAutoCommit(  ) override;
             virtual void SAL_CALL commit(  ) override;
             virtual void SAL_CALL rollback(  ) override;
-            virtual sal_Bool SAL_CALL isClosed(  ) override;
+            virtual sal_Bool SAL_CALL isClosed(  ) override final;
             virtual css::uno::Reference< css::sdbc::XDatabaseMetaData > SAL_CALL getMetaData(  ) override;
             virtual void SAL_CALL setReadOnly( sal_Bool readOnly ) override;
             virtual sal_Bool SAL_CALL isReadOnly(  ) override;
@@ -101,13 +101,13 @@ namespace connectivity
             virtual css::uno::Reference< css::container::XNameAccess > SAL_CALL getTypeMap(  ) override;
             virtual void SAL_CALL setTypeMap( const css::uno::Reference< css::container::XNameAccess >& typeMap ) override;
             // XCloseable
-            virtual void SAL_CALL close(  ) override;
+            virtual void SAL_CALL close(  ) override final;
             // XWarningsSupplier
             virtual css::uno::Any SAL_CALL getWarnings(  ) override;
             virtual void SAL_CALL clearWarnings(  ) override;
             //XUnoTunnel
             virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& aIdentifier ) override;
-            static css::uno::Sequence< sal_Int8 > getUnoTunnelImplementationId();
+            static css::uno::Sequence< sal_Int8 > getUnoTunnelId();
 
             // no interface methods
             css::uno::Reference< css::ucb::XDynamicResultSet > getDir() const;

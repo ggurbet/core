@@ -20,9 +20,9 @@
 #ifndef INCLUDED_FPICKER_SOURCE_OFFICE_OFFICECONTROLACCESS_HXX
 #define INCLUDED_FPICKER_SOURCE_OFFICE_OFFICECONTROLACCESS_HXX
 
-#include <svtools/fileview.hxx>
 #include <vcl/lstbox.hxx>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
+#include "fileview.hxx"
 #include "pickercallbacks.hxx"
 #include <o3tl/typed_flags_set.hxx>
 
@@ -73,7 +73,7 @@ namespace svt
         css::uno::Any  getControlProperty( const OUString& _rControlName, const OUString& _rControlProperty );
 
         // XControlInformation implementation
-        css::uno::Sequence< OUString >  getSupportedControls(  );
+        css::uno::Sequence< OUString >  getSupportedControls(  ) const;
         css::uno::Sequence< OUString >  getSupportedControlProperties( const OUString& _rControlName );
         static bool                     isControlSupported( const OUString& _rControlName );
         bool                            isControlPropertySupported( const OUString& _rControlName, const OUString& _rControlProperty );

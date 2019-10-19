@@ -63,6 +63,7 @@
 #include <osl/diagnose.h>
 #include <osl/process.h>
 #include <sal/log.hxx>
+#include <svtools/miscopt.hxx>
 #include <tools/urlobj.hxx>
 #include <typelib/typedescription.hxx>
 #include <unotools/confignode.hxx>
@@ -495,7 +496,7 @@ ODatabaseSource::~ODatabaseSource()
 
 void ODatabaseSource::setName( const Reference< XDocumentDataSource >& _rxDocument, const OUString& _rNewName, DBContextAccess )
 {
-    ODatabaseSource& rModelImpl = dynamic_cast< ODatabaseSource& >( *_rxDocument.get() );
+    ODatabaseSource& rModelImpl = dynamic_cast< ODatabaseSource& >( *_rxDocument );
 
     SolarMutexGuard g;
     if ( rModelImpl.m_pImpl.is() )
@@ -548,7 +549,7 @@ void SAL_CALL ODatabaseSource::disposing( const css::lang::EventObject& Source )
 // XServiceInfo
 OUString ODatabaseSource::getImplementationName(  )
 {
-    return OUString("com.sun.star.comp.dba.ODatabaseSource");
+    return "com.sun.star.comp.dba.ODatabaseSource";
 }
 
 Sequence< OUString > ODatabaseSource::getSupportedServiceNames(  )
@@ -576,23 +577,22 @@ void ODatabaseSource::disposing()
     m_pImpl.clear();
 }
 
-namespace
+weld::Window* ODatabaseModelImpl::GetFrameWeld()
 {
-#if ENABLE_FIREBIRD_SDBC
-    weld::Window* GetFrameWeld(const Reference<XModel>& rModel)
-    {
-        if (!rModel.is())
-            return nullptr;
-        Reference<XController> xController(rModel->getCurrentController());
-        if (!xController.is())
-            return nullptr;
-        Reference<XFrame> xFrame(xController->getFrame());
-        if (!xFrame.is())
-            return nullptr;
-        Reference<css::awt::XWindow> xWindow(xFrame->getContainerWindow());
-        return Application::GetFrameWeld(xWindow);
-    }
-#endif
+    if (m_xDialogParent.is())
+        return Application::GetFrameWeld(m_xDialogParent);
+
+    Reference<XModel> xModel = getModel_noCreate();
+    if (!xModel.is())
+        return nullptr;
+    Reference<XController> xController(xModel->getCurrentController());
+    if (!xController.is())
+        return nullptr;
+    Reference<XFrame> xFrame(xController->getFrame());
+    if (!xFrame.is())
+        return nullptr;
+    Reference<css::awt::XWindow> xWindow(xFrame->getContainerWindow());
+    return Application::GetFrameWeld(xWindow);
 }
 
 Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString& _rUid, const OUString& _rPwd)
@@ -602,8 +602,26 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
     Reference< XDriverManager > xManager;
 
 #if ENABLE_FIREBIRD_SDBC
+    bool bIgnoreMigration = false;
     bool bNeedMigration = false;
-    if(m_pImpl->m_sConnectURL == "sdbc:embedded:hsqldb")
+    Reference< XModel > xModel = m_pImpl->getModel_noCreate();
+    if ( xModel)
+    {
+        //See ODbTypeWizDialogSetup::SaveDatabaseDocument
+        ::comphelper::NamedValueCollection aArgs( xModel->getArgs() );
+        aArgs.get("IgnoreFirebirdMigration") >>= bIgnoreMigration;
+    }
+    else
+    {
+        //ignore when we don't have a model. E.g. Mailmerge, data sources, fields...
+        bIgnoreMigration = true;
+    }
+    SvtMiscOptions aMiscOptions;
+
+    if (!aMiscOptions.IsExperimentalMode())
+        bIgnoreMigration = true;
+
+    if(!bIgnoreMigration && m_pImpl->m_sConnectURL == "sdbc:embedded:hsqldb")
     {
         Reference<XStorage> const xRootStorage = m_pImpl->getOrCreateRootStorage();
         OUString sMigrEnvVal;
@@ -619,7 +637,7 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
                 && (nOpenMode & css::embed::ElementModes::WRITE)
                 && (!Application::IsHeadlessModeEnabled()))
             {
-                MigrationWarnDialog aWarnDlg(GetFrameWeld(m_pImpl->getModel_noCreate()));
+                MigrationWarnDialog aWarnDlg(m_pImpl->GetFrameWeld());
                 bNeedMigration = aWarnDlg.run() == RET_OK;
             }
         }
@@ -692,8 +710,7 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("dbaccess",  "ODatabaseSource::buildLowLevelConnection: got a strange exception while analyzing the error! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION("dbaccess",  "ODatabaseSource::buildLowLevelConnection: got a strange exception while analyzing the error" );
         }
         if ( !xDriver.is() || !xDriver->acceptsURL( m_pImpl->m_sConnectURL ) )
         {
@@ -763,7 +780,7 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
                 m_pImpl->getDocumentSubStorageSupplier() );
         dbahsql::HsqlImporter importer(xReturn,
                 xDocSup->getDocumentSubStorage("database",ElementModes::READWRITE) );
-        importer.importHsqlDatabase(GetFrameWeld(m_pImpl->getModel_noCreate()));
+        importer.importHsqlDatabase(m_pImpl->GetFrameWeld());
     }
 #endif
 
@@ -840,7 +857,7 @@ sal_Bool ODatabaseSource::convertFastPropertyValue(Any & rConvertedValue, Any & 
                 if (!(rValue >>= aValues))
                     throw IllegalArgumentException();
 
-                for ( auto const & checkName : aValues )
+                for ( auto const & checkName : std::as_const(aValues) )
                 {
                     if ( checkName.Name.isEmpty() )
                         throw IllegalArgumentException();
@@ -912,7 +929,7 @@ namespace
         {
             // obtain all properties currently known at the bag
             Reference< XPropertySetInfo > xPSI( _rxPropertyBag->getPropertySetInfo(), UNO_SET_THROW );
-            Sequence< Property > aAllExistentProperties( xPSI->getProperties() );
+            const Sequence< Property > aAllExistentProperties( xPSI->getProperties() );
 
             Reference< XPropertyState > xPropertyState( _rxPropertyBag, UNO_QUERY_THROW );
 
@@ -1018,7 +1035,7 @@ void ODatabaseSource::getFastPropertyValue( Any& rValue, sal_Int32 nHandle ) con
                     // collect the property attributes of all current settings
                     Reference< XPropertySet > xSettingsAsProps( m_pImpl->m_xSettings, UNO_QUERY_THROW );
                     Reference< XPropertySetInfo > xPST( xSettingsAsProps->getPropertySetInfo(), UNO_SET_THROW );
-                    Sequence< Property > aSettings( xPST->getProperties() );
+                    const Sequence< Property > aSettings( xPST->getProperties() );
                     std::map< OUString, sal_Int32 > aPropertyAttributes;
                     for ( auto const & setting : aSettings )
                     {
@@ -1383,6 +1400,13 @@ Reference< XOfficeDatabaseDocument > SAL_CALL ODatabaseSource::getDatabaseDocume
         xModel = m_pImpl->createNewModel_deliverOwnership();
 
     return Reference< XOfficeDatabaseDocument >( xModel, UNO_QUERY_THROW );
+}
+
+void SAL_CALL ODatabaseSource::initialize( css::uno::Sequence< css::uno::Any > const & rArguments)
+{
+    ::comphelper::NamedValueCollection aProperties( rArguments );
+    if (aProperties.has("ParentWindow"))
+        aProperties.get("ParentWindow") >>= m_pImpl->m_xDialogParent;
 }
 
 Reference< XInterface > ODatabaseSource::getThis() const

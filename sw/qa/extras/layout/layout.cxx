@@ -12,7 +12,7 @@
 #include <comphelper/propertysequence.hxx>
 #include <com/sun/star/linguistic2/LinguServiceManager.hpp>
 #include <com/sun/star/frame/DispatchHelper.hpp>
-#include <officecfg/Office/Common.hxx>
+#include <com/sun/star/text/WrapTextMode.hpp>
 #include <comphelper/scopeguard.hxx>
 #include <unotools/syslocaleoptions.hxx>
 #include <i18nlangtag/languagetag.hxx>
@@ -25,6 +25,11 @@
 #include <edtwin.hxx>
 #include <view.hxx>
 #include <txtfrm.hxx>
+#include <pagefrm.hxx>
+#include <bodyfrm.hxx>
+#include <sortedobjs.hxx>
+#include <anchoredobject.hxx>
+#include <ndtxt.hxx>
 
 static char const DATA_DIRECTORY[] = "/sw/qa/extras/layout/data/";
 
@@ -98,18 +103,6 @@ void SwLayoutWriter::CheckRedlineFootnotesHidden()
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFootnotes)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     createDoc("redline_footnotes.odt");
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -206,18 +199,6 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFootnotes)
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInBody)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     loadURL("private:factory/swriter", nullptr);
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -484,18 +465,6 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInBody)
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInHeader)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     loadURL("private:factory/swriter", nullptr);
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -779,18 +748,6 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInHeader)
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInFootnote)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     loadURL("private:factory/swriter", nullptr);
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -1169,18 +1126,6 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInFootnote)
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInFlys)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     loadURL("private:factory/swriter", nullptr);
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -1645,18 +1590,6 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInFlys)
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysAtFlys)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     loadURL("private:factory/swriter", nullptr);
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -1933,18 +1866,6 @@ void SwLayoutWriter::CheckRedlineSectionsHidden()
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineSections)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     createDoc("redline_sections.fodt");
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -2013,18 +1934,6 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineSections)
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineTables)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     createDoc("redline_table.fodt");
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -2145,18 +2054,6 @@ void SwLayoutWriter::CheckRedlineCharAttributesHidden()
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineCharAttributes)
 {
-    // currently need experimental mode
-    Resetter _([]() {
-        std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-            comphelper::ConfigurationChanges::create());
-        officecfg::Office::Common::Misc::ExperimentalMode::set(false, pBatch);
-        return pBatch->commit();
-    });
-    std::shared_ptr<comphelper::ConfigurationChanges> pBatch(
-        comphelper::ConfigurationChanges::create());
-    officecfg::Office::Common::Misc::ExperimentalMode::set(true, pBatch);
-    pBatch->commit();
-
     createDoc("redline_charatr.fodt");
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -2338,17 +2235,14 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf75659)
     xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
     CPPUNIT_ASSERT(pXmlDoc);
 
-    assertXPathContent(pXmlDoc,
-                       "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[17]/text",
-                       "Unnamed Series 1");
+    assertXPathContent(
+        pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[17]/text", "Series1");
 
-    assertXPathContent(pXmlDoc,
-                       "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[18]/text",
-                       "Unnamed Series 2");
+    assertXPathContent(
+        pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[18]/text", "Series2");
 
-    assertXPathContent(pXmlDoc,
-                       "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[19]/text",
-                       "Unnamed Series 3");
+    assertXPathContent(
+        pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[19]/text", "Series3");
     // These failed, if the legend names are empty strings.
 }
 
@@ -2404,6 +2298,65 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf122800)
         "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[@length='22']",
         9);
     // This failed, if the textarray length of the first axis label not 22.
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf126244)
+{
+    SwDoc* pDoc = createDoc("tdf126244.docx");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+    // Test the first level of vertical category axis labels orientation. The first level orientation should be horizontal.
+    assertXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/font[1]", "orientation",
+                "0");
+    // Test the second level of vertical category axis labels orientation. The second level orientation should be vertical.
+    assertXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/font[5]", "orientation",
+                "900");
+    // Test the third level of vertical category axis labels orientation. The third level orientation should be vertical.
+    assertXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/font[7]", "orientation",
+                "900");
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf127304)
+{
+    SwDoc* pDoc = createDoc("tdf127304.odt");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+    // Test the first level of horizontal category axis labels orientation. The first level orientation should be vertical.
+    assertXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/font[1]", "orientation",
+                "900");
+    // Test the second level of horizontal category axis labels orientation. The second level orientation should be horizontal.
+    assertXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/font[5]", "orientation",
+                "0");
+    // Test the third level of horizontal category axis labels orientation. The third level orientation should be horizontal.
+    assertXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/font[7]", "orientation",
+                "0");
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testHorizontal_multilevel)
+{
+    SwDoc* pDoc = createDoc("horizontal_multilevel.odt");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+    // Test the Y position of horizontal category axis label.
+    sal_Int32 nYposition
+        = getXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/textarray[7]", "y")
+              .toInt32();
+    CPPUNIT_ASSERT(nYposition > 7943 && nYposition < 7947);
 }
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf124796)
@@ -2575,6 +2528,14 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf118672)
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf117923)
 {
     createDoc("tdf117923.doc");
+    // Ensure that all text portions are calculated before testing.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwViewShell* pViewShell
+        = pTextDoc->GetDocShell()->GetDoc()->getIDocumentLayoutAccess().GetCurrentViewShell();
+    CPPUNIT_ASSERT(pViewShell);
+    pViewShell->Reformat();
+
     xmlDocPtr pXmlDoc = parseLayoutDump();
 
     // Check that we actually test the line we need
@@ -2641,15 +2602,12 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf109137)
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testForcepoint72) { createDoc("forcepoint72-1.rtf"); }
 
 //just care it doesn't crash/assert
-CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testForcepoint75)
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testForcepoint75) { createDoc("forcepoint75-1.rtf"); }
+
+//just care it doesn't crash/assert
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testForcepointFootnoteFrame)
 {
-    try
-    {
-        createDoc("forcepoint75-1.rtf");
-    }
-    catch (...)
-    {
-    }
+    createDoc("forcepoint-swfootnoteframe-1.rtf");
 }
 
 //just care it doesn't crash/assert
@@ -2865,7 +2823,7 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testBtlrCell)
     // doc model).
     assertXPath(pXmlDoc, "//font[1]", "orientation", "900");
 
-#if !defined(MACOSX) && !defined(_WIN32) // macOS fails with actual == 2662 for some reason.
+#if !defined(MACOSX) && !defined(_WIN32) // macOS fails with x == 2662 for some reason.
     // Without the accompanying fix in place, this test would have failed with 'Expected: 1915;
     // Actual  : 1756', i.e. the AAA1 text was too close to the left cell border due to an ascent vs
     // descent mismatch when calculating the baseline offset of the text portion.
@@ -3069,6 +3027,244 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTabOverMargin)
     // there is enough space to have all content in a single line.
     // Without the accompanying fix in place, this test would have failed, there were 2 lines.
     assertXPath(pXmlDoc, "/root/page/body/txt[2]/LineBreak", 1);
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testImageComment)
+{
+    // Load a document that has "aaa" in it, then a commented image (4th char is the as-char image,
+    // 5th char is the comment anchor).
+    SwDoc* pDoc = createDoc("image-comment.odt");
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+
+    // Look up a layout position which is on the right of the image.
+    SwRootFrame* pRoot = pWrtShell->GetLayout();
+    CPPUNIT_ASSERT(pRoot->GetLower()->IsPageFrame());
+    SwPageFrame* pPage = static_cast<SwPageFrame*>(pRoot->GetLower());
+    CPPUNIT_ASSERT(pPage->GetLower()->IsBodyFrame());
+    SwBodyFrame* pBody = static_cast<SwBodyFrame*>(pPage->GetLower());
+    CPPUNIT_ASSERT(pBody->GetLower()->IsTextFrame());
+    SwTextFrame* pTextFrame = static_cast<SwTextFrame*>(pBody->GetLower());
+    CPPUNIT_ASSERT(pTextFrame->GetDrawObjs());
+    SwSortedObjs& rDrawObjs = *pTextFrame->GetDrawObjs();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), rDrawObjs.size());
+    SwAnchoredObject* pDrawObj = rDrawObjs[0];
+    const SwRect& rDrawObjRect = pDrawObj->GetObjRect();
+    Point aPoint = rDrawObjRect.Center();
+    aPoint.setX(aPoint.getX() + rDrawObjRect.Width() / 2);
+
+    // Ask for the doc model pos of this layout point.
+    SwPosition aPosition(*pTextFrame->GetTextNodeForFirstText());
+    pTextFrame->GetCursorOfst(&aPosition, aPoint);
+
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 5
+    // - Actual  : 4
+    // i.e. the cursor got positioned between the image and its comment, so typing extended the
+    // comment, instead of adding content after the commented image.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(5), aPosition.nContent.GetIndex());
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf64222)
+{
+    createDoc("tdf64222.docx");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    assertXPath(pXmlDoc, "/root/page/body/txt[2]/Special", "nHeight", "560");
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf113014)
+{
+    SwDoc* pDoc = createDoc("tdf113014.fodt");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    // This failed, if numbering of cell A1 is missing
+    // (A1: left indent: 3 cm, first line indent: -3 cm
+    // A2: left indent: 0 cm, first line indent: 0 cm)
+    assertXPathContent(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/textarray[1]/text", "1.");
+    assertXPathContent(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/textarray[3]/text", "2.");
+    assertXPathContent(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/textarray[5]/text", "3.");
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf127235)
+{
+    SwDoc* pDoc = createDoc("tdf127235.odt");
+    // This resulted in a layout loop.
+    pDoc->getIDocumentLayoutAccess().GetCurrentViewShell()->CalcLayout();
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testShapeAllowOverlap)
+{
+// Need to find out why this fails on macOS.
+#ifndef MACOSX
+    // Create an empty document with two, intentionally overlapping shapes.
+    // Set their AllowOverlap property to false.
+    loadURL("private:factory/swriter", nullptr);
+    uno::Reference<lang::XMultiServiceFactory> xDocument(mxComponent, uno::UNO_QUERY);
+    awt::Point aPoint(1000, 1000);
+    awt::Size aSize(2000, 2000);
+    uno::Reference<drawing::XShape> xShape(
+        xDocument->createInstance("com.sun.star.drawing.RectangleShape"), uno::UNO_QUERY);
+    xShape->setPosition(aPoint);
+    xShape->setSize(aSize);
+    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(xDocument, uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xShapeProperties(xShape, uno::UNO_QUERY);
+    xShapeProperties->setPropertyValue("AllowOverlap", uno::makeAny(false));
+    xShapeProperties->setPropertyValue("AnchorType",
+                                       uno::makeAny(text::TextContentAnchorType_AT_CHARACTER));
+    xDrawPageSupplier->getDrawPage()->add(xShape);
+
+    aPoint = awt::Point(2000, 2000);
+    xShape.set(xDocument->createInstance("com.sun.star.drawing.RectangleShape"), uno::UNO_QUERY);
+    xShape->setPosition(aPoint);
+    xShape->setSize(aSize);
+    xShapeProperties.set(xShape, uno::UNO_QUERY);
+    xShapeProperties->setPropertyValue("AllowOverlap", uno::makeAny(false));
+    xShapeProperties->setPropertyValue("AnchorType",
+                                       uno::makeAny(text::TextContentAnchorType_AT_CHARACTER));
+    xDrawPageSupplier->getDrawPage()->add(xShape);
+
+    // Now verify that the rectangle of the anchored objects don't overlap.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    SwRootFrame* pLayout = pDoc->getIDocumentLayoutAccess().GetCurrentLayout();
+    SwFrame* pPageFrame = pLayout->GetLower();
+    SwFrame* pBodyFrame = pPageFrame->GetLower();
+    SwFrame* pTextFrame = pBodyFrame->GetLower();
+    CPPUNIT_ASSERT(pTextFrame->GetDrawObjs());
+    SwSortedObjs& rObjs = *pTextFrame->GetDrawObjs();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), rObjs.size());
+    SwAnchoredObject* pFirst = rObjs[0];
+    SwAnchoredObject* pSecond = rObjs[1];
+    // Without the accompanying fix in place, this test would have failed: the layout dump was
+    // <bounds left="1984" top="1984" width="1137" height="1137"/>
+    // <bounds left="2551" top="2551" width="1137" height="1137"/>
+    // so there was a clear vertical overlap. (Allow for 1px tolerance.)
+    OString aMessage("Unexpected overlap: first shape's bottom is ");
+    aMessage += OString::number(pFirst->GetObjRect().Bottom());
+    aMessage += ", second shape's top is ";
+    aMessage += OString::number(pSecond->GetObjRect().Top());
+    CPPUNIT_ASSERT_MESSAGE(aMessage.getStr(),
+                           std::abs(pFirst->GetObjRect().Bottom() - pSecond->GetObjRect().Top())
+                               < 15);
+#endif
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testShapeAllowOverlapWrap)
+{
+    // Create an empty document with two, intentionally overlapping shapes.
+    // Set their AllowOverlap property to false and their wrap to through.
+    loadURL("private:factory/swriter", nullptr);
+    uno::Reference<lang::XMultiServiceFactory> xDocument(mxComponent, uno::UNO_QUERY);
+    awt::Point aPoint(1000, 1000);
+    awt::Size aSize(2000, 2000);
+    uno::Reference<drawing::XShape> xShape(
+        xDocument->createInstance("com.sun.star.drawing.RectangleShape"), uno::UNO_QUERY);
+    xShape->setPosition(aPoint);
+    xShape->setSize(aSize);
+    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(xDocument, uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xShapeProperties(xShape, uno::UNO_QUERY);
+    xShapeProperties->setPropertyValue("AllowOverlap", uno::makeAny(false));
+    xShapeProperties->setPropertyValue("AnchorType",
+                                       uno::makeAny(text::TextContentAnchorType_AT_CHARACTER));
+    xShapeProperties->setPropertyValue("Surround", uno::makeAny(text::WrapTextMode_THROUGH));
+    xDrawPageSupplier->getDrawPage()->add(xShape);
+
+    aPoint = awt::Point(2000, 2000);
+    xShape.set(xDocument->createInstance("com.sun.star.drawing.RectangleShape"), uno::UNO_QUERY);
+    xShape->setPosition(aPoint);
+    xShape->setSize(aSize);
+    xShapeProperties.set(xShape, uno::UNO_QUERY);
+    xShapeProperties->setPropertyValue("AllowOverlap", uno::makeAny(false));
+    xShapeProperties->setPropertyValue("AnchorType",
+                                       uno::makeAny(text::TextContentAnchorType_AT_CHARACTER));
+    xShapeProperties->setPropertyValue("Surround", uno::makeAny(text::WrapTextMode_THROUGH));
+    xDrawPageSupplier->getDrawPage()->add(xShape);
+
+    // Now verify that the rectangle of the anchored objects do overlap.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    SwRootFrame* pLayout = pDoc->getIDocumentLayoutAccess().GetCurrentLayout();
+    SwFrame* pPageFrame = pLayout->GetLower();
+    SwFrame* pBodyFrame = pPageFrame->GetLower();
+    SwFrame* pTextFrame = pBodyFrame->GetLower();
+    CPPUNIT_ASSERT(pTextFrame->GetDrawObjs());
+    SwSortedObjs& rObjs = *pTextFrame->GetDrawObjs();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), rObjs.size());
+    SwAnchoredObject* pFirst = rObjs[0];
+    SwAnchoredObject* pSecond = rObjs[1];
+    // Without the accompanying fix in place, this test would have failed: AllowOverlap=no had
+    // priority over Surround=through (which is bad for Word compat).
+    CPPUNIT_ASSERT(pSecond->GetObjRect().IsOver(pFirst->GetObjRect()));
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf124600)
+{
+    createDoc("tdf124600.docx");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 1
+    // - Actual  : 2
+    // i.e. the last line in the body text had 2 lines, while it should have 1, as Word does (as the
+    // fly frame does not intersect with the print area of the paragraph.)
+    assertXPath(pXmlDoc, "/root/page/body/txt[2]/LineBreak", 1);
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf124601)
+{
+    // This is a testcase for the ContinuousEndnotes compat flag.
+    // The document has 2 pages, the endnote anchor is on the first page.
+    // The endnote should be on the 2nd page together with the last page content.
+    createDoc("tdf124601.doc");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 2
+    // - Actual  : 3
+    // i.e. there was a separate endnote page, even when the ContinuousEndnotes compat option was
+    // on.
+    assertXPath(pXmlDoc, "/root/page", 2);
+    assertXPath(pXmlDoc, "/root/page[2]/ftncont", 1);
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf124601b)
+{
+    // Table has an image, which is anchored in the first row, but its vertical position is large
+    // enough to be rendered in the second row.
+    // The shape has layoutInCell=1, so should match what Word does here.
+    // Also the horizontal position should be in the last column, even if the anchor is in the
+    // last-but-one column.
+    createDoc("tdf124601b.doc");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+
+    sal_Int32 nFlyTop = getXPath(pXmlDoc, "//fly/infos/bounds", "top").toInt32();
+    sal_Int32 nFlyLeft = getXPath(pXmlDoc, "//fly/infos/bounds", "left").toInt32();
+    sal_Int32 nFlyRight = nFlyLeft + getXPath(pXmlDoc, "//fly/infos/bounds", "width").toInt32();
+    sal_Int32 nSecondRowTop = getXPath(pXmlDoc, "//tab/row[2]/infos/bounds", "top").toInt32();
+    sal_Int32 nLastCellLeft
+        = getXPath(pXmlDoc, "//tab/row[1]/cell[5]/infos/bounds", "left").toInt32();
+    sal_Int32 nLastCellRight
+        = nLastCellLeft + getXPath(pXmlDoc, "//tab/row[1]/cell[5]/infos/bounds", "width").toInt32();
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected greater than: 3736
+    // - Actual  : 2852
+    // i.e. the image was still inside the first row.
+    CPPUNIT_ASSERT_GREATER(nSecondRowTop, nFlyTop);
+
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected greater than: 9640
+    // - Actual  : 9639
+    // i.e. the right edge of the image was not within the bounds of the last column, the right edge
+    // was in the last-but-one column.
+    CPPUNIT_ASSERT_GREATER(nLastCellLeft, nFlyRight);
+    CPPUNIT_ASSERT_LESS(nLastCellRight, nFlyRight);
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

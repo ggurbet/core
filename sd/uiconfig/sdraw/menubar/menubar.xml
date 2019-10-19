@@ -200,6 +200,7 @@
       <menu:menu menu:id=".uno:ObjectMenu">
         <menu:menupopup>
           <menu:menuitem menu:id=".uno:InsertMath"/>
+          <menu:menuitem menu:id=".uno:InsertQrCode"/>
           <menu:menuitem menu:id=".uno:InsertObject"/>
         </menu:menupopup>
       </menu:menu>
@@ -548,6 +549,8 @@
       <menu:menuitem menu:id=".uno:Substract"/>
       <menu:menuitem menu:id=".uno:Intersect"/>
       <menu:menuseparator/>
+      <menu:menuitem menu:id=".uno:TextCombine"/>
+      <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:CopyObjects"/>
       <menu:menuitem menu:id=".uno:Morphing"/>
       <menu:menuseparator/>
@@ -561,7 +564,7 @@
   <menu:menu menu:id=".uno:ToolsMenu">
     <menu:menupopup>
       <menu:menuitem menu:id=".uno:SpellDialog"/>
-      <menu:menuitem menu:id=".uno:SpellOnline" menu:style="text"/>
+      <menu:menuitem menu:id=".uno:SpellOnline"/>
       <menu:menuitem menu:id=".uno:ThesaurusDialog" menu:style="text"/>
       <menu:menu menu:id=".uno:LanguageMenu">
         <menu:menupopup>
@@ -628,6 +631,7 @@
       <menu:menuitem menu:id=".uno:HelpIndex"/>
       <menu:menuitem menu:id=".uno:ExtendedHelp"/>
       <menu:menuitem menu:id=".uno:Documentation"/>
+      <menu:menuitem menu:id=".uno:TipOfTheDay"/>
       <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:QuestionAnswers"/>
       <menu:menuitem menu:id=".uno:SendFeedback"/>

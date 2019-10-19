@@ -106,7 +106,7 @@ static bool lcl_RstAttr( const SwNodePtr& rpNd, void* pArgs )
 {
     const sw::DocumentContentOperationsManager::ParaRstFormat* pPara = static_cast<sw::DocumentContentOperationsManager::ParaRstFormat*>(pArgs);
     SwContentNode* pNode = rpNd->GetContentNode();
-    if (pPara->pLayout && pPara->pLayout->IsHideRedlines()
+    if (pPara && pPara->pLayout && pPara->pLayout->IsHideRedlines()
         && pNode && pNode->GetRedlineMergeFlag() == SwNode::Merge::Hidden)
     {
         return true;
@@ -195,8 +195,7 @@ static bool lcl_RstAttr( const SwNodePtr& rpNd, void* pArgs )
                 OSL_ENSURE( !bKeepAttributes,
                         "<lcl_RstAttr(..)> - certain attributes are kept, but not needed." );
                 SfxItemIter aIter( *pPara->pDelSet );
-                pItem = aIter.FirstItem();
-                while(pItem)
+                for (pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
                 {
                     if ( ( pItem->Which() != RES_PAGEDESC &&
                            pItem->Which() != RES_BREAK &&
@@ -205,9 +204,6 @@ static bool lcl_RstAttr( const SwNodePtr& rpNd, void* pArgs )
                     {
                         pNode->ResetAttr( pItem->Which() );
                     }
-                    if (aIter.IsAtEnd())
-                        break;
-                    pItem = aIter.NextItem();
                 }
             }
             else if( pPara->bResetAll )
@@ -333,30 +329,17 @@ void SwDoc::ResetAttrs( const SwPaM &rRg,
             pStt, pEnd, pHst, nullptr, pLayout);
 
     // mst: not including META here; it seems attrs with CH_TXTATR are omitted
-    sal_uInt16 const aResetableSetRange[] {
-        RES_FRMATR_BEGIN, RES_FRMATR_END-1,
-        RES_CHRATR_BEGIN, RES_CHRATR_END-1,
-        RES_PARATR_BEGIN, RES_PARATR_END-1,
-        RES_PARATR_LIST_BEGIN, RES_PARATR_LIST_END-1,
-        RES_TXTATR_INETFMT, RES_TXTATR_INETFMT,
-        RES_TXTATR_CHARFMT, RES_TXTATR_CHARFMT,
-        RES_TXTATR_CJK_RUBY, RES_TXTATR_CJK_RUBY,
-        RES_TXTATR_UNKNOWN_CONTAINER, RES_TXTATR_UNKNOWN_CONTAINER,
-        RES_UNKNOWNATR_BEGIN, RES_UNKNOWNATR_END-1,
-        0
-    };
-
-    SfxItemSet aDelSet( GetAttrPool(), aResetableSetRange );
-    if( !rAttrs.empty() )
+    SfxItemSet aDelSet(GetAttrPool(), svl::Items<RES_CHRATR_BEGIN, RES_CHRATR_END - 1,
+                                                 RES_TXTATR_INETFMT, RES_TXTATR_UNKNOWN_CONTAINER,
+                                                 RES_PARATR_BEGIN, RES_FRMATR_END - 1,
+                                                 RES_UNKNOWNATR_BEGIN, RES_UNKNOWNATR_END - 1>{});
+    for( std::set<sal_uInt16>::const_reverse_iterator it = rAttrs.rbegin(); it != rAttrs.rend(); ++it )
     {
-        for( std::set<sal_uInt16>::const_reverse_iterator it = rAttrs.rbegin(); it != rAttrs.rend(); ++it )
-        {
-            if( POOLATTR_END > *it )
-                aDelSet.Put( *GetDfltAttr( *it ));
-        }
-        if( aDelSet.Count() )
-            aPara.pDelSet = &aDelSet;
+        if( POOLATTR_END > *it )
+            aDelSet.Put( *GetDfltAttr( *it ));
     }
+    if( aDelSet.Count() )
+        aPara.pDelSet = &aDelSet;
 
     bool bAdd = true;
     SwNodeIndex aTmpStt( pStt->nNode );
@@ -569,7 +552,7 @@ void SwDoc::SetDefault( const SfxItemSet& rSet )
     SfxItemIter aIter( rSet );
     const SfxPoolItem* pItem = aIter.GetCurItem();
     SfxItemPool* pSdrPool = GetAttrPool().GetSecondaryPool();
-    while( true )
+    do
     {
         bool bCheckSdrDflt = false;
         const sal_uInt16 nWhich = pItem->Which();
@@ -619,10 +602,8 @@ void SwDoc::SetDefault( const SfxItemSet& rSet )
             }
         }
 
-        if( aIter.IsAtEnd() )
-            break;
         pItem = aIter.NextItem();
-    }
+    } while (pItem);
 
     if( aNew.Count() && aCallMod.HasWriterListeners() )
     {
@@ -1015,7 +996,7 @@ void SwDoc::DelTextFormatColl( SwTextFormatColl const *pColl, bool bBroadcast )
 
 static bool lcl_SetTextFormatColl( const SwNodePtr& rpNode, void* pArgs )
 {
-    SwContentNode* pCNd = static_cast<SwContentNode*>(rpNode->GetTextNode());
+    SwContentNode* pCNd = rpNode->GetTextNode();
 
     if( pCNd == nullptr)
         return true;
@@ -1410,7 +1391,7 @@ void SwDoc::CopyPageDescHeaderFooterImpl( bool bCpyHeader,
                 aTmpIdx = *pSttNd->EndOfSectionNode();
                 rSrcNds.Copy_( aRg, aTmpIdx );
                 aTmpIdx = *pSttNd;
-                rSrcFormat.GetDoc()->GetDocumentContentOperationsManager().CopyFlyInFlyImpl( aRg, 0, aTmpIdx );
+                rSrcFormat.GetDoc()->GetDocumentContentOperationsManager().CopyFlyInFlyImpl(aRg, nullptr, aTmpIdx);
                 pNewFormat->SetFormatAttr( SwFormatContent( pSttNd ));
             }
             else
@@ -1847,8 +1828,7 @@ void SwDoc::SetFormatItemByAutoFormat( const SwPaM& rPam, const SfxItemSet& rSet
     const sal_Int32 nEnd(rPam.End()->nContent.GetIndex());
     std::vector<sal_uInt16> whichIds;
     SfxItemIter iter(rSet);
-    for (SfxPoolItem const* pItem = iter.FirstItem();
-            pItem; pItem = iter.NextItem())
+    for (SfxPoolItem const* pItem = iter.GetCurItem(); pItem; pItem = iter.NextItem())
     {
         whichIds.push_back(pItem->Which());
         whichIds.push_back(pItem->Which());
@@ -1891,12 +1871,9 @@ void SwDoc::ChgFormat(SwFormat & rFormat, const SfxItemSet & rSet)
         {
             SfxItemIter aIter(aSet);
 
-            const SfxPoolItem * pItem = aIter.FirstItem();
-            while (pItem != nullptr)
+            for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
             {
                 aOldSet.InvalidateItem(pItem->Which());
-
-                pItem = aIter.NextItem();
             }
         }
 

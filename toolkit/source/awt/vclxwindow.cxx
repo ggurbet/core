@@ -22,13 +22,9 @@
 #include <memory>
 #include <com/sun/star/awt/WindowEvent.hpp>
 #include <com/sun/star/awt/KeyEvent.hpp>
-#include <com/sun/star/awt/KeyModifier.hpp>
 #include <com/sun/star/awt/MouseEvent.hpp>
-#include <com/sun/star/awt/MouseButton.hpp>
 #include <com/sun/star/awt/MouseWheelBehavior.hpp>
-#include <com/sun/star/awt/XTopWindow.hpp>
 #include <com/sun/star/awt/Style.hpp>
-#include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/awt/DockingEvent.hpp>
 #include <com/sun/star/awt/EndDockingEvent.hpp>
 #include <com/sun/star/awt/EndPopupModeEvent.hpp>
@@ -39,13 +35,9 @@
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/awt/vclxpointer.hxx>
 #include <toolkit/awt/vclxwindows.hxx>
-#include <toolkit/helper/macros.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <toolkit/helper/convert.hxx>
 #include <toolkit/helper/property.hxx>
-#include <cppuhelper/typeprovider.hxx>
-#include <rtl/uuid.h>
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
@@ -56,10 +48,9 @@
 #include <vcl/dockwin.hxx>
 #include <vcl/pdfextoutdevdata.hxx>
 #include <vcl/tabpage.hxx>
-#include <vcl/button.hxx>
+#include <vcl/ctrl.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
-#include <comphelper/asyncnotification.hxx>
 #include <comphelper/flagguard.hxx>
 #include <comphelper/interfacecontainer2.hxx>
 #include <comphelper/profilezone.hxx>
@@ -156,11 +147,11 @@ public:
     /** synchronously mbEnableVisible
     */
     void    setEnableVisible( bool bEnableVisible ) { mbEnableVisible = bEnableVisible; }
-    bool    isEnableVisible() { return mbEnableVisible; }
+    bool    isEnableVisible() const { return mbEnableVisible; }
     /** synchronously mbDirectVisible;
     */
     void    setDirectVisible( bool bDirectVisible ) { mbDirectVisible = bDirectVisible; }
-    bool    isDirectVisible() { return mbDirectVisible; }
+    bool    isDirectVisible() const { return mbDirectVisible; }
 
     /** impl-version of VCLXWindow::ImplExecuteAsyncWithoutSolarLock
     */
@@ -2012,7 +2003,7 @@ css::uno::Any VCLXWindow::getProperty( const OUString& PropertyName )
                 aProp <<= GetWindow()->GetControlBackground();
             break;
             case BASEPROPERTY_DISPLAYBACKGROUNDCOLOR:
-                aProp <<= GetWindow()->GetDisplayBackground().GetColor();
+                aProp <<= GetWindow()->GetBackgroundColor();
             break;
             case BASEPROPERTY_FONTRELIEF:
                 aProp <<= static_cast<sal_Int16>(GetWindow()->GetControlFont().GetRelief());
@@ -2262,7 +2253,7 @@ void VCLXWindow::draw( sal_Int32 nX, sal_Int32 nY )
             // #i40647# don't draw here if this is a recursive call
             // sometimes this is called recursively, because the Update call on the parent
             // (strangely) triggers another paint. Prevent a stack overflow here
-            // Yes, this is only fixing symptoms for the moment ....
+            // Yes, this is only fixing symptoms for the moment...
             // #i40647# / 2005-01-18 / frank.schoenheit@sun.com
             if ( !mpImpl->getDrawingOntoParent_ref() )
             {

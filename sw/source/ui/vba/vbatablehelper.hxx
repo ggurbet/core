@@ -20,7 +20,6 @@
 #define INCLUDED_SW_SOURCE_UI_VBA_VBATABLEHELPER_HXX
 
 #include <com/sun/star/text/XTextTable.hpp>
-#include "wordvbahelper.hxx"
 #include <swtable.hxx>
 #include <tabcol.hxx>
 
@@ -51,7 +50,7 @@ public:
     /// @throws css::uno::RuntimeException
     sal_Int32 getTabColIndex( const OUString& sCellName );
     /// @throws css::uno::RuntimeException
-    sal_Int32 getTableWidth( );
+    sal_Int32 getTableWidth( ) const;
 
     /// @throws css::uno::RuntimeException
     sal_Int32 GetColWidth( sal_Int32 nCol, sal_Int32 nRow = 0 );

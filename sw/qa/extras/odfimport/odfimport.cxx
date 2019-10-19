@@ -9,6 +9,8 @@
 
 #include <swmodeltestbase.hxx>
 
+#include <config_features.h>
+
 #include <com/sun/star/awt/FontWeight.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/drawing/BitmapMode.hpp>
@@ -16,6 +18,7 @@
 #include <com/sun/star/style/PageStyleLayout.hpp>
 #include <com/sun/star/style/FootnoteLineStyle.hpp>
 #include <com/sun/star/table/BorderLine.hpp>
+#include <com/sun/star/text/XTextField.hpp>
 #include <com/sun/star/text/XTextSection.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/text/PageNumberType.hpp>
@@ -434,6 +437,22 @@ DECLARE_ODFIMPORT_TEST(testPageBackground, "PageBackground.odt")
     CPPUNIT_ASSERT_EQUAL(drawing::BitmapMode_REPEAT, getProperty<drawing::BitmapMode>(xPropertySetOld, "FillBitmapMode"));
 }
 
+DECLARE_ODFIMPORT_TEST(testBibliographyEntryField, "BibliographyEntryField.odt")
+{
+    uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XEnumerationAccess> xFieldsAccess(xTextFieldsSupplier->getTextFields());
+    uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());
+
+    if( !xFields->hasMoreElements() ) {
+        CPPUNIT_ASSERT(false);
+        return;
+    }
+
+    uno::Reference<text::XTextField> xEnumerationAccess(xFields->nextElement(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString("Bibliography entry"), xEnumerationAccess->getPresentation(true).trim());
+    CPPUNIT_ASSERT_EQUAL(OUString("[ABC]"), xEnumerationAccess->getPresentation(false).trim());
+}
+
 DECLARE_ODFIMPORT_TEST(testFdo56272, "fdo56272.odt")
 {
     uno::Reference<drawing::XShape> xShape = getShape(1);
@@ -583,7 +602,8 @@ DECLARE_ODFIMPORT_TEST(testFdo37606, "fdo37606.odt")
         CPPUNIT_ASSERT(!pContentNode->FindTableNode());
     }
 }
-#if !defined(_WIN32)
+
+#if HAVE_FEATURE_UI
 DECLARE_ODFIMPORT_TEST(testFdo37606Copy, "fdo37606.odt")
 {
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
@@ -608,11 +628,10 @@ DECLARE_ODFIMPORT_TEST(testFdo37606Copy, "fdo37606.odt")
     // Previously copy&paste failed to copy the table in case it was the document-starting one.
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
-#if !defined(MACOSX) && !defined(LIBO_HEADLESS) // FIXME
     CPPUNIT_ASSERT_EQUAL(sal_Int32(2), xTables->getCount());
-#endif
 }
-#endif //WNT
+#endif
+
 DECLARE_ODFIMPORT_TEST(testFdo69862, "fdo69862.odt")
 {
     // The test doc is special in that it starts with a table and it also has a footnote.
@@ -664,6 +683,12 @@ DECLARE_ODFIMPORT_TEST(testSpellmenuRedline, "spellmenu-redline.odt")
     // always 'go to next/previous change'.
     CPPUNIT_ASSERT_EQUAL(OString("next"), rMenu.GetItemIdent(rMenu.GetItemId(rMenu.GetItemCount() - 2)));
     CPPUNIT_ASSERT_EQUAL(OString("prev"), rMenu.GetItemIdent(rMenu.GetItemId(rMenu.GetItemCount() - 1)));
+}
+
+DECLARE_ODFIMPORT_TEST(testTdf107776, "tdf107776.fodt")
+{
+    // Shape with a Graphics parent style name was imported as textbox.
+    CPPUNIT_ASSERT(!getProperty<bool>(getShape(1), "TextBox"));
 }
 
 DECLARE_ODFIMPORT_TEST(testAnnotationFormatting, "annotation-formatting.odt")
@@ -943,8 +968,8 @@ DECLARE_ODFIMPORT_TEST(testTdf123968, "tdf123968.odt")
     SwTextNode& rStart = dynamic_cast<SwTextNode&>(pShellCursor->Start()->nNode.GetNode());
 
     // The field is now editable like any text, thus the field content "New value" shows up for the cursor.
-    CPPUNIT_ASSERT_EQUAL(OUString("inputfield: " + OUStringLiteral1(CH_TXT_ATR_INPUTFIELDSTART)
-                                  + "New value" + OUStringLiteral1(CH_TXT_ATR_INPUTFIELDEND)),
+    CPPUNIT_ASSERT_EQUAL(OUString("inputfield: " + OUStringChar(CH_TXT_ATR_INPUTFIELDSTART)
+                                  + "New value" + OUStringChar(CH_TXT_ATR_INPUTFIELDEND)),
                          rStart.GetText());
 }
 

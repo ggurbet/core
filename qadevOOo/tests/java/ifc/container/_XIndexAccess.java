@@ -50,7 +50,7 @@ public class _XIndexAccess extends MultiMethodTest {
     public void _getCount() {
         boolean result = true;
         log.println("getting the number of the elements");
-        // hope we haven't a count lower than zerro ;-)
+        // hope we haven't a count lower than zero ;-)
         count = -1;
         count = oObj.getCount();
         result = (count != -1);
@@ -63,7 +63,7 @@ public class _XIndexAccess extends MultiMethodTest {
     * Exceptions which throws by a not available index. <p>
     * Has <b> OK </b> status if first, middle and last elements
     * successfully returned and has non null value; and if on
-    * invalid index parameter <code>IndexOutOfBoundException</code>
+    * invalid index parameter <code>IndexOutOfBoundsException</code>
     * is thrown.<p>
     * The following method tests are to be completed successfully before :
     * <ul>

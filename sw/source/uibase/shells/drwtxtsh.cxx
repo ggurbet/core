@@ -173,7 +173,7 @@ void SwDrawTextShell::SetAttrToMarked(const SfxItemSet& rAttr)
     }
 }
 
-bool SwDrawTextShell::IsTextEdit()
+bool SwDrawTextShell::IsTextEdit() const
 {
     return pSdrView->IsTextEdit();
 }
@@ -222,7 +222,7 @@ void SwDrawTextShell::ExecFormText(SfxRequest const & rReq)
             SwView& rTempView = GetView();
             pDrView->SdrEndTextEdit(true);
             //this removes the current shell from the dispatcher stack!!
-            rTempView.AttrChangedNotify(&rSh);
+            rTempView.AttrChangedNotify(nullptr);
         }
 
         pDrView->SetAttributes(rSet);
@@ -446,7 +446,7 @@ void SwDrawTextShell::ExecDraw(SfxRequest &rReq)
                 pSdrView->GetAttributes( aNewAttr );
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
                 ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog(
-                            GetView().GetViewFrame()->GetWindow().GetFrameWeld(),
+                            GetView().GetFrameWeld(),
                             &aNewAttr, pSdrView ));
                 sal_uInt16 nResult = pDlg->Execute();
 

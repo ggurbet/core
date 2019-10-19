@@ -241,7 +241,7 @@ Content::Content(
 }
 
 
-// ctr for content on an non-existing webdav resource
+// ctr for content on a non-existing webdav resource
 Content::Content(
             const uno::Reference< uno::XComponentContext >& rxContext,
             ContentProvider* pProvider,
@@ -401,7 +401,7 @@ uno::Sequence< uno::Type > SAL_CALL Content::getTypes()
 // virtual
 OUString SAL_CALL Content::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.ucb.WebDAVContent" );
+    return "com.sun.star.comp.ucb.WebDAVContent";
 }
 
 
@@ -434,9 +434,9 @@ OUString SAL_CALL Content::getContentType()
     }
 
     if ( bFolder )
-        return OUString( WEBDAV_COLLECTION_TYPE );
+        return WEBDAV_COLLECTION_TYPE;
 
-    return OUString( WEBDAV_CONTENT_TYPE );
+    return WEBDAV_CONTENT_TYPE;
 }
 
 
@@ -1009,7 +1009,7 @@ void Content::removeProperty( const OUString& Name,
                     {
                         case UNKNOWN:
                         case DAV:
-                            throw beans::UnknownPropertyException();
+                            throw beans::UnknownPropertyException(Name);
 
                         case FTP:
                         case NON_DAV:
@@ -1213,10 +1213,9 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
                 // Process local Additional Properties.
                 if ( !bTriedToGetAdditionalPropSet && !xAdditionalPropSet.is() )
                 {
-                    xAdditionalPropSet.set(
+                    xAdditionalPropSet =
                             rProvider->getAdditionalPropertySet( rContentId,
-                                                                 false ),
-                            uno::UNO_QUERY );
+                                                                 false );
                     bTriedToGetAdditionalPropSet = true;
                 }
 
@@ -1246,9 +1245,8 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
         }
 
         // Append all local Additional Properties.
-        uno::Reference< beans::XPropertySet > xSet(
-            rProvider->getAdditionalPropertySet( rContentId, false ),
-            uno::UNO_QUERY );
+        uno::Reference< beans::XPropertySet > xSet =
+            rProvider->getAdditionalPropertySet( rContentId, false );
         xRow->appendPropertySet( xSet );
     }
 
@@ -1979,7 +1977,7 @@ uno::Sequence< uno::Any > Content::setPropertyValues(
             for ( const auto& rProppatchValue : aProppatchValues )
             {
                 aEvent.PropertyName = rProppatchValue.name;
-                aEvent.OldValue     = uno::Any(); // @@@ to expensive to obtain!
+                aEvent.OldValue     = uno::Any(); // @@@ too expensive to obtain!
                 aEvent.NewValue     = rProppatchValue.value;
 
                 aChanges.getArray()[ nChanged ] = aEvent;
@@ -2960,7 +2958,7 @@ Content::ResourceType Content::resourceTypeForLocks(
             if ( m_xCachedProps->getValue( DAVProperties::SUPPORTEDLOCK )
                  >>= aSupportedLocks )            //get the cached value for supportedlock
             {
-                for ( const auto& rSupportedLock : aSupportedLocks )
+                for ( const auto& rSupportedLock : std::as_const(aSupportedLocks) )
                 {
                     if ( rSupportedLock.Scope
                          == ucb::LockScope_EXCLUSIVE &&
@@ -3666,7 +3664,7 @@ void Content::cancelCommandExecution(
 }
 
 
-const OUString
+OUString
 Content::getBaseURI( const std::unique_ptr< DAVResourceAccess > & rResAccess )
 {
     osl::Guard< osl::Mutex > aGuard( m_aMutex );
@@ -3981,7 +3979,7 @@ void Content::getResourceOptions(
                     // cache the internal unofficial status code
 
                     aDAVOptions.setHttpResponseStatusCode( USC_CONNECTION_TIMED_OUT );
-                    // used only internally, so the text doesn't really matter..
+                    // used only internally, so the text doesn't really matter...
                     aStaticDAVOptionsCache.addDAVOptions( aDAVOptions,
                                                           m_nOptsCacheLifeNotFound );
                     if ( networkAccessAllowed != nullptr )
@@ -3995,7 +3993,7 @@ void Content::getResourceOptions(
                 {
                     SAL_WARN( "ucb.ucp.webdav", "OPTIONS - DAVException: DAV_HTTP_LOOKUP for URL <" << m_xIdentifier->getContentIdentifier() << ">" );
                     aDAVOptions.setHttpResponseStatusCode( USC_LOOKUP_FAILED );
-                    // used only internally, so the text doesn't really matter..
+                    // used only internally, so the text doesn't really matter...
                     aStaticDAVOptionsCache.addDAVOptions( aDAVOptions,
                                                           m_nOptsCacheLifeNotFound );
                     if ( networkAccessAllowed != nullptr )
@@ -4014,7 +4012,7 @@ void Content::getResourceOptions(
                     //   this is not actually an error, it means only that for current user this is a standard web,
                     //   though possibly DAV enabled
                     aDAVOptions.setHttpResponseStatusCode( USC_AUTH_FAILED );
-                    // used only internally, so the text doesn't really matter..
+                    // used only internally, so the text doesn't really matter...
                     aStaticDAVOptionsCache.addDAVOptions( aDAVOptions,
                                                           m_nOptsCacheLifeNotFound );
                     if ( networkAccessAllowed != nullptr )
@@ -4028,7 +4026,7 @@ void Content::getResourceOptions(
                 {
                     SAL_WARN( "ucb.ucp.webdav", "OPTIONS - DAVException: DAV_HTTP_AUTHPROXY for URL <" << m_xIdentifier->getContentIdentifier() << ">" );
                     aDAVOptions.setHttpResponseStatusCode( USC_AUTHPROXY_FAILED );
-                    // used only internally, so the text doesn't really matter..
+                    // used only internally, so the text doesn't really matter...
                     aStaticDAVOptionsCache.addDAVOptions( aDAVOptions,
                                                           m_nOptsCacheLifeNotFound );
                     if ( networkAccessAllowed != nullptr )

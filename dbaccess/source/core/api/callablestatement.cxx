@@ -73,15 +73,12 @@ void OCallableStatement::release() throw ()
 // XServiceInfo
 OUString OCallableStatement::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.OCallableStatement");
+    return "com.sun.star.sdb.OCallableStatement";
 }
 
 Sequence< OUString > OCallableStatement::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS.getArray()[0] = SERVICE_SDBC_CALLABLESTATEMENT;
-    aSNS.getArray()[1] = SERVICE_SDB_CALLABLESTATEMENT;
-    return aSNS;
+    return { SERVICE_SDBC_CALLABLESTATEMENT, SERVICE_SDB_CALLABLESTATEMENT };
 }
 
 // XOutParameters

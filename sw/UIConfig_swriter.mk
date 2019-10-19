@@ -122,6 +122,7 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/swriter,\
 	sw/uiconfig/swriter/ui/createautomarkdialog \
 	sw/uiconfig/swriter/ui/customizeaddrlistdialog \
 	sw/uiconfig/swriter/ui/datasourcesunavailabledialog \
+	sw/uiconfig/swriter/ui/dateformfielddialog \
 	sw/uiconfig/swriter/ui/dropcapspage \
 	sw/uiconfig/swriter/ui/dropdownfielddialog \
 	sw/uiconfig/swriter/ui/dropdownformfielddialog \
@@ -217,8 +218,8 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/swriter,\
 	sw/uiconfig/swriter/ui/navigatorpanel \
 	sw/uiconfig/swriter/ui/notebookbar \
 	sw/uiconfig/swriter/ui/notebookbar_compact \
-	sw/uiconfig/swriter/ui/notebookbar_groups \
 	sw/uiconfig/swriter/ui/notebookbar_single \
+	sw/uiconfig/swriter/ui/notebookbar_groups \
 	sw/uiconfig/swriter/ui/notebookbar_groupedbar_full \
 	sw/uiconfig/swriter/ui/notebookbar_groupedbar_compact \
 	sw/uiconfig/swriter/ui/pagebreakmenu \

@@ -65,7 +65,7 @@ using namespace css;
 #define DECLARE_SW_ROUNDTRIP_TEST(TestName, filename, password, BaseClass) \
     class TestName : public BaseClass { \
         protected:\
-    virtual OUString getTestName() override { return OUString(#TestName); } \
+    virtual OUString getTestName() override { return #TestName; } \
         public:\
     CPPUNIT_TEST_SUITE(TestName); \
     CPPUNIT_TEST(Import); \
@@ -86,7 +86,7 @@ using namespace css;
 #define DECLARE_SW_EXPORTONLY_TEST(TestName, filename, password, BaseClass) \
     class TestName : public BaseClass { \
         protected:\
-    virtual OUString getTestName() override { return OUString(#TestName); } \
+    virtual OUString getTestName() override { return #TestName; } \
         public:\
     CPPUNIT_TEST_SUITE(TestName); \
     CPPUNIT_TEST(Import_Export_Import); \
@@ -113,7 +113,7 @@ using namespace css;
 #define DECLARE_SW_IMPORT_TEST(TestName, filename, password, BaseClass) \
     class TestName : public BaseClass { \
         protected:\
-    virtual OUString getTestName() override { return OUString(#TestName); } \
+    virtual OUString getTestName() override { return #TestName; } \
         public:\
     CPPUNIT_TEST_SUITE(TestName); \
     CPPUNIT_TEST(Import); \
@@ -130,7 +130,7 @@ using namespace css;
 #define DECLARE_SW_EXPORT_TEST(TestName, filename, password, BaseClass) \
     class TestName : public BaseClass { \
         protected:\
-    virtual OUString getTestName() override { return OUString(#TestName); } \
+    virtual OUString getTestName() override { return #TestName; } \
         public:\
     CPPUNIT_TEST_SUITE(TestName); \
     CPPUNIT_TEST(Import_Export); \
@@ -396,7 +396,7 @@ protected:
     }
 
     /// Get the length of the whole document.
-    int getLength()
+    int getLength() const
     {
         uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
         uno::Reference<container::XEnumerationAccess> xParaEnumAccess(xTextDocument->getText(), uno::UNO_QUERY);
@@ -419,7 +419,7 @@ protected:
     uno::Reference<container::XNameAccess> getStyles(const OUString& aFamily)
     {
         uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(mxComponent, uno::UNO_QUERY);
-        uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+        uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
         uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName(aFamily), uno::UNO_QUERY);
         return xStyleFamily;
     }
@@ -603,15 +603,10 @@ protected:
             {
                 uno::Sequence< beans::PropertyValue > aPropertyValue;
                 xLevels->getByIndex(nNumberingLevel) >>= aPropertyValue;
-                for( int j = 0 ; j< aPropertyValue.getLength() ; ++j)
-                {
-                    beans::PropertyValue aProp= aPropertyValue[j];
-                    if (aProp.Name == "NumberingType")
-                    {
-                        nNumberingType = aProp.Value.get<sal_Int16>();
-                        break;
-                    }
-                }
+                auto pProp = std::find_if(aPropertyValue.begin(), aPropertyValue.end(),
+                    [](const beans::PropertyValue& rProp) { return rProp.Name == "NumberingType"; });
+                if (pProp != aPropertyValue.end())
+                    nNumberingType = pProp->Value.get<sal_Int16>();
             }
         }
         return nNumberingType;
@@ -630,7 +625,7 @@ protected:
         int const index, uno::Reference<text::XTextRange> const & xPara) const
     {
         uno::Reference<container::XContentEnumerationAccess> xContentEnumAccess(xPara, uno::UNO_QUERY);
-        uno::Reference<container::XEnumeration> xContentEnum(xContentEnumAccess->createContentEnumeration("com.sun.star.text.TextContent"), uno::UNO_QUERY);
+        uno::Reference<container::XEnumeration> xContentEnum = xContentEnumAccess->createContentEnumeration("com.sun.star.text.TextContent");
         for (int i = 1; i < index; ++i)
         {
             xContentEnum->nextElement();
@@ -655,7 +650,7 @@ protected:
     OUString getFormula(uno::Reference<text::XTextRange> const & xRun) const
     {
         uno::Reference<container::XContentEnumerationAccess> xContentEnumAccess(xRun, uno::UNO_QUERY);
-        uno::Reference<container::XEnumeration> xContentEnum(xContentEnumAccess->createContentEnumeration(""), uno::UNO_QUERY);
+        uno::Reference<container::XEnumeration> xContentEnum = xContentEnumAccess->createContentEnumeration("");
         uno::Reference<beans::XPropertySet> xFormula(xContentEnum->nextElement(), uno::UNO_QUERY);
         return getProperty<OUString>(getProperty< uno::Reference<beans::XPropertySet> >(xFormula, "Model"), "Formula");
     }
@@ -710,7 +705,7 @@ protected:
     uno::Reference<drawing::XShape> getTextFrameByName(const OUString& aName)
     {
         uno::Reference<text::XTextFramesSupplier> xTextFramesSupplier(mxComponent, uno::UNO_QUERY);
-        uno::Reference<container::XNameAccess> xNameAccess(xTextFramesSupplier->getTextFrames(), uno::UNO_QUERY);
+        uno::Reference<container::XNameAccess> xNameAccess = xTextFramesSupplier->getTextFrames();
         uno::Reference<drawing::XShape> xShape(xNameAccess->getByName(aName), uno::UNO_QUERY);
         return xShape;
     }
@@ -853,11 +848,11 @@ protected:
             }
             else
             {
-                OString aMessage("validation requested, but don't know how to validate ");
-                aMessage += filename;
-                aMessage += " (";
-                aMessage += OUStringToOString(aFilterName, RTL_TEXTENCODING_UTF8);
-                aMessage += ")";
+                OString aMessage = OStringLiteral("validation requested, but don't know how to validate ") +
+                    filename +
+                    " (" +
+                    OUStringToOString(aFilterName, RTL_TEXTENCODING_UTF8) +
+                    ")";
                 CPPUNIT_FAIL(aMessage.getStr());
             }
         }
@@ -892,7 +887,7 @@ protected:
     }
 
     /// Get page count.
-    int getPages()
+    int getPages() const
     {
         uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
         uno::Reference<text::XTextViewCursorSupplier> xTextViewCursorSupplier(xModel->getCurrentController(), uno::UNO_QUERY);
@@ -916,7 +911,7 @@ protected:
     }
 
     /**
-     * Returns an xml stream of a an exported file.
+     * Returns an xml stream of an exported file.
      * To be used when the exporter doesn't create zip archives, but single files
      * (like Flat ODF Export)
      */

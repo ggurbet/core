@@ -321,15 +321,14 @@ OUString ScGlobal::GetAbsDocName( const OUString& rFileName,
 OUString ScGlobal::GetDocTabName( const OUString& rFileName,
                                 const OUString& rTabName )
 {
-    OUString  aDocTab('\'');
-    aDocTab += rFileName;
+    OUString  aDocTab = "'" + rFileName;
     sal_Int32 nPos = 1;
     while( (nPos = aDocTab.indexOf( '\'', nPos )) != -1 )
     {   // escape Quotes
         aDocTab = aDocTab.replaceAt( nPos, 0, "\\" );
         nPos += 2;
     }
-    aDocTab += "'" + OUStringLiteral1(SC_COMPILER_FILE_TAB_SEP) + rTabName;
+    aDocTab += "'" + OUStringChar(SC_COMPILER_FILE_TAB_SEP) + rTabName;
         // "'Doc'#Tab"
     return aDocTab;
 }

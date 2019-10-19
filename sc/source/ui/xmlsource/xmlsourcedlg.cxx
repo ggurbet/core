@@ -8,7 +8,6 @@
  */
 
 #include <xmlsourcedlg.hxx>
-#include <sc.hrc>
 #include <bitmaps.hlst>
 #include <document.hxx>
 #include <orcusfilters.hxx>
@@ -20,10 +19,8 @@
 #include <tools/urlobj.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <sfx2/objsh.hxx>
-#include <comphelper/processfactory.hxx>
 
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/ui/dialogs/FilePicker.hpp>
+#include <com/sun/star/ui/dialogs/XFilePicker3.hpp>
 #include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
@@ -198,7 +195,7 @@ void ScXMLSourceDlg::LoadSourceFileStructure(const OUString& rPath)
     if (!pOrcus)
         return;
 
-    mpXMLContext.reset(pOrcus->createXMLContext(*mpDoc, rPath));
+    mpXMLContext = pOrcus->createXMLContext(*mpDoc, rPath);
     if (!mpXMLContext)
         return;
 
@@ -208,10 +205,10 @@ void ScXMLSourceDlg::LoadSourceFileStructure(const OUString& rPath)
 namespace {
 
 /**
- * When the current entry is a direct or indirect child of a mappable
- * repeat element entry, that entry becomes the reference entry.
- * Otherwise the reference entry equals the current entry.  A reference
- * entry is the entry that stores mapped cell position.
+ * The current entry is the reference entry for a cell link.  For a range
+ * link, the reference entry is the shallowest repeat element entry up from
+ * the current entry position.  The mapped cell position for a range link is
+ * stored with the reference entry.
  */
 std::unique_ptr<weld::TreeIter> getReferenceEntry(const weld::TreeView& rTree, weld::TreeIter& rCurEntry)
 {
@@ -224,14 +221,7 @@ std::unique_ptr<weld::TreeIter> getReferenceEntry(const weld::TreeView& rTree, w
         OSL_ASSERT(pUserData);
         if (pUserData->meType == ScOrcusXMLTreeParam::ElementRepeat)
         {
-            // This is a repeat element.
-            if (xRefEntry)
-            {
-                // Second repeat element encountered. Not good.
-                std::unique_ptr<weld::TreeIter> xCurEntry(rTree.make_iterator(&rCurEntry));
-                return xCurEntry;
-            }
-
+            // This is a repeat element - a potential reference entry.
             xRefEntry = rTree.make_iterator(xParent.get());
         }
         bParent = rTree.iter_parent(*xParent);
@@ -244,7 +234,7 @@ std::unique_ptr<weld::TreeIter> getReferenceEntry(const weld::TreeView& rTree, w
     return xCurEntry;
 }
 
-};
+}
 
 void ScXMLSourceDlg::TreeItemSelected()
 {
@@ -335,9 +325,7 @@ void ScXMLSourceDlg::RepeatElementSelected(weld::TreeIter& rEntry)
     }
 
     // Check all its child elements / attributes and make sure non of them are
-    // linked or repeat elements.  In the future we will support range linking
-    // of repeat element who has another repeat elements. But first I need to
-    // support that scenario in orcus.
+    // linked.
 
     if (IsChildrenDirty(&rEntry))
     {
@@ -409,7 +397,7 @@ void ScXMLSourceDlg::SelectAllChildEntries(weld::TreeIter& rEntry)
     } while (mxLbTree->iter_next_sibling(*xChild));
 }
 
-bool ScXMLSourceDlg::IsParentDirty(weld::TreeIter* pEntry) const
+bool ScXMLSourceDlg::IsParentDirty(const weld::TreeIter* pEntry) const
 {
     std::unique_ptr<weld::TreeIter> xParent(mxLbTree->make_iterator(pEntry));
     if (!mxLbTree->iter_parent(*xParent))
@@ -423,17 +411,12 @@ bool ScXMLSourceDlg::IsParentDirty(weld::TreeIter* pEntry) const
             // This parent is already linked.
             return true;
         }
-        if (pUserData->meType == ScOrcusXMLTreeParam::ElementRepeat)
-        {
-            // This is a repeat element.
-            return true;
-        }
     }
     while (mxLbTree->iter_parent(*xParent));
     return false;
 }
 
-bool ScXMLSourceDlg::IsChildrenDirty(weld::TreeIter* pEntry) const
+bool ScXMLSourceDlg::IsChildrenDirty(const weld::TreeIter* pEntry) const
 {
     std::unique_ptr<weld::TreeIter> xChild(mxLbTree->make_iterator(pEntry));
     if (!mxLbTree->iter_children(*xChild))
@@ -445,10 +428,6 @@ bool ScXMLSourceDlg::IsChildrenDirty(weld::TreeIter* pEntry) const
         OSL_ASSERT(pUserData);
         if (pUserData->maLinkedPos.IsValid())
             // Already linked.
-            return true;
-
-        if (pUserData->meType == ScOrcusXMLTreeParam::ElementRepeat)
-            // We don't support linking of nested repeat elements (yet).
             return true;
 
         if (pUserData->meType == ScOrcusXMLTreeParam::ElementDefault)
@@ -481,9 +460,14 @@ void getFieldLinks(
         OUString aPath = getXPath(rTree, *xChild, rNamespaces);
         const ScOrcusXMLTreeParam::EntryData* pUserData = ScOrcusXMLTreeParam::getUserData(rTree, *xChild);
 
-        if (pUserData && pUserData->mbLeafNode)
+        if (pUserData)
         {
-            if (!aPath.isEmpty())
+            if (pUserData->meType == ScOrcusXMLTreeParam::ElementRepeat)
+                // nested repeat element automatically becomes a row-group node.
+                rRangeLink.maRowGroups.push_back(
+                    OUStringToOString(aPath, RTL_TEXTENCODING_UTF8));
+
+            if (pUserData->mbLeafNode && !aPath.isEmpty())
                 // XPath should never be empty anyway, but it won't hurt to check...
                 rRangeLink.maFieldPaths.push_back(OUStringToOString(aPath, RTL_TEXTENCODING_UTF8));
         }
@@ -512,32 +496,34 @@ void ScXMLSourceDlg::OkPressed()
     ScOrcusImportXMLParam aParam;
 
     // Convert single cell links.
+    for (const auto& rEntry : maCellLinks)
     {
-        for (const auto& rEntry : maCellLinks)
-        {
-            OUString aPath = getXPath(*mxLbTree, *rEntry, aParam.maNamespaces);
-            const ScOrcusXMLTreeParam::EntryData* pUserData = ScOrcusXMLTreeParam::getUserData(*mxLbTree, *rEntry);
+        OUString aPath = getXPath(*mxLbTree, *rEntry, aParam.maNamespaces);
+        const ScOrcusXMLTreeParam::EntryData* pUserData = ScOrcusXMLTreeParam::getUserData(*mxLbTree, *rEntry);
 
-            aParam.maCellLinks.emplace_back(
-                    pUserData->maLinkedPos, OUStringToOString(aPath, RTL_TEXTENCODING_UTF8));
-        }
+        aParam.maCellLinks.emplace_back(
+                pUserData->maLinkedPos, OUStringToOString(aPath, RTL_TEXTENCODING_UTF8));
     }
 
     // Convert range links. For now, an element with range link takes all its
     // child elements as its fields.
+    for (const auto& rEntry: maRangeLinks)
     {
-        for (const auto& rEntry: maRangeLinks)
-        {
-            const ScOrcusXMLTreeParam::EntryData* pUserData = ScOrcusXMLTreeParam::getUserData(*mxLbTree, *rEntry);
+        const ScOrcusXMLTreeParam::EntryData* pUserData = ScOrcusXMLTreeParam::getUserData(*mxLbTree, *rEntry);
 
-            ScOrcusImportXMLParam::RangeLink aRangeLink;
-            aRangeLink.maPos = pUserData->maLinkedPos;
+        ScOrcusImportXMLParam::RangeLink aRangeLink;
+        aRangeLink.maPos = pUserData->maLinkedPos;
 
-            // Go through all its child elements.
-            getFieldLinks(aRangeLink, aParam.maNamespaces, *mxLbTree, *rEntry);
+        // Go through all its child elements.
+        getFieldLinks(aRangeLink, aParam.maNamespaces, *mxLbTree, *rEntry);
 
-            aParam.maRangeLinks.push_back(aRangeLink);
-        }
+        // Add the reference entry as a row-group node, which will be used
+        // as a row position increment point.
+        OUString aThisEntry = getXPath(*mxLbTree, *rEntry, aParam.maNamespaces);
+        aRangeLink.maRowGroups.push_back(
+            OUStringToOString(aThisEntry, RTL_TEXTENCODING_UTF8));
+
+        aParam.maRangeLinks.push_back(aRangeLink);
     }
 
     // Remove duplicate namespace IDs.

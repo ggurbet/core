@@ -18,7 +18,6 @@
  */
 
 #include "glyphset.hxx"
-#include "psputil.hxx"
 
 #include <sft.hxx>
 
@@ -30,15 +29,11 @@
 
 #include <osl/thread.h>
 
-#include <sal/alloca.h>
-
 #include <rtl/ustring.hxx>
 #include <rtl/strbuf.hxx>
 
 #include <unotools/tempfile.hxx>
 
-#include <set>
-#include <map>
 #include <algorithm>
 
 using namespace vcl;
@@ -156,14 +151,13 @@ GlyphSet::GetReencodedFontName (rtl_TextEncoding nEnc, const OString &rFontName)
     if (   nEnc == RTL_TEXTENCODING_MS_1252
         || nEnc == RTL_TEXTENCODING_ISO_8859_1)
     {
-        return rFontName
-               + OString("-iso1252");
+        return rFontName + "-iso1252";
     }
     else
     if (nEnc >= RTL_TEXTENCODING_USER_START && nEnc <= RTL_TEXTENCODING_USER_END)
     {
         return rFontName
-               + OString("-enc")
+               + "-enc"
                + OString::number ((nEnc - RTL_TEXTENCODING_USER_START));
     }
     else

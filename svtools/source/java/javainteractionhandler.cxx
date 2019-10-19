@@ -34,7 +34,6 @@
 #include <svtools/restartdialog.hxx>
 #include <svtools/svtresid.hxx>
 #include <svtools/javainteractionhandler.hxx>
-#include <svtools/javacontext.hxx>
 
 using namespace com::sun::star::uno;
 using namespace com::sun::star::task;
@@ -93,22 +92,21 @@ void SAL_CALL JavaInteractionHandler::release(  ) throw ()
 void SAL_CALL JavaInteractionHandler::handle( const Reference< XInteractionRequest >& Request )
 {
     Any anyExc = Request->getRequest();
-    Sequence< Reference< XInteractionContinuation > > aSeqCont = Request->getContinuations();
+    const Sequence< Reference< XInteractionContinuation > > aSeqCont = Request->getContinuations();
 
     Reference< XInteractionAbort > abort;
     Reference< XInteractionRetry > retry;
-    sal_Int32 i;
 
-    for ( i = 0; i < aSeqCont.getLength(); i++ )
+    for ( const auto& rCont : aSeqCont )
     {
-        abort.set( aSeqCont[i], UNO_QUERY );
+        abort.set( rCont, UNO_QUERY );
         if ( abort.is() )
             break;
     }
 
-    for ( i= 0; i < aSeqCont.getLength(); i++)
+    for ( const auto& rCont : aSeqCont )
     {
-        retry.set( aSeqCont[i], UNO_QUERY );
+        retry.set( rCont, UNO_QUERY );
         if ( retry.is() )
             break;
     }

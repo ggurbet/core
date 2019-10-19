@@ -608,19 +608,16 @@ sal_uInt16 SvxBmpMask::InitColorArrays( Color* pSrcCols, Color* pDstCols, sal_uI
     return nCount;
 }
 
-Bitmap SvxBmpMask::ImpMask( const Bitmap& rBitmap )
+void SvxBmpMask::ImpMask( BitmapEx& rBitmap )
 {
-    Bitmap          aBitmap( rBitmap );
     Color           pSrcCols[4];
     Color           pDstCols[4];
     sal_uInt8       pTols[4];
     const sal_uInt16 nCount = InitColorArrays( pSrcCols, pDstCols, pTols );
 
     EnterWait();
-    aBitmap.Replace( pSrcCols, pDstCols, nCount, pTols );
+    rBitmap.Replace( pSrcCols, pDstCols, nCount, pTols );
     LeaveWait();
-
-    return aBitmap;
 }
 
 BitmapEx SvxBmpMask::ImpMaskTransparent( const BitmapEx& rBitmapEx, const Color& rColor, const sal_uInt8 nTol )
@@ -901,19 +898,6 @@ GDIMetaFile SvxBmpMask::ImpMask( const GDIMetaFile& rMtf )
 }
 
 
-BitmapEx SvxBmpMask::ImpReplaceTransparency( const BitmapEx& rBmpEx, const Color& rColor )
-{
-    if( rBmpEx.IsTransparent() )
-    {
-        Bitmap aBmp( rBmpEx.GetBitmap() );
-        aBmp.Replace( rBmpEx.GetMask(), rColor );
-        return BitmapEx(aBmp);
-    }
-    else
-        return rBmpEx;
-}
-
-
 Animation SvxBmpMask::ImpReplaceTransparency( const Animation& rAnim, const Color& rColor )
 {
     Animation   aAnimation( rAnim );
@@ -922,7 +906,7 @@ Animation SvxBmpMask::ImpReplaceTransparency( const Animation& rAnim, const Colo
     for( sal_uInt16 i = 0; i < nAnimationCount; i++ )
     {
         AnimationBitmap aAnimationBitmap(aAnimation.Get(i));
-        aAnimationBitmap.maBitmapEx = ImpReplaceTransparency(aAnimationBitmap.maBitmapEx, rColor);
+        aAnimationBitmap.maBitmapEx.ReplaceTransparency(rColor);
         aAnimation.Replace(aAnimationBitmap, i);
     }
 
@@ -990,14 +974,9 @@ Graphic SvxBmpMask::Mask( const Graphic& rGraphic )
                 // Replace transparency?
                 if( m_pCbxTrans->IsChecked() )
                 {
-                    if( aGraphic.IsTransparent() )
-                    {
-                        BitmapEx    aBmpEx( ImpReplaceTransparency( aGraphic.GetBitmapEx(), aReplColor ) );
-                        const Size  aSize( aBmpEx.GetSizePixel() );
-
-                        if( aSize.Width() && aSize.Height() )
-                            aGraphic = aBmpEx;
-                    }
+                    BitmapEx aBmpEx = aGraphic.GetBitmapEx();
+                    aBmpEx.ReplaceTransparency(aReplColor);
+                    aGraphic = aBmpEx;
                 }
                 else
                 {
@@ -1024,15 +1003,10 @@ Graphic SvxBmpMask::Mask( const Graphic& rGraphic )
                         }
 
                         // now replace it again with the normal colors
-                        Bitmap  aBitmap( ImpMask( aGraphic.GetBitmapEx().GetBitmap() ) );
-                        Size    aSize( aBitmap.GetSizePixel() );
-
-                        if ( aSize.Width() && aSize.Height() )
+                        BitmapEx  aBitmapEx( aGraphic.GetBitmapEx() );
+                        if ( aBitmapEx.GetSizePixel().Width() && aBitmapEx.GetSizePixel().Height() )
                         {
-                            if ( aGraphic.IsTransparent() )
-                                aGraphic = Graphic( BitmapEx( aBitmap, aGraphic.GetBitmapEx().GetMask() ) );
-                            else
-                                aGraphic = aBitmap;
+                            ImpMask( aBitmapEx );
                         }
                     }
                 }

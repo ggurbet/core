@@ -28,6 +28,7 @@
 #include <vcl/edit.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/scrbar.hxx>
+#include <vcl/svapp.hxx>
 
 #include <svl/undo.hxx>
 #include <unotools/localedatawrapper.hxx>
@@ -50,6 +51,7 @@
 #include <txtfld.hxx>
 #include <ndtxt.hxx>
 #include <view.hxx>
+#include <viewopt.hxx>
 #include <wrtsh.hxx>
 #include <docsh.hxx>
 #include <doc.hxx>
@@ -88,6 +90,7 @@ SwAnnotationWin::SwAnnotationWin( SwEditWin& rEditWin,
     , mAnchorRect()
     , mPageBorder(0)
     , mbAnchorRectChanged(false)
+    , mbResolvedStateUpdated(false)
     , mbMouseOver(false)
     , mLayoutStatus(SwPostItHelper::INVISIBLE)
     , mbReadonly(false)
@@ -149,6 +152,12 @@ void SwAnnotationWin::dispose()
         mpMetadataAuthor->RemoveEventListener( LINK( this, SwAnnotationWin, WindowEventListener ) );
     }
     mpMetadataAuthor.disposeAndClear();
+
+    if (mpMetadataResolved)
+    {
+        mpMetadataResolved->RemoveEventListener( LINK( this, SwAnnotationWin, WindowEventListener ) );
+    }
+    mpMetadataResolved.disposeAndClear();
 
     if (mpMetadataDate)
     {
@@ -214,9 +223,52 @@ void SwAnnotationWin::SetPostItText()
     Invalidate();
 }
 
+void SwAnnotationWin::SetResolved(bool resolved)
+{
+    bool oldState = IsResolved();
+    static_cast<SwPostItField*>(mpFormatField->GetField())->SetResolved(resolved);
+    const SwViewOption* pVOpt = mrView.GetWrtShellPtr()->GetViewOptions();
+    mrSidebarItem.bShow = !IsResolved() || (pVOpt->IsResolvedPostIts());
+
+    mpTextRangeOverlay.reset();
+
+    if(IsResolved())
+        mpMetadataResolved->Show();
+    else
+        mpMetadataResolved->Hide();
+
+    if(IsResolved() != oldState)
+        mbResolvedStateUpdated = true;
+    UpdateData();
+    Invalidate();
+}
+
+void SwAnnotationWin::ToggleResolved()
+{
+    SetResolved(!IsResolved());
+}
+
+void SwAnnotationWin::ToggleResolvedForThread()
+{
+    GetTopReplyNote()->ToggleResolved();
+    mrMgr.UpdateResolvedStatus(GetTopReplyNote());
+    mrMgr.LayoutPostIts();
+}
+
+bool SwAnnotationWin::IsResolved() const
+{
+    return static_cast<SwPostItField*>(mpFormatField->GetField())->GetResolved();
+}
+
+bool SwAnnotationWin::IsThreadResolved()
+{
+    // Not const because GetTopReplyNote isn't.
+    return GetTopReplyNote()->IsResolved();
+}
+
 void SwAnnotationWin::UpdateData()
 {
-    if ( mpOutliner->IsModified() )
+    if ( mpOutliner->IsModified() || mbResolvedStateUpdated )
     {
         IDocumentUndoRedo & rUndoRedo(
             mrView.GetDocShell()->GetDoc()->GetIDocumentUndoRedo());
@@ -238,11 +290,15 @@ void SwAnnotationWin::UpdateData()
         // so we get a new layout of notes (anchor position is still the same and we would otherwise not get one)
         mrMgr.SetLayout();
         // #i98686# if we have several views, all notes should update their text
-        mpFormatField->Broadcast(SwFormatFieldHint( nullptr, SwFormatFieldHintWhich::CHANGED));
+        if(mbResolvedStateUpdated)
+            mpFormatField->Broadcast(SwFormatFieldHint( nullptr, SwFormatFieldHintWhich::RESOLVED));
+        else
+            mpFormatField->Broadcast(SwFormatFieldHint( nullptr, SwFormatFieldHintWhich::CHANGED));
         mrView.GetDocShell()->SetModified();
     }
     mpOutliner->ClearModifyFlag();
     mpOutliner->GetUndoManager().Clear();
+    mbResolvedStateUpdated = false;
 }
 
 void SwAnnotationWin::Delete()
@@ -410,7 +466,7 @@ void SwAnnotationWin::UpdateText(const OUString& aText)
     UpdateData();
 }
 
-SvxLanguageItem SwAnnotationWin::GetLanguage()
+SvxLanguageItem SwAnnotationWin::GetLanguage() const
 {
     // set initial language for outliner
     SvtScriptType nScriptType = SvtLanguageOptions::GetScriptTypeOfLanguage( mpField->GetLanguage() );
@@ -425,24 +481,24 @@ SvxLanguageItem SwAnnotationWin::GetLanguage()
     return SvxLanguageItem(mpField->GetLanguage(),nLangWhichId);
 }
 
-bool SwAnnotationWin::IsProtected()
+bool SwAnnotationWin::IsProtected() const
 {
     return mbReadonly ||
            GetLayoutStatus() == SwPostItHelper::DELETED ||
            ( mpFormatField && mpFormatField->IsProtect() );
 }
 
-OUString SwAnnotationWin::GetAuthor()
+OUString SwAnnotationWin::GetAuthor() const
 {
     return mpField->GetPar1();
 }
 
-Date SwAnnotationWin::GetDate()
+Date SwAnnotationWin::GetDate() const
 {
     return mpField->GetDate();
 }
 
-tools::Time SwAnnotationWin::GetTime()
+tools::Time SwAnnotationWin::GetTime() const
 {
     return mpField->GetTime();
 }

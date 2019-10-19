@@ -62,7 +62,7 @@ void LotusToSc::DoFunc( DefTokenId eOc, sal_uInt8 nCnt, const sal_Char* pExtStri
             eOc = lcl_KnownAddIn( t );
 
             if( eOc == ocNoName )
-                t = OString("L123_") + t;
+                t = "L123_" + t;
         }
         else
             t = "#UNKNOWN FUNC NAME#";
@@ -195,7 +195,7 @@ void LotusToSc::DoFunc( DefTokenId eOc, sal_uInt8 nCnt, const sal_Char* pExtStri
         {   // special case ocPMT, negate last parameter!
             // additionally: 1. -> 3., 3. -> 2., 2. -> 1.
             SAL_WARN_IF( nCnt != 3, "sc.filter", "+LotusToSc::DoFunc(): ocPMT needs 3 parameters!" );
-            // There should be at least 3 arguments, but with binary crap may not..
+            // There should be at least 3 arguments, but with binary crap may not...
             switch (nCnt)
             {
                 case 1:
@@ -566,8 +566,7 @@ void LotusToSc::Convert( std::unique_ptr<ScTokenArray>& rpErg, sal_Int32& rRest 
                     aStack << aPool.Store( nRngIndex );
                 else
             {
-                    OUString  aText( "NRREF ");
-                    aText += aTmp;
+                    OUString aText = "NRREF " + aTmp;
                     aStack << aPool.Store( aText );
             }
             }
@@ -579,8 +578,7 @@ void LotusToSc::Convert( std::unique_ptr<ScTokenArray>& rpErg, sal_Int32& rRest 
                     aStack << aPool.Store( nRngIndex );
                 else
                 {
-                    OUString  aText( "ABSNREF " );
-                    aText += aTmp;
+                    OUString aText = "ABSNREF " + aTmp;
                     aStack << aPool.Store( aText );
                 }
             }

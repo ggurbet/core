@@ -321,7 +321,7 @@ void WriterXmlEmitter::visit( DocumentElement& elem, const std::list< std::uniqu
     m_rEmitContext.rEmitter.beginTag( "office:body", PropertyMap() );
     m_rEmitContext.rEmitter.beginTag( "office:text", PropertyMap() );
 
-    for( auto& rxChild : elem.Children )
+    for( const auto& rxChild : elem.Children )
     {
         PageElement* pPage = dynamic_cast<PageElement*>(rxChild.get());
         if( pPage )
@@ -505,7 +505,7 @@ void WriterXmlOptimizer::visit( PageElement& elem, const std::list< std::unique_
             // adjust line height and text items
             fCurLineHeight = 0.0;
             nCurLineElements = 0;
-            for( auto& rxChild : pCurPara->Children )
+            for( const auto& rxChild : pCurPara->Children )
             {
                 TextElement* pTestText = dynamic_cast<TextElement*>(rxChild.get());
                 if( pTestText )
@@ -653,7 +653,7 @@ void WriterXmlOptimizer::visit( PageElement& elem, const std::list< std::unique_
 void WriterXmlOptimizer::checkHeaderAndFooter( PageElement& rElem )
 {
     /* indicators for a header:
-     *  - single line paragrah at top of page (  inside 15% page height)
+     *  - single line paragraph at top of page (inside 15% page height)
      *  - at least lineheight above the next paragraph
      *
      *  indicators for a footer likewise:
@@ -671,8 +671,8 @@ void WriterXmlOptimizer::checkHeaderAndFooter( PageElement& rElem )
     auto it = std::find_if(rElem.Children.begin(), rElem.Children.end(), isParagraphElement);
     if (it != rElem.Children.end())
     {
-        ParagraphElement* pPara = dynamic_cast<ParagraphElement*>(it->get());
-        if( pPara->y+pPara->h < rElem.h*0.15 && pPara->isSingleLined( m_rProcessor ) )
+        ParagraphElement& rPara = dynamic_cast<ParagraphElement&>(**it);
+        if( rPara.y+rPara.h < rElem.h*0.15 && rPara.isSingleLined( m_rProcessor ) )
         {
             auto next_it = it;
             ParagraphElement* pNextPara = nullptr;
@@ -680,10 +680,10 @@ void WriterXmlOptimizer::checkHeaderAndFooter( PageElement& rElem )
             {
                 pNextPara = dynamic_cast<ParagraphElement*>(next_it->get());
             }
-            if( pNextPara && pNextPara->y > pPara->y+pPara->h*2 )
+            if( pNextPara && pNextPara->y > rPara.y+rPara.h*2 )
             {
                 rElem.HeaderElement = std::move(*it);
-                pPara->Parent = nullptr;
+                rPara.Parent = nullptr;
                 rElem.Children.erase( it );
             }
         }
@@ -694,8 +694,8 @@ void WriterXmlOptimizer::checkHeaderAndFooter( PageElement& rElem )
     if (rit == rElem.Children.rend())
         return;
 
-    ParagraphElement* pPara = dynamic_cast<ParagraphElement*>(rit->get());
-    if( !(pPara->y > rElem.h*0.85 && pPara->isSingleLined( m_rProcessor )) )
+    ParagraphElement& rPara = dynamic_cast<ParagraphElement&>(**rit);
+    if( !(rPara.y > rElem.h*0.85 && rPara.isSingleLined( m_rProcessor )) )
         return;
 
     std::list< std::unique_ptr<Element> >::reverse_iterator next_it = rit;
@@ -704,10 +704,10 @@ void WriterXmlOptimizer::checkHeaderAndFooter( PageElement& rElem )
     {
         pNextPara = dynamic_cast<ParagraphElement*>(next_it->get());
     }
-    if( pNextPara && pNextPara->y < pPara->y-pPara->h*2 )
+    if( pNextPara && pNextPara->y < rPara.y-rPara.h*2 )
     {
         rElem.FooterElement = std::move(*rit);
-        pPara->Parent = nullptr;
+        rPara.Parent = nullptr;
         rElem.Children.erase( std::next(rit).base() );
     }
 }
@@ -925,10 +925,7 @@ void WriterXmlFinalizer::visit( TextElement& elem, const std::list< std::unique_
         aFontProps[ "style:text-outline" ]  = "true";
     }
     // size
-    OUStringBuffer aBuf( 32 );
-    aBuf.append( rFont.size*72/PDFI_OUTDEV_RESOLUTION );
-    aBuf.append( "pt" );
-    OUString aFSize = aBuf.makeStringAndClear();
+    OUString aFSize = OUString::number( rFont.size*72/PDFI_OUTDEV_RESOLUTION ) + "pt";
     aFontProps[ "fo:font-size" ]            = aFSize;
     aFontProps[ "style:font-size-asian" ]   = aFSize;
     aFontProps[ "style:font-size-complex" ] = aFSize;
@@ -1085,7 +1082,7 @@ void WriterXmlFinalizer::visit( PageElement& elem, const std::list< std::unique_
     elem.RightMargin = 0;
     // first element should be a paragraph
     ParagraphElement* pFirstPara = nullptr;
-    for( auto& rxChild : elem.Children )
+    for( const auto& rxChild : elem.Children )
     {
         if( dynamic_cast<ParagraphElement*>( rxChild.get() ) )
         {

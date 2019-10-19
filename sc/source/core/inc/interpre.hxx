@@ -169,7 +169,7 @@ public:
      */
     static utl::SearchParam::SearchType DetectSearchType( const OUString& rStr, const ScDocument* pDoc );
 
-    /// Fail safe division, returning an FormulaError::DivisionByZero coded into a double
+    /// Fail safe division, returning a FormulaError::DivisionByZero coded into a double
     /// if denominator is 0.0
     static inline double div( const double& fNumerator, const double& fDenominator );
 
@@ -195,7 +195,7 @@ private:
     ScCalcConfig maCalcConfig;
     formula::FormulaTokenIterator aCode;
     ScAddress   aPos;
-    ScTokenArray& rArr;
+    ScTokenArray* pArr;
     ScInterpreterContext& mrContext;
     ScDocument* pDok;
     sfx2::LinkManager* mpLinkManager;
@@ -283,7 +283,7 @@ private:
         Increments RefCount of the original token if not substituted.
         ATTENTION! The token had to be allocated with `new' and must not be used
         after this call if no RefCount was set because possibly it gets immediately
-        deleted in case of an FormulaError::StackOverflow or if substituted with formula::FormulaErrorToken! */
+        deleted in case of a FormulaError::StackOverflow or if substituted with formula::FormulaErrorToken! */
     void PushTempToken( formula::FormulaToken* );
 
     /** Pushes the token or substitutes with formula::FormulaErrorToken in case
@@ -296,7 +296,7 @@ private:
         explicit formula::FormulaErrorToken. Increments RefCount.
         ATTENTION! The token had to be allocated with `new' and must not be used
         after this call if no RefCount was set because possibly it gets immediately
-        decremented again and thus deleted in case of an FormulaError::StackOverflow! */
+        decremented again and thus deleted in case of a FormulaError::StackOverflow! */
     void PushTempTokenWithoutError( const formula::FormulaToken* );
 
     /** If nGlobalError is set push formula::FormulaErrorToken.
@@ -424,7 +424,7 @@ private:
     formula::StackVar GetStackType();
     // peek StackType of Parameter, Parameter 1 == TOS, 2 == TOS-1, ...
     formula::StackVar GetStackType( sal_uInt8 nParam );
-    sal_uInt8 GetByte() { return cPar; }
+    sal_uInt8 GetByte() const { return cPar; }
     // reverse order of stack
     void ReverseStack( sal_uInt8 nParamCount );
     // generates a position-dependent SingleRef out of a DoubleRef
@@ -432,7 +432,7 @@ private:
     double GetDoubleFromMatrix(const ScMatrixRef& pMat);
     double GetDouble();
     double GetDoubleWithDefault(double nDefault);
-    bool IsMissing();
+    bool IsMissing() const;
     sal_Int32 double_to_int32(double fVal);
     /** if GetDouble() not within int32 limits sets nGlobalError and returns SAL_MAX_INT32 */
     sal_Int32 GetInt32();
@@ -1004,8 +1004,13 @@ private:
 
 public:
     ScInterpreter( ScFormulaCell* pCell, ScDocument* pDoc, ScInterpreterContext& rContext,
-                    const ScAddress&, ScTokenArray& );
+                    const ScAddress&, ScTokenArray&, bool bForGroupThreading = false );
     ~ScInterpreter();
+
+    // Used only for threaded formula-groups.
+    // Resets the interpreter object, allowing reuse of interpreter object for each cell
+    // in the group.
+    void Init( ScFormulaCell* pCell, const ScAddress& rPos, ScTokenArray& rTokArray );
 
     formula::StackVar Interpret();
 

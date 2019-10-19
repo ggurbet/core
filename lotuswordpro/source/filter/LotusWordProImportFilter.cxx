@@ -49,22 +49,19 @@ static const sal_Int8 header[] = { 0x57, 0x6f, 0x72, 0x64, 0x50, 0x72, 0x6f };
 
 bool LotusWordProImportFilter::importImpl( const Sequence< css::beans::PropertyValue >& aDescriptor )
 {
-
-    sal_Int32 nLength = aDescriptor.getLength();
-    const PropertyValue * pValue = aDescriptor.getConstArray();
     OUString sURL;
-    for ( sal_Int32 i = 0 ; i < nLength; i++)
+    for (const PropertyValue& rValue : aDescriptor)
     {
         //Note, we should attempt to use InputStream here first!
-        if ( pValue[i].Name == "URL" )
-            pValue[i].Value >>= sURL;
+        if ( rValue.Name == "URL" )
+            rValue.Value >>= sURL;
     }
 
     SvFileStream inputStream( sURL, StreamMode::READ );
     if (!inputStream.good())
          return false;
 
-    // An XML import service: what we push sax messages to..
+    // An XML import service: what we push sax messages to...
     uno::Reference< XDocumentHandler > xInternalHandler(
         mxContext->getServiceManager()->createInstanceWithContext( "com.sun.star.comp.Writer.XMLImporter", mxContext ), UNO_QUERY );
     uno::Reference < XImporter > xImporter(xInternalHandler, UNO_QUERY);
@@ -98,20 +95,17 @@ void SAL_CALL LotusWordProImportFilter::setTargetDocument( const uno::Reference<
 // XExtendedFilterDetection
 OUString SAL_CALL LotusWordProImportFilter::detect( css::uno::Sequence< PropertyValue >& Descriptor )
 {
-
     OUString sTypeName( "writer_LotusWordPro_Document" );
-    sal_Int32 nLength = Descriptor.getLength();
     OUString sURL;
-    const PropertyValue * pValue = Descriptor.getConstArray();
     uno::Reference < XInputStream > xInputStream;
-    for ( sal_Int32 i = 0 ; i < nLength; i++)
+    for (const PropertyValue& rValue : std::as_const(Descriptor))
     {
-        if ( pValue[i].Name == "TypeName" )
-            pValue[i].Value >>= sTypeName;
-        else if ( pValue[i].Name == "InputStream" )
-            pValue[i].Value >>= xInputStream;
-        else if ( pValue[i].Name == "URL" )
-            pValue[i].Value >>= sURL;
+        if ( rValue.Name == "TypeName" )
+            rValue.Value >>= sTypeName;
+        else if ( rValue.Name == "InputStream" )
+            rValue.Value >>= xInputStream;
+        else if ( rValue.Name == "URL" )
+            rValue.Value >>= sURL;
     }
 
     uno::Reference< css::ucb::XCommandEnvironment > xEnv;
@@ -148,7 +142,7 @@ void SAL_CALL LotusWordProImportFilter::initialize( const Sequence< Any >& /*aAr
 // XServiceInfo
 OUString SAL_CALL LotusWordProImportFilter::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Writer.LotusWordProImportFilter");
+    return "com.sun.star.comp.Writer.LotusWordProImportFilter";
 }
 
 sal_Bool SAL_CALL LotusWordProImportFilter::supportsService(const OUString& rServiceName)

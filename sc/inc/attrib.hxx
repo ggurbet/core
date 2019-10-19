@@ -21,7 +21,6 @@
 #define INCLUDED_SC_INC_ATTRIB_HXX
 
 #include <memory>
-#include <vector>
 #include <svl/poolitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/eitem.hxx>
@@ -268,7 +267,7 @@ public:
     explicit ScCondFormatItem();
     explicit ScCondFormatItem(sal_uInt32 nIndex);
     explicit ScCondFormatItem(const ScCondFormatIndexes& );
-    explicit ScCondFormatItem(ScCondFormatIndexes&& );
+    explicit ScCondFormatItem(ScCondFormatIndexes&&) noexcept;
 
     virtual ~ScCondFormatItem() override;
 

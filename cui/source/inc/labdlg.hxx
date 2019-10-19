@@ -78,11 +78,10 @@ private:
     DECL_LINK(SelectCaptTypeHdl_Impl, SvtValueSet*, void);
 
 public:
-    SvxCaptionTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SvxCaptionTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SvxCaptionTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent, const SfxItemSet* );
+    static std::unique_ptr<SfxTabPage>  Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* );
     static const sal_uInt16*  GetRanges() { return pCaptionRanges; }
 
     virtual bool        FillItemSet( SfxItemSet* ) override;
@@ -91,7 +90,6 @@ public:
     void                SetView( const SdrView* pSdrView )
                             { pView = pSdrView; }
 
-    virtual void DataChanged( const DataChangedEvent& rDCEvt ) override;
     void FillValueSet();
 };
 

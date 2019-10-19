@@ -135,8 +135,8 @@ void SwCharDlg::PageCreated(const OString& rId, SfxTabPage &rPage)
     }
 }
 
-SwCharURLPage::SwCharURLPage(TabPageParent pParent, const SfxItemSet& rCoreSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/charurlpage.ui", "CharURLPage", &rCoreSet)
+SwCharURLPage::SwCharURLPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/charurlpage.ui", "CharURLPage", &rCoreSet)
     , bModified(false)
     , m_xURLED(m_xBuilder->weld_entry("urled"))
     , m_xTextFT(m_xBuilder->weld_label("textft"))
@@ -190,13 +190,7 @@ SwCharURLPage::SwCharURLPage(TabPageParent pParent, const SfxItemSet& rCoreSet)
 
 SwCharURLPage::~SwCharURLPage()
 {
-    disposeOnce();
-}
-
-void SwCharURLPage::dispose()
-{
     pINetItem.reset();
-    SfxTabPage::dispose();
 }
 
 void SwCharURLPage::Reset(const SfxItemSet* rSet)
@@ -290,9 +284,9 @@ bool SwCharURLPage::FillItemSet(SfxItemSet* rSet)
     return bModified;
 }
 
-VclPtr<SfxTabPage> SwCharURLPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> SwCharURLPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwCharURLPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwCharURLPage>(pPage, pController, *rAttrSet);
 }
 
 IMPL_LINK_NOARG(SwCharURLPage, InsertFileHdl, weld::Button&, void)
@@ -308,7 +302,7 @@ IMPL_LINK_NOARG(SwCharURLPage, InsertFileHdl, weld::Button&, void)
 
 IMPL_LINK_NOARG(SwCharURLPage, EventHdl, weld::Button&, void)
 {
-    bModified |= SwMacroAssignDlg::INetFormatDlg(GetDialogFrameWeld(),
+    bModified |= SwMacroAssignDlg::INetFormatDlg(GetFrameWeld(),
                     ::GetActiveView()->GetWrtShell(), pINetItem);
 }
 

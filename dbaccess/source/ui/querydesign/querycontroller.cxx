@@ -75,6 +75,7 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <osl/mutex.hxx>
@@ -113,7 +114,7 @@ namespace dbaui
         /// @throws RuntimeException
         static OUString getImplementationName_Static()
         {
-            return OUString("org.openoffice.comp.dbu.OViewDesign");
+            return "org.openoffice.comp.dbu.OViewDesign";
         }
         /// @throws RuntimeException
         static Sequence< OUString > getSupportedServiceNames_Static()
@@ -213,7 +214,7 @@ OUString SAL_CALL OQueryController::getImplementationName()
 
 OUString OQueryController::getImplementationName_Static()
 {
-    return OUString("org.openoffice.comp.dbu.OQueryDesign");
+    return "org.openoffice.comp.dbu.OQueryDesign";
 }
 
 Sequence< OUString> OQueryController::getSupportedServiceNames_Static()
@@ -1162,7 +1163,7 @@ void OQueryController::executeQuery()
                 xDisp->dispatch(aWantToDispatch, aProps);
                 // check the state of the beamer
                 // be notified when the beamer frame is closed
-                Reference< XComponent >  xComponent( getFrame()->findFrame( sFrameName, nSearchFlags ), UNO_QUERY );
+                Reference< XComponent >  xComponent = getFrame()->findFrame( sFrameName, nSearchFlags );
                 if (xComponent.is())
                 {
                     OSL_ENSURE(Reference< XFrame >(xComponent, UNO_QUERY).get() == getContainer()->getPreviewFrame().get(),
@@ -1457,7 +1458,7 @@ static std::vector< CommentStrip > getComment( const OUString& rQuery )
             }
             else
             {
-                // comment can't close anymore, actually an error, but..
+                // comment can't close anymore, actually an error, but...
                 aRet.emplace_back( aBuf.makeStringAndClear(), false);
             }
             continue;
@@ -1612,7 +1613,7 @@ short OQueryController::saveModified()
         std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(getFrameWeld(),
                                                        VclMessageType::Question, VclButtonsType::YesNo,
                                                        sMessageText));
-        xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+        xQueryBox->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
         xQueryBox->set_default_response(RET_YES);
 
         nRet = xQueryBox->run();

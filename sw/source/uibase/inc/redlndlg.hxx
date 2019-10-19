@@ -21,14 +21,10 @@
 #include <swdllapi.h>
 #include "chldwrap.hxx"
 #include <redline.hxx>
-#include <tools/datetime.hxx>
-#include <svl/eitem.hxx>
 #include <svx/sidebar/PanelLayout.hxx>
 #include <sfx2/basedlgs.hxx>
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/dispatch.hxx>
+#include <svl/lstner.hxx>
 #include <svx/ctredlin.hxx>
-#include <svx/postattr.hxx>
 #include <o3tl/sorted_vector.hxx>
 
 #include <memory>
@@ -111,7 +107,7 @@ public:
 
     DECL_LINK( FilterChangedHdl, SvxTPFilter*, void );
 
-    SvxAcceptChgCtr& GetChgCtrl()        { return *m_xTabPagesCTRL.get(); }
+    SvxAcceptChgCtr& GetChgCtrl()        { return *m_xTabPagesCTRL; }
     bool     HasRedlineAutoFormat() const   { return m_bRedlnAutoFormat; }
 
     void            Init(SwRedlineTable::size_type nStart = 0);

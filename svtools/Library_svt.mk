@@ -19,7 +19,7 @@
 
 $(eval $(call gb_Library_Library,svt))
 
-$(eval $(call gb_Library_set_precompiled_header,svt,$(SRCDIR)/svtools/inc/pch/precompiled_svt))
+$(eval $(call gb_Library_set_precompiled_header,svt,svtools/inc/pch/precompiled_svt))
 
 $(eval $(call gb_Library_set_componentfile,svt,svtools/util/svt))
 
@@ -88,35 +88,26 @@ $(eval $(call gb_Library_add_exception_objects,svt,\
     svtools/source/config/optionsdrawinglayer \
     svtools/source/config/printoptions \
     svtools/source/contnr/DocumentInfoPreview \
-    svtools/source/contnr/contentenumeration \
-    svtools/source/contnr/fileview \
-    svtools/source/contnr/foldertree \
-    svtools/source/contnr/iconview \
-    svtools/source/contnr/iconviewimpl \
-    svtools/source/contnr/simptabl \
+    svtools/source/contnr/querydelete \
     svtools/source/contnr/templwin \
     svtools/source/control/accessibleruler \
     svtools/source/control/asynclink \
     svtools/source/control/autocmpledit \
-    svtools/source/control/breadcrumb \
     svtools/source/control/calendar \
     svtools/source/control/collatorres \
     svtools/source/control/ctrlbox \
     svtools/source/control/ctrltool \
     svtools/source/control/filectrl \
     svtools/source/control/fileurlbox \
-    svtools/source/control/hyperlabel \
     svtools/source/control/indexentryres \
     svtools/source/control/inettbc \
     svtools/source/control/managedmenubutton \
-    svtools/source/control/roadmap \
     svtools/source/control/ruler \
     svtools/source/control/scriptedtext \
     svtools/source/control/scrwin \
     svtools/source/control/tabbar \
     svtools/source/control/toolbarmenu \
     svtools/source/control/toolbarmenuacc \
-    svtools/source/control/urlcontrol \
     svtools/source/control/valueacc \
     svtools/source/control/valueset \
     svtools/source/dialogs/addresstemplate \
@@ -125,10 +116,7 @@ $(eval $(call gb_Library_add_exception_objects,svt,\
     svtools/source/dialogs/PlaceEditDialog \
     svtools/source/dialogs/prnsetup \
     svtools/source/dialogs/restartdialog \
-    svtools/source/dialogs/roadmapwizard \
     svtools/source/dialogs/ServerDetailsControls \
-    svtools/source/dialogs/wizardmachine \
-    svtools/source/dialogs/wizdlg \
     svtools/source/edit/editsyntaxhighlighter \
     svtools/source/edit/svmedit \
     svtools/source/edit/svmedit2 \
@@ -179,7 +167,6 @@ $(eval $(call gb_Library_add_exception_objects,svt,\
     svtools/source/table/mousefunction \
     svtools/source/table/cellvalueconversion \
     svtools/source/table/tablegeometry \
-    svtools/source/uitest/uiobject \
     svtools/source/uno/addrtempuno \
     svtools/source/uno/fpicker \
     svtools/source/uno/framestatuslistener \

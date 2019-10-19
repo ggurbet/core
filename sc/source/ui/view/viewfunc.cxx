@@ -20,15 +20,12 @@
 #include <config_features.h>
 
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 
 #include <sfx2/app.hxx>
 #include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/editobj.hxx>
-#include <editeng/editview.hxx>
 #include <editeng/langitem.hxx>
-#include <editeng/scripttypeitem.hxx>
 #include <editeng/shaditem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <sfx2/bindings.hxx>
@@ -38,9 +35,10 @@
 #include <vcl/weld.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/waitobj.hxx>
-#include <vcl/wrkwin.hxx>
 #include <stdlib.h>
 #include <unotools/charclass.hxx>
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
 
 #include <viewfunc.hxx>
 #include <tabvwsh.hxx>
@@ -48,16 +46,12 @@
 #include <attrib.hxx>
 #include <patattr.hxx>
 #include <docpool.hxx>
-#include <uiitems.hxx>
 #include <sc.hrc>
 #include <strings.hrc>
 #include <undocell.hxx>
 #include <undoblk.hxx>
-#include <undotab.hxx>
 #include <refundo.hxx>
-#include <dbdata.hxx>
 #include <olinetab.hxx>
-#include <rangeutl.hxx>
 #include <rangenam.hxx>
 #include <globstr.hrc>
 #include <global.hxx>
@@ -71,7 +65,6 @@
 #include <compiler.hxx>
 #include <docfunc.hxx>
 #include <appoptio.hxx>
-#include <dociter.hxx>
 #include <sizedev.hxx>
 #include <editable.hxx>
 #include <scui_def.hxx>
@@ -80,8 +73,6 @@
 #include <cellsuno.hxx>
 #include <tokenarray.hxx>
 #include <rowheightcontext.hxx>
-#include <docfuncutil.hxx>
-#include <sfx2/lokhelper.hxx>
 #include <comphelper/lok.hxx>
 #include <conditio.hxx>
 #include <columnspanset.hxx>
@@ -106,6 +97,22 @@ ScViewFunc::ScViewFunc( vcl::Window* pParent, ScDocShell& rDocSh, ScTabViewShell
 
 ScViewFunc::~ScViewFunc()
 {
+}
+
+namespace {
+
+void collectUIInformation(const std::map<OUString, OUString>& aParameters, const OUString& rAction)
+{
+    EventDescription aDescription;
+    aDescription.aID = "grid_window";
+    aDescription.aAction = rAction;
+    aDescription.aParameters = aParameters;
+    aDescription.aParent = "MainWindow";
+    aDescription.aKeyWord = "ScGridWinUIObject";
+
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
 }
 
 void ScViewFunc::StartFormatArea()
@@ -444,8 +451,7 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
                     nResult = RET_NO;   // empty formula, just '='
                 else
                 {
-                    OUString aMessage( ScResId( SCSTR_FORMULA_AUTOCORRECTION ) );
-                    aMessage += aCorrectedFormula;
+                    OUString aMessage = ScResId( SCSTR_FORMULA_AUTOCORRECTION ) + aCorrectedFormula;
 
                     std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetViewData().GetDialogParent(),
                                                                    VclMessageType::Question, VclButtonsType::YesNo,
@@ -471,7 +477,7 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
         // If the array has an error, (it) must be RPN-erased in the newly generated
         // cells and the error be set explicitly, so that
         // via FormulaCell copy-ctor and Interpreter it will be, when possible,
-        // ironed out again, too intelligent.. e.g.: =1))
+        // ironed out again, too intelligent... e.g.: =1))
         FormulaError nError = pArr->GetCodeError();
         if ( nError == FormulaError::NONE )
         {
@@ -539,7 +545,7 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
                 {
                     // Reset to General so the actual format can be determined
                     // after the cell has been interpreted. A sticky boolean
-                    // number format is highly likely unwanted.. see tdf#75650.
+                    // number format is highly likely unwanted... see tdf#75650.
                     // General of same locale as current number format.
                     const SvNumberformat* pEntry = pFormatter->GetEntry( nIndex);
                     const LanguageType nLang = (pEntry ? pEntry->GetLanguage() : ScGlobal::eLnge);
@@ -1627,6 +1633,9 @@ bool ScViewFunc::InsertCells( InsCellCmd eCmd, bool bRecord, bool bPartOfPaste )
                     ScTabViewShell::notifyAllViewsHeaderInvalidation(ROW_HEADER, GetViewData().GetTabNo());
             }
         }
+        OUString aStartAddress =  aRange.aStart.GetColRowString();
+        OUString aEndAddress = aRange.aEnd.GetColRowString();
+        collectUIInformation({{"RANGE", aStartAddress + ":" + aEndAddress}}, "INSERT_CELLS");
         return bSuccess;
     }
     else
@@ -1711,6 +1720,10 @@ void ScViewFunc::DeleteCells( DelCellCmd eCmd )
         else
             ErrorMessage(STR_NOMULTISELECT);
     }
+
+    OUString aStartAddress =  aRange.aStart.GetColRowString();
+    OUString aEndAddress = aRange.aEnd.GetColRowString();
+    collectUIInformation({{"RANGE", aStartAddress + ":" + aEndAddress}}, "DELETE_CELLS");
 
     Unmark();
 }
@@ -1815,7 +1828,7 @@ void ScViewFunc::DeleteMulti( bool bRows )
         pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
         pUndoDoc->InitUndo( &rDoc, nTab, nTab, !bRows, bRows );      // row height
 
-        for (sc::ColRowSpan & rSpan : aSpans)
+        for (const sc::ColRowSpan & rSpan : aSpans)
         {
             SCCOLROW nStart = rSpan.mnStart;
             SCCOLROW nEnd = rSpan.mnEnd;
@@ -1989,6 +2002,9 @@ void ScViewFunc::DeleteContents( InsertDeleteFlags nFlags )
         else
             StartFormatArea();              // delete attribute is also attribute-change
     }
+    OUString aStartAddress =  aMarkRange.aStart.GetColRowString();
+    OUString aEndAddress = aMarkRange.aEnd.GetColRowString();
+    collectUIInformation({{"RANGE", aStartAddress + ":" + aEndAddress}}, "DELETE");
 }
 
 //  column width/row height (via header) - undo OK

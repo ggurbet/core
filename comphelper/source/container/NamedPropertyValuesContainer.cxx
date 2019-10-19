@@ -141,7 +141,7 @@ sal_Bool SAL_CALL NamedPropertyValuesContainer::hasElements(  )
 //XServiceInfo
 OUString SAL_CALL NamedPropertyValuesContainer::getImplementationName(  )
 {
-    return OUString( "NamedPropertyValuesContainer" );
+    return "NamedPropertyValuesContainer";
 }
 
 sal_Bool SAL_CALL NamedPropertyValuesContainer::supportsService( const OUString& ServiceName )
@@ -151,9 +151,7 @@ sal_Bool SAL_CALL NamedPropertyValuesContainer::supportsService( const OUString&
 
 css::uno::Sequence< OUString > SAL_CALL NamedPropertyValuesContainer::getSupportedServiceNames(  )
 {
-    const OUString aServiceName( "com.sun.star.document.NamedPropertyValues" );
-    const uno::Sequence< OUString > aSeq( &aServiceName, 1 );
-    return aSeq;
+    return { "com.sun.star.document.NamedPropertyValues" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface *

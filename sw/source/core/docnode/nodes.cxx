@@ -46,7 +46,7 @@
 
 #include <docsh.hxx>
 
-typedef std::vector<SwStartNode*> SwSttNdPtrs;
+typedef std::vector<SwStartNode*> SwStartNodePointers;
 
 // function to determine the highest level in the given range
 static sal_uInt16 HighestLevel( SwNodes & rNodes, const SwNodeRange & rRange );
@@ -435,8 +435,8 @@ bool SwNodes::MoveNodes( const SwNodeRange& aRange, SwNodes & rNodes,
     sal_uLong nInsPos = 0; // counter for tmp array
 
     // array as a stack, storing all StartOfSelections
-    SwSttNdPtrs aSttNdStack;
-    SwSttNdPtrs::size_type nLevel = 0; // level counter
+    SwStartNodePointers aSttNdStack;
+    SwStartNodePointers::size_type nLevel = 0; // level counter
 
     // set start index
     SwNodeIndex  aIdx( aIndex );
@@ -934,7 +934,7 @@ void SwNodes::SectionDown(SwNodeRange *pRange, SwStartNodeType eSttNdTyp )
 /** increase level of the given range
  *
  * The range contained in pRange will be lifted to the next higher level.
- * This is done by adding a end node at pRange.start and a start node at
+ * This is done by adding an end node at pRange.start and a start node at
  * pRange.end. Furthermore all indices for this range will be updated.
  *
  * After this method call, the start node of pRange will be pointing to the
@@ -1016,7 +1016,7 @@ void SwNodes::SectionUpDown( const SwNodeIndex & aStart, const SwNodeIndex & aEn
 {
     SwNodeIndex aTmpIdx( aStart, +1 );
     // array forms a stack, holding all StartOfSelections
-    SwSttNdPtrs aSttNdStack;
+    SwStartNodePointers aSttNdStack;
     SwStartNode* pTmp = aStart.GetNode().GetStartNode();
     aSttNdStack.push_back( pTmp );
 
@@ -1161,7 +1161,7 @@ void SwNodes::Delete(const SwNodeIndex &rIndex, sal_uLong nNodes)
                 nLevel--;
             }
 
-            // after deletion, aEnd might point to a EndNode...
+            // after deletion, aEnd might point to an EndNode...
             // delete all empty start/end node pairs
             SwNode* pTmpNode = aRg.aEnd.GetNode().GetEndNode();
             --aRg.aEnd;
@@ -1712,7 +1712,7 @@ void SwNodes::CopyNodes( const SwNodeRange& rRange,
 
     // when inserting into the source range, nothing need to be done
     OSL_ENSURE( &aRg.aStart.GetNodes() == this,
-                "aRg should use thisnodes array" );
+                "aRg should use this node array" );
     OSL_ENSURE( &aRg.aStart.GetNodes() == &aRg.aEnd.GetNodes(),
                "Range across different nodes arrays? You deserve punishment!");
     if( &rIndex.GetNodes() == &aRg.aStart.GetNodes() &&

@@ -66,7 +66,7 @@ UnoScriptTypeDetector::endOfCTLScriptType( const OUString& Text, sal_Int32 nPos 
 OUString SAL_CALL
 UnoScriptTypeDetector::getImplementationName()
 {
-    return OUString("com.sun.star.i18n.ScriptTypeDetector");
+    return "com.sun.star.i18n.ScriptTypeDetector";
 }
 
 sal_Bool SAL_CALL
@@ -78,8 +78,7 @@ UnoScriptTypeDetector::supportsService(const OUString& ServiceName)
 css::uno::Sequence< OUString > SAL_CALL
 UnoScriptTypeDetector::getSupportedServiceNames()
 {
-    css::uno::Sequence< OUString > aRet { "com.sun.star.i18n.ScriptTypeDetector" };
-    return aRet;
+    return { "com.sun.star.i18n.ScriptTypeDetector" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface *

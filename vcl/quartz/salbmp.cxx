@@ -28,7 +28,12 @@
 #include <basegfx/vector/b2ivector.hxx>
 #include <tools/color.hxx>
 #include <vcl/bitmap.hxx>
-#include <vcl/salbtype.hxx>
+#include <vcl/BitmapAccessMode.hxx>
+#include <vcl/BitmapBuffer.hxx>
+#include <vcl/BitmapColor.hxx>
+#include <vcl/BitmapPalette.hxx>
+#include <vcl/ColorMask.hxx>
+#include <vcl/Scanline.hxx>
 
 #include <bmpfast.hxx>
 #include <quartz/salbmp.h>
@@ -40,10 +45,6 @@
 #include "saldatabasic.hxx"
 #endif
 
-static const unsigned long k16BitRedColorMask   = 0x00007c00;
-static const unsigned long k16BitGreenColorMask = 0x000003e0;
-static const unsigned long k16BitBlueColorMask  = 0x0000001f;
-
 static const unsigned long k32BitRedColorMask   = 0x00ff0000;
 static const unsigned long k32BitGreenColorMask = 0x0000ff00;
 static const unsigned long k32BitBlueColorMask  = 0x000000ff;
@@ -51,7 +52,7 @@ static const unsigned long k32BitBlueColorMask  = 0x000000ff;
 static bool isValidBitCount( sal_uInt16 nBitCount )
 {
     return (nBitCount == 1) || (nBitCount == 4) || (nBitCount == 8) ||
-        (nBitCount == 16) || (nBitCount == 24) || (nBitCount == 32);
+        (nBitCount == 24) || (nBitCount == 32);
 }
 
 QuartzSalBitmap::QuartzSalBitmap()
@@ -65,7 +66,7 @@ QuartzSalBitmap::QuartzSalBitmap()
 
 QuartzSalBitmap::~QuartzSalBitmap()
 {
-    Destroy();
+    doDestroy();
 }
 
 bool QuartzSalBitmap::Create(CGLayerHolder const & rLayerHolder, int nBitmapBits, int nX, int nY, int nWidth, int nHeight, bool bFlipped)
@@ -171,6 +172,11 @@ bool QuartzSalBitmap::Create( const css::uno::Reference< css::rendering::XBitmap
 
 void QuartzSalBitmap::Destroy()
 {
+    doDestroy();
+}
+
+void QuartzSalBitmap::doDestroy()
+{
     DestroyContext();
     m_pUserBuffer.reset();
 }
@@ -206,9 +212,9 @@ bool QuartzSalBitmap::CreateContext()
     CGBitmapInfo aCGBmpInfo = kCGImageAlphaNoneSkipFirst;
 
     // convert data into something accepted by CGBitmapContextCreate()
-    size_t bitsPerComponent = (mnBits == 16) ? 5 : 8;
+    size_t bitsPerComponent = 8;
     sal_uInt32 nContextBytesPerRow = mnBytesPerRow;
-    if( (mnBits == 16) || (mnBits == 32) )
+    if( mnBits == 32 )
     {
         // no conversion needed for truecolor
         m_pContextBuffer = m_pUserBuffer;
@@ -269,11 +275,10 @@ bool QuartzSalBitmap::AllocateUserData()
         case 1:     mnBytesPerRow = (mnWidth + 7) >> 3; break;
         case 4:     mnBytesPerRow = (mnWidth + 1) >> 1; break;
         case 8:     mnBytesPerRow = mnWidth; break;
-        case 16:    mnBytesPerRow = mnWidth << 1; break;
         case 24:    mnBytesPerRow = (mnWidth << 1) + mnWidth; break;
         case 32:    mnBytesPerRow = mnWidth << 2; break;
         default:
-            OSL_FAIL("vcl::QuartzSalBitmap::AllocateUserData(), illegal bitcount!");
+            assert(false && "vcl::QuartzSalBitmap::AllocateUserData(), illegal bitcount!");
         }
     }
 
@@ -291,7 +296,7 @@ bool QuartzSalBitmap::AllocateUserData()
     if (!alloc)
     {
         SAL_WARN( "vcl.quartz", "bad_alloc: " << mnWidth << "x" << mnHeight << " (" << mnBytesPerRow * mnHeight << " bytes)");
-        m_pUserBuffer.reset( static_cast<sal_uInt8*>(nullptr) );
+        m_pUserBuffer.reset();
         mnBytesPerRow = 0;
     }
 
@@ -324,7 +329,7 @@ public:
     }
     virtual Color ReadPixel() override
     {
-        const Color c = Color( pData[1], pData[2], pData[3] );
+        const Color c( pData[1], pData[2], pData[3] );
         pData += 4;
         return c;
     }
@@ -349,7 +354,7 @@ public:
     }
     virtual Color ReadPixel() override
     {
-        const Color c = Color( pData[2], pData[1], pData[0] );
+        const Color c( pData[2], pData[1], pData[0] );
         pData += 3;
         return c;
     }
@@ -358,34 +363,6 @@ public:
         *pData++ = nColor.GetBlue();
         *pData++ = nColor.GetGreen();
         *pData++ = nColor.GetRed();
-    }
-};
-
-class ImplPixelFormat16 : public ImplPixelFormat
-// currently R5G6B5-format for 16bit depth
-{
-    sal_uInt16* pData;
-public:
-
-    virtual void StartLine( sal_uInt8* pLine ) override
-    {
-        pData = reinterpret_cast<sal_uInt16*>(pLine);
-    }
-    virtual void SkipPixel( sal_uInt32 nPixel ) override
-    {
-        pData += nPixel;
-    }
-    virtual Color ReadPixel() override
-    {
-        const Color c = Color( (*pData & 0xf800) >> 8, (*pData & 0x07e0) >> 3 , (*pData & 0x001f) << 3 );
-        pData++;
-        return c;
-    }
-    virtual void WritePixel( Color nColor ) override
-    {
-        *pData++ =  (( nColor.GetRed() & 0xf8 ) << 8 ) |
-                    (( nColor.GetGreen() & 0xfc ) << 3 ) |
-                    (( nColor.GetBlue() & 0xf8 ) >> 3 );
     }
 };
 
@@ -534,7 +511,6 @@ std::unique_ptr<ImplPixelFormat> ImplPixelFormat::GetFormat( sal_uInt16 nBits, c
     case 1: return std::make_unique<ImplPixelFormat1>( rPalette );
     case 4: return std::make_unique<ImplPixelFormat4>( rPalette );
     case 8: return std::make_unique<ImplPixelFormat8>( rPalette );
-    case 16: return std::make_unique<ImplPixelFormat16>();
     case 24: return std::make_unique<ImplPixelFormat24>();
     case 32: return std::make_unique<ImplPixelFormat32>();
     default:
@@ -735,18 +711,6 @@ BitmapBuffer* QuartzSalBitmap::AcquireBuffer( BitmapAccessMode /*nMode*/ )
         case 8:
             pBuffer->mnFormat = ScanlineFormat::N8BitPal;
             break;
-        case 16:
-        {
-            pBuffer->mnFormat = ScanlineFormat::N16BitTcMsbMask;
-            ColorMaskElement aRedMask(k16BitRedColorMask);
-            aRedMask.CalcMaskShift();
-            ColorMaskElement aGreenMask(k16BitGreenColorMask);
-            aGreenMask.CalcMaskShift();
-            ColorMaskElement aBlueMask(k16BitBlueColorMask);
-            aBlueMask.CalcMaskShift();
-            pBuffer->maColorMask  = ColorMask(aRedMask, aGreenMask, aBlueMask);
-            break;
-        }
         case 24:
             pBuffer->mnFormat = ScanlineFormat::N24BitTcBgr;
             break;
@@ -762,6 +726,7 @@ BitmapBuffer* QuartzSalBitmap::AcquireBuffer( BitmapAccessMode /*nMode*/ )
             pBuffer->maColorMask  = ColorMask(aRedMask, aGreenMask, aBlueMask);
             break;
         }
+        default: assert(false);
     }
 
     // some BitmapBuffer users depend on a complete palette

@@ -107,7 +107,7 @@ uno::Any DatabaseDataProvider::queryInterface(uno::Type const & type)
 
 OUString DatabaseDataProvider::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.dbaccess.DatabaseDataProvider");
+    return "com.sun.star.comp.dbaccess.DatabaseDataProvider";
 }
 
 // XServiceInfo
@@ -123,8 +123,7 @@ sal_Bool SAL_CALL DatabaseDataProvider::supportsService( const OUString& _rServi
 
 uno::Sequence< OUString > DatabaseDataProvider::getSupportedServiceNames_Static(  )
 {
-    uno::Sequence<OUString> aSNS { "com.sun.star.chart2.data.DatabaseDataProvider" };
-    return aSNS;
+    return { "com.sun.star.chart2.data.DatabaseDataProvider" };
 }
 
 uno::Sequence< OUString > SAL_CALL DatabaseDataProvider::getSupportedServiceNames(  )

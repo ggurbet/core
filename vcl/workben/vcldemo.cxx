@@ -7,6 +7,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <sal/config.h>
+
+#include <memory>
+
 #include <config_features.h>
 
 #include <math.h>
@@ -44,7 +48,6 @@
 #include <vcl/toolbox.hxx>
 #include <vcl/pngwrite.hxx>
 #include <vcl/floatwin.hxx>
-#include <vcl/salbtype.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/help.hxx>
 #include <vcl/menu.hxx>
@@ -117,7 +120,7 @@ class DemoRenderer
         virtual sal_uInt16 getTestRepeatCount() = 0;
 #define RENDER_DETAILS(name,key,repeat) \
         virtual OUString getName() override \
-            { return OUString(SAL_STRINGIFY(name)); } \
+            { return SAL_STRINGIFY(name); } \
         virtual sal_uInt16 getAccelerator() override \
             { return key; } \
         virtual sal_uInt16 getTestRepeatCount() override \
@@ -165,7 +168,7 @@ public:
     void     selectRenderer(const OUString &rName);
     int      selectNextRenderer();
     void     setIterCount(sal_Int32 iterCount);
-    sal_Int32 getIterCount();
+    sal_Int32 getIterCount() const;
     void     addTime(int i, double t);
 
     Size maSize;
@@ -1221,7 +1224,7 @@ public:
             bHasLoadedAll = true;
 
             css::uno::Reference<css::container::XNameAccess> xRef(ImageTree::get().getNameAccess());
-            css::uno::Sequence< OUString > aAllIcons = xRef->getElementNames();
+            const css::uno::Sequence< OUString > aAllIcons = xRef->getElementNames();
 
             for (const auto& rIcon : aAllIcons)
             {
@@ -1379,7 +1382,7 @@ public:
                 LoadAllImages();
 
                 Point aLocation(0,maIcons[0].GetSizePixel().Height() + 8);
-                for (size_t i = 0; i < 100; i++)
+                for (size_t i = 0; i < maIcons.size(); i++)
                 {
                     BitmapEx aSrc = maIcons[i];
 
@@ -1675,7 +1678,7 @@ void DemoRenderer::setIterCount(sal_Int32 i)
     iterCount = i;
 }
 
-sal_Int32 DemoRenderer::getIterCount()
+sal_Int32 DemoRenderer::getIterCount() const
 {
     return iterCount;
 }
@@ -1714,7 +1717,7 @@ class DemoWin : public WorkWindow
     bool underTesting;
     bool testThreads;
 
-    class RenderThread : public salhelper::Thread {
+    class RenderThread final : public salhelper::Thread {
         DemoWin  &mrWin;
         sal_uInt32 const mnDelaySecs = 0;
     public:
@@ -2020,12 +2023,6 @@ public:
     }
 };
 
-class OpenGLZoneTest {
-public:
-    static void enter() { OpenGLZone::enter(); }
-    static void leave() { OpenGLZone::leave(); }
-};
-
 IMPL_LINK_NOARG(DemoWidgets, GLTestClick, Button*, void)
 {
     sal_Int32 nSelected = mpGLCombo->GetSelectedEntryPos();
@@ -2046,14 +2043,13 @@ IMPL_LINK_NOARG(DemoWidgets, GLTestClick, Button*, void)
         break;
     }
 
-    bool bEnterLeave = mpGLCheck->IsChecked();
-    if (bEnterLeave)
-        OpenGLZoneTest::enter();
+    // Only create OpenGLZone RAII object if asked for:
+    std::unique_ptr<OpenGLZone> zone;
+    if (mpGLCheck->IsChecked()) {
+        zone.reset(new OpenGLZone);
+    }
 
     osl::Thread::wait(std::chrono::seconds(nDelaySeconds));
-
-    if (bEnterLeave)
-        OpenGLZoneTest::leave();
 }
 
 IMPL_LINK(DemoWidgets, CursorButtonClick, Button*, pButton, void)

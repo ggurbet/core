@@ -18,7 +18,6 @@
 #include <sfx2/filedlghelper.hxx>
 #include <tools/urlobj.hxx>
 
-#include <sal/log.hxx>
 #include <unotools/pathoptions.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <officecfg/Office/Impress.hxx>
@@ -96,7 +95,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, CreateHdl, weld::Button&, void)
     else
     {
         Reference< drawing::XDrawPagesSupplier > xDPS( m_pDoc->getUnoModel(), uno::UNO_QUERY );
-        Reference< drawing::XDrawPages > xDrawPages( xDPS->getDrawPages(), uno::UNO_QUERY );
+        Reference< drawing::XDrawPages > xDrawPages = xDPS->getDrawPages();
         Reference< lang::XMultiServiceFactory > xShapeFactory( m_pDoc->getUnoModel(), uno::UNO_QUERY );
 
         Reference< XComponentContext > xContext(::comphelper::getProcessComponentContext());
@@ -166,8 +165,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, CreateHdl, weld::Button&, void)
                 }
                 catch (const css::uno::Exception&)
                 {
-                    css::uno::Any ex( cppu::getCaughtException() );
-                    SAL_WARN( "sd", exceptionToString(ex) );
+                    TOOLS_WARN_EXCEPTION( "sd", "" );
                 }
             }
         }
@@ -231,8 +229,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, CreateHdl, weld::Button&, void)
                     }
                     catch (const css::uno::Exception&)
                     {
-                        css::uno::Any ex( cppu::getCaughtException() );
-                        SAL_WARN( "sd", exceptionToString(ex) );
+                        TOOLS_WARN_EXCEPTION( "sd", "" );
                     }
                 }
 
@@ -279,8 +276,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, CreateHdl, weld::Button&, void)
                     }
                     catch (const css::uno::Exception&)
                     {
-                        css::uno::Any ex( cppu::getCaughtException() );
-                        SAL_WARN( "sd", exceptionToString(ex) );
+                        TOOLS_WARN_EXCEPTION( "sd", "" );
                     }
                 }
             }
@@ -352,8 +348,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, CreateHdl, weld::Button&, void)
                     }
                     catch (const css::uno::Exception&)
                     {
-                        css::uno::Any ex( cppu::getCaughtException() );
-                        SAL_WARN( "sd", exceptionToString(ex) );
+                        TOOLS_WARN_EXCEPTION( "sd", "" );
                     }
                 }
                 if( !sUrl2.isEmpty() )
@@ -396,8 +391,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, CreateHdl, weld::Button&, void)
                     }
                     catch (const css::uno::Exception&)
                     {
-                        css::uno::Any ex( cppu::getCaughtException() );
-                        SAL_WARN( "sd", exceptionToString(ex) );
+                        TOOLS_WARN_EXCEPTION( "sd", "" );
                     }
                 }
                 if( !sUrl3.isEmpty() )
@@ -440,8 +434,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, CreateHdl, weld::Button&, void)
                     }
                     catch (const css::uno::Exception&)
                     {
-                        css::uno::Any ex( cppu::getCaughtException() );
-                        SAL_WARN( "sd", exceptionToString(ex) );
+                        TOOLS_WARN_EXCEPTION( "sd", "" );
                     }
                 }
                 if( !sUrl4.isEmpty() )
@@ -486,8 +479,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, CreateHdl, weld::Button&, void)
                     }
                     catch (const css::uno::Exception&)
                     {
-                        css::uno::Any ex( cppu::getCaughtException() );
-                        SAL_WARN( "sd", exceptionToString(ex) );
+                        TOOLS_WARN_EXCEPTION( "sd", "" );
                     }
                 }
             }
@@ -519,7 +511,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, FileHdl, weld::Button&, void)
 
     if ( aDlg.Execute() == ERRCODE_NONE )
     {
-        Sequence< OUString > aFilesArr = aDlg.GetSelectedFiles();
+        const Sequence< OUString > aFilesArr = aDlg.GetSelectedFiles();
         if( aFilesArr.hasElements() )
         {
             sUrl = aDlg.GetDisplayDirectory();
@@ -531,10 +523,10 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, FileHdl, weld::Button&, void)
                 batch->commit();
             }
 
-            for ( sal_Int32 i = 0; i < aFilesArr.getLength(); i++ )
+            for ( const auto& rFile : aFilesArr )
             {
                 // Store full path, show filename only. Use INetURLObject to display spaces in filename correctly
-                INetURLObject aUrl(aFilesArr[i]);
+                INetURLObject aUrl(rFile);
                 m_xImagesLst->append(aUrl.GetMainURL(INetURLObject::DecodeMechanism::NONE), aUrl.GetLastName(INetURLObject::DecodeMechanism::WithCharset), "");
             }
         }
@@ -666,9 +658,8 @@ Reference< drawing::XDrawPage > SdPhotoAlbumDialog::appendNewSlide(AutoLayout aL
     const Reference< drawing::XDrawPages >& xDrawPages
 )
 {
-    Reference< drawing::XDrawPage > xSlide; // Create the slide
-    Reference< container::XIndexAccess > xIndexAccess( xDrawPages, uno::UNO_QUERY );
-    xSlide = xDrawPages->insertNewByIndex( xIndexAccess->getCount() );
+    // Create the slide
+    Reference< drawing::XDrawPage > xSlide = xDrawPages->insertNewByIndex( xDrawPages->getCount() );
     SdPage* pSlide = m_pDoc->GetSdPage( m_pDoc->GetSdPageCount(PageKind::Standard)-1, PageKind::Standard);
     pSlide->SetAutoLayout(aLayout, true); // Set the layout here
     return xSlide;

@@ -117,7 +117,7 @@ uno::Sequence< OUString > MSOLEDialogObjectCreator::impl_staticGetSupportedServi
 
 OUString MSOLEDialogObjectCreator::impl_staticGetImplementationName()
 {
-    return OUString("com.sun.star.comp.embed.MSOLEObjectSystemCreator");
+    return "com.sun.star.comp.embed.MSOLEObjectSystemCreator";
 }
 
 
@@ -150,11 +150,9 @@ embed::InsertedObjectInfo SAL_CALL MSOLEDialogObjectCreator::createInstanceByDia
 
     InitializedOleGuard aGuard;
 
-    OLEUIINSERTOBJECT io;
+    OLEUIINSERTOBJECT io = {};
     char szFile[MAX_PATH];
     UINT uTemp;
-
-    memset(&io, 0, sizeof(io));
 
     io.cbStruct = sizeof(io);
     io.hWndOwner = GetActiveWindow();

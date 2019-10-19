@@ -84,7 +84,7 @@ private:
     SdrObject*                      mpObject;           // TTTT could be reference (?)
     SdrText*                        mpText;
     SdrView*                        mpView;
-    VclPtr<const vcl::Window>       mpWindow;
+    VclPtr<const OutputDevice>      mpWindow;
     SdrModel*                       mpModel;            // TTTT probably not needed -> use SdrModel from SdrObject (?)
     std::unique_ptr<SdrOutliner>    mpOutliner;
     std::unique_ptr<SvxOutlinerForwarder> mpTextForwarder;
@@ -119,7 +119,7 @@ private:
 
 public:
     SvxTextEditSourceImpl( SdrObject* pObject, SdrText* pText );
-    SvxTextEditSourceImpl( SdrObject& rObject, SdrText* pText, SdrView& rView, const vcl::Window& rWindow );
+    SvxTextEditSourceImpl( SdrObject& rObject, SdrText* pText, SdrView& rView, const OutputDevice& rWindow );
     virtual ~SvxTextEditSourceImpl() override;
 
     void acquire();
@@ -184,7 +184,7 @@ SvxTextEditSourceImpl::SvxTextEditSourceImpl( SdrObject* pObject, SdrText* pText
 }
 
 
-SvxTextEditSourceImpl::SvxTextEditSourceImpl( SdrObject& rObject, SdrText* pText, SdrView& rView, const vcl::Window& rWindow )
+SvxTextEditSourceImpl::SvxTextEditSourceImpl( SdrObject& rObject, SdrText* pText, SdrView& rView, const OutputDevice& rWindow )
   : maRefCount      ( 0 ),
     mpObject        ( &rObject ),
     mpText          ( pText ),
@@ -504,7 +504,7 @@ SvxTextForwarder* SvxTextEditSourceImpl::GetBackgroundTextForwarder()
             if( mbIsLocked )
             {
                 const_cast<EditEngine*>(&(mpOutliner->GetEditEngine()))->SetUpdateMode( false );
-                mbOldUndoMode = const_cast<EditEngine*>(&(mpOutliner->GetEditEngine()))->IsUndoEnabled();
+                mbOldUndoMode = mpOutliner->GetEditEngine().IsUndoEnabled();
                 const_cast<EditEngine*>(&(mpOutliner->GetEditEngine()))->EnableUndo( false );
             }
 
@@ -516,7 +516,7 @@ SvxTextForwarder* SvxTextEditSourceImpl::GetBackgroundTextForwarder()
                     m_xLinguServiceManager.set(css::linguistic2::LinguServiceManager::create(xContext));
                 }
 
-                css::uno::Reference< css::linguistic2::XHyphenator > xHyphenator( m_xLinguServiceManager->getHyphenator(), css::uno::UNO_QUERY );
+                css::uno::Reference< css::linguistic2::XHyphenator > xHyphenator = m_xLinguServiceManager->getHyphenator();
                 if( xHyphenator.is() )
                     mpOutliner->SetHyphenator( xHyphenator );
             }
@@ -809,7 +809,7 @@ void SvxTextEditSourceImpl::lock()
     if( mpOutliner )
     {
         const_cast<EditEngine*>(&(mpOutliner->GetEditEngine()))->SetUpdateMode( false );
-        mbOldUndoMode = const_cast<EditEngine*>(&(mpOutliner->GetEditEngine()))->IsUndoEnabled();
+        mbOldUndoMode = mpOutliner->GetEditEngine().IsUndoEnabled();
         const_cast<EditEngine*>(&(mpOutliner->GetEditEngine()))->EnableUndo( false );
     }
 }
@@ -916,7 +916,7 @@ SvxTextEditSource::SvxTextEditSource( SdrObject* pObject, SdrText* pText )
 }
 
 
-SvxTextEditSource::SvxTextEditSource( SdrObject& rObj, SdrText* pText, SdrView& rView, const vcl::Window& rWindow )
+SvxTextEditSource::SvxTextEditSource( SdrObject& rObj, SdrText* pText, SdrView& rView, const OutputDevice& rWindow )
 {
     mpImpl = new SvxTextEditSourceImpl( rObj, pText, rView, rWindow );
 }

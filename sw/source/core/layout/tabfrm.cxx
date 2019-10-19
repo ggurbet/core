@@ -2053,7 +2053,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
                 {
                     SwTabFrame *pMaster = FindMaster();
                     bool bDummy;
-                    if ( ShouldBwdMoved( pMaster->GetUpper(), false, bDummy ) )
+                    if ( ShouldBwdMoved( pMaster->GetUpper(), bDummy ) )
                         pMaster->InvalidatePos();
                 }
             }
@@ -2143,7 +2143,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
             if ( !bSplit && GetFollow() )
             {
                 bool bDummy;
-                if ( GetFollow()->ShouldBwdMoved( GetUpper(), false, bDummy ) )
+                if ( GetFollow()->ShouldBwdMoved( GetUpper(), bDummy ) )
                 {
                     SwFrame *pTmp = GetUpper();
                     SwTwips nDeadLine = aRectFnSet.GetPrtBottom(*pTmp);
@@ -2339,7 +2339,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
         // First try to split the table. Condition:
         // 1. We have at least one non headline row
         // 2. If this row wants to keep, we need an additional row
-        // 3. The table is allowed to split or we do not have an pIndPrev:
+        // 3. The table is allowed to split or we do not have a pIndPrev:
         SwFrame* pIndPrev = GetIndPrev();
         const SwRowFrame* pFirstNonHeadlineRow = GetFirstNonHeadlineRow();
         // #i120016# if this row wants to keep, allow split in case that all rows want to keep with next,
@@ -2388,7 +2388,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
                 m_bLowersFormatted = true;
                 aNotify.SetLowersComplete( true );
 
-                // One more check if its really necessary to split the table.
+                // One more check if it's really necessary to split the table.
                 // 1. The table either has to exceed the deadline or
                 // 2. We explicitly want to cut off the last row.
                 if( aRectFnSet.BottomDist( getFrameArea(), nDeadLine ) > 0 && !bLastRowHasToMoveToFollow )
@@ -2709,8 +2709,8 @@ bool SwTabFrame::CalcFlyOffsets( SwTwips& rUpper,
                 //   fly frame rectangle overlaps with <aRect>
                 // - no check, if bottom of anchor frame is prior the top of
                 //   the table, because Writer fly frames can be negative positioned.
-                // - correct check, if the Writer fly frame is an lower of the
-                //   table, because table lines/rows can split and a at-character
+                // - correct check, if the Writer fly frame is a lower of the
+                //   table, because table lines/rows can split and an at-character
                 //   anchored Writer fly frame could be positioned in the follow
                 //   flow line.
                 // - add condition, that an existing anchor character text frame
@@ -3164,18 +3164,16 @@ void SwTabFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem * pNew )
     {
         SfxItemIter aNIter( *static_cast<const SwAttrSetChg*>(pNew)->GetChgSet() );
         SfxItemIter aOIter( *static_cast<const SwAttrSetChg*>(pOld)->GetChgSet() );
+        const SfxPoolItem* pNItem = aNIter.GetCurItem();
+        const SfxPoolItem* pOItem = aOIter.GetCurItem();
         SwAttrSetChg aOldSet( *static_cast<const SwAttrSetChg*>(pOld) );
         SwAttrSetChg aNewSet( *static_cast<const SwAttrSetChg*>(pNew) );
-        while( true )
+        do
         {
-            UpdateAttr_( aOIter.GetCurItem(),
-                         aNIter.GetCurItem(), nInvFlags,
-                         &aOldSet, &aNewSet );
-            if( aNIter.IsAtEnd() )
-                break;
-            aNIter.NextItem();
-            aOIter.NextItem();
-        }
+            UpdateAttr_(pOItem, pNItem, nInvFlags, &aOldSet, &aNewSet);
+            pNItem = aNIter.NextItem();
+            pOItem = aOIter.NextItem();
+        } while (pNItem);
         if ( aOldSet.Count() || aNewSet.Count() )
             SwLayoutFrame::Modify( &aOldSet, &aNewSet );
     }
@@ -3336,7 +3334,7 @@ bool SwTabFrame::GetInfo( SfxPoolItem &rHint ) const
     return true;
 }
 
-SwContentFrame *SwTabFrame::FindLastContent()
+SwFrame *SwTabFrame::FindLastContentOrTable()
 {
     SwFrame *pRet = m_pLower;
 
@@ -3365,7 +3363,7 @@ SwContentFrame *SwTabFrame::FindLastContent()
 #if OSL_DEBUG_LEVEL > 0
                 SwSectionFrame* pSect = pRet->FindSctFrame();
                 OSL_ENSURE( pSect, "Where does this column come from?");
-                OSL_ENSURE( IsAnLower( pSect ), "Splitted cell?" );
+                OSL_ENSURE( IsAnLower( pSect ), "Split cell?" );
 #endif
                 return pRet->FindSctFrame()->FindLastContent();
             }
@@ -3398,15 +3396,29 @@ SwContentFrame *SwTabFrame::FindLastContent()
         while ( pRet->GetNext() )
             pRet = pRet->GetNext();
 
-        if( pRet->IsSctFrame() )
+        if (pRet->IsSctFrame())
             pRet = static_cast<SwSectionFrame*>(pRet)->FindLastContent();
     }
 
+    assert(pRet == nullptr || dynamic_cast<SwContentFrame*>(pRet) || dynamic_cast<SwTabFrame*>(pRet));
+    return pRet;
+}
+
+SwContentFrame *SwTabFrame::FindLastContent()
+{
+    SwFrame * pRet(FindLastContentOrTable());
+
+    while (pRet && pRet->IsTabFrame()) // possibly there's only tables here!
+    {   // tdf#126138 skip table, don't look inside
+        pRet = pRet->GetPrev();
+    }
+
+    assert(pRet == nullptr || dynamic_cast<SwContentFrame*>(pRet));
     return static_cast<SwContentFrame*>(pRet);
 }
 
 /// Return value defines if the frm needs to be relocated
-bool SwTabFrame::ShouldBwdMoved( SwLayoutFrame *pNewUpper, bool, bool &rReformat )
+bool SwTabFrame::ShouldBwdMoved( SwLayoutFrame *pNewUpper, bool &rReformat )
 {
     rReformat = false;
     if ( SwFlowFrame::IsMoveBwdJump() || !IsPrevObjMove() )
@@ -3827,11 +3839,21 @@ long CalcHeightWithFlys( const SwFrame *pFrame )
                     // OD 30.09.2003 #i18732# - only objects, which follow
                     // the text flow have to be considered.
                     const SwFrameFormat& rFrameFormat = pAnchoredObj->GetFrameFormat();
+                    bool bFollowTextFlow = rFrameFormat.GetFollowTextFlow().GetValue();
                     const bool bConsiderObj =
                         (rFrameFormat.GetAnchor().GetAnchorId() != RndStdIds::FLY_AS_CHAR) &&
                             pAnchoredObj->GetObjRect().Top() != FAR_AWAY &&
-                            rFrameFormat.GetFollowTextFlow().GetValue() &&
+                            bFollowTextFlow &&
                             pAnchoredObj->GetPageFrame() == pTmp->FindPageFrame();
+                    bool bWrapThrough = rFrameFormat.GetSurround().GetValue() == text::WrapTextMode_THROUGH;
+                    if (pFrame->IsInTab() && bFollowTextFlow && bWrapThrough)
+                    {
+                        // Ignore wrap-through objects when determining the cell height.
+                        // Normally FollowTextFlow requires a resize of the cell, but not in case of
+                        // wrap-through.
+                        continue;
+                    }
+
                     if ( bConsiderObj )
                     {
                         const SwFormatFrameSize &rSz = rFrameFormat.GetFrameSize();

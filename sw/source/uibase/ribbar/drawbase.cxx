@@ -417,7 +417,7 @@ bool SwDrawBase::MouseButtonUp(const MouseEvent& rMEvt)
     }
 
     if (bCheckShell)
-        m_pView->AttrChangedNotify( m_pSh ); // if necessary turn on BezierShell
+        m_pView->AttrChangedNotify(nullptr); // if necessary turn on BezierShell
 
     //!!!!!!!!!! Attention suicide !!!!!!!!!!! Everything should be renewed once
     if ( bAutoCap )
@@ -523,7 +523,7 @@ void SwDrawBase::CreateDefaultObject()
     m_pSh->CreateDefaultShape( static_cast< sal_uInt16 >(m_pWin->GetSdrDrawMode()), aRect, m_nSlotId);
 }
 
-Point  SwDrawBase::GetDefaultCenterPos()
+Point  SwDrawBase::GetDefaultCenterPos() const
 {
     Size aDocSz(m_pSh->GetDocSize());
 

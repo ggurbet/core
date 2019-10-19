@@ -91,7 +91,7 @@ private:
     /// The PDF stream from which this Graphic is rendered,
     /// as converted (version downgraded) from the original,
     /// which should be in GfxLink.
-    std::shared_ptr<css::uno::Sequence<sal_Int8>> mpPdfData;
+    std::shared_ptr<std::vector<sal_Int8>> mpPdfData;
     std::unique_ptr<GraphicID>   mpGraphicID;
     GraphicExternalLink          maGraphicExternalLink;
 
@@ -106,7 +106,7 @@ private:
 public:
     ImpGraphic();
     ImpGraphic( const ImpGraphic& rImpGraphic );
-    ImpGraphic( ImpGraphic&& rImpGraphic );
+    ImpGraphic( ImpGraphic&& rImpGraphic ) noexcept;
     ImpGraphic( const GraphicExternalLink& rExternalLink);
     ImpGraphic( const Bitmap& rBmp );
     ImpGraphic( const BitmapEx& rBmpEx );
@@ -115,7 +115,7 @@ public:
     ImpGraphic( const GDIMetaFile& rMtf );
     ~ImpGraphic();
 
-    void ImplSetPrepared(bool bAnimated, Size* pSizeHint);
+    void ImplSetPrepared(bool bAnimated, const Size* pSizeHint);
 
 private:
 
@@ -143,7 +143,7 @@ private:
 
     bool hasPdfData() const
     {
-        return mpPdfData && mpPdfData->hasElements();
+        return mpPdfData && !mpPdfData->empty();
     }
 
     void                ImplCreateSwapInfo();
@@ -215,6 +215,7 @@ private:
     bool                ImplIsSwapOut() const { return mbSwapOut;}
     bool                ImplIsDummyContext() const { return mbDummyContext; }
     void                ImplSetLink( const std::shared_ptr<GfxLink>& );
+    std::shared_ptr<GfxLink> ImplGetSharedGfxLink() const;
     GfxLink             ImplGetLink();
     bool                ImplIsLink() const;
 
@@ -227,9 +228,9 @@ private:
 
     const VectorGraphicDataPtr& getVectorGraphicData() const;
 
-    const std::shared_ptr<css::uno::Sequence<sal_Int8>>& getPdfData() const;
+    const std::shared_ptr<std::vector<sal_Int8>> & getPdfData() const;
 
-    void setPdfData(const std::shared_ptr<css::uno::Sequence<sal_Int8>>& rPdfData);
+    void setPdfData(const std::shared_ptr<std::vector<sal_Int8>>& rPdfData);
 
     bool ensureAvailable () const;
 

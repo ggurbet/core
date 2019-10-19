@@ -28,11 +28,9 @@
 #include <miscuno.hxx>
 #include <document.hxx>
 #include <formulacell.hxx>
-#include <chartpos.hxx>
 #include <unonames.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
-#include <convuno.hxx>
 #include <rangeutl.hxx>
 #include <hints.hxx>
 #include <unoreflist.hxx>
@@ -40,7 +38,6 @@
 #include <reftokenhelper.hxx>
 #include <chartlis.hxx>
 #include <tokenuno.hxx>
-#include <docsh.hxx>
 #include <cellvalue.hxx>
 #include <tokenarray.hxx>
 #include <scmatrix.hxx>
@@ -55,10 +52,7 @@
 #include <com/sun/star/beans/UnknownPropertyException.hpp>
 #include <com/sun/star/chart/ChartDataRowSource.hpp>
 #include <com/sun/star/chart2/data/LabeledDataSequence.hpp>
-#include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
-#include <com/sun/star/table/XCellRange.hpp>
-#include <com/sun/star/table/CellAddress.hpp>
-#include <com/sun/star/text/XText.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <comphelper/extract.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
@@ -994,11 +988,11 @@ sal_Bool SAL_CALL ScChart2DataProvider::createDataSourcePossible( const uno::Seq
         return false;
 
     OUString aRangeRepresentation;
-    for(sal_Int32 i = 0; i < aArguments.getLength(); ++i)
+    for(const auto& rArgument : aArguments)
     {
-        if ( aArguments[i].Name == "CellRangeRepresentation" )
+        if ( rArgument.Name == "CellRangeRepresentation" )
         {
-            aArguments[i].Value >>= aRangeRepresentation;
+            rArgument.Value >>= aRangeRepresentation;
         }
     }
 
@@ -1398,38 +1392,38 @@ ScChart2DataProvider::createDataSource(
     OUString aRangeRepresentation;
     uno::Sequence< sal_Int32 > aSequenceMapping;
     bool bTimeBased = false;
-    for(sal_Int32 i = 0; i < aArguments.getLength(); ++i)
+    for(const auto& rArgument : aArguments)
     {
-        if ( aArguments[i].Name == "DataRowSource" )
+        if ( rArgument.Name == "DataRowSource" )
         {
             chart::ChartDataRowSource eSource = chart::ChartDataRowSource_COLUMNS;
-            if( ! (aArguments[i].Value >>= eSource))
+            if( ! (rArgument.Value >>= eSource))
             {
                 sal_Int32 nSource(0);
-                if( aArguments[i].Value >>= nSource )
+                if( rArgument.Value >>= nSource )
                     eSource = static_cast< chart::ChartDataRowSource >( nSource );
             }
             bOrientCol = (eSource == chart::ChartDataRowSource_COLUMNS);
         }
-        else if ( aArguments[i].Name == "FirstCellAsLabel" )
+        else if ( rArgument.Name == "FirstCellAsLabel" )
         {
-            bLabel = ::cppu::any2bool(aArguments[i].Value);
+            bLabel = ::cppu::any2bool(rArgument.Value);
         }
-        else if ( aArguments[i].Name == "HasCategories" )
+        else if ( rArgument.Name == "HasCategories" )
         {
-            bCategories = ::cppu::any2bool(aArguments[i].Value);
+            bCategories = ::cppu::any2bool(rArgument.Value);
         }
-        else if ( aArguments[i].Name == "CellRangeRepresentation" )
+        else if ( rArgument.Name == "CellRangeRepresentation" )
         {
-            aArguments[i].Value >>= aRangeRepresentation;
+            rArgument.Value >>= aRangeRepresentation;
         }
-        else if ( aArguments[i].Name == "SequenceMapping" )
+        else if ( rArgument.Name == "SequenceMapping" )
         {
-            aArguments[i].Value >>= aSequenceMapping;
+            rArgument.Value >>= aSequenceMapping;
         }
-        else if ( aArguments[i].Name == "TimeBased" )
+        else if ( rArgument.Name == "TimeBased" )
         {
-            aArguments[i].Value >>= bTimeBased;
+            rArgument.Value >>= bTimeBased;
         }
     }
 
@@ -1537,10 +1531,10 @@ ScChart2DataProvider::createDataSource(
         aSeqVector.push_back(aSeq);
     }
 
-    for( sal_Int32 nNewIndex = 0; nNewIndex < aSequenceMapping.getLength(); nNewIndex++ )
+    for( const sal_Int32 nNewIndex : aSequenceMapping )
     {
         // note: assuming that the values in the sequence mapping are always non-negative
-        ::std::vector< uno::Reference< chart2::data::XLabeledDataSequence > >::size_type nOldIndex( static_cast< sal_uInt32 >( aSequenceMapping[nNewIndex] ) );
+        ::std::vector< uno::Reference< chart2::data::XLabeledDataSequence > >::size_type nOldIndex( static_cast< sal_uInt32 >( nNewIndex ) );
         if( nOldIndex < aSeqVector.size() )
         {
             pDS->AddLabeledSequence( aSeqVector[nOldIndex] );
@@ -1600,8 +1594,8 @@ public:
             bool& rbRowSourceAmbiguous ) const;
     bool inSameSingleRow( const RangeAnalyzer& rOther );
     bool inSameSingleColumn( const RangeAnalyzer& rOther );
-    SCROW getRowCount() { return mnRowCount; }
-    SCCOL getColumnCount() { return mnColumnCount; }
+    SCROW getRowCount() const { return mnRowCount; }
+    SCCOL getColumnCount() const { return mnColumnCount; }
 
 private:
     bool mbEmpty;
@@ -1752,12 +1746,11 @@ uno::Sequence< beans::PropertyValue > SAL_CALL ScChart2DataProvider::detectArgum
         sal_Int32 nDataInCols = 0;
         bool bRowSourceAmbiguous = false;
 
-        Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > aSequences( xDataSource->getDataSequences());
+        const Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > aSequences( xDataSource->getDataSequences());
         const sal_Int32 nCount( aSequences.getLength());
         RangeAnalyzer aPrevLabel,aPrevValues;
-        for( sal_Int32 nIdx=0; nIdx<nCount; ++nIdx )
+        for( const uno::Reference< chart2::data::XLabeledDataSequence >& xLS : aSequences )
         {
-            uno::Reference< chart2::data::XLabeledDataSequence > xLS(aSequences[nIdx]);
             if( xLS.is() )
             {
                 bool bThisIsCategories = false;
@@ -2236,7 +2229,7 @@ void SAL_CALL ScChart2DataProvider::setPropertyValue(
         const OUString& rPropertyName, const uno::Any& rValue)
 {
     if ( rPropertyName != SC_UNONAME_INCLUDEHIDDENCELLS )
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
 
     if ( !(rValue >>= m_bIncludeHiddenCells))
         throw lang::IllegalArgumentException();
@@ -2255,7 +2248,7 @@ uno::Any SAL_CALL ScChart2DataProvider::getPropertyValue(
         aRet <<= m_pDocument->PastingDrawFromOtherDoc();
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
     return aRet;
 }
 
@@ -2792,7 +2785,7 @@ void ScChart2DataSequence::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint
 
                 if( m_pDocument )
                 {
-                    for (uno::Reference<util::XModifyListener> & xListener: m_aValueListeners)
+                    for (const uno::Reference<util::XModifyListener> & xListener: m_aValueListeners)
                         m_pDocument->AddUnoListenerCall( xListener, aEvent );
                 }
 
@@ -3026,8 +3019,7 @@ public:
             {
                 if ( meOrigin != chart2::data::LabelOrigin_LONG_SIDE)
                 {
-                    OUString aString = ScResId(STR_COLUMN);
-                    aString += " ";
+                    OUString aString = ScResId(STR_COLUMN) + " ";
                     ScAddress aPos( nCol, 0, 0 );
                     OUString aColStr(aPos.Format(ScRefFlags::COL_VALID));
                     aString += aColStr;
@@ -3279,7 +3271,7 @@ void SAL_CALL ScChart2DataSequence::setPropertyValue(
         mbTimeBased = bTimeBased;
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
     // TODO: support optional properties
 }
 
@@ -3314,7 +3306,7 @@ uno::Any SAL_CALL ScChart2DataSequence::getPropertyValue(const OUString& rProper
         aRet <<= bHasStringLabel;
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
     // TODO: support optional properties
     return aRet;
 }

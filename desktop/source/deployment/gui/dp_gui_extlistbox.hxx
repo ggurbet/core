@@ -173,9 +173,9 @@ public:
     virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
 
     TEntry_Impl const & GetEntryData( long nPos ) { return m_vEntries[ nPos ]; }
-    long            GetEntryCount() { return static_cast<long>(m_vEntries.size()); }
+    long            GetEntryCount() const { return static_cast<long>(m_vEntries.size()); }
     tools::Rectangle       GetEntryRect( const long nPos ) const;
-    bool            HasActive() { return m_bHasActive; }
+    bool            HasActive() const { return m_bHasActive; }
     long            PointToPos( const Point& rPos );
     virtual void    RecalcAll();
     void            RemoveUnlocked();
@@ -197,7 +197,7 @@ public:
     enum { ENTRY_NOTFOUND = -1 };
 
     /** @return  The count of the entries in the list box. */
-    virtual sal_Int32 getItemCount() const;
+    sal_Int32 getItemCount() const;
 
     /** @return  The index of the first selected entry in the list box.
         When nothing is selected, which is the case when getItemCount returns '0',
@@ -205,7 +205,7 @@ public:
     /** @return  The index of the first selected entry in the list box.
         When nothing is selected, which is the case when getItemCount returns '0',
         then this function returns ENTRY_NOTFOUND */
-    virtual sal_Int32 getSelIndex() const;
+    sal_Int32 getSelIndex() const;
 };
 
 }

@@ -76,7 +76,7 @@ void SmartTagMenuController::statusChanged( const css::frame::FeatureStateEvent&
     OUString aApplicationName;
     OUString aRangeText;
 
-    for ( const auto& aProperty : aProperties )
+    for ( const auto& aProperty : std::as_const(aProperties) )
     {
         if ( aProperty.Name == "ActionComponents" )
             aProperty.Value >>= aActionComponents;
@@ -218,7 +218,7 @@ IMPL_LINK( SmartTagMenuController, MenuSelect, Menu*, pMenu, bool )
 
 OUString SmartTagMenuController::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.svx.SmartTagMenuController" );
+    return "com.sun.star.comp.svx.SmartTagMenuController";
 }
 
 css::uno::Sequence< OUString > SmartTagMenuController::getSupportedServiceNames()

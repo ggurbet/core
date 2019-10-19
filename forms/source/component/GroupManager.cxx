@@ -157,7 +157,7 @@ void OGroup::RemoveComponent( const Reference<XPropertySet>& rxElement )
 
             /*
              * By removing the GroupComp the insertion position has become invalid.
-             * We do not to change it here, however, because its passed on continuously
+             * We do not to change it here, however, because it's passed on continuously
              * and ascending distinctively.
              */
         }
@@ -314,12 +314,12 @@ void SAL_CALL OGroupManager::elementReplaced(const ContainerEvent& Event)
 }
 
 // Other functions
-Sequence<Reference<XControlModel> > OGroupManager::getControlModels()
+Sequence<Reference<XControlModel> > OGroupManager::getControlModels() const
 {
     return m_pCompGroup->GetControlModels();
 }
 
-sal_Int32 OGroupManager::getGroupCount()
+sal_Int32 OGroupManager::getGroupCount() const
 {
     return m_aActiveGroupMap.size();
 }

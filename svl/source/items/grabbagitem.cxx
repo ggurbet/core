@@ -27,9 +27,8 @@ SfxGrabBagItem::~SfxGrabBagItem() = default;
 
 bool SfxGrabBagItem::operator==(const SfxPoolItem& rItem) const
 {
-    auto pItem = static_cast<const SfxGrabBagItem*>(&rItem);
-
-    return m_aMap == pItem->m_aMap;
+    return SfxPoolItem::operator==(rItem)
+           && m_aMap == static_cast<const SfxGrabBagItem*>(&rItem)->m_aMap;
 }
 
 SfxPoolItem* SfxGrabBagItem::Clone(SfxItemPool* /*pPool*/) const
@@ -43,7 +42,7 @@ bool SfxGrabBagItem::PutValue(const uno::Any& rVal, sal_uInt8 /*nMemberId*/)
     if (rVal >>= aValue)
     {
         m_aMap.clear();
-        for (beans::PropertyValue const& aPropertyValue : aValue)
+        for (beans::PropertyValue const& aPropertyValue : std::as_const(aValue))
         {
             m_aMap[aPropertyValue.Name] = aPropertyValue.Value;
         }

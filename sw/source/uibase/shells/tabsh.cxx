@@ -138,8 +138,10 @@ static void lcl_SetAttr( SwWrtShell &rSh, const SfxPoolItem &rItem )
     rSh.SetTableAttr( aSet );
 }
 
-static SwTableRep*  lcl_TableParamToItemSet( SfxItemSet& rSet, SwWrtShell &rSh )
+static std::shared_ptr<SwTableRep> lcl_TableParamToItemSet( SfxItemSet& rSet, SwWrtShell &rSh )
 {
+    std::shared_ptr<SwTableRep> pRep;
+
     SwFrameFormat *pFormat = rSh.GetTableFormat();
     SwTabCols aCols;
     rSh.GetTabCols( aCols );
@@ -220,7 +222,7 @@ static SwTableRep*  lcl_TableParamToItemSet( SfxItemSet& rSet, SwWrtShell &rSh )
     rSh.GetTabCols( aTabCols );
 
     // Pointer will be deleted after the dialogue execution.
-    SwTableRep* pRep = new SwTableRep( aTabCols );
+    pRep = std::make_shared<SwTableRep>(aTabCols);
     pRep->SetSpace(aCols.GetRightMax());
 
     sal_uInt16 nPercent = 0;
@@ -266,7 +268,7 @@ static SwTableRep*  lcl_TableParamToItemSet( SfxItemSet& rSet, SwWrtShell &rSh )
     pRep->SetWidthPercent(nPercent);
     // Are individual rows / cells are selected, the column processing will be changed.
     pRep->SetLineSelected(bTableSel && ! rSh.HasWholeTabSelection());
-    rSet.Put(SwPtrItem(FN_TABLE_REP, pRep));
+    rSet.Put(SwPtrItem(FN_TABLE_REP, pRep.get()));
     return pRep;
 }
 
@@ -767,14 +769,13 @@ void SwTableShell::Execute(SfxRequest &rReq)
         {
             bool bBalance = (FN_TABLE_BALANCE_CELLS == nSlot);
             const bool bNoShrink = FN_TABLE_ADJUST_CELLS == nSlot;
-            const bool bSelectedWidth = SID_TABLE_MINIMAL_COLUMN_WIDTH == nSlot;
             if ( rSh.IsAdjustCellWidthAllowed(bBalance) )
             {
                 {
                     // remove actions to make a valid table selection
                     UnoActionRemoveContext aRemoveContext(rSh.GetDoc());
                 }
-                rSh.AdjustCellWidth(bBalance, bNoShrink, !bSelectedWidth);
+                rSh.AdjustCellWidth(bBalance, bNoShrink);
             }
             bCallDone = true;
             break;

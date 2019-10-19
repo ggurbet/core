@@ -50,7 +50,6 @@ private:
     bool            mbInSyncExecute;
     bool            mbInClose;
     bool            mbModalMode;
-    bool            mbPaintComplete;
     bool const      mbForceBorderWindow;
     InitFlag const  mnInitFlag; // used for deferred init
 
@@ -69,11 +68,6 @@ private:
 
     DECL_DLLPRIVATE_LINK(ImplAsyncCloseHdl, void*, void);
     DECL_DLLPRIVATE_LINK(ResponseHdl, Button*, void);
-
-    // ensureRepaint - triggers Application::Yield until the dialog is
-    // completely repainted. Sometimes needed for dialogs showing progress
-    // during actions
-    void ensureRepaint();
 
 protected:
     using Window::ImplInit;
@@ -95,12 +89,12 @@ protected:
 
 protected:
     friend class VclBuilder;
+    friend class SalInstanceBuilder;
     void set_action_area(VclButtonBox* pBox);
     virtual void set_content_area(VclBox* pBox);
 
 public:
     explicit        Dialog( vcl::Window* pParent, WinBits nStyle = WB_STDDIALOG, InitFlag eFlag = InitFlag::Default );
-    explicit        Dialog( vcl::Window* pParent, const OUString& rID, const OUString& rUIXMLDescription );
     virtual         ~Dialog() override;
     virtual void    dispose() override;
 
@@ -110,6 +104,7 @@ public:
     virtual bool    EventNotify( NotifyEvent& rNEvt ) override;
     virtual void    StateChanged( StateChangedType nStateChange ) override;
     virtual void    DataChanged( const DataChangedEvent& rDCEvt ) override;
+    virtual void    Command( const CommandEvent& rCEvt ) override;
 
     virtual void queue_resize(StateChangedType eReason = StateChangedType::Layout) override;
     virtual bool set_property(const OString &rKey, const OUString &rValue) override;
@@ -117,17 +112,6 @@ public:
     VclBox* get_content_area() { return mpContentArea; }
 
     virtual bool    Close() override;
-
-    // try to extract content and return as Bitmap. To do that reliably, a Yield-loop
-    // like in Execute() has to be executed and it is necessary to detect when the
-    // paint is finished
-    virtual void PrePaint(vcl::RenderContext& rRenderContext) override;
-    virtual void PostPaint(vcl::RenderContext& rRenderContext) override;
-
-    // Screenshot interface
-    virtual std::vector<OString> getAllPageUIXMLDescriptions() const;
-    virtual bool selectPageByUIXMLDescription(const OString& rUIXMLDescription);
-    BitmapEx createScreenshot();
 
     virtual short   Execute();
     bool            IsInExecute() const { return mbInExecute; }
@@ -174,12 +158,12 @@ public:
 
     void            Activate() override;
 
-
+    void            SetPopupMenuHdl(const Link<const CommandEvent&, bool>& rLink);
     void            SetInstallLOKNotifierHdl(const Link<void*, vcl::ILibreOfficeKitNotifier*>& rLink);
 
     void            add_button(PushButton* pButton, int nResponse, bool bTransferOwnership);
     void            set_default_response(int nResponse);
-    int             get_default_response();
+    int             get_default_response() const;
     vcl::Window*    get_widget_for_response(int nResponse);
 };
 

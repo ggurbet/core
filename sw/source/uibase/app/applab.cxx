@@ -142,7 +142,7 @@ static const SwFrameFormat *lcl_InsertLabText( SwWrtShell& rSh, const SwLabItem&
     if( (!rItem.m_bSynchron || !(nCol|nRow)) && !(sDBName = InsertLabEnvText( rSh, rFieldMgr, rItem.m_aWriting )).isEmpty() && !bLast )
     {
         sDBName = comphelper::string::setToken(sDBName, 3, DB_DELIM, "True");
-        SwInsertField_Data aData(TYP_DBNEXTSETFLD, 0, sDBName, OUString(), 0, &rSh);
+        SwInsertField_Data aData(SwFieldTypesEnum::DatabaseNextSet, 0, sDBName, OUString(), 0, &rSh);
         rFieldMgr.InsertField( aData );
     }
 
@@ -200,7 +200,7 @@ void SwModule::InsertLab(SfxRequest& rReq, bool bLabel)
     SfxViewFrame* pViewFrame = SfxViewFrame::DisplayNewDocument( *xDocSh, rReq );
 
     SwView      *pNewView = static_cast<SwView*>( pViewFrame->GetViewShell());
-    pNewView->AttrChangedNotify( &pNewView->GetWrtShell() );// So that SelectShell is being called.
+    pNewView->AttrChangedNotify(nullptr);// So that SelectShell is being called.
 
     // Set document title
     OUString aTmp;
@@ -340,11 +340,11 @@ void SwModule::InsertLab(SfxRequest& rReq, bool bLabel)
                     {
                         SwSectionData aSect(FILE_LINK_SECTION,
                                 pSh->GetUniqueSectionName());
-                        OUStringBuffer sLinkName;
-                        sLinkName.append(sfx2::cTokenSeparator);
-                        sLinkName.append(sfx2::cTokenSeparator);
-                        sLinkName.append(MASTER_LABEL);
-                        aSect.SetLinkFileName(sLinkName.makeStringAndClear());
+                        OUString sLinkName =
+                            OUStringChar(sfx2::cTokenSeparator) +
+                            OUStringChar(sfx2::cTokenSeparator) +
+                            MASTER_LABEL;
+                        aSect.SetLinkFileName(sLinkName);
                         aSect.SetProtectFlag(true);
                         pSh->Insert(".");   // Dummytext to allocate the Section
                         pSh->StartOfSection();

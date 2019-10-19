@@ -21,12 +21,10 @@
 #include "XMLTextPropertySetContext.hxx"
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/XMLEventsImportContext.hxx>
-#include <xmloff/attrlist.hxx>
 #include <xmloff/families.hxx>
 #include <xmloff/txtprmap.hxx>
 #include <xmloff/txtstyli.hxx>
 #include <xmloff/xmlimp.hxx>
-#include <xmloff/xmltkmap.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/maptype.hxx>
@@ -34,7 +32,6 @@
 #include <xmloff/xmlement.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/beans/XMultiPropertySet.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
@@ -49,9 +46,6 @@
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
 
-#include <algorithm>
-#include <functional>
-#include <utility>
 #include <vector>
 
 #include <xmlsdtypes.hxx>
@@ -228,7 +222,7 @@ void XMLTextStyleContext::CreateAndInsert( bool bOverwrite )
     // tell the style about it's events (if applicable)
     if (m_xEventContext.is())
     {
-        // pass events into event suppplier
+        // pass events into event supplier
         Reference<document::XEventsSupplier> xEventsSupplier(xStyle,UNO_QUERY);
         m_xEventContext->SetEvents(xEventsSupplier);
         m_xEventContext.clear();
@@ -548,7 +542,7 @@ void XMLTextStyleContext::FillPropertySet(
                         // This happens for AutoStyles which are already filled in XMLPropStyleContext::CreateAndInsert,
                         // thus the whole mechanism based on _ContextID_Index_Pair will not work
                         // in that case. Thus the slots which need to be converted already get
-                        // converted there (its called first) and not here (see
+                        // converted there (it's called first) and not here (see
                         // translateNameBasedDrawingLayerFillStyleDefinitionsToStyleDisplayNames)
                         // For convenience, still Write back the corrected value to the XMLPropertyState entry
                         rState.maValue <<= sStyleName;

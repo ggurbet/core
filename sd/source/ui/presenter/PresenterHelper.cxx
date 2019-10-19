@@ -22,16 +22,10 @@
 #include <cstddef>
 
 #include "PresenterHelper.hxx"
-#include "CanvasUpdateRequester.hxx"
 #include "PresenterCanvas.hxx"
-#include <facreg.hxx>
 #include <cppcanvas/vclfactory.hxx>
-#include <com/sun/star/awt/WindowAttribute.hpp>
-#include <com/sun/star/awt/WindowClass.hpp>
-#include <com/sun/star/awt/WindowDescriptor.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <toolkit/helper/vclunohelper.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 #include <vcl/wrkwin.hxx>
 
@@ -145,14 +139,13 @@ Reference<rendering::XCanvas> SAL_CALL PresenterHelper::createCanvas (
     if (!pWindow)
         throw RuntimeException();
 
-    Sequence<Any> aArg (5);
+    Sequence<Any> aArg(4);
 
     // common: first any is VCL pointer to window (for VCL canvas)
     aArg[0] <<= reinterpret_cast<sal_Int64>(pWindow.get());
-    aArg[1] = Any();
-    aArg[2] <<= css::awt::Rectangle();
-    aArg[3] <<= false;
-    aArg[4] <<= rxWindow;
+    aArg[1] <<= css::awt::Rectangle();
+    aArg[2] <<= false;
+    aArg[3] <<= rxWindow;
 
     Reference<lang::XMultiServiceFactory> xFactory (
         mxComponentContext->getServiceManager(), UNO_QUERY_THROW);
@@ -390,8 +383,7 @@ Reference<rendering::XBitmap> SAL_CALL PresenterHelper::loadBitmap (
     ::osl::MutexGuard aGuard (::osl::Mutex::getGlobalMutex());
 
     const cppcanvas::CanvasSharedPtr pCanvas (
-        cppcanvas::VCLFactory::createCanvas(
-            Reference<css::rendering::XCanvas>(rxCanvas,UNO_QUERY)));
+        cppcanvas::VCLFactory::createCanvas(rxCanvas));
 
     if (pCanvas.get() != nullptr)
     {

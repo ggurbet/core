@@ -22,6 +22,9 @@ blacklist:
     sw/inc/docfac.hxx:
     # Complete type is needed by rtl::Reference<SwDoc>.
     - doc.hxx
+    sw/inc/swmodule.hxx:
+    # Needed for macro #define
+    - sfx2/app.hxx
     sw/inc/swtypes.hxx:
     # Needed for macro #define
     - com/sun/star/i18n/CollatorOptions.hpp
@@ -54,6 +57,9 @@ blacklist:
     # inline dtor, complete type is needed
     - com/sun/star/linguistic2/XSpellAlternatives.hpp
     - com/sun/star/linguistic2/XSpellChecker1.hpp
+    sw/inc/SwGetPoolIdFromName.hxx:
+    # Needed for enum type
+    - sal/types.h
     sw/inc/unocoll.hxx:
     # base class has to be a complete type
     - com/sun/star/container/XEnumerationAccess.hpp
@@ -303,10 +309,6 @@ blacklist:
     - com/sun/star/util/XUpdatable.hpp
     # Needed for UnoImplPtr template
     - unobaseclass.hxx
-    include/svtools/unoevent.hxx:
-    # Don't give false positives checking sw/source/core/inc/unoevent.hxx
-    - com/sun/star/container/XNameReplace.hpp
-    - com/sun/star/lang/XServiceInfo.hpp
     sw/source/core/inc/unoflatpara.hxx:
     # Base class needs complete type
     - com/sun/star/beans/XPropertySet.hpp
@@ -434,9 +436,6 @@ blacklist:
     sw/qa/extras/ww8import/ww8import.cxx:
     # Needed for for-loop range
     - com/sun/star/graphic/XGraphic.hpp
-    include/sal/types.h:
-    # Ignore warning during checking source/filter/ww8/types.hxx
-    - sal/typesizes.h
     sw/source/filter/ww8/ww8scan.hxx:
     # OSL_BIGENDIAN is being checked
     - osl/endian.h
@@ -444,3 +443,9 @@ blacklist:
     - comphelper/scopeguard.hxx
     sw/source/filter/html/htmlreqifreader.cxx:
     - comphelper/scopeguard.hxx
+    sw/source/uibase/sidebar/PageMarginUtils.hxx:
+    # Needed for std::abs
+    - cmath
+    sw/source/core/crsr/paminit.cxx:
+    # Needed for linker visibility of extern functions
+    - cshtyp.hxx

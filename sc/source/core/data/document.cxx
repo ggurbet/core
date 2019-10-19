@@ -94,7 +94,11 @@
 #include <comphelper/lok.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
+
 #include <mtvelements.hxx>
+#include <sfx2/lokhelper.hxx>
 
 using ::editeng::SvxBorderLine;
 using namespace ::com::sun::star;
@@ -125,6 +129,18 @@ std::pair<SCTAB,SCTAB> getMarkedTableRange(const std::vector<ScTableUniquePtr>& 
     }
 
     return std::pair<SCTAB,SCTAB>(nTabStart,nTabEnd);
+}
+
+void collectUIInformation(const std::map<OUString, OUString>& aParameters, const OUString& rAction)
+{
+    EventDescription aDescription;
+    aDescription.aID = "grid_window";
+    aDescription.aAction = rAction;
+    aDescription.aParameters = aParameters;
+    aDescription.aParent = "MainWindow";
+    aDescription.aKeyWord = "ScGridWinUIObject";
+
+    UITestLogger::getInstance().logEvent(aDescription);
 }
 
 }
@@ -392,10 +408,7 @@ void ScDocument::CreateValidTabName(OUString& rName) const
 
         for ( SCTAB i = static_cast<SCTAB>(maTabs.size())+1; !bOk ; i++ )
         {
-            OUStringBuffer aBuf;
-            aBuf.append(aStrTable);
-            aBuf.append(static_cast<sal_Int32>(i));
-            rName = aBuf.makeStringAndClear();
+            rName = aStrTable + OUString::number(static_cast<sal_Int32>(i));
             if (bPrefix)
                 bOk = ValidNewTabName( rName );
             else
@@ -568,12 +581,8 @@ bool ScDocument::InsertTab(
 
         if (comphelper::LibreOfficeKit::isActive() && GetDrawLayer())
         {
-            SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-            while (pViewShell)
-            {
-                pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, "");
-                pViewShell = SfxViewShell::GetNext(*pViewShell);
-            }
+            ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(this->GetDocumentShell()->GetModel());
+            SfxLokHelper::notifyDocumentSizeChangedAllViews(pModel);
         }
     }
 
@@ -738,12 +747,8 @@ bool ScDocument::DeleteTab( SCTAB nTab )
 
                 if (comphelper::LibreOfficeKit::isActive())
                 {
-                    SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-                    while (pViewShell)
-                    {
-                        pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, "");
-                        pViewShell = SfxViewShell::GetNext(*pViewShell);
-                    }
+                    ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(this->GetDocumentShell()->GetModel());
+                    SfxLokHelper::notifyDocumentSizeChangedAllViews(pModel);
                 }
 
                 bValid = true;
@@ -834,12 +839,8 @@ bool ScDocument::DeleteTabs( SCTAB nTab, SCTAB nSheets )
 
                 if (comphelper::LibreOfficeKit::isActive())
                 {
-                    SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-                    while (pViewShell)
-                    {
-                        pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, "");
-                        pViewShell = SfxViewShell::GetNext(*pViewShell);
-                    }
+                    ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(this->GetDocumentShell()->GetModel());
+                    SfxLokHelper::notifyDocumentSizeChangedAllViews(pModel);
                 }
 
                 bValid = true;
@@ -885,16 +886,15 @@ bool ScDocument::RenameTab( SCTAB nTab, const OUString& rName, bool bExternalDoc
 
                 if (comphelper::LibreOfficeKit::isActive() && GetDrawLayer())
                 {
-                    SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-                    while (pViewShell)
-                    {
-                        pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, "");
-                        pViewShell = SfxViewShell::GetNext(*pViewShell);
-                    }
+                    ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(this->GetDocumentShell()->GetModel());
+                    SfxLokHelper::notifyDocumentSizeChangedAllViews(pModel);
                 }
             }
         }
     }
+
+    collectUIInformation({{"NewName", rName}}, "Rename_Sheet");
+
     return bValid;
 }
 
@@ -3692,7 +3692,7 @@ void ScDocument::GetNumberFormatInfo( const ScInterpreterContext& rContext, SvNu
     if ( nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab] )
     {
         nIndex = maTabs[nTab]->GetNumberFormat( rContext, rPos );
-        nType = rContext.GetFormatTable()->GetType( nIndex );
+        nType = rContext.GetNumberFormatType( nIndex );
     }
     else
     {
@@ -6166,7 +6166,7 @@ void ScDocument::SetPageStyle( SCTAB nTab, const OUString& rName )
         maTabs[nTab]->SetPageStyle( rName );
 }
 
-const OUString ScDocument::GetPageStyle( SCTAB nTab ) const
+OUString ScDocument::GetPageStyle( SCTAB nTab ) const
 {
     if ( ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab] )
         return maTabs[nTab]->GetPageStyle();

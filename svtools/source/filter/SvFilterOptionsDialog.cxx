@@ -21,20 +21,12 @@
 #include <vcl/FilterConfigItem.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/svapp.hxx>
-#include <osl/file.hxx>
-#include <osl/module.hxx>
-#include <rtl/ref.hxx>
-#include <svl/solar.hrc>
 #include <FltCallDialogParameter.hxx>
-#include <vcl/settings.hxx>
 #include "exportdialog.hxx"
-#include <uno/mapping.hxx>
 #include <tools/fldunit.hxx>
 #include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/beans/XPropertyAccess.hpp>
 #include <com/sun/star/document/XExporter.hpp>
-#include <com/sun/star/document/XViewDataSupplier.hpp>
-#include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
@@ -47,7 +39,6 @@
 #include <unotools/syslocale.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <memory>
 
 using namespace ::com::sun::star;
 
@@ -143,7 +134,7 @@ void SAL_CALL SvFilterOptionsDialog::initialize(const uno::Sequence<uno::Any>& r
 // XServiceInfo
 OUString SAL_CALL SvFilterOptionsDialog::getImplementationName()
 {
-    return OUString( "com.sun.star.svtools.SvFilterOptionsDialog" );
+    return "com.sun.star.svtools.SvFilterOptionsDialog";
 }
 sal_Bool SAL_CALL SvFilterOptionsDialog::supportsService( const OUString& rServiceName )
 {
@@ -158,12 +149,10 @@ uno::Sequence< OUString > SAL_CALL SvFilterOptionsDialog::getSupportedServiceNam
 // XPropertyAccess
 uno::Sequence< beans::PropertyValue > SvFilterOptionsDialog::getPropertyValues()
 {
-    sal_Int32 i, nCount;
-    for ( i = 0, nCount = maMediaDescriptor.getLength(); i < nCount; i++ )
-    {
-        if ( maMediaDescriptor[ i ].Name == "FilterData" )
-            break;
-    }
+    auto pProp = std::find_if(maMediaDescriptor.begin(), maMediaDescriptor.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "FilterData"; });
+    auto i = static_cast<sal_Int32>(std::distance(maMediaDescriptor.begin(), pProp));
+    sal_Int32 nCount = maMediaDescriptor.getLength();
     if ( i == nCount )
         maMediaDescriptor.realloc( ++nCount );
 
@@ -177,16 +166,15 @@ void SvFilterOptionsDialog::setPropertyValues( const uno::Sequence< beans::Prope
 {
     maMediaDescriptor = aProps;
 
-    sal_Int32 i, nCount;
-    for ( i = 0, nCount = maMediaDescriptor.getLength(); i < nCount; i++ )
+    for ( const auto& rProp : std::as_const(maMediaDescriptor) )
     {
-        if ( maMediaDescriptor[ i ].Name == "FilterData" )
+        if ( rProp.Name == "FilterData" )
         {
-            maMediaDescriptor[ i ].Value >>= maFilterDataSequence;
+            rProp.Value >>= maFilterDataSequence;
         }
-        else if ( maMediaDescriptor[ i ].Name == "SelectionOnly" )
+        else if ( rProp.Name == "SelectionOnly" )
         {
-            maMediaDescriptor[ i ].Value >>= mbExportSelection;
+            rProp.Value >>= mbExportSelection;
         }
     }
 }
@@ -202,14 +190,13 @@ sal_Int16 SvFilterOptionsDialog::execute()
 
     OUString aInternalFilterName;
     uno::Reference<graphic::XGraphic> xGraphic;
-    sal_Int32 j, nCount = maMediaDescriptor.getLength();
-    for ( j = 0; j < nCount; j++ )
+    for ( const auto& rProp : std::as_const(maMediaDescriptor) )
     {
-        const OUString& rName = maMediaDescriptor[ j ].Name;
+        const OUString& rName = rProp.Name;
         if ( rName == "FilterName" )
         {
             OUString aStr;
-            maMediaDescriptor[ j ].Value >>= aStr;
+            rProp.Value >>= aStr;
             aInternalFilterName = aStr.replaceFirst( "draw_", "" );
             aInternalFilterName = aInternalFilterName.replaceFirst( "impress_", "" );
             aInternalFilterName = aInternalFilterName.replaceFirst( "calc_", "" );
@@ -218,7 +205,7 @@ sal_Int16 SvFilterOptionsDialog::execute()
        }
         else if ( rName == "Graphic" )
         {
-            maMediaDescriptor[ j ].Value >>= xGraphic;
+            rProp.Value >>= xGraphic;
         }
     }
     if ( !aInternalFilterName.isEmpty() )

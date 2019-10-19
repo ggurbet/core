@@ -108,7 +108,7 @@ void BreakIterator_Unicode::loadICUBreakIterator(const css::lang::Locale& rLocal
 
     // Using the cache map prevents accessing the file system for each
     // udata_open() where ICU tries first files then data objects. And that for
-    // two fallbacks worst case.. for each new allocated EditEngine, layout
+    // two fallbacks worst case... for each new allocated EditEngine, layout
     // cell, ... *ouch*  Also non-rule locale based iterators can be mapped.
     // This also speeds up loading iterators for alternating or generally more
     // than one language/locale in that iterators are not constructed and
@@ -195,10 +195,7 @@ void BreakIterator_Unicode::loadICUBreakIterator(const css::lang::Locale& rLocal
                 }
 
                 status = U_ZERO_ERROR;
-                OStringBuffer aUDName(64);
-                aUDName.append(rule);
-                aUDName.append('_');
-                aUDName.append( aLanguage);
+                OString aUDName = rtl::OStringView(rule) + "_" + aLanguage;
                 UDataMemory* pUData = udata_open("OpenOffice", "brk", aUDName.getStr(), &status);
                 if( U_SUCCESS(status) )
                     rbi.reset(new OOoRuleBasedBreakIterator( pUData, status));
@@ -213,7 +210,7 @@ void BreakIterator_Unicode::loadICUBreakIterator(const css::lang::Locale& rLocal
                     rbi.reset();
 
                     // ;rule (only)
-                    const OString aBIMapRuleOnlyKey( OString(";") + rule);
+                    const OString aBIMapRuleOnlyKey( OStringLiteral(";") + rule);
                     aMapIt = theBIMap.find( aBIMapRuleOnlyKey);
                     bInMap = (aMapIt != theBIMap.end());
                     if (bInMap)

@@ -22,6 +22,7 @@
 #include <config_java.h>
 
 #include <sfx2/sfxhtml.hxx>
+#include <svl/listener.hxx>
 #include <svl/macitem.hxx>
 #include <svtools/htmltokn.h>
 #include <editeng/svxenum.hxx>
@@ -29,8 +30,6 @@
 #include <fltshell.hxx>
 #include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/form/XFormComponent.hpp>
-
-#include <calbck.hxx>
 
 #include <memory>
 #include <vector>
@@ -326,7 +325,7 @@ namespace o3tl
     template<> struct typed_flags<HtmlFrameFormatFlags> : is_typed_flags<HtmlFrameFormatFlags, 0x0f> {};
 }
 
-class SwHTMLParser : public SfxHTMLParser, public SwClient
+class SwHTMLParser : public SfxHTMLParser, public SvtListener
 {
     friend class SectionSaveStruct;
     friend class CellSaveStruct;
@@ -452,6 +451,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
 
     bool m_bBodySeen : 1;
     bool m_bReadingHeaderOrFooter : 1;
+    bool m_bNotifyMacroEventRead : 1;
     bool m_isInTableStructure;
 
     sal_Int32 m_nTableDepth;
@@ -887,7 +887,7 @@ protected:
     virtual ~SwHTMLParser() override;
 
     // If the document is removed, remove the parser as well
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew ) override;
+    virtual void Notify(const SfxHint&) override;
 
     virtual void AddMetaUserDefined( OUString const & i_rMetaName ) override;
 
@@ -922,6 +922,8 @@ public:
     SwDoc* GetDoc() const;
 
     bool IsReqIF() const;
+
+    void NotifyMacroEventRead();
 
     /// Strips query and fragment from a URL path if base URL is a file:// one.
     static OUString StripQueryFromPath(const OUString& rBase, const OUString& rPath);

@@ -31,22 +31,16 @@
 #include <toolkit/controls/unocontrol.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <cppuhelper/typeprovider.hxx>
-#include <rtl/uuid.h>
 #include <osl/mutex.hxx>
-#include <tools/date.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/svapp.hxx>
-#include <vcl/wrkwin.hxx>
 #include <toolkit/helper/property.hxx>
-#include <toolkit/helper/servicenames.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/controls/accessiblecontrolcontext.hxx>
 
 #include <algorithm>
 #include <map>
-#include <set>
 #include <vector>
 
 using namespace ::com::sun::star;
@@ -157,7 +151,7 @@ OUString UnoControl::GetComponentServiceName()
 
 Reference< XWindowPeer >    UnoControl::ImplGetCompatiblePeer()
 {
-    DBG_ASSERT( !mbCreatingCompatiblePeer, "ImplGetCompatiblePeer - rekursive?" );
+    DBG_ASSERT( !mbCreatingCompatiblePeer, "ImplGetCompatiblePeer - recursive?" );
 
     mbCreatingCompatiblePeer = true;
 
@@ -244,7 +238,7 @@ bool UnoControl::ImplCheckLocalize( OUString& _rPossiblyLocalizable )
 
 void UnoControl::ImplSetPeerProperty( const OUString& rPropName, const Any& rVal )
 {
-    // since a change made in propertiesChange, we can't be sure that this is called with an valid getPeer(),
+    // since a change made in propertiesChange, we can't be sure that this is called with a valid getPeer(),
     // this assumption may be false in some (seldom) multi-threading scenarios (cause propertiesChange
     // releases our mutex before calling here in)
     // That's why this additional check
@@ -470,10 +464,10 @@ void UnoControl::ImplModelPropertiesChanged( const Sequence< PropertyChangeEvent
     bool bNeedNewPeer = false;
         // some properties require a re-creation of the peer, 'cause they can't be changed on the fly
 
-    Reference< XControlModel > xOwnModel( getModel(), UNO_QUERY );
+    Reference< XControlModel > xOwnModel = getModel();
         // our own model for comparison
     Reference< XPropertySet > xPS( xOwnModel, UNO_QUERY );
-    Reference< XPropertySetInfo > xPSI( xPS->getPropertySetInfo(), UNO_QUERY );
+    Reference< XPropertySetInfo > xPSI = xPS->getPropertySetInfo();
     OSL_ENSURE( xPSI.is(), "UnoControl::ImplModelPropertiesChanged: should have property set meta data!" );
 
     sal_Int32 nLen = rEvents.getLength();
@@ -565,7 +559,7 @@ void UnoControl::ImplModelPropertiesChanged( const Sequence< PropertyChangeEvent
 
     Reference< XWindow >    xParent = getParentPeer();
     Reference< XControl > xThis( static_cast<XAggregation*>(static_cast<cppu::OWeakAggObject*>(this)), UNO_QUERY );
-    // call createPeer via a interface got from queryInterface, so the aggregating class can intercept it
+    // call createPeer via an interface got from queryInterface, so the aggregating class can intercept it
 
     DBG_ASSERT( !bNeedNewPeer || xParent.is(), "Need new peer, but don't have a parent!" );
 
@@ -579,7 +573,7 @@ void UnoControl::ImplModelPropertiesChanged( const Sequence< PropertyChangeEvent
         while ( pLangDepProp->pPropName != nullptr )
         {
             bool bMustBeInserted( true );
-            for (PropertyValue & i : aPeerPropertiesToSet)
+            for (const PropertyValue & i : aPeerPropertiesToSet)
             {
                 if ( i.Name.equalsAsciiL(
                         pLangDepProp->pPropName, pLangDepProp->nPropNameLength ))
@@ -610,8 +604,8 @@ void UnoControl::ImplModelPropertiesChanged( const Sequence< PropertyChangeEvent
     {
         SolarMutexGuard aVclGuard;
             // and now this is the final withdrawal:
-            // I have no other idea than locking the SolarMutex here....
-            // I really hate the fact that VCL is not threadsafe....
+            // I have no other idea than locking the SolarMutex here...
+            // I really hate the fact that VCL is not threadsafe...
 
         // Doesn't work for Container!
         getPeer()->dispose();

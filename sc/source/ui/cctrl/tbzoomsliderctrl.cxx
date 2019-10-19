@@ -24,6 +24,7 @@
 #include <vcl/gradient.hxx>
 #include <vcl/settings.hxx>
 #include <svx/zoomslideritem.hxx>
+#include <iterator>
 #include <set>
 #include <bitmaps.hlst>
 
@@ -337,11 +338,8 @@ void ScZoomSliderWnd::UpdateFromItem( const SvxZoomSliderItem* pZoomSliderItem )
 
         // get all snapping points:
         std::set< sal_uInt16 > aTmpSnappingPoints;
-        for ( sal_Int32 j = 0; j < rSnappingPoints.getLength(); ++j )
-        {
-            const sal_Int32 nSnappingPoint = rSnappingPoints[j];
-            aTmpSnappingPoints.insert( static_cast<sal_uInt16>(nSnappingPoint) );
-        }
+        std::transform(rSnappingPoints.begin(), rSnappingPoints.end(), std::inserter(aTmpSnappingPoints, aTmpSnappingPoints.end()),
+            [](const sal_Int32 nSnappingPoint) -> sal_uInt16 { return static_cast<sal_uInt16>(nSnappingPoint); });
 
         // remove snapping points that are too close to each other:
         long nLastOffset = 0;

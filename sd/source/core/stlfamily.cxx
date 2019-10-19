@@ -165,7 +165,7 @@ SdStyleSheet* SdStyleFamily::GetSheetByName( const OUString& rName )
 // XServiceInfo
 OUString SAL_CALL SdStyleFamily::getImplementationName()
 {
-    return OUString( "SdStyleFamily" );
+    return "SdStyleFamily";
 }
 
 sal_Bool SAL_CALL SdStyleFamily::supportsService( const OUString& ServiceName )
@@ -175,9 +175,7 @@ sal_Bool SAL_CALL SdStyleFamily::supportsService( const OUString& ServiceName )
 
 Sequence< OUString > SAL_CALL SdStyleFamily::getSupportedServiceNames()
 {
-    OUString aServiceName( "com.sun.star.style.StyleFamily" );
-    Sequence< OUString > aSeq( &aServiceName, 1 );
-    return aSeq;
+    return { "com.sun.star.style.StyleFamily" };
 }
 
 // XNamed

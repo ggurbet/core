@@ -143,8 +143,8 @@ struct SwMergeDescriptor
     /**
      * Create a single or multiple results
      *
-     * This currently just affects FILE and PRINTER, as EMAIL is always
-     * multiple and SHELL is always single.
+     * This currently just affects FILE, as EMAIL is always
+     * multiple and SHELL and PRINTER are always single.
      */
     bool                                                bCreateSingleFile;
 
@@ -299,8 +299,8 @@ public:
     bool            Merge( const SwMergeDescriptor& rMergeDesc );
     void            MergeCancel();
 
-    bool     IsMergeOk()     { return MergeStatus::Ok     == m_aMergeStatus; };
-    bool     IsMergeError()  { return MergeStatus::Error  <= m_aMergeStatus; };
+    bool     IsMergeOk() const     { return MergeStatus::Ok     == m_aMergeStatus; }
+    bool     IsMergeError() const  { return MergeStatus::Error  <= m_aMergeStatus; }
 
     static std::shared_ptr<SwMailMergeConfigItem> PerformMailMerge(SwView const * pView);
 
@@ -312,13 +312,8 @@ public:
     bool            GetTableNames(weld::ComboBox& rBox, const OUString& rDBName);
 
     /// Fill listbox with all column names of a database table.
-    void            GetColumnNames(ListBox* pListBox,
-                            const OUString& rDBName, const OUString& rTableName);
     void            GetColumnNames(weld::ComboBox& rBox,
                             const OUString& rDBName, const OUString& rTableName);
-    static void GetColumnNames(ListBox* pListBox,
-                            css::uno::Reference< css::sdbc::XConnection> const & xConnection,
-                            const OUString& rTableName);
     static void GetColumnNames(weld::ComboBox& rBox,
                             css::uno::Reference< css::sdbc::XConnection> const & xConnection,
                             const OUString& rTableName);

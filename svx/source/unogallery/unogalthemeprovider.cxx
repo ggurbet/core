@@ -87,7 +87,7 @@ GalleryThemeProvider::GalleryThemeProvider() :
 
 OUString SAL_CALL GalleryThemeProvider::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.gallery.GalleryThemeProvider" );
+    return "com.sun.star.comp.gallery.GalleryThemeProvider";
 }
 
 sal_Bool SAL_CALL GalleryThemeProvider::supportsService( const OUString& ServiceName )
@@ -122,18 +122,15 @@ uno::Sequence< sal_Int8 > SAL_CALL GalleryThemeProvider::getImplementationId()
 void SAL_CALL GalleryThemeProvider::initialize( const uno::Sequence< uno::Any >& rArguments )
 {
     uno::Sequence< beans::PropertyValue >   aParams;
-    sal_Int32                               i;
 
-    for( i = 0; i < rArguments.getLength(); ++i )
+    for( const auto& rArgument : rArguments )
     {
-        if( rArguments[ i ] >>= aParams )
+        if( rArgument >>= aParams )
             break;
     }
 
-    for( i = 0; i < aParams.getLength(); ++i )
+    for( const beans::PropertyValue& rProp : std::as_const(aParams) )
     {
-        const beans::PropertyValue& rProp = aParams[ i ];
-
         if ( rProp.Name == "ProvideHiddenThemes" )
             rProp.Value >>= mbHiddenThemes;
     }

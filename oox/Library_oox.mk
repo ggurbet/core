@@ -9,7 +9,7 @@
 
 $(eval $(call gb_Library_Library,oox))
 
-$(eval $(call gb_Library_set_precompiled_header,oox,$(SRCDIR)/oox/inc/pch/precompiled_oox))
+$(eval $(call gb_Library_set_precompiled_header,oox,oox/inc/pch/precompiled_oox))
 
 $(eval $(call gb_Library_use_custom_headers,oox,oox/generated))
 
@@ -139,6 +139,7 @@ $(eval $(call gb_Library_add_exception_objects,oox,\
     oox/source/drawingml/customshapepresetdata \
     oox/source/drawingml/customshapeproperties \
     oox/source/drawingml/diagram/constraintlistcontext \
+    oox/source/drawingml/diagram/datamodel \
     oox/source/drawingml/diagram/datamodelcontext \
     oox/source/drawingml/diagram/diagram \
     oox/source/drawingml/diagram/diagramdefinitioncontext \
@@ -224,6 +225,7 @@ $(eval $(call gb_Library_add_exception_objects,oox,\
     oox/source/helper/graphichelper \
     oox/source/helper/grabbagstack \
     oox/source/helper/modelobjecthelper \
+    oox/source/helper/ooxresid \
     oox/source/helper/progressbar \
     oox/source/helper/propertymap \
     oox/source/helper/propertyset \
@@ -306,9 +308,9 @@ ifeq ($(OS),iOS)
 # behaviour in the source code... Compiling this source file with
 # optimization causes some Smart Art images to end up with completely
 # wrong colour, some even totally black.
-$(eval $(call gb_Library_add_cxxobjects,oox,\
+$(eval $(call gb_Library_add_exception_objects,oox,\
     oox/source/drawingml/color \
-    , $(gb_COMPILERNOOPTFLAGS) $(gb_LinkTarget_EXCEPTIONFLAGS) \
+    , $(gb_COMPILERNOOPTFLAGS) \
 ))
 else
 $(eval $(call gb_Library_add_exception_objects,oox,\

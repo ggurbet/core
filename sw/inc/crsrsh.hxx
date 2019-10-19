@@ -172,7 +172,7 @@ private:
 
     Link<const SwFlyFrameFormat*,void> m_aFlyMacroLnk;        /**< Link will be called, if the Cursor is set
                                    into a fly. A macro can then be called */
-    Link<SwCursorShell*,void> m_aChgLnk;             /**< link will be called by every attribute/
+    Link<LinkParamNone*,void> m_aChgLnk;             /**< link will be called by every attribute/
                                    format changes at cursor position.*/
     Link<SwCursorShell&,void> m_aGrfArrivedLnk;      ///< Link calls to UI if a graphic is arrived
 
@@ -272,6 +272,7 @@ private:
 
     SAL_DLLPRIVATE const SwRangeRedline* GotoRedline_( SwRedlineTable::size_type nArrPos, bool bSelect );
 
+    SAL_DLLPRIVATE void sendLOKCursorUpdates();
 protected:
 
     inline SwMoveFnCollection const & MakeFindRange( SwDocPositions, SwDocPositions, SwPaM* ) const;
@@ -404,7 +405,7 @@ public:
 
     // Areas
     inline void SetMark();
-    inline bool HasMark();
+    inline bool HasMark() const;
 
     void ClearMark();
 
@@ -482,10 +483,10 @@ public:
     const Link<const SwFlyFrameFormat*,void>& GetFlyMacroLnk() const           { return m_aFlyMacroLnk; }
 
     // Methods returning/altering link for changes of attributes/formats.
-    void        SetChgLnk( const Link<SwCursorShell*,void> &rLnk ) { m_aChgLnk = rLnk; }
-    const Link<SwCursorShell*,void>& GetChgLnk() const           { return m_aChgLnk; }
+    void        SetChgLnk( const Link<LinkParamNone*,void> &rLnk ) { m_aChgLnk = rLnk; }
+    const Link<LinkParamNone*,void>& GetChgLnk() const           { return m_aChgLnk; }
 
-    // Methods returning/altering ling for "graphic completely loaded".
+    // Methods returning/altering link for "graphic completely loaded".
     void        SetGrfArrivedLnk( const Link<SwCursorShell&,void> &rLnk ) { m_aGrfArrivedLnk = rLnk; }
     const Link<SwCursorShell&,void>& GetGrfArrivedLnk() const           { return m_aGrfArrivedLnk; }
 
@@ -546,6 +547,8 @@ public:
 
     bool GoPrevCursor();
 
+    bool GoNextPrevCursorSetSearchLabel(const bool bNext);
+
     // at CurrentCursor.SPoint
     ::sw::mark::IMark* SetBookmark(
         const vcl::KeyCode&,
@@ -571,7 +574,7 @@ public:
     // cursor was set to a random position e.g. when deleting frames
     void UpdateCursorPos();
 
-    // get the selected text at the current cursor. it will be filled with
+    // get the selected text at the current cursor. It will be filled with
     // fields etc.
     OUString GetSelText() const;
 
@@ -688,6 +691,7 @@ public:
     // (This is needed for displaying the Drag&Drop/Copy-Cursor.)
     bool SetVisibleCursor( const Point &rPt );
     inline void UnSetVisibleCursor();
+    SwVisibleCursor* GetVisibleCursor() const;
 
     // jump to the next or previous field of the corresponding type
     bool MoveFieldType(
@@ -830,7 +834,7 @@ public:
     {
         m_bMacroExecAllowed = _bMacroExecAllowed;
     }
-    bool IsMacroExecAllowed()
+    bool IsMacroExecAllowed() const
     {
         return m_bMacroExecAllowed;
     }
@@ -870,7 +874,7 @@ inline SwPaM* SwCursorShell::GetStackCursor() const { return m_pStackCursor; }
 
 inline void SwCursorShell::SetMark() { m_pCurrentCursor->SetMark(); }
 
-inline bool SwCursorShell::HasMark() { return m_pCurrentCursor->HasMark(); }
+inline bool SwCursorShell::HasMark() const { return m_pCurrentCursor->HasMark(); }
 
 inline bool SwCursorShell::IsSelection() const
 {

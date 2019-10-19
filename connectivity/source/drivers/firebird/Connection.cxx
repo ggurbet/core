@@ -202,9 +202,8 @@ void Connection::construct(const OUString& url, const Sequence< PropertyValue >&
             if (m_sFirebirdURL.startsWith("file://"))
             {
                 m_bIsFile = true;
-                uno::Reference< ucb::XSimpleFileAccess > xFileAccess(
-                    ucb::SimpleFileAccess::create(comphelper::getProcessComponentContext()),
-                    uno::UNO_QUERY);
+                uno::Reference< ucb::XSimpleFileAccess > xFileAccess =
+                    ucb::SimpleFileAccess::create(comphelper::getProcessComponentContext());
                 if (!xFileAccess->exists(m_sFirebirdURL))
                     bIsNewDatabase = true;
 
@@ -222,9 +221,13 @@ void Connection::construct(const OUString& url, const Sequence< PropertyValue >&
             dpbBuffer.push_back(1); // 1 byte long
             dpbBuffer.push_back(FIREBIRD_SQL_DIALECT);
 
-            // set UTF8 as default character set
+            // set UTF8 as default character set of the database
             const char sCharset[] = "UTF8";
             dpbBuffer.push_back(isc_dpb_set_db_charset);
+            dpbBuffer.push_back(sizeof(sCharset) - 1);
+            dpbBuffer.append(sCharset);
+            // set UTF8 as default character set of the connection
+            dpbBuffer.push_back(isc_dpb_lc_ctype);
             dpbBuffer.push_back(sizeof(sCharset) - 1);
             dpbBuffer.append(sCharset);
 
@@ -522,9 +525,8 @@ void Connection::loadDatabaseFile(const OUString& srcLocation, const OUString& t
     Reference< XStream > xDBStream(m_xEmbeddedStorage->openStreamElement(srcLocation,
             ElementModes::READ));
 
-    uno::Reference< ucb::XSimpleFileAccess2 > xFileAccess(
-        ucb::SimpleFileAccess::create( comphelper::getProcessComponentContext() ),
-                        uno::UNO_QUERY );
+    uno::Reference< ucb::XSimpleFileAccess2 > xFileAccess =
+        ucb::SimpleFileAccess::create( comphelper::getProcessComponentContext() );
     if ( !xFileAccess.is() )
     {
         ::connectivity::SharedResources aResources;
@@ -823,9 +825,8 @@ void SAL_CALL Connection::documentEventOccured( const DocumentEvent& Event )
                                                 xDBStream->getOutputStream());
 
                 // remove old fdb file if exists
-                uno::Reference< ucb::XSimpleFileAccess > xFileAccess(
-                    ucb::SimpleFileAccess::create(xContext),
-                    uno::UNO_QUERY);
+                uno::Reference< ucb::XSimpleFileAccess > xFileAccess =
+                    ucb::SimpleFileAccess::create(xContext);
                 if (xFileAccess->exists(m_sFirebirdURL))
                     xFileAccess->kill(m_sFirebirdURL);
             }

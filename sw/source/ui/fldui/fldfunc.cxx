@@ -38,8 +38,8 @@
 
 using namespace ::com::sun::star;
 
-SwFieldFuncPage::SwFieldFuncPage(TabPageParent pParent, const SfxItemSet *const pCoreSet)
-    : SwFieldPage(pParent, "modules/swriter/ui/fldfuncpage.ui", "FieldFuncPage", pCoreSet)
+SwFieldFuncPage::SwFieldFuncPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet *const pCoreSet)
+    : SwFieldPage(pPage, pController, "modules/swriter/ui/fldfuncpage.ui", "FieldFuncPage", pCoreSet)
     , nOldFormat(0)
     , bDropDownLBChanged(false)
     , m_xTypeLB(m_xBuilder->weld_tree_view("type"))
@@ -73,7 +73,7 @@ SwFieldFuncPage::SwFieldFuncPage(TabPageParent pParent, const SfxItemSet *const 
     m_xListItemsLB->set_size_request(m_xListItemED->get_preferred_size().Width(),
                                      m_xListItemsLB->get_height_rows(5));
 
-    auto nWidth = m_xTypeLB->get_approximate_digit_width() * FIELD_COLUMN_WIDTH / 8;
+    auto nWidth = m_xTypeLB->get_approximate_digit_width() * FIELD_COLUMN_WIDTH;
     auto nHeight = m_xTypeLB->get_height_rows(20);
     m_xTypeLB->set_size_request(nWidth, nHeight);
     m_xFormatLB->set_size_request(nWidth, nHeight);
@@ -89,7 +89,6 @@ SwFieldFuncPage::SwFieldFuncPage(TabPageParent pParent, const SfxItemSet *const 
 
 SwFieldFuncPage::~SwFieldFuncPage()
 {
-    disposeOnce();
 }
 
 void SwFieldFuncPage::Reset(const SfxItemSet* )
@@ -108,16 +107,16 @@ void SwFieldFuncPage::Reset(const SfxItemSet* )
         // fill Typ-Listbox
         for(sal_uInt16 i = rRg.nStart; i < rRg.nEnd; ++i)
         {
-            const sal_uInt16 nTypeId = SwFieldMgr::GetTypeId(i);
-            m_xTypeLB->append(OUString::number(nTypeId), SwFieldMgr::GetTypeStr(i));
+            const SwFieldTypesEnum nTypeId = SwFieldMgr::GetTypeId(i);
+            m_xTypeLB->append(OUString::number(static_cast<sal_uInt16>(nTypeId)), SwFieldMgr::GetTypeStr(i));
         }
     }
     else
     {
-        const sal_uInt16 nTypeId = GetCurField()->GetTypeId();
-        m_xTypeLB->append(OUString::number(nTypeId), SwFieldMgr::GetTypeStr(SwFieldMgr::GetPos(nTypeId)));
+        const SwFieldTypesEnum nTypeId = GetCurField()->GetTypeId();
+        m_xTypeLB->append(OUString::number(static_cast<sal_uInt16>(nTypeId)), SwFieldMgr::GetTypeStr(SwFieldMgr::GetPos(nTypeId)));
 
-        if (nTypeId == TYP_MACROFLD)
+        if (nTypeId == SwFieldTypesEnum::Macro)
         {
             GetFieldMgr().SetMacroPath(GetCurField()->GetPar1());
         }
@@ -207,7 +206,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
     if (nOld == GetTypeSel())
         return;
 
-    const sal_uInt16 nTypeId = m_xTypeLB->get_id(GetTypeSel()).toUInt32();
+    const SwFieldTypesEnum nTypeId = static_cast<SwFieldTypesEnum>(m_xTypeLB->get_id(GetTypeSel()).toUInt32());
 
     // fill Selection-Listbox
     UpdateSubType();
@@ -225,7 +224,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
 
     if (nSize)
     {
-        if (IsFieldEdit() && nTypeId == TYP_JUMPEDITFLD)
+        if (IsFieldEdit() && nTypeId == SwFieldTypesEnum::JumpEdit)
             m_xFormatLB->select_text(SwResId(FMT_MARK_ARY[GetCurField()->GetFormat()]));
 
         if (m_xFormatLB->get_selected_index() == -1)
@@ -236,8 +235,8 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
     bool bFormat = nSize != 0;
 
     // two controls for conditional text
-    bool bDropDown = TYP_DROPDOWN == nTypeId;
-    bool bCondTextField = TYP_CONDTXTFLD == nTypeId;
+    bool bDropDown = SwFieldTypesEnum::Dropdown == nTypeId;
+    bool bCondTextField = SwFieldTypesEnum::ConditionalText == nTypeId;
 
     m_xCond1FT->set_visible(!bDropDown && bCondTextField);
     m_xCond1ED->set_visible(!bDropDown && bCondTextField);
@@ -257,7 +256,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
         if(bDropDown)
         {
             const SwDropDownField* pDrop = static_cast<const SwDropDownField*>(GetCurField());
-            uno::Sequence<OUString> aItems = pDrop->GetItemSequence();
+            const uno::Sequence<OUString> aItems = pDrop->GetItemSequence();
             m_xListItemsLB->clear();
             for (const OUString& rItem : aItems)
                 m_xListItemsLB->append_text(rItem);
@@ -287,7 +286,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
 
     switch (nTypeId)
     {
-        case TYP_MACROFLD:
+        case SwFieldTypesEnum::Macro:
             bMacro = true;
             if (!GetFieldMgr().GetMacroPath().isEmpty())
                 bValue = true;
@@ -301,7 +300,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
             m_xValueED->set_accessible_name(m_xValueFT->get_label());
             break;
 
-        case TYP_HIDDENPARAFLD:
+        case SwFieldTypesEnum::HiddenParagraph:
             m_xNameFT->set_label(SwResId(STR_COND));
             m_xNameED->SetDropEnable(true);
             bName = true;
@@ -309,7 +308,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
             m_xValueED->set_accessible_name(m_xValueFT->get_label());
             break;
 
-        case TYP_HIDDENTXTFLD:
+        case SwFieldTypesEnum::HiddenText:
         {
             m_xNameFT->set_label(SwResId(STR_COND));
             m_xNameED->SetDropEnable(true);
@@ -323,7 +322,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
         }
         break;
 
-        case TYP_CONDTXTFLD:
+        case SwFieldTypesEnum::ConditionalText:
             m_xNameFT->set_label(SwResId(STR_COND));
             m_xNameED->SetDropEnable(true);
             if (IsFieldEdit())
@@ -338,7 +337,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
             m_xValueED->set_accessible_name(m_xValueFT->get_label());
             break;
 
-        case TYP_JUMPEDITFLD:
+        case SwFieldTypesEnum::JumpEdit:
             m_xNameFT->set_label(SwResId(STR_JUMPEDITFLD));
             m_xValueFT->set_label(SwResId(STR_PROMPT));
             bName = bValue = true;
@@ -346,14 +345,14 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
             m_xValueED->set_accessible_name(m_xValueFT->get_label());
             break;
 
-        case TYP_INPUTFLD:
+        case SwFieldTypesEnum::Input:
             m_xValueFT->set_label(SwResId(STR_PROMPT));
             bValue = true;
             m_xNameED->set_accessible_name(m_xNameFT->get_label());
             m_xValueED->set_accessible_name(m_xValueFT->get_label());
             break;
 
-        case TYP_COMBINED_CHARS:
+        case SwFieldTypesEnum::CombinedChars:
             {
                 m_xNameFT->set_label(SwResId(STR_COMBCHRS_FT));
                 m_xNameED->SetDropEnable(true);
@@ -366,7 +365,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
                 m_xValueED->set_accessible_name(m_xValueFT->get_label());
             }
             break;
-        case TYP_DROPDOWN :
+        case SwFieldTypesEnum::Dropdown :
         break;
         default:
             break;
@@ -385,16 +384,17 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
 
 IMPL_LINK_NOARG(SwFieldFuncPage, SelectHdl, weld::TreeView&, void)
 {
-    const sal_uInt16 nTypeId = m_xTypeLB->get_id(GetTypeSel()).toUInt32();
+    const SwFieldTypesEnum nTypeId = static_cast<SwFieldTypesEnum>(m_xTypeLB->get_id(GetTypeSel()).toUInt32());
 
-    if( TYP_MACROFLD == nTypeId )
+    if( SwFieldTypesEnum::Macro == nTypeId )
         m_xNameED->set_text( m_xSelectionLB->get_selected_text() );
 }
 
-IMPL_LINK_NOARG(SwFieldFuncPage, InsertMacroHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SwFieldFuncPage, InsertMacroHdl, weld::TreeView&, bool)
 {
     SelectHdl(*m_xSelectionLB);
     InsertHdl(nullptr);
+    return true;
 }
 
 IMPL_LINK(SwFieldFuncPage, ListModifyButtonHdl, weld::Button&, rControl, void)
@@ -472,7 +472,7 @@ IMPL_LINK_NOARG(SwFieldFuncPage, ListEnableHdl, weld::Entry&, void)
 // renew types in SelectionBox
 void SwFieldFuncPage::UpdateSubType()
 {
-    const sal_uInt16 nTypeId = m_xTypeLB->get_id(GetTypeSel()).toUInt32();
+    const SwFieldTypesEnum nTypeId = static_cast<SwFieldTypesEnum>(m_xTypeLB->get_id(GetTypeSel()).toUInt32());
 
     // fill Selection-Listbox
     m_xSelectionLB->freeze();
@@ -493,7 +493,7 @@ void SwFieldFuncPage::UpdateSubType()
     if (bEnable)
         m_xSelectionLB->select(0);
 
-    if (nTypeId == TYP_MACROFLD)
+    if (nTypeId == SwFieldTypesEnum::Macro)
     {
         const bool bHasMacro = !GetFieldMgr().GetMacroPath().isEmpty();
 
@@ -509,13 +509,13 @@ void SwFieldFuncPage::UpdateSubType()
 // call MacroBrowser, fill Listbox with Macros
 IMPL_LINK_NOARG( SwFieldFuncPage, MacroHdl, weld::Button&, void)
 {
-    if (GetFieldMgr().ChooseMacro(GetDialogFrameWeld()))
+    if (GetFieldMgr().ChooseMacro(GetFrameWeld()))
         UpdateSubType();
 }
 
 bool SwFieldFuncPage::FillItemSet(SfxItemSet* )
 {
-    const sal_uInt16 nTypeId = m_xTypeLB->get_id(GetTypeSel()).toUInt32();
+    const SwFieldTypesEnum nTypeId = static_cast<SwFieldTypesEnum>(m_xTypeLB->get_id(GetTypeSel()).toUInt32());
 
     sal_uInt16 nSubType = 0;
 
@@ -528,7 +528,7 @@ bool SwFieldFuncPage::FillItemSet(SfxItemSet* )
 
     switch(nTypeId)
     {
-        case TYP_INPUTFLD:
+        case SwFieldTypesEnum::Input:
             nSubType = INP_TXT;
             // to prevent removal of CR/LF restore old content
             if (!m_xNameED->get_value_changed_from_saved() && IsFieldEdit())
@@ -536,21 +536,21 @@ bool SwFieldFuncPage::FillItemSet(SfxItemSet* )
 
             break;
 
-        case TYP_MACROFLD:
+        case SwFieldTypesEnum::Macro:
             // use the full script URL, not the name in the Edit control
             aName = GetFieldMgr().GetMacroPath();
             break;
 
-        case TYP_CONDTXTFLD:
+        case SwFieldTypesEnum::ConditionalText:
             aVal = m_xCond1ED->get_text() + "|" + m_xCond2ED->get_text();
             break;
-        case TYP_DROPDOWN :
+        case SwFieldTypesEnum::Dropdown :
         {
             aName = m_xListNameED->get_text();
             for (sal_Int32 i = 0, nEntryCount = m_xListItemsLB->n_children(); i < nEntryCount; ++i)
             {
                 if(i)
-                    aVal += OUStringLiteral1(DB_DELIM);
+                    aVal += OUStringChar(DB_DELIM);
                 aVal += m_xListItemsLB->get_text(i);
             }
         }
@@ -576,10 +576,10 @@ bool SwFieldFuncPage::FillItemSet(SfxItemSet* )
     return false;
 }
 
-VclPtr<SfxTabPage> SwFieldFuncPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SwFieldFuncPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                           const SfxItemSet *const pAttrSet)
 {
-    return VclPtr<SwFieldFuncPage>::Create( pParent, pAttrSet );
+    return std::make_unique<SwFieldFuncPage>(pPage, pController, pAttrSet);
 }
 
 sal_uInt16 SwFieldFuncPage::GetGroup()
@@ -601,9 +601,9 @@ IMPL_LINK_NOARG(SwFieldFuncPage, ModifyHdl, weld::Entry&, void)
     const sal_Int32 nLen = m_xNameED->get_text().getLength();
 
     bool bEnable = true;
-    sal_uInt16 nTypeId = m_xTypeLB->get_id(GetTypeSel()).toUInt32();
+    SwFieldTypesEnum nTypeId = static_cast<SwFieldTypesEnum>(m_xTypeLB->get_id(GetTypeSel()).toUInt32());
 
-    if( TYP_COMBINED_CHARS == nTypeId &&
+    if( SwFieldTypesEnum::CombinedChars == nTypeId &&
         (!nLen || nLen > MAX_COMBINED_CHARACTERS ))
         bEnable = false;
 

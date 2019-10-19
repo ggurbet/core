@@ -1069,12 +1069,11 @@ void lcl_switchToTextCategories( const Reference< XChartDocument >& xChartDoc, c
 
 void DiagramHelper::switchToDateCategories( const Reference< XChartDocument >& xChartDoc )
 {
-    Reference< frame::XModel > xChartModel( xChartDoc, uno::UNO_QUERY );
-    if(xChartModel.is())
+    if(xChartDoc.is())
     {
-        ControllerLockGuardUNO aCtrlLockGuard( xChartModel );
+        ControllerLockGuardUNO aCtrlLockGuard( xChartDoc );
 
-        Reference< chart2::XCoordinateSystem > xCooSys( ChartModelHelper::getFirstCoordinateSystem( xChartModel ) );
+        Reference< chart2::XCoordinateSystem > xCooSys( ChartModelHelper::getFirstCoordinateSystem( xChartDoc ) );
         if( xCooSys.is() )
         {
             Reference< XAxis > xAxis( xCooSys->getAxisByDimension(0,0) );
@@ -1085,12 +1084,11 @@ void DiagramHelper::switchToDateCategories( const Reference< XChartDocument >& x
 
 void DiagramHelper::switchToTextCategories( const Reference< XChartDocument >& xChartDoc )
 {
-    Reference< frame::XModel > xChartModel( xChartDoc, uno::UNO_QUERY );
-    if(xChartModel.is())
+    if(xChartDoc.is())
     {
-        ControllerLockGuardUNO aCtrlLockGuard( xChartModel );
+        ControllerLockGuardUNO aCtrlLockGuard( xChartDoc );
 
-        Reference< chart2::XCoordinateSystem > xCooSys( ChartModelHelper::getFirstCoordinateSystem( xChartModel ) );
+        Reference< chart2::XCoordinateSystem > xCooSys( ChartModelHelper::getFirstCoordinateSystem( xChartDoc ) );
         if( xCooSys.is() )
         {
             Reference< XAxis > xAxis( xCooSys->getAxisByDimension(0,0) );
@@ -1190,7 +1188,7 @@ sal_Int32 DiagramHelper::getPercentNumberFormat( const Reference< util::XNumberF
             {
                 // This *assumes* the sequence is sorted as in
                 // NfIndexTableOffset and the first format is the integer 0%
-                // format by chance.. which usually is the case, but.. anyway,
+                // format by chance... which usually is the case, but... anyway,
                 // we usually also have a number formatter so don't reach here.
                 nRet = aKeySeq[0];
             }

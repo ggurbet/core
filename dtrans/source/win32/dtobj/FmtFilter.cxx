@@ -48,7 +48,7 @@ struct METAFILEHEADER
 };
 #pragma pack()
 
-// convert a windows metafile picture to a openoffice metafile picture
+// convert a windows metafile picture to a LibreOffice metafile picture
 
 Sequence< sal_Int8 > WinMFPictToOOMFPict( Sequence< sal_Int8 >& aMetaFilePict )
 {
@@ -118,7 +118,7 @@ Sequence< sal_Int8 > WinMFPictToOOMFPict( Sequence< sal_Int8 >& aMetaFilePict )
     return mfpictStream;
 }
 
-// convert a windows enhanced metafile to a openoffice metafile
+// convert a windows enhanced metafile to a LibreOffice metafile
 
 Sequence< sal_Int8 > WinENHMFPictToOOMFPict( HENHMETAFILE hEnhMetaFile )
 {
@@ -137,7 +137,7 @@ Sequence< sal_Int8 > WinENHMFPictToOOMFPict( HENHMETAFILE hEnhMetaFile )
     return aRet;
 }
 
-// convert a openoffice metafile picture to a windows metafile picture
+// convert a LibreOffice metafile picture to a windows metafile picture
 
 HMETAFILEPICT OOMFPictToWinMFPict( Sequence< sal_Int8 > const & aOOMetaFilePict )
 {
@@ -159,7 +159,7 @@ HMETAFILEPICT OOMFPictToWinMFPict( Sequence< sal_Int8 > const & aOOMetaFilePict 
     return hPict;
 }
 
-// convert a openoffice metafile picture to a windows enhanced metafile picture
+// convert a LibreOffice metafile picture to a windows enhanced metafile picture
 
 HENHMETAFILE OOMFPictToWinENHMFPict( Sequence< sal_Int8 > const & aOOMetaFilePict )
 {
@@ -168,7 +168,7 @@ HENHMETAFILE OOMFPictToWinENHMFPict( Sequence< sal_Int8 > const & aOOMetaFilePic
     return hEnhMtf;
 }
 
-// convert a windows device independent bitmap into a openoffice bitmap
+// convert a windows device independent bitmap into a LibreOffice bitmap
 
 Sequence< sal_Int8 > WinDIBToOOBMP( const Sequence< sal_Int8 >& aWinDIB )
 {
@@ -201,7 +201,7 @@ Sequence< sal_Int8 > WinDIBToOOBMP( const Sequence< sal_Int8 >& aWinDIB )
     return ooBmpStream;
 }
 
-// convert a openoffice bitmap into a windows device independent bitmap
+// convert a LibreOffice bitmap into a windows device independent bitmap
 
 Sequence< sal_Int8 > OOBmpToWinDIB( Sequence< sal_Int8 >& aOOBmp )
 {
@@ -227,13 +227,13 @@ static std::string GetHtmlFormatHeader(size_t startHtml, size_t endHtml, size_t 
 
 // the case of these tags has to match what we output in our filters
 // both tags don't allow parameters
-const std::string TAG_HTML = std::string("<html>");
-const std::string TAG_END_HTML = std::string("</html>");
+const std::string TAG_HTML("<html>");
+const std::string TAG_END_HTML("</html>");
 
 // The body tag may have parameters so we need to search for the
 // closing '>' manually e.g. <body param> #92840#
-const std::string TAG_BODY = std::string("<body");
-const std::string TAG_END_BODY = std::string("</body");
+const std::string TAG_BODY("<body");
+const std::string TAG_END_BODY("</body");
 
 Sequence<sal_Int8> TextHtmlToHTMLFormat(Sequence<sal_Int8> const & aTextHtml)
 {
@@ -387,7 +387,7 @@ css::uno::Sequence<sal_Int8> CF_HDROPToFileList(HGLOBAL hGlobal)
     return FileListToByteSequence(files);
 }
 
-// convert a windows bitmap handle into a openoffice bitmap
+// convert a windows bitmap handle into a LibreOffice bitmap
 
 Sequence< sal_Int8 > WinBITMAPToOOBMP( HBITMAP aHBMP )
 {

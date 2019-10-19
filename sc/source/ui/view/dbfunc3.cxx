@@ -19,9 +19,7 @@
 
 #include <dbfunc.hxx>
 #include <scitems.hxx>
-#include <sfx2/bindings.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/waitobj.hxx>
 #include <vcl/weld.hxx>
 #include <svl/zforlist.hxx>
 #include <sfx2/app.hxx>
@@ -40,41 +38,31 @@
 #include <global.hxx>
 #include <scresid.hxx>
 #include <globstr.hrc>
-#include <sc.hrc>
 #include <undotab.hxx>
 #include <undodat.hxx>
 #include <dbdata.hxx>
 #include <rangenam.hxx>
-#include <rangeutl.hxx>
 #include <docsh.hxx>
 #include <olinetab.hxx>
-#include <consoli.hxx>
 #include <olinefun.hxx>
 #include <dpobject.hxx>
 #include <dpsave.hxx>
 #include <dpdimsave.hxx>
 #include <dbdocfun.hxx>
 #include <dpoutput.hxx>
-#include <dptabsrc.hxx>
-#include <dpshttab.hxx>
-#include <dpsdbtab.hxx>
 #include <editable.hxx>
 #include <docpool.hxx>
 #include <patattr.hxx>
 #include <unonames.hxx>
-#include <formulacell.hxx>
 #include <userlist.hxx>
 #include <queryentry.hxx>
 #include <markdata.hxx>
-#include <stringutil.hxx>
 #include <tabvwsh.hxx>
 #include <generalfunction.hxx>
 #include <sortparam.hxx>
 
-#include <sfx2/lokhelper.hxx>
 #include <comphelper/lok.hxx>
 
-#include <list>
 #include <memory>
 #include <unordered_set>
 #include <unordered_map>
@@ -1817,12 +1805,9 @@ bool ScDBFunc::DataPilotMove( const ScRange& rSource, const ScAddress& rDest )
 
                 bool bInserted = false;
 
-                sal_Int32 nMemberCount = aMemberNames.getLength();
-                for (sal_Int32 nMemberPos=0; nMemberPos<nMemberCount; ++nMemberPos)
+                for (const OUString& aMemberStr : std::as_const(aMemberNames))
                 {
-                    OUString aMemberStr( aMemberNames[nMemberPos] );
-
-                    if ( !bInserted && aMemberNames[nMemberPos] == aDestData.MemberName )
+                    if ( !bInserted && aMemberStr == aDestData.MemberName )
                     {
                         // insert dragged items before this item
                         for ( const auto& rMember : aMembersVector )
@@ -2162,7 +2147,7 @@ void ScDBFunc::RepeatDB( bool bRecord )
         {
             // sort without subtotals
 
-            aSubTotalParam.bRemoveOnly = true;      // is resetted below
+            aSubTotalParam.bRemoveOnly = true;      // is reset below
             DoSubTotals( aSubTotalParam, false );
         }
 

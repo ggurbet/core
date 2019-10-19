@@ -17,16 +17,13 @@
 #include <com/sun/star/sdbc/XRow.hpp>
 
 #include <comphelper/processfactory.hxx>
-#include <officecfg/Office/Common.hxx>
 #include <rtl/uri.hxx>
 #include <ucbhelper/content.hxx>
 #include <ucbhelper/commandenvironment.hxx>
 #include <tools/diagnose_ex.h>
-#include <toolkit/helper/vclunohelper.hxx>
 
 #include <svtools/PlaceEditDialog.hxx>
 #include <svtools/ServerDetailsControls.hxx>
-#include <sal/log.hxx>
 
 #include <config_oauth2.h>
 
@@ -285,8 +282,8 @@ CmisDetailsContainer::CmisDetailsContainer(PlaceEditDialog* pParentDialog, OUStr
     m_xParentDialog(pParentDialog->getDialog()->GetXWindow())
 {
     Reference< XComponentContext > xContext = ::comphelper::getProcessComponentContext();
-    Reference< XInteractionHandler > xGlobalInteractionHandler(
-        InteractionHandler::createWithParent(xContext, m_xParentDialog), UNO_QUERY);
+    Reference< XInteractionHandler > xGlobalInteractionHandler =
+        InteractionHandler::createWithParent(xContext, m_xParentDialog);
     m_xCmdEnv = new ucbhelper::CommandEnvironment( xGlobalInteractionHandler, Reference< XProgressHandler >() );
 
     set_visible( false );
@@ -435,9 +432,8 @@ IMPL_LINK_NOARG( CmisDetailsContainer, RefreshReposHdl, weld::Button&, void  )
     {
         if( !sUrl.isEmpty() && !m_sUsername.isEmpty() && !m_sPassword.isEmpty() )
         {
-            Reference< XInteractionHandler > xInteractionHandler(
-                InteractionHandler::createWithParent(xContext, m_xParentDialog),
-                UNO_QUERY );
+            Reference< XInteractionHandler > xInteractionHandler =
+                InteractionHandler::createWithParent(xContext, m_xParentDialog);
 
             Sequence<OUString> aPasswd { m_sPassword };
 

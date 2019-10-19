@@ -135,9 +135,7 @@ SfxStyleSheetBase* SdStyleSheetPool::Create(const OUString& rName, SfxStyleFamil
 
 SfxStyleSheetBase* SdStyleSheetPool::GetTitleSheet(const OUString& rLayoutName)
 {
-    OUString aName(rLayoutName);
-    aName += SD_LT_SEPARATOR;
-    aName += STR_LAYOUT_TITLE;
+    OUString aName = rLayoutName + SD_LT_SEPARATOR STR_LAYOUT_TITLE;
     SfxStyleSheetBase* pResult = Find(aName, SfxStyleFamily::Page);
     return pResult;
 }
@@ -151,9 +149,7 @@ SfxStyleSheetBase* SdStyleSheetPool::GetTitleSheet(const OUString& rLayoutName)
 
 void SdStyleSheetPool::CreateOutlineSheetList (const OUString& rLayoutName, std::vector<SfxStyleSheetBase*> &rOutlineStyles)
 {
-    OUString aName(rLayoutName);
-    aName += SD_LT_SEPARATOR;
-    aName += STR_LAYOUT_OUTLINE;
+    OUString aName = rLayoutName + SD_LT_SEPARATOR STR_LAYOUT_OUTLINE;
 
     for (sal_Int32 nSheet = 1; nSheet < 10; nSheet++)
     {
@@ -541,15 +537,12 @@ void SdStyleSheetPool::CopyTableStyles(SdStyleSheetPool const & rSourcePool)
             {
                 Reference< XNameAccess> xSourceNames( xSourceTableStyle, UNO_QUERY_THROW );
 
-                Sequence< OUString > aStyleNames( xSourceNames->getElementNames() );
-                OUString* pStyleNames( aStyleNames.getArray() );
+                const Sequence< OUString > aStyleNames( xSourceNames->getElementNames() );
 
                 Reference< XNameReplace > xTargetNames( xNewTableStyle, UNO_QUERY );
 
-                sal_Int32 nNames = aStyleNames.getLength();
-                while( nNames-- )
+                for( const OUString& aName : aStyleNames )
                 {
-                    const OUString aName( *pStyleNames++ );
                     Reference< XStyle > xSourceStyle( xSourceNames->getByName( aName ), UNO_QUERY );
                     Reference< XStyle > xTargetStyle;
                     if( xSourceStyle.is() ) try
@@ -1221,7 +1214,7 @@ void SdStyleSheetPool::throwIfDisposed()
 // XServiceInfo
 OUString SAL_CALL SdStyleSheetPool::getImplementationName()
 {
-    return OUString( "SdStyleSheetPool" );
+    return "SdStyleSheetPool";
 }
 
 sal_Bool SAL_CALL SdStyleSheetPool::supportsService( const OUString& ServiceName )

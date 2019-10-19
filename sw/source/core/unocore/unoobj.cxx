@@ -102,6 +102,7 @@
 #include <SwStyleNameMapper.hxx>
 #include <sortopt.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/i18n/WordType.hpp>
 #include <memory>
 #include <unoparaframeenum.hxx>
@@ -512,6 +513,7 @@ SwUnoCursorHelper::SetCursorPropertyValue(
         // #i91601#
         case FN_UNO_LIST_ID:
         case FN_UNO_IS_NUMBER:
+        case FN_UNO_PARA_NUM_AUTO_FORMAT:
         {
             // multi selection is not considered
             SwTextNode *const pTextNd = rPam.GetNode().GetTextNode();
@@ -547,6 +549,39 @@ SwUnoCursorHelper::SetCursorPropertyValue(
                 if ((rValue >>= bIsNumber) && !bIsNumber)
                 {
                     pTextNd->SetCountedInList( false );
+                }
+            }
+            else if (FN_UNO_PARA_NUM_AUTO_FORMAT == rEntry.nWID)
+            {
+                uno::Sequence<beans::NamedValue> props;
+                if (rValue >>= props)
+                {
+                    // TODO create own map for this, it contains UNO_NAME_DISPLAY_NAME? or make property readable so ODF export can map it to a automatic style?
+                    SfxItemPropertySet const& rPropSet(*aSwMapProvider.GetPropertySet(PROPERTY_MAP_CHAR_AUTO_STYLE));
+                    SfxItemPropertyMap const& rMap(rPropSet.getPropertyMap());
+                    SfxItemSet items{rPam.GetDoc()->GetAttrPool(), aCharAutoFormatSetRange};
+
+                    for (sal_Int32 i = 0; i < props.getLength(); ++i)
+                    {
+                        SfxItemPropertySimpleEntry const*const pEntry =
+                            rMap.getByName(props[i].Name);
+                        if (!pEntry)
+                        {
+                            throw beans::UnknownPropertyException(
+                                "Unknown property: " + props[i].Name);
+                        }
+                        if (pEntry->nFlags & beans::PropertyAttribute::READONLY)
+                        {
+                            throw beans::PropertyVetoException(
+                                "Property is read-only: " + props[i].Name);
+                        }
+                        rPropSet.setPropertyValue(*pEntry, props[i].Value, items);
+                    }
+
+                    SwFormatAutoFormat item(RES_PARATR_LIST_AUTOFMT);
+                    // TODO: for ODF export we'd need to add it to the autostyle pool
+                    item.SetStyleHandle(std::make_shared<SfxItemSet>(items));
+                    pTextNd->SetAttr(item);
                 }
             }
             //PROPERTY_MAYBEVOID!
@@ -832,7 +867,7 @@ bool SwXTextCursor::IsAtEndOfMeta() const
 
 OUString SwXTextCursor::getImplementationName()
 {
-    return OUString("SwXTextCursor");
+    return "SwXTextCursor";
 }
 
 sal_Bool SAL_CALL SwXTextCursor::supportsService(const OUString& rServiceName)
@@ -1783,12 +1818,13 @@ void SwUnoCursorHelper::SetPropertyValues(
     OUString aUnknownExMsg, aPropertyVetoExMsg;
 
     // Build set of attributes we want to fetch
-    std::vector<sal_uInt16> aWhichPairs;
-    std::vector<SfxItemPropertySimpleEntry const*> aEntries;
+    const sal_uInt16 zero = 0;
+    SfxItemSet aItemSet(pDoc->GetAttrPool(), &zero);
+    std::vector<std::pair<const SfxItemPropertySimpleEntry*, const uno::Any&>> aEntries;
     aEntries.reserve(rPropertyValues.getLength());
-    for (sal_Int32 i = 0; i < rPropertyValues.getLength(); ++i)
+    for (const auto& rPropVal : rPropertyValues)
     {
-        const OUString &rPropertyName = rPropertyValues[i].Name;
+        const OUString &rPropertyName = rPropVal.Name;
 
         SfxItemPropertySimpleEntry const* pEntry =
             rPropSet.getPropertyMap().getByName(rPropertyName);
@@ -1797,31 +1833,25 @@ void SwUnoCursorHelper::SetPropertyValues(
         if (!pEntry)
         {
             aUnknownExMsg += "Unknown property: '" + rPropertyName + "' ";
-            break;
+            continue;
         }
         else if (pEntry->nFlags & beans::PropertyAttribute::READONLY)
         {
             aPropertyVetoExMsg += "Property is read-only: '" + rPropertyName + "' ";
-            break;
-        } else {
-// FIXME: we should have some nice way of merging ranges surely ?
-            aWhichPairs.push_back(pEntry->nWID);
-            aWhichPairs.push_back(pEntry->nWID);
+            continue;
         }
-        aEntries.push_back(pEntry);
+        aItemSet.MergeRange(pEntry->nWID, pEntry->nWID);
+        aEntries.emplace_back(pEntry, rPropVal.Value);
     }
 
-    if (!aWhichPairs.empty())
+    if (!aEntries.empty())
     {
-        aWhichPairs.push_back(0); // terminate
-        SfxItemSet aItemSet(pDoc->GetAttrPool(), aWhichPairs.data());
-
         // Fetch, overwrite, and re-set the attributes from the core
 
         bool bPreviousPropertyCausesSideEffectsInNodes = false;
         for (size_t i = 0; i < aEntries.size(); ++i)
         {
-            SfxItemPropertySimpleEntry const*const pEntry = aEntries[i];
+            SfxItemPropertySimpleEntry const*const pEntry = aEntries[i].first;
             bool bPropertyCausesSideEffectsInNodes =
                 propertyCausesSideEffectsInNodes(pEntry->nWID);
 
@@ -1832,7 +1862,7 @@ void SwUnoCursorHelper::SetPropertyValues(
                 SwUnoCursorHelper::GetCursorAttr(rPaM, aItemSet);
             }
 
-            const uno::Any &rValue = rPropertyValues[i].Value;
+            const uno::Any &rValue = aEntries[i].second;
             // this can set some attributes in nodes' mpAttrSet
             if (!SwUnoCursorHelper::SetCursorPropertyValue(*pEntry, rValue, rPaM, aItemSet))
                 rPropSet.setPropertyValue(*pEntry, rValue, aItemSet);
@@ -2263,8 +2293,8 @@ SwXTextCursor::getPropertyValues( const uno::Sequence< OUString >& aPropertyName
 {
     // a banal implementation for now
     uno::Sequence< uno::Any > aValues( aPropertyNames.getLength() );
-    for (sal_Int32 i = 0; i < aPropertyNames.getLength(); i++)
-        aValues[i] = getPropertyValue( aPropertyNames[ i ] );
+    std::transform(aPropertyNames.begin(), aPropertyNames.end(), aValues.begin(),
+        [this](const OUString& rName) -> uno::Any { return getPropertyValue( rName ); });
     return aValues;
 }
 
@@ -2350,32 +2380,30 @@ SwXTextCursor::setPropertiesToDefault(
 
     SwUnoCursor & rUnoCursor( m_pImpl->GetCursorOrThrow() );
 
-    const sal_Int32 nCount = rPropertyNames.getLength();
-    if ( nCount )
+    if ( rPropertyNames.hasElements() )
     {
         SwDoc & rDoc = *rUnoCursor.GetDoc();
-        const OUString * pNames = rPropertyNames.getConstArray();
         std::set<sal_uInt16> aWhichIds;
         std::set<sal_uInt16> aParaWhichIds;
-        for (sal_Int32 i = 0; i < nCount; i++)
+        for (const OUString& rName : rPropertyNames)
         {
             SfxItemPropertySimpleEntry const*const  pEntry =
-                m_pImpl->m_rPropSet.getPropertyMap().getByName( pNames[i] );
+                m_pImpl->m_rPropSet.getPropertyMap().getByName( rName );
             if (!pEntry)
             {
-                if (pNames[i] == UNO_NAME_IS_SKIP_HIDDEN_TEXT ||
-                    pNames[i] == UNO_NAME_IS_SKIP_PROTECTED_TEXT)
+                if (rName == UNO_NAME_IS_SKIP_HIDDEN_TEXT ||
+                    rName == UNO_NAME_IS_SKIP_PROTECTED_TEXT)
                 {
                     continue;
                 }
                 throw beans::UnknownPropertyException(
-                    "Unknown property: " + pNames[i],
+                    "Unknown property: " + rName,
                     static_cast<cppu::OWeakObject *>(this));
             }
             if (pEntry->nFlags & beans::PropertyAttribute::READONLY)
             {
                 throw uno::RuntimeException(
-                    "setPropertiesToDefault: property is read-only: " + pNames[i],
+                    "setPropertiesToDefault: property is read-only: " + rName,
                     static_cast<cppu::OWeakObject *>(this));
             }
 
@@ -2586,7 +2614,6 @@ bool SwUnoCursorHelper::ConvertSortProperties(
     SwSortOptions& rSortOpt)
 {
     bool bRet = true;
-    const beans::PropertyValue* pProperties = rDescriptor.getConstArray();
 
     rSortOpt.bTable = false;
     rSortOpt.cDeli = ' ';
@@ -2611,10 +2638,10 @@ bool SwUnoCursorHelper::ConvertSortProperties(
     bool bOldSortdescriptor(false);
     bool bNewSortdescriptor(false);
 
-    for (sal_Int32 n = 0; n < rDescriptor.getLength(); ++n)
+    for (const beans::PropertyValue& rProperty : rDescriptor)
     {
-        uno::Any aValue( pProperties[n].Value );
-        const OUString& rPropName = pProperties[n].Name;
+        uno::Any aValue( rProperty.Value );
+        const OUString& rPropName = rProperty.Name;
 
         // old and new sortdescriptor
         if ( rPropName == "IsSortInTable" )
@@ -2894,13 +2921,7 @@ SwXTextCursor::createEnumeration()
 
     SwUnoCursor & rUnoCursor( m_pImpl->GetCursorOrThrow() );
 
-    const uno::Reference<lang::XUnoTunnel> xTunnel(
-            m_pImpl->m_xParentText, uno::UNO_QUERY);
-    SwXText* pParentText = nullptr;
-    if (xTunnel.is())
-    {
-        pParentText = ::sw::UnoTunnelGetImplementation<SwXText>(xTunnel);
-    }
+    SwXText* pParentText = comphelper::getUnoTunnelImplementation<SwXText>(m_pImpl->m_xParentText);
     OSL_ENSURE(pParentText, "parent is not a SwXText");
     if (!pParentText)
     {

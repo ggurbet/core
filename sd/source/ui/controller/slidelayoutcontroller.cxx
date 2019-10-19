@@ -125,7 +125,7 @@ static void fillLayoutValueSet( ValueSet* pValue, const snewfoil_value_info_layo
         OUString aText(SdResId(pInfo->mpStrResId));
         Image aImg(StockImage::Yes, OUString::createFromAscii(pInfo->msBmpResId));
         pValue->InsertItem(static_cast<sal_uInt16>(pInfo->maAutoLayout)+1, aImg, aText);
-        aLayoutItemSize.setWidth( std::max( aLayoutItemSize.Width(),  aImg.GetSizePixel().Width()  ) );
+        aLayoutItemSize.setWidth( std::max( aLayoutItemSize.Width(),   aImg.GetSizePixel().Width()  ) );
         aLayoutItemSize.setHeight( std::max( aLayoutItemSize.Height(), aImg.GetSizePixel().Height() ) );
     }
 
@@ -294,7 +294,7 @@ void LayoutToolbarMenu::SelectHdl(void const * pControl)
 /// @throws css::uno::RuntimeException
 static OUString SlideLayoutController_getImplementationName()
 {
-    return OUString( "com.sun.star.comp.sd.SlideLayoutController" );
+    return "com.sun.star.comp.sd.SlideLayoutController";
 }
 
 /// @throws RuntimeException
@@ -307,7 +307,7 @@ static Sequence< OUString >  SlideLayoutController_getSupportedServiceNames()
 /// @throws css::uno::RuntimeException
 static OUString InsertSlideController_getImplementationName()
 {
-    return OUString( "com.sun.star.comp.sd.InsertSlideController" );
+    return "com.sun.star.comp.sd.InsertSlideController";
 }
 
 /// @throws RuntimeException

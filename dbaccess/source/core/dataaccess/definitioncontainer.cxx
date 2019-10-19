@@ -94,6 +94,7 @@ ODefinitionContainer::ODefinitionContainer(   const Reference< XComponentContext
     ,m_bInPropertyChange(false)
     ,m_bCheckSlash(_bCheckSlash)
 {
+    assert(m_pImpl);
     m_pImpl->m_aProps.bIsDocument = false;
     m_pImpl->m_aProps.bIsFolder = true;
 
@@ -147,15 +148,12 @@ css::uno::Sequence<sal_Int8> ODefinitionContainer::getImplementationId()
 // XServiceInfo
 OUString SAL_CALL ODefinitionContainer::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.ODefinitionContainer");
+    return "com.sun.star.sdb.ODefinitionContainer";
 }
 
 Sequence< OUString > SAL_CALL ODefinitionContainer::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aReturn(2);
-    aReturn.getArray()[0] = "com.sun.star.sdb.DefinitionContainer";
-    aReturn.getArray()[1] = "com.sun.star.ucb.Content";
-    return aReturn;
+    return { "com.sun.star.sdb.DefinitionContainer", "com.sun.star.ucb.Content" };
 }
 
 // XNameContainer
@@ -441,7 +439,7 @@ void SAL_CALL ODefinitionContainer::disposing( const EventObject& _rSource )
 {
     MutexGuard aGuard(m_aMutex);
     Reference< XContent > xSource(_rSource.Source, UNO_QUERY);
-    // it's one of our documents ....
+    // it's one of our documents...
     for (auto & elem : m_aDocumentMap)
     {
         if ( xSource == elem.second.get() )

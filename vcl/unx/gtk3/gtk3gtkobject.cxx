@@ -48,13 +48,12 @@ GtkSalObject::GtkSalObject( GtkSalFrame* pParent, bool bShow )
     gtk_widget_realize( m_pSocket );
 
     // system data
-    m_aSystemData.nSize         = sizeof( SystemEnvData );
     m_aSystemData.aWindow       = pParent->GetNativeWindowHandle(m_pSocket);
     m_aSystemData.aShellWindow  = reinterpret_cast<sal_IntPtr>(this);
     m_aSystemData.pSalFrame     = nullptr;
     m_aSystemData.pWidget       = m_pSocket;
     m_aSystemData.nScreen       = pParent->getXScreenNumber().getXScreen();
-    m_aSystemData.pToolkit      = "gtk3";
+    m_aSystemData.toolkit       = SystemEnvData::Toolkit::Gtk3;
     GdkScreen* pScreen = gtk_window_get_screen(GTK_WINDOW(pParent->getWindow()));
     GdkVisual* pVisual = gdk_screen_get_system_visual(pScreen);
 
@@ -64,14 +63,14 @@ GtkSalObject::GtkSalObject( GtkSalFrame* pParent, bool bShow )
     {
         m_aSystemData.pDisplay = gdk_x11_display_get_xdisplay(pDisplay);
         m_aSystemData.pVisual = gdk_x11_visual_get_xvisual(pVisual);
-        m_aSystemData.pPlatformName = "xcb";
+        m_aSystemData.platform = SystemEnvData::Platform::Xcb;
     }
 #endif
 #if defined(GDK_WINDOWING_WAYLAND)
     if (DLSYM_GDK_IS_WAYLAND_DISPLAY(pDisplay))
     {
         m_aSystemData.pDisplay = gdk_wayland_display_get_wl_display(pDisplay);
-        m_aSystemData.pPlatformName = "wayland";
+        m_aSystemData.platform = SystemEnvData::Platform::Wayland;
     }
 #endif
 

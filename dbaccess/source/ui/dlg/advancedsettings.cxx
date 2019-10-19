@@ -54,8 +54,8 @@ namespace dbaui
     };
 
     // SpecialSettingsPage
-    SpecialSettingsPage::SpecialSettingsPage(TabPageParent pParent, const SfxItemSet& _rCoreAttrs, const DataSourceMetaData& _rDSMeta)
-        : OGenericAdministrationPage(pParent, "dbaccess/ui/specialsettingspage.ui", "SpecialSettingsPage", _rCoreAttrs)
+    SpecialSettingsPage::SpecialSettingsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs, const DataSourceMetaData& _rDSMeta)
+        : OGenericAdministrationPage(pPage, pController, "dbaccess/ui/specialsettingspage.ui", "SpecialSettingsPage", _rCoreAttrs)
         , m_aBooleanSettings {
             { m_xIsSQL92Check,               "usesql92",        DSID_SQL92CHECK,            false, false },
             { m_xAppendTableAlias,           "append",          DSID_APPEND_TABLE_ALIAS,    false, false },
@@ -151,7 +151,6 @@ namespace dbaui
 
     SpecialSettingsPage::~SpecialSettingsPage()
     {
-        disposeOnce();
     }
 
     void SpecialSettingsPage::fillWindows( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
@@ -172,7 +171,7 @@ namespace dbaui
         {
             if (booleanSetting.xControl)
             {
-                _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::CheckButton>(booleanSetting.xControl.get()));
+                _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(booleanSetting.xControl.get()));
             }
         }
 
@@ -285,8 +284,8 @@ namespace dbaui
     }
 
     // GeneratedValuesPage
-    GeneratedValuesPage::GeneratedValuesPage(TabPageParent pParent, const SfxItemSet& _rCoreAttrs)
-        : OGenericAdministrationPage(pParent, "dbaccess/ui/generatedvaluespage.ui", "GeneratedValuesPage", _rCoreAttrs)
+    GeneratedValuesPage::GeneratedValuesPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs)
+        : OGenericAdministrationPage(pPage, pController, "dbaccess/ui/generatedvaluespage.ui", "GeneratedValuesPage", _rCoreAttrs)
         , m_xAutoRetrievingEnabled(m_xBuilder->weld_check_button("autoretrieve"))
         , m_xGrid(m_xBuilder->weld_widget("grid"))
         , m_xAutoIncrementLabel(m_xBuilder->weld_label("statementft"))
@@ -307,7 +306,6 @@ namespace dbaui
 
     GeneratedValuesPage::~GeneratedValuesPage()
     {
-        disposeOnce();
     }
 
     void GeneratedValuesPage::fillWindows( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
@@ -317,7 +315,7 @@ namespace dbaui
 
     void GeneratedValuesPage::fillControls( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
     {
-        _rControlList.emplace_back( new OSaveValueWidgetWrapper<weld::CheckButton>( m_xAutoRetrievingEnabled.get() ) );
+        _rControlList.emplace_back( new OSaveValueWidgetWrapper<weld::ToggleButton>( m_xAutoRetrievingEnabled.get() ) );
         _rControlList.emplace_back( new OSaveValueWidgetWrapper<weld::Entry>( m_xAutoIncrement.get() ) );
         _rControlList.emplace_back( new OSaveValueWidgetWrapper<weld::Entry>( m_xAutoRetrieving.get() ) );
     }

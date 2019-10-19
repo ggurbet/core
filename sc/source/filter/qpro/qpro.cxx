@@ -182,7 +182,7 @@ ErrCode ScQProReader::parse( ScDocument *pDoc )
                     if( nTab < 26 )
                     {
                         OUString aName;
-                        aName += OUStringLiteral1( 'A' + nTab );
+                        aName += OUStringChar( 'A' + nTab );
                         if (!nTab)
                             pDoc->RenameTab( nTab, aName );
                         else
@@ -244,6 +244,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportQPW(SvStream &rStream)
     aDocument.EnableExecuteLink(false);
     aDocument.SetInsertingFromOtherDoc(true);
     aDocument.SetImportingXML(true);
+    aDocument.SetHardRecalcState(ScDocument::HardRecalcState::ETERNAL);
 
     ScQProReader aReader(&rStream);
     ErrCode eRet = aReader.parse(&aDocument);

@@ -22,7 +22,7 @@
 #include <map>
 #include <vector>
 
-#include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
@@ -489,7 +489,7 @@ void SAL_CALL FindTextToolbarController::release() throw ()
 // XServiceInfo
 OUString SAL_CALL FindTextToolbarController::getImplementationName()
 {
-    return OUString("com.sun.star.svx.FindTextToolboxController");
+    return "com.sun.star.svx.FindTextToolboxController";
 }
 
 sal_Bool SAL_CALL FindTextToolbarController::supportsService( const OUString& ServiceName )
@@ -771,7 +771,7 @@ void SAL_CALL MatchCaseToolboxController::release() throw ()
 // XServiceInfo
 OUString SAL_CALL MatchCaseToolboxController::getImplementationName()
 {
-    return OUString( "com.sun.star.svx.MatchCaseToolboxController" );
+    return "com.sun.star.svx.MatchCaseToolboxController";
 }
 
 sal_Bool SAL_CALL MatchCaseToolboxController::supportsService( const OUString& ServiceName )
@@ -890,7 +890,7 @@ void SAL_CALL SearchFormattedToolboxController::release() throw ()
 // XServiceInfo
 OUString SAL_CALL SearchFormattedToolboxController::getImplementationName()
 {
-    return OUString( "com.sun.star.svx.SearchFormattedToolboxController" );
+    return "com.sun.star.svx.SearchFormattedToolboxController";
 }
 
 sal_Bool SAL_CALL SearchFormattedToolboxController::supportsService( const OUString& ServiceName )
@@ -1005,7 +1005,7 @@ void SAL_CALL FindAllToolboxController::release() throw ()
 // XServiceInfo
 OUString SAL_CALL FindAllToolboxController::getImplementationName()
 {
-    return OUString( "com.sun.star.svx.FindAllToolboxController" );
+    return "com.sun.star.svx.FindAllToolboxController";
 }
 
 
@@ -1112,7 +1112,7 @@ void SAL_CALL ExitSearchToolboxController::release() throw ()
 // XServiceInfo
 OUString SAL_CALL ExitSearchToolboxController::getImplementationName()
 {
-    return OUString( "com.sun.star.svx.ExitFindbarToolboxController" );
+    return "com.sun.star.svx.ExitFindbarToolboxController";
 }
 
 
@@ -1233,7 +1233,7 @@ void SAL_CALL SearchLabelToolboxController::release() throw ()
 // XServiceInfo
 OUString SAL_CALL SearchLabelToolboxController::getImplementationName()
 {
-    return OUString( "com.sun.star.svx.SearchLabelToolboxController" );
+    return "com.sun.star.svx.SearchLabelToolboxController";
 }
 
 
@@ -1362,7 +1362,7 @@ void SAL_CALL FindbarDispatcher::release() throw()
 // XServiceInfo
 OUString SAL_CALL FindbarDispatcher::getImplementationName()
 {
-    return OUString("com.sun.star.comp.svx.Impl.FindbarDispatcher");
+    return "com.sun.star.comp.svx.Impl.FindbarDispatcher";
 }
 
 sal_Bool SAL_CALL FindbarDispatcher::supportsService( const OUString& ServiceName )
@@ -1372,10 +1372,7 @@ sal_Bool SAL_CALL FindbarDispatcher::supportsService( const OUString& ServiceNam
 
 css::uno::Sequence< OUString > SAL_CALL FindbarDispatcher::getSupportedServiceNames()
 {
-    css::uno::Sequence< OUString > aSNS( 2 );
-    aSNS[0] = "com.sun.star.comp.svx.FindbarDispatcher";
-    aSNS[1] = "com.sun.star.frame.ProtocolHandler";
-    return aSNS;
+    return { "com.sun.star.comp.svx.FindbarDispatcher", "com.sun.star.frame.ProtocolHandler" };
 }
 
 // XInitialization
@@ -1401,8 +1398,9 @@ css::uno::Sequence < css::uno::Reference< css::frame::XDispatch > > SAL_CALL Fin
     sal_Int32 nCount = seqDescripts.getLength();
     css::uno::Sequence < css::uno::Reference < XDispatch > > lDispatcher( nCount );
 
-    for( sal_Int32 i=0; i<nCount; ++i )
-        lDispatcher[i] = queryDispatch( seqDescripts[i].FeatureURL, seqDescripts[i].FrameName, seqDescripts[i].SearchFlags );
+    std::transform(seqDescripts.begin(), seqDescripts.end(), lDispatcher.begin(),
+        [this](const css::frame::DispatchDescriptor& rDescript) -> css::uno::Reference < XDispatch > {
+            return queryDispatch( rDescript.FeatureURL, rDescript.FrameName, rDescript.SearchFlags ); });
 
     return lDispatcher;
 }

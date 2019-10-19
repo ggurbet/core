@@ -24,9 +24,7 @@
 #include <toolkit/helper/property.hxx>
 
 #include <com/sun/star/awt/XControlModel.hpp>
-#include <com/sun/star/awt/XVclWindowPeer.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <tools/diagnose_ex.h>
@@ -63,7 +61,7 @@ UnoControlTabPageContainerModel::UnoControlTabPageContainerModel( const Referenc
 
 OUString UnoControlTabPageContainerModel::getServiceName()
 {
-    return OUString("com.sun.star.awt.tab.UnoControlTabPageContainerModel");
+    return "com.sun.star.awt.tab.UnoControlTabPageContainerModel";
 }
 
 uno::Any UnoControlTabPageContainerModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
@@ -220,7 +218,7 @@ UnoControlTabPageContainer::UnoControlTabPageContainer( const uno::Reference< un
 
 OUString UnoControlTabPageContainer::GetComponentServiceName()
 {
-    return OUString("TabPageContainer");
+    return "TabPageContainer";
 }
 
 void SAL_CALL UnoControlTabPageContainer::dispose(  )
@@ -308,7 +306,7 @@ void UnoControlTabPageContainer::updateFromModel()
 
     ContainerEvent aEvent;
     aEvent.Source = getModel();
-    Sequence< Reference< XControl > > aControls = getControls();
+    const Sequence< Reference< XControl > > aControls = getControls();
 
     for ( const Reference< XControl >& rCtrl : aControls )
     {

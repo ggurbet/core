@@ -19,6 +19,7 @@
 
 #include <JoinExchange.hxx>
 #include <sot/formats.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/typeprovider.hxx>
 
 namespace dbaui
@@ -67,17 +68,13 @@ namespace dbaui
     OJoinExchangeData OJoinExchObj::GetSourceDescription(const Reference< XTransferable >& _rxObject)
     {
         OJoinExchangeData aReturn;
-        Reference< XUnoTunnel > xTunnel(_rxObject, UNO_QUERY);
-        if (xTunnel.is())
-        {
-            OJoinExchObj* pImplementation = reinterpret_cast<OJoinExchObj*>(xTunnel->getSomething(getUnoTunnelImplementationId()));
-            if (pImplementation)
-                aReturn = pImplementation->m_jxdSourceDescription;
-        }
+        auto pImplementation = comphelper::getUnoTunnelImplementation<OJoinExchObj>(_rxObject);
+        if (pImplementation)
+            aReturn = pImplementation->m_jxdSourceDescription;
         return aReturn;
     }
 
-    Sequence< sal_Int8 > OJoinExchObj::getUnoTunnelImplementationId()
+    Sequence< sal_Int8 > OJoinExchObj::getUnoTunnelId()
     {
         static ::cppu::OImplementationId implId;
 
@@ -86,7 +83,7 @@ namespace dbaui
 
     sal_Int64 SAL_CALL OJoinExchObj::getSomething( const Sequence< sal_Int8 >& _rIdentifier )
     {
-        if (_rIdentifier.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  _rIdentifier.getConstArray(), 16 ) )
+        if (isUnoTunnelId<OJoinExchObj>(_rIdentifier))
             return reinterpret_cast<sal_Int64>(this);
 
         return 0;
@@ -104,8 +101,8 @@ namespace dbaui
         SotClipboardFormatId nFormat = SotExchange::GetFormat(rFlavor);
         if ( SotClipboardFormatId::SBA_JOIN == nFormat )
             // this is a HACK
-            // we don't really copy our data, the instances using us have to call GetSourceDescription ....
-            // if, one day, we have a _lot_ of time, this hack should be removed ....
+            // we don't really copy our data, the instances using us have to call GetSourceDescription...
+            // if, one day, we have a _lot_ of time, this hack should be removed...
             return true;
 
         return false;

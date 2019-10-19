@@ -32,8 +32,7 @@ static bool doesFileExist(const OUString& sUIDir, const OUString& sUIFile)
 {
     OUString sUri = sUIDir + sUIFile;
     osl::File file(sUri);
-    sal_uInt32 flag = 0;
-    return( file.open(flag) == osl::FileBase::E_None );
+    return( file.open(0) == osl::FileBase::E_None );
 }
 
 /**
@@ -51,17 +50,19 @@ public:
     virtual void SAL_CALL disposing(const ::css::lang::EventObject&) override;
 };
 
-
-
-NotebookBar::NotebookBar(Window* pParent, const OString& rID, const OUString& rUIXMLDescription, const css::uno::Reference<css::frame::XFrame> &rFrame)
-    : Control(pParent), m_pEventListener(new NotebookBarContextChangeEventListener(this))
+NotebookBar::NotebookBar(Window* pParent, const OString& rID, const OUString& rUIXMLDescription,
+                         const css::uno::Reference<css::frame::XFrame>& rFrame,
+                         const NotebookBarAddonsItem& aNotebookBarAddonsItem)
+    : Control(pParent)
+    , m_pEventListener(new NotebookBarContextChangeEventListener(this))
 {
     SetStyle(GetStyle() | WB_DIALOGCONTROL);
     OUString sUIDir = getUIRootDir();
     bool doesCustomizedUIExist = doesFileExist(getCustomizedUIRootDir(), rUIXMLDescription);
     if ( doesCustomizedUIExist )
         sUIDir = getCustomizedUIRootDir();
-    m_pUIBuilder.reset( new VclBuilder(this, sUIDir, rUIXMLDescription, rID, rFrame));
+    m_pUIBuilder.reset(
+        new VclBuilder(this, sUIDir, rUIXMLDescription, rID, rFrame, true, &aNotebookBarAddonsItem));
     mxFrame = rFrame;
     // In the Notebookbar's .ui file must exist control handling context
     // - implementing NotebookbarContextControl interface with id "ContextContainer"

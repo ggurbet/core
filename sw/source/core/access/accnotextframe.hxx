@@ -33,7 +33,6 @@ class SwAccessibleNoTextFrame : public  SwAccessibleFrameBase,
 {
     friend class SwAccessibleNoTextHyperlink;
     css::uno::Reference< css::accessibility::XAccessibleHyperlink > m_xHyperlink;
-    sw::WriterMultiListener        m_aListener;
     OUString msTitle;
     OUString msDesc;
 
@@ -42,7 +41,7 @@ protected:
 
     const SwNoTextNode *GetNoTextNode() const;
 
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
+    virtual void Notify(const SfxHint&) override;
 
 public:
     SwAccessibleNoTextFrame( std::shared_ptr<SwAccessibleMap> const& pInitMap,
@@ -85,7 +84,7 @@ public:
     virtual sal_Int32 SAL_CALL
         getAccessibleImageWidth(  ) override;
 
-    // The object is not visible an longer and should be destroyed
+    // The object is not visible any longer and should be destroyed
     virtual void Dispose(bool bRecursive, bool bCanSkipInvisible = true) override;
 
     virtual sal_Int32 SAL_CALL getCaretPosition(  ) override;

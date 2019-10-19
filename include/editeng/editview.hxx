@@ -29,6 +29,7 @@
 #include <vcl/errcode.hxx>
 #include <vcl/vclptr.hxx>
 #include <editeng/editstat.hxx>
+#include <editeng/flditem.hxx>
 #include <svl/languageoptions.hxx>
 #include <editeng/editdata.hxx>
 #include <com/sun/star/uno/Reference.h>
@@ -176,7 +177,7 @@ public:
     bool            IsInsertMode() const;
     void            SetInsertMode( bool bInsert );
 
-    OUString        GetSelected();
+    OUString        GetSelected() const;
     void            DeleteSelected();
 
     SvtScriptType       GetSelectedScriptType() const;
@@ -243,7 +244,7 @@ public:
     void            InsertText( const EditTextObject& rTextObject );
     void            InsertText( css::uno::Reference< css::datatransfer::XTransferable > const & xDataObj, const OUString& rBaseURL, bool bUseSpecial );
 
-    css::uno::Reference< css::datatransfer::XTransferable > GetTransferable();
+    css::uno::Reference< css::datatransfer::XTransferable > GetTransferable() const;
 
     // An EditView, so that when TRUE the update will be free from flickering:
     void            SetEditEngineUpdateMode( bool bUpdate );
@@ -276,6 +277,9 @@ public:
     const SvxFieldItem* GetField( const Point& rPos, sal_Int32* pnPara = nullptr, sal_Int32* pnPos = nullptr ) const;
 
     const SvxFieldItem* GetFieldAtSelection() const;
+    /// Select and return the field at the current cursor position
+    const SvxFieldData* GetFieldAtCursor() const;
+    void SelectFieldAtCursor();
 
     void            SetInvalidateMore( sal_uInt16 nPixel );
     sal_uInt16      GetInvalidateMore() const;

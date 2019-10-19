@@ -19,10 +19,13 @@
 #ifndef INCLUDED_XMLOFF_SOURCE_CHART_SCHXMLAXISCONTEXT_HXX
 #define INCLUDED_XMLOFF_SOURCE_CHART_SCHXMLAXISCONTEXT_HXX
 
-#include <SchXMLImport.hxx>
+#include <xmloff/SchXMLImportHelper.hxx>
+#include <xmloff/xmlictxt.hxx>
+
 #include "transporttypes.hxx"
 
-#include <com/sun/star/chart/XChartDocument.hpp>
+#include <com/sun/star/chart/XDiagram.hpp>
+#include <com/sun/star/xml/sax/XAttributeList.hpp>
 
 class SchXMLAxisContext : public SvXMLImportContext
 {
@@ -66,7 +69,7 @@ private:
     bool const m_bAdaptXAxisOrientationForOld2DBarCharts; //to correct different behaviour from older versions
     bool& m_rbAxisPositionAttributeImported;
 
-    css::uno::Reference< css::drawing::XShape > getTitleShape();
+    css::uno::Reference< css::drawing::XShape > getTitleShape() const;
     void CreateGrid( const OUString& sAutoStyleName, bool bIsMajor );
     void CreateAxis();
     void SetAxisTitle();

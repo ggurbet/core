@@ -108,13 +108,12 @@ XTYPEPROVIDER_IMPL_5( ContentProvider,
 // XServiceInfo methods.
 
 XSERVICEINFO_COMMOM_IMPL( ContentProvider,
-                          OUString( "com.sun.star.comp.ucb.TransientDocumentsContentProvider" ) )
+                          "com.sun.star.comp.ucb.TransientDocumentsContentProvider" )
 /// @throws css::uno::Exception
 static css::uno::Reference< css::uno::XInterface >
 ContentProvider_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new ContentProvider( ucbhelper::getComponentContext(rSMgr) ));
+    css::lang::XServiceInfo* pX = new ContentProvider( ucbhelper::getComponentContext(rSMgr) );
     return css::uno::Reference< css::uno::XInterface >::query( pX );
 }
 
@@ -190,12 +189,10 @@ ContentProvider::createDocumentContentIdentifier(
             1 );
     }
 
-    OUStringBuffer aBuffer;
-    aBuffer.append( TDOC_URL_SCHEME ":/" );
-    aBuffer.append( aDocId );
+    OUString aBuffer = TDOC_URL_SCHEME ":/" + aDocId;
 
     uno::Reference< ucb::XContentIdentifier > xId
-        = new ::ucbhelper::ContentIdentifier( aBuffer.makeStringAndClear() );
+        = new ::ucbhelper::ContentIdentifier( aBuffer );
     return xId;
 }
 
@@ -535,15 +532,8 @@ bool ContentProvider::queryNamesOfChildren(
 
                 if ( xStorage.is() )
                 {
-                    uno::Reference< container::XNameAccess > xNA(
-                        xStorage, uno::UNO_QUERY );
-
-                    OSL_ENSURE( xNA.is(), "Got no css.container.XNameAccess!" );
-                    if ( xNA.is() )
-                    {
-                        rNames = xNA->getElementNames();
-                        return true;
-                    }
+                    rNames = xStorage->getElementNames();
+                    return true;
                 }
             }
             catch ( embed::InvalidStorageException const & )

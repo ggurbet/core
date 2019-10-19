@@ -24,15 +24,11 @@
 #include <cfgutil.hxx>
 #include <dialmgr.hxx>
 
-#include <sfx2/msg.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <sfx2/minfitem.hxx>
 #include <sfx2/sfxresid.hxx>
-#include <svl/stritem.hxx>
 
 #include <sal/macros.h>
-#include <vcl/edit.hxx>
 #include <vcl/event.hxx>
 
 #include <strings.hrc>
@@ -41,7 +37,7 @@
 
 
 // include interface declarations
-#include <com/sun/star/awt/KeyModifier.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/embed/StorageFactory.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -54,7 +50,6 @@
 #include <com/sun/star/ui/GlobalAcceleratorConfiguration.hpp>
 #include <com/sun/star/ui/theModuleUIConfigurationManagerSupplier.hpp>
 #include <com/sun/star/ui/UIConfigurationManager.hpp>
-#include <com/sun/star/ui/XUIConfigurationManagerSupplier.hpp>
 #include <com/sun/star/ui/XUIConfigurationManager.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
@@ -68,7 +63,6 @@
 #include <svtools/acceleratorexecute.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/help.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 // namespaces
 
@@ -155,6 +149,7 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
     KEY_SHIFT | KEY_BACKSPACE,
     KEY_SHIFT | KEY_INSERT,
     KEY_SHIFT | KEY_DELETE,
+    KEY_SHIFT | KEY_EQUAL,
 
     KEY_MOD1 | KEY_0,
     KEY_MOD1 | KEY_1,
@@ -236,6 +231,7 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
     KEY_MOD1 | KEY_SUBTRACT,
     KEY_MOD1 | KEY_MULTIPLY,
     KEY_MOD1 | KEY_DIVIDE,
+    KEY_MOD1 | KEY_EQUAL,
 
     KEY_SHIFT | KEY_MOD1 | KEY_0,
     KEY_SHIFT | KEY_MOD1 | KEY_1,
@@ -313,6 +309,7 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
     KEY_SHIFT | KEY_MOD1 | KEY_BACKSPACE,
     KEY_SHIFT | KEY_MOD1 | KEY_INSERT,
     KEY_SHIFT | KEY_MOD1 | KEY_DELETE,
+    KEY_SHIFT | KEY_MOD1 | KEY_EQUAL,
 
     KEY_MOD2 | KEY_0,
     KEY_MOD2 | KEY_1,
@@ -388,6 +385,7 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
     KEY_MOD2 | KEY_BACKSPACE,
     KEY_MOD2 | KEY_INSERT,
     KEY_MOD2 | KEY_DELETE,
+    KEY_MOD2 | KEY_EQUAL,
 
     KEY_SHIFT | KEY_MOD2 | KEY_0,
     KEY_SHIFT | KEY_MOD2 | KEY_1,
@@ -464,6 +462,7 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
     KEY_SHIFT | KEY_MOD2 | KEY_BACKSPACE,
     KEY_SHIFT | KEY_MOD2 | KEY_INSERT,
     KEY_SHIFT | KEY_MOD2 | KEY_DELETE,
+    KEY_SHIFT | KEY_MOD2 | KEY_EQUAL,
 
     KEY_MOD1 | KEY_MOD2 | KEY_0,
     KEY_MOD1 | KEY_MOD2 | KEY_1,
@@ -613,7 +612,8 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
     KEY_SHIFT | KEY_MOD1 | KEY_MOD2 | KEY_SPACE,
     KEY_SHIFT | KEY_MOD1 | KEY_MOD2 | KEY_BACKSPACE,
     KEY_SHIFT | KEY_MOD1 | KEY_MOD2 | KEY_INSERT,
-    KEY_SHIFT | KEY_MOD1 | KEY_MOD2 | KEY_DELETE
+    KEY_SHIFT | KEY_MOD1 | KEY_MOD2 | KEY_DELETE,
+    KEY_SHIFT | KEY_MOD1 | KEY_MOD2 | KEY_EQUAL
 
 #ifdef __APPLE__
    ,KEY_MOD3 | KEY_0,
@@ -696,6 +696,7 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
     KEY_MOD3 | KEY_SUBTRACT,
     KEY_MOD3 | KEY_MULTIPLY,
     KEY_MOD3 | KEY_DIVIDE,
+    KEY_MOD3 | KEY_EQUAL,
 
     KEY_SHIFT | KEY_MOD3 | KEY_0,
     KEY_SHIFT | KEY_MOD3 | KEY_1,
@@ -772,7 +773,8 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
     KEY_SHIFT | KEY_MOD3 | KEY_SPACE,
     KEY_SHIFT | KEY_MOD3 | KEY_BACKSPACE,
     KEY_SHIFT | KEY_MOD3 | KEY_INSERT,
-    KEY_SHIFT | KEY_MOD3 | KEY_DELETE
+    KEY_SHIFT | KEY_MOD3 | KEY_DELETE,
+    KEY_SHIFT | KEY_MOD3 | KEY_EQUAL
 #endif
 };
 
@@ -819,8 +821,8 @@ IMPL_LINK(SfxAcceleratorConfigPage, KeyInputHdl, const KeyEvent&, rKey, bool)
     return false;
 }
 
-SfxAcceleratorConfigPage::SfxAcceleratorConfigPage(TabPageParent pParent, const SfxItemSet& aSet )
-    : SfxTabPage(pParent, "cui/ui/accelconfigpage.ui", "AccelConfigPage", &aSet)
+SfxAcceleratorConfigPage::SfxAcceleratorConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& aSet )
+    : SfxTabPage(pPage, pController, "cui/ui/accelconfigpage.ui", "AccelConfigPage", &aSet)
     , m_pMacroInfoItem()
     , aLoadAccelConfigStr(CuiResId(RID_SVXSTR_LOADACCELCONFIG))
     , aSaveAccelConfigStr(CuiResId(RID_SVXSTR_SAVEACCELCONFIG))
@@ -844,13 +846,17 @@ SfxAcceleratorConfigPage::SfxAcceleratorConfigPage(TabPageParent pParent, const 
     , m_xSaveButton(m_xBuilder->weld_button("save"))
     , m_xResetButton(m_xBuilder->weld_button("reset"))
 {
-    Size aSize(LogicToPixel(Size(174, 100), MapMode(MapUnit::MapAppFont)));
+    Size aSize(m_xEntriesBox->get_approximate_digit_width() * 40,
+               m_xEntriesBox->get_height_rows(12));
     m_xEntriesBox->set_size_request(aSize.Width(), aSize.Height());
-    aSize = LogicToPixel(Size(78 , 91), MapMode(MapUnit::MapAppFont));
+    aSize = Size(m_xEntriesBox->get_approximate_digit_width() * 19,
+                 m_xEntriesBox->get_height_rows(10));
     m_xGroupLBox->set_size_request(aSize.Width(), aSize.Height());
-    aSize = LogicToPixel(Size(88, 91), MapMode(MapUnit::MapAppFont));
+    aSize = Size(m_xEntriesBox->get_approximate_digit_width() * 21,
+                 m_xEntriesBox->get_height_rows(10));
     m_xFunctionBox->set_size_request(aSize.Width(), aSize.Height());
-    aSize = LogicToPixel(Size(80, 91), MapMode(MapUnit::MapAppFont));
+    aSize = Size(m_xEntriesBox->get_approximate_digit_width() * 20,
+                 m_xEntriesBox->get_height_rows(10));
     m_xKeyBox->set_size_request(aSize.Width(), aSize.Height());
 
     // install handler functions
@@ -907,11 +913,6 @@ SfxAcceleratorConfigPage::SfxAcceleratorConfigPage(TabPageParent pParent, const 
 
 SfxAcceleratorConfigPage::~SfxAcceleratorConfigPage()
 {
-    disposeOnce();
-}
-
-void SfxAcceleratorConfigPage::dispose()
-{
     m_aFillGroupIdle.Stop();
 
     // free memory - remove all dynamic user data
@@ -920,8 +921,6 @@ void SfxAcceleratorConfigPage::dispose()
         TAccInfo* pUserData = reinterpret_cast<TAccInfo*>(m_xEntriesBox->get_id(i).toInt64());
         delete pUserData;
     }
-
-    SfxTabPage::dispose();
 }
 
 void SfxAcceleratorConfigPage::InitAccCfg()
@@ -1174,8 +1173,6 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, RemoveHdl, weld::Button&, void)
 
 IMPL_LINK(SfxAcceleratorConfigPage, SelectHdl, weld::TreeView&, rListBox, void)
 {
-    // disable help
-    Help::ShowBalloon( this, Point(), ::tools::Rectangle(), OUString() );
     if (&rListBox == m_xEntriesBox.get())
     {
         TAccInfo* pEntry = reinterpret_cast<TAccInfo*>(m_xEntriesBox->get_selected_id().toInt64());
@@ -1291,7 +1288,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, TimeOut_Impl, Timer*, void)
 {
     // activating the selection, typically "all commands", can take a long time
     // -> show wait cursor and disable input
-    weld::WaitObject aWaitObject(GetDialogFrameWeld());
+    weld::WaitObject aWaitObject(GetFrameWeld());
 
     weld::TreeView& rTreeView = m_xGroupLBox->get_widget();
     SelectHdl(rTreeView);
@@ -1308,7 +1305,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, LoadHdl, sfx2::FileDialogHelper*, void
     if ( sCfgName.isEmpty() )
         return;
 
-    weld::WaitObject aWaitObject(GetDialogFrameWeld());
+    weld::WaitObject aWaitObject(GetFrameWeld());
 
     uno::Reference<ui::XUIConfigurationManager> xCfgMgr;
     uno::Reference<embed::XStorage> xRootStorage; // we must hold the root storage alive, if xCfgMgr is used!
@@ -1354,9 +1351,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, LoadHdl, sfx2::FileDialogHelper*, void
             xComponent.set(xCfgMgr, uno::UNO_QUERY);
             if (xComponent.is())
                 xComponent->dispose();
-            xComponent.set(xRootStorage, uno::UNO_QUERY);
-            if (xComponent.is())
-                xComponent->dispose();
+            xRootStorage->dispose();
         }
     }
     catch(const uno::RuntimeException&)
@@ -1378,7 +1373,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, SaveHdl, sfx2::FileDialogHelper*, void
     if ( sCfgName.isEmpty() )
         return;
 
-    weld::WaitObject aWaitObject(GetDialogFrameWeld());
+    weld::WaitObject aWaitObject(GetFrameWeld());
 
     uno::Reference<embed::XStorage> xRootStorage;
 
@@ -1430,12 +1425,9 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, SaveHdl, sfx2::FileDialogHelper*, void
 
         if (xRootStorage.is())
         {
-            uno::Reference<lang::XComponent> xComponent(xCfgMgr, uno::UNO_QUERY);
-            if (xComponent.is())
-                xComponent->dispose();
-            xComponent.set(xRootStorage, uno::UNO_QUERY);
-            if (xComponent.is())
-                xComponent->dispose();
+            if (xCfgMgr.is())
+                xCfgMgr->dispose();
+            xRootStorage->dispose();
         }
     }
     catch(const uno::RuntimeException&)

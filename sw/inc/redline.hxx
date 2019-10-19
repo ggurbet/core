@@ -50,20 +50,24 @@ public:
     virtual bool operator == ( const SwRedlineExtraData& ) const;
 };
 
-class SwRedlineExtraData_FormatColl : public SwRedlineExtraData
+class SW_DLLPUBLIC SwRedlineExtraData_FormatColl : public SwRedlineExtraData
 {
     OUString m_sFormatNm;
     std::unique_ptr<SfxItemSet> m_pSet;
     sal_uInt16 m_nPoolId;
+    bool m_bFormatAll; // don't strip the last paragraph mark
 public:
     SwRedlineExtraData_FormatColl( const OUString& rColl, sal_uInt16 nPoolFormatId,
-                                const SfxItemSet* pSet = nullptr );
+                                const SfxItemSet* pSet = nullptr, bool bFormatAll = true );
     virtual ~SwRedlineExtraData_FormatColl() override;
     virtual SwRedlineExtraData* CreateNew() const override;
     virtual void Reject( SwPaM& rPam ) const override;
     virtual bool operator == ( const SwRedlineExtraData& ) const override;
 
+    const OUString& GetFormatName() const        { return m_sFormatNm; }
     void SetItemSet( const SfxItemSet& rSet );
+    SfxItemSet* GetItemSet( ) const { return m_pSet.get(); }
+    void SetFormatAll( bool bAll )               { m_bFormatAll = bAll; }
 };
 
 class SwRedlineExtraData_Format : public SwRedlineExtraData
@@ -78,29 +82,6 @@ public:
     virtual SwRedlineExtraData* CreateNew() const override;
     virtual void Reject( SwPaM& rPam ) const override;
     virtual bool operator == ( const SwRedlineExtraData& ) const override;
-};
-
-/*
- * This class is used to store 'redline' data regarding formatting changes,
- * e.g. - a text portion *was* italic and now is not italic,
- * e.g. - a text portion got a highlight to it
- *
- * The way the information is stored is in an 'SfxItemSet' that holds all
- * the WhichIds with their values.
- */
-class SW_DLLPUBLIC SwRedlineExtraData_FormattingChanges : public SwRedlineExtraData
-{
-    std::unique_ptr<SfxItemSet> m_pSet;
-
-    SwRedlineExtraData_FormattingChanges( const SwRedlineExtraData_FormattingChanges& rCpy );
-
-public:
-    SwRedlineExtraData_FormattingChanges( const SfxItemSet* pItemSet );
-    virtual ~SwRedlineExtraData_FormattingChanges() override;
-    virtual SwRedlineExtraData* CreateNew() const override;
-    virtual void Reject( SwPaM& rPam ) const override;
-    virtual bool operator == ( const SwRedlineExtraData& ) const override;
-    SfxItemSet* GetItemSet( ) const { return m_pSet.get(); }
 };
 
 class SW_DLLPUBLIC SwRedlineData

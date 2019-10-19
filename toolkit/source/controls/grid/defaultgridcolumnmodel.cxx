@@ -20,7 +20,6 @@
 
 #include "gridcolumn.hxx"
 
-#include <com/sun/star/awt/XVclWindowPeer.hpp>
 #include <com/sun/star/awt/grid/XGridColumnModel.hpp>
 #include <com/sun/star/awt/grid/XGridColumn.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
@@ -34,6 +33,7 @@
 #include <cppuhelper/basemutex.hxx>
 #include <cppuhelper/compbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <rtl/ref.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
@@ -267,10 +267,8 @@ private:
             {
                 ::rtl::Reference< GridColumn > const pGridColumn = new GridColumn();
                 Reference< XGridColumn > const xColumn( pGridColumn.get() );
-                OUStringBuffer colTitle;
-                colTitle.append( "Column " );
-                colTitle.append( i + 1 );
-                pGridColumn->setTitle( colTitle.makeStringAndClear() );
+                OUString colTitle = "Column " + OUString::number( i + 1 );
+                pGridColumn->setTitle( colTitle );
                 pGridColumn->setColumnWidth( 80 /* APPFONT */ );
                 pGridColumn->setFlexibility( 1 );
                 pGridColumn->setResizeable( true );
@@ -317,7 +315,7 @@ private:
 
     OUString SAL_CALL DefaultGridColumnModel::getImplementationName(  )
     {
-        return OUString("stardiv.Toolkit.DefaultGridColumnModel");
+        return "stardiv.Toolkit.DefaultGridColumnModel";
     }
 
     sal_Bool SAL_CALL DefaultGridColumnModel::supportsService( const OUString& i_serviceName )
@@ -327,9 +325,7 @@ private:
 
     Sequence< OUString > SAL_CALL DefaultGridColumnModel::getSupportedServiceNames(  )
     {
-        const OUString aServiceName("com.sun.star.awt.grid.DefaultGridColumnModel");
-        const Sequence< OUString > aSeq( &aServiceName, 1 );
-        return aSeq;
+        return { "com.sun.star.awt.grid.DefaultGridColumnModel" };
     }
 
 

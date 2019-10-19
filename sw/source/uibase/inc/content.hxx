@@ -19,10 +19,9 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_CONTENT_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_CONTENT_HXX
 #include <memory>
-#include <limits.h>
 #include "swcont.hxx"
 
-#include <vcl/menu.hxx>
+#include <ndarr.hxx>
 
 class SwWrtShell;
 class SwContentArr;
@@ -85,7 +84,7 @@ public:
 
     virtual bool        IsProtect() const override;
     const OUString&     GetURL()    const   { return sURL; }
-    const SwTextINetFormat* GetINetAttr()       { return pINetAttr; }
+    const SwTextINetFormat* GetINetAttr() const { return pINetAttr; }
 };
 
 class SwPostItContent : public SwContent
@@ -166,7 +165,7 @@ public:
 
         /** Deliver content, for that if necessary fill the list */
         const SwContent*    GetMember(size_t nIndex);
-        const OUString&     GetName() {return m_sContentTypeName;}
+        const OUString&     GetName() const {return m_sContentTypeName;}
         const OUString&     GetSingleName() const {return m_sSingleContentTypeName;}
         const OUString&     GetTypeToken() const{return m_sTypeToken;}
 

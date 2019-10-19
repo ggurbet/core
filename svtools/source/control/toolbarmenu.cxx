@@ -27,7 +27,6 @@
 #include <vcl/decoview.hxx>
 #include <vcl/image.hxx>
 #include <vcl/taskpanelist.hxx>
-#include <vcl/toolbox.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/event.hxx>
@@ -1493,7 +1492,7 @@ void ToolbarPopupBase::statusChanged( const css::frame::FeatureStateEvent& /*Eve
 {
 }
 
-bool ToolbarPopup::IsInPopupMode()
+bool ToolbarPopup::IsInPopupMode() const
 {
     return GetDockingManager()->IsInPopupMode(this);
 }

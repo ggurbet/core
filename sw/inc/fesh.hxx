@@ -266,7 +266,7 @@ public:
     /// Is selected frame within another frame?
     const SwFrameFormat* IsFlyInFly();
 
-    /** If an object as been given, exactly this object is selected
+    /** If an object has been given, exactly this object is selected
      (instead of searching over position). */
     bool SelectObj( const Point& rSelPt, sal_uInt8 nFlag = 0, SdrObject *pObj = nullptr );
     void DelSelectedObj();
@@ -458,7 +458,7 @@ public:
     OUString GetFlyName() const;
 
     /// get reference to OLE object (if there is one) for selected FlyFrame
-    const css::uno::Reference < css::embed::XEmbeddedObject > GetOleRef() const;
+    css::uno::Reference < css::embed::XEmbeddedObject > GetOleRef() const;
 
     /// Created unique name for frame.
     OUString GetUniqueGrfName() const;
@@ -701,7 +701,7 @@ public:
 
     sal_uInt16 GetRowsToRepeat() const;
     void SetRowsToRepeat( sal_uInt16 nNumOfRows );
-    sal_uInt16 GetVirtPageNum();
+    sal_uInt16 GetVirtPageNum() const;
 
     /** @return the number of table rows currently selected
     if the selection start at the top of the table. */
@@ -710,7 +710,7 @@ public:
     bool IsInRepeatedHeadline() const { return CheckHeadline( true ); }
     bool IsInHeadline() const { return CheckHeadline( false ); }
 
-    void AdjustCellWidth( bool bBalance, const bool bNoShrink, const bool bColumnWidth );
+    void AdjustCellWidth( const bool bBalance, const bool bNoShrink );
 
     /// Not allowed if only empty cells are selected.
     bool IsAdjustCellWidthAllowed( bool bBalance = false ) const;
@@ -733,7 +733,7 @@ public:
 
     /** Phy: real page count.
      Virt: consider offset that may have been set by user. */
-    sal_uInt16  GetPhyPageNum();
+    sal_uInt16  GetPhyPageNum() const;
 
     void SetNewPageOffset( sal_uInt16 nOffset );
     void SetPageOffset( sal_uInt16 nOffset );   ///< Changes last page offset.
@@ -779,7 +779,7 @@ public:
 
         @returns an object of class Color
     */
-    const Color GetShapeBackgrd() const;
+    Color GetShapeBackgrd() const;
 
     /** Is default horizontal text direction for selected drawing object right-to-left
 

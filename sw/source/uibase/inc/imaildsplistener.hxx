@@ -22,6 +22,7 @@
 
 #include <com/sun/star/mail/XMailMessage.hpp>
 #include <salhelper/simplereferenceobject.hxx>
+#include <rtl/ref.hxx>
 
 class MailDispatcher;
 
@@ -37,26 +38,16 @@ class IMailDispatcherListener : public salhelper::SimpleReferenceObject
 {
 public:
     /**
-        Called when the MailDispatcher is started.
-    */
-    virtual void started(::rtl::Reference<MailDispatcher> xMailDispatcher) = 0;
-
-    /**
-        Called when the MailDispatcher is stopped.
-    */
-    virtual void stopped(::rtl::Reference<MailDispatcher> xMailDispatcher) = 0;
-
-    /**
         Called when there are no more mail messages
         to deliver.
     */
-    virtual void idle(::rtl::Reference<MailDispatcher> xMailDispatcher) = 0;
+    virtual void idle() = 0;
 
     /**
         Called for every mail message that has been
         successfully delivered.
     */
-    virtual void mailDelivered(::rtl::Reference<MailDispatcher> xMailDispatcher, css::uno::Reference< css::mail::XMailMessage> xMailMessage) = 0;
+    virtual void mailDelivered(css::uno::Reference< css::mail::XMailMessage> xMailMessage) = 0;
 
     /**
         Called for every mail message whose delivery

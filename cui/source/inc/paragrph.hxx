@@ -19,12 +19,10 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_PARAGRPH_HXX
 #define INCLUDED_CUI_SOURCE_INC_PARAGRPH_HXX
 
-#include <vcl/button.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <svx/relfld.hxx>
 #include <svx/paraprev.hxx>
 #include <svx/frmdirlbox.hxx>
-#include <svx/flagsdef.hxx>
 
 class SvxLineSpacingItem;
 
@@ -43,14 +41,9 @@ class SvxLineSpacingItem;
 
 class SvxStdParagraphTabPage: public SfxTabPage
 {
-    friend class VclPtr<SvxStdParagraphTabPage>;
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
     static const sal_uInt16 pStdRanges[];
 
 private:
-    SvxStdParagraphTabPage(TabPageParent pParent, const SfxItemSet& rSet);
-
     long                    nWidth;
     long                    nMinFixDist;
     bool                    bRelativeMode;
@@ -92,9 +85,12 @@ private:
     void                    UpdateExample_Impl();
     void                    ELRLoseFocus();
 
+    DECL_LINK(LineDistPopupHdl_Impl, weld::ComboBox&, void);
     DECL_LINK(LineDistHdl_Impl, weld::ComboBox&, void);
     DECL_LINK(ModifyHdl_Impl, weld::MetricSpinButton&, void);
     DECL_LINK(AutoHdl_Impl, weld::ToggleButton&, void);
+
+    bool m_bLineDistToggled = false;
 
 protected:
     virtual void            ActivatePage( const SfxItemSet& rSet ) override;
@@ -102,11 +98,12 @@ protected:
 
 
 public:
+    SvxStdParagraphTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
     virtual ~SvxStdParagraphTabPage() override;
 
     DECL_LINK(ELRLoseFocusHdl, weld::MetricSpinButton&, void);
 
-    static VclPtr<SfxTabPage>      Create( TabPageParent pParent, const SfxItemSet* rSet );
     static const sal_uInt16* GetRanges() { return pStdRanges; }
 
     virtual bool            FillItemSet( SfxItemSet* rSet ) override;
@@ -126,9 +123,6 @@ public:
 
 class SvxParaAlignTabPage : public SfxTabPage
 {
-    friend class VclPtr<SvxParaAlignTabPage>;
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
     static const sal_uInt16 pAlignRanges[];
 
     SvxParaPrevWindow m_aExampleWin;
@@ -162,16 +156,15 @@ class SvxParaAlignTabPage : public SfxTabPage
 
     void                    UpdateExample_Impl();
 
-    SvxParaAlignTabPage(TabPageParent pParent, const SfxItemSet& rSet);
-
 protected:
     virtual void            ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC    DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
+    SvxParaAlignTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
     virtual ~SvxParaAlignTabPage() override;
 
-    static VclPtr<SfxTabPage>      Create( TabPageParent pParent, const SfxItemSet* rSet );
     static const sal_uInt16* GetRanges() { return pAlignRanges; }
 
     virtual bool            FillItemSet( SfxItemSet* rSet ) override;
@@ -198,15 +191,14 @@ public:
 
 class SvxExtParagraphTabPage: public SfxTabPage
 {
-    friend class VclPtr<SvxExtParagraphTabPage>;
-    using TabPage::DeactivatePage;
     static const sal_uInt16 pExtRanges[];
 
 public:
+    SvxExtParagraphTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
+                                const SfxItemSet* rSet );
     virtual ~SvxExtParagraphTabPage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
-                                const SfxItemSet* rSet );
     static const sal_uInt16* GetRanges() { return pExtRanges; }
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -219,8 +211,6 @@ protected:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
 private:
-    SvxExtParagraphTabPage(TabPageParent pParent, const SfxItemSet& rSet);
-
     weld::TriStateEnabled aHyphenState;
     weld::TriStateEnabled aPageBreakState;
     weld::TriStateEnabled aApplyCollState;
@@ -291,24 +281,20 @@ private:
 
 class SvxAsianTabPage : public SfxTabPage
 {
-    friend class VclPtr<SvxAsianTabPage>;
-
     std::unique_ptr<weld::CheckButton> m_xForbiddenRulesCB;
     std::unique_ptr<weld::CheckButton> m_xHangingPunctCB;
     std::unique_ptr<weld::CheckButton> m_xScriptSpaceCB;
 
-    SvxAsianTabPage(TabPageParent pParent, const SfxItemSet& rSet);
-
 public:
+    SvxAsianTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
     virtual ~SvxAsianTabPage() override;
 
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent, const SfxItemSet* rSet);
     static const sal_uInt16*      GetRanges();
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
     virtual void        ChangesApplied() override;
-
 };
 
 #endif // INCLUDED_CUI_SOURCE_INC_PARAGRPH_HXX

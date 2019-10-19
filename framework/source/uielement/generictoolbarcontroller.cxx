@@ -209,21 +209,15 @@ void GenericToolbarController::statusChanged( const FeatureStateEvent& Event )
                 // Replacement for place holders
                 if ( aStrValue.startsWith("($1)") )
                 {
-                    OUString aTmp(FwkResId(STR_UPDATEDOC));
-                    aTmp += " " + aStrValue.copy( 4 );
-                    aStrValue = aTmp;
+                    aStrValue = FwkResId(STR_UPDATEDOC) + " " + aStrValue.copy( 4 );
                 }
                 else if ( aStrValue.startsWith("($2)") )
                 {
-                    OUString aTmp(FwkResId(STR_CLOSEDOC_ANDRETURN));
-                    aTmp += aStrValue.copy( 4 );
-                    aStrValue = aTmp;
+                    aStrValue = FwkResId(STR_CLOSEDOC_ANDRETURN) + aStrValue.copy( 4 );
                 }
                 else if ( aStrValue.startsWith("($3)") )
                 {
-                    OUString aTmp(FwkResId(STR_SAVECOPYDOC));
-                    aTmp += aStrValue.copy( 4 );
-                    aStrValue = aTmp;
+                    aStrValue = FwkResId(STR_SAVECOPYDOC) + aStrValue.copy( 4 );
                 }
                 m_pToolbar->SetItemText( m_nID, aStrValue );
                 m_pToolbar->SetQuickHelpText( m_nID, aStrValue );
@@ -318,7 +312,7 @@ void MenuToolbarController::initialize( const css::uno::Sequence< css::uno::Any 
         Sequence< PropertyValue > aProps;
         // drop down menu info is currently the first ( and only ) menu in the menusettings container
         xMenuContainer->getByIndex(0) >>= aProps;
-        for ( const auto& aProp : aProps )
+        for ( const auto& aProp : std::as_const(aProps) )
         {
             if ( aProp.Name == "ItemDescriptorContainer" )
             {

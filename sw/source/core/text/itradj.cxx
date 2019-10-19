@@ -428,7 +428,7 @@ SwTwips SwTextAdjuster::CalcKanaAdj( SwLineLayout* pCurrent )
             // calculate difference between portion width and max. width
             nKanaDiffSum += nMaxWidthDiff;
 
-            // we store the beginning of the first compressable portion
+            // we store the beginning of the first compressible portion
             // for repaint
             if ( nMaxWidthDiff && !nRepaintOfst )
                 nRepaintOfst = nX + GetLeftMargin();
@@ -749,7 +749,7 @@ void SwTextAdjuster::CalcDropAdjust()
         if( pPor->InGlueGrp() && pPor->GetNextPortion()
               && pPor->GetNextPortion()->IsDropPortion() )
         {
-            const SwLinePortion *pDropPor = static_cast<SwDropPortion*>( pPor->GetNextPortion() );
+            const SwLinePortion *pDropPor = pPor->GetNextPortion();
             SwGluePortion *pLeft = static_cast<SwGluePortion*>( pPor );
 
             // 4) pRight: Find the GluePor coming after the DropPor

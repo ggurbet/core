@@ -23,7 +23,6 @@
 
 #include <strings.hrc>
 #include <sdresid.hxx>
-#include <svx/DescriptionGenerator.hxx>
 #include <svx/ShapeTypeHandler.hxx>
 
 #include <com/sun/star/drawing/XShapeDescriptor.hpp>
@@ -51,7 +50,7 @@ AccessiblePresentationShape::~AccessiblePresentationShape()
 OUString SAL_CALL
     AccessiblePresentationShape::getImplementationName()
 {
-    return OUString("AccessiblePresentationShape");
+    return "AccessiblePresentationShape";
 }
 
 /// Set this object's name if is different to the current name.

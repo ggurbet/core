@@ -55,19 +55,17 @@ protected:
     SAL_DLLPRIVATE void        impl_registerApiCall(bool bLongLastingCall);
     SAL_DLLPRIVATE void        impl_unregisterApiCall(bool bLongLastingCall);
 
-    SAL_DLLPRIVATE void        impl_init();
-
 protected:
     css::lang::XComponent*     m_pComponent;
 
     ::osl::Condition        m_aNoAccessCountCondition;
-    sal_Int32 volatile      m_nAccessCount;
+    sal_Int32               m_nAccessCount;
 
     bool volatile       m_bDisposed;
     bool volatile       m_bInDispose;
 
     ::osl::Condition        m_aNoLongLastingCallCountCondition;
-    sal_Int32 volatile      m_nLongLastingCallCount;
+    sal_Int32               m_nLongLastingCallCount;
 };
 
 class CloseableLifeTimeManager final : public LifeTimeManager
@@ -103,14 +101,6 @@ private:
 
     void        impl_setOwnership( bool bDeliverOwnership, bool bMyVeto );
     void        impl_doClose();
-
-    void        impl_init()
-    {
-        m_bClosed = false;
-        m_bInTryClose = false;
-        m_bOwnership = false;
-        m_aEndTryClosingCondition.set();
-    }
 };
 
 /*

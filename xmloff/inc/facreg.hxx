@@ -22,60 +22,14 @@
 
 #include <sal/config.h>
 
-#include <com/sun/star/uno/Exception.hpp>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <rtl/ustring.hxx>
-#include <sal/types.h>
 
 namespace com { namespace sun { namespace star {
     namespace lang { class XMultiServiceFactory; }
     namespace uno { class XInterface; }
 } } }
-
-// impress oasis import
-OUString XMLImpressStylesImportOasis_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressStylesImportOasis_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressStylesImportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLImpressContentImportOasis_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressContentImportOasis_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressContentImportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLImpressMetaImportOasis_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressMetaImportOasis_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressMetaImportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-
-// impress OOo export
-OUString XMLImpressExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLImpressStylesExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressStylesExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressStylesExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLImpressContentExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressContentExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressContentExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLImpressMetaExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressMetaExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressMetaExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLImpressSettingsExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressSettingsExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressSettingsExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
 
 // draw oasis export
 OUString XMLDrawExportOasis_getImplementationName() throw();
@@ -97,40 +51,6 @@ OUString XMLDrawMetaExportOasis_getImplementationName() throw();
 css::uno::Sequence<OUString> XMLDrawMetaExportOasis_getSupportedServiceNames() throw();
 /// @throws css::uno::Exception
 css::uno::Reference<css::uno::XInterface> XMLDrawMetaExportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLDrawSettingsExportOasis_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLDrawSettingsExportOasis_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLDrawSettingsExportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-
-// draw OOo import
-
-// draw OOo export
-OUString XMLDrawExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLDrawExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLDrawExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLDrawStylesExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLDrawStylesExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLDrawStylesExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLDrawContentExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLDrawContentExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLDrawContentExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLDrawMetaExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLDrawMetaExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLDrawMetaExportOOO_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLDrawSettingsExportOOO_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLDrawSettingsExportOOO_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLDrawSettingsExportOOO_createInstance(
     css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
 
 // impress animation import

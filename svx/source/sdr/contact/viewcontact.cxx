@@ -30,7 +30,7 @@
 
 namespace sdr { namespace contact {
 
-// Create a Object-Specific ViewObjectContact, set ViewContact and
+// Create an Object-Specific ViewObjectContact, set ViewContact and
 // ObjectContact. Always needs to return something. Default is to create
 // a standard ViewObjectContact containing the given ObjectContact and *this
 ViewObjectContact& ViewContact::CreateObjectSpecificViewObjectContact(ObjectContact& rObjectContact)
@@ -58,7 +58,7 @@ void ViewContact::deleteAllVOCs()
     std::vector< ViewObjectContact* > aLocalVOCList;
     aLocalVOCList.swap(maViewObjectContactVector);
 
-    for (auto & pCandidate : aLocalVOCList)
+    for (const auto & pCandidate : aLocalVOCList)
         // ViewObjectContacts only make sense with View and Object contacts.
         // When the contact to the SdrObject is deleted like in this case,
         // all ViewObjectContacts can be deleted, too.
@@ -68,7 +68,7 @@ void ViewContact::deleteAllVOCs()
     DBG_ASSERT(maViewObjectContactVector.empty(), "Corrupted ViewObjectContactList in VC (!)");
 }
 
-// get a Object-specific ViewObjectContact for a specific
+// get an Object-specific ViewObjectContact for a specific
 // ObjectContact (->View). Always needs to return something.
 ViewObjectContact& ViewContact::GetViewObjectContact(ObjectContact& rObjectContact)
 {
@@ -171,7 +171,7 @@ ViewContact* ViewContact::GetParentContact() const
 
 void ViewContact::ActionChildInserted(ViewContact& rChild)
 {
-    // propagate change to all exsisting visualisations which
+    // propagate change to all existing visualisations which
     // will force a VOC for the new child and invalidate its range
     const sal_uInt32 nCount(maViewObjectContactVector.size());
 
@@ -235,13 +235,13 @@ drawinglayer::primitive2d::Primitive2DContainer const & ViewContact::getViewInde
     if(!xNew.empty())
     {
         // allow evtl. embedding in object-specific infos, e.g. Name, Title, Description
-        xNew = embedToObjectSpecificInformation(xNew);
+        xNew = embedToObjectSpecificInformation(std::move(xNew));
     }
 
     if(mxViewIndependentPrimitive2DSequence != xNew)
     {
         // has changed, copy content
-        const_cast< ViewContact* >(this)->mxViewIndependentPrimitive2DSequence = xNew;
+        const_cast< ViewContact* >(this)->mxViewIndependentPrimitive2DSequence = std::move(xNew);
     }
 
     // return current Primitive2DContainer
@@ -255,10 +255,10 @@ drawinglayer::primitive2d::Primitive2DContainer ViewContact::createGluePointPrim
     return drawinglayer::primitive2d::Primitive2DContainer();
 }
 
-drawinglayer::primitive2d::Primitive2DContainer ViewContact::embedToObjectSpecificInformation(const drawinglayer::primitive2d::Primitive2DContainer& rSource) const
+drawinglayer::primitive2d::Primitive2DContainer ViewContact::embedToObjectSpecificInformation(drawinglayer::primitive2d::Primitive2DContainer aSource) const
 {
     // nothing to do for default
-    return rSource;
+    return aSource;
 }
 
 basegfx::B2DRange ViewContact::getRange( const drawinglayer::geometry::ViewInformation2D& /*rViewInfo2D*/ ) const

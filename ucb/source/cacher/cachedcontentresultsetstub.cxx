@@ -24,6 +24,7 @@
 #include <com/sun/star/ucb/FetchError.hpp>
 #include <osl/diagnose.h>
 #include <cppuhelper/queryinterface.hxx>
+#include <ucbhelper/macros.hxx>
 
 using namespace com::sun::star::beans;
 using namespace com::sun::star::lang;
@@ -161,7 +162,7 @@ Sequence< Type > SAL_CALL CachedContentResultSetStub
 
 OUString SAL_CALL CachedContentResultSetStub::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.ucb.CachedContentResultSetStub" );
+    return "com.sun.star.comp.ucb.CachedContentResultSetStub";
 }
 
 sal_Bool SAL_CALL CachedContentResultSetStub::supportsService( const OUString& ServiceName )
@@ -506,48 +507,15 @@ CachedContentResultSetStubFactory::~CachedContentResultSetStubFactory()
 }
 
 
-// CachedContentResultSetStubFactory XInterface methods.
-void SAL_CALL CachedContentResultSetStubFactory::acquire()
-    throw()
-{
-    OWeakObject::acquire();
-}
-
-void SAL_CALL CachedContentResultSetStubFactory::release()
-    throw()
-{
-    OWeakObject::release();
-}
-
-css::uno::Any SAL_CALL CachedContentResultSetStubFactory::queryInterface( const css::uno::Type & rType )
-{
-    css::uno::Any aRet = cppu::queryInterface( rType,
-                                               static_cast< XTypeProvider* >(this),
-                                               static_cast< XServiceInfo* >(this),
-                                               static_cast< XCachedContentResultSetStubFactory* >(this)
-                                               );
-    return aRet.hasValue() ? aRet : OWeakObject::queryInterface( rType );
-}
-
-// CachedContentResultSetStubFactory XTypeProvider methods.
-
-
-XTYPEPROVIDER_IMPL_3( CachedContentResultSetStubFactory,
-                      XTypeProvider,
-                         XServiceInfo,
-                      XCachedContentResultSetStubFactory );
-
-
 // CachedContentResultSetStubFactory XServiceInfo methods.
 
 XSERVICEINFO_COMMOM_IMPL( CachedContentResultSetStubFactory,
-                          OUString( "com.sun.star.comp.ucb.CachedContentResultSetStubFactory" ) )
+                          "com.sun.star.comp.ucb.CachedContentResultSetStubFactory" )
 /// @throws css::uno::Exception
 static css::uno::Reference< css::uno::XInterface >
 CachedContentResultSetStubFactory_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new CachedContentResultSetStubFactory);
+    css::lang::XServiceInfo* pX = new CachedContentResultSetStubFactory;
     return css::uno::Reference< css::uno::XInterface >::query( pX );
 }
 css::uno::Sequence< OUString >

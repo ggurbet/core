@@ -16,11 +16,6 @@
 
 #include "PagesImportFilter.hxx"
 
-using com::sun::star::uno::RuntimeException;
-using com::sun::star::uno::Sequence;
-using com::sun::star::uno::XComponentContext;
-using com::sun::star::uno::XInterface;
-
 using libetonyek::EtonyekDocument;
 
 bool PagesImportFilter::doImportDocument(weld::Window*, librevenge::RVNGInputStream& rInput,
@@ -46,7 +41,7 @@ bool PagesImportFilter::doDetectFormat(librevenge::RVNGInputStream& rInput, OUSt
 // XServiceInfo
 OUString SAL_CALL PagesImportFilter::getImplementationName()
 {
-    return OUString("org.libreoffice.comp.Writer.PagesImportFilter");
+    return "org.libreoffice.comp.Writer.PagesImportFilter";
 }
 
 sal_Bool SAL_CALL PagesImportFilter::supportsService(const OUString& rServiceName)
@@ -54,13 +49,9 @@ sal_Bool SAL_CALL PagesImportFilter::supportsService(const OUString& rServiceNam
     return cppu::supportsService(this, rServiceName);
 }
 
-Sequence<OUString> SAL_CALL PagesImportFilter::getSupportedServiceNames()
+css::uno::Sequence<OUString> SAL_CALL PagesImportFilter::getSupportedServiceNames()
 {
-    Sequence<OUString> aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.document.ImportFilter";
-    pArray[1] = "com.sun.star.document.ExtendedTypeDetection";
-    return aRet;
+    return { "com.sun.star.document.ImportFilter", "com.sun.star.document.ExtendedTypeDetection" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*

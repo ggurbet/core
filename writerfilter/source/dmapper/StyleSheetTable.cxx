@@ -141,7 +141,7 @@ PropertyMapPtr TableStyleSheetEntry::GetProperties( sal_Int32 nMask )
     return pProps;
 }
 
-beans::PropertyValues StyleSheetEntry::GetInteropGrabBagSeq()
+beans::PropertyValues StyleSheetEntry::GetInteropGrabBagSeq() const
 {
     return comphelper::containerToSequence(m_aInteropGrabBag);
 }
@@ -273,9 +273,6 @@ struct StyleSheetTable_Impl
     std::vector< StyleSheetEntryPtr >       m_aStyleSheetEntries;
     StyleSheetEntryPtr                      m_pCurrentEntry;
     PropertyMapPtr                          m_pDefaultParaProps, m_pDefaultCharProps;
-    StringPairMap_t                         m_aStyleNameMap;
-    /// Style names which should not be used without a " (user)" suffix.
-    std::set<OUString>                      m_aReservedStyleNames;
     OUString                                m_sDefaultParaStyleName; //WW8 name
     ListCharStylePropertyVector_t           m_aListCharStylePropertyVector;
     bool                                    m_bHasImportedDefaultParaProps;
@@ -395,12 +392,12 @@ StyleSheetTable::~StyleSheetTable()
 {
 }
 
-PropertyMapPtr const & StyleSheetTable::GetDefaultParaProps()
+PropertyMapPtr const & StyleSheetTable::GetDefaultParaProps() const
 {
     return m_pImpl->m_pDefaultParaProps;
 }
 
-PropertyMapPtr const & StyleSheetTable::GetDefaultCharProps()
+PropertyMapPtr const & StyleSheetTable::GetDefaultCharProps() const
 {
     return m_pImpl->m_pDefaultCharProps;
 }
@@ -452,7 +449,7 @@ void StyleSheetTable::lcl_attribute(Id Name, Value & val)
             if ( nType == STYLE_TYPE_TABLE )
             {
                 StyleSheetEntryPtr pEntry = m_pImpl->m_pCurrentEntry;
-                tools::SvRef<TableStyleSheetEntry> pTableEntry( new TableStyleSheetEntry( *pEntry.get( ) ) );
+                tools::SvRef<TableStyleSheetEntry> pTableEntry( new TableStyleSheetEntry( *pEntry ) );
                 m_pImpl->m_pCurrentEntry = pTableEntry.get();
             }
             else
@@ -687,6 +684,11 @@ void StyleSheetTable::lcl_sprm(Sprm & rSprm)
         case NS_ooxml::LN_CT_DocDefaults_pPrDefault:
             m_pImpl->m_rDMapper.PushStyleSheetProperties( m_pImpl->m_pDefaultParaProps );
             resolveSprmProps( m_pImpl->m_rDMapper, rSprm );
+            if ( nSprmId == NS_ooxml::LN_CT_DocDefaults_pPrDefault && m_pImpl->m_pDefaultParaProps.get() &&
+                !m_pImpl->m_pDefaultParaProps->isSet( PROP_PARA_TOP_MARGIN ) )
+            {
+                m_pImpl->m_pDefaultParaProps->Insert( PROP_PARA_TOP_MARGIN, uno::makeAny( sal_Int32(0) ) );
+            }
             m_pImpl->m_rDMapper.PopStyleSheetProperties();
             applyDefaults( true );
             m_pImpl->m_bHasImportedDefaultParaProps = true;
@@ -798,7 +800,7 @@ void StyleSheetTable::lcl_sprm(Sprm & rSprm)
 }
 
 
-void StyleSheetTable::lcl_entry(int /*pos*/, writerfilter::Reference<Properties>::Pointer_t ref)
+void StyleSheetTable::lcl_entry(writerfilter::Reference<Properties>::Pointer_t ref)
 {
     //create a new style entry
     OSL_ENSURE( !m_pImpl->m_pCurrentEntry, "current entry has to be NULL here");
@@ -861,6 +863,7 @@ public:
     void Insert(const beans::PropertyValue& rVal);
     uno::Sequence< uno::Any > getValues();
     uno::Sequence< OUString > getNames();
+    const std::vector<beans::PropertyValue>& getProperties() const { return m_aValues; };
 };
 
 void PropValVector::Insert(const beans::PropertyValue& rVal)
@@ -982,7 +985,13 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                             StyleSheetEntryPtr pParent = FindStyleSheetByISTD( pEntry->sBaseStyleIdentifier );
                             // Writer core doesn't support numbering styles having a parent style, it seems
                             if (pParent.get() != nullptr && !bListStyle)
-                                xStyle->setParentStyle(ConvertStyleName( pParent->sStyleName ));
+                            {
+                                const OUString sParentStyleName = ConvertStyleName( pParent->sStyleName );
+                                if ( !sParentStyleName.isEmpty() && !xStyles->hasByName( sParentStyleName ) )
+                                    aMissingParent.emplace_back( sParentStyleName, xStyle );
+                                else
+                                    xStyle->setParentStyle( sParentStyleName );
+                            }
                         }
                         catch( const uno::RuntimeException& )
                         {
@@ -1029,7 +1038,6 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
 
                     auto aPropValues = comphelper::sequenceToContainer< std::vector<beans::PropertyValue> >(pEntry->pProperties->GetPropertyValues());
 
-                    // remove Left/RightMargin values from TOX heading styles
                     if( bParaStyle )
                     {
                         // delay adding FollowStyle property: all styles need to be created first
@@ -1055,9 +1063,9 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                             sConvertedStyleName == "User Index Heading" ||
                             sConvertedStyleName == "Index Heading" )
                         {
+                            // remove Left/RightMargin values from TOX heading styles
                             //left margin is set to NULL by default
-                            uno::Reference< beans::XPropertyState >xState1( xStyle, uno::UNO_QUERY_THROW );
-                            xState1->setPropertyToDefault(getPropertyName( PROP_PARA_LEFT_MARGIN ));
+                            xState->setPropertyToDefault(getPropertyName( PROP_PARA_LEFT_MARGIN ));
                         }
                         else if ( sConvertedStyleName == "Text body" )
                             xState->setPropertyToDefault(getPropertyName( PROP_PARA_BOTTOM_MARGIN ));
@@ -1101,8 +1109,25 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                         try
                         {
                             uno::Reference< beans::XMultiPropertySet > xMultiPropertySet( xStyle, uno::UNO_QUERY_THROW);
-                            xMultiPropertySet->setPropertyValues( aSortedPropVals.getNames(), aSortedPropVals.getValues() );
-
+                            try
+                            {
+                                xMultiPropertySet->setPropertyValues( aSortedPropVals.getNames(), aSortedPropVals.getValues() );
+                            }
+                            catch ( const uno::Exception& )
+                            {
+                                uno::Reference<beans::XPropertySet> xPropertySet(xStyle, uno::UNO_QUERY_THROW);
+                                for ( const beans::PropertyValue& rValue : aSortedPropVals.getProperties() )
+                                {
+                                    try
+                                    {
+                                       xPropertySet->setPropertyValue( rValue.Name, rValue.Value );
+                                    }
+                                    catch ( const uno::Exception& )
+                                    {
+                                        SAL_WARN( "writerfilter", "StyleSheetTable::ApplyStyleSheets could not set property " << rValue.Name );
+                                    }
+                                }
+                            }
                             // Duplicate MSWord's single footnote reference into Footnote Characters and Footnote anchor
                             if( pEntry->sStyleName.equalsIgnoreAsciiCase("footnote reference")
                                 || pEntry->sStyleName.equalsIgnoreAsciiCase("endnote reference") )
@@ -1202,10 +1227,10 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
 }
 
 
-const StyleSheetEntryPtr StyleSheetTable::FindStyleSheetByISTD(const OUString& sIndex)
+StyleSheetEntryPtr StyleSheetTable::FindStyleSheetByISTD(const OUString& sIndex)
 {
     StyleSheetEntryPtr pRet;
-    for(StyleSheetEntryPtr & rpEntry : m_pImpl->m_aStyleSheetEntries)
+    for(const StyleSheetEntryPtr & rpEntry : m_pImpl->m_aStyleSheetEntries)
     {
         if( rpEntry->sStyleIdentifierD == sIndex)
         {
@@ -1217,10 +1242,10 @@ const StyleSheetEntryPtr StyleSheetTable::FindStyleSheetByISTD(const OUString& s
 }
 
 
-const StyleSheetEntryPtr StyleSheetTable::FindStyleSheetByConvertedStyleName(const OUString& sIndex)
+StyleSheetEntryPtr StyleSheetTable::FindStyleSheetByConvertedStyleName(const OUString& sIndex)
 {
     StyleSheetEntryPtr pRet;
-    for(StyleSheetEntryPtr & rpEntry : m_pImpl->m_aStyleSheetEntries)
+    for(const StyleSheetEntryPtr & rpEntry : m_pImpl->m_aStyleSheetEntries)
     {
         if( rpEntry->sConvertedStyleName == sIndex)
         {
@@ -1232,165 +1257,15 @@ const StyleSheetEntryPtr StyleSheetTable::FindStyleSheetByConvertedStyleName(con
 }
 
 
-const StyleSheetEntryPtr StyleSheetTable::FindDefaultParaStyle()
+StyleSheetEntryPtr StyleSheetTable::FindDefaultParaStyle()
 {
     return FindStyleSheetByISTD( m_pImpl->m_sDefaultParaStyleName );
 }
 
-const StyleSheetEntryPtr & StyleSheetTable::GetCurrentEntry()
+const StyleSheetEntryPtr & StyleSheetTable::GetCurrentEntry() const
 {
     return m_pImpl->m_pCurrentEntry;
 }
-
-
-static const sal_Char* const aStyleNamePairs[] =
-{
-    "Normal",                     "Standard",
-    "heading 1",                  "Heading 1",
-    "heading 2",                  "Heading 2",
-    "heading 3",                  "Heading 3",
-    "heading 4",                  "Heading 4",
-    "heading 5",                  "Heading 5",
-    "heading 6",                  "Heading 6",
-    "heading 7",                  "Heading 7",
-    "heading 8",                  "Heading 8",
-    "heading 9",                  "Heading 9",
-    "Heading1",                   "Heading 1",
-    "Heading2",                   "Heading 2",
-    "Heading3",                   "Heading 3",
-    "Heading4",                   "Heading 4",
-    "Heading5",                   "Heading 5",
-    "Heading6",                   "Heading 6",
-    "Heading7",                   "Heading 7",
-    "Heading8",                   "Heading 8",
-    "Heading9",                   "Heading 9",
-    "Heading 1",                  "Heading 1",
-    "Heading 2",                  "Heading 2",
-    "Heading 3",                  "Heading 3",
-    "Heading 4",                  "Heading 4",
-    "Heading 5",                  "Heading 5",
-    "Heading 6",                  "Heading 6",
-    "Heading 7",                  "Heading 7",
-    "Heading 8",                  "Heading 8",
-    "Heading 9",                  "Heading 9",
-    "Index 1",                   "Index 1",
-    "Index 2",                   "Index 2",
-    "Index 3",                   "Index 3",
-    "Index 4",                   "",
-    "Index 5",                   "",
-    "Index 6",                   "",
-    "Index 7",                   "",
-    "Index 8",                   "",
-    "Index 9",                   "",
-    "TOC 1",                     "Contents 1",
-    "TOC 2",                     "Contents 2",
-    "TOC 3",                     "Contents 3",
-    "TOC 4",                     "Contents 4",
-    "TOC 5",                     "Contents 5",
-    "TOC 6",                     "Contents 6",
-    "TOC 7",                     "Contents 7",
-    "TOC 8",                     "Contents 8",
-    "TOC 9",                     "Contents 9",
-    "TOCHeading",                "Contents Heading",
-    "toc 1",                     "Contents 1",
-    "toc 2",                     "Contents 2",
-    "toc 3",                     "Contents 3",
-    "toc 4",                     "Contents 4",
-    "toc 5",                     "Contents 5",
-    "toc 6",                     "Contents 6",
-    "toc 7",                     "Contents 7",
-    "toc 8",                     "Contents 8",
-    "toc 9",                     "Contents 9",
-    "TOC1",                     "Contents 1",
-    "TOC2",                     "Contents 2",
-    "TOC3",                     "Contents 3",
-    "TOC4",                     "Contents 4",
-    "TOC5",                     "Contents 5",
-    "TOC6",                     "Contents 6",
-    "TOC7",                     "Contents 7",
-    "TOC8",                     "Contents 8",
-    "TOC9",                     "Contents 9",
-    "Normal Indent",             "",
-    "footnote text",             "Footnote",
-    "Footnote Text",             "Footnote",
-    "Annotation Text",           "",
-    "Header",                    "Header",
-    "header",                    "Header",
-    "Footer",                    "Footer",
-    "footer",                    "Footer",
-    "Index Heading",             "Index Heading",
-    "Caption",                   "",
-    "Table of Figures",          "",
-    "Envelope Address",          "Addressee",
-    "Envelope Return",           "Sender",
-    "footnote reference",        "Footnote Characters",
-    "Footnote Reference",        "Footnote Characters",
-    "Annotation Reference",      "",
-    "Line Number",               "Line numbering",
-    "Page Number",               "Page Number",
-    "endnote reference",         "Endnote Characters",
-    "Endnote Reference",         "Endnote Characters",
-    "endnote text",              "Endnote",
-    "Endnote Text",              "Endnote",
-    "Table of Authorities",      "",
-    "Macro Text",                "",
-    "TOA Heading",               "",
-    "List",                      "List",
-    "List 2",                    "",
-    "List 3",                    "",
-    "List 4",                    "",
-    "List 5",                    "",
-    "List Bullet",               "",
-    "List Bullet 2",             "",
-    "List Bullet 3",             "",
-    "List Bullet 4",             "",
-    "List Bullet 5",             "",
-    "List Number",               "",
-    "List Number 2",             "",
-    "List Number 3",             "",
-    "List Number 4",             "",
-    "List Number 5",             "",
-    "Title",                     "Title",
-    "Closing",                   "",
-    "Signature",                 "Signature",
-    "Default Paragraph Font",    "",
-    "DefaultParagraphFont",      "Default Paragraph Font",
-    "Body Text",                 "Text body",
-    "BodyText",                  "Text body",
-    "BodyTextIndentItalic",     "Text body indent italic",
-    "Body Text Indent",          "Text body indent",
-    "BodyTextIndent",           "Text body indent",
-    "BodyTextIndent2",          "Text body indent2",
-    "List Continue",             "",
-    "List Continue 2",           "",
-    "List Continue 3",           "",
-    "List Continue 4",           "",
-    "List Continue 5",           "",
-    "Message Header",            "",
-    "Subtitle",                  "Subtitle",
-    "Salutation",                "",
-    "Date",                      "",
-    "Body Text First Indent",    "Body Text Indent",
-    "Body Text First Indent 2",  "",
-    "Note Heading",              "",
-    "Body Text 2",               "",
-    "Body Text 3",               "",
-    "Body Text Indent 2",        "",
-    "Body Text Indent 3",        "",
-    "Block Text",                "",
-    "Hyperlink",                 "Internet link",
-    "Followed Hyperlink",        "Visited Internet Link",
-    "Emphasis",                  "Emphasis",
-    "Document Map",              "",
-    "Plain Text",                "",
-    "NoList",                   "No List",
-    "AbstractHeading",          "Abstract Heading",
-    "AbstractBody",             "Abstract Body",
-    "PageNumber",               "page number"
-    "TableNormal",              "Normal Table",
-    "DocumentMap",              "Document Map"
-};
-
 
 OUString StyleSheetTable::ConvertStyleName( const OUString& rWWName, bool bExtendedSearch)
 {
@@ -1407,33 +1282,161 @@ OUString StyleSheetTable::ConvertStyleName( const OUString& rWWName, bool bExten
     }
 
     // create a map only once
-    if(m_pImpl->m_aStyleNameMap.empty())
-    {
-        for( size_t nPair = 0; nPair < SAL_N_ELEMENTS(aStyleNamePairs)/2; ++nPair)
-        {
-            OUString aFrom = OUString::createFromAscii(aStyleNamePairs[2 * nPair]);
-            OUString aTo = OUString::createFromAscii(aStyleNamePairs[2 * nPair + 1]);
-            if (!aTo.isEmpty())
-            {
-                m_pImpl->m_aStyleNameMap.emplace(aFrom, aTo);
-                m_pImpl->m_aReservedStyleNames.insert(aTo);
-            }
-        }
-    }
+    static const StringPairMap_t StyleNameMap{
+        { "Normal", "Standard" },
+        { "heading 1", "Heading 1" },
+        { "heading 2", "Heading 2" },
+        { "heading 3", "Heading 3" },
+        { "heading 4", "Heading 4" },
+        { "heading 5", "Heading 5" },
+        { "heading 6", "Heading 6" },
+        { "heading 7", "Heading 7" },
+        { "heading 8", "Heading 8" },
+        { "heading 9", "Heading 9" },
+        { "Heading 1", "Heading 1" },
+        { "Heading 2", "Heading 2" },
+        { "Heading 3", "Heading 3" },
+        { "Heading 4", "Heading 4" },
+        { "Heading 5", "Heading 5" },
+        { "Heading 6", "Heading 6" },
+        { "Heading 7", "Heading 7" },
+        { "Heading 8", "Heading 8" },
+        { "Heading 9", "Heading 9" },
+        { "Index 1", "Index 1" },
+        { "Index 2", "Index 2" },
+        { "Index 3", "Index 3" },
+//        { "Index 4", "" },
+//        { "Index 5", "" },
+//        { "Index 6", "" },
+//        { "Index 7", "" },
+//        { "Index 8", "" },
+//        { "Index 9", "" },
+        { "TOC 1", "Contents 1" },
+        { "TOC 2", "Contents 2" },
+        { "TOC 3", "Contents 3" },
+        { "TOC 4", "Contents 4" },
+        { "TOC 5", "Contents 5" },
+        { "TOC 6", "Contents 6" },
+        { "TOC 7", "Contents 7" },
+        { "TOC 8", "Contents 8" },
+        { "TOC 9", "Contents 9" },
+        { "TOCHeading", "Contents Heading" },
+        { "toc 1", "Contents 1" },
+        { "toc 2", "Contents 2" },
+        { "toc 3", "Contents 3" },
+        { "toc 4", "Contents 4" },
+        { "toc 5", "Contents 5" },
+        { "toc 6", "Contents 6" },
+        { "toc 7", "Contents 7" },
+        { "toc 8", "Contents 8" },
+        { "toc 9", "Contents 9" },
+        { "TOC1", "Contents 1" },
+        { "TOC2", "Contents 2" },
+        { "TOC3", "Contents 3" },
+        { "TOC4", "Contents 4" },
+        { "TOC5", "Contents 5" },
+        { "TOC6", "Contents 6" },
+        { "TOC7", "Contents 7" },
+        { "TOC8", "Contents 8" },
+        { "TOC9", "Contents 9" },
+//        { "Normal Indent", "" },
+        { "footnote text", "Footnote" },
+        { "Footnote Text", "Footnote" },
+//        { "Annotation Text", "" },
+        { "Header", "Header" },
+        { "header", "Header" },
+        { "Footer", "Footer" },
+        { "footer", "Footer" },
+        { "Index Heading", "Index Heading" },
+//        { "Caption", "" },
+//        { "Table of Figures", "" },
+        { "Envelope Address", "Addressee" },
+        { "Envelope Return", "Sender" },
+        { "footnote reference", "Footnote Characters" },
+        { "Footnote Reference", "Footnote Characters" },
+//        { "Annotation Reference", "" },
+        { "Line Number", "Line numbering" },
+        { "Page Number", "Page Number" },
+        { "endnote reference", "Endnote Characters" },
+        { "Endnote Reference", "Endnote Characters" },
+        { "endnote text", "Endnote" },
+        { "Endnote Text", "Endnote" },
+//        { "Table of Authorities", "" },
+//        { "Macro Text", "" },
+//        { "TOA Heading", "" },
+        { "List", "List" },
+//        { "List 2", "" },
+//        { "List 3", "" },
+//        { "List 4", "" },
+//        { "List 5", "" },
+//        { "List Bullet", "" },
+//        { "List Bullet 2", "" },
+//        { "List Bullet 3", "" },
+//        { "List Bullet 4", "" },
+//        { "List Bullet 5", "" },
+//        { "List Number", "" },
+//        { "List Number 2", "" },
+//        { "List Number 3", "" },
+//        { "List Number 4", "" },
+//        { "List Number 5", "" },
+        { "Title", "Title" },
+//        { "Closing", "" },
+        { "Signature", "Signature" },
+//        { "Default Paragraph Font", "" },
+        { "DefaultParagraphFont", "Default Paragraph Font" },
+        { "Body Text", "Text body" },
+        { "BodyText", "Text body" },
+        { "BodyTextIndentItalic", "Text body indent italic" },
+        { "Body Text Indent", "Text body indent" },
+        { "BodyTextIndent", "Text body indent" },
+        { "BodyTextIndent2", "Text body indent2" },
+//        { "List Continue", "" },
+//        { "List Continue 2", "" },
+//        { "List Continue 3", "" },
+//        { "List Continue 4", "" },
+//        { "List Continue 5", "" },
+//        { "Message Header", "" },
+        { "Subtitle", "Subtitle" },
+//        { "Salutation", "" },
+//        { "Date", "" },
+        { "Body Text First Indent", "Body Text Indent" },
+//        { "Body Text First Indent 2", "" },
+//        { "Note Heading", "" },
+//        { "Body Text 2", "" },
+//        { "Body Text 3", "" },
+//        { "Body Text Indent 2", "" },
+//        { "Body Text Indent 3", "" },
+//        { "Block Text", "" },
+        { "Hyperlink", "Internet link" },
+        { "Followed Hyperlink", "Visited Internet Link" },
+        { "Emphasis", "Emphasis" },
+//        { "Document Map", "" },
+//        { "Plain Text", "" },
+        { "NoList", "No List" },
+        { "AbstractHeading", "Abstract Heading" },
+        { "AbstractBody", "Abstract Body" },
+        { "PageNumber", "page number" },
+        { "TableNormal", "Normal Table" },
+        { "DocumentMap", "Document Map" },
+    };
 
     // find style-name using map
-    StringPairMap_t::iterator aIt = m_pImpl->m_aStyleNameMap.find( sRet );
-
-    if (aIt != m_pImpl->m_aStyleNameMap.end())
+    if (const auto aIt = StyleNameMap.find(sRet); aIt != StyleNameMap.end())
     {
         sRet = aIt->second;
     }
     else
     {
+        // Style names which should not be used without a " (user)" suffix
+        static const std::set<OUString> ReservedStyleNames = [] {
+            std::set<OUString> set;
+            for (const auto& pair : StyleNameMap)
+                set.insert(pair.second);
+            return set;
+        }();
         // SwStyleNameMapper doc says: If the UI style name equals a
         // programmatic name, then it must append " (user)" to the end.
-        std::set<OUString>::iterator aReservedIt = m_pImpl->m_aReservedStyleNames.find(sRet);
-        if (aReservedIt != m_pImpl->m_aReservedStyleNames.end())
+        if (ReservedStyleNames.count(sRet) > 0)
             sRet += " (user)";
     }
 
@@ -1457,6 +1460,8 @@ void StyleSheetTable::applyDefaults(bool bParaProperties)
                 m_pImpl->m_rDMapper.GetTextFactory()->createInstance("com.sun.star.text.Defaults"),
                 uno::UNO_QUERY_THROW );
         }
+
+        // WARNING: these defaults only take effect IF there is a DocDefaults style section. Normally there is, but not always.
         if( bParaProperties && m_pImpl->m_pDefaultParaProps.get())
         {
             // tdf#87533 LO will have different defaults here, depending on the locale. Import with documented defaults
@@ -1476,7 +1481,7 @@ void StyleSheetTable::applyDefaults(bool bParaProperties)
             // This is the built-in default style that every style inherits from
             xParagraphStyles->getByName("Paragraph style") >>= xDefault;
 
-            uno::Sequence< beans::PropertyValue > aPropValues = m_pImpl->m_pDefaultParaProps->GetPropertyValues();
+            const uno::Sequence< beans::PropertyValue > aPropValues = m_pImpl->m_pDefaultParaProps->GetPropertyValues();
             for( const auto& rPropValue : aPropValues )
             {
                 try
@@ -1491,7 +1496,13 @@ void StyleSheetTable::applyDefaults(bool bParaProperties)
         }
         if( !bParaProperties && m_pImpl->m_pDefaultCharProps.get())
         {
-            uno::Sequence< beans::PropertyValue > aPropValues = m_pImpl->m_pDefaultCharProps->GetPropertyValues();
+            // tdf#108350: Earlier in DomainMapper for DOCX, Calibri/11pt was set to match MSWord 2007+,
+            // but that is valid only if DocDefaults_rPrDefault is omitted.
+            // Now that DocDefaults_rPrDefault is known, the defaults should be reset to Times New Roman/10pt.
+            if ( m_pImpl->m_rDMapper.IsOOXMLImport() )
+                m_pImpl->m_xTextDefaults->setPropertyValue( getPropertyName(PROP_CHAR_FONT_NAME), css::uno::Any(OUString("Times New Roman")) );
+
+            const uno::Sequence< beans::PropertyValue > aPropValues = m_pImpl->m_pDefaultCharProps->GetPropertyValues();
             for( const auto& rPropValue : aPropValues )
             {
                 try
@@ -1525,7 +1536,7 @@ OUString StyleSheetTable::getOrCreateCharStyle( PropertyValueVector_t& rCharProp
     xStyleFamilies->getByName("CharacterStyles") >>= xCharStyles;
     //search for all character styles with the name sListLabel + <index>
     sal_Int32 nStyleFound = 0;
-    uno::Sequence< OUString > aStyleNames = xCharStyles->getElementNames();
+    const uno::Sequence< OUString > aStyleNames = xCharStyles->getElementNames();
     for( const auto& rStyleName : aStyleNames )
     {
         OUString sSuffix;

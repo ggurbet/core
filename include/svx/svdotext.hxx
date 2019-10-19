@@ -42,6 +42,7 @@
 class OutlinerParaObject;
 class OverflowingText;
 class SdrOutliner;
+class SdrPathObj;
 class SdrTextObj;
 class SdrTextObjTest;
 class SvxFieldItem;
@@ -49,6 +50,7 @@ class ImpSdrObjTextLink;
 class EditStatus;
 class TextChain;
 class TextChainFlow;
+
 enum class EEAnchorMode;
 enum class EETextFormat;
 
@@ -128,9 +130,9 @@ namespace sdr
     } // end of namespace properties
 } // end of namespace sdr
 
-
 //   SdrTextObj
 
+typedef std::unique_ptr<SdrPathObj, SdrObjectFreeOp> SdrPathObjUniquePtr;
 
 class SVX_DLLPUBLIC SdrTextObj : public SdrAttrObj, public svx::ITextProvider
 {
@@ -207,7 +209,7 @@ protected:
     // and maintaining the OutlinerView.
     Point                       maTextEditOffset;
 
-    virtual SdrObject* getFullDragClone() const override;
+    virtual SdrObjectUniquePtr getFullDragClone() const override;
 
 
 public:
@@ -262,7 +264,7 @@ private:
                                        Fraction&        aFitXCorrection ) const;
     void ImpAutoFitText( SdrOutliner& rOutliner ) const;
     static void ImpAutoFitText( SdrOutliner& rOutliner, const Size& rShapeSize, bool bIsVerticalWriting );
-    SVX_DLLPRIVATE SdrObject* ImpConvertContainedTextToSdrPathObjs(bool bToPoly) const;
+    SVX_DLLPRIVATE SdrObjectUniquePtr ImpConvertContainedTextToSdrPathObjs(bool bToPoly) const;
     SVX_DLLPRIVATE void ImpRegisterLink();
     SVX_DLLPRIVATE void ImpDeregisterLink();
     SVX_DLLPRIVATE ImpSdrObjTextLinkUserData* GetLinkUserData() const;
@@ -275,8 +277,8 @@ private:
 
 protected:
     bool ImpCanConvTextToCurve() const;
-    SdrObject* ImpConvertMakeObj(const basegfx::B2DPolyPolygon& rPolyPolygon, bool bClosed, bool bBezier) const;
-    SdrObject* ImpConvertAddText(SdrObject* pObj, bool bBezier) const;
+    SdrPathObjUniquePtr ImpConvertMakeObj(const basegfx::B2DPolyPolygon& rPolyPolygon, bool bClosed, bool bBezier) const;
+    SdrObjectUniquePtr ImpConvertAddText(SdrObjectUniquePtr pObj, bool bBezier) const;
     void ImpSetTextStyleSheetListeners();
     static void ImpSetCharStretching(SdrOutliner& rOutliner, const Size& rTextSize, const Size& rShapeSize, Fraction& rFitXCorrection);
     static void ImpJustifyRect(tools::Rectangle& rRect);
@@ -497,7 +499,7 @@ public:
     virtual bool CalcFieldValue(const SvxFieldItem& rField, sal_Int32 nPara, sal_uInt16 nPos,
         bool bEdit, boost::optional<Color>& rpTxtColor, boost::optional<Color>& rpFldColor, OUString& rRet) const;
 
-    virtual SdrObject* DoConvertToPolyObj(bool bBezier, bool bAddText) const override;
+    virtual SdrObjectUniquePtr DoConvertToPolyObj(bool bBezier, bool bAddText) const override;
 
     void SetTextEditOutliner(SdrOutliner* pOutl) { pEdtOutl=pOutl; }
 

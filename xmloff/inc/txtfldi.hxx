@@ -27,9 +27,9 @@
 #define INCLUDED_XMLOFF_INC_TXTFLDI_HXX
 
 #include <com/sun/star/uno/Reference.h>
+#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/text/PageNumberType.hpp>
 #include <com/sun/star/util/DateTime.hpp>
-#include <com/sun/star/util/Date.hpp>
 #include <xmloff/xmlictxt.hxx>
 #include <xmloff/txtimp.hxx>
 #include <xmloff/xmltkmap.hxx>
@@ -153,7 +153,7 @@ protected:
     /// get helper
     XMLTextImportHelper& GetImportHelper() { return rTextImportHelper; }
 
-    const OUString& GetServiceName() { return sServiceName; }
+    const OUString& GetServiceName() const { return sServiceName; }
     void SetServiceName(const OUString& sStr) { sServiceName = sStr; }
 
     OUString const & GetContent();
@@ -1101,6 +1101,7 @@ class XMLAnnotationImportContext : public XMLTextFieldImportContext
     OUString aName;
     OUStringBuffer aTextBuffer;
     OUStringBuffer aDateBuffer;
+    OUString aResolved;
 
     css::uno::Reference < css::beans::XPropertySet > mxField;
     css::uno::Reference < css::text::XTextCursor >  mxCursor;

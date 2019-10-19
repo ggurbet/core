@@ -44,7 +44,6 @@
 #include <comphelper/hash.hxx>
 #include <tools/stream.hxx>
 
-#include <sallayout.hxx>
 #include <outdata.hxx>
 #include "pdffontcache.hxx"
 #include "pdfbuildin_fonts.hxx"
@@ -204,7 +203,7 @@ public:
         /// Size of the bitmap replacement, in pixels.
         Size m_aPixelSize;
         /// PDF data from the graphic object, if not writing a reference XObject.
-        css::uno::Sequence<sal_Int8> m_aPDFData;
+        std::vector<sal_Int8> m_aPDFData;
 
         ReferenceXObjectEmit()
             : m_nFormObject(0),
@@ -424,7 +423,7 @@ public:
         /// ID of the file.
         sal_Int32 m_nObject;
         /// Contents of the file.
-        css::uno::Sequence<sal_Int8> m_aData;
+        std::shared_ptr<std::vector<sal_Int8>> m_pData;
 
         PDFEmbeddedFile()
             : m_nObject(0)
@@ -595,6 +594,7 @@ public:
 
 protected:
     void ImplClearFontData(bool bNewFontLists) override;
+    void ImplRefreshFontData(bool bNewFontLists) override;
     vcl::Region ClipToDeviceBounds(vcl::Region aRegion) const override;
     void DrawHatchLine_DrawLine(const Point& rStartPoint, const Point& rEndPoint) override;
 
@@ -865,7 +865,7 @@ i12626
     void pushResource( ResourceKind eKind, const OString& rResource, sal_Int32 nObject );
 
     void appendBuildinFontsToDict( OStringBuffer& rDict ) const;
-    /* writes a the font dictionary and emits all font objects
+    /* writes the font dictionary and emits all font objects
      * returns object id of font directory (or 0 on error)
      */
     bool emitFonts();

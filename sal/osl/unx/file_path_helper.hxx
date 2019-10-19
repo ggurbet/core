@@ -28,29 +28,15 @@
    Removes the last separator from the given system path if any and if the path
    is not the root path '/'
 
-   @param  ppustrPath[inout]    a system path if the path is not the root path
+   @param  ppstrPath[inout]    a system path if the path is not the root path
                                 and the last character is a path separator it
-                                will be cut off ppustrPath must not be NULL and
-                                must point to a valid rtl_uString
+                                will be cut off ppstrPath must not be NULL and
+                                must point to a valid rtl_String
 
    @returns nothing
 
 */
-void osl_systemPathRemoveSeparator(rtl_uString* pustrPath);
-
-/**
-   Adds a trailing path separator to the given system path if not already there
-   and if the path is not the root path '/'
-
-   @param  pustrPath [inout]    a system path if the path is not the root path
-                                '/' and has no trailing separator a separator
-                                will be added ppustrPath must not be NULL and
-                                must point to a valid rtl_uString
-
-   @returns nothing
-
-*/
-void osl_systemPathEnsureSeparator(rtl_uString** ppustrPath);
+void osl_systemPathRemoveSeparator(rtl_String* pstrPath);
 
 /**
    Returns true if the given path is a relative path and so starts not with '/'
@@ -65,38 +51,14 @@ bool osl_systemPathIsRelativePath(
     const rtl_uString* pustrPath);
 
 /**
-   Append a relative path to a base path
-
-   @param  pustrBasePath [in]   a system path that will be considered as
-                                base path pustrBasePath must not be NULL
-
-   @param  pustrRelPath [in]    a system path that will be considered as
-                                relative path pustrBasePath must not be NULL
-
-   @param  ppustrAbsolutePath [out] the resulting path which is a concatenation
-                                of the base and the relative path if base path
-                                is empty the resulting absolute path is the
-                                relative path if relative path is empty the
-                                resulting absolute path is the base path if base
-                                and relative path are empty the resulting absolute
-                                path is also empty ppustrAbsolutePath must not be
-                                NULL and *ppustrAbsolutePath must be 0 or point to
-                                a valid rtl_uString
-*/
-void osl_systemPathMakeAbsolutePath(
-    const rtl_uString* pustrBasePath,
-    const rtl_uString* pustrRelPath,
-    rtl_uString**      ppustrAbsolutePath);
-
-/**
    Returns the file or the directory part of the given path
 
-   @param pustrPath [in]        a system path, must not be NULL
+   @param pstrPath [in]        a system path, must not be NULL
 
-   @param ppustrFileOrDirPart [out] on return receives the last part of the
-                                given directory or the file name if pustrPath is the
+   @param ppstrFileOrDirPart [out] on return receives the last part of the
+                                given directory or the file name if pstrPath is the
                                 root path '/' an empty string will be returned if
-                                pustrPath has a trailing '/' the last part before the
+                                pstrPath has a trailing '/' the last part before the
                                 '/' will be returned else the part after the last '/'
                                 will be returned
 
@@ -104,8 +66,8 @@ void osl_systemPathMakeAbsolutePath(
 
 */
 void osl_systemPathGetFileNameOrLastDirectoryPart(
-    const rtl_uString*  pustrPath,
-    rtl_uString**       ppustrFileNameOrLastDirPart);
+    const rtl_String*  pstrPath,
+    rtl_String**       ppstrFileNameOrLastDirPart);
 
 /**
    @param   pustrPath [in] a system path, must not be NULL
@@ -116,7 +78,7 @@ void osl_systemPathGetFileNameOrLastDirectoryPart(
 
 */
 bool osl_systemPathIsHiddenFileOrDirectoryEntry(
-    const rtl_uString* pustrPath);
+    const rtl_String* pustrPath);
 
 /************************************************
    osl_systemPathIsLocalOrParentDirectoryEntry
@@ -124,7 +86,7 @@ bool osl_systemPathIsHiddenFileOrDirectoryEntry(
    system path is the local directory entry '.'
    or the parent directory entry '..'
 
-   @param   pustrPath [in] a system path,
+   @param   pstrPath [in] a system path,
             must not be NULL
 
    @returns sal_True if the last part of the
@@ -134,7 +96,7 @@ bool osl_systemPathIsHiddenFileOrDirectoryEntry(
 ************************************************/
 
 bool osl_systemPathIsLocalOrParentDirectoryEntry(
-    const rtl_uString* pustrPath);
+    const rtl_String* pstrPath);
 
 /************************************************
    osl_searchPath
@@ -184,31 +146,9 @@ namespace osl
 
   ******************************************/
 
- inline void systemPathRemoveSeparator(/*inout*/ OUString& Path)
+ inline void systemPathRemoveSeparator(/*inout*/ OString& Path)
  {
      osl_systemPathRemoveSeparator(Path.pData);
- }
-
- /*******************************************
-    systemPathEnsureSeparator
-    Adds a trailing path separator to the
-    given system path if not already there
-    and if the path is not the root path '/'
-
-      @param    pustrPath [inout] a system path
-            if the path is not the root path
-            '/' and has no trailing separator
-            a separator will be added
-            ppustrPath must not be NULL and
-            must point to a valid rtl_uString
-
-    @returns nothing
-
-  ******************************************/
-
- inline void systemPathEnsureSeparator(/*inout*/ OUString& Path)
- {
-     osl_systemPathEnsureSeparator(&Path.pData);
  }
 
  /*******************************************
@@ -234,17 +174,15 @@ namespace osl
     systemPathMakeAbsolutePath
     Append a relative path to a base path
 
-    @param  pustrBasePath [in] a system
+    @param  BasePath [in] a system
             path that will be considered as
             base path
-            pustrBasePath must not be NULL
 
-    @param  pustrRelPath [in] a system path
+    @param  RelPath [in] a system path
             that will be considered as
             relative path
-            pustrBasePath must not be NULL
 
-    @param  ppustrAbsolutePath [out] the
+    @return the
             resulting path which is a
             concatenation of the base and
             the relative path
@@ -257,21 +195,16 @@ namespace osl
             if base and relative path are
             empty the resulting absolute
             path is also empty
-            ppustrAbsolutePath must not be
-            NULL and *ppustrAbsolutePath
-            must be 0 or point to a valid
-            rtl_uString
 
   *****************************************/
 
- inline void systemPathMakeAbsolutePath(
+ OString systemPathMakeAbsolutePath(
+     const OString& BasePath,
+    const OString& RelPath);
+
+ OUString systemPathMakeAbsolutePath(
      const OUString& BasePath,
-    const OUString& RelPath,
-    OUString&       AbsolutePath)
- {
-    osl_systemPathMakeAbsolutePath(
-        BasePath.pData, RelPath.pData, &AbsolutePath.pData);
- }
+    const OUString& RelPath);
 
  /********************************************
      systemPathIsHiddenFileOrDirectoryEntry
@@ -291,7 +224,7 @@ namespace osl
  *********************************************/
 
  inline bool systemPathIsHiddenFileOrDirectoryEntry(
-     const OUString& Path)
+     const OString& Path)
  {
     return osl_systemPathIsHiddenFileOrDirectoryEntry(Path.pData);
  }

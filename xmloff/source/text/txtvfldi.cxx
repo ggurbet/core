@@ -25,7 +25,6 @@
 #include <txtvfldi.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/txtimp.hxx>
-#include <xmloff/xmlnumi.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/i18nmap.hxx>
@@ -33,7 +32,6 @@
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/xmlement.hxx>
 #include <com/sun/star/text/SetVariableType.hpp>
-#include <com/sun/star/text/XTextField.hpp>
 #include <com/sun/star/text/XDependentTextField.hpp>
 #include <com/sun/star/text/XTextFieldsSupplier.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -826,21 +824,20 @@ bool XMLVariableDeclImportContext::FindFieldMaster(
     // get text fields supplier and field masters
     Reference<XTextFieldsSupplier> xTextFieldsSupp(rImport.GetModel(),
                                                    UNO_QUERY);
-    Reference<container::XNameAccess> xFieldMasterNameAccess(
-        xTextFieldsSupp->getTextFieldMasters(), UNO_QUERY);
+    Reference<container::XNameAccess> xFieldMasterNameAccess =
+        xTextFieldsSupp->getTextFieldMasters();
 
-    OUStringBuffer sBuffer;
-    sBuffer.append(sAPI_fieldmaster_prefix);
-    sBuffer.append(sAPI_set_expression);
-    sBuffer.append(".");
-    sBuffer.append(sName);
-    OUString sVarServiceName = sBuffer.makeStringAndClear();
+    OUString sVarServiceName =
+        OUStringLiteral(sAPI_fieldmaster_prefix) +
+        sAPI_set_expression +
+        "." +
+        sName;
 
-    sBuffer.append(sAPI_fieldmaster_prefix);
-    sBuffer.append(sAPI_user);
-    sBuffer.append(".");
-    sBuffer.append(sName);
-    OUString sUserServiceName = sBuffer.makeStringAndClear();
+    OUString sUserServiceName =
+        OUStringLiteral(sAPI_fieldmaster_prefix) +
+        sAPI_user +
+        "." +
+        sName;
 
     if (xFieldMasterNameAccess->hasByName(sVarServiceName)) {
         // variable field master already in document
@@ -858,16 +855,10 @@ bool XMLVariableDeclImportContext::FindFieldMaster(
 
         if (eFMVarType != eVarType)
         {
-            OUString sNew;
+            ++nCollisionCount;
+            OUString sNew(sName + "_renamed_" + OUString::number(nCollisionCount));
 
             // FIXME! can't find if name is taken already!!!!
-
-            nCollisionCount++;
-            OUStringBuffer aBuf;
-            aBuf.append(sName);
-            aBuf.append("_renamed_");
-            aBuf.append(nCollisionCount);
-            sNew = aBuf.makeStringAndClear();
 
             rImportHelper.GetRenameMap().Add(
                 sal::static_int_cast< sal_uInt16 >(eVarType), sName, sNew);
@@ -882,17 +873,11 @@ bool XMLVariableDeclImportContext::FindFieldMaster(
         aAny >>= xMaster;
 
         if (VarTypeUserField != eVarType) {
+            ++nCollisionCount;
             // find new name that is not taken
-            OUString sNew;
+            OUString sNew(sName + "_renamed_" + OUString::number(nCollisionCount));
 
             // FIXME! can't find if name is taken already!!!!
-
-            nCollisionCount++;
-            OUStringBuffer aBuf;
-            aBuf.append(sName);
-            aBuf.append("_renamed_");
-            aBuf.append(nCollisionCount);
-            sNew = aBuf.makeStringAndClear();
 
             rImportHelper.GetRenameMap().Add(
                 sal::static_int_cast< sal_uInt16 >(eVarType), sName, sNew);

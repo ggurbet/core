@@ -358,21 +358,19 @@ OUString PKIStatusToString(int n)
 {
     switch (n)
     {
-    case 0: return OUString("granted");
-    case 1: return OUString("grantedWithMods");
-    case 2: return OUString("rejection");
-    case 3: return OUString("waiting");
-    case 4: return OUString("revocationWarning");
-    case 5: return OUString("revocationNotification");
+    case 0: return "granted";
+    case 1: return "grantedWithMods";
+    case 2: return "rejection";
+    case 3: return "waiting";
+    case 4: return "revocationWarning";
+    case 5: return "revocationNotification";
     default: return "unknown (" + OUString::number(n) + ")";
     }
 }
 
 OUString PKIStatusInfoToString(const PKIStatusInfo& rStatusInfo)
 {
-    OUString result;
-
-    result += "{status=";
+    OUString result = "{status=";
     if (rStatusInfo.status.len == 1)
         result += PKIStatusToString(rStatusInfo.status.data[0]);
     else
@@ -1395,9 +1393,7 @@ bool Signing::Sign(OStringBuffer& rCMSHexBuffer)
         return false;
     }
 
-    CRYPT_SIGN_MESSAGE_PARA aPara;
-
-    memset(&aPara, 0, sizeof(aPara));
+    CRYPT_SIGN_MESSAGE_PARA aPara = {};
     aPara.cbSize = sizeof(aPara);
     aPara.dwMsgEncodingType = PKCS_7_ASN_ENCODING | X509_ASN_ENCODING;
     aPara.pSigningCert = pCertContext;
@@ -1425,9 +1421,7 @@ bool Signing::Sign(OStringBuffer& rCMSHexBuffer)
     }
     assert(!bFreeNeeded);
 
-    CMSG_SIGNER_ENCODE_INFO aSignerInfo;
-
-    memset(&aSignerInfo, 0, sizeof(aSignerInfo));
+    CMSG_SIGNER_ENCODE_INFO aSignerInfo = {};
     aSignerInfo.cbSize = sizeof(aSignerInfo);
     aSignerInfo.pCertInfo = pCertContext->pCertInfo;
     aSignerInfo.hNCryptKey = hCryptKey;
@@ -1457,8 +1451,7 @@ bool Signing::Sign(OStringBuffer& rCMSHexBuffer)
     aSignerInfo.cAuthAttr = 1;
     aSignerInfo.rgAuthAttr = &aCertificateAttribute;
 
-    CMSG_SIGNED_ENCODE_INFO aSignedInfo;
-    memset(&aSignedInfo, 0, sizeof(aSignedInfo));
+    CMSG_SIGNED_ENCODE_INFO aSignedInfo = {};
     aSignedInfo.cbSize = sizeof(aSignedInfo);
     aSignedInfo.cSigners = 1;
     aSignedInfo.rgSigners = &aSignerInfo;

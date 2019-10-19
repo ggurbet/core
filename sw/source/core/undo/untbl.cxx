@@ -713,9 +713,9 @@ void SwUndoTextToTable::UndoImpl(::sw::UndoRedoContext & rContext)
 {
     SwDoc & rDoc = rContext.GetDoc();
 
-    sal_uLong nTableNd = nSttNode;
-    if( nSttContent )
-        ++nTableNd;       // Node was splitted previously
+    sal_uLong nTableNd = m_nSttNode;
+    if( m_nSttContent )
+        ++nTableNd;       // Node was split previously
     SwNodeIndex aIdx( rDoc.GetNodes(), nTableNd );
     SwTableNode *const pTNd = aIdx.GetNode().GetTableNode();
     OSL_ENSURE( pTNd, "Could not find a TableNode" );
@@ -751,7 +751,7 @@ void SwUndoTextToTable::UndoImpl(::sw::UndoRedoContext & rContext)
     // join again at start?
     SwPaM aPam(rDoc.GetNodes().GetEndOfContent());
     SwPosition *const pPos = aPam.GetPoint();
-    if( nSttContent )
+    if( m_nSttContent )
     {
         pPos->nNode = nTableNd;
         pPos->nContent.Assign(pPos->nNode.GetNode().GetContentNode(), 0);
@@ -770,7 +770,7 @@ void SwUndoTextToTable::UndoImpl(::sw::UndoRedoContext & rContext)
     if( bSplitEnd )
     {
         SwNodeIndex& rIdx = pPos->nNode;
-        rIdx = nEndNode;
+        rIdx = m_nEndNode;
         SwTextNode* pTextNd = rIdx.GetNode().GetTextNode();
         if( pTextNd && pTextNd->CanJoinNext() )
         {
@@ -779,7 +779,7 @@ void SwUndoTextToTable::UndoImpl(::sw::UndoRedoContext & rContext)
 
             // than move, relatively, the Cursor/etc. again
             pPos->nContent.Assign(pTextNd, pTextNd->GetText().getLength());
-            RemoveIdxRel( nEndNode + 1, *pPos );
+            RemoveIdxRel( m_nEndNode + 1, *pPos );
 
             pTextNd->JoinNext();
         }
@@ -1578,7 +1578,7 @@ void SwUndoTableNdsChg::SaveNewBoxes( const SwTableNode& rTableNd,
 
             // find the source box. It must be one in rBoxes.
             // We found the right one if it's in the same column as pBox.
-            // No, if more than one selected cell in the same column has been splitted,
+            // No, if more than one selected cell in the same column has been split,
             // we have to look for the nearest one (i65201)!
             const SwTableBox* pSourceBox = nullptr;
             const SwTableBox* pCheckBox = nullptr;
@@ -1604,7 +1604,7 @@ void SwUndoTableNdsChg::SaveNewBoxes( const SwTableNode& rTableNd,
             // find the line number difference
             // (to help determine bNodesMoved flag below)
             nLineDiff = nLineDiff - nLineNo;
-            OSL_ENSURE( pSourceBox, "Splitted source box not found!" );
+            OSL_ENSURE( pSourceBox, "Split source box not found!" );
             // find out how many nodes the source box used to have
             // (to help determine bNodesMoved flag below)
             size_t nNdsPos = 0;
@@ -1984,8 +1984,8 @@ void SwUndoTableMerge::UndoImpl(::sw::UndoRedoContext & rContext)
     }
     SwPaM *const pPam(& rContext.GetCursorSupplier().CreateNewShellCursor());
     pPam->DeleteMark();
-    pPam->GetPoint()->nNode = nSttNode;
-    pPam->GetPoint()->nContent.Assign( pPam->GetContentNode(), nSttContent );
+    pPam->GetPoint()->nNode = m_nSttNode;
+    pPam->GetPoint()->nContent.Assign( pPam->GetContentNode(), m_nSttContent );
     pPam->SetMark();
     pPam->DeleteMark();
 

@@ -195,7 +195,7 @@ long CEnumVariant::GetCountOfElements()
    * @param.
    * @return Result
    */
-STDMETHODIMP CEnumVariant::ClearEnumeration()
+COM_DECLSPEC_NOTHROW STDMETHODIMP CEnumVariant::ClearEnumeration()
 {
     // internal IEnumVariant - no mutex meeded
 
@@ -229,7 +229,7 @@ static Reference<XAccessibleSelection> GetXAccessibleSelection(XAccessible* pXAc
 /**
    * Put valid UNO XAccessible interface.
    * @param pXSelection XAccessible interface.
-   * @return Result..
+   * @return Result...
    */
 STDMETHODIMP CEnumVariant::PutSelection(hyper pXSelection)
 {

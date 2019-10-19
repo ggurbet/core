@@ -21,14 +21,10 @@
 
 #include <ViewShellBase.hxx>
 #include "RecentlyUsedMasterPages.hxx"
-#include "MasterPageContainerProviders.hxx"
 #include <MasterPageObserver.hxx>
 #include <sdpage.hxx>
 #include <drawdoc.hxx>
-#include <app.hrc>
 #include <helpids.h>
-
-#include <vcl/bitmap.hxx>
 
 namespace sd { namespace sidebar {
 

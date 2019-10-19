@@ -47,7 +47,9 @@
 #include <wrtsh.hxx>
 #include <swundo.hxx>
 #include <column.hxx>
+#include <fmtclbl.hxx>
 #include <fmtfsize.hxx>
+#include <frmatr.hxx>
 #include <shellio.hxx>
 
 #include <cmdid.h>
@@ -179,7 +181,7 @@ public:
     void                SetFilter(OUString const& rFilter);
     void                SetSubRegion(OUString const& rSubRegion);
 
-    bool                IsContent() { return m_bContent; }
+    bool                IsContent() const { return m_bContent; }
     void                SetContent(bool const bValue) { m_bContent = bValue; }
 
     void                SetSelected() { m_bSelected = true; }
@@ -221,11 +223,11 @@ void SectRepr::SetFile( const OUString& rFile )
 
     if( !rFile.isEmpty() || !sSub.isEmpty() )
     {
-        sNewFile += OUStringLiteral1(sfx2::cTokenSeparator);
+        sNewFile += OUStringChar(sfx2::cTokenSeparator);
         if( !rFile.isEmpty() ) // Filter only with FileName
             sNewFile += sOldFileName.getToken( 1, sfx2::cTokenSeparator );
 
-        sNewFile += OUStringLiteral1(sfx2::cTokenSeparator) + sSub;
+        sNewFile += OUStringChar(sfx2::cTokenSeparator) + sSub;
     }
 
     m_SectionData.SetLinkFileName( sNewFile );
@@ -249,10 +251,10 @@ void SectRepr::SetFilter( const OUString& rFilter )
     const OUString sSub( sOldFileName.getToken( 1, sfx2::cTokenSeparator, nIdx ) );  // token 2
 
     if( !sFile.isEmpty() )
-        sNewFile = sFile + OUStringLiteral1(sfx2::cTokenSeparator) +
-                   rFilter + OUStringLiteral1(sfx2::cTokenSeparator) + sSub;
+        sNewFile = sFile + OUStringChar(sfx2::cTokenSeparator) +
+                   rFilter + OUStringChar(sfx2::cTokenSeparator) + sSub;
     else if( !sSub.isEmpty() )
-        sNewFile = OUStringLiteral1(sfx2::cTokenSeparator) + OUStringLiteral1(sfx2::cTokenSeparator) + sSub;
+        sNewFile = OUStringChar(sfx2::cTokenSeparator) + OUStringChar(sfx2::cTokenSeparator) + sSub;
 
     m_SectionData.SetLinkFileName( sNewFile );
 
@@ -271,8 +273,8 @@ void SectRepr::SetSubRegion(const OUString& rSubRegion)
     const OUString sFilter( sLinkFileName.getToken( 0, sfx2::cTokenSeparator, n ) );
 
     if( !rSubRegion.isEmpty() || !sOldFileName.isEmpty() )
-        sNewFile = sOldFileName + OUStringLiteral1(sfx2::cTokenSeparator) +
-                   sFilter + OUStringLiteral1(sfx2::cTokenSeparator) + rSubRegion;
+        sNewFile = sOldFileName + OUStringChar(sfx2::cTokenSeparator) +
+                   sFilter + OUStringChar(sfx2::cTokenSeparator) + rSubRegion;
 
     m_SectionData.SetLinkFileName( sNewFile );
 
@@ -297,8 +299,8 @@ OUString SectRepr::GetFile() const
     if (DDE_LINK_SECTION == m_SectionData.GetType())
     {
         sal_Int32 n = 0;
-        return sLinkFile.replaceFirst( OUStringLiteral1(sfx2::cTokenSeparator), " ", &n )
-                        .replaceFirst( OUStringLiteral1(sfx2::cTokenSeparator), " ", &n );
+        return sLinkFile.replaceFirst( OUStringChar(sfx2::cTokenSeparator), " ", &n )
+                        .replaceFirst( OUStringChar(sfx2::cTokenSeparator), " ", &n );
     }
     return INetURLObject::decode( sLinkFile.getToken( 0, sfx2::cTokenSeparator ),
                                   INetURLObject::DecodeMechanism::Unambiguous );
@@ -447,7 +449,7 @@ bool SwEditRegionDlg::CheckPasswd(weld::ToggleButton* pBox)
 }
 
 // recursively look for child-sections
-void SwEditRegionDlg::RecurseList(const SwSectionFormat* pFormat, weld::TreeIter* pEntry)
+void SwEditRegionDlg::RecurseList(const SwSectionFormat* pFormat, const weld::TreeIter* pEntry)
 {
     std::unique_ptr<weld::TreeIter> xIter(m_xTree->make_iterator());
     if (!pFormat)
@@ -1131,10 +1133,10 @@ IMPL_LINK(SwEditRegionDlg, FileNameEntryHdl, weld::Entry&, rEdit, void)
     {
         OUString sLink( SwSectionData::CollapseWhiteSpaces(rEdit.get_text()) );
         sal_Int32 nPos = 0;
-        sLink = sLink.replaceFirst( " ", OUStringLiteral1(sfx2::cTokenSeparator), &nPos );
+        sLink = sLink.replaceFirst( " ", OUStringChar(sfx2::cTokenSeparator), &nPos );
         if (nPos>=0)
         {
-            sLink = sLink.replaceFirst( " ", OUStringLiteral1(sfx2::cTokenSeparator), &nPos );
+            sLink = sLink.replaceFirst( " ", OUStringChar(sfx2::cTokenSeparator), &nPos );
         }
 
         pSectRepr->GetSectionData().SetLinkFileName( sLink );
@@ -1471,8 +1473,8 @@ short SwInsertSectionTabDialog::Ok()
     return nRet;
 }
 
-SwInsertSectionTabPage::SwInsertSectionTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/sectionpage.ui", "SectionPage", &rAttrSet)
+SwInsertSectionTabPage::SwInsertSectionTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rAttrSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/sectionpage.ui", "SectionPage", &rAttrSet)
     , m_pWrtSh(nullptr)
     , m_xCurName(m_xBuilder->weld_entry_tree_view("sectionnames", "sectionnames-entry",
                                                   "sectionnames-list"))
@@ -1511,7 +1513,6 @@ SwInsertSectionTabPage::SwInsertSectionTabPage(TabPageParent pParent, const SfxI
 
 SwInsertSectionTabPage::~SwInsertSectionTabPage()
 {
-    disposeOnce();
 }
 
 void    SwInsertSectionTabPage::SetWrtShell(SwWrtShell& rSh)
@@ -1575,10 +1576,10 @@ bool SwInsertSectionTabPage::FillItemSet( SfxItemSet* )
         {
             aLinkFile = SwSectionData::CollapseWhiteSpaces(sFileName);
             sal_Int32 nPos = 0;
-            aLinkFile = aLinkFile.replaceFirst( " ", OUStringLiteral1(sfx2::cTokenSeparator), &nPos );
+            aLinkFile = aLinkFile.replaceFirst( " ", OUStringChar(sfx2::cTokenSeparator), &nPos );
             if (nPos>=0)
             {
-                aLinkFile = aLinkFile.replaceFirst( " ", OUStringLiteral1(sfx2::cTokenSeparator), &nPos );
+                aLinkFile = aLinkFile.replaceFirst( " ", OUStringChar(sfx2::cTokenSeparator), &nPos );
             }
         }
         else
@@ -1594,8 +1595,8 @@ bool SwInsertSectionTabPage::FillItemSet( SfxItemSet* )
                 aSection.SetLinkFilePassword( m_sFilePasswd );
             }
 
-            aLinkFile += OUStringLiteral1(sfx2::cTokenSeparator) + m_sFilterName
-                      +  OUStringLiteral1(sfx2::cTokenSeparator) + sSubRegion;
+            aLinkFile += OUStringChar(sfx2::cTokenSeparator) + m_sFilterName
+                      +  OUStringChar(sfx2::cTokenSeparator) + sSubRegion;
         }
 
         aSection.SetLinkFileName(aLinkFile);
@@ -1614,10 +1615,10 @@ void SwInsertSectionTabPage::Reset( const SfxItemSet* )
 {
 }
 
-VclPtr<SfxTabPage> SwInsertSectionTabPage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SwInsertSectionTabPage::Create(weld::Container* pPage, weld::DialogController* pController,
                                                   const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwInsertSectionTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwInsertSectionTabPage>(pPage, pController, *rAttrSet);
 }
 
 IMPL_LINK(SwInsertSectionTabPage, ChangeHideHdl, weld::ToggleButton&, rBox, void)
@@ -1641,7 +1642,7 @@ void SwInsertSectionTabPage::ChangePasswd(bool bChange)
     {
         if(!m_aNewPasswd.hasElements() || bChange)
         {
-            SfxPasswordDialog aPasswdDlg(GetDialogFrameWeld());
+            SfxPasswordDialog aPasswdDlg(GetFrameWeld());
             aPasswdDlg.ShowExtras(SfxShowExtras::CONFIRM);
             if (RET_OK == aPasswdDlg.run())
             {
@@ -1652,7 +1653,7 @@ void SwInsertSectionTabPage::ChangePasswd(bool bChange)
                 }
                 else
                 {
-                    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+                    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                                   VclMessageType::Info, VclButtonsType::Ok,
                                                                   SwResId(STR_WRONG_PASSWD_REPEAT)));
                     xInfoBox->run();
@@ -1690,7 +1691,7 @@ IMPL_LINK(SwInsertSectionTabPage, UseFileHdl, weld::ToggleButton&, rButton, void
     {
         if (m_pWrtSh->HasSelection())
         {
-            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetDialogFrameWeld(),
+            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            SwResId(STR_QUERY_CONNECT)));
             if (RET_NO == xQueryBox->run())
@@ -1721,7 +1722,7 @@ IMPL_LINK(SwInsertSectionTabPage, UseFileHdl, weld::ToggleButton&, rButton, void
 
 IMPL_LINK_NOARG(SwInsertSectionTabPage, FileSearchHdl, weld::Button&, void)
 {
-    m_pDocInserter.reset(new ::sfx2::DocumentInserter(GetDialogFrameWeld(), "swriter"));
+    m_pDocInserter.reset(new ::sfx2::DocumentInserter(GetFrameWeld(), "swriter"));
     m_pDocInserter->StartExecuteModal( LINK( this, SwInsertSectionTabPage, DlgClosedHdl ) );
 }
 
@@ -1775,8 +1776,8 @@ IMPL_LINK( SwInsertSectionTabPage, DlgClosedHdl, sfx2::FileDialogHelper *, _pFil
     }
 }
 
-SwSectionFootnoteEndTabPage::SwSectionFootnoteEndTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/footnotesendnotestabpage.ui", "FootnotesEndnotesTabPage", &rAttrSet)
+SwSectionFootnoteEndTabPage::SwSectionFootnoteEndTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rAttrSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/footnotesendnotestabpage.ui", "FootnotesEndnotesTabPage", &rAttrSet)
     , m_xFootnoteNtAtTextEndCB(m_xBuilder->weld_check_button("ftnntattextend"))
     , m_xFootnoteNtNumCB(m_xBuilder->weld_check_button("ftnntnum"))
     , m_xFootnoteOffsetLbl(m_xBuilder->weld_label("ftnoffset_label"))
@@ -1952,10 +1953,10 @@ void SwSectionFootnoteEndTabPage::Reset( const SfxItemSet* rSet )
     ResetState( false, rSet->Get( RES_END_AT_TXTEND, false ));
 }
 
-VclPtr<SfxTabPage> SwSectionFootnoteEndTabPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SwSectionFootnoteEndTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                                    const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwSectionFootnoteEndTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwSectionFootnoteEndTabPage>(pPage, pController, *rAttrSet);
 }
 
 IMPL_LINK( SwSectionFootnoteEndTabPage, FootEndHdl, weld::ToggleButton&, rBox, void )
@@ -2057,8 +2058,8 @@ void SwSectionPropertyTabDialog::PageCreated(const OString& rId, SfxTabPage &rPa
         static_cast<SwSectionIndentTabPage&>(rPage).SetWrtShell(rWrtSh);
 }
 
-SwSectionIndentTabPage::SwSectionIndentTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/indentpage.ui", "IndentPage", &rAttrSet)
+SwSectionIndentTabPage::SwSectionIndentTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rAttrSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/indentpage.ui", "IndentPage", &rAttrSet)
     , m_xBeforeMF(m_xBuilder->weld_metric_spin_button("before", FieldUnit::CM))
     , m_xAfterMF(m_xBuilder->weld_metric_spin_button("after", FieldUnit::CM))
     , m_xPreviewWin(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWin))
@@ -2110,9 +2111,9 @@ void SwSectionIndentTabPage::Reset( const SfxItemSet* rSet)
     IndentModifyHdl(*m_xBeforeMF);
 }
 
-VclPtr<SfxTabPage> SwSectionIndentTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> SwSectionIndentTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwSectionIndentTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwSectionIndentTabPage>(pPage, pController, *rAttrSet);
 }
 
 void SwSectionIndentTabPage::SetWrtShell(SwWrtShell const & rSh)

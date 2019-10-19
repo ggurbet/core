@@ -9,15 +9,12 @@
 
 #include <test/calc_unoapi_test.hxx>
 #include <com/sun/star/container/XIndexAccess.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/sheet/XCellRangesQuery.hpp>
 #include <com/sun/star/sheet/XSheetCellRanges.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
 #include <com/sun/star/table/CellAddress.hpp>
-#include <com/sun/star/util/XCloseable.hpp>
 #include <com/sun/star/container/XNamed.hpp>
-#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 
 using namespace css;
 using namespace css::lang;
@@ -106,9 +103,9 @@ void CheckXCellRangesQuery::checkEmptyCell()
 /**
  * Perform some tests on a filled cell:
  * <ol>
- * <li>compare an cell with value 5 with a cell with value 15 in the same
+ * <li>compare a cell with value 5 with a cell with value 15 in the same
  * column</li>
- * <li>compare an cell with value 5 with a cell with value 15 in the same
+ * <li>compare a cell with value 5 with a cell with value 15 in the same
  * row</li>
  * <li>query for an empty cell.</li>
  * <ol>
@@ -120,9 +117,9 @@ void CheckXCellRangesQuery::checkFilledCell()
     // fill the cell with a value
     xSpreadSheet->getCellByPosition(2, 3)->setValue(15);
 
-    // compare an cell with value 5 with a cell with value 15
+    // compare a cell with value 5 with a cell with value 15
     _queryColumnDifferences(sSheetName + ".C4");
-    // compare an cell with value 5 with a cell with value 15
+    // compare a cell with value 5 with a cell with value 15
     _queryRowDifferences(sSheetName + ".C4");
     // try to get nothing
     _queryEmptyCells("");

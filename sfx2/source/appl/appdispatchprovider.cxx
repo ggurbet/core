@@ -102,7 +102,7 @@ void SfxAppDispatchProvider::initialize(
 
 OUString SAL_CALL SfxAppDispatchProvider::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.sfx2.AppDispatchProvider" );
+    return "com.sun.star.comp.sfx2.AppDispatchProvider";
 }
 
 sal_Bool SAL_CALL SfxAppDispatchProvider::supportsService( const OUString& sServiceName )
@@ -112,10 +112,7 @@ sal_Bool SAL_CALL SfxAppDispatchProvider::supportsService( const OUString& sServ
 
 css::uno::Sequence< OUString > SAL_CALL SfxAppDispatchProvider::getSupportedServiceNames()
 {
-    css::uno::Sequence< OUString > seqServiceNames( 2 );
-    seqServiceNames.getArray()[0] = "com.sun.star.frame.ProtocolHandler";
-    seqServiceNames.getArray()[1] = "com.sun.star.frame.AppDispatchProvider";
-    return seqServiceNames;
+    return { "com.sun.star.frame.ProtocolHandler", "com.sun.star.frame.AppDispatchProvider" };
 }
 
 Reference < XDispatch > SAL_CALL SfxAppDispatchProvider::queryDispatch(
@@ -164,10 +161,9 @@ Sequence< Reference < XDispatch > > SAL_CALL SfxAppDispatchProvider::queryDispat
 {
     sal_Int32 nCount = seqDescriptor.getLength();
     uno::Sequence< uno::Reference < frame::XDispatch > > lDispatcher(nCount);
-    for( sal_Int32 i=0; i<nCount; ++i )
-        lDispatcher[i] = queryDispatch( seqDescriptor[i].FeatureURL,
-                                              seqDescriptor[i].FrameName,
-                                              seqDescriptor[i].SearchFlags );
+    std::transform(seqDescriptor.begin(), seqDescriptor.end(), lDispatcher.begin(),
+        [this](const DispatchDescriptor& rDescr) -> uno::Reference<frame::XDispatch> {
+            return queryDispatch(rDescr.FeatureURL, rDescr.FrameName, rDescr.SearchFlags); });
     return lDispatcher;
 }
 

@@ -316,7 +316,7 @@ InternalDataProvider::InternalDataProvider(
         Reference< chart2::XDiagram > xDiagram( ChartModelHelper::findDiagram( xChartDoc ) );
         if( xDiagram.is())
         {
-            Reference< frame::XModel > xChartModel( xChartDoc, uno::UNO_QUERY );
+            Reference< frame::XModel > xChartModel = xChartDoc;
 
             //data in columns?
             {
@@ -526,7 +526,6 @@ InternalDataProvider::createDataSequenceFromArray( const OUString& rArrayStr, co
             if (bInQuote)
             {
                 // Opening quote.
-                bAllNumeric = false;
                 pElem = nullptr;
             }
             else
@@ -534,6 +533,9 @@ InternalDataProvider::createDataSequenceFromArray( const OUString& rArrayStr, co
                 // Closing quote.
                 if (pElem)
                     aElem = OUString(pElem, p-pElem);
+                // Non empty string
+                if (!aElem.isEmpty())
+                    bAllNumeric = false;
                 aRawElems.push_back(aElem);
                 pElem = nullptr;
                 aElem.clear();
@@ -569,7 +571,7 @@ InternalDataProvider::createDataSequenceFromArray( const OUString& rArrayStr, co
 
         std::vector<double> aValues;
         aValues.reserve(aRawElems.size());
-        for (OUString & aRawElem : aRawElems)
+        for (const OUString & aRawElem : aRawElems)
         {
             if (aRawElem.isEmpty())
                 aValues.push_back(NAN);
@@ -590,8 +592,13 @@ InternalDataProvider::createDataSequenceFromArray( const OUString& rArrayStr, co
         aValues.reserve(aRawElems.size());
         if (bAllNumeric)
         {
-            for (OUString & aRawElem : aRawElems)
-                aValues.push_back(aRawElem.toDouble());
+            for (const OUString & aRawElem : aRawElems)
+            {
+                if (!aRawElem.isEmpty())
+                    aValues.push_back(aRawElem.toDouble());
+                else
+                    aValues.push_back(NAN);
+            }
         }
         else
         {
@@ -899,6 +906,7 @@ Sequence< uno::Any > SAL_CALL InternalDataProvider::getDataByRangeRepresentation
         }
         else
         {
+            // Maybe this 'else' part and the functions is not necessary anymore.
             Sequence< OUString > aLabels = m_bDataInColumns ? getRowDescriptions() : getColumnDescriptions();
             aResult.realloc( aLabels.getLength() );
             transform( aLabels.begin(), aLabels.end(),
@@ -1229,7 +1237,7 @@ OUString SAL_CALL InternalDataProvider::convertRangeFromXML( const OUString& aXM
     if( !aRange.aLowerRight.bIsEmpty &&
         ( aRange.aUpperLeft.nColumn != aRange.aLowerRight.nColumn ) &&
         ( aRange.aUpperLeft.nRow != aRange.aLowerRight.nRow ) )
-        return OUString(lcl_aCompleteRange);
+        return lcl_aCompleteRange;
 
     // attention: this data provider has the limitation that it stores
     // internally if data comes from columns or rows. It is intended for
@@ -1240,7 +1248,7 @@ OUString SAL_CALL InternalDataProvider::convertRangeFromXML( const OUString& aXM
     if( m_bDataInColumns )
     {
         if( aRange.aUpperLeft.nColumn == 0 )
-            return OUString(lcl_aCategoriesRangeName);
+            return lcl_aCategoriesRangeName;
         if( aRange.aUpperLeft.nRow == 0 )
             return lcl_aLabelRangePrefix + OUString::number( aRange.aUpperLeft.nColumn - 1 );
 
@@ -1249,7 +1257,7 @@ OUString SAL_CALL InternalDataProvider::convertRangeFromXML( const OUString& aXM
 
     // data in rows
     if( aRange.aUpperLeft.nRow == 0 )
-        return OUString(lcl_aCategoriesRangeName);
+        return lcl_aCategoriesRangeName;
     if( aRange.aUpperLeft.nColumn == 0 )
         return lcl_aLabelRangePrefix + OUString::number( aRange.aUpperLeft.nRow - 1 );
 
@@ -1497,7 +1505,7 @@ Reference< util::XCloneable > SAL_CALL InternalDataProvider::createClone()
 OUString SAL_CALL InternalDataProvider::getImplementationName()
 {
     // note: in xmloff this name is used to indicate usage of own data
-    return OUString("com.sun.star.comp.chart.InternalDataProvider");
+    return "com.sun.star.comp.chart.InternalDataProvider";
 }
 
 sal_Bool SAL_CALL InternalDataProvider::supportsService( const OUString& rServiceName )

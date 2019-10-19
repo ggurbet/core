@@ -295,7 +295,7 @@ std::vector< LanguageType > LocaleDataWrapper::getInstalledLanguageTypes()
     if ( !rInstalledLanguageTypes.empty() )
         return rInstalledLanguageTypes;
 
-    css::uno::Sequence< css::lang::Locale > xLoc =  getInstalledLocaleNames();
+    const css::uno::Sequence< css::lang::Locale > xLoc =  getInstalledLocaleNames();
     sal_Int32 nCount = xLoc.getLength();
     std::vector< LanguageType > xLang;
     xLang.reserve(nCount);
@@ -311,9 +311,9 @@ std::vector< LanguageType > LocaleDataWrapper::getInstalledLanguageTypes()
         LanguageType eLang = aLanguageTag.getLanguageType( false);
         if (areChecksEnabled() && eLang == LANGUAGE_DONTKNOW)
         {
-            OUStringBuffer aMsg("ConvertIsoNamesToLanguage: unknown MS-LCID for locale\n");
-            aMsg.append(aDebugLocale);
-            outputCheckMessage(aMsg.makeStringAndClear());
+            OUString aMsg = "ConvertIsoNamesToLanguage: unknown MS-LCID for locale\n" +
+                aDebugLocale;
+            outputCheckMessage(aMsg);
         }
 
         if ( eLang == LANGUAGE_NORWEGIAN)       // no_NO, not Bokmal (nb_NO), not Nynorsk (nn_NO)
@@ -1079,7 +1079,7 @@ void LocaleDataWrapper::getDigitGroupingImpl()
     }
 }
 
-const css::uno::Sequence< sal_Int32 > LocaleDataWrapper::getDigitGrouping() const
+css::uno::Sequence< sal_Int32 > LocaleDataWrapper::getDigitGrouping() const
 {
     ::utl::ReadWriteGuard aGuard( aMutex );
     if (!aGrouping.hasElements() || aGrouping[0] == 0)

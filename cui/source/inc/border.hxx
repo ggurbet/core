@@ -21,8 +21,6 @@
 
 #include <editeng/shaditem.hxx>
 #include <svtools/ctrlbox.hxx>
-#include <vcl/field.hxx>
-#include <vcl/fixed.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/valueset.hxx>
 #include <sfx2/tabdlg.hxx>
@@ -78,15 +76,12 @@ private:
 
 class SvxBorderTabPage : public SfxTabPage
 {
-    friend class VclPtr<SvxBorderTabPage>;
-    using TabPage::DeactivatePage;
-
     static const sal_uInt16 pRanges[];
 
 public:
+    SvxBorderTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs);
     virtual ~SvxBorderTabPage() override;
-    virtual void dispose() override;
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
     static const sal_uInt16*      GetRanges() { return pRanges; }
 
@@ -99,11 +94,8 @@ public:
     void                SetTableMode();
 protected:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
-    virtual void        DataChanged( const DataChangedEvent& rDCEvt ) override;
 
 private:
-    SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs);
-
     std::vector<Image> m_aShadowImgVec;
     std::vector<Image> m_aBorderImgVec;
 

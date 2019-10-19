@@ -21,11 +21,9 @@
 
 #include <sal/macros.h>
 
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/supportsservice.hxx>
-#include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/io/XInputStream.hpp>
 #include <unotools/mediadescriptor.hxx>
 #include <sfx2/docfile.hxx>
@@ -332,7 +330,7 @@ OUString SAL_CALL ScFilterDetect::detect( uno::Sequence<beans::PropertyValue>& l
 
 OUString SAL_CALL ScFilterDetect::getImplementationName()
 {
-    return OUString("com.sun.star.comp.calc.FormatDetector");
+    return "com.sun.star.comp.calc.FormatDetector";
 }
 
 sal_Bool ScFilterDetect::supportsService( const OUString& sServiceName )

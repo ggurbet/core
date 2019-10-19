@@ -219,7 +219,7 @@ void SwInputWindow::ShowWin()
 
         // Form should always begin with "=" , so set here
         OUString sEdit('=');
-        if( pMgr->GetCurField() && TYP_FORMELFLD == pMgr->GetCurTypeId() )
+        if( pMgr->GetCurField() && SwFieldTypesEnum::Formel == pMgr->GetCurTypeId() )
         {
             sEdit += pMgr->GetCurFieldPar2();
         }
@@ -384,8 +384,8 @@ IMPL_LINK( SwInputWindow, SelTableCellsNotify, SwWrtShell&, rCaller, void )
 
         aEdit->UpdateRange( sBoxNms, sTableNm );
 
-        OUString sNew = OUStringLiteral1(CH_LRE) + aEdit->GetText()
-            + OUStringLiteral1(CH_PDF);
+        OUString sNew = OUStringChar(CH_LRE) + aEdit->GetText()
+            + OUStringChar(CH_PDF);
 
         if( sNew != sOldFormula )
         {
@@ -432,8 +432,8 @@ IMPL_LINK_NOARG(SwInputWindow, ModifyHdl, Edit&, void)
     {
         pWrtShell->StartAllAction();
         DelBoxContent();
-        OUString sNew = OUStringLiteral1(CH_LRE) + aEdit->GetText()
-            + OUStringLiteral1(CH_PDF);
+        OUString sNew = OUStringChar(CH_LRE) + aEdit->GetText()
+            + OUStringChar(CH_PDF);
         pWrtShell->SwEditShell::Insert2( sNew );
         pWrtShell->EndAllAction();
         sOldFormula = sNew;
@@ -480,8 +480,7 @@ void InputEdit::UpdateRange(const OUString& rBoxes,
     OUString aPrefix = rName;
     if(!rName.isEmpty())
         aPrefix += ".";
-    OUString aBoxes = aPrefix;
-    aBoxes += rBoxes;
+    OUString aBoxes = aPrefix + rBoxes;
     Selection aSelection(GetSelection());
     sal_uInt16 nSel = static_cast<sal_uInt16>(aSelection.Len());
     // OS: The following expression ensures that in the overwrite mode,
@@ -495,9 +494,7 @@ void InputEdit::UpdateRange(const OUString& rBoxes,
     const sal_uInt16 nLen = aActText.getLength();
     if( !nLen )
     {
-        OUString aStr = OUStringBuffer().
-            append(cOpen).append(aBoxes).append(cClose).
-            makeStringAndClear();
+        OUString aStr = OUStringChar(cOpen) + aBoxes + OUStringChar(cClose);
         SetText(aStr);
         sal_Int32 nPos = aStr.indexOf( cClose );
         OSL_ENSURE(nPos != -1, "delimiter not found");
@@ -546,9 +543,7 @@ void InputEdit::UpdateRange(const OUString& rBoxes,
         }
         else
         {
-            OUString aTmp = OUStringBuffer().
-                append(cOpen).append(aBoxes).append(cClose).
-                makeStringAndClear();
+            OUString aTmp = OUStringChar(cOpen) + aBoxes + OUStringChar(cClose);
             nPos = static_cast<sal_uInt16>(aSelection.Min());
             aActText = aActText.replaceAt( nPos, 0, aTmp );
             nPos = nPos + aTmp.getLength();

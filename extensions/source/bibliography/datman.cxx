@@ -51,6 +51,7 @@
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <svl/urihelper.hxx>
 #include <tools/debug.hxx>
+#include <vcl/weld.hxx>
 #include "datman.hxx"
 #include "bibresid.hxx"
 #include "bibmod.hxx"
@@ -149,7 +150,7 @@ static Reference< XNameAccess >  getColumns(const Reference< XForm > & _rxForm)
         xReturn = xSupplyCols->getColumns();
 
     if (!xReturn.is() || !xReturn->getElementNames().hasElements())
-    {   // no ....
+    {   // no...
         xReturn = nullptr;
         // -> get the table the form is bound to and ask it for their columns
         Reference< XTablesSupplier >  xSupplyTables( getConnection( _rxForm ), UNO_QUERY );
@@ -170,8 +171,7 @@ static Reference< XNameAccess >  getColumns(const Reference< XForm > & _rxForm)
             }
             catch (const Exception&)
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN( "extensions.biblio", "::getColumns : caught an exception. " << exceptionToString(ex));
+                TOOLS_WARN_EXCEPTION( "extensions.biblio", "::getColumns");
             }
 
         }
@@ -318,7 +318,8 @@ MappingDialog_Impl::MappingDialog_Impl(weld::Window* pParent, BibDataManager* pM
     DBG_ASSERT(xFields.is(), "MappingDialog_Impl::MappingDialog_Impl : gave me an invalid form !");
     if (xFields.is())
     {
-        for(const OUString& rName : xFields->getElementNames())
+        const Sequence<OUString> aFieldNames = xFields->getElementNames();
+        for(const OUString& rName : aFieldNames)
             aListBoxes[0]->append_text(rName);
     }
 
@@ -403,7 +404,7 @@ class DBChangeDialog_Impl : public weld::GenericDialogController
 
     std::unique_ptr<weld::TreeView> m_xSelectionLB;
 
-    DECL_LINK(DoubleClickHdl, weld::TreeView&, void);
+    DECL_LINK(DoubleClickHdl, weld::TreeView&, bool);
 public:
     DBChangeDialog_Impl(weld::Window* pParent, BibDataManager* pMan);
 
@@ -432,9 +433,10 @@ DBChangeDialog_Impl::DBChangeDialog_Impl(weld::Window* pParent, BibDataManager* 
     }
 }
 
-IMPL_LINK_NOARG(DBChangeDialog_Impl, DoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(DBChangeDialog_Impl, DoubleClickHdl, weld::TreeView&, bool)
 {
     m_xDialog->response(RET_OK);
+    return true;
 }
 
 OUString  DBChangeDialog_Impl::GetCurrentURL()const
@@ -443,7 +445,7 @@ OUString  DBChangeDialog_Impl::GetCurrentURL()const
 }
 
 // XDispatchProvider
-BibInterceptorHelper::BibInterceptorHelper( ::bib::BibBeamer* pBibBeamer, css::uno::Reference< css::frame::XDispatch > const & xDispatch)
+BibInterceptorHelper::BibInterceptorHelper( const ::bib::BibBeamer* pBibBeamer, css::uno::Reference< css::frame::XDispatch > const & xDispatch)
 {
     if( pBibBeamer )
     {
@@ -567,7 +569,8 @@ void BibDataManager::InsertFields(const Reference< XFormComponent > & _rxGrid)
         // remove the old fields
         if ( xColContainer->hasElements() )
         {
-            for ( OUString& rName : xColContainer->getElementNames() )
+            const Sequence<OUString> aOldNames = xColContainer->getElementNames();
+            for ( const OUString& rName : aOldNames )
                 xColContainer->removeByName( rName );
         }
 
@@ -579,7 +582,8 @@ void BibDataManager::InsertFields(const Reference< XFormComponent > & _rxGrid)
 
         Reference< XPropertySet >  xField;
 
-        for ( const OUString& rField : xFields->getElementNames() )
+        const Sequence<OUString> aFieldNames = xFields->getElementNames();
+        for ( const OUString& rField : aFieldNames )
         {
             xFields->getByName( rField ) >>= xField;
 
@@ -750,7 +754,7 @@ Reference< XForm >  BibDataManager::createDatabaseForm(BibDBDescriptor& rDesc)
     return xResult;
 }
 
-Sequence< OUString > BibDataManager::getDataSources()
+Sequence< OUString > BibDataManager::getDataSources() const
 {
     Sequence< OUString > aTableNameSeq;
 
@@ -793,7 +797,7 @@ void BibDataManager::setFilter(const OUString& rQuery)
 
 }
 
-OUString BibDataManager::getFilter()
+OUString BibDataManager::getFilter() const
 {
 
     OUString aQueryString;
@@ -812,7 +816,7 @@ OUString BibDataManager::getFilter()
 
 }
 
-Sequence< OUString > BibDataManager::getQueryFields()
+Sequence< OUString > BibDataManager::getQueryFields() const
 {
     Sequence< OUString > aFieldSeq;
     Reference< XNameAccess >  xFields = getColumns( m_xForm );
@@ -821,7 +825,7 @@ Sequence< OUString > BibDataManager::getQueryFields()
     return aFieldSeq;
 }
 
-OUString BibDataManager::getQueryField()
+OUString BibDataManager::getQueryField() const
 {
     BibConfig* pConfig = BibModul::GetConfig();
     OUString aFieldString = pConfig->getQueryField();
@@ -846,11 +850,9 @@ void BibDataManager::startQueryWith(const OUString& rQuery)
     {
         aQueryString=aQuoteChar;
         aQueryString+=getQueryField();
-        aQueryString+=aQuoteChar;
-        aQueryString+=" like '";
+        aQueryString+=aQuoteChar + " like '";
         OUString sQuery = rQuery.replaceAll("?","_").replaceAll("*","%");
-        aQueryString += sQuery;
-        aQueryString+="%'";
+        aQueryString += sQuery + "%'";
     }
     setFilter(aQueryString);
 }
@@ -901,7 +903,7 @@ void BibDataManager::setActiveDataSource(const OUString& rURL)
             aPropertySet->setPropertyValue("FetchSize", aVal);
             OUString aString("SELECT * FROM ");
             // quote the table name which may contain catalog.schema.table
-            Reference<XDatabaseMetaData> xMetaData(xConnection->getMetaData(),UNO_QUERY);
+            Reference<XDatabaseMetaData> xMetaData = xConnection->getMetaData();
             aQuoteChar = xMetaData->getIdentifierQuoteString();
 
             OUString sCatalog, sSchema, sName;
@@ -1170,8 +1172,7 @@ Reference< awt::XControlModel > BibDataManager::loadControlModel(
                     const OUString& rName, bool bForceListBox)
 {
     Reference< awt::XControlModel > xModel;
-    OUString aName("View_");
-    aName += rName;
+    OUString aName = "View_" + rName;
 
     try
     {
@@ -1372,7 +1373,7 @@ uno::Reference< form::runtime::XFormController > const & BibDataManager::GetForm
     return m_xFormCtrl;
 }
 
-void BibDataManager::RegisterInterceptor( ::bib::BibBeamer* pBibBeamer)
+void BibDataManager::RegisterInterceptor( const ::bib::BibBeamer* pBibBeamer)
 {
     DBG_ASSERT( !m_xInterceptorHelper.is(), "BibDataManager::RegisterInterceptor: called twice!" );
 
@@ -1381,7 +1382,7 @@ void BibDataManager::RegisterInterceptor( ::bib::BibBeamer* pBibBeamer)
 }
 
 
-bool BibDataManager::HasActiveConnection()
+bool BibDataManager::HasActiveConnection() const
 {
     return getConnection( m_xForm ).is();
 }

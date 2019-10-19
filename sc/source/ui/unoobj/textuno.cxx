@@ -29,28 +29,21 @@
 #include <editeng/editobj.hxx>
 #include <editeng/flditem.hxx>
 #include <editeng/fhgtitem.hxx>
-#include <svx/unomid.hxx>
 #include <editeng/unoprnms.hxx>
 #include <editeng/unofored.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/svapp.hxx>
-#include <com/sun/star/awt/FontSlant.hpp>
 
-#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <editeng/unoipset.hxx>
 #include <textuno.hxx>
 #include <fielduno.hxx>
-#include <servuno.hxx>
 #include <editsrc.hxx>
 #include <docsh.hxx>
 #include <editutil.hxx>
 #include <miscuno.hxx>
 #include <cellsuno.hxx>
-#include <hints.hxx>
 #include <cellvalue.hxx>
 #include <cellform.hxx>
 #include <patattr.hxx>
-#include <formulacell.hxx>
 #include <docfunc.hxx>
 #include <scmod.hxx>
 
@@ -144,9 +137,7 @@ uno::Reference<text::XText> SAL_CALL ScHeaderFooterContentObj::getRightText()
 sal_Int64 SAL_CALL ScHeaderFooterContentObj::getSomething(
                 const uno::Sequence<sal_Int8 >& rId )
 {
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
+    if ( isUnoTunnelId<ScHeaderFooterContentObj>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }
@@ -166,11 +157,7 @@ const uno::Sequence<sal_Int8>& ScHeaderFooterContentObj::getUnoTunnelId()
 rtl::Reference<ScHeaderFooterContentObj> ScHeaderFooterContentObj::getImplementation(
                                 const uno::Reference<sheet::XHeaderFooterContent>& rObj)
 {
-    rtl::Reference<ScHeaderFooterContentObj> pRet;
-    uno::Reference<lang::XUnoTunnel> xUT(rObj, uno::UNO_QUERY);
-    if (xUT.is())
-        pRet = reinterpret_cast<ScHeaderFooterContentObj*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething(getUnoTunnelId())));
-    return pRet;
+    return comphelper::getUnoTunnelImplementation<ScHeaderFooterContentObj>(rObj);
 }
 
 void ScHeaderFooterContentObj::Init( const EditTextObject* pLeft,
@@ -431,16 +418,13 @@ void SAL_CALL ScHeaderFooterTextObj::insertTextContent(
             switch ( aTextData.GetPart() )
             {
                 case ScHeaderFooterPart::LEFT:
-                    xTextRange = uno::Reference<text::XTextRange>(
-                                  aTextData.GetContentObj()->getLeftText(), uno::UNO_QUERY);
+                    xTextRange = aTextData.GetContentObj()->getLeftText();
                 break;
                 case ScHeaderFooterPart::CENTER:
-                    xTextRange = uno::Reference<text::XTextRange>(
-                                  aTextData.GetContentObj()->getCenterText(), uno::UNO_QUERY);
+                    xTextRange = aTextData.GetContentObj()->getCenterText();
                 break;
                 case ScHeaderFooterPart::RIGHT:
-                    xTextRange = uno::Reference<text::XTextRange>(
-                                  aTextData.GetContentObj()->getRightText(), uno::UNO_QUERY);
+                    xTextRange = aTextData.GetContentObj()->getRightText();
                 break;
             }
 
@@ -812,7 +796,7 @@ SvxTextForwarder* ScCellTextData::GetTextForwarder()
         if ( pDocShell )
         {
             ScDocument& rDoc = pDocShell->GetDocument();
-            pEditEngine = rDoc.CreateFieldEditEngine(/*bUpdateMode*/true);
+            pEditEngine = rDoc.CreateFieldEditEngine();
         }
         else
         {

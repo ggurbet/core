@@ -21,7 +21,6 @@
 #define INCLUDED_SVTOOLS_INC_TABLE_TABLECONTROLINTERFACE_HXX
 
 #include <sal/types.h>
-#include <vcl/event.hxx>
 #include <vcl/seleng.hxx>
 
 #include <svtools/table/tabletypes.hxx>
@@ -111,7 +110,7 @@ namespace svt { namespace table
         */
         long    nStartPixel;
 
-        /** the end of the column, in pixels, plus 1. Effectively, this is the accumulated width of a all columns
+        /** the end of the column, in pixels, plus 1. Effectively, this is the accumulated width of all columns
             up to the current one.
 
             Huh? Earlier you said that the nStartPixel of columns
@@ -216,7 +215,7 @@ namespace svt { namespace table
         /// invalidates the table window
         virtual void    invalidate( TableArea const i_what ) = 0;
 
-        /// calculates a width, given in pixels, into a AppFont-based width
+        /// calculates a width, given in pixels, into an AppFont-based width
         virtual long    pixelWidthToAppFont( long const i_pixels ) const = 0;
 
         /// shows a tracking rectangle

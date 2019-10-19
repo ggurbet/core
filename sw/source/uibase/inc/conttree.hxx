@@ -116,6 +116,9 @@ class SwContentTree final
     bool                m_bIsKeySpace;
     tools::Rectangle           m_aOldRectangle;
 
+    // outline root mode drag & drop
+    std::vector< SvTreeListEntry* > m_aDndOutlinesSelected;
+
     /**
      * Before any data will be deleted, the last active entry has to be found.
      * After this the UserData will be deleted
@@ -126,7 +129,7 @@ class SwContentTree final
     using SvTreeListBox::EditEntry;
 
     virtual void    RequestHelp( const HelpEvent& rHEvt ) override;
-    virtual void    InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&, SvLBoxButtonKind) override;
+    virtual void    InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&) override;
     virtual void    DataChanged( const DataChangedEvent& rDCEvt ) override;
 
     SwNavigationPI* GetParentWindow();
@@ -162,7 +165,7 @@ class SwContentTree final
 
     void            EditEntry( SvTreeListEntry const * pEntry, EditEntryMode nMode );
 
-    void            GotoContent(SwContent* pCnt);
+    void            GotoContent(const SwContent* pCnt);
     static void     SetInDrag(bool bSet) {bIsInDrag = bSet;}
 
     virtual VclPtr<PopupMenu> CreateContextMenu() override;
@@ -216,11 +219,11 @@ public:
     /** folded together will not be glidled */
     void            HideTree();
 
-    bool            IsConstantView() { return State::CONSTANT == m_eState; }
-    bool            IsActiveView()   { return State::ACTIVE == m_eState; }
-    bool            IsHiddenView()   { return State::HIDDEN == m_eState; }
+    bool            IsConstantView() const { return State::CONSTANT == m_eState; }
+    bool            IsActiveView() const   { return State::ACTIVE == m_eState; }
+    bool            IsHiddenView() const   { return State::HIDDEN == m_eState; }
 
-    const SwWrtShell*   GetActiveWrtShell() {return m_pActiveShell;}
+    const SwWrtShell*   GetActiveWrtShell() const {return m_pActiveShell;}
     SwWrtShell*         GetHiddenWrtShell() {return m_pHiddenShell;}
 
     DECL_LINK( ContentDoubleClickHdl, SvTreeListBox*, bool );
@@ -315,7 +318,7 @@ private:
     virtual void    GetFocus() override;
     virtual void    SelectHdl() override;
     virtual void    DeselectHdl() override;
-    virtual void    InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&, SvLBoxButtonKind) override;
+    virtual void    InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&) override;
 
     void            Clear();
 

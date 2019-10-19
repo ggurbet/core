@@ -19,17 +19,12 @@
 
 #include <strings.hrc>
 #include <dialmgr.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
-#include <sfx2/request.hxx>
 
 #include <svx/connctrl.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svx/dlgutil.hxx>
 #include <svx/ofaitem.hxx>
 
-#include <svx/svdoedge.hxx>
 #include <svx/svdview.hxx>
 #include <svx/sxekitm.hxx>
 #include <svx/sxelditm.hxx>
@@ -50,18 +45,16 @@ const sal_uInt16 SvxConnectionPage::pRanges[] =
 |* dialog for changing connectors
 |*
 \************************************************************************/
-
 SvxConnectionDialog::SvxConnectionDialog(weld::Window* pParent, const SfxItemSet& rInAttrs, const SdrView* pSdrView)
     : SfxSingleTabDialogController(pParent, &rInAttrs)
 {
-    TabPageParent pPageParent(get_content_area(), this);
-    VclPtrInstance<SvxConnectionPage> pPage(pPageParent, rInAttrs);
+    auto xPage = std::make_unique<SvxConnectionPage>(get_content_area(), this, rInAttrs);
 
-    pPage->SetView(pSdrView);
-    pPage->Construct();
+    xPage->SetView(pSdrView);
+    xPage->Construct();
 
-    SetTabPage(pPage);
-    m_xDialog->set_title(CuiResId( RID_SVXSTR_CONNECTOR));
+    SetTabPage(std::move(xPage));
+    m_xDialog->set_title(CuiResId(RID_SVXSTR_CONNECTOR));
 }
 
 /*************************************************************************
@@ -70,8 +63,8 @@ SvxConnectionDialog::SvxConnectionDialog(weld::Window* pParent, const SfxItemSet
 |*
 \************************************************************************/
 
-SvxConnectionPage::SvxConnectionPage(TabPageParent pWindow, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pWindow, "cui/ui/connectortabpage.ui", "ConnectorTabPage", &rInAttrs)
+SvxConnectionPage::SvxConnectionPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/connectortabpage.ui", "ConnectorTabPage", &rInAttrs)
     , rOutAttrs(rInAttrs)
     , aAttrSet(*rInAttrs.GetPool())
     , pView(nullptr)
@@ -126,13 +119,7 @@ SvxConnectionPage::SvxConnectionPage(TabPageParent pWindow, const SfxItemSet& rI
 
 SvxConnectionPage::~SvxConnectionPage()
 {
-    disposeOnce();
-}
-
-void SvxConnectionPage::dispose()
-{
     m_xCtlPreview.reset();
-    SfxTabPage::dispose();
 }
 
 /*************************************************************************
@@ -316,11 +303,10 @@ void SvxConnectionPage::Construct()
 |* creates the page
 |*
 \************************************************************************/
-
-VclPtr<SfxTabPage> SvxConnectionPage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SvxConnectionPage::Create(weld::Container* pPage, weld::DialogController* pController,
                                              const SfxItemSet* rAttrs)
 {
-    return VclPtr<SvxConnectionPage>::Create(pParent, *rAttrs);
+    return std::make_unique<SvxConnectionPage>(pPage, pController, *rAttrs);
 }
 
 IMPL_LINK_NOARG(SvxConnectionPage, ChangeAttrListBoxHdl_Impl, weld::ComboBox&, void)

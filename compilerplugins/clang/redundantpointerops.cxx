@@ -6,6 +6,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+#ifndef LO_CLANG_SHARED_PLUGINS
 
 #include <cassert>
 #include <string>
@@ -14,6 +15,8 @@
 #include <set>
 
 #include <clang/AST/CXXInheritance.h>
+
+#include "check.hxx"
 #include "compat.hxx"
 #include "plugin.hxx"
 
@@ -43,7 +46,8 @@ public:
 
     virtual void run() override
     {
-        TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
+        if (preRun())
+            TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
     }
 
     bool VisitFunctionDecl(FunctionDecl const *);
@@ -73,8 +77,10 @@ bool RedundantPointerOps::VisitMemberExpr(MemberExpr const * memberExpr)
         {
             if (unaryOp->getOpcode() == UO_AddrOf)
                 report(
-                    DiagnosticsEngine::Warning, "'&' followed by '->', rather use '.'",
+                    DiagnosticsEngine::Warning,
+                    "'&' followed by '->' operating on %0, rather use '.'",
                     compat::getBeginLoc(memberExpr))
+                    << memberExpr->getBase()->getType()->getPointeeType()
                     << memberExpr->getSourceRange();
 
         }
@@ -82,8 +88,10 @@ bool RedundantPointerOps::VisitMemberExpr(MemberExpr const * memberExpr)
         {
             if (operatorCallExpr->getOperator() == OO_Amp)
                 report(
-                    DiagnosticsEngine::Warning, "'&' followed by '->', rather use '.'",
+                    DiagnosticsEngine::Warning,
+                    "'&' followed by '->' operating on %0, rather use '.'",
                     compat::getBeginLoc(memberExpr))
+                    << memberExpr->getBase()->getType()->getPointeeType()
                     << memberExpr->getSourceRange();
 
         }
@@ -111,19 +119,57 @@ bool RedundantPointerOps::VisitUnaryOperator(UnaryOperator const * unaryOperator
         return true;
     if (unaryOperator->getOpcode() != UO_Deref)
         return true;
-    auto innerOp = dyn_cast<UnaryOperator>(unaryOperator->getSubExpr()->IgnoreParenImpCasts());
-    if (!innerOp || innerOp->getOpcode() != UO_AddrOf)
-        return true;
+    auto subExpr = unaryOperator->getSubExpr()->IgnoreParenImpCasts();
+    auto innerOp = dyn_cast<UnaryOperator>(subExpr);
+    if (innerOp && innerOp->getOpcode() == UO_AddrOf)
+        report(
+            DiagnosticsEngine::Warning, "'&' followed by '*' operating on %0, rather use '.'",
+            compat::getBeginLoc(unaryOperator))
+            << innerOp->getSubExpr()->getType() << unaryOperator->getSourceRange();
+    if (auto cxxMemberCallExpr = dyn_cast<CXXMemberCallExpr>(subExpr))
+    {
+        auto methodDecl = cxxMemberCallExpr->getMethodDecl();
+        if (methodDecl->getIdentifier() && methodDecl->getName() == "get")
+        {
+            auto const e = cxxMemberCallExpr->getImplicitObjectArgument();
+            // First check the object type as written, in case the get member function is
+            // declared at a base class of std::unique_ptr or std::shared_ptr:
+            auto const t = e->IgnoreImpCasts()->getType();
+            auto const tc1 = loplugin::TypeCheck(t);
+            if (!(tc1.ClassOrStruct("unique_ptr").StdNamespace()
+                  || tc1.ClassOrStruct("shared_ptr").StdNamespace()))
+            {
+                // Then check the object type coerced to the type of the get member function, in
+                // case the type-as-written is derived from one of these types (tools::SvRef is
+                // final, but the rest are not; but note that this will fail when the type-as-
+                // written is derived from std::unique_ptr or std::shared_ptr for which the get
+                // member function is declared at a base class):
+                auto const tc2 = loplugin::TypeCheck(e->getType());
+                if (!((tc2.ClassOrStruct("unique_ptr").StdNamespace()
+                       || tc2.ClassOrStruct("shared_ptr").StdNamespace()
+                       || (tc2.Class("Reference").Namespace("uno").Namespace("star")
+                           .Namespace("sun").Namespace("com").GlobalNamespace())
+                       || tc2.Class("Reference").Namespace("rtl").GlobalNamespace()
+                       || tc2.Class("SvRef").Namespace("tools").GlobalNamespace())))
+                {
+                    return true;
+                }
+            }
+            report(
+                DiagnosticsEngine::Warning,
+                "'*' followed by '.get()' operating on %0, just use '*'",
+                compat::getBeginLoc(unaryOperator))
+                << t.getLocalUnqualifiedType() << unaryOperator->getSourceRange();
 
-    report(
-        DiagnosticsEngine::Warning, "'&' followed by '*', rather use '.'",
-        compat::getBeginLoc(unaryOperator))
-        << unaryOperator->getSourceRange();
+        }
+    }
     return true;
 }
 
-loplugin::Plugin::Registration< RedundantPointerOps > X("redundantpointerops");
+loplugin::Plugin::Registration< RedundantPointerOps > redundantpointerops("redundantpointerops");
 
-}
+} // namespace
+
+#endif // LO_CLANG_SHARED_PLUGINS
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

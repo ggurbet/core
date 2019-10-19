@@ -17,26 +17,15 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <osl/file.hxx>
-#include <tools/stream.hxx>
-#include <unotools/resmgr.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/graphicfilter.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/image.hxx>
-#include <vcl/imagerepository.hxx>
-#include <vcl/ImageTree.hxx>
 #include <sal/types.h>
 #include <image.h>
 
-#include <BitmapDisabledImageFilter.hxx>
 #include <BitmapColorizeFilter.hxx>
-
-#if OSL_DEBUG_LEVEL > 0
-#include <rtl/strbuf.hxx>
-#endif
 
 using namespace css;
 
@@ -51,24 +40,28 @@ Image::Image(const BitmapEx& rBitmapEx)
 
 Image::Image(uno::Reference<graphic::XGraphic> const & rxGraphic)
 {
-    const Graphic aGraphic(rxGraphic);
-    ImplInit(aGraphic.GetBitmapEx());
+    if (rxGraphic.is())
+    {
+        const Graphic aGraphic(rxGraphic);
+
+        OUString aPath;
+        if (aGraphic.getOriginURL().startsWith("private:graphicrepository/", &aPath))
+            mpImplData = std::make_shared<ImplImage>(aPath, Size());
+        else
+            ImplInit(aGraphic.GetBitmapEx());
+    }
 }
 
 Image::Image(const OUString & rFileUrl)
 {
     OUString sImageName;
     if (rFileUrl.startsWith("private:graphicrepository/", &sImageName))
-    {
         mpImplData = std::make_shared<ImplImage>(sImageName, Size());
-    }
     else
     {
         Graphic aGraphic;
         if (ERRCODE_NONE == GraphicFilter::LoadGraphic(rFileUrl, IMP_PNG, aGraphic))
-        {
             ImplInit(aGraphic.GetBitmapEx());
-        }
     }
 }
 
@@ -81,6 +74,13 @@ void Image::ImplInit(const BitmapEx& rBitmapEx)
 {
     if (!rBitmapEx.IsEmpty())
         mpImplData = std::make_shared<ImplImage>(rBitmapEx);
+}
+
+OUString Image::GetStock() const
+{
+    if (mpImplData)
+        return mpImplData->getStock();
+    return OUString();
 }
 
 Size Image::GetSizePixel() const

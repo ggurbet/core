@@ -69,9 +69,9 @@
 #include <iterator>
 #include <com/sun/star/sdb/XReportDocumentsSupplier.hpp>
 #include <com/sun/star/sdb/XFormDocumentsSupplier.hpp>
+#include <svtools/querydelete.hxx>
 #include <unotools/pathoptions.hxx>
 #include <sfx2/docfilt.hxx>
-#include <svtools/fileview.hxx>
 #include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
 #include <defaultobjectnamecheck.hxx>
@@ -241,10 +241,9 @@ void OApplicationController::deleteObjects( ElementType _eType, const std::vecto
                     // which may also be a part of the list
                     // #i33353#
                     OSL_ENSURE( aThisRound->getLength() - 1 >= 0, "OApplicationController::deleteObjects: empty name?" );
-                    OUStringBuffer sSmallestSiblingName( *aThisRound );
-                    sSmallestSiblingName.append( sal_Unicode( '/' + 1) );
+                    OUString sSmallestSiblingName = *aThisRound + OUStringChar( sal_Unicode( '/' + 1) );
 
-                    std::set< OUString >::const_iterator aUpperChildrenBound = aDeleteNames.lower_bound( sSmallestSiblingName.makeStringAndClear() );
+                    std::set< OUString >::const_iterator aUpperChildrenBound = aDeleteNames.lower_bound( sSmallestSiblingName );
                     for ( std::set< OUString >::const_iterator aObsolete = aThisRound;
                           aObsolete != aUpperChildrenBound;
                         )
@@ -635,7 +634,7 @@ bool OApplicationController::paste( ElementType _eType, const svx::ODataAccessDe
                     {
                         // the concrete query
                         Reference< XQueryDefinitionsSupplier > xSourceQuerySup(
-                            getDataSourceByName( sDataSourceName, getView(), getORB(), nullptr ),
+                            getDataSourceByName( sDataSourceName, getFrameWeld(), getORB(), nullptr ),
                             UNO_QUERY_THROW );
                         Reference< XNameAccess > xQueries( xSourceQuerySup->getQueryDefinitions(), UNO_SET_THROW );
                         if ( xQueries->hasByName( sCommand ) )
@@ -653,12 +652,12 @@ bool OApplicationController::paste( ElementType _eType, const svx::ODataAccessDe
                     if (!bSuccess)
                     {
                         OSL_FAIL("OApplicationController::paste: could not extract the source query object!");
-                        // TODO: maybe this is worth an error message to be displayed to the user ....
+                        // TODO: maybe this is worth an error message to be displayed to the user...
                         return false;
                     }
                 }
 
-                Reference< XNameContainer > xDestQueries(getQueryDefinitions(), UNO_QUERY);
+                Reference< XNameContainer > xDestQueries = getQueryDefinitions();
                 Reference< XSingleServiceFactory > xQueryFactory(xDestQueries, UNO_QUERY);
                 if (!xQueryFactory.is())
                 {
@@ -666,7 +665,7 @@ bool OApplicationController::paste( ElementType _eType, const svx::ODataAccessDe
                     return false;
                 }
 
-                // here we have everything needed to create a new query object ...
+                // here we have everything needed to create a new query object...
                 // ... ehm, except a new name
                 ensureConnection();
 

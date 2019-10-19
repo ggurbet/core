@@ -27,14 +27,12 @@
 #include <vcl/virdev.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/toolkit/unowrap.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/sysdata.hxx>
 
 #include <salgdi.hxx>
-#include <svdata.hxx>
 #include <window.h>
 #include <outdev.h>
-#include <outdevstatestack.hxx>
-#include <PhysicalFontCollection.hxx>
 
 #ifdef DISABLE_DYNLOADING
 // Linking all needed LO code into one .so/executable, these already
@@ -63,7 +61,6 @@ OutputDevice::OutputDevice(OutDevType eOutDevType) :
     mpFontInstance                     = nullptr;
     mpDeviceFontList                = nullptr;
     mpDeviceFontSizeList            = nullptr;
-    mpOutDevStateStack.reset(new OutDevStateStack);
     mpAlphaVDev                     = nullptr;
     mpExtOutDevData                 = nullptr;
     mnOutOffX                       = 0;
@@ -160,15 +157,9 @@ void OutputDevice::dispose()
     mpOutDevData.reset();
 
     // for some reason, we haven't removed state from the stack properly
-    if ( !mpOutDevStateStack->empty() )
-    {
+    if ( !maOutDevStateStack.empty() )
         SAL_WARN( "vcl.gdi", "OutputDevice::~OutputDevice(): OutputDevice::Push() calls != OutputDevice::Pop() calls" );
-        while ( !mpOutDevStateStack->empty() )
-        {
-            mpOutDevStateStack->pop_back();
-        }
-    }
-    mpOutDevStateStack.reset();
+    maOutDevStateStack.clear();
 
     // release the active font instance
     mpFontInstance.clear();
@@ -728,9 +719,5 @@ bool OutputDevice::DrawEPS( const Point& rPoint, const Size& rSize,
 
     return bDrawn;
 }
-
-void OutputDevice::ReleaseFontCache() { mxFontCache.reset(); }
-
-void OutputDevice::ReleaseFontCollection() { mxFontCollection.reset(); }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -42,6 +42,7 @@ class SvNumberFormatter;
 class SfxErrorHandler;
 class SfxFrame;
 struct SfxItemPropertyMapEntry;
+class VclSimpleEvent;
 namespace svtools { class ColorConfig; }
 
 namespace com { namespace sun { namespace star { namespace frame {
@@ -112,7 +113,7 @@ public:
     // virtual methods for the option dialog
     virtual std::unique_ptr<SfxItemSet> CreateItemSet( sal_uInt16 nId ) override;
     virtual void         ApplyItemSet( sal_uInt16 nId, const SfxItemSet& rSet ) override;
-    virtual VclPtr<SfxTabPage> CreateTabPage( sal_uInt16 nId, TabPageParent pParent, const SfxItemSet& rSet ) override;
+    virtual std::unique_ptr<SfxTabPage> CreateTabPage( sal_uInt16 nId, weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet ) override;
     virtual std::unique_ptr<SfxStyleFamilies> CreateStyleFamilies() override;
 
     SdExtPropertySetInfoCache gImplImpressPropertySetInfoCache;
@@ -148,7 +149,7 @@ private:
     /** Take an outline from a text document and create a new impress
         document according to the structure of the outline.
         @param rRequest
-            This typically is the unmodified request from a execute()
+            This typically is the unmodified request from an execute()
             function from where this function is called.
     */
     static bool OutlineToImpress(SfxRequest const & rRequest);

@@ -92,7 +92,7 @@ public:
 
     SfxFoundCache_Impl& operator[] ( size_t i )
     {
-        return *maData[i].get();
+        return *maData[i];
     }
 
     size_t size() const
@@ -396,7 +396,7 @@ void SfxBindings::SetState
     if ( nRegLevel )
     {
         SfxItemIter aIter(rSet);
-        for ( const SfxPoolItem *pItem = aIter.FirstItem();
+        for ( const SfxPoolItem *pItem = aIter.GetCurItem();
               pItem;
               pItem = aIter.NextItem() )
             Invalidate( pItem->Which() );
@@ -410,7 +410,7 @@ void SfxBindings::SetState
         // Iterate over the itemset, update if the slot bound
         //! Bug: Use WhichIter and possibly send VoidItems up
         SfxItemIter aIter(rSet);
-        for ( const SfxPoolItem *pItem = aIter.FirstItem();
+        for ( const SfxPoolItem *pItem = aIter.GetCurItem();
               pItem;
               pItem = aIter.NextItem() )
         {
@@ -1136,7 +1136,7 @@ std::unique_ptr<SfxItemSet> SfxBindings::CreateSet_Impl
     std::size_t nCachePos = pImpl->nMsgPos;
     const SfxSlot *pSibling = pRealSlot->GetNextSlot();
 
-    // the Slots ODF a interfaces ar linked in a circle
+    // the Slots ODF and interfaces are linked in a circle
     while ( pSibling > pRealSlot )
     {
         SfxStateFunc pSiblingFnc=nullptr;
@@ -1677,7 +1677,7 @@ void SfxBindings::SetActiveFrame( const css::uno::Reference< css::frame::XFrame 
             pDispatcher->GetFrame()->GetFrame().GetFrameInterface(), css::uno::UNO_QUERY ) );
 }
 
-const css::uno::Reference< css::frame::XFrame > SfxBindings::GetActiveFrame() const
+css::uno::Reference< css::frame::XFrame > SfxBindings::GetActiveFrame() const
 {
     const css::uno::Reference< css::frame::XFrame > xFrame( pImpl->xProv, css::uno::UNO_QUERY );
     if ( xFrame.is() || !pDispatcher )

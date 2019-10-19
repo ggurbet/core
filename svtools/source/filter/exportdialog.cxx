@@ -34,7 +34,6 @@
 #include <com/sun/star/graphic/PrimitiveFactory2D.hpp>
 #include <com/sun/star/geometry/AffineMatrix2D.hpp>
 #include <com/sun/star/io/XStream.hpp>
-#include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <unotools/streamwrap.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/outdev.hxx>
@@ -102,7 +101,7 @@ static MapUnit GetMapUnit( sal_Int32 nUnit )
     return aMapUnit;
 }
 
-sal_Int32 ExportDialog::GetDefaultUnit()
+sal_Int32 ExportDialog::GetDefaultUnit() const
 {
     sal_Int32 nDefaultUnit = UNIT_CM;
     switch( mrFltCallPara.eFieldUnit )
@@ -137,10 +136,9 @@ static basegfx::B2DRange GetShapeRangeForXShape( const uno::Reference< drawing::
     const uno::Sequence< beans::PropertyValue > aParams;
     const uno::Sequence< uno::Reference< graphic::XPrimitive2D > > aPrimitiveSequence( rxPrimitiveFactory2D->createPrimitivesFromXShape( rxShape, aParams ) );
 
-    const sal_Int32 nCount = aPrimitiveSequence.getLength();
-    for( sal_Int32 nIndex = 0; nIndex < nCount; nIndex++ )
+    for( const auto& rPrimitive : aPrimitiveSequence )
     {
-        const geometry::RealRectangle2D aRect( aPrimitiveSequence[ nIndex ]->getRange( rViewInformation ) );
+        const geometry::RealRectangle2D aRect( rPrimitive->getRange( rViewInformation ) );
         aShapeRange.expand( basegfx::B2DTuple( aRect.X1, aRect.Y1 ) );
         aShapeRange.expand( basegfx::B2DTuple( aRect.X2, aRect.Y2 ) );
     }

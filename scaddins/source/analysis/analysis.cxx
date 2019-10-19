@@ -143,16 +143,12 @@ double AnalysisAddIn::FactDouble( sal_Int32 nNum )
 
 OUString AnalysisAddIn::getImplementationName_Static()
 {
-    return OUString( MY_IMPLNAME );
+    return MY_IMPLNAME;
 }
 
 uno::Sequence< OUString > AnalysisAddIn::getSupportedServiceNames_Static()
 {
-    uno::Sequence< OUString >   aRet(2);
-    OUString*         pArray = aRet.getArray();
-    pArray[0] = ADDIN_SERVICE;
-    pArray[1] = MY_SERVICE;
-    return aRet;
+    return { ADDIN_SERVICE, MY_SERVICE };
 }
 
 uno::Reference< uno::XInterface > AnalysisAddIn_CreateInstance(
@@ -165,7 +161,7 @@ uno::Reference< uno::XInterface > AnalysisAddIn_CreateInstance(
 OUString SAL_CALL AnalysisAddIn::getServiceName()
 {
     // name of specific AddIn service
-    return OUString( MY_SERVICE );
+    return MY_SERVICE;
 }
 
 // XServiceInfo
@@ -571,19 +567,11 @@ double SAL_CALL AnalysisAddIn::getSeriessum( double fX, double fN, double fM, co
 
     if( fX != 0.0 )
     {
-        sal_Int32       n1, n2;
-        sal_Int32       nE1 = aCoeffList.getLength();
-        sal_Int32       nE2;
-
-        for( n1 = 0 ; n1 < nE1 ; n1++ )
+        for( const uno::Sequence< double >& rList : aCoeffList )
         {
-            const uno::Sequence< double >&    rList = aCoeffList[ n1 ];
-            nE2 = rList.getLength();
-            const double*           pList = rList.getConstArray();
-
-            for( n2 = 0 ; n2 < nE2 ; n2++ )
+            for( const double fCoef : rList )
             {
-                fRet += pList[ n2 ] * pow( fX, fN );
+                fRet += fCoef * pow( fX, fN );
 
                 fN += fM;
             }

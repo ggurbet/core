@@ -31,6 +31,7 @@
 #include <vcl/salnativewidgets.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/layout.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/vclstatuslistener.hxx>
 #include <vcl/uitest/uiobject.hxx>
 
@@ -122,34 +123,6 @@ void Button::Click()
     ImplCallEventListenersAndHandler( VclEventId::ButtonClick, [this] () { maClickHdl.Call(this); } );
 }
 
-OUString Button::GetStandardText(StandardButtonType eButton)
-{
-    static const char* aResIdAry[static_cast<int>(StandardButtonType::Count)] =
-    {
-        // http://lists.freedesktop.org/archives/libreoffice/2013-January/044513.html
-        // Under windows we don't want accelerators on ok/cancel but do on other
-        // buttons
-#ifdef _WIN32
-        SV_BUTTONTEXT_OK_NOMNEMONIC,
-        SV_BUTTONTEXT_CANCEL_NOMNEMONIC,
-#else
-        SV_BUTTONTEXT_OK,
-        SV_BUTTONTEXT_CANCEL,
-#endif
-        SV_BUTTONTEXT_YES,
-        SV_BUTTONTEXT_NO,
-        SV_BUTTONTEXT_RETRY,
-        SV_BUTTONTEXT_HELP,
-        SV_BUTTONTEXT_CLOSE,
-        SV_BUTTONTEXT_MORE,
-        SV_BUTTONTEXT_IGNORE,
-        SV_BUTTONTEXT_ABORT,
-        SV_BUTTONTEXT_LESS,
-    };
-
-    return VclResId(aResIdAry[static_cast<sal_uInt16>(eButton)]);
-}
-
 void Button::SetModeImage( const Image& rImage )
 {
     if ( rImage != mpButtonData->maImage )
@@ -218,8 +191,8 @@ void Button::ImplDrawAlignedImage(OutputDevice* pDev, Point& rPos,
                                   bool bAddImageSep)
 {
     OUString aText(GetText());
-    bool bDrawImage = HasImage() && ! (ImplGetButtonState() & DrawButtonFlags::NoImage);
-    bool bDrawText  = !aText.isEmpty() && ! (ImplGetButtonState() & DrawButtonFlags::NoText);
+    bool bDrawImage = HasImage();
+    bool bDrawText  = !aText.isEmpty();
     bool bHasSymbol = pSymbolRect != nullptr;
 
     // No text and no image => nothing to do => return
@@ -531,22 +504,6 @@ void Button::SetSmallSymbol()
     mpButtonData->mbSmallSymbol = true;
 }
 
-void Button::EnableImageDisplay( bool bEnable )
-{
-    if( bEnable )
-        mpButtonData->mnButtonState &= ~DrawButtonFlags::NoImage;
-    else
-        mpButtonData->mnButtonState |= DrawButtonFlags::NoImage;
-}
-
-void Button::EnableTextDisplay( bool bEnable )
-{
-    if( bEnable )
-        mpButtonData->mnButtonState &= ~DrawButtonFlags::NoText;
-    else
-        mpButtonData->mnButtonState |= DrawButtonFlags::NoText;
-}
-
 bool Button::IsSmallSymbol () const
 {
     return mpButtonData->mbSmallSymbol;
@@ -588,6 +545,13 @@ void Button::statusChanged(const css::frame::FeatureStateEvent& rEvent)
 FactoryFunction Button::GetUITestFactory() const
 {
     return ButtonUIObject::create;
+}
+
+boost::property_tree::ptree Button::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(Control::DumpAsPropertyTree());
+    aTree.put("text", GetText());
+    return aTree;
 }
 
 IMPL_STATIC_LINK( Button, dispatchCommandHandler, Button*, pButton, void )
@@ -808,16 +772,6 @@ void PushButton::ImplDrawPushButtonContent(OutputDevice* pDev, DrawFlags nDrawFl
 
     if ( nDrawFlags & DrawFlags::Mono )
         aColor = COL_BLACK;
-#ifdef MACOSX
-    else if ((nButtonFlags & DrawButtonFlags::Default) && !(GetStyle() & WB_FLATBUTTON))
-    {
-        // Make text color white if the button is a default control on macOS.
-        // Without this you get a button with a blue background and blue text
-        // which stands out as not looking right on macOS where default buttons
-        // have white text and a blue background.
-        aColor = COL_WHITE;
-    }
-#endif
     else if( (nButtonFlags & DrawButtonFlags::Highlight) && IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Entire) )
     {
         if (nButtonFlags & DrawButtonFlags::Pressed)
@@ -855,23 +809,19 @@ void PushButton::ImplDrawPushButtonContent(OutputDevice* pDev, DrawFlags nDrawFl
     {
         long nSeparatorX = 0;
         tools::Rectangle aSymbolRect = aInRect;
-        if (!(ImplGetButtonState() & DrawButtonFlags::NoText))
-        {
-            // calculate symbol size
-            long nSymbolSize    = pDev->GetTextHeight() / 2 + 1;
 
-            nSeparatorX = aInRect.Right() - 2*nSymbolSize;
-            aSize.AdjustWidth( -(2*nSymbolSize) );
+        // calculate symbol size
+        long nSymbolSize    = pDev->GetTextHeight() / 2 + 1;
 
-            // center symbol rectangle in the separated area
-            aSymbolRect.AdjustRight( -(nSymbolSize/2) );
-            aSymbolRect.SetLeft( aSymbolRect.Right() - nSymbolSize );
+        nSeparatorX = aInRect.Right() - 2*nSymbolSize;
+        aSize.AdjustWidth( -(2*nSymbolSize) );
 
-            ImplDrawAlignedImage( pDev, aPos, aSize, nImageSep,
-                                  nTextStyle, nullptr, true );
-        }
-        else
-            ImplCalcSymbolRect( aSymbolRect );
+        // center symbol rectangle in the separated area
+        aSymbolRect.AdjustRight( -(nSymbolSize/2) );
+        aSymbolRect.SetLeft( aSymbolRect.Right() - nSymbolSize );
+
+        ImplDrawAlignedImage( pDev, aPos, aSize, nImageSep,
+                              nTextStyle, nullptr, true );
 
         long nDistance = (aSymbolRect.GetHeight() > 10) ? 2 : 1;
         DecorationView aDecoView( pDev );
@@ -1634,7 +1584,7 @@ Size PushButton::CalcMinimumSize() const
         else
             aSize = Size( 26, 24 );
     }
-    else if ( Button::HasImage() && ! (ImplGetButtonState() & DrawButtonFlags::NoImage) )
+    else if ( Button::HasImage() )
         aSize = GetModeImage().GetSizePixel();
     if( mnDDStyle == PushButtonDropdownStyle::MenuButton ||
         mnDDStyle == PushButtonDropdownStyle::SplitMenuButton )
@@ -1642,7 +1592,7 @@ Size PushButton::CalcMinimumSize() const
         long nSymbolSize = GetTextHeight() / 2 + 1;
         aSize.AdjustWidth(2*nSymbolSize );
     }
-    if ( !PushButton::GetText().isEmpty() && ! (ImplGetButtonState() & DrawButtonFlags::NoText) )
+    if (!PushButton::GetText().isEmpty())
     {
         Size textSize = GetTextRect( tools::Rectangle( Point(), Size( 0x7fffffff, 0x7fffffff ) ),
                                      PushButton::GetText(), ImplGetTextStyle( DrawFlags::NONE ) ).GetSize();
@@ -1698,7 +1648,7 @@ void OKButton::ImplInit( vcl::Window* pParent, WinBits nStyle )
     set_id("ok");
     PushButton::ImplInit( pParent, nStyle );
 
-    SetText( Button::GetStandardText( StandardButtonType::OK ) );
+    SetText( GetStandardText( StandardButtonType::OK ) );
 }
 
 OKButton::OKButton( vcl::Window* pParent, WinBits nStyle ) :
@@ -1717,13 +1667,14 @@ void OKButton::Click()
         {
             if ( pParent->IsDialog() )
             {
-                if ( static_cast<Dialog*>(pParent)->IsInExecute() )
-                    static_cast<Dialog*>(pParent)->EndDialog( RET_OK );
+                VclPtr<Dialog> xParent( static_cast<Dialog*>(pParent) );
+                if ( xParent->IsInExecute() )
+                    xParent->EndDialog( RET_OK );
                 // prevent recursive calls
-                else if ( !static_cast<Dialog*>(pParent)->IsInClose() )
+                else if ( !xParent->IsInClose() )
                 {
                     if ( pParent->GetStyle() & WB_CLOSEABLE )
-                        static_cast<Dialog*>(pParent)->Close();
+                        xParent->Close();
                 }
             }
             else
@@ -1744,7 +1695,7 @@ void CancelButton::ImplInit( vcl::Window* pParent, WinBits nStyle )
     set_id("cancel");
     PushButton::ImplInit( pParent, nStyle );
 
-    SetText( Button::GetStandardText( StandardButtonType::Cancel ) );
+    SetText( GetStandardText( StandardButtonType::Cancel ) );
 }
 
 CancelButton::CancelButton( vcl::Window* pParent, WinBits nStyle ) :
@@ -1788,7 +1739,7 @@ void CancelButton::Click()
 CloseButton::CloseButton( vcl::Window* pParent, WinBits nStyle )
     : CancelButton(pParent, nStyle)
 {
-    SetText( Button::GetStandardText( StandardButtonType::Close ) );
+    SetText( GetStandardText( StandardButtonType::Close ) );
 }
 
 void HelpButton::ImplInit( vcl::Window* pParent, WinBits nStyle )
@@ -1796,7 +1747,7 @@ void HelpButton::ImplInit( vcl::Window* pParent, WinBits nStyle )
     set_id("help");
     PushButton::ImplInit( pParent, nStyle | WB_NOPOINTERFOCUS );
 
-    SetText( Button::GetStandardText( StandardButtonType::Help ) );
+    SetText( GetStandardText( StandardButtonType::Help ) );
 }
 
 HelpButton::HelpButton( vcl::Window* pParent, WinBits nStyle ) :
@@ -1833,7 +1784,6 @@ void HelpButton::StateChanged( StateChangedType nStateChange )
 void RadioButton::ImplInitRadioButtonData()
 {
     mbChecked       = false;
-    mbSaveValue     = false;
     mbRadioCheck    = true;
     mbStateChanged  = false;
 }
@@ -1855,7 +1805,7 @@ WinBits RadioButton::ImplInitStyle( const vcl::Window* pPrevWindow, WinBits nSty
         nStyle |= WB_TABSTOP;
 
     if ( IsChecked() && IsRadioCheckEnabled() )
-        ImplUncheckAllOther();
+        ImplUncheckAllOther( /*bSetStyle=*/false );
 
     return nStyle;
 }
@@ -2031,8 +1981,7 @@ void RadioButton::ImplDraw( OutputDevice* pDev, DrawFlags nDrawFlags,
     // no image radio button
     if ( !maImage )
     {
-        if ( ( !aText.isEmpty() && ! (ImplGetButtonState() & DrawButtonFlags::NoText) ) ||
-             ( HasImage() &&  ! (ImplGetButtonState() & DrawButtonFlags::NoImage) ) )
+        if (!aText.isEmpty() || HasImage())
         {
             DrawTextFlags nTextStyle = Button::ImplGetTextStyle( nWinStyle, nDrawFlags );
 
@@ -2101,7 +2050,7 @@ void RadioButton::ImplDraw( OutputDevice* pDev, DrawFlags nDrawFlags,
         long        nTextWidth  = pDev->GetCtrlTextWidth( aText );
 
         // calculate position and sizes
-        if ( !aText.isEmpty() && ! (ImplGetButtonState() & DrawButtonFlags::NoText) )
+        if (!aText.isEmpty())
         {
             Size aTmpSize( (aImageSize.Width()+8), (aImageSize.Height()+8) );
             if ( bTopImage )
@@ -2243,9 +2192,10 @@ std::vector< VclPtr<RadioButton> > RadioButton::GetRadioButtonGroup(bool bInclud
     return aGroup;
 }
 
-void RadioButton::ImplUncheckAllOther()
+void RadioButton::ImplUncheckAllOther( const bool bSetStyle )
 {
-    mpWindowImpl->mnStyle |= WB_TABSTOP;
+    if ( bSetStyle )
+        mpWindowImpl->mnStyle |= WB_TABSTOP;
 
     std::vector<VclPtr<RadioButton> > aGroup(GetRadioButtonGroup(false));
     // iterate over radio button group and checked buttons
@@ -2659,7 +2609,7 @@ bool RadioButton::set_property(const OString &rKey, const OUString &rValue)
             nBits &= ~(WB_VCENTER | WB_TOP);
             nBits |= WB_BOTTOM;
         }
-        //Its rather mad to have to set these bits when there is the other
+        //It's rather mad to have to set these bits when there is the other
         //image align. Looks like e.g. the radiobuttons etc weren't converted
         //over to image align fully.
         SetStyle(nBits);
@@ -2862,7 +2812,7 @@ Size RadioButton::CalcMinimumSize() const
         aSize.AdjustHeight(8);
     }
 
-    if (Button::HasImage() && !(ImplGetButtonState() & DrawButtonFlags::NoImage))
+    if (Button::HasImage())
     {
         Size aImgSize = GetModeImage().GetSizePixel();
         aSize = Size(std::max(aImgSize.Width(), aSize.Width()),
@@ -2870,7 +2820,7 @@ Size RadioButton::CalcMinimumSize() const
     }
 
     OUString aText = GetText();
-    if ( !aText.isEmpty() && ! (ImplGetButtonState() & DrawButtonFlags::NoText) )
+    if (!aText.isEmpty())
     {
         bool bTopImage = (GetStyle() & WB_TOP) != 0;
 
@@ -2916,6 +2866,13 @@ void RadioButton::ShowFocus(const tools::Rectangle& rRect)
                           ControlState::FOCUSED, aControlValue, OUString());
     }
     Button::ShowFocus(rRect);
+}
+
+boost::property_tree::ptree RadioButton::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(Button::DumpAsPropertyTree());
+    aTree.put("checked", IsChecked());
+    return aTree;
 }
 
 FactoryFunction RadioButton::GetUITestFactory() const
@@ -3047,8 +3004,7 @@ void CheckBox::ImplDraw( OutputDevice* pDev, DrawFlags nDrawFlags,
     pDev->Push( PushFlags::CLIPREGION | PushFlags::LINECOLOR );
     pDev->IntersectClipRegion( tools::Rectangle( rPos, rSize ) );
 
-    if ( ( !aText.isEmpty() && ! (ImplGetButtonState() & DrawButtonFlags::NoText) ) ||
-         ( HasImage() && !  (ImplGetButtonState() & DrawButtonFlags::NoImage) ) )
+    if (!aText.isEmpty() || HasImage())
     {
         DrawTextFlags nTextStyle = Button::ImplGetTextStyle( nWinStyle, nDrawFlags );
 
@@ -3374,7 +3330,7 @@ void CheckBox::Resize()
 
 void CheckBox::GetFocus()
 {
-    if ( GetText().isEmpty() || (ImplGetButtonState() & DrawButtonFlags::NoText) )
+    if (GetText().isEmpty())
     {
         // increase button size to have space for focus rect
         // checkboxes without text will draw focusrect around the check
@@ -3386,6 +3342,9 @@ void CheckBox::GetFocus()
         aSize.AdjustWidth(2 );
         setPosSizePixel( aPos.X(), aPos.Y(), aSize.Width(), aSize.Height() );
         Invalidate();
+        // Trigger drawing to initialize the mouse rectangle, otherwise the mouse button down
+        // handler would ignore the mouse event.
+        Update();
     }
     else
         ShowFocus( ImplGetFocusRect() );
@@ -3406,7 +3365,7 @@ void CheckBox::LoseFocus()
     HideFocus();
     Button::LoseFocus();
 
-    if ( GetText().isEmpty() || (ImplGetButtonState() & DrawButtonFlags::NoText) )
+    if (GetText().isEmpty())
     {
         // decrease button size again (see GetFocus())
         // checkboxes without text will draw focusrect around the check
@@ -3687,7 +3646,7 @@ Size CheckBox::CalcMinimumSize( long nMaxWidth ) const
     nMaxWidth -= aSize.Width();
 
     OUString aText = GetText();
-    if ( !aText.isEmpty() && ! (ImplGetButtonState() & DrawButtonFlags::NoText) )
+    if (!aText.isEmpty())
     {
         // subtract what will be added later
         nMaxWidth-=2;
@@ -3733,6 +3692,13 @@ void CheckBox::ShowFocus(const tools::Rectangle& rRect)
                           ControlState::FOCUSED, aControlValue, OUString());
     }
     Button::ShowFocus(rRect);
+}
+
+boost::property_tree::ptree CheckBox::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(Button::DumpAsPropertyTree());
+    aTree.put("checked", IsChecked());
+    return aTree;
 }
 
 FactoryFunction CheckBox::GetUITestFactory() const

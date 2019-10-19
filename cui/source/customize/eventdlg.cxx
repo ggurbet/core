@@ -29,29 +29,16 @@
 #include <rtl/ustring.hxx>
 
 #include "eventdlg.hxx"
-
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/evntconf.hxx>
-#include <sfx2/minfitem.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/objsh.hxx>
-#include <sfx2/docfac.hxx>
-#include <sfx2/fcontnr.hxx>
-#include <unotools/eventcfg.hxx>
-
-#include <headertablistbox.hxx>
 #include "macropg_impl.hxx"
 
-#include <bitmaps.hlst>
-#include <cfgutil.hxx>
 #include <cfg.hxx>
 
 using namespace ::com::sun::star;
 
 
-SvxEventConfigPage::SvxEventConfigPage(TabPageParent pParent, const SfxItemSet& rSet,
+SvxEventConfigPage::SvxEventConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet,
     SvxEventConfigPage::EarlyInit)
-    : SvxMacroTabPage_(pParent, "cui/ui/eventsconfigpage.ui", "EventsConfigPage", rSet)
+    : SvxMacroTabPage_(pPage, pController, "cui/ui/eventsconfigpage.ui", "EventsConfigPage", rSet)
     , m_xSaveInListBox(m_xBuilder->weld_combo_box("savein"))
 {
     mpImpl->xEventLB = m_xBuilder->weld_tree_view("events");
@@ -87,7 +74,6 @@ void SvxEventConfigPage::LateInit( const uno::Reference< frame::XFrame >& _rxFra
 
 SvxEventConfigPage::~SvxEventConfigPage()
 {
-    disposeOnce();
 }
 
 void SvxEventConfigPage::ImplInitDocument()

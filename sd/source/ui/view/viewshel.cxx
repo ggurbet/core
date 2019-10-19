@@ -22,7 +22,6 @@
 #include <ViewShellImplementation.hxx>
 #include <createtableobjectbar.hxx>
 
-#include <com/sun/star/embed/EmbedStates.hpp>
 #include <ViewShellBase.hxx>
 #include <ShellFactory.hxx>
 #include <DrawController.hxx>
@@ -39,21 +38,18 @@
 #include <svx/svxids.hrc>
 #include <svx/fmshell.hxx>
 #include <WindowUpdater.hxx>
-#include <GraphicViewShell.hxx>
-#include <sfx2/childwin.hxx>
 #include <sdxfer.hxx>
 
 #include <app.hrc>
 
 #include <OutlineView.hxx>
-#include <Client.hxx>
+#include <DrawViewShell.hxx>
 #include <DrawDocShell.hxx>
 #include <slideshow.hxx>
 #include <drawdoc.hxx>
 #include <sdpage.hxx>
 #include <zoomlist.hxx>
 #include <FrameView.hxx>
-#include <optsitem.hxx>
 #include <BezierObjectBar.hxx>
 #include <TextObjectBar.hxx>
 #include <GraphicObjectBar.hxx>
@@ -62,11 +58,9 @@
 #include <SlideSorterViewShell.hxx>
 #include <ViewShellManager.hxx>
 #include <FormShellManager.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/extrusionbar.hxx>
 #include <svx/fontworkbar.hxx>
 #include <svx/svdoutl.hxx>
-#include <tools/diagnose_ex.h>
 #include <tools/svborder.hxx>
 #include <comphelper/lok.hxx>
 
@@ -333,7 +327,7 @@ void ViewShell::Activate(bool bIsMDIActivate)
             GetCurrentFunction()->Activate();
 
         if(!GetDocSh()->IsUIActive())
-            UpdatePreview( GetActualPage(), true );
+            UpdatePreview( GetActualPage() );
     }
 
     ReadFrameViewData( mpFrameView );
@@ -524,7 +518,7 @@ void ViewShell::SetCursorMm100Position(const Point& rPosition, bool bPoint, bool
     }
 }
 
-uno::Reference<datatransfer::XTransferable> ViewShell::GetSelectionTransferrable()
+uno::Reference<datatransfer::XTransferable> ViewShell::GetSelectionTransferrable() const
 {
     SdrView* pSdrView = GetView();
     if (!pSdrView)
@@ -1066,7 +1060,7 @@ bool ViewShell::PrepareClose (bool bUI)
     return bResult;
 }
 
-void ViewShell::UpdatePreview (SdPage*, bool )
+void ViewShell::UpdatePreview (SdPage*)
 {
     // Do nothing.  After the actual preview has been removed,
     // OutlineViewShell::UpdatePreview() is the place where something
@@ -1162,13 +1156,10 @@ void ViewShell::ImpGetRedoStrings(SfxItemSet &rSet) const
 
 class KeepSlideSorterInSyncWithPageChanges
 {
-    sd::slidesorter::view::SlideSorterView::DrawLock const m_aDrawLock;
-    sd::slidesorter::controller::SlideSorterController::ModelChangeLock const m_aModelLock;
-    sd::slidesorter::controller::PageSelector::UpdateLock const m_aUpdateLock;
-    sd::slidesorter::controller::SelectionObserver::Context const m_aContext;
-
-    KeepSlideSorterInSyncWithPageChanges& operator=(const KeepSlideSorterInSyncWithPageChanges&) = delete;
-    KeepSlideSorterInSyncWithPageChanges(const KeepSlideSorterInSyncWithPageChanges&) = delete;
+    sd::slidesorter::view::SlideSorterView::DrawLock m_aDrawLock;
+    sd::slidesorter::controller::SlideSorterController::ModelChangeLock m_aModelLock;
+    sd::slidesorter::controller::PageSelector::UpdateLock m_aUpdateLock;
+    sd::slidesorter::controller::SelectionObserver::Context m_aContext;
 
 public:
     explicit KeepSlideSorterInSyncWithPageChanges(sd::slidesorter::SlideSorter const & rSlideSorter)

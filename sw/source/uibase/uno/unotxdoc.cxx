@@ -298,15 +298,11 @@ const Sequence< sal_Int8 > & SwXTextDocument::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SwXTextDocument::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXTextDocument>(rId) )
     {
-            return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
+        return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >( this ));
     }
-    if( rId.getLength() == 16
-        && 0 == memcmp( SfxObjectShell::getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SfxObjectShell>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(pDocShell ));
     }
@@ -824,13 +820,11 @@ SwUnoCursor* SwXTextDocument::FindAny(const Reference< util::XSearchDescriptor >
                                      sal_Int32& nResult,
                                      Reference< XInterface > const & xLastResult)
 {
-    Reference< XUnoTunnel > xDescTunnel(xDesc, UNO_QUERY);
-    if(!IsValid() || !xDescTunnel.is() || !xDescTunnel->getSomething(SwXTextSearch::getUnoTunnelId()))
+    const auto pSearch = comphelper::getUnoTunnelImplementation<SwXTextSearch>(xDesc);
+    if(!IsValid() || !pSearch)
         return nullptr;
 
     auto pUnoCursor(CreateCursorForSearch(xCursor));
-    const SwXTextSearch* pSearch = reinterpret_cast<const SwXTextSearch*>(
-        xDescTunnel->getSomething(SwXTextSearch::getUnoTunnelId()));
 
     bool bParentInExtra = false;
     if(xLastResult.is())
@@ -1412,7 +1406,7 @@ public:
     // XServiceInfo
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("SwDrawPagesObj");
+        return "SwDrawPagesObj";
     }
 
     virtual sal_Bool SAL_CALL supportsService(const OUString& ServiceName) override
@@ -1773,7 +1767,7 @@ Sequence< OUString > SwXTextDocument::getAvailableServiceNames()
             aRet.realloc( nLength - 1 );
         }
         Sequence< OUString > aOwn = SwXServiceProvider::GetAllServiceNames();
-        aServices = SvxFmMSFactory::concatServiceNames(aRet, aOwn);
+        aServices = comphelper::concatSequences(aRet, aOwn);
     }
 
     return aServices;
@@ -1781,7 +1775,7 @@ Sequence< OUString > SwXTextDocument::getAvailableServiceNames()
 
 OUString SwXTextDocument::getImplementationName()
 {
-    return OUString("SwXTextDocument");
+    return "SwXTextDocument";
     /* // Matching the .component information:
        return dynamic_cast<SwGlobalDocShell*>( pDocShell ) != nullptr
            ? OUString("com.sun.star.comp.Writer.GlobalDocument")
@@ -1846,7 +1840,7 @@ void SwXTextDocument::setPropertyValue(const OUString& rPropertyName, const Any&
     const SfxItemPropertySimpleEntry*  pEntry = pPropSet->getPropertyMap().getByName( rPropertyName);
 
     if(!pEntry)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     if(pEntry->nFlags & PropertyAttribute::READONLY)
         throw PropertyVetoException();
     switch(pEntry->nWID)
@@ -2022,7 +2016,7 @@ Any SwXTextDocument::getPropertyValue(const OUString& rPropertyName)
     const SfxItemPropertySimpleEntry*  pEntry = pPropSet->getPropertyMap().getByName( rPropertyName);
 
     if(!pEntry)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     Any aAny;
     switch(pEntry->nWID)
     {
@@ -2267,7 +2261,7 @@ PropertyState SAL_CALL SwXTextDocument::getPropertyState( const OUString& rPrope
 
     const SfxItemPropertySimpleEntry*  pEntry = pPropSet->getPropertyMap().getByName( rPropertyName);
     if(!pEntry)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     return PropertyState_DIRECT_VALUE;
 }
 
@@ -2290,7 +2284,7 @@ void SAL_CALL SwXTextDocument::setPropertyToDefault( const OUString& rPropertyNa
 
     const SfxItemPropertySimpleEntry*  pEntry = pPropSet->getPropertyMap().getByName( rPropertyName);
     if(!pEntry)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     switch(pEntry->nWID)
     {
         case 0:default:break;
@@ -2305,7 +2299,7 @@ Any SAL_CALL SwXTextDocument::getPropertyDefault( const OUString& rPropertyName 
 
     const SfxItemPropertySimpleEntry*  pEntry = pPropSet->getPropertyMap().getByName( rPropertyName);
     if(!pEntry)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     Any aAny;
     switch(pEntry->nWID)
     {
@@ -3306,7 +3300,7 @@ OUString SwXTextDocument::getTrackedChanges()
 
                 SwRects* pRects(&aCursor);
                 std::vector<OString> aRects;
-                for (SwRect& rNextRect : *pRects)
+                for (const SwRect& rNextRect : *pRects)
                     aRects.push_back(rNextRect.SVRect().toString());
 
                 const OString sRects = comphelper::string::join("; ", aRects);
@@ -3346,10 +3340,17 @@ OUString SwXTextDocument::getPostIts()
 
         const SwPostItField* pField = pWin->GetPostItField();
         const SwRect& aRect = pWin->GetAnchorRect();
-        const tools::Rectangle aSVRect(aRect.Pos().getX(),
+        tools::Rectangle aSVRect(aRect.Pos().getX(),
                                 aRect.Pos().getY(),
                                 aRect.Pos().getX() + aRect.SSize().Width(),
                                 aRect.Pos().getY() + aRect.SSize().Height());
+
+        if (!sidebarItem->maLayoutInfo.mPositionFromCommentAnchor)
+        {
+            // Comments on frames: anchor position is the corner position, not the whole frame.
+            aSVRect.SetSize(Size(0, 0));
+        }
+
         std::vector<OString> aRects;
         for (const basegfx::B2DRange& aRange : pWin->GetAnnotationTextRanges())
         {
@@ -3363,6 +3364,7 @@ OUString SwXTextDocument::getPostIts()
         aAnnotation.put("parent", pWin->CalcParent());
         aAnnotation.put("author", pField->GetPar1().toUtf8().getStr());
         aAnnotation.put("text", pField->GetPar2().toUtf8().getStr());
+        aAnnotation.put("resolved", pField->GetResolved() ? "true" : "false");
         aAnnotation.put("dateTime", utl::toISO8601(pField->GetDateTime().GetUNODateTime()));
         aAnnotation.put("anchorPos", aSVRect.toString());
         aAnnotation.put("textRange", sRects.getStr());
@@ -3499,7 +3501,7 @@ void SwXTextDocument::postMouseEvent(int nType, int nX, int nY, int nCount, int 
     SwViewOption aOption(*(pWrtViewShell->GetViewOptions()));
     double fScale = aOption.GetZoom() / (TWIPS_PER_PIXEL * 100.0);
 
-    // check if user hit a chart which is being edited by him
+    // check if the user hit a chart which is being edited by this view
     SfxViewShell* pViewShell = pDocShell->GetView();
     LokChartHelper aChartHelper(pViewShell);
     if (aChartHelper.postMouseEvent(nType, nX, nY,
@@ -3626,7 +3628,7 @@ void SAL_CALL SwXTextDocument::paintTile( const ::css::uno::Any& Parent, ::sal_I
     sal_Int64 nWindowHandle;
     Parent >>= nWindowHandle;
     aData.hWnd = reinterpret_cast<HWND>(nWindowHandle);
-    ScopedVclPtrInstance<VirtualDevice> xDevice(&aData, Size(1, 1), DeviceFormat::DEFAULT);
+    ScopedVclPtrInstance<VirtualDevice> xDevice(aData, Size(1, 1), DeviceFormat::DEFAULT);
     paintTile(*xDevice, nOutputWidth, nOutputHeight, nTilePosX, nTilePosY, nTileWidth, nTileHeight);
     #else
     // TODO: support other platforms
@@ -3916,16 +3918,13 @@ Any SwXLinkTargetSupplier::getByName(const OUString& rName)
 
 Sequence< OUString > SwXLinkTargetSupplier::getElementNames()
 {
-    Sequence< OUString > aRet(7);
-    OUString* pNames = aRet.getArray();
-    pNames[0] = sTables;
-    pNames[1] = sFrames  ;
-    pNames[2] = sGraphics;
-    pNames[3] = sOLEs   ;
-    pNames[4] = sSections;
-    pNames[5] = sOutlines;
-    pNames[6] = sBookmarks;
-    return aRet;
+    return { sTables,
+             sFrames,
+             sGraphics,
+             sOLEs,
+             sSections,
+             sOutlines,
+             sBookmarks };
 }
 
 sal_Bool SwXLinkTargetSupplier::hasByName(const OUString& rName)
@@ -3954,7 +3953,7 @@ sal_Bool SwXLinkTargetSupplier::hasElements()
 
 OUString SwXLinkTargetSupplier::getImplementationName()
 {
-    return OUString("SwXLinkTargetSupplier");
+    return "SwXLinkTargetSupplier";
 }
 
 sal_Bool SwXLinkTargetSupplier::supportsService(const OUString& rServiceName)
@@ -4136,9 +4135,9 @@ Reference< XPropertySetInfo >  SwXLinkNameAccessWrapper::getPropertySetInfo()
 }
 
 void SwXLinkNameAccessWrapper::setPropertyValue(
-    const OUString& , const Any& )
+    const OUString& rPropName, const Any& )
 {
-    throw UnknownPropertyException();
+    throw UnknownPropertyException(rPropName);
 }
 
 static Any lcl_GetDisplayBitmap(const OUString& _sLinkSuffix)
@@ -4183,7 +4182,7 @@ Any SwXLinkNameAccessWrapper::getPropertyValue(const OUString& rPropertyName)
         aRet = lcl_GetDisplayBitmap(sLinkSuffix);
     }
     else
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     return aRet;
 }
 
@@ -4210,7 +4209,7 @@ Reference< XNameAccess >  SwXLinkNameAccessWrapper::getLinks()
 
 OUString SwXLinkNameAccessWrapper::getImplementationName()
 {
-    return OUString("SwXLinkNameAccessWrapper");
+    return "SwXLinkNameAccessWrapper";
 }
 
 sal_Bool SwXLinkNameAccessWrapper::supportsService(const OUString& rServiceName)
@@ -4241,15 +4240,15 @@ Reference< XPropertySetInfo >  SwXOutlineTarget::getPropertySetInfo()
 }
 
 void SwXOutlineTarget::setPropertyValue(
-    const OUString& /*PropertyName*/, const Any& /*aValue*/)
+    const OUString& rPropertyName, const Any& /*aValue*/)
 {
-    throw UnknownPropertyException();
+    throw UnknownPropertyException(rPropertyName);
 }
 
 Any SwXOutlineTarget::getPropertyValue(const OUString& rPropertyName)
 {
     if(rPropertyName != UNO_LINK_DISPLAY_NAME)
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
 
     return Any(sOutlineText);
 }
@@ -4276,7 +4275,7 @@ void SwXOutlineTarget::removeVetoableChangeListener(
 
 OUString SwXOutlineTarget::getImplementationName()
 {
-    return OUString("SwXOutlineTarget");
+    return "SwXOutlineTarget";
 }
 
 sal_Bool SwXOutlineTarget::supportsService(const OUString& ServiceName)

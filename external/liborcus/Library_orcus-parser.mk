@@ -13,6 +13,7 @@ $(eval $(call gb_Library_use_unpacked,orcus-parser,liborcus))
 
 $(eval $(call gb_Library_use_externals,orcus-parser,\
 	boost_headers \
+	boost_filesystem \
 	boost_system \
 	mdds_headers \
 	zlib \
@@ -20,8 +21,11 @@ $(eval $(call gb_Library_use_externals,orcus-parser,\
 
 $(eval $(call gb_Library_set_warnings_disabled,orcus-parser))
 
+$(eval $(call gb_Library_set_precompiled_header,orcus-parser,external/liborcus/inc/pch/precompiled_orcus-parser))
+
 $(eval $(call gb_Library_set_include,orcus-parser,\
 	-I$(call gb_UnpackedTarball_get_dir,liborcus)/include \
+	-I$(call gb_UnpackedTarball_get_dir,liborcus)/src/include \
 	$$(INCLUDE) \
 ))
 

@@ -18,25 +18,19 @@
  */
 
 #include <tools/stream.hxx>
-#include <vcl/bitmap.hxx>
 #include <vcl/event.hxx>
 #include <vcl/window.hxx>
 #include <vcl/unohelp.hxx>
 #include <vcl/metric.hxx>
-#include <sal/macros.h>
 #include <com/sun/star/util/MeasureUnit.hpp>
 #include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/awt/XDevice.hpp>
-#include <com/sun/star/awt/XPointer.hpp>
 #include <com/sun/star/awt/SimpleFontMetric.hpp>
 #include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/awt/XControlContainer.hpp>
-#include <com/sun/star/awt/FontWeight.hpp>
-#include <com/sun/star/awt/FontWidth.hpp>
 #include <com/sun/star/awt/KeyModifier.hpp>
 #include <com/sun/star/awt/MouseButton.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/embed/EmbedMapUnits.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -45,7 +39,6 @@
 #include <toolkit/awt/vclxregion.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/awt/vclxgraphics.hxx>
-#include <toolkit/awt/vclxpointer.hxx>
 #include <toolkit/awt/vclxfont.hxx>
 #include <toolkit/controls/unocontrolcontainer.hxx>
 #include <toolkit/controls/unocontrolcontainermodel.hxx>
@@ -134,7 +127,7 @@ vcl::Region VCLUnoHelper::GetRegion( const css::uno::Reference< css::awt::XRegio
         aRegion = pVCLRegion->GetRegion();
     else
     {
-        css::uno::Sequence< css::awt::Rectangle > aRects = rxRegion->getRectangles();
+        const css::uno::Sequence< css::awt::Rectangle > aRects = rxRegion->getRectangles();
         for ( const auto& rRect : aRects )
             aRegion.Union( VCLRectangle( rRect ) );
     }

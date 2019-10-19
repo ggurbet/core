@@ -26,7 +26,7 @@
 #include <rtl/ref.hxx>
 
 #include "vbawindow.hxx"
-#include "vbaglobals.hxx"
+#include "vbaworkbook.hxx"
 
 #include <unordered_map>
 
@@ -222,7 +222,7 @@ ScVbaWindows::Arrange( ::sal_Int32 /*ArrangeStyle*/, const uno::Any& /*ActiveWor
 OUString
 ScVbaWindows::getServiceImplName()
 {
-    return OUString("ScVbaWindows");
+    return "ScVbaWindows";
 }
 
 css::uno::Sequence<OUString>

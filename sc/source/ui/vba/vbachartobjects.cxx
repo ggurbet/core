@@ -16,17 +16,15 @@
  *   except in compliance with the License. You may obtain a copy of
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
-#include "vbachart.hxx"
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/document/XEmbeddedObjectSupplier.hpp>
+
 #include <com/sun/star/table/XTableChartsSupplier.hpp>
 #include <com/sun/star/table/XTableChart.hpp>
+#include <com/sun/star/script/BasicErrorException.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <ooo/vba/excel/XlChartType.hpp>
 
 #include "vbachartobjects.hxx"
 #include "vbachartobject.hxx"
-#include "vbaglobals.hxx"
 #include <docsh.hxx>
 #include <cellsuno.hxx>
 #include <vector>
@@ -90,7 +88,7 @@ ScVbaChartObjects::removeByName(const OUString& _sChartName)
 }
 
 uno::Sequence< OUString >
-ScVbaChartObjects::getChartObjectNames()
+ScVbaChartObjects::getChartObjectNames() const
 {
     uno::Sequence< OUString > sChartNames;
     try
@@ -109,15 +107,12 @@ ScVbaChartObjects::getChartObjectNames()
         uno::Reference< sheet::XSpreadsheets > xSpreadsheets = xSpreadsheetDocument->getSheets();
         std::vector< OUString > aChartNamesVector;
 
-        uno::Sequence< OUString > sSheetNames = xSpreadsheets->getElementNames();
-        sal_Int32 nItems = sSheetNames.getLength();
-        for (sal_Int32 i = 0; i < nItems; i++)
+        const uno::Sequence< OUString > sSheetNames = xSpreadsheets->getElementNames();
+        for (const auto& rSheetName : sSheetNames)
         {
-            uno::Reference< table::XTableChartsSupplier > xLocTableChartsSupplier( xSpreadsheets->getByName(sSheetNames[i]), uno::UNO_QUERY_THROW );
-            uno::Sequence< OUString > scurchartnames = xLocTableChartsSupplier->getCharts()->getElementNames();
-            sal_Int32 nChartNames = scurchartnames.getLength();
-            for (sal_Int32 n = 0; n < nChartNames; n++ )
-                aChartNamesVector.push_back(scurchartnames[n]);
+            uno::Reference< table::XTableChartsSupplier > xLocTableChartsSupplier( xSpreadsheets->getByName(rSheetName), uno::UNO_QUERY_THROW );
+            const uno::Sequence< OUString > scurchartnames = xLocTableChartsSupplier->getCharts()->getElementNames();
+            std::copy(scurchartnames.begin(), scurchartnames.end(), std::back_inserter(aChartNamesVector));
         }
         sChartNames = comphelper::containerToSequence( aChartNamesVector );
     }
@@ -155,10 +150,9 @@ ScVbaChartObjects::Add( double _nX, double _nY, double _nWidth, double _nHeight 
 }
 void SAL_CALL ScVbaChartObjects::Delete(  )
 {
-    uno::Sequence< OUString > sChartNames = xTableCharts->getElementNames();
-    sal_Int32 ncount = sChartNames.getLength();
-    for (sal_Int32 i = 0; i < ncount ; i++)
-        removeByName(sChartNames[i]);
+    const uno::Sequence< OUString > sChartNames = xTableCharts->getElementNames();
+    for (const auto& rChartName : sChartNames)
+        removeByName(rChartName);
 }
 
 // XEnumerationAccess
@@ -190,7 +184,7 @@ ScVbaChartObjects::createCollectionObject( const css::uno::Any& aSource )
 OUString
 ScVbaChartObjects::getServiceImplName()
 {
-    return OUString("ScVbaChartObjects");
+    return "ScVbaChartObjects";
 }
 
 css::uno::Sequence<OUString>

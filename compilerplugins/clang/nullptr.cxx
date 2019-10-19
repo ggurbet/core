@@ -29,11 +29,9 @@ char const * kindName(Expr::NullPointerConstantKind kind) {
     case Expr::NPCK_GNUNull:
         return "GNUNull";
     case Expr::NPCK_NotNull:
-        assert(false); // cannot happen
-        // fall through
-    default:
-        std::abort();
+        break; // cannot happen
     }
+    llvm_unreachable("unknown null pointer kind");
 }
 
 bool isAnyKindOfPointerType(QualType type) {
@@ -74,6 +72,8 @@ public:
     bool TraverseConstructorInitializer(CXXCtorInitializer * init);
 
     bool TraverseLinkageSpecDecl(LinkageSpecDecl * decl);
+
+    bool TraverseInitListExpr(InitListExpr * expr, DataRecursionQueue * queue = nullptr);
 
     // bool shouldVisitTemplateInstantiations() const { return true; }
 
@@ -231,9 +231,15 @@ bool Nullptr::TraverseLinkageSpecDecl(LinkageSpecDecl * decl) {
     return ret;
 }
 
+bool Nullptr::TraverseInitListExpr(InitListExpr * expr, DataRecursionQueue * queue) {
+    return WalkUpFromInitListExpr(expr)
+        && TraverseSynOrSemInitListExpr(
+            expr->isSemanticForm() ? expr : expr->getSemanticForm(), queue);
+}
+
 bool Nullptr::isInLokIncludeFile(SourceLocation spellingLocation) const {
     return loplugin::hasPathnamePrefix(
-        getFileNameOfSpellingLoc(spellingLocation),
+        getFilenameOfLocation(spellingLocation),
         SRCDIR "/include/LibreOfficeKit/");
 }
 

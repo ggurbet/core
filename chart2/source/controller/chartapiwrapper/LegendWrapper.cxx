@@ -314,7 +314,7 @@ void SAL_CALL LegendWrapper::setSize( const awt::Size& aSize )
 // ____ XShapeDescriptor (base of XShape) ____
 OUString SAL_CALL LegendWrapper::getShapeType()
 {
-    return OUString( "com.sun.star.chart.ChartLegend" );
+    return "com.sun.star.chart.ChartLegend";
 }
 
 // ____ XComponent ____
@@ -342,7 +342,7 @@ void SAL_CALL LegendWrapper::removeEventListener(
 //ReferenceSizePropertyProvider
 void LegendWrapper::updateReferenceSize()
 {
-    Reference< beans::XPropertySet > xProp( getInnerPropertySet(), uno::UNO_QUERY );
+    Reference< beans::XPropertySet > xProp = getInnerPropertySet();
     if( xProp.is() )
     {
         if( xProp->getPropertyValue( "ReferencePageSize" ).hasValue() )
@@ -353,7 +353,7 @@ void LegendWrapper::updateReferenceSize()
 Any LegendWrapper::getReferenceSize()
 {
     Any aRet;
-    Reference< beans::XPropertySet > xProp( getInnerPropertySet(), uno::UNO_QUERY );
+    Reference< beans::XPropertySet > xProp = getInnerPropertySet();
     if( xProp.is() )
         aRet = xProp->getPropertyValue( "ReferencePageSize" );
 
@@ -398,7 +398,7 @@ std::vector< std::unique_ptr<WrappedProperty> > LegendWrapper::createWrappedProp
 
 OUString SAL_CALL LegendWrapper::getImplementationName()
 {
-    return OUString("com.sun.star.comp.chart.Legend");
+    return "com.sun.star.comp.chart.Legend";
 }
 
 sal_Bool SAL_CALL LegendWrapper::supportsService( const OUString& rServiceName )

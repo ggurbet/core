@@ -20,9 +20,6 @@
 #include <sddll.hxx>
 #include <drawdoc.hxx>
 
-#include <iostream>
-#include <vector>
-
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XMultiComponentFactory.hpp>
@@ -61,7 +58,7 @@ Test::Test()
 
     //Without this we're crashing because callees are using
     //getProcessServiceFactory.  In general those should be removed in favour
-    //of retaining references to the root ServiceFactory as its passed around
+    //of retaining references to the root ServiceFactory as it's passed around
     comphelper::setProcessServiceFactory(xSM);
 
     InitVCL();

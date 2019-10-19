@@ -368,7 +368,7 @@ void SAL_CALL SdrLightEmbeddedClient_Impl::activatingUI()
 
     uno::Reference < beans::XPropertySet > xFrame( lcl_getFrame_throw(mpObj));
     uno::Reference < frame::XFrame > xOwnFrame( xFrame,uno::UNO_QUERY);
-    uno::Reference < frame::XFramesSupplier > xParentFrame( xOwnFrame->getCreator(), uno::UNO_QUERY );
+    uno::Reference < frame::XFramesSupplier > xParentFrame = xOwnFrame->getCreator();
     if ( xParentFrame.is() )
         xParentFrame->setActiveFrame( xOwnFrame );
 
@@ -509,7 +509,7 @@ void SAL_CALL SdrLightEmbeddedClient_Impl::changedPlacement( const awt::Rectangl
         Size aNewObjSize( long( aNewLogicRect.GetWidth() / m_aScaleWidth ),
                           long( aNewLogicRect.GetHeight() / m_aScaleHeight ) );
 
-        // now remove scaling from new placement and keep this a the new object area
+        // now remove scaling from new placement and keep this at the new object area
         aNewLogicRect.SetSize( aNewObjSize );
         // react to the change if the difference is bigger than one pixel
         Size aPixelDiff =
@@ -871,8 +871,7 @@ bool SdrOle2Obj::UpdateLinkURL_Impl()
                     }
                     catch( css::uno::Exception const & )
                     {
-                        SAL_WARN( "svx", "SdrOle2Obj::UpdateLinkURL_Impl(), exception: "
-                                << exceptionToString( cppu::getCaughtException() ) );
+                        TOOLS_WARN_EXCEPTION( "svx", "SdrOle2Obj::UpdateLinkURL_Impl()" );
                     }
                 }
 
@@ -905,8 +904,7 @@ void SdrOle2Obj::BreakFileLink_Impl()
             }
             catch( css::uno::Exception& )
             {
-                SAL_WARN( "svx", "SdrOle2Obj::BreakFileLink_Impl(), exception: "
-                        << exceptionToString( cppu::getCaughtException() ) );
+                TOOLS_WARN_EXCEPTION( "svx", "SdrOle2Obj::BreakFileLink_Impl()" );
             }
         }
     }
@@ -1022,8 +1020,7 @@ void SdrOle2Obj::Connect_Impl()
         }
         catch( css::uno::Exception& )
         {
-            SAL_WARN( "svx", "SdrOle2Obj::Connect_Impl(), exception: "
-                    << exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "svx", "SdrOle2Obj::Connect_Impl()" );
         }
     }
 }
@@ -1086,8 +1083,7 @@ void SdrOle2Obj::RemoveListeners_Impl()
         }
         catch( css::uno::Exception& )
         {
-            SAL_WARN( "svx",  "SdrOle2Obj::RemoveListeners_Impl(), exception: "
-                    << exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "svx",  "SdrOle2Obj::RemoveListeners_Impl()" );
         }
     }
 }
@@ -1164,14 +1160,13 @@ void SdrOle2Obj::Disconnect_Impl()
     }
     catch( css::uno::Exception& )
     {
-        SAL_WARN( "svx", "SdrOle2Obj::Disconnect_Impl(), exception: "
-                    << exceptionToString( cppu::getCaughtException() ) );
+        TOOLS_WARN_EXCEPTION( "svx", "SdrOle2Obj::Disconnect_Impl()" );
     }
 
     mpImpl->mbConnected = false;
 }
 
-SdrObject* SdrOle2Obj::createSdrGrafObjReplacement(bool bAddText) const
+SdrObjectUniquePtr SdrOle2Obj::createSdrGrafObjReplacement(bool bAddText) const
 {
     const Graphic* pOLEGraphic = GetGraphic();
 
@@ -1204,7 +1199,7 @@ SdrObject* SdrOle2Obj::createSdrGrafObjReplacement(bool bAddText) const
             }
         }
 
-        return pClone;
+        return SdrObjectUniquePtr(pClone);
     }
     else
     {
@@ -1226,21 +1221,18 @@ SdrObject* SdrOle2Obj::createSdrGrafObjReplacement(bool bAddText) const
         pClone->SetMergedItem(XFillBmpTileItem(false));
         pClone->SetMergedItem(XFillBmpStretchItem(false));
 
-        return pClone;
+        return SdrObjectUniquePtr(pClone);
     }
 }
 
-SdrObject* SdrOle2Obj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
+SdrObjectUniquePtr SdrOle2Obj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 {
     // #i118485# missing converter added
-    SdrObject* pRetval = createSdrGrafObjReplacement(true);
+    SdrObjectUniquePtr pRetval = createSdrGrafObjReplacement(true);
 
     if(pRetval)
     {
-        SdrObject* pRetval2 = pRetval->DoConvertToPolyObj(bBezier, bAddText);
-        SdrObject::Free(pRetval);
-
-        return pRetval2;
+        return pRetval->DoConvertToPolyObj(bBezier, bAddText);
     }
 
     return nullptr;
@@ -1310,7 +1302,7 @@ void SdrOle2Obj::SetClosedObj( bool bIsClosed )
     bClosedObj = bIsClosed;
 }
 
-SdrObject* SdrOle2Obj::getFullDragClone() const
+SdrObjectUniquePtr SdrOle2Obj::getFullDragClone() const
 {
     // #i118485# use central replacement generator
     return createSdrGrafObjReplacement(false);
@@ -1745,8 +1737,7 @@ bool SdrOle2Obj::Unload( const uno::Reference< embed::XEmbeddedObject >& xObj, s
         }
         catch( css::uno::Exception& )
         {
-            SAL_WARN( "svx", "SdrOle2Obj::Unload=(), exception: "
-                    << exceptionToString( cppu::getCaughtException() ) );
+            TOOLS_WARN_EXCEPTION( "svx", "SdrOle2Obj::Unload()" );
         }
     }
 
@@ -1782,7 +1773,7 @@ void SdrOle2Obj::GetObjRef_Impl()
             mpImpl->mbTypeAsked = false;
             CheckFileLink_Impl();
 
-            // If loading of OLE object failed, remember that to not invoke a endless
+            // If loading of OLE object failed, remember that to not invoke an endless
             // loop trying to load it again and again.
             if( mpImpl->mxObjRef.is() )
             {

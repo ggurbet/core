@@ -1204,7 +1204,7 @@ static const sal_Char implementationName[] = "com.sun.star.i18n.NativeNumberSupp
 
 OUString SAL_CALL NativeNumberSupplierService::getImplementationName()
 {
-    return OUString(implementationName);
+    return implementationName;
 }
 
 sal_Bool SAL_CALL
@@ -1216,8 +1216,7 @@ NativeNumberSupplierService::supportsService(const OUString& rServiceName)
 Sequence< OUString > SAL_CALL
 NativeNumberSupplierService::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet {implementationName, "com.sun.star.i18n.NativeNumberSupplier2"};
-    return aRet;
+    return {implementationName, "com.sun.star.i18n.NativeNumberSupplier2"};
 }
 
 }

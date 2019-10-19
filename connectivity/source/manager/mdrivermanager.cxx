@@ -354,7 +354,7 @@ void OSDBCDriverManager::initializeDriverPrecedence()
             // at the moment this is the first of all drivers we know
 
         // loop through the names in the precedence order
-        for ( const OUString& rDriverOrder : aDriverOrder )
+        for ( const OUString& rDriverOrder : std::as_const(aDriverOrder) )
         {
             if (aNoPrefDriversStart == m_aDriversBS.end())
                 break;
@@ -525,7 +525,7 @@ Reference< XInterface > OSDBCDriverManager::Create( const Reference< XMultiServi
 
 OUString OSDBCDriverManager::getImplementationName_static(  )
 {
-    return OUString("com.sun.star.comp.sdbc.OSDBCDriverManager");
+    return "com.sun.star.comp.sdbc.OSDBCDriverManager";
 }
 
 
@@ -538,7 +538,7 @@ Sequence< OUString > OSDBCDriverManager::getSupportedServiceNames_static(  )
 
 OUString OSDBCDriverManager::getSingletonName_static(  )
 {
-    return OUString(  "com.sun.star.sdbc.DriverManager"  );
+    return "com.sun.star.sdbc.DriverManager";
 }
 
 

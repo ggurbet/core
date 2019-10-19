@@ -117,7 +117,7 @@ DefaultFontConfiguration::DefaultFontConfiguration()
                 UNO_QUERY );
         if( m_xConfigAccess.is() )
         {
-            Sequence< OUString > aLocales = m_xConfigAccess->getElementNames();
+            const Sequence< OUString > aLocales = m_xConfigAccess->getElementNames();
             // fill config hash with empty interfaces
             for( const OUString& rLocaleString : aLocales )
             {
@@ -254,15 +254,15 @@ OUString DefaultFontConfiguration::getUserInterfaceFont( const LanguageTag& rLan
     // optimize font list for some locales, as long as Andale Sans UI does not support them
     if( aLanguage == "ar" || aLanguage == "he" || aLanguage == "iw"  )
     {
-        return OUString(FALLBACKFONT_UI_SANS_ARABIC);
+        return FALLBACKFONT_UI_SANS_ARABIC;
     }
     else if ( aLanguage == "th" )
     {
-        return OUString(FALLBACKFONT_UI_SANS_THAI);
+        return FALLBACKFONT_UI_SANS_THAI;
     }
     else if ( aLanguage == "ko" )
     {
-        return OUString(FALLBACKFONT_UI_SANS_KOREAN);
+        return FALLBACKFONT_UI_SANS_KOREAN;
     }
     else if( aLanguage == "cs" ||
              aLanguage == "hu" ||
@@ -274,18 +274,18 @@ OUString DefaultFontConfiguration::getUserInterfaceFont( const LanguageTag& rLan
              aLanguage == "sl" ||
              aLanguage == "sb")
     {
-        return OUString(FALLBACKFONT_UI_SANS_LATIN2);
+        return FALLBACKFONT_UI_SANS_LATIN2;
     }
     else
     {
         const Locale& aLocale( aLanguageTag.getLocale());
         if (MsLangId::isTraditionalChinese(aLocale))
-            return OUString(FALLBACKFONT_UI_SANS_CHINTRD);
+            return FALLBACKFONT_UI_SANS_CHINTRD;
         else if (MsLangId::isSimplifiedChinese(aLocale))
-            return OUString(FALLBACKFONT_UI_SANS_CHINSIM);
+            return FALLBACKFONT_UI_SANS_CHINSIM;
     }
 
-    return OUString(FALLBACKFONT_UI_SANS);
+    return FALLBACKFONT_UI_SANS;
 }
 
 /*
@@ -331,7 +331,7 @@ FontSubstConfiguration::FontSubstConfiguration() :
                 UNO_QUERY );
         if( m_xConfigAccess.is() )
         {
-            Sequence< OUString > aLocales = m_xConfigAccess->getElementNames();
+            const Sequence< OUString > aLocales = m_xConfigAccess->getElementNames();
             // fill config hash with empty interfaces
             for( const OUString& rLocaleString : aLocales )
             {
@@ -973,7 +973,7 @@ void FontSubstConfiguration::readLocaleSubst( const OUString& rBcp47 ) const
             }
             if( xNode.is() )
             {
-                Sequence< OUString > aFonts = xNode->getElementNames();
+                const Sequence< OUString > aFonts = xNode->getElementNames();
                 int nFonts = aFonts.getLength();
                 // improve performance, heap fragmentation
                 it->second.aSubstAttributes.reserve( nFonts );

@@ -164,7 +164,7 @@ public:
 
 
 // TODO
-// The whole selection thingie in this class is somewhat .... suspicious to me.
+// The whole selection thingie in this class is somewhat... suspicious to me.
 // some oddities:
 // * method parameters named like members (and used in both semantics within the method!)
 // * the multi selection flag is sometimes used as if it is for row selection, sometimes as if
@@ -349,8 +349,8 @@ protected:
     virtual void    VisibleRowsChanged( long nNewTopRow, sal_uInt16 nNumRows);
 
     // number of visible rows in the window (incl. "truncated" rows)
-    sal_uInt16      GetVisibleRows();
-    long            GetTopRow() { return nTopRow; }
+    sal_uInt16      GetVisibleRows() const;
+    long            GetTopRow() const { return nTopRow; }
     sal_uInt16      GetFirstVisibleColNumber() const { return nFirstCol; }
 
     // Focus-Rect enable / disable

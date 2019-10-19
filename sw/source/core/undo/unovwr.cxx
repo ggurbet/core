@@ -68,11 +68,11 @@ SwUndoOverwrite::SwUndoOverwrite( SwDoc* pDoc, SwPosition& rPos,
     bInsChar = true;
     if( nSttContent < nTextNdLen )     // no pure insert?
     {
-        aDelStr += OUStringLiteral1( pTextNd->GetText()[nSttContent] );
-        if( !pHistory )
-            pHistory.reset( new SwHistory );
-        SwRegHistory aRHst( *pTextNd, pHistory.get() );
-        pHistory->CopyAttr( pTextNd->GetpSwpHints(), nSttNode, 0,
+        aDelStr += OUStringChar( pTextNd->GetText()[nSttContent] );
+        if( !m_pHistory )
+            m_pHistory.reset( new SwHistory );
+        SwRegHistory aRHst( *pTextNd, m_pHistory.get() );
+        m_pHistory->CopyAttr( pTextNd->GetpSwpHints(), nSttNode, 0,
                             nTextNdLen, false );
         ++rPos.nContent;
         bInsChar = false;
@@ -83,7 +83,7 @@ SwUndoOverwrite::SwUndoOverwrite( SwDoc* pDoc, SwPosition& rPos,
 
     pTextNd->InsertText( OUString(cIns), rPos.nContent,
             SwInsertFlags::EMPTYEXPAND );
-    aInsStr += OUStringLiteral1( cIns );
+    aInsStr += OUStringChar( cIns );
 
     if( !bInsChar )
     {
@@ -92,7 +92,7 @@ SwUndoOverwrite::SwUndoOverwrite( SwDoc* pDoc, SwPosition& rPos,
     }
     pTextNd->SetIgnoreDontExpand( bOldExpFlg );
 
-    bCacheComment = false;
+    m_bCacheComment = false;
 }
 
 SwUndoOverwrite::~SwUndoOverwrite()
@@ -148,7 +148,7 @@ bool SwUndoOverwrite::CanGrouping( SwDoc* pDoc, SwPosition& rPos,
     {
         if (rPos.nContent.GetIndex() < pDelTextNd->GetText().getLength())
         {
-            aDelStr += OUStringLiteral1( pDelTextNd->GetText()[rPos.nContent.GetIndex()] );
+            aDelStr += OUStringChar( pDelTextNd->GetText()[rPos.nContent.GetIndex()] );
             ++rPos.nContent;
         }
         else
@@ -162,7 +162,7 @@ bool SwUndoOverwrite::CanGrouping( SwDoc* pDoc, SwPosition& rPos,
             SwInsertFlags::EMPTYEXPAND) );
     assert(ins.getLength() == 1); // check in SwDoc::Overwrite => cannot fail
     (void) ins;
-    aInsStr += OUStringLiteral1( cIns );
+    aInsStr += OUStringChar( cIns );
 
     if( !bInsChar )
     {
@@ -195,7 +195,7 @@ void SwUndoOverwrite::UndoImpl(::sw::UndoRedoContext & rContext)
         pDoc->SetAutoCorrExceptWord( nullptr );
     }
 
-    // If there was not only a overwrite but also an insert, delete the surplus
+    // If there was not only an overwrite but also an insert, delete the surplus
     if( aInsStr.getLength() > aDelStr.getLength() )
     {
         rIdx += aDelStr.getLength();
@@ -224,11 +224,11 @@ void SwUndoOverwrite::UndoImpl(::sw::UndoRedoContext & rContext)
         --rIdx;
     }
 
-    if( pHistory )
+    if( m_pHistory )
     {
         if( pTextNd->GetpSwpHints() )
             pTextNd->ClearSwpHintsArr( false );
-        pHistory->TmpRollback( pDoc, 0, false );
+        m_pHistory->TmpRollback( pDoc, 0, false );
     }
 
     if( pCurrentPam->GetMark()->nContent.GetIndex() != nSttContent )
@@ -299,8 +299,8 @@ void SwUndoOverwrite::RedoImpl(::sw::UndoRedoContext & rContext)
     pTextNd->SetIgnoreDontExpand( bOldExpFlg );
 
     // get back old start position from UndoNodes array
-    if( pHistory )
-        pHistory->SetTmpEnd( pHistory->Count() );
+    if( m_pHistory )
+        m_pHistory->SetTmpEnd( m_pHistory->Count() );
     if( pCurrentPam->GetMark()->nContent.GetIndex() != nSttContent )
     {
         pCurrentPam->SetMark();
@@ -312,9 +312,7 @@ SwRewriter SwUndoOverwrite::GetRewriter() const
 {
     SwRewriter aResult;
 
-    OUString aString;
-
-    aString += SwResId(STR_START_QUOTE);
+    OUString aString = SwResId(STR_START_QUOTE);
     aString += ShortenString(aInsStr, nUndoStringLength,
                              SwResId(STR_LDOTS));
     aString += SwResId(STR_END_QUOTE);

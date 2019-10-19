@@ -50,6 +50,7 @@ class IDocumentMarkAccess
             TEXT_FIELDMARK,
             CHECKBOX_FIELDMARK,
             DROPDOWN_FIELDMARK,
+            DATE_FIELDMARK,
             NAVIGATOR_REMINDER
         };
 
@@ -75,8 +76,8 @@ class IDocumentMarkAccess
                 iterator(std::vector<::sw::mark::MarkBase*>::const_iterator const& rIter);
                 iterator(iterator const& rOther);
                 iterator& operator=(iterator const& rOther);
-                iterator(iterator && rOther);
-                iterator& operator=(iterator && rOther);
+                iterator(iterator && rOther) noexcept;
+                iterator& operator=(iterator && rOther) noexcept;
                 ~iterator();
 
                 // FIXME unfortunately there's a requirement on input iterator
@@ -273,13 +274,6 @@ class IDocumentMarkAccess
         */
         virtual const_iterator_t findMark(const OUString& rMark) const =0;
 
-        /** Find the first Mark that does not start before.
-
-            @returns
-            an iterator pointing to the mark, or pointing to getAllMarksEnd() if nothing was found.
-        */
-        virtual const_iterator_t findFirstMarkStartsBefore(const SwPosition& rPos) const =0;
-
         // interface IBookmarks (BOOKMARK, CROSSREF_NUMITEM_BOOKMARK, CROSSREF_HEADING_BOOKMARK )
 
         /** returns a STL-like random access iterator to the begin of the sequence the IBookmarks.
@@ -313,6 +307,8 @@ class IDocumentMarkAccess
 
 
         // Fieldmarks
+        /// get Fieldmark for CH_TXT_ATR_FIELDSTART/CH_TXT_ATR_FIELDEND at rPos
+        virtual ::sw::mark::IFieldmark* getFieldmarkAt(const SwPosition& rPos) const =0;
         virtual ::sw::mark::IFieldmark* getFieldmarkFor(const SwPosition& pos) const =0;
         virtual ::sw::mark::IFieldmark* getFieldmarkBefore(const SwPosition& pos) const =0;
         virtual ::sw::mark::IFieldmark* getFieldmarkAfter(const SwPosition& pos) const =0;
@@ -321,7 +317,7 @@ class IDocumentMarkAccess
         virtual std::vector< ::sw::mark::IFieldmark* > getDropDownsFor(const SwPaM &rPaM) const=0;
 
         virtual void deleteFieldmarkAt(const SwPosition& rPos) = 0;
-        virtual ::sw::mark::IFieldmark* changeNonTextFieldmarkType(::sw::mark::IFieldmark* pFieldmark, const OUString& rNewType) = 0;
+        virtual ::sw::mark::IFieldmark* changeFormFieldmarkType(::sw::mark::IFieldmark* pFieldmark, const OUString& rNewType) = 0;
 
         virtual void NotifyCursorUpdate(const SwCursorShell& rCursorShell) = 0;
         virtual void ClearFieldActivation() = 0;

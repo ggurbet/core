@@ -1000,7 +1000,7 @@ SAL_DLLPUBLIC sal_Int32 SAL_CALL rtl_ustr_valueOfInt64(
  */
 SAL_DLLPUBLIC sal_Int32 SAL_CALL rtl_ustr_valueOfUInt64(
         sal_Unicode * str, sal_uInt64 l, sal_Int16 radix ) SAL_THROW_EXTERN_C();
-#define RTL_USTR_MAX_VALUEOFINT64 RTL_STR_MAX_VALUEOFINT64
+#define RTL_USTR_MAX_VALUEOFUINT64 RTL_STR_MAX_VALUEOFUINT64
 
 /** Create the string representation of a float.
 
@@ -1485,7 +1485,7 @@ SAL_DLLPUBLIC void SAL_CALL rtl_uString_newConcatUtf16L(
 
     The new string results from replacing a number of characters (count),
     starting at the specified position (index) in the original string (str),
-    with some new substring (subStr).  If subStr is null, than only a number
+    with some new substring (subStr).  If subStr is null, then only a number
     of characters is deleted.
 
     The new string does not necessarily have a reference count of 1, so it

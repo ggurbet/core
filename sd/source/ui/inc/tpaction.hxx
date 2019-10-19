@@ -23,6 +23,7 @@
 #include <com/sun/star/presentation/ClickAction.hpp>
 #include <sfx2/tabdlg.hxx>
 #include <sfx2/basedlgs.hxx>
+#include <svx/xtable.hxx>
 #include "sdtreelb.hxx"
 
 #include <vector>
@@ -86,10 +87,10 @@ private:
     static const char*      GetClickActionSdResId(css::presentation::ClickAction eCA);
 
 public:
-    SdTPAction(TabPageParent pParent, const SfxItemSet& rInAttrs);
+    SdTPAction(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs);
     virtual ~SdTPAction() override;
 
-    static  VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet& );
+    static  std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& );
 
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
@@ -100,9 +101,6 @@ public:
     void    Construct();
 
     void    SetView( const ::sd::View* pSdView );
-
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
 };
 
 #endif // INCLUDED_SD_SOURCE_UI_INC_TPACTION_HXX

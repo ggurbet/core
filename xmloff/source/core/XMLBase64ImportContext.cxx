@@ -19,7 +19,6 @@
 
 #include <com/sun/star/io/XOutputStream.hpp>
 
-#include <sax/tools/converter.hxx>
 #include <comphelper/base64.hxx>
 
 #include <xmloff/xmlimp.hxx>
@@ -56,8 +55,7 @@ void XMLBase64ImportContext::Characters( const OUString& rChars )
         OUString sChars;
         if( !sBase64CharsLeft.isEmpty() )
         {
-            sChars = sBase64CharsLeft;
-            sChars += sTrimmedChars;
+            sChars = sBase64CharsLeft + sTrimmedChars;
             sBase64CharsLeft.clear();
         }
         else

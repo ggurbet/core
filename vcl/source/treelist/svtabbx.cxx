@@ -23,10 +23,8 @@
 #include <vcl/headbar.hxx>
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
-#include <vcl/builderfactory.hxx>
 #include <unotools/accessiblestatesethelper.hxx>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
-#include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <strings.hrc>
@@ -37,7 +35,7 @@ using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::accessibility;
 
 static constexpr SvLBoxTabFlags MYTABMASK =
-    SvLBoxTabFlags::ADJUST_RIGHT | SvLBoxTabFlags::ADJUST_LEFT | SvLBoxTabFlags::ADJUST_CENTER;
+    SvLBoxTabFlags::ADJUST_RIGHT | SvLBoxTabFlags::ADJUST_LEFT | SvLBoxTabFlags::ADJUST_CENTER | SvLBoxTabFlags::FORCE;
 
 // SvTreeListBox callback
 
@@ -55,9 +53,9 @@ void SvTabListBox::SetTabs()
 
     // Picking the rightmost tab.
     // HACK for the explorer! If ViewParent != 0, the first tab of the tree
-    // listbox is calculated by the tre listbox itself! This behavior is
+    // listbox is calculated by the tree listbox itself! This behavior is
     // necessary for ButtonsOnRoot, as the explorer does not know in this
-    // case, which additional offset it need to add to the tabs in this mode
+    // case, which additional offset it needs to add to the tabs in this mode
     // -- the tree listbox knows that, though!
     /*
     if( !pViewParent )
@@ -78,9 +76,9 @@ void SvTabListBox::SetTabs()
 }
 
 void SvTabListBox::InitEntry(SvTreeListEntry* pEntry, const OUString& rStr,
-    const Image& rColl, const Image& rExp, SvLBoxButtonKind eButtonKind)
+    const Image& rColl, const Image& rExp)
 {
-    SvTreeListBox::InitEntry(pEntry, rStr, rColl, rExp, eButtonKind);
+    SvTreeListBox::InitEntry(pEntry, rStr, rColl, rExp);
 
     sal_Int32 nIndex = 0;
     // TODO: verify if nTabCount is always >0 here!
@@ -122,7 +120,7 @@ void SvTabListBox::SetTabs(sal_uInt16 nTabs, long const pTabPositions[], MapUnit
         aSize = LogicToLogic( aSize, &aMMSource, &aMMDest );
         long nNewTab = aSize.Width();
         mvTabList[nIdx].SetPos( nNewTab );
-        mvTabList[nIdx].nFlags = SvLBoxTabFlags::ADJUST_LEFT;
+        mvTabList[nIdx].nFlags &= MYTABMASK;
     }
     SvTreeListBox::nTreeFlags |= SvTreeFlags::RECALCTABS;
     if( IsUpdateMode() )
@@ -148,8 +146,7 @@ void SvTabListBox::SetTab( sal_uInt16 nTab,long nValue,MapUnit eMapUnit )
 
 SvTreeListEntry* SvTabListBox::InsertEntry( const OUString& rText, SvTreeListEntry* pParent,
                                         bool /*bChildrenOnDemand*/,
-                                        sal_uLong nPos, void* pUserData,
-                                        SvLBoxButtonKind )
+                                        sal_uLong nPos, void* pUserData )
 {
     return InsertEntryToColumn( rText, pParent, nPos, 0xffff, pUserData );
 }
@@ -159,8 +156,7 @@ SvTreeListEntry* SvTabListBox::InsertEntry( const OUString& rText,
                                         const Image& rCollapsedEntryBmp,
                                         SvTreeListEntry* pParent,
                                         bool /*bChildrenOnDemand*/,
-                                        sal_uLong nPos, void* pUserData,
-                                        SvLBoxButtonKind )
+                                        sal_uLong nPos, void* pUserData )
 {
     return InsertEntryToColumn( rText, rExpandedEntryBmp, rCollapsedEntryBmp,
                                 pParent, nPos, 0xffff, pUserData );
@@ -221,12 +217,6 @@ SvTreeListEntry* SvTabListBox::InsertEntryToColumn( const OUString& rStr,
         pParent, false, nPos, pUser );
 }
 
-SvTreeListEntry* SvTabListBox::InsertEntryToColumn( const OUString& rStr, sal_uLong nPos,
-    sal_uInt16 nCol, void* pUser )
-{
-    return InsertEntryToColumn( rStr,nullptr,nPos, nCol, pUser );
-}
-
 OUString SvTabListBox::GetEntryText( SvTreeListEntry* pEntry ) const
 {
     return GetEntryText( pEntry, 0xffff );
@@ -268,12 +258,6 @@ OUString SvTabListBox::GetEntryText( sal_uLong nPos, sal_uInt16 nCol ) const
 {
     SvTreeListEntry* pEntry = GetEntryOnPos( nPos );
     return GetEntryText( pEntry, nCol );
-}
-
-void SvTabListBox::SetEntryText(const OUString& rStr, sal_uLong nPos, sal_uInt16 nCol)
-{
-    SvTreeListEntry* pEntry = SvTreeListBox::GetEntry( nPos );
-    SetEntryText( rStr, pEntry, nCol );
 }
 
 void SvTabListBox::SetEntryText(const OUString& rStr, SvTreeListEntry* pEntry, sal_uInt16 nCol)
@@ -325,21 +309,6 @@ OUString SvTabListBox::GetCellText( sal_uLong nPos, sal_uInt16 nCol ) const
             aResult = static_cast<const SvLBoxString&>(rStr).GetText();
     }
     return aResult;
-}
-
-sal_uLong SvTabListBox::GetEntryPos( const OUString& rStr, sal_uInt16 nCol )
-{
-    sal_uLong nPos = 0;
-    SvTreeListEntry* pEntry = First();
-    while( pEntry )
-    {
-        OUString aStr( GetEntryText( pEntry, nCol ));
-        if( aStr == rStr )
-            return nPos;
-        pEntry = Next( pEntry );
-        nPos++;
-    }
-    return 0xffffffff;
 }
 
 sal_uLong SvTabListBox::GetEntryPos( const SvTreeListEntry* pEntry ) const
@@ -452,7 +421,8 @@ void SvTabListBox::SetTabJustify( sal_uInt16 nTab, SvTabJustify eJustify)
     SvLBoxTab& rTab = mvTabList[ nTab ];
     SvLBoxTabFlags nFlags = rTab.nFlags;
     nFlags &= ~MYTABMASK;
-    nFlags |= static_cast<SvLBoxTabFlags>(eJustify);
+    // see SvLBoxTab::CalcOffset for force, which only matters for centering
+    nFlags |= static_cast<SvLBoxTabFlags>(eJustify) | SvLBoxTabFlags::FORCE;
     rTab.nFlags = nFlags;
     SvTreeListBox::nTreeFlags |= SvTreeFlags::RECALCTABS;
     if( IsUpdateMode() )
@@ -533,14 +503,6 @@ bool SvHeaderTabListBox::IsItemChecked( SvTreeListEntry* pEntry, sal_uInt16 nCol
     }
 
     return ( eState == SvButtonState::Checked );
-}
-
-SvTreeListEntry* SvHeaderTabListBox::InsertEntryToColumn(
-    const OUString& rStr, sal_uLong nPos, sal_uInt16 nCol, void* pUserData )
-{
-    SvTreeListEntry* pEntry = SvTabListBox::InsertEntryToColumn( rStr, nPos, nCol, pUserData );
-    RecalculateAccessibleChildren();
-    return pEntry;
 }
 
 SvTreeListEntry* SvHeaderTabListBox::InsertEntryToColumn(

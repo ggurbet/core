@@ -32,6 +32,14 @@
 #define ODF_FORMDROPDOWN "vnd.oasis.opendocument.field.FORMDROPDOWN"
 #define ODF_FORMDROPDOWN_LISTENTRY "Dropdown_ListEntry"
 #define ODF_FORMDROPDOWN_RESULT "Dropdown_Selected"
+#define ODF_FORMDROPDOWN_ENTRY_COUNT_LIMIT 25
+
+#define ODF_FORMDATE "vnd.oasis.opendocument.field.FORMDATE"
+#define ODF_FORMDATE_DATEFORMAT "DateField_DateFormat" // e.g. "MM.DD.YY"
+#define ODF_FORMDATE_DATEFORMAT_LANGUAGE "DateField_DateFormat_Language" // e.g. "en-US", "hu-HU"
+#define ODF_FORMDATE_CURRENTDATE "DateField_CurrentDate" // date string in a specific format
+#define ODF_FORMDATE_CURRENTDATE_FORMAT "YYYY-MM-DD" // Coming from MSO
+#define ODF_FORMDATE_CURRENTDATE_LANGUAGE LANGUAGE_ENGLISH_US
 
 #define ODF_TOC "vnd.oasis.opendocument.field.TOC"
 

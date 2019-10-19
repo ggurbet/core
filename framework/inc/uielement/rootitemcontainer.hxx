@@ -69,8 +69,7 @@ class RootItemContainer final : private cppu::BaseMutex,
         virtual css::uno::Sequence< css::uno::Type > SAL_CALL getTypes(  ) override;
 
         // XUnoTunnel
-        static FWI_DLLPUBLIC const css::uno::Sequence< sal_Int8 >&   GetUnoTunnelId() throw();
-        static FWI_DLLPUBLIC RootItemContainer*                                   GetImplementation( const css::uno::Reference< css::uno::XInterface >& rxIFace ) throw();
+        static FWI_DLLPUBLIC const css::uno::Sequence< sal_Int8 >&   getUnoTunnelId() throw();
         sal_Int64                                                   SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier ) override;
 
         // XIndexContainer
@@ -112,7 +111,7 @@ class RootItemContainer final : private cppu::BaseMutex,
         virtual ::cppu::IPropertyArrayHelper&                       SAL_CALL getInfoHelper() override;
         virtual css::uno::Reference< css::beans::XPropertySetInfo > SAL_CALL getPropertySetInfo() override;
 
-        static const css::uno::Sequence< css::beans::Property > impl_getStaticPropertyDescriptor();
+        static css::uno::Sequence< css::beans::Property > impl_getStaticPropertyDescriptor();
 
         RootItemContainer& operator=( const RootItemContainer& ) = delete;
         RootItemContainer( const RootItemContainer& ) = delete;

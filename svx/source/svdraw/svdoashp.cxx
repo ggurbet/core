@@ -32,6 +32,7 @@
 #include <com/sun/star/awt/Rectangle.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequenceashashmap.hxx>
 #include <svl/urihelper.hxx>
 #include <com/sun/star/uno/Sequence.h>
 #include <svx/svdogrp.hxx>
@@ -91,6 +92,7 @@
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <svdobjplusdata.hxx>
+#include "presetooxhandleadjustmentrelations.hxx"
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -354,35 +356,13 @@ static SdrObject* ImpCreateShadowObjectClone(const SdrObject& rOriginal, const S
         {
             GraphicObject aGraphicObject(rOriginalSet.Get(XATTR_FILLBITMAP).GetGraphicObject());
             const BitmapEx aBitmapEx(aGraphicObject.GetGraphic().GetBitmapEx());
-            Bitmap aBitmap(aBitmapEx.GetBitmap());
 
-            if(!aBitmap.IsEmpty())
+            if(!aBitmapEx.IsEmpty())
             {
-                Bitmap::ScopedReadAccess pReadAccess(aBitmap);
-
-                if(pReadAccess)
-                {
-                    ScopedVclPtr<VirtualDevice> pVirDev(VclPtr<VirtualDevice>::Create());
-                    pVirDev->SetOutputSizePixel(aBitmap.GetSizePixel());
-
-                    for(long y(0); y < pReadAccess->Height(); y++)
-                    {
-                        for(long x(0); x < pReadAccess->Width(); x++)
-                        {
-                            const BitmapColor aColor = pReadAccess->GetColor(y, x);
-                            sal_uInt16 nLuminance(static_cast<sal_uInt16>(aColor.GetLuminance()) + 1);
-                            const Color aDestColor(
-                                static_cast<sal_uInt8>((nLuminance * static_cast<sal_uInt16>(aShadowColor.GetRed())) >> 8),
-                                static_cast<sal_uInt8>((nLuminance * static_cast<sal_uInt16>(aShadowColor.GetGreen())) >> 8),
-                                static_cast<sal_uInt8>((nLuminance * static_cast<sal_uInt16>(aShadowColor.GetBlue())) >> 8));
-                            pVirDev->DrawPixel(Point(x,y), aDestColor);
-                        }
-                    }
-
-                    pReadAccess.reset();
-
-                    aGraphicObject.SetGraphic(Graphic(pVirDev->GetBitmapEx(Point(0,0), aBitmap.GetSizePixel())));
-                }
+                ScopedVclPtr<VirtualDevice> pVirDev(VclPtr<VirtualDevice>::Create());
+                pVirDev->SetOutputSizePixel(aBitmapEx.GetSizePixel());
+                pVirDev->DrawShadowBitmapEx(aBitmapEx, aShadowColor);
+                aGraphicObject.SetGraphic(Graphic(pVirDev->GetBitmapEx(Point(0,0), aBitmapEx.GetSizePixel())));
             }
 
             aTempSet.Put(XFillBitmapItem(aGraphicObject));
@@ -545,6 +525,23 @@ double SdrObjCustomShape::GetExtraTextRotation( const bool bPreRotation ) const
         *pAny >>= fExtraTextRotateAngle;
     return fExtraTextRotateAngle;
 }
+
+double SdrObjCustomShape::GetCameraRotation() const
+{
+    const css::uno::Any* pAny;
+    double fTextCameraZRotateAngle = 0.0;
+    const SdrCustomShapeGeometryItem& rGeometryItem = GetMergedItem( SDRATTR_CUSTOMSHAPE_GEOMETRY );
+    const OUString sTextCameraZRotateAngle( "TextCameraZRotateAngle" );
+
+    pAny = rGeometryItem.GetPropertyValueByName(sTextCameraZRotateAngle);
+
+    if ( pAny )
+        *pAny >>= fTextCameraZRotateAngle;
+
+    return fTextCameraZRotateAngle;
+}
+
+
 
 bool SdrObjCustomShape::GetTextBounds( tools::Rectangle& rTextBound ) const
 {
@@ -1073,6 +1070,44 @@ void SdrObjCustomShape::MergeDefaultAttributes( const OUString* pType )
         aPropVal.Value <<= seqHandles;
         aGeometryItem.SetPropertyValue( aPropVal );
     }
+    else if (pAny && sShapeType.startsWith("ooxml-") && sShapeType != "ooxml-non-primitive")
+    {
+        // ODF is not able to store the ooxml way of connecting handle to an adjustment
+        // value by name, e.g. attribute RefX="adj". So the information is lost, when exporting
+        // a pptx to odp, for example. This part reconstructs this information for the
+        // ooxml preset shapes from their definition.
+        css::uno::Sequence<css::beans::PropertyValues> seqHandles;
+        *pAny >>= seqHandles;
+        bool bChanged(false);
+        for (sal_Int32 i = 0; i < seqHandles.getLength(); i++)
+        {
+            comphelper::SequenceAsHashMap aHandleProps(seqHandles[i]);
+            OUString sFirstRefType;
+            sal_Int32 nFirstAdjRef;
+            OUString sSecondRefType;
+            sal_Int32 nSecondAdjRef;
+            PresetOOXHandleAdj::GetOOXHandleAdjRelation(sShapeType, i, sFirstRefType, nFirstAdjRef,
+                                                        sSecondRefType, nSecondAdjRef);
+            if (sFirstRefType != "na" && 0 <= nFirstAdjRef
+                && nFirstAdjRef < seqAdjustmentValues.getLength())
+            {
+                bChanged |= aHandleProps.createItemIfMissing(sFirstRefType, nFirstAdjRef);
+            }
+            if (sSecondRefType != "na" && 0 <= nSecondAdjRef
+                && nSecondAdjRef < seqAdjustmentValues.getLength())
+            {
+                bChanged |= aHandleProps.createItemIfMissing(sSecondRefType, nSecondAdjRef);
+            }
+            aHandleProps >> seqHandles[i];
+        }
+        if (bChanged)
+        {
+            aPropVal.Name = sHandles;
+            aPropVal.Value <<= seqHandles;
+            aGeometryItem.SetPropertyValue(aPropVal);
+        }
+    }
+
     SetMergedItem( aGeometryItem );
 }
 
@@ -1100,7 +1135,7 @@ bool SdrObjCustomShape::IsDefaultGeometry( const DefaultType eDefaultType ) cons
             const OUString sViewBox( "ViewBox" );
             const Any* pViewBox = const_cast<SdrCustomShapeGeometryItem&>(aGeometryItem).GetPropertyValueByName( sViewBox );
             css::awt::Rectangle aViewBox;
-            if ( pViewBox && ( *pViewBox >>= aViewBox ) )
+            if (pViewBox && (*pViewBox >>= aViewBox) && pDefCustomShape)
             {
                 if ( ( aViewBox.Width == pDefCustomShape->nCoordWidth )
                     && ( aViewBox.Height == pDefCustomShape->nCoordHeight ) )
@@ -2781,10 +2816,10 @@ basegfx::B2DPolyPolygon SdrObjCustomShape::TakeContour() const
     return basegfx::B2DPolyPolygon();
 }
 
-SdrObject* SdrObjCustomShape::DoConvertToPolyObj(bool bBezier, bool bAddText) const
+SdrObjectUniquePtr SdrObjCustomShape::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 {
     // #i37011#
-    SdrObject* pRetval = nullptr;
+    SdrObjectUniquePtr pRetval;
     SdrObject* pRenderedCustomShape = nullptr;
 
     if ( !mXRenderedCustomShape.is() )
@@ -2817,7 +2852,7 @@ SdrObject* SdrObjCustomShape::DoConvertToPolyObj(bool bBezier, bool bAddText) co
 
         if(bAddText && HasText() && !IsTextPath())
         {
-            pRetval = ImpConvertAddText(pRetval, bBezier);
+            pRetval = ImpConvertAddText(std::move(pRetval), bBezier);
         }
     }
 
@@ -3095,7 +3130,7 @@ void SdrObjCustomShape::impl_setUnoShape(const uno::Reference<uno::XInterface>& 
     mxCustomShapeEngine.set(nullptr);
 }
 
-OUString SdrObjCustomShape::GetCustomShapeName()
+OUString SdrObjCustomShape::GetCustomShapeName() const
 {
     OUString sShapeName;
     OUString aEngine( GetMergedItem( SDRATTR_CUSTOMSHAPE_ENGINE ).GetValue() );

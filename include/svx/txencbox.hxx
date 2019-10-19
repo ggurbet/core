@@ -19,19 +19,19 @@
 #ifndef INCLUDED_SVX_TXENCBOX_HXX
 #define INCLUDED_SVX_TXENCBOX_HXX
 
-#include <vcl/lstbox.hxx>
 #include <vcl/weld.hxx>
 #include <rtl/textenc.h>
 #include <svx/svxdllapi.h>
 
-class SVX_DLLPUBLIC SvxTextEncodingBox : public ListBox
+class SVX_DLLPUBLIC SvxTextEncodingBox
 {
 private:
-    SVX_DLLPRIVATE sal_Int32                EncodingToPos_Impl( rtl_TextEncoding nEnc ) const;
+    std::unique_ptr<weld::ComboBox> m_xControl;
 
 public:
-    SvxTextEncodingBox( vcl::Window* pParent, WinBits nBits );
-    virtual ~SvxTextEncodingBox() override;
+    SvxTextEncodingBox(std::unique_ptr<weld::ComboBox> pControl);
+
+    ~SvxTextEncodingBox();
 
     /** Fill with all known encodings but exclude those matching one or more
         given flags as defined in rtl/tencinfo.h
@@ -54,48 +54,6 @@ public:
                             sal_uInt32 nButIncludeInfoFlags = 0
                             );
 
-    /** Fill with all known MIME encodings and select the best according to
-        <method>GetBestMimeEncoding</method>
-     */
-    void                FillWithMimeAndSelectBest();
-
-    void                InsertTextEncoding( const rtl_TextEncoding nEnc,
-                            const OUString& rEntry );
-
-    void                SelectTextEncoding( const rtl_TextEncoding nEnc );
-
-    rtl_TextEncoding    GetSelectTextEncoding() const;
-};
-
-class SVX_DLLPUBLIC TextEncodingBox
-{
-private:
-    std::unique_ptr<weld::ComboBox> m_xControl;
-
-public:
-    TextEncodingBox(std::unique_ptr<weld::ComboBox> pControl);
-
-    ~TextEncodingBox();
-
-    /** Fill with all known encodings but exclude those matching one or more
-        given flags as defined in rtl/tencinfo.h
-
-         <p> If nButIncludeInfoFlags is given, encodings are included even if they
-         match nExcludeInfoFlags. Thus it is possible to exclude 16/32-bit
-         Unicode with RTL_TEXTENCODING_INFO_UNICODE but to include UTF7 and UTF8
-         with RTL_TEXTENCODING_INFO_MIME </p>
-
-        @param bExcludeImportSubsets
-            If <TRUE/>, some specific encodings are not listed, as they are a
-            subset of another encoding. This is the case for
-            RTL_TEXTENCODING_GB_2312, RTL_TEXTENCODING_GBK,
-            RTL_TEXTENCODING_MS_936, which are covered by
-            RTL_TEXTENCODING_GB_18030. Normally, this flag should be set to
-            <TRUE/> whenever the box is used in import dialogs. */
-    void                FillFromTextEncodingTable(
-                            bool bExcludeImportSubsets,
-                            sal_uInt32 nExcludeInfoFlags = 0);
-
     /** Fill with all encodings known to the dbtools::OCharsetMap but exclude
         those matching one or more given flags as defined in rtl/tencinfo.h
 
@@ -115,6 +73,11 @@ public:
                             bool bExcludeImportSubsets,
                             sal_uInt32 nExcludeInfoFlags = 0);
 
+    /** Fill with all known MIME encodings and select the best according to
+        <method>GetBestMimeEncoding</method>
+     */
+    void                FillWithMimeAndSelectBest();
+
     void                InsertTextEncoding( const rtl_TextEncoding nEnc );
 
     void                InsertTextEncoding( const rtl_TextEncoding nEnc,
@@ -125,20 +88,23 @@ public:
     rtl_TextEncoding    GetSelectTextEncoding() const;
 
     void connect_changed(const Link<weld::ComboBox&, void>& rLink) { m_xControl->connect_changed(rLink); }
+    void set_sensitive(bool bSensitive) { m_xControl->set_sensitive(bSensitive); }
     void grab_focus() { m_xControl->grab_focus(); }
+    int get_active() const { return m_xControl->get_active(); }
+    void set_active(int nActive) { m_xControl->set_active(nActive); }
     void show() { m_xControl->show(); }
     void hide() { m_xControl->hide(); }
 };
 
-class SVX_DLLPUBLIC TextEncodingTreeView
+class SVX_DLLPUBLIC SvxTextEncodingTreeView
 {
 private:
     std::unique_ptr<weld::TreeView> m_xControl;
 
 public:
-    TextEncodingTreeView(std::unique_ptr<weld::TreeView> pControl);
+    SvxTextEncodingTreeView(std::unique_ptr<weld::TreeView> pControl);
 
-    ~TextEncodingTreeView();
+    ~SvxTextEncodingTreeView();
 
     /** Fill with all known encodings but exclude those matching one or more
         given flags as defined in rtl/tencinfo.h
@@ -157,7 +123,9 @@ public:
             <TRUE/> whenever the box is used in import dialogs. */
     void                FillFromTextEncodingTable(
                             bool bExcludeImportSubsets,
-                            sal_uInt32 nExcludeInfoFlags = 0);
+                            sal_uInt32 nExcludeInfoFlags = 0,
+                            sal_uInt32 nButIncludeInfoFlags = 0
+                            );
 
     /** Fill with all encodings known to the dbtools::OCharsetMap but exclude
         those matching one or more given flags as defined in rtl/tencinfo.h
@@ -188,7 +156,7 @@ public:
     rtl_TextEncoding    GetSelectTextEncoding() const;
 
     void connect_changed(const Link<weld::TreeView&, void>& rLink) { m_xControl->connect_changed(rLink); }
-    void connect_row_activated(const Link<weld::TreeView&, void>& rLink) { m_xControl->connect_row_activated(rLink); }
+    void connect_row_activated(const Link<weld::TreeView&, bool>& rLink) { m_xControl->connect_row_activated(rLink); }
     void grab_focus() { m_xControl->grab_focus(); }
     void show() { m_xControl->show(); }
     void hide() { m_xControl->hide(); }

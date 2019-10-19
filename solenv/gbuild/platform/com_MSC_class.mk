@@ -34,19 +34,32 @@ endef
 
 # CObject class
 
+# $(call gb_CObject__compiler,flags,source)
+define gb_CObject__compiler
+	$(if $(filter YES,$(LIBRARY_X64)), $(CXX_X64_BINARY), \
+		$(if $(filter YES,$(PE_X86)), $(CXX_X86_BINARY), \
+			$(if $(filter %.c,$(2)), $(gb_CC), \
+				$(if $(filter -clr,$(1)), \
+					$(MSVC_CXX) -I$(SRCDIR)/solenv/clang-cl,$(gb_CXX)))))
+endef
+
+# Avoid annoying warning D9025 about overriding command-line arguments.
+gb_Helper_remove_overriden_flags = \
+    $(filter-out -W4 -w -arch:SSE -arch:SSE2 -arch:AVX -arch:AVX2 -Od -O2,$(1)) \
+    $(lastword $(filter -W4 -w,$(1))) \
+    $(lastword $(filter -Od -O2,$(1))) \
+    $(lastword $(filter -arch:SSE -arch:SSE2 -arch:AVX -arch:AVX2,$(1)))
+
 # $(call gb_CObject__command_pattern,object,flags,source,dep-file,compiler-plugins,symbols)
 define gb_CObject__command_pattern
 $(call gb_Helper_abbreviate_dirs,\
 	mkdir -p $(dir $(1)) $(dir $(4)) && \
 	unset INCLUDE && \
-	$(if $(filter YES,$(LIBRARY_X64)), $(CXX_X64_BINARY), \
-		$(if $(filter YES,$(PE_X86)), $(CXX_X86_BINARY), \
-			$(if $(filter %.c,$(3)), $(gb_CC), \
-				$(if $(filter -clr,$(2)), \
-					$(MSVC_CXX) -I$(SRCDIR)/solenv/clang-cl,$(gb_CXX))))) \
+	$(filter-out -arch:SSE,$(call gb_CObject__compiler,$(2),$(3))) \
 		$(DEFS) \
 		$(gb_LTOFLAGS) \
-		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(2)),$(2)) \
+		$(call gb_Helper_remove_overriden_flags,$(filter -arch:SSE,$(call gb_CObject__compiler,$(2),$(3))) \
+			$(2) $(if $(WARNINGS_DISABLED),$(gb_CXXFLAGS_DISABLE_WARNINGS))) \
 		$(if $(EXTERNAL_CODE), \
 			$(if $(filter -clr,$(2)),,$(if $(COM_IS_CLANG),-Wno-undef)), \
 			$(gb_DEFS_INTERNAL)) \
@@ -81,8 +94,9 @@ $(call gb_Output_announce,$(2),$(true),PCH,1)
 $(call gb_Helper_abbreviate_dirs,\
 	mkdir -p $(dir $(1)) $(dir $(call gb_PrecompiledHeader_get_dep_target,$(2),$(7))) && \
 	unset INCLUDE && \
-	$(gb_CXX) \
-		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(4) $(5)),$(4) $(5)) \
+	$(filter-out -arch:SSE,$(call gb_CObject__compiler,$(4) $(5),$(3))) \
+		$(call gb_Helper_remove_overriden_flags,$(filter -arch:SSE,$(call gb_CObject__compiler,$(4) $(5),$(3))) \
+			$(4) $(5) $(if $(WARNINGS_DISABLED),$(gb_CXXFLAGS_DISABLE_WARNINGS))) \
 		-Fd$(PDBFILE) \
 		$(if $(EXTERNAL_CODE),$(if $(COM_IS_CLANG),-Wno-undef),$(gb_DEFS_INTERNAL)) \
 		$(gb_LTOFLAGS) \
@@ -94,6 +108,24 @@ endef
 
 # No ccache with MSVC, no need to create a checksum for it.
 define gb_PrecompiledHeader__sum_command
+endef
+
+# When building a PCH, MSVC also creates a .pdb file with debug info. So for reuse
+# add the .pdb to the PCH's files and then use the .pdb also for linktargets that reuse the PCH.
+# call gb_PrecompiledHeader__create_reuse_files,linktarget,pchtarget,linktargetmakefilename
+define gb_PrecompiledHeader__create_reuse_files
+rm -f $(call gb_PrecompiledHeader_get_target,$(2),$(3)).pdb; \
+if test -f $(call gb_LinkTarget_get_pdbfile_in,$(1)); then \
+  cp $(call gb_LinkTarget_get_pdbfile_in,$(1)) $(call gb_PrecompiledHeader_get_target,$(2),$(3)).pdb; \
+fi
+endef
+
+# call gb_PrecompiledHeader__copy_reuse_files,linktarget,pchtarget,linktargetmakefilename
+define gb_PrecompiledHeader__copy_reuse_files
+rm -f $(call gb_LinkTarget_get_pdbfile_in,$(1)); \
+if test -f $(call gb_PrecompiledHeader_get_target,$(2),$(3)).pdb; then \
+  cp $(call gb_PrecompiledHeader_get_target,$(2),$(3)).pdb $(call gb_LinkTarget_get_pdbfile_in,$(1)); \
+fi
 endef
 
 # AsmObject class
@@ -198,7 +230,8 @@ $(call gb_Helper_abbreviate_dirs,\
 			$(sort $(T_LIBS)) user32.lib \
 			-manifestfile:$(WORKDIR)/LinkTarget/$(2).manifest \
 			-pdb:$(call gb_LinkTarget__get_pdb_filename,$(WORKDIR)/LinkTarget/$(2))) \
-		$(if $(ILIBTARGET),-out:$(1) -implib:$(ILIBTARGET),-out:$(1)); RC=$$?; rm $${RESPONSEFILE} \
+		$(if $(ILIBTARGET),-out:$(1) -implib:$(ILIBTARGET),-out:$(1)) \
+		$(call gb_filter_link_output); RC=$$?; rm $${RESPONSEFILE} \
 	$(if $(filter Library,$(TARGETTYPE)),; if [ ! -f $(ILIBTARGET) ]; then rm -f $(1); exit 42; fi) \
 	$(if $(filter Library,$(TARGETTYPE)),&& if [ -f $(WORKDIR)/LinkTarget/$(2).manifest ]; then mt.exe $(MTFLAGS) -nologo -manifest $(WORKDIR)/LinkTarget/$(2).manifest $(SRCDIR)/solenv/gbuild/platform/win_compatibility.manifest -outputresource:$(1)\;2 && touch -r $(1) $(WORKDIR)/LinkTarget/$(2).manifest $(ILIBTARGET); fi) \
 	$(if $(filter Executable,$(TARGETTYPE)),&& if [ -f $(WORKDIR)/LinkTarget/$(2).manifest ]; then mt.exe $(MTFLAGS) -nologo -manifest $(WORKDIR)/LinkTarget/$(2).manifest $(SRCDIR)/solenv/gbuild/platform/win_compatibility.manifest -outputresource:$(1)\;1 && touch -r $(1) $(WORKDIR)/LinkTarget/$(2).manifest; fi) \
@@ -325,6 +358,23 @@ $(call gb_WinResTarget_add_defs,$(2),\
 )
 $(call gb_Library_add_nativeres,$(1),$(2))
 $(call gb_Library_get_clean_target,$(1)) : $(call gb_WinResTarget_get_clean_target,$(2))
+
+endef
+
+define gb_Executable_add_default_nativeres
+$(call gb_WinResTarget_WinResTarget_init,$(1)/default)
+$(call gb_WinResTarget_set_rcfile,$(1)/default,include/default)
+$(call gb_WinResTarget_add_defs,$(1)/default,\
+		-DVERVARIANT="$(LIBO_VERSION_PATCH)" \
+		-DRES_APP_VENDOR="$(OOO_VENDOR)" \
+		-DORG_NAME="$(call gb_Executable_get_filename,$(1))"\
+		-DINTERNAL_NAME="$(subst $(gb_Executable_EXT),,$(call gb_Executable_get_filename,$(1)))" \
+		-DADDITIONAL_VERINFO1="$(if $(2),VALUE \"FileDescription\"$(COMMA) \"$(2)\\0\")" \
+		-DADDITIONAL_VERINFO2="" \
+		-DADDITIONAL_VERINFO3="" \
+)
+$(call gb_Executable_add_nativeres,$(1),$(1)/default)
+$(call gb_Executable_get_clean_target,$(1)) : $(call gb_WinResTarget_get_clean_target,$(1)/default)
 
 endef
 
@@ -513,7 +563,7 @@ endef
 
 # ExternalProject class
 
-# Use the gcc wrappers for a autoconf based project
+# Use the gcc wrappers for an autoconf based project
 #
 # gb_ExternalProject_register_targets project state_target
 define gb_ExternalProject_use_autoconf

@@ -26,7 +26,7 @@
 
 #include <sax/tools/converter.hxx>
 
-#include <tools/diagnose_ex.h>
+#include <osl/diagnose.h>
 #include <tools/date.hxx>
 
 namespace xmloff
@@ -40,12 +40,6 @@ namespace xmloff
     //= VCLDateHandler
     VCLDateHandler::VCLDateHandler()
     {
-    }
-
-    OUString VCLDateHandler::getAttributeValue( const PropertyValues& /*i_propertyValues*/ ) const
-    {
-        OSL_ENSURE( false, "VCLDateHandler::getAttributeValue: unexpected call!" );
-        return OUString();
     }
 
     OUString VCLDateHandler::getAttributeValue( const Any& i_propertyValue ) const

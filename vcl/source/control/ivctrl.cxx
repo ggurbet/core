@@ -23,7 +23,6 @@
 #include <vcl/accessiblefactory.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/commandevent.hxx>
-#include <vcl/controllayout.hxx>
 #include <vcl/mnemonic.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/tabctrl.hxx>
@@ -225,11 +224,6 @@ SvxIconChoiceCtrlEntry* SvtIconChoiceCtrl::GetEntry( const Point& rPixPos ) cons
     Point aPos( rPixPos );
     aPos -= GetMapMode().GetOrigin();
     return const_cast<SvtIconChoiceCtrl*>(this)->_pImpl->GetEntry( aPos );
-}
-
-void SvtIconChoiceCtrl::SetStyle( WinBits nWinStyle )
-{
-    _pImpl->SetStyle( nWinStyle );
 }
 
 WinBits SvtIconChoiceCtrl::GetStyle() const
@@ -615,6 +609,14 @@ OUString VerticalTabControl::GetPageText(const OString& rPageId) const
     if (!pData)
         return OUString();
     return pData->pEntry->GetText();
+}
+
+void VerticalTabControl::SetPageText(const OString& rPageId, const OUString& rText)
+{
+    VerticalTabPageData* pData = GetPageData(rPageId);
+    if (!pData)
+        return;
+    pData->pEntry->SetText(rText);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

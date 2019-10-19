@@ -23,6 +23,7 @@
 #include <vcl/decoview.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/help.hxx>
+#include <vcl/vcllayout.hxx>
 #include <vcl/status.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/settings.hxx>
@@ -32,8 +33,6 @@
 #endif
 #include <svdata.hxx>
 #include <window.h>
-
-#include <sallayout.hxx>
 
 #define STATUSBAR_OFFSET_X      STATUSBAR_OFFSET
 #define STATUSBAR_OFFSET_Y      2
@@ -388,37 +387,40 @@ void StatusBar::ImplDrawItem(vcl::RenderContext& rRenderContext, bool bOffScreen
         rRenderContext.SetClipRegion(aRegion);
     }
 
-    SalLayout* pLayoutCache = pItem->mxLayoutCache.get();
-
-    if(!pLayoutCache)
+    // if the framework code is drawing status, let it do all the work
+    if (!(pItem->mnBits & StatusBarItemBits::UserDraw))
     {
-        // update cache
-        pItem->mxLayoutCache = rRenderContext.ImplLayout(pItem->maText, 0, -1);
-        pLayoutCache = pItem->mxLayoutCache.get();
-    }
+        SalLayout* pLayoutCache = pItem->mxLayoutCache.get();
 
-    const SalLayoutGlyphs* pGlyphs = pLayoutCache ? pLayoutCache->GetGlyphs() : nullptr;
-    Size aTextSize(rRenderContext.GetTextWidth(pItem->maText,0,-1,nullptr,pGlyphs), rRenderContext.GetTextHeight());
+        if(!pLayoutCache)
+        {
+            // update cache
+            pItem->mxLayoutCache = rRenderContext.ImplLayout(pItem->maText, 0, -1);
+            pLayoutCache = pItem->mxLayoutCache.get();
+        }
 
-    Point aTextPos = ImplGetItemTextPos(aTextRectSize, aTextSize, pItem->mnBits);
+        const SalLayoutGlyphs* pGlyphs = pLayoutCache ? pLayoutCache->GetGlyphs() : nullptr;
+        Size aTextSize(rRenderContext.GetTextWidth(pItem->maText,0,-1,nullptr,pGlyphs), rRenderContext.GetTextHeight());
+        Point aTextPos = ImplGetItemTextPos(aTextRectSize, aTextSize, pItem->mnBits);
 
-    if (bOffScreen)
-    {
-        mpImplData->mpVirDev->DrawText(
-                    aTextPos,
-                    pItem->maText,
-                    0, -1, nullptr, nullptr,
-                    pGlyphs );
-    }
-    else
-    {
-        aTextPos.AdjustX(aTextRect.Left() );
-        aTextPos.AdjustY(aTextRect.Top() );
-        rRenderContext.DrawText(
-                    aTextPos,
-                    pItem->maText,
-                    0, -1, nullptr, nullptr,
-                    pGlyphs );
+        if (bOffScreen)
+        {
+            mpImplData->mpVirDev->DrawText(
+                        aTextPos,
+                        pItem->maText,
+                        0, -1, nullptr, nullptr,
+                        pGlyphs );
+        }
+        else
+        {
+            aTextPos.AdjustX(aTextRect.Left() );
+            aTextPos.AdjustY(aTextRect.Top() );
+            rRenderContext.DrawText(
+                        aTextPos,
+                        pItem->maText,
+                        0, -1, nullptr, nullptr,
+                        pGlyphs );
+        }
     }
 
     // call DrawItem if necessary
@@ -714,7 +716,7 @@ void StatusBar::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle
 
         // draw items
 
-        // Do offscreen only when we are not recording layout..
+        // Do offscreen only when we are not recording layout...
         bool bOffscreen = !rRenderContext.ImplIsRecordLayout();
 
         // tdf#94213 - un-necessary virtual-device in GL mode
@@ -1187,7 +1189,7 @@ void StatusBar::SetItemCommand( sal_uInt16 nItemId, const OUString& rCommand )
     }
 }
 
-const OUString StatusBar::GetItemCommand( sal_uInt16 nItemId )
+OUString StatusBar::GetItemCommand( sal_uInt16 nItemId )
 {
     sal_uInt16 nPos = GetItemPos( nItemId );
 

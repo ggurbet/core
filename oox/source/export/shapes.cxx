@@ -47,6 +47,7 @@
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/document/XExporter.hpp>
 #include <com/sun/star/document/XStorageBasedDocument.hpp>
+#include <com/sun/star/drawing/CircleKind.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/drawing/BitmapMode.hpp>
 #include <com/sun/star/drawing/ConnectorType.hpp>
@@ -102,6 +103,7 @@
 #include <oox/export/chartexport.hxx>
 #include <oox/mathml/export.hxx>
 #include <drawingml/presetgeometrynames.hxx>
+#include <basegfx/numeric/ftools.hxx>
 
 using namespace ::css;
 using namespace ::css::beans;
@@ -420,7 +422,7 @@ bool ShapeExport::NonEmptyText( const Reference< XInterface >& xIface )
     return false;
 }
 
-ShapeExport& ShapeExport::WritePolyPolygonShape( const Reference< XShape >& xShape, bool bClosed )
+ShapeExport& ShapeExport::WritePolyPolygonShape( const Reference< XShape >& xShape, const bool bClosed )
 {
     SAL_INFO("oox.shape", "write polypolygon shape");
 
@@ -454,7 +456,7 @@ ShapeExport& ShapeExport::WritePolyPolygonShape( const Reference< XShape >& xSha
     // visual shape properties
     pFS->startElementNS(mnXmlNamespace, XML_spPr);
     WriteTransformation( aRect, XML_a );
-    WritePolyPolygon( aPolyPolygon );
+    WritePolyPolygon( aPolyPolygon, bClosed );
     Reference< XPropertySet > xProps( xShape, UNO_QUERY );
     if( xProps.is() ) {
         if( bClosed )
@@ -657,15 +659,12 @@ static void lcl_AnalyzeHandles( const uno::Sequence<beans::PropertyValues> & rHa
         std::vector< std::pair< sal_Int32, sal_Int32> > &rHandlePositionList,
         Sequence< EnhancedCustomShapeAdjustmentValue > &rSeq)
 {
-    sal_uInt16 k;
-    sal_uInt16 nHandles = rHandles.getLength();
-    for ( k = 0; k < nHandles ; k++ )
+    for ( const Sequence< PropertyValue >& rPropSeq : rHandles )
     {
         const OUString sPosition( "Position"  );
         bool bPosition = false;
         EnhancedCustomShapeParameterPair aPosition;
         EnhancedCustomShapeParameterPair aPolar;
-        const Sequence< PropertyValue >& rPropSeq = rHandles[ k ];
         for ( const PropertyValue& rPropVal: rPropSeq )
         {
             if ( rPropVal.Name == sPosition )
@@ -697,6 +696,21 @@ static sal_Int32 lcl_NormalizeAngle( sal_Int32 nAngle )
     return nAngle < 0 ? ( nAngle + 360 ) : nAngle ;
 }
 
+static sal_Int32 lcl_CircleAngle2CustomShapeEllipseAngleOOX(const sal_Int32 nInternAngle, const sal_Int32 nWidth, const sal_Int32 nHeight)
+{
+    if (nWidth != 0 || nHeight != 0)
+    {
+        double fAngle = basegfx::deg2rad(nInternAngle / 100.0); // intern 1/100 deg to degree to rad
+        fAngle = atan2(nHeight * sin(fAngle), nWidth * cos(fAngle)); // circle to ellipse
+        fAngle = basegfx::rad2deg(fAngle) * 60000.0; // rad to degree to OOXML angle unit
+        sal_Int32 nAngle = basegfx::fround(fAngle); // normalize
+        nAngle = nAngle % 21600000;
+        return nAngle < 0 ? (nAngle + 21600000) : nAngle;
+    }
+    else // should be handled by caller, dummy value
+        return 0;
+}
+
 ShapeExport& ShapeExport::WriteCustomShape( const Reference< XShape >& xShape )
 {
     // First check, if this is a Fontwork-shape. For DrawingML, such a shape is a
@@ -714,17 +728,15 @@ ShapeExport& ShapeExport::WriteCustomShape( const Reference< XShape >& xShape )
         {
             bHasGeometrySeq = true;
             SAL_INFO("oox.shape", "got custom shape geometry sequence");
-            for (int i = 0; i < aGeometrySeq.getLength(); i++)
+            for (const PropertyValue& rProp : std::as_const(aGeometrySeq))
             {
-                const PropertyValue& rProp = aGeometrySeq[i];
                 SAL_INFO("oox.shape", "geometry property: " << rProp.Name);
                 if (rProp.Name == "TextPath")
                 {
                     uno::Sequence<beans::PropertyValue> aTextPathSeq;
                     rProp.Value >>= aTextPathSeq;
-                    for (int k = 0; k < aTextPathSeq.getLength(); k++)
+                    for (const PropertyValue& rTextProp : std::as_const(aTextPathSeq))
                     {
-                        const PropertyValue& rTextProp = aTextPathSeq[k];
                         if (rTextProp.Name == "TextPath")
                         {
                             rTextProp.Value >>= bIsFontworkShape;
@@ -882,7 +894,7 @@ ShapeExport& ShapeExport::WriteCustomShape( const Reference< XShape >& xShape )
         bool bInvertRotation = bFlipH != bFlipV;
         if (nRotation != 0)
             aPolyPolygon.Rotate(Point(0,0), static_cast<sal_uInt16>(bInvertRotation ? nRotation/10 : 3600-nRotation/10));
-        WritePolyPolygon( aPolyPolygon );
+        WritePolyPolygon( aPolyPolygon, false );
     }
     else if (bCustGeom)
     {
@@ -1055,7 +1067,7 @@ ShapeExport& ShapeExport::WriteEllipseShape( const Reference< XShape >& xShape )
 
     pFS->startElementNS(mnXmlNamespace, (GetDocumentType() != DOCUMENT_DOCX ? XML_sp : XML_wsp));
 
-    // TODO: arc, section, cut, connector
+    // TODO: connector ?
 
     // non visual shape properties
     if (GetDocumentType() != DOCUMENT_DOCX)
@@ -1071,13 +1083,64 @@ ShapeExport& ShapeExport::WriteEllipseShape( const Reference< XShape >& xShape )
     else
         pFS->singleElementNS(mnXmlNamespace, XML_cNvSpPr);
 
+    Reference< XPropertySet > xProps( xShape, UNO_QUERY );
+    CircleKind  eCircleKind(CircleKind_FULL);
+    if (xProps.is())
+        xProps->getPropertyValue("CircleKind" ) >>= eCircleKind;
+
     // visual shape properties
     pFS->startElementNS( mnXmlNamespace, XML_spPr );
     WriteShapeTransformation( xShape, XML_a );
-    WritePresetShape( "ellipse" );
-    Reference< XPropertySet > xProps( xShape, UNO_QUERY );
+
+    if (CircleKind_FULL == eCircleKind)
+        WritePresetShape("ellipse");
+    else
+    {
+        sal_Int32 nStartAngleIntern(9000);
+        sal_Int32 nEndAngleIntern(0);
+        if (xProps.is())
+        {
+           xProps->getPropertyValue("CircleStartAngle" ) >>= nStartAngleIntern;
+           xProps->getPropertyValue("CircleEndAngle") >>= nEndAngleIntern;
+        }
+        std::vector< std::pair<sal_Int32,sal_Int32>> aAvList;
+        awt::Size aSize = xShape->getSize();
+        if (aSize.Width != 0 || aSize.Height != 0)
+        {
+            // Our arc has 90° up, OOXML has 90° down, so mirror it.
+            // API angles are 1/100 degree.
+            sal_Int32 nStartAngleOOXML(lcl_CircleAngle2CustomShapeEllipseAngleOOX(36000 - nEndAngleIntern, aSize.Width, aSize.Height));
+            sal_Int32 nEndAngleOOXML(lcl_CircleAngle2CustomShapeEllipseAngleOOX(36000 - nStartAngleIntern, aSize.Width, aSize.Height));
+            lcl_AppendAdjustmentValue( aAvList, 1, nStartAngleOOXML);
+            lcl_AppendAdjustmentValue( aAvList, 2, nEndAngleOOXML);
+        }
+        switch (eCircleKind)
+        {
+            case CircleKind_ARC :
+                WritePresetShape("arc", aAvList);
+            break;
+            case CircleKind_SECTION :
+                WritePresetShape("pie", aAvList);
+            break;
+            case CircleKind_CUT :
+                WritePresetShape("chord", aAvList);
+            break;
+        default :
+            WritePresetShape("ellipse");
+        }
+    }
     if( xProps.is() )
     {
+        if (CircleKind_ARC == eCircleKind)
+        {
+            // An arc in ODF is never filled, even if a fill style other than
+            // "none" is set. OOXML arc can be filled, so set fill explicit to
+            // NONE, otherwise some hidden or inherited filling is shown.
+            FillStyle eFillStyle(FillStyle_NONE);
+            uno::Any aNewValue;
+            aNewValue <<= eFillStyle;
+            xProps->setPropertyValue("FillStyle", aNewValue);
+        }
         WriteFill( xProps );
         WriteOutline( xProps );
     }
@@ -1477,7 +1540,7 @@ static const NameToConvertMapType& lcl_GetConverters()
         { "com.sun.star.drawing.LineShape"                 , &ShapeExport::WriteLineShape },
         { "com.sun.star.drawing.OpenBezierShape"           , &ShapeExport::WriteOpenPolyPolygonShape },
         { "com.sun.star.drawing.PolyPolygonShape"          , &ShapeExport::WriteClosedPolyPolygonShape },
-        { "com.sun.star.drawing.PolyLineShape"             , &ShapeExport::WriteClosedPolyPolygonShape },
+        { "com.sun.star.drawing.PolyLineShape"             , &ShapeExport::WriteOpenPolyPolygonShape },
         { "com.sun.star.drawing.RectangleShape"            , &ShapeExport::WriteRectangleShape },
         { "com.sun.star.drawing.OLE2Shape"                 , &ShapeExport::WriteOLE2Shape },
         { "com.sun.star.drawing.TableShape"                , &ShapeExport::WriteTableShape },
@@ -1961,8 +2024,7 @@ ShapeExport& ShapeExport::WriteOLE2Shape( const Reference< XShape >& xShape )
         xPropSet->getPropertyValue("Model") >>= xChartDoc;
         assert(xChartDoc.is());
         //export the chart
-        Reference< XModel > xModel( xChartDoc, UNO_QUERY );
-        ChartExport aChartExport( mnXmlNamespace, GetFS(), xModel, GetFB(), GetDocumentType() );
+        ChartExport aChartExport( mnXmlNamespace, GetFS(), xChartDoc, GetFB(), GetDocumentType() );
         static sal_Int32 nChartCount = 0;
         aChartExport.WriteChartObj( xShape, GetNewShapeID( xShape ), ++nChartCount );
         return *this;
@@ -2003,19 +2065,19 @@ ShapeExport& ShapeExport::WriteOLE2Shape( const Reference< XShape >& xShape )
 
     OUString progID;
 
-    for (auto const& it : grabBag)
+    for (auto const& it : std::as_const(grabBag))
     {
         if (it.Name == "EmbeddedObjects")
         {
             uno::Sequence<beans::PropertyValue> objects;
             it.Value >>= objects;
-            for (auto const& object : objects)
+            for (auto const& object : std::as_const(objects))
             {
                 if (object.Name == entryName)
                 {
                     uno::Sequence<beans::PropertyValue> props;
                     object.Value >>= props;
-                    for (auto const& prop : props)
+                    for (auto const& prop : std::as_const(props))
                     {
                         if (prop.Name == "ProgID")
                         {

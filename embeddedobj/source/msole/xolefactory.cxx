@@ -17,13 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/EntryInitModes.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/io/IOException.hpp>
+#include <com/sun/star/lang/IllegalArgumentException.hpp>
 
 #include "xolefactory.hxx"
 #include <oleembobj.hxx>
@@ -46,7 +45,7 @@ uno::Sequence< OUString > OleEmbeddedObjectFactory::impl_staticGetSupportedServi
 
 OUString OleEmbeddedObjectFactory::impl_staticGetImplementationName()
 {
-    return OUString("com.sun.star.comp.embed.OLEEmbeddedObjectFactory");
+    return "com.sun.star.comp.embed.OLEEmbeddedObjectFactory";
 }
 
 

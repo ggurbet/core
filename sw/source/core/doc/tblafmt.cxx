@@ -45,8 +45,24 @@
 #include <osl/diagnose.h>
 
 #include <svl/legacyitem.hxx>
+#include <editeng/adjustitem.hxx>
+#include <editeng/boxitem.hxx>
+#include <editeng/brushitem.hxx>
+#include <editeng/colritem.hxx>
+#include <editeng/contouritem.hxx>
+#include <editeng/crossedoutitem.hxx>
+#include <editeng/fontitem.hxx>
+#include <editeng/fhgtitem.hxx>
+#include <editeng/justifyitem.hxx>
 #include <editeng/legacyitem.hxx>
+#include <editeng/lineitem.hxx>
+#include <editeng/postitem.hxx>
+#include <editeng/shdditem.hxx>
+#include <editeng/udlnitem.hxx>
+#include <editeng/wghtitem.hxx>
+#include <svx/algitem.hxx>
 #include <svx/legacyitem.hxx>
+#include <svx/rotmodit.hxx>
 #include <legacyitem.hxx>
 
 #include <memory>
@@ -372,8 +388,6 @@ SwTableAutoFormat::SwTableAutoFormat( const OUString& rName )
     m_bInclBackground = true;
     m_bInclValueFormat = true;
     m_bInclWidthHeight = true;
-
-    memset( m_aBoxAutoFormat, 0, sizeof( m_aBoxAutoFormat ) );
 }
 
 SwTableAutoFormat::SwTableAutoFormat( const SwTableAutoFormat& rNew )
@@ -965,7 +979,7 @@ std::unique_ptr<SwTableAutoFormat> SwTableAutoFormatTable::ReleaseAutoFormat(con
 
 SwTableAutoFormat* SwTableAutoFormatTable::FindAutoFormat(const OUString& rName) const
 {
-    for (auto &rFormat : m_pImpl->m_AutoFormats)
+    for (const auto &rFormat : m_pImpl->m_AutoFormats)
     {
         if (rFormat->GetName() == rName)
             return rFormat.get();

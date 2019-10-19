@@ -224,6 +224,18 @@ public:
         pData->length = l;
         // TODO realloc in case pData->>length is noticeably smaller than l ?
     }
+
+    /**
+     @overload
+     @internal
+    */
+    template< typename T >
+    OUStringBuffer( OUStringNumber< T >&& n )
+        : pData(NULL)
+        , nCapacity( n.length + 16 )
+    {
+        rtl_uStringbuffer_newFromStr_WithLength( &pData, n.buf, n.length );
+    }
 #endif
     /** Assign to this a copy of value.
      */
@@ -327,6 +339,13 @@ public:
         *concat.addData(pData->buffer) = 0;
         pData->length = n;
         return *this;
+    }
+
+    /** @overload @internal */
+    template<typename T>
+    OUStringBuffer & operator =(OUStringNumber<T> && n)
+    {
+        return *this = OUStringBuffer( std::move( n ));
     }
 #endif
 
@@ -513,7 +532,7 @@ public:
     }
 
     /**
-        Return a OUString instance reflecting the current content
+        Return an OUString instance reflecting the current content
         of this OUStringBuffer.
      */
     const OUString toString() const
@@ -612,11 +631,9 @@ public:
     {
         assert(
             libreoffice_internal::ConstCharArrayDetector<T>::isValid(literal));
-        rtl_uStringbuffer_insert_ascii(
-            &pData, &nCapacity, getLength(),
+        return appendAscii(
             libreoffice_internal::ConstCharArrayDetector<T>::toPointer(literal),
             libreoffice_internal::ConstCharArrayDetector<T>::length);
-        return *this;
     }
 
 #if defined LIBO_INTERNAL_ONLY
@@ -625,18 +642,14 @@ public:
     typename libreoffice_internal::ConstCharArrayDetector<
         T, OUStringBuffer &>::TypeUtf16
     append(T & literal) {
-        rtl_uStringbuffer_insert(
-            &pData, &nCapacity, getLength(),
+        return append(
             libreoffice_internal::ConstCharArrayDetector<T>::toPointer(literal),
             libreoffice_internal::ConstCharArrayDetector<T>::length);
-        return *this;
     }
 
     /** @overload @since LibreOffice 5.4 */
     OUStringBuffer & append(OUStringLiteral const & literal) {
-        rtl_uStringbuffer_insert_ascii(
-            &pData, &nCapacity, getLength(), literal.data, literal.size);
-        return *this;
+        return appendAscii(literal.data, literal.size);
     }
 #endif
 
@@ -657,6 +670,16 @@ public:
         *end = '\0';
         pData->length = l;
         return *this;
+    }
+
+    /**
+     @overload
+     @internal
+    */
+    template< typename T >
+    OUStringBuffer& append( OUStringNumber< T >&& c )
+    {
+        return append( c.buf, c.length );
     }
 #endif
 
@@ -996,11 +1019,10 @@ public:
     typename libreoffice_internal::ConstCharArrayDetector<
         T, OUStringBuffer &>::TypeUtf16
     insert(sal_Int32 offset, T & literal) {
-        rtl_uStringbuffer_insert(
-            &pData, &nCapacity, offset,
+        return insert(
+            offset,
             libreoffice_internal::ConstCharArrayDetector<T>::toPointer(literal),
             libreoffice_internal::ConstCharArrayDetector<T>::length);
-        return *this;
     }
 
     /** @overload @since LibreOffice 5.4 */
@@ -1611,6 +1633,13 @@ public:
         rtl_uStringbuffer_newFromStr_WithLength( &pNew, getStr() + beginIndex, count );
         return OUStringBuffer( pNew, count + 16 );
     }
+
+#if defined LIBO_INTERNAL_ONLY
+    explicit operator OUStringView() const
+    {
+        return OUStringView(getStr(), getLength());
+    }
+#endif
 
 private:
     OUStringBuffer( rtl_uString * value, const sal_Int32 capacity )

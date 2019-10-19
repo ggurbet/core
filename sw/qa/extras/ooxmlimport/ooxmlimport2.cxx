@@ -19,6 +19,12 @@
 #include <com/sun/star/document/XEmbeddedObjectSupplier2.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
+#include <com/sun/star/style/BreakType.hpp>
+#include <xmloff/odffields.hxx>
+#include <IDocumentMarkAccess.hxx>
+#include <IMark.hxx>
+#include <sortedobjs.hxx>
+#include <anchoredobject.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -37,10 +43,38 @@ DECLARE_OOXMLIMPORT_TEST(testTdf108545_embeddedDocxIcon, "tdf108545_embeddedDocx
 
 DECLARE_OOXMLIMPORT_TEST(testTdf121203, "tdf121203.docx")
 {
-    // Make sure that the date SDT's content is imported as plain text, as it
-    // has no ISO date, so we have no idea how to represent that with our date
-    // control.
-    CPPUNIT_ASSERT_EQUAL(OUString("17-Oct-2018 09:00"), getRun(getParagraph(1), 1)->getString());
+    // We imported the date field
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+
+    // Custom sdt date content is imported correctly
+    ::sw::mark::IDateFieldmark* pFieldmark
+        = dynamic_cast<::sw::mark::IDateFieldmark*>(*pMarkAccess->getAllMarksBegin());
+    CPPUNIT_ASSERT(pFieldmark);
+    CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMDATE), pFieldmark->GetFieldname());
+
+    const sw::mark::IFieldmark::parameter_map_t* const pParameters = pFieldmark->GetParameters();
+    OUString sDateFormat;
+    auto pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT);
+    if (pResult != pParameters->end())
+    {
+        pResult->second >>= sDateFormat;
+    }
+
+    OUString sLang;
+    pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT_LANGUAGE);
+    if (pResult != pParameters->end())
+    {
+        pResult->second >>= sLang;
+    }
+
+    OUString sCurrentDate = pFieldmark->GetContent();
+    CPPUNIT_ASSERT_EQUAL(OUString("dd-MMM-yy"), sDateFormat);
+    CPPUNIT_ASSERT_EQUAL(OUString("en-GB"), sLang);
+    CPPUNIT_ASSERT_EQUAL(OUString("17-Oct-2018 09:00"), sCurrentDate);
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf109053, "tdf109053.docx")
@@ -99,6 +133,28 @@ DECLARE_OOXMLIMPORT_TEST(testGroupShapeFontName, "groupshape-fontname.docx")
     CPPUNIT_ASSERT_EQUAL(
         OUString(""),
         getProperty<OUString>(getRun(getParagraphOfText(1, xText), 1), "CharFontNameAsian"));
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf124600, "tdf124600.docx")
+{
+    uno::Reference<drawing::XShape> xShape = getShape(1);
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 0
+    // - Actual  : 318
+    // i.e. the shape had an unexpected left margin, but not in Word.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0),
+                         getProperty<sal_Int32>(xShape, "HoriOrientPosition"));
+
+    // Make sure that "Shape 1 text" (anchored in the header) has the same left margin as the body
+    // text.
+    OUString aShapeTextLeft = parseDump("/root/page/header/txt/anchored/fly/infos/bounds", "left");
+    OUString aBodyTextLeft = parseDump("/root/page/body/txt/infos/bounds", "left");
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 1701
+    // - Actual  : 1815
+    // i.e. there was a >0 left margin on the text of the shape, resulting in incorrect horizontal
+    // position.
+    CPPUNIT_ASSERT_EQUAL(aBodyTextLeft, aShapeTextLeft);
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf120548, "tdf120548.docx")
@@ -233,6 +289,17 @@ DECLARE_OOXMLIMPORT_TEST(testTdf112443, "tdf112443.docx")
 // and as result only one page should be generated.
 DECLARE_OOXMLIMPORT_TEST(testTdf113182, "tdf113182.docx") { CPPUNIT_ASSERT_EQUAL(1, getPages()); }
 
+DECLARE_OOXMLIMPORT_TEST(testBtlrFrameVml, "btlr-frame-vml.docx")
+{
+    uno::Reference<beans::XPropertySet> xTextFrame(getShape(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xTextFrame.is());
+
+    auto nActual = getProperty<sal_Int16>(xTextFrame, "WritingMode");
+    // Without the accompanying fix in place, this test would have failed with 'Expected: 5; Actual:
+    // 4', i.e. writing direction was inherited from page, instead of explicit btlr.
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::BT_LR, nActual);
+}
+
 DECLARE_OOXMLIMPORT_TEST(testTdf124398, "tdf124398.docx")
 {
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
@@ -243,6 +310,18 @@ DECLARE_OOXMLIMPORT_TEST(testTdf124398, "tdf124398.docx")
 
     uno::Reference<drawing::XShapeDescriptor> xShape(xGroup->getByIndex(1), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("com.sun.star.drawing.OLE2Shape"), xShape->getShapeType());
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf104167, "tdf104167.docx")
+{
+    // Make sure that heading 1 paragraphs start on a new page.
+    uno::Any xStyle = getStyles("ParagraphStyles")->getByName("Heading 1");
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expected: 4
+    // - Actual  : 0
+    // i.e. the <w:pageBreakBefore/> was lost on import.
+    CPPUNIT_ASSERT_EQUAL(style::BreakType_PAGE_BEFORE,
+                         getProperty<style::BreakType>(xStyle, "BreakType"));
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf113946, "tdf113946.docx")
@@ -306,10 +385,9 @@ DECLARE_OOXMLIMPORT_TEST(testTdf115094, "tdf115094.docx")
     // anchor of graphic has to be the text in the text frame
     // xray ThisComponent.DrawPage(1).Anchor.Text
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDrawPage(xDrawPageSupplier->getDrawPage(),
-                                                      uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDrawPage = xDrawPageSupplier->getDrawPage();
     uno::Reference<text::XTextContent> xShape(xDrawPage->getByIndex(1), uno::UNO_QUERY);
-    uno::Reference<text::XTextRange> xText1(xShape->getAnchor()->getText(), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xText1 = xShape->getAnchor()->getText();
 
     // xray ThisComponent.TextTables(0).getCellByName("A1")
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
@@ -323,10 +401,10 @@ DECLARE_OOXMLIMPORT_TEST(testTdf115094, "tdf115094.docx")
 
 DECLARE_OOXMLIMPORT_TEST(testTdf115094v2, "tdf115094v2.docx")
 {
-    // Introduce new attribute "layoutInCell"
+    // layoutInCell="1" combined with <wp:wrapNone/>
 
-    CPPUNIT_ASSERT(getProperty<bool>(getShapeByName("Grafik 18"), "IsLayoutInCell"));
-    CPPUNIT_ASSERT(getProperty<bool>(getShapeByName("Grafik 19"), "IsLayoutInCell"));
+    CPPUNIT_ASSERT(getProperty<bool>(getShapeByName("Grafik 18"), "IsFollowingTextFlow"));
+    CPPUNIT_ASSERT(getProperty<bool>(getShapeByName("Grafik 19"), "IsFollowingTextFlow"));
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf122224, "tdf122224.docx")
@@ -371,6 +449,50 @@ DECLARE_OOXMLIMPORT_TEST(testTdf126114, "tdf126114.docx")
     // The problem was that after the drop-down form field, also the placeholder string
     // was imported as text. Beside the duplication of the field, it also caused a crash.
     CPPUNIT_ASSERT_EQUAL(7, getLength());
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf127825, "tdf127825.docx")
+{
+    // The document has a shape with Japanese-style text in it. The shape has relative size and also
+    // has automatic height.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+    CPPUNIT_ASSERT(pWrtShell);
+    SwRootFrame* pLayout = pWrtShell->GetLayout();
+    CPPUNIT_ASSERT(pLayout);
+    SwFrame* pPage = pLayout->GetLower();
+    CPPUNIT_ASSERT(pPage);
+    SwFrame* pBody = pPage->GetLower();
+    CPPUNIT_ASSERT(pBody);
+    SwFrame* pText = pBody->GetLower();
+    CPPUNIT_ASSERT(pText);
+    CPPUNIT_ASSERT(pText->GetDrawObjs());
+    const SwSortedObjs& rDrawObjs = *pText->GetDrawObjs();
+    CPPUNIT_ASSERT(rDrawObjs.size());
+
+    // Without the accompanying fix in place, this overlapped the footer area, not the body area.
+    CPPUNIT_ASSERT(rDrawObjs[0]->GetObjRect().IsOver(pBody->getFrameArea()));
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf103345, "numbering-circle.docx")
+{
+    uno::Reference<beans::XPropertySet> xPropertySet(
+        getStyles("NumberingStyles")->getByName("WWNum1"), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xLevels(
+        xPropertySet->getPropertyValue("NumberingRules"), uno::UNO_QUERY);
+    uno::Sequence<beans::PropertyValue> aProps;
+    xLevels->getByIndex(0) >>= aProps; // 1st level
+
+    for (int i = 0; i < aProps.getLength(); ++i)
+    {
+        if (aProps[i].Name == "NumberingType")
+        {
+            CPPUNIT_ASSERT_EQUAL(style::NumberingType::CIRCLE_NUMBER,
+                                 aProps[i].Value.get<sal_Int16>());
+            return;
+        }
+    }
 }
 
 // tests should only be added to ooxmlIMPORT *if* they fail round-tripping in ooxmlEXPORT

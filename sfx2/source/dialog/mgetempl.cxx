@@ -19,7 +19,6 @@
 
 #include <comphelper/string.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/field.hxx>
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/style.hxx>
@@ -47,9 +46,9 @@
  *
  *  initializes the list box with the templates
  */
-SfxManageStyleSheetPage::SfxManageStyleSheetPage(TabPageParent pParent, const SfxItemSet& rAttrSet)
-    : SfxTabPage(pParent, "sfx/ui/managestylepage.ui", "ManageStylePage", &rAttrSet)
-    , pStyle(&static_cast<SfxStyleDialogController*>(pParent.pController)->GetStyleSheet())
+SfxManageStyleSheetPage::SfxManageStyleSheetPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttrSet)
+    : SfxTabPage(pPage, pController, "sfx/ui/managestylepage.ui", "ManageStylePage", &rAttrSet)
+    , pStyle(&static_cast<SfxStyleDialogController*>(pController)->GetStyleSheet())
     , pItem(nullptr)
     , bModified(false)
     , aName(pStyle->GetName())
@@ -76,14 +75,14 @@ SfxManageStyleSheetPage::SfxManageStyleSheetPage(TabPageParent pParent, const Sf
     m_xBaseLb->make_sorted();
     m_xBaseLb->set_size_request(nMaxWidth , -1);
     //note that the code depends on categories not being lexically
-    //sorted, so if its changed to sorted, the code needs to
+    //sorted, so if it's changed to sorted, the code needs to
     //be adapted to be position unaware
     m_xFilterLb->set_size_request(nMaxWidth , -1);
 
     // this Page needs ExchangeSupport
     SetExchangeSupport();
 
-    if ( aFollow == aName )
+    if ( aFollow.isEmpty() || aFollow == aName )
         m_xEditStyleBtn->set_sensitive(false);
     else
         m_xEditStyleBtn->set_sensitive(true);
@@ -253,15 +252,9 @@ SfxManageStyleSheetPage::SfxManageStyleSheetPage(TabPageParent pParent, const Sf
 
 SfxManageStyleSheetPage::~SfxManageStyleSheetPage()
 {
-    disposeOnce();
-}
-
-void SfxManageStyleSheetPage::dispose()
-{
     pFamilies.reset();
     pItem = nullptr;
     pStyle = nullptr;
-    SfxTabPage::dispose();
 }
 
 void SfxManageStyleSheetPage::UpdateName_Impl( weld::ComboBox* pBox,
@@ -489,7 +482,10 @@ void SfxManageStyleSheetPage::Reset( const SfxItemSet* /*rAttrSet*/ )
             pStyle->SetFollow( aFollow );
 
         if ( aFollow.isEmpty() )
+        {
             m_xFollowLb->set_active_text( aName );
+            m_xEditStyleBtn->set_sensitive( false );
+        }
         else
             m_xFollowLb->set_active_text( aFollow );
     }
@@ -502,7 +498,10 @@ void SfxManageStyleSheetPage::Reset( const SfxItemSet* /*rAttrSet*/ )
             pStyle->SetParent( aParent );
 
         if ( aParent.isEmpty() )
+        {
             m_xBaseLb->set_active_text( SfxResId(STR_NONE) );
+            m_xEditLinkStyleBtn->set_sensitive( false );
+        }
         else
             m_xBaseLb->set_active_text( aParent );
 
@@ -513,6 +512,8 @@ void SfxManageStyleSheetPage::Reset( const SfxItemSet* /*rAttrSet*/ )
             m_xBaseLb->set_sensitive(false);
         }
     }
+    else
+        m_xEditLinkStyleBtn->set_sensitive( false );
 
     if (m_xFilterLb->get_sensitive())
     {
@@ -524,10 +525,10 @@ void SfxManageStyleSheetPage::Reset( const SfxItemSet* /*rAttrSet*/ )
     }
 }
 
-VclPtr<SfxTabPage> SfxManageStyleSheetPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SfxManageStyleSheetPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                                     const SfxItemSet *rAttrSet )
 {
-    return VclPtr<SfxManageStyleSheetPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SfxManageStyleSheetPage>(pPage, pController, *rAttrSet);
 }
 
 void SfxManageStyleSheetPage::ActivatePage( const SfxItemSet& rSet)

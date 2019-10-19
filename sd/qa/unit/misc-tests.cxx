@@ -10,11 +10,7 @@
 #include <officecfg/Office/Common.hxx>
 #include "sdmodeltestbase.hxx"
 
-#include <vcl/svapp.hxx>
-#include <sddll.hxx>
-
 #include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/beans/PropertyValue.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/frame/Desktop.hpp>
@@ -34,8 +30,6 @@
 
 #include <vcl/scheduler.hxx>
 #include <osl/thread.hxx>
-#include <FactoryIds.hxx>
-#include <sdmod.hxx>
 #include <svx/sdr/table/tablecontroller.hxx>
 #include <sfx2/request.hxx>
 #include <svx/svdpagv.hxx>
@@ -44,7 +38,6 @@
 #include <editeng/adjustitem.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/editobj.hxx>
-#include <ImpressViewShellBase.hxx>
 #include <SlideSorterViewShell.hxx>
 #include <SlideSorter.hxx>
 #include <controller/SlideSorterController.hxx>
@@ -155,7 +148,7 @@ sd::DrawDocShellRef SdMiscTest::Load(const OUString& rURL, sal_Int32 nFormat)
     uno::Reference< frame::XModel2 > xModel2(xDocSh->GetModel(), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xModel2.is());
 
-    uno::Reference< frame::XController2 > xController(xModel2->createDefaultViewController(xTargetFrame), uno::UNO_QUERY);
+    uno::Reference< frame::XController2 > xController = xModel2->createDefaultViewController(xTargetFrame);
     CPPUNIT_ASSERT(xController.is());
 
     // introduce model/view/controller to each other

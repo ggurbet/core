@@ -245,7 +245,7 @@ const ::avmedia::MediaItem& SdrMediaObj::getMediaProperties() const
     return m_xImpl->m_MediaProperties;
 }
 
-uno::Reference<io::XInputStream> SdrMediaObj::GetInputStream()
+uno::Reference<io::XInputStream> SdrMediaObj::GetInputStream() const
 {
     if (!m_xImpl->m_pTempFile)
     {
@@ -303,8 +303,7 @@ static bool lcl_HandlePackageURL(
     }
     catch (uno::Exception const&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("svx", "exception: " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("svx", "");
         return false;
     }
     if (!xInStream.is())

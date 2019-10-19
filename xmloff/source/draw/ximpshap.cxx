@@ -19,7 +19,6 @@
 
 #include <cassert>
 
-#include <tools/debug.hxx>
 #include <sal/log.hxx>
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/container/XNameReplace.hpp>
@@ -28,7 +27,6 @@
 #include <com/sun/star/drawing/LineStyle.hpp>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
 #include <com/sun/star/drawing/XGluePointsSupplier.hpp>
-#include <com/sun/star/container/XIdentifierAccess.hpp>
 #include <com/sun/star/drawing/GluePoint2.hpp>
 #include <com/sun/star/drawing/Alignment.hpp>
 #include <com/sun/star/drawing/EscapeDirection.hpp>
@@ -61,9 +59,7 @@
 #include <comphelper/sequence.hxx>
 #include <tools/diagnose_ex.h>
 
-#include <PropertySetMerger.hxx>
 #include <xmloff/families.hxx>
-#include "ximpstyl.hxx"
 #include<xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <EnhancedCustomShapeToken.hxx>
@@ -73,6 +69,7 @@
 #include "eventimp.hxx"
 #include "descriptionimp.hxx"
 #include "SignatureLineContext.hxx"
+#include "QRCodeContext.hxx"
 #include "ximpcustomshape.hxx"
 #include <XMLEmbeddedObjectImportContext.hxx>
 #include <xmloff/xmlerror.hxx>
@@ -91,8 +88,6 @@
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/vector/b2dvector.hxx>
 #include <o3tl/safeint.hxx>
-
-#include <config_features.h>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -190,6 +185,10 @@ SvXMLImportContextRef SdXMLShapeContext::CreateChildContext( sal_uInt16 p_nPrefi
     else if( p_nPrefix == XML_NAMESPACE_LO_EXT && IsXMLToken( rLocalName, XML_SIGNATURELINE ) )
     {
         xContext = new SignatureLineContext( GetImport(), p_nPrefix, rLocalName, xAttrList, mxShape );
+    }
+    else if( p_nPrefix == XML_NAMESPACE_LO_EXT && IsXMLToken( rLocalName, XML_QRCODE ) )
+    {
+        xContext = new QRCodeContext( GetImport(), p_nPrefix, rLocalName, xAttrList, mxShape );
     }
     else if( p_nPrefix == XML_NAMESPACE_OFFICE && IsXMLToken( rLocalName, XML_EVENT_LISTENERS ) )
     {
@@ -669,7 +668,7 @@ void SdXMLShapeContext::SetStyle( bool bSupportsStyle /* = true */)
                             }
                             else
                             {
-                                // get graphics familie
+                                // get graphics family
                                 xFamilies->getByName("graphics") >>= xFamily;
                                 aStyleName = GetImport().GetStyleDisplayName(
                                     XML_STYLE_FAMILY_SD_GRAPHICS_ID,
@@ -2186,7 +2185,7 @@ void SdXMLPageShapeContext::StartElement(const uno::Reference< xml::sax::XAttrib
     // add, set style and properties from base shape
 
     // #86163# take into account which type of PageShape needs to
-    // be constructed. It's an pres shape if presentation:XML_CLASS == XML_PRESENTATION_PAGE.
+    // be constructed. It's a pres shape if presentation:XML_CLASS == XML_PRESENTATION_PAGE.
     bool bIsPresentation = !maPresentationClass.isEmpty() &&
            GetImport().GetShapeImport()->IsPresentationShapesSupported();
 
@@ -2598,8 +2597,8 @@ SdXMLObjectShapeContext::~SdXMLObjectShapeContext()
 
 void SdXMLObjectShapeContext::StartElement( const css::uno::Reference< css::xml::sax::XAttributeList >& )
 {
-    // #96717# in theorie, if we don't have a url we shouldn't even
-    // export this ole shape. But practical its to risky right now
+    // #96717# in theorie, if we don't have a URL we shouldn't even
+    // export this OLE shape. But practically it's too risky right now
     // to change this so we better dispose this on load
     //if( !mbIsPlaceholder && ImpIsEmptyURL(maHref) )
     //  return;
@@ -3105,7 +3104,7 @@ void SdXMLPluginShapeContext::EndElement()
 
             xProps->setPropertyValue("MediaMimeType", uno::makeAny(maMimeType) );
 
-            for( const auto& rParam : maParams )
+            for( const auto& rParam : std::as_const(maParams) )
             {
                 const OUString& rName = rParam.Name;
 
@@ -3522,6 +3521,19 @@ SvXMLImportContextRef SdXMLFrameShapeContext::CreateChildContext( sal_uInt16 nPr
             }
         }
     }
+    else if ((XML_NAMESPACE_LO_EXT == nPrefix) && IsXMLToken(rLocalName, XML_QRCODE))
+    {
+        SdXMLShapeContext* pSContext = dynamic_cast<SdXMLShapeContext*>(mxImplContext.get());
+        if (pSContext)
+        {
+            uno::Reference<beans::XPropertySet> xPropSet(pSContext->getShape(), uno::UNO_QUERY);
+            if (xPropSet.is())
+            {
+                xContext = new QRCodeContext(GetImport(), nPrefix, rLocalName, xAttrList,
+                                                    pSContext->getShape());
+            }
+        }
+    }
     // call parent for content
     if (!xContext)
         xContext = SvXMLImportContext::CreateChildContext( nPrefix, rLocalName, xAttrList );
@@ -3653,7 +3665,8 @@ SdXMLCustomShapeContext::SdXMLCustomShapeContext(
             {
                 rtl::Reference<XMLTextImportHelper> xTxtImport = GetImport().GetTextImport();
                 XMLPropStyleContext* pStyle = xTxtImport->FindAutoFrameStyle(aStyleName);
-                if (pStyle && !pStyle->GetParentName().isEmpty())
+                // Note that this an API name, so intentionally not localized.
+                if (pStyle && pStyle->GetParentName() == "Frame")
                 {
                     mbTextBox = true;
                     break;
@@ -3859,7 +3872,6 @@ SvXMLImportContextRef SdXMLCustomShapeContext::CreateChildContext(
 SdXMLTableShapeContext::SdXMLTableShapeContext( SvXMLImport& rImport, sal_uInt16 nPrfx, const OUString& rLocalName, const css::uno::Reference< css::xml::sax::XAttributeList>& xAttrList, css::uno::Reference< css::drawing::XShapes > const & rShapes )
 : SdXMLShapeContext( rImport, nPrfx, rLocalName, xAttrList, rShapes, false )
 {
-    memset( &maTemplateStylesUsed, 0, sizeof( maTemplateStylesUsed ) );
 }
 
 SdXMLTableShapeContext::~SdXMLTableShapeContext()

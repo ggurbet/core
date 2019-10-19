@@ -38,6 +38,7 @@
 #include <vcl/settings.hxx>
 #include <svl/itempool.hxx>
 #include <svl/intitem.hxx>
+#include <svtools/unitconv.hxx>
 #include <editeng/sizeitem.hxx>
 
 namespace
@@ -76,6 +77,12 @@ PageSizeControl::PageSizeControl( sal_uInt16 nId, vcl::Window* pParent )
     get(maMoreButton, "moreoptions");
     get(maContainer, "container");
     mpSizeValueSet = VclPtr<svx::sidebar::ValueSetWithTextControl>::Create( maContainer.get(), WB_BORDER );
+
+    // Avoid flicker when hovering over the menu items.
+    if (!IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Focus))
+        // If NWF renders the focus rects itself, that breaks double-buffering.
+        mpSizeValueSet->RequestDoubleBuffering(true);
+
     maWidthHeightField = VclPtr<MetricField>::Create( maContainer.get(), 0 );
     maWidthHeightField->Hide();
     maWidthHeightField->SetUnit(FieldUnit::CM);
@@ -107,7 +114,7 @@ PageSizeControl::PageSizeControl( sal_uInt16 nId, vcl::Window* pParent )
                 sal_Unicode c = aText[i];
                 if ( rtl::isAsciiAlpha(c) || (c == '\'') || (c == '\"') || (c == '%') )
                 {
-                    aMetricStr = OUStringLiteral1(c) + aMetricStr;
+                    aMetricStr = OUStringChar(c) + aMetricStr;
                 }
                 else
                 {

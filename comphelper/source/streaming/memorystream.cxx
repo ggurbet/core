@@ -92,7 +92,7 @@ UNOMemoryStream::UNOMemoryStream()
 // XServiceInfo
 OUString SAL_CALL UNOMemoryStream::getImplementationName()
 {
-    return OUString("com.sun.star.comp.MemoryStream");
+    return "com.sun.star.comp.MemoryStream";
 }
 
 sal_Bool SAL_CALL UNOMemoryStream::supportsService(const OUString& ServiceName)
@@ -170,9 +170,6 @@ void SAL_CALL UNOMemoryStream::seek( sal_Int64 location )
     if ( location > static_cast< sal_Int64 >( maData.size() ) )
         maData.resize( static_cast< sal_Int32 >( location ) );
 
-    if ( location > static_cast< sal_Int64 >( maData.size() ) )
-        maData.resize( static_cast< sal_Int32 >( location ) );
-
     mnCursor = static_cast< sal_Int32 >( location );
 }
 
@@ -200,7 +197,7 @@ void SAL_CALL UNOMemoryStream::writeBytes( const Sequence< sal_Int8 >& aData )
         }
 
         if( static_cast< sal_Int32 >( nNewSize ) > static_cast< sal_Int32 >( maData.size() ) )
-            maData.resize( static_cast< sal_Int32 >( nNewSize ) );
+            maData.resize( nNewSize );
 
         sal_Int8* pData = &(*maData.begin());
         sal_Int8* pCursor = &(pData[mnCursor]);
@@ -222,7 +219,7 @@ void SAL_CALL UNOMemoryStream::closeOutput()
 //XTruncate
 void SAL_CALL UNOMemoryStream::truncate()
 {
-    maData.resize( 0 );
+    maData.clear();
     mnCursor = 0;
 }
 

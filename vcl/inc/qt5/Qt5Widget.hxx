@@ -45,7 +45,7 @@ class Qt5Widget : public QWidget
 
     static void commitText(Qt5Frame&, const QString& aText);
     static bool handleKeyEvent(Qt5Frame&, const QWidget&, QKeyEvent*, const ButtonKeyState);
-    static void handleMouseButtonEvent(const Qt5Frame&, QMouseEvent*, const ButtonKeyState);
+    static void handleMouseButtonEvent(const Qt5Frame&, const QMouseEvent*, const ButtonKeyState);
 
     virtual bool event(QEvent*) override;
 
@@ -57,6 +57,7 @@ class Qt5Widget : public QWidget
     virtual void mousePressEvent(QMouseEvent*) override;
     virtual void mouseReleaseEvent(QMouseEvent*) override;
     virtual void dragEnterEvent(QDragEnterEvent*) override;
+    virtual void dragLeaveEvent(QDragLeaveEvent*) override;
     virtual void dragMoveEvent(QDragMoveEvent*) override;
     virtual void dropEvent(QDropEvent*) override;
     virtual void moveEvent(QMoveEvent*) override;
@@ -73,16 +74,15 @@ class Qt5Widget : public QWidget
 public:
     Qt5Widget(Qt5Frame& rFrame, Qt::WindowFlags f = Qt::WindowFlags());
 
-    Qt5Frame& getFrame() const { return m_rFrame; }
-    void startDrag(sal_Int8 nSourceActions);
+    Qt5Frame& frame() const { return m_rFrame; }
     void endExtTextInput();
 
     static bool handleEvent(Qt5Frame&, const QWidget&, QEvent*);
     // key events might be propagated further down => call base on false
     static inline bool handleKeyReleaseEvent(Qt5Frame&, const QWidget&, QKeyEvent*);
     // mouse events are always accepted
-    static inline void handleMousePressEvent(const Qt5Frame&, QMouseEvent*);
-    static inline void handleMouseReleaseEvent(const Qt5Frame&, QMouseEvent*);
+    static inline void handleMousePressEvent(const Qt5Frame&, const QMouseEvent*);
+    static inline void handleMouseReleaseEvent(const Qt5Frame&, const QMouseEvent*);
 };
 
 bool Qt5Widget::handleKeyReleaseEvent(Qt5Frame& rFrame, const QWidget& rWidget, QKeyEvent* pEvent)
@@ -90,12 +90,12 @@ bool Qt5Widget::handleKeyReleaseEvent(Qt5Frame& rFrame, const QWidget& rWidget, 
     return handleKeyEvent(rFrame, rWidget, pEvent, ButtonKeyState::Released);
 }
 
-void Qt5Widget::handleMousePressEvent(const Qt5Frame& rFrame, QMouseEvent* pEvent)
+void Qt5Widget::handleMousePressEvent(const Qt5Frame& rFrame, const QMouseEvent* pEvent)
 {
     handleMouseButtonEvent(rFrame, pEvent, ButtonKeyState::Pressed);
 }
 
-void Qt5Widget::handleMouseReleaseEvent(const Qt5Frame& rFrame, QMouseEvent* pEvent)
+void Qt5Widget::handleMouseReleaseEvent(const Qt5Frame& rFrame, const QMouseEvent* pEvent)
 {
     handleMouseButtonEvent(rFrame, pEvent, ButtonKeyState::Released);
 }

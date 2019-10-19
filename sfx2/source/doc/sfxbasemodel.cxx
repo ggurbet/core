@@ -198,6 +198,8 @@ struct IMPL_SfxBaseModel_DataContainer : public ::sfx2::IModifiableDocument
     OUString                                                   m_sRuntimeUID            ;
     OUString                                                   m_aPreusedFilterName     ;
     ::cppu::OMultiTypeInterfaceContainerHelper                 m_aInterfaceContainer    ;
+    std::unordered_map<css::uno::Reference< css::drawing::XShape >,
+                       std::vector<css::uno::Reference< css::document::XShapeEventListener >>> maShapeListeners;
     Reference< XInterface >                                    m_xParent                ;
     Reference< frame::XController >                            m_xCurrent               ;
     Reference< document::XDocumentProperties >                 m_xDocumentProperties    ;
@@ -293,7 +295,7 @@ struct IMPL_SfxBaseModel_DataContainer : public ::sfx2::IModifiableDocument
             OSL_ENSURE(!uri.isEmpty(), "GetDMA: empty uri?");
             if (!uri.isEmpty() && !uri.endsWith("/"))
             {
-                uri = uri + "/";
+                uri += "/";
             }
 
             m_xDocumentMetadata = new ::sfx2::DocumentMetadataAccess(
@@ -401,20 +403,20 @@ SfxOwnFramesLocker::SfxOwnFramesLocker( SfxObjectShell const * pObjectShell )
 
 SfxOwnFramesLocker::~SfxOwnFramesLocker()
 {
-    for ( sal_Int32 nInd = 0; nInd < m_aLockedFrames.getLength(); nInd++ )
+    for ( auto& rFrame : m_aLockedFrames )
     {
         try
         {
-            if ( m_aLockedFrames[nInd].is() )
+            if ( rFrame.is() )
             {
                 // get vcl window related to the frame and unlock it
-                vcl::Window* pWindow = GetVCLWindow( m_aLockedFrames[nInd] );
+                vcl::Window* pWindow = GetVCLWindow( rFrame );
                 if ( !pWindow )
                     throw RuntimeException();
 
                 pWindow->Enable();
 
-                m_aLockedFrames[nInd].clear();
+                rFrame.clear();
             }
         }
         catch( Exception& )
@@ -477,13 +479,13 @@ SfxSaveGuard::~SfxSaveGuard()
     // storing at the same time. Further m_bSuicide was set to sal_True only if close(sal_True) was called.
     // So the ownership was delegated to the place where a veto exception was thrown.
     // Now we have to call close() again and delegate the ownership to the next one, which
-    // can't accept that. Close(sal_False) can't work in this case. Because then the document will may be never closed ...
+    // can't accept that. Close(sal_False) can't work in this case. Because then the document will may be never closed...
 
     if ( !m_pData->m_bSuicide )
         return;
 
-    // Reset this state. In case the new close() request is not accepted by someone else ...
-    // it's not a good idea to have two "owners" for close .-)
+    // Reset this state. In case the new close() request is not accepted by someone else...
+    // it's not a good idea to have two "owners" for close.-)
     m_pData->m_bSuicide = false;
     try
     {
@@ -889,8 +891,15 @@ sal_Bool SAL_CALL SfxBaseModel::attachResource( const   OUString&               
             pObjectShell->BreakMacroSign_Impl( bBreakMacroSign );
         }
 
+        bool bMacroEventRead = false;
+        if ((aArgs.get("MacroEventRead") >>= bMacroEventRead) && bMacroEventRead)
+        {
+            pObjectShell->SetMacroCallsSeenWhileLoading();
+        }
+
         aArgs.remove( "WinExtent" );
         aArgs.remove( "BreakMacroSignature" );
+        aArgs.remove( "MacroEventRead" );
         aArgs.remove( "Stream" );
         aArgs.remove( "InputStream" );
         aArgs.remove( "URL" );
@@ -969,8 +978,6 @@ Sequence< beans::PropertyValue > SAL_CALL SfxBaseModel::getArgs()
         TransformParameters( SID_OPENDOC, m_pData->m_seqArguments, aSet );
         TransformItems( SID_OPENDOC, aSet, seqArgsOld );
 
-        sal_Int32 nOrgLength = m_pData->m_seqArguments.getLength();
-        sal_Int32 nOldLength = seqArgsOld.getLength();
         sal_Int32 nNewLength = seqArgsNew.getLength();
 
         // "WinExtent" property should be updated always.
@@ -1016,26 +1023,20 @@ Sequence< beans::PropertyValue > SAL_CALL SfxBaseModel::getArgs()
         Sequence< beans::PropertyValue > aFinalCache;
         sal_Int32 nFinalLength = 0;
 
-        for ( sal_Int32 nOrg = 0; nOrg < nOrgLength; nOrg++ )
+        for ( const auto& rOrg : std::as_const(m_pData->m_seqArguments) )
         {
-            sal_Int32 nOldInd = 0;
-            while ( nOldInd < nOldLength )
-            {
-                if ( m_pData->m_seqArguments[nOrg].Name == seqArgsOld[nOldInd].Name )
-                    break;
-                nOldInd++;
-            }
-
-            if ( nOldInd == nOldLength )
+            auto bNew = std::none_of(seqArgsOld.begin(), seqArgsOld.end(),
+                [&rOrg](const beans::PropertyValue& rOld){ return rOld.Name == rOrg.Name; });
+            if ( bNew )
             {
                 // the entity with this name should be new for seqArgsNew
                 // since it is not supported by transformer
 
                 seqArgsNew.realloc( ++nNewLength );
-                seqArgsNew[ nNewLength - 1 ] = m_pData->m_seqArguments[nOrg];
+                seqArgsNew[ nNewLength - 1 ] = rOrg;
 
                 aFinalCache.realloc( ++nFinalLength );
-                aFinalCache[ nFinalLength - 1 ] = m_pData->m_seqArguments[nOrg];
+                aFinalCache[ nFinalLength - 1 ] = rOrg;
             }
         }
 
@@ -1058,22 +1059,29 @@ void SAL_CALL SfxBaseModel::setArgs(const Sequence<beans::PropertyValue>& aArgs)
             "Medium could not be retrieved, unable to execute setArgs");
     }
 
-    for (int i = 0; i < aArgs.getLength(); i++)
+    for (const auto& rArg : aArgs)
     {
         OUString sValue;
-        aArgs[i].Value >>= sValue;
+        bool bValue;
 
-        if (aArgs[i].Name == "SuggestedSaveAsName")
+        if (rArg.Name == "SuggestedSaveAsName")
         {
+            rArg.Value >>= sValue;
             pMedium->GetItemSet()->Put(SfxStringItem(SID_SUGGESTEDSAVEASNAME, sValue));
         }
-        else if (aArgs[i].Name == "SuggestedSaveAsDir")
+        else if (rArg.Name == "SuggestedSaveAsDir")
         {
+            rArg.Value >>= sValue;
             pMedium->GetItemSet()->Put(SfxStringItem(SID_SUGGESTEDSAVEASDIR, sValue));
+        }
+        else if (rArg.Name == "LockContentExtraction")
+        {
+            rArg.Value >>= bValue;
+            pMedium->GetItemSet()->Put(SfxBoolItem(SID_LOCK_CONTENT_EXTRACTION, bValue));
         }
         else
         {
-            throw lang::IllegalArgumentException("Setting property not supported: " + aArgs[i].Name,
+            throw lang::IllegalArgumentException("Setting property not supported: " + rArg.Name,
                                                  comphelper::getProcessComponentContext(), 0);
         }
     }
@@ -1518,28 +1526,28 @@ void SAL_CALL SfxBaseModel::storeSelf( const    Sequence< beans::PropertyValue >
 
     bool bCheckIn = false;
     bool bOnMainThread = false;
-    for ( sal_Int32 nInd = 0; nInd < aSeqArgs.getLength(); nInd++ )
+    for ( const auto& rArg : aSeqArgs )
     {
         // check that only acceptable parameters are provided here
-        if ( aSeqArgs[nInd].Name != "VersionComment" && aSeqArgs[nInd].Name != "Author"
-          && aSeqArgs[nInd].Name != "DontTerminateEdit"
-          && aSeqArgs[nInd].Name != "InteractionHandler" && aSeqArgs[nInd].Name != "StatusIndicator"
-          && aSeqArgs[nInd].Name != "VersionMajor"
-          && aSeqArgs[nInd].Name != "FailOnWarning"
-          && aSeqArgs[nInd].Name != "CheckIn"
-          && aSeqArgs[nInd].Name != "NoFileSync"
-          && aSeqArgs[nInd].Name != "OnMainThread" )
+        if ( rArg.Name != "VersionComment" && rArg.Name != "Author"
+          && rArg.Name != "DontTerminateEdit"
+          && rArg.Name != "InteractionHandler" && rArg.Name != "StatusIndicator"
+          && rArg.Name != "VersionMajor"
+          && rArg.Name != "FailOnWarning"
+          && rArg.Name != "CheckIn"
+          && rArg.Name != "NoFileSync"
+          && rArg.Name != "OnMainThread" )
         {
-            const OUString aMessage( "Unexpected MediaDescriptor parameter: " + aSeqArgs[nInd].Name );
+            const OUString aMessage( "Unexpected MediaDescriptor parameter: " + rArg.Name );
             throw lang::IllegalArgumentException( aMessage, Reference< XInterface >(), 1 );
         }
-        else if ( aSeqArgs[nInd].Name == "CheckIn" )
+        else if ( rArg.Name == "CheckIn" )
         {
-            aSeqArgs[nInd].Value >>= bCheckIn;
+            rArg.Value >>= bCheckIn;
         }
-        else if (aSeqArgs[nInd].Name == "OnMainThread")
+        else if (rArg.Name == "OnMainThread")
         {
-            aSeqArgs[nInd].Value >>= bOnMainThread;
+            rArg.Value >>= bOnMainThread;
         }
     }
 
@@ -1551,16 +1559,8 @@ void SAL_CALL SfxBaseModel::storeSelf( const    Sequence< beans::PropertyValue >
         nSlotId = SID_CHECKIN;
         sal_Int32 nLength = aSeqArgs.getLength( );
         aArgs = Sequence< beans::PropertyValue >( nLength - 1 );
-        sal_Int32 nNewI = 0;
-        for ( sal_Int32 i = 0; i < nLength; ++i )
-        {
-            beans::PropertyValue aProp = aSeqArgs[i];
-            if ( aProp.Name != "CheckIn" )
-            {
-                aArgs[nNewI] = aProp;
-                ++nNewI;
-            }
-        }
+        std::copy_if(aSeqArgs.begin(), aSeqArgs.end(), aArgs.begin(),
+            [](const beans::PropertyValue& rProp) { return rProp.Name != "CheckIn"; });
     }
 
     std::unique_ptr<SfxAllItemSet> pParams(new SfxAllItemSet( SfxGetpApp()->GetPool() ));
@@ -1621,7 +1621,6 @@ void SAL_CALL SfxBaseModel::storeSelf( const    Sequence< beans::PropertyValue >
             "SfxBaseModel::storeSelf: " + nErrCode.toHexString(),
             Reference< XInterface >(), sal_uInt32(nErrCode));
     }
-
 }
 
 
@@ -1906,7 +1905,7 @@ void SAL_CALL SfxBaseModel::load(   const Sequence< beans::PropertyValue >& seqA
         m_pData->m_pObjectShell->SetModified();
     }
 
-    // TODO/LATER: may be the mode should be retrieved from outside and the preused filter should not be set
+    // TODO/LATER: maybe the mode should be retrieved from outside and the preused filter should not be set
     if ( m_pData->m_pObjectShell->GetCreateMode() == SfxObjectCreateMode::EMBEDDED )
     {
         const SfxStringItem* pFilterItem = SfxItemSet::GetItem<SfxStringItem>(pMedium->GetItemSet(), SID_FILTER_NAME, false);
@@ -2380,6 +2379,37 @@ void SAL_CALL SfxBaseModel::removeEventListener( const Reference< document::XEve
     m_pData->m_aInterfaceContainer.removeInterface( cppu::UnoType<document::XEventListener>::get(), aListener );
 }
 
+//  XShapeEventBroadcaster
+
+void SAL_CALL SfxBaseModel::addShapeEventListener( const css::uno::Reference< css::drawing::XShape >& xShape, const Reference< document::XShapeEventListener >& xListener )
+{
+    assert(xShape.is() && "no shape?");
+    SfxModelGuard aGuard( *this, SfxModelGuard::E_INITIALIZING );
+
+    m_pData->maShapeListeners[xShape].push_back(xListener);
+}
+
+
+//  XShapeEventBroadcaster
+
+
+void SAL_CALL SfxBaseModel::removeShapeEventListener( const css::uno::Reference< css::drawing::XShape >& xShape, const Reference< document::XShapeEventListener >& xListener )
+{
+    SfxModelGuard aGuard( *this );
+
+    auto it = m_pData->maShapeListeners.find(xShape);
+    if (it != m_pData->maShapeListeners.end())
+    {
+        auto rVec = it->second;
+        auto it2 = std::find(rVec.begin(), rVec.end(), xListener);
+        if (it2 != rVec.end())
+        {
+            rVec.erase(it2);
+            if (rVec.empty())
+            m_pData->maShapeListeners.erase(it);
+        }
+    }
+}
 
 //  XDocumentEventBroadcaster
 
@@ -2691,21 +2721,15 @@ SfxMedium* SfxBaseModel::handleLoadError( ErrCode nError, SfxMedium* pMedium )
 
 static void addTitle_Impl( Sequence < beans::PropertyValue >& rSeq, const OUString& rTitle )
 {
-    sal_Int32 nCount = rSeq.getLength();
-    sal_Int32 nArg;
-
-    for ( nArg = 0; nArg < nCount; nArg++ )
+    auto pProp = std::find_if(rSeq.begin(), rSeq.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "Title"; });
+    if (pProp != rSeq.end())
     {
-        beans::PropertyValue& rProp = rSeq[nArg];
-        if ( rProp.Name == "Title" )
-        {
-            rProp.Value <<= rTitle;
-            break;
-        }
+        pProp->Value <<= rTitle;
     }
-
-    if ( nArg == nCount )
+    else
     {
+        sal_Int32 nCount = rSeq.getLength();
         rSeq.realloc( nCount+1 );
         rSeq[nCount].Name = "Title";
         rSeq[nCount].Value <<= rTitle;
@@ -2877,7 +2901,7 @@ bool SfxBaseModel::impl_isDisposed() const
 //  private impl.
 
 
-OUString SfxBaseModel::GetMediumFilterName_Impl()
+OUString SfxBaseModel::GetMediumFilterName_Impl() const
 {
     std::shared_ptr<const SfxFilter> pFilter;
     SfxMedium* pMedium = m_pData->m_pObjectShell->GetMedium();
@@ -3179,8 +3203,7 @@ Reference < container::XIndexAccess > SAL_CALL SfxBaseModel::getViewData()
             // currently no frame for this document at all or View is under construction
             return Reference < container::XIndexAccess >();
 
-        m_pData->m_contViewData.set( document::IndexedPropertyValues::create( ::comphelper::getProcessComponentContext() ),
-                                     UNO_QUERY );
+        m_pData->m_contViewData = document::IndexedPropertyValues::create( ::comphelper::getProcessComponentContext() );
 
         if ( !m_pData->m_contViewData.is() )
         {
@@ -3236,12 +3259,26 @@ void SfxBaseModel::notifyEvent( const document::EventObject& aEvent ) const
             aIt.remove();
         }
     }
+    // for right now, we're only doing the event that this particular performance problem needed
+    if (aEvent.EventName == "ShapeModified")
+    {
+        uno::Reference<drawing::XShape> xShape(aEvent.Source, uno::UNO_QUERY);
+        if (xShape.is())
+        {
+            auto it = m_pData->maShapeListeners.find(xShape);
+            if (it != m_pData->maShapeListeners.end())
+                for (auto const & rListenerUnoRef : it->second)
+                    rListenerUnoRef->notifyShapeEvent(aEvent);
+        }
+    }
 }
 
 /** returns true if someone added a XEventListener to this XEventBroadcaster */
 bool SfxBaseModel::hasEventListeners() const
 {
-    return !impl_isDisposed() && (nullptr != m_pData->m_aInterfaceContainer.getContainer( cppu::UnoType<document::XEventListener>::get()) );
+    return !impl_isDisposed()
+        && ( (nullptr != m_pData->m_aInterfaceContainer.getContainer( cppu::UnoType<document::XEventListener>::get()) )
+             || !m_pData->maShapeListeners.empty());
 }
 
 void SAL_CALL SfxBaseModel::addPrintJobListener( const Reference< view::XPrintJobListener >& xListener )
@@ -3331,17 +3368,16 @@ Sequence< OUString > SAL_CALL SfxBaseModel::getDocumentSubStoragesNames()
     if ( m_pData->m_pObjectShell.is() )
     {
         Reference < embed::XStorage > xStorage = m_pData->m_pObjectShell->GetStorage();
-        Reference < container::XNameAccess > xAccess( xStorage, UNO_QUERY );
-        if ( xAccess.is() )
+        if ( xStorage.is() )
         {
-            Sequence< OUString > aTemp = xAccess->getElementNames();
+            const Sequence< OUString > aTemp = xStorage->getElementNames();
             sal_Int32 nResultSize = 0;
-            for ( sal_Int32 n = 0; n < aTemp.getLength(); n++ )
+            for ( const auto& rName : aTemp )
             {
-                if ( xStorage->isStorageElement( aTemp[n] ) )
+                if ( xStorage->isStorageElement( rName ) )
                 {
                     aResult.realloc( ++nResultSize );
-                    aResult[ nResultSize - 1 ] = aTemp[n];
+                    aResult[ nResultSize - 1 ] = rName;
                 }
             }
 
@@ -3414,14 +3450,12 @@ static void GetCommandFromSequence( OUString& rCommand, sal_Int32& nIndex, const
 {
     nIndex = -1;
 
-    for ( sal_Int32 i = 0; i < rSeqPropValue.getLength(); i++ )
+    auto pPropValue = std::find_if(rSeqPropValue.begin(), rSeqPropValue.end(),
+        [](const beans::PropertyValue& rPropValue) { return rPropValue.Name == "Command"; });
+    if (pPropValue != rSeqPropValue.end())
     {
-        if ( rSeqPropValue[i].Name == "Command" )
-        {
-            rSeqPropValue[i].Value >>= rCommand;
-            nIndex = i;
-            return;
-        }
+        pPropValue->Value >>= rCommand;
+        nIndex = static_cast<sal_Int32>(std::distance(rSeqPropValue.begin(), pPropValue));
     }
 }
 
@@ -3538,8 +3572,7 @@ Reference< ui::XUIConfigurationManager2 > SfxBaseModel::getUIConfigurationManage
                                 }
                             }
 
-                            Reference< container::XIndexAccess > xToolbarData( xToolbar, UNO_QUERY );
-                            xNewUIConfMan->insertSettings( aCustomTbxName, xToolbarData );
+                            xNewUIConfMan->insertSettings( aCustomTbxName, xToolbar );
                             xNewUIConfMan->store();
                         }
                     }
@@ -3674,7 +3707,7 @@ void SAL_CALL SfxBaseModel::storeToStorage( const Reference< embed::XStorage >& 
     SfxAllItemSet aSet( m_pData->m_pObjectShell->GetPool() );
     TransformParameters( SID_SAVEASDOC, aMediaDescriptor, aSet );
 
-    // TODO/LATER: may be a special URL "private:storage" should be used
+    // TODO/LATER: maybe a special URL "private:storage" should be used
     const SfxStringItem* pItem = aSet.GetItem<SfxStringItem>(SID_FILTER_NAME, false);
     sal_Int32 nVersion = SOFFICE_FILEFORMAT_CURRENT;
     if( pItem )
@@ -4184,7 +4217,7 @@ Reference< frame::XController2 > SAL_CALL SfxBaseModel::createViewController(
     // tell the guard we were successful
     aViewCreationGuard.releaseAll();
 
-    // outta gere
+    // outta here
     return pBaseController;
 }
 

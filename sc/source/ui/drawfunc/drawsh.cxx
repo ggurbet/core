@@ -248,7 +248,7 @@ void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
 
                 ScMacroInfo* pInfo = ScDrawLayer::GetMacroInfo( pObj );
                 if ( pInfo && !pInfo->GetHlink().isEmpty() )
-                    ScGlobal::OpenURL( pInfo->GetHlink(), OUString() );
+                    ScGlobal::OpenURL( pInfo->GetHlink(), OUString(), true );
             }
             break;
 
@@ -283,7 +283,8 @@ void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
                                 aCombSet.Put( aNewGeoAttr );
                                 pDlg->SetInputSet( &aCombSet );
 
-                                pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+                                pDlg->StartExecuteAsync([pDlg, pRequest, pView, this](
+                                                            sal_Int32 nResult){
                                     if (nResult == RET_OK)
                                     {
                                         pRequest->Done(*(pDlg->GetOutputItemSet()));
@@ -301,7 +302,8 @@ void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
                                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
                                 VclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxTransformTabDialog(pWin ? pWin->GetFrameWeld() : nullptr, &aNewAttr, pView));
 
-                                pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+                                pDlg->StartExecuteAsync([pDlg, pRequest, pView, this](
+                                                            sal_Int32 nResult){
                                     if (nResult == RET_OK)
                                     {
                                         pRequest->Done(*(pDlg->GetOutputItemSet()));
@@ -382,7 +384,7 @@ void ScDrawShell::ExecuteMacroAssign(SdrObject* pObj, weld::Window* pWin)
     }
 }
 
-void ScDrawShell::ExecuteLineDlg( SfxRequest& rReq )
+void ScDrawShell::ExecuteLineDlg( const SfxRequest& rReq )
 {
     ScDrawView*         pView       = pViewData->GetScDrawView();
     bool                bHasMarked  = pView->AreObjectsMarked();
@@ -421,7 +423,7 @@ void ScDrawShell::ExecuteLineDlg( SfxRequest& rReq )
     });
 }
 
-void ScDrawShell::ExecuteAreaDlg( SfxRequest& rReq )
+void ScDrawShell::ExecuteAreaDlg( const SfxRequest& rReq )
 {
     ScDrawView* pView       = pViewData->GetScDrawView();
     bool        bHasMarked  = pView->AreObjectsMarked();

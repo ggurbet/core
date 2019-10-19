@@ -1197,9 +1197,7 @@ void ScChangeActionMove::GetDescription(
         aRsc = aRsc.replaceAt(nPos, 2, aTmpStr);
     }
 
-    OUStringBuffer aBuf(rStr); // append to the original string.
-    aBuf.append(aRsc);
-    rStr = aBuf.makeStringAndClear();
+    rStr += aRsc; // append to the original string.
 }
 
 void ScChangeActionMove::GetRefString(
@@ -1470,9 +1468,7 @@ void ScChangeActionContent::GetDescription(
         aRsc = aRsc.replaceAt(nPos, 2, aTmpStr);
     }
 
-    OUStringBuffer aBuf(rStr); // append to the original string.
-    aBuf.append(aRsc);
-    rStr = aBuf.makeStringAndClear();
+    rStr += aRsc; // append to the original string.
 }
 
 void ScChangeActionContent::GetRefString(
@@ -1502,11 +1498,7 @@ void ScChangeActionContent::GetRefString(
         if ( IsDeletedIn() )
         {
             // Insert the parentheses.
-            OUStringBuffer aBuf;
-            aBuf.append('(');
-            aBuf.append(rStr);
-            aBuf.append(')');
-            rStr = aBuf.makeStringAndClear();
+            rStr = "(" + rStr + ")";
         }
     }
     else
@@ -2131,7 +2123,7 @@ void ScChangeTrack::DtorClear()
         pNext = p->GetNext();
         delete p;
     }
-    for( auto& rEntry : aPasteCutMap )
+    for( const auto& rEntry : aPasteCutMap )
     {
         delete rEntry.second;
     }

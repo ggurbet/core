@@ -336,7 +336,6 @@ private:
                         FNCopyFormat fnCopyFormat, SwFormat& rDfltFormat );
     void CopyPageDescHeaderFooterImpl( bool bCpyHeader,
                                 const SwFrameFormat& rSrcFormat, SwFrameFormat& rDestFormat );
-    static SwFormat* FindFormatByName( const SwFormatsBase& rFormatArr, const OUString& rName );
 
     SwDoc( const SwDoc &) = delete;
 
@@ -388,7 +387,7 @@ public:
         DOCTYPE_MSWORD              // This doc model comes from MS Word
         };
     DocumentType    meDocType;
-    DocumentType    GetDocumentType(){ return meDocType; }
+    DocumentType    GetDocumentType() const { return meDocType; }
     void            SetDocumentType( DocumentType eDocType ) { meDocType = eDocType; }
 
     // Life cycle
@@ -570,7 +569,7 @@ public:
     }
 
     /** Returns positions of all FlyFrames in the document.
-     If a Pam-Pointer is passed the FlyFrames attached to paragraphes
+     If a Pam-Pointer is passed the FlyFrames attached to paragraphs
      have to be surrounded completely by css::awt::Selection.
      ( Start < Pos < End ) !!!
      (Required for Writers.) */
@@ -753,6 +752,8 @@ public:
     // Remove all language dependencies from all existing formats
     void RemoveAllFormatLanguageDependencies();
 
+    static SwFormat* FindFormatByName(const SwFormatsBase& rFormatArr, const OUString& rName);
+
     SwFrameFormat  *MakeFrameFormat(const OUString &rFormatName, SwFrameFormat *pDerivedFrom,
                           bool bBroadcast = false, bool bAuto = true);
     void       DelFrameFormat( SwFrameFormat *pFormat, bool bBroadcast = false );
@@ -869,6 +870,7 @@ public:
             sal_Int32 nDocPageCount );
     static void CalculatePagePairsForProspectPrinting( const SwRootFrame& rLayout, SwRenderData &rData, const SwPrintUIOptions &rOptions,
             sal_Int32 nDocPageCount );
+    static void CalculateNonBlankPages( const SwRootFrame& rLayout, sal_uInt16& nDocPageCount, sal_uInt16& nActualPage );
 
     // PageDescriptor interface.
     size_t GetPageDescCnt() const { return m_PageDescs.size(); }
@@ -1131,7 +1133,7 @@ public:
 
     bool NumUpDown(const SwPaM&, bool bDown, SwRootFrame const* pLayout = nullptr);
 
-    /** Move selected paragraphes (not only numberings)
+    /** Move selected paragraphs (not only numberings)
      according to offsets. (if negative: go to doc start). */
     bool MoveParagraph(SwPaM&, long nOffset, bool bIsOutlMv = false);
     bool MoveParagraphImpl(SwPaM&, long nOffset, bool bIsOutlMv, SwRootFrame const*);
@@ -1344,7 +1346,7 @@ public:
     /** in case during copying of embedded object a new shell is created,
      it should be set here and cleaned later */
     void SetTmpDocShell( SfxObjectShellLock rLock )    { mxTmpDocShell = rLock; }
-    const SfxObjectShellLock& GetTmpDocShell()    { return mxTmpDocShell; }
+    const SfxObjectShellLock& GetTmpDocShell() const   { return mxTmpDocShell; }
 
     // For Autotexts? (text modules) They have only one SVPersist at their disposal.
     SfxObjectShell* GetPersist() const;
@@ -1497,8 +1499,7 @@ public:
     /// Adjusts selected cell widths in such a way, that their content does not need to be wrapped (if possible).
     /// bBalance evenly re-distributes the available space regardless of content or wrapping.
     /// bNoShrink keeps table size the same by distributing excess space proportionately.
-    /// bColumnWidth tests the entire column for content width, not just selected cells.
-    void AdjustCellWidth( const SwCursor& rCursor, const bool bBalance, const bool bNoShrink, const bool bColumnWidth );
+    void AdjustCellWidth( const SwCursor& rCursor, const bool bBalance, const bool bNoShrink );
 
     SwChainRet Chainable( const SwFrameFormat &rSource, const SwFrameFormat &rDest );
     SwChainRet Chain( SwFrameFormat &rSource, const SwFrameFormat &rDest );
@@ -1605,7 +1606,7 @@ public:
 
     css::uno::Reference< css::script::vba::XVBAEventProcessor > const & GetVbaEventProcessor();
     void SetVBATemplateToProjectCache( css::uno::Reference< css::container::XNameContainer > const & xCache ) { m_xTemplateToProjectCache = xCache; };
-    const css::uno::Reference< css::container::XNameContainer >& GetVBATemplateToProjectCache() { return m_xTemplateToProjectCache; };
+    const css::uno::Reference< css::container::XNameContainer >& GetVBATemplateToProjectCache() const { return m_xTemplateToProjectCache; };
     ::sfx2::IXmlIdRegistry& GetXmlIdRegistry();
     ::sw::MetaFieldManager & GetMetaFieldManager();
     ::sw::UndoManager      & GetUndoManager();
@@ -1644,7 +1645,7 @@ public:
     /// Use to notify if the dictionary can be found for a single content portion (has to be called for all portions)
     void SetMissingDictionaries( bool bIsMissing );
     /// Returns true if no dictionary can be found for any content
-    bool IsDictionaryMissing() { return meDictionaryMissing == MissingDictionary::True; }
+    bool IsDictionaryMissing() const { return meDictionaryMissing == MissingDictionary::True; }
 
 private:
     // Copies master header to left / first one, if necessary - used by ChgPageDesc().

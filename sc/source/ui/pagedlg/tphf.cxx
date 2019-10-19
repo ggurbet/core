@@ -42,8 +42,8 @@
 
 // class ScHFPage
 
-ScHFPage::ScHFPage(TabPageParent pParent, const SfxItemSet& rSet, sal_uInt16 nSetId)
-    : SvxHFPage(pParent, rSet, nSetId)
+ScHFPage::ScHFPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet, sal_uInt16 nSetId)
+    : SvxHFPage(pPage, pController, rSet, nSetId)
     , aDataSet(*rSet.GetPool(), svl::Items<ATTR_PAGE, ATTR_PAGE, ATTR_PAGE_HEADERLEFT, ATTR_PAGE_FOOTERRIGHT>{})
     , nPageUsage(SvxPageUsage::All)
     , pStyleDlg(nullptr)
@@ -76,13 +76,7 @@ ScHFPage::ScHFPage(TabPageParent pParent, const SfxItemSet& rSet, sal_uInt16 nSe
 
 ScHFPage::~ScHFPage()
 {
-    disposeOnce();
-}
-
-void ScHFPage::dispose()
-{
     pStyleDlg = nullptr;
-    SvxHFPage::dispose();
 }
 
 void ScHFPage::Reset( const SfxItemSet* rSet )
@@ -134,14 +128,6 @@ DeactivateRC ScHFPage::DeactivatePage( SfxItemSet* pSetP )
     return DeactivateRC::LeavePage;
 }
 
-void ScHFPage::ActivatePage()
-{
-}
-
-void ScHFPage::DeactivatePage()
-{
-}
-
 // Handler:
 
 IMPL_LINK_NOARG(ScHFPage, TurnOnHdl, weld::ToggleButton&, void)
@@ -155,15 +141,6 @@ IMPL_LINK_NOARG(ScHFPage, TurnOnHdl, weld::ToggleButton&, void)
 }
 
 IMPL_LINK_NOARG(ScHFPage, BtnHdl, weld::Button&, void)
-{
-    // When the Edit-Dialog is directly called from the Button's Click-Handler,
-    // the GrabFocus from the Edit-Dialog under OS/2 doesn't work.(Bug #41805#).
-    // With the new StarView, this workaround should be again considered!
-
-    Application::PostUserEvent( LINK( this, ScHFPage, HFEditHdl ), nullptr, true );
-}
-
-IMPL_LINK_NOARG(ScHFPage, HFEditHdl, void*, void)
 {
     SfxViewShell*   pViewSh = SfxViewShell::Current();
 
@@ -182,7 +159,7 @@ IMPL_LINK_NOARG(ScHFPage, HFEditHdl, void*, void)
         ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
         VclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateScHFEditDlg(
-            GetDialogFrameWeld(), aDataSet, aStrPageStyle, nResId));
+            GetFrameWeld(), aDataSet, aStrPageStyle, nResId));
         pDlg->StartExecuteAsync([this, pDlg](sal_Int32 nResult){
             if ( nResult == RET_OK )
             {
@@ -193,32 +170,31 @@ IMPL_LINK_NOARG(ScHFPage, HFEditHdl, void*, void)
     else
     {
         OUString  aText;
-        SfxSingleTabDialogController aDlg(GetDialogFrameWeld(), &aDataSet);
-        TabPageParent pPageParent(aDlg.get_content_area(), &aDlg);
+        SfxSingleTabDialogController aDlg(GetFrameWeld(), &aDataSet);
         bool bRightPage = m_xCntSharedBox->get_active() || (SvxPageUsage::Left != nPageUsage);
 
         if ( nId == SID_ATTR_PAGE_HEADERSET )
         {
             aText = ScResId( STR_PAGEHEADER );
             if ( bRightPage )
-                aDlg.SetTabPage(ScRightHeaderEditPage::Create(pPageParent, &aDataSet));
+                aDlg.SetTabPage(ScRightHeaderEditPage::Create(aDlg.get_content_area(), &aDlg, &aDataSet));
             else
-                aDlg.SetTabPage(ScLeftHeaderEditPage::Create(pPageParent, &aDataSet));
+                aDlg.SetTabPage(ScLeftHeaderEditPage::Create(aDlg.get_content_area(), &aDlg, &aDataSet));
         }
         else
         {
             aText = ScResId( STR_PAGEFOOTER );
             if ( bRightPage )
-                aDlg.SetTabPage(ScRightFooterEditPage::Create(pPageParent, &aDataSet));
+                aDlg.SetTabPage(ScRightFooterEditPage::Create(aDlg.get_content_area(), &aDlg, &aDataSet));
             else
-                aDlg.SetTabPage(ScLeftFooterEditPage::Create(pPageParent, &aDataSet));
+                aDlg.SetTabPage(ScLeftFooterEditPage::Create(aDlg.get_content_area(), &aDlg, &aDataSet));
         }
 
         SvxNumType eNumType = aDataSet.Get(ATTR_PAGE).GetNumType();
         static_cast<ScHFEditPage*>(aDlg.GetTabPage())->SetNumType(eNumType);
 
-        aText += " (" + ScResId( STR_PAGESTYLE );
-        aText += ": " + aStrPageStyle + ")";
+        aText += " (" + ScResId( STR_PAGESTYLE ) +
+            ": " + aStrPageStyle + ")";
 
         aDlg.set_title(aText);
 
@@ -231,14 +207,14 @@ IMPL_LINK_NOARG(ScHFPage, HFEditHdl, void*, void)
 
 // class ScHeaderPage
 
-ScHeaderPage::ScHeaderPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : ScHFPage(pParent, rSet, SID_ATTR_PAGE_HEADERSET)
+ScHeaderPage::ScHeaderPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : ScHFPage(pPage, pController, rSet, SID_ATTR_PAGE_HEADERSET)
 {
 }
 
-VclPtr<SfxTabPage> ScHeaderPage::Create(TabPageParent pParent, const SfxItemSet* rCoreSet)
+std::unique_ptr<SfxTabPage> ScHeaderPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rCoreSet)
 {
-    return VclPtr<ScHeaderPage>::Create(pParent, *rCoreSet);
+    return std::make_unique<ScHeaderPage>(pPage, pController, *rCoreSet);
 }
 
 const sal_uInt16* ScHeaderPage::GetRanges()
@@ -248,14 +224,14 @@ const sal_uInt16* ScHeaderPage::GetRanges()
 
 // class ScFooterPage
 
-ScFooterPage::ScFooterPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : ScHFPage( pParent, rSet, SID_ATTR_PAGE_FOOTERSET )
+ScFooterPage::ScFooterPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : ScHFPage( pPage, pController, rSet, SID_ATTR_PAGE_FOOTERSET )
 {
 }
 
-VclPtr<SfxTabPage> ScFooterPage::Create(TabPageParent pParent, const SfxItemSet* rCoreSet)
+std::unique_ptr<SfxTabPage> ScFooterPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rCoreSet)
 {
-    return VclPtr<ScFooterPage>::Create(pParent, *rCoreSet);
+    return std::make_unique<ScFooterPage>(pPage, pController, *rCoreSet);
 }
 
 const sal_uInt16* ScFooterPage::GetRanges()

@@ -333,7 +333,7 @@ SwXMLTableRow_Impl::SwXMLTableRow_Impl( const OUString& rStyleName,
 inline SwXMLTableCell_Impl *SwXMLTableRow_Impl::GetCell( sal_uInt32 nCol )
 {
     OSL_ENSURE( nCol < USHRT_MAX,
-            "SwXMLTableRow_Impl::GetCell: column number is to big" );
+            "SwXMLTableRow_Impl::GetCell: column number is too big" );
     // #i95726# - some fault tolerance
     OSL_ENSURE( nCol < m_Cells.size(),
             "SwXMLTableRow_Impl::GetCell: column number is out of bound" );
@@ -1028,7 +1028,7 @@ public:
     OUString& GetDDEApplication()   { return sDDEApplication; }
     OUString& GetDDEItem()          { return sDDEItem; }
     OUString& GetDDETopic()         { return sDDETopic; }
-    bool GetIsAutomaticUpdate() { return bIsAutomaticUpdate; }
+    bool GetIsAutomaticUpdate() const { return bIsAutomaticUpdate; }
 };
 
 
@@ -1117,9 +1117,9 @@ static SwDDEFieldType* lcl_GetDDEFieldType(SwXMLDDETableContext_Impl* pContext,
 {
     // make command string
     const OUString sCommand(pContext->GetDDEApplication()
-        + OUStringLiteral1(sfx2::cTokenSeparator)
+        + OUStringChar(sfx2::cTokenSeparator)
         + pContext->GetDDEItem()
-        + OUStringLiteral1(sfx2::cTokenSeparator)
+        + OUStringChar(sfx2::cTokenSeparator)
         + pContext->GetDDETopic());
 
     const SfxLinkUpdateMode nType = pContext->GetIsAutomaticUpdate()
@@ -1872,7 +1872,7 @@ SwTableBox *SwXMLTableContext::MakeTableBox( SwTableLine *pUpper,
 
         for( i = nTopRow; i < nBottomRow; i++ )
         {
-            // Could the table be splitted behind the current row?
+            // Could the table be split behind the current row?
             bool bSplit = true;
             SwXMLTableRow_Impl *pRow = (*m_pRows)[i].get();
             for( sal_uInt32 j=nLeftCol; j<nRightCol; j++ )
@@ -2175,21 +2175,21 @@ SwTableLine *SwXMLTableContext::MakeTableLine( SwTableBox *pUpper,
                 for( sal_uInt32 nRow=nTopRow; nRow<nBottomRow; nRow++ )
                 {
                     SwXMLTableCell_Impl *pCell = GetCell(nRow,nCol);
-                    // Could the table fragment be splitted horizontally behind
+                    // Could the table fragment be split horizontally behind
                     // the current line?
                     bool bHoriSplit = (*m_pRows)[nRow]->IsSplitable() &&
                                       nRow+1 < nBottomRow &&
                                       1 == pCell->GetRowSpan();
                     (*m_pRows)[nRow]->SetSplitable( bHoriSplit );
 
-                    // Could the table fragment be splitted vertically behind the
+                    // Could the table fragment be split vertically behind the
                     // current column (uptp the current line?
                     bSplit &= ( 1 == pCell->GetColSpan() );
                     if( bSplit )
                     {
                         bHoriSplitPossible |= bHoriSplit;
 
-                        // Could the current table fragment be splitted
+                        // Could the current table fragment be split
                         // horizontally behind the next column, too?
                         bHoriSplit &= (nCol+1 < nRightCol &&
                                        1 == GetCell(nRow,nCol+1)->GetRowSpan());
@@ -2209,7 +2209,7 @@ SwTableLine *SwXMLTableContext::MakeTableLine( SwTableBox *pUpper,
                     break;
                 }
 
-                // Could the table fragment be splitted vertically behind the
+                // Could the table fragment be split vertically behind the
                 // current column (uptp the current line?
                 bSplit = 1 == pCell->GetColSpan();
             }
@@ -2266,7 +2266,7 @@ SwTableLine *SwXMLTableContext::MakeTableLine( SwTableBox *pUpper,
                 }
                 else if( m_bHasSubTables && bHoriSplitPossible && bHoriSplitMayContinue )
                 {
-                    // The table fragment could be splitted behind the current
+                    // The table fragment could be split behind the current
                     // column, and the remaining fragment could be divided
                     // into lines. Anyway, it could be that this applies to
                     // the next column, too. That for, we check the next
@@ -2281,7 +2281,7 @@ SwTableLine *SwXMLTableContext::MakeTableLine( SwTableBox *pUpper,
                     // this doesn't apply for thr next column, we split begind
                     // the current column. This applies for the last column,
                     // too.
-                    // If the resulting box cannot be splitted into rows,
+                    // If the resulting box cannot be split into rows,
                     // the split at the last split position we remembered.
                     if( bHoriSplitPossible || nSplitCol > nCol+1 )
                     {
@@ -2375,7 +2375,7 @@ void SwXMLTableContext::MakeTable_( SwTableBox *pBox )
             // All column that have absolute widths get relative widths;
             // these widths relate to each over like the original absolute
             // widths. The smallest column gets a width that has the same
-            // value as the smallest column that has an relative width
+            // value as the smallest column that has a relative width
             // already.
             if( 0 == nMinRelColWidth )
                 nMinRelColWidth = nMinAbsColWidth;
@@ -2424,7 +2424,7 @@ void SwXMLTableContext::MakeTable_( SwTableBox *pBox )
     else
     {
         // If there are columns that have relative widths, we have to
-        // calculate a absolute widths for them.
+        // calculate an absolute widths for them.
         if( nRelCols > 0 )
         {
             // The absolute space that is available for all columns with a

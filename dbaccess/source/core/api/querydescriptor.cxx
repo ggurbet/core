@@ -22,6 +22,7 @@
 #include "querydescriptor.hxx"
 #include <apitools.hxx>
 #include <stringconstants.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
@@ -142,16 +143,13 @@ OQueryDescriptor_Base::~OQueryDescriptor_Base()
 
 sal_Int64 SAL_CALL OQueryDescriptor_Base::getSomething( const Sequence< sal_Int8 >& _rIdentifier )
 {
-    if (_rIdentifier.getLength() != 16)
-        return 0;
-
-    if (0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  _rIdentifier.getConstArray(), 16 ) )
+    if (isUnoTunnelId<OQueryDescriptor_Base>(_rIdentifier))
         return reinterpret_cast<sal_Int64>(this);
 
     return 0;
 }
 
-css::uno::Sequence<sal_Int8> OQueryDescriptor_Base::getUnoTunnelImplementationId()
+css::uno::Sequence<sal_Int8> OQueryDescriptor_Base::getUnoTunnelId()
 {
     static cppu::OImplementationId aId;
     return aId.getImplementationId();
@@ -213,7 +211,7 @@ Reference< XNameAccess > SAL_CALL OQueryDescriptor_Base::getColumns( )
 
 OUString SAL_CALL OQueryDescriptor_Base::getImplementationName(  )
 {
-    return OUString("com.sun.star.sdb.OQueryDescriptor");
+    return "com.sun.star.sdb.OQueryDescriptor";
 }
 
 sal_Bool SAL_CALL OQueryDescriptor_Base::supportsService( const OUString& _rServiceName )
@@ -223,10 +221,7 @@ sal_Bool SAL_CALL OQueryDescriptor_Base::supportsService( const OUString& _rServ
 
 Sequence< OUString > SAL_CALL OQueryDescriptor_Base::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSupported(2);
-    aSupported.getArray()[0] = SERVICE_SDB_DATASETTINGS;
-    aSupported.getArray()[1] = SERVICE_SDB_QUERYDESCRIPTOR;
-    return aSupported;
+    return { SERVICE_SDB_DATASETTINGS, SERVICE_SDB_QUERYDESCRIPTOR };
 }
 
 void OQueryDescriptor_Base::disposeColumns()

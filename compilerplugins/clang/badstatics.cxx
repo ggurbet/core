@@ -159,8 +159,7 @@ public:
             && pVarDecl->isThisDeclarationADefinition())
         {
             auto const name(pVarDecl->getName());
-            if (   name == "g_pI18NStatusInstance" // I18NStatus::free()
-                || name == "s_pPreviousView" // not an owning pointer
+            if (   name == "s_pPreviousView" // not an owning pointer
                 || name == "s_pDefCollapsed" // SvImpLBox::~SvImpLBox()
                 || name == "s_pDefExpanded"  // SvImpLBox::~SvImpLBox()
                 || name == "g_pDDSource" // SvTreeListBox::dispose()
@@ -205,12 +204,16 @@ public:
                     .Class("ScAddInListener").GlobalNamespace()) // not owning
                 || (loplugin::DeclCheck(pVarDecl).Var("maThreadSpecific")
                     .Class("ScDocument").GlobalNamespace()) // not owning
-                || name == "s_pLOKWindowsMap" // LOK only, guarded by assert, and LOK never tries to perform a VCL cleanup
+                || name == "s_aLOKWindowsMap" // LOK only, guarded by assert, and LOK never tries to perform a VCL cleanup
                 || name == "gStaticManager" // vcl/source/graphic/Manager.cxx - stores non-owning pointers
                 || name == "aThreadedInterpreterPool"    // ScInterpreterContext(Pool), not owning
                 || name == "aNonThreadedInterpreterPool" // ScInterpreterContext(Pool), not owning
                 || name == "lcl_parserContext" // getParserContext(), the chain from this to a VclPtr is not owning
                 || name == "aReaderWriter" // /home/noel/libo/sw/source/filter/basflt/fltini.cxx, non-owning
+                || name == "aTwain"
+                   // Windows-only extensions/source/scanner/scanwin.cxx, problematic
+                   // Twain::mpThread -> ShimListenerThread::mxTopWindow released via Twain::Reset
+                   // clearing mpThread
                ) // these variables appear unproblematic
             {
                 return true;

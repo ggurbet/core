@@ -31,10 +31,9 @@
 #include <osl/detail/android-bootstrap.h>
 #endif
 
-static OString OUStringToOString(const rtl_uString* s)
+OString osl::OUStringToOString(const OUString& s)
 {
-    return OUStringToOString(OUString(const_cast<rtl_uString*>(s)),
-                                  osl_getThreadTextEncoding());
+    return OUStringToOString(s, osl_getThreadTextEncoding());
 }
 
 #if HAVE_FEATURE_MACOSX_SANDBOX
@@ -151,15 +150,15 @@ static OString macxp_resolveAliasAndConvert(OString const & p)
     {
         strcpy(path, p.getStr());
         macxp_resolveAlias(path, PATH_MAX);
-        return OString(path);
+        return path;
     }
     return p;
 }
 #endif /* MACOSX */
 
-int access_u(const rtl_uString* pustrPath, int mode)
+int osl::access(const OString& pstrPath, int mode)
 {
-    OString fn = OUStringToOString(pustrPath);
+    OString fn = pstrPath;
 #ifdef ANDROID
     if (fn == "/assets" || fn.startsWith("/assets/"))
     {
@@ -181,12 +180,12 @@ int access_u(const rtl_uString* pustrPath, int mode)
 
     accessFilePathState *state = prepare_to_access_file_path(fn.getStr());
 
-    int result = access(fn.getStr(), mode);
+    int result = ::access(fn.getStr(), mode);
     int saved_errno = errno;
     if (result == -1)
-        SAL_INFO("sal.file", "access(" << fn.getStr() << ",0" << std::oct << mode << std::dec << "): " << UnixErrnoString(saved_errno));
+        SAL_INFO("sal.file", "access(" << fn << ",0" << std::oct << mode << std::dec << "): " << UnixErrnoString(saved_errno));
     else
-        SAL_INFO("sal.file", "access(" << fn.getStr() << ",0" << std::oct << mode << std::dec << "): OK");
+        SAL_INFO("sal.file", "access(" << fn << ",0" << std::oct << mode << std::dec << "): OK");
 
     done_accessing_file_path(fn.getStr(), state);
 
@@ -195,17 +194,29 @@ int access_u(const rtl_uString* pustrPath, int mode)
     return result;
 }
 
-bool realpath_u(const rtl_uString* pustrFileName, rtl_uString** ppustrResolvedName)
+namespace {
+
+OString toOString(OString const & s) { return s; }
+
+OString toOString(OUString const & s) { return osl::OUStringToOString(s); }
+
+template<typename T> T fromOString(OString const &) = delete;
+
+template<> OString fromOString(OString const & s) { return s; }
+
+template<> OUString fromOString(OString const & s)
+{ return OStringToOUString(s, osl_getThreadTextEncoding()); }
+
+template<typename T> bool realpath_(const T& pstrFileName, T& ppstrResolvedName)
 {
-    OString fn = OUStringToOString(pustrFileName);
+    OString fn = toOString(pstrFileName);
 #ifdef ANDROID
     if (fn == "/assets" || fn.startsWith("/assets/"))
     {
-        if (access_u(pustrFileName, F_OK) == -1)
+        if (osl::access(fn, F_OK) == -1)
             return false;
 
-        rtl_uString silly(*pustrFileName);
-        rtl_uString_assign(ppustrResolvedName, &silly);
+        ppstrResolvedName = pstrFileName;
 
         return true;
     }
@@ -221,23 +232,32 @@ bool realpath_u(const rtl_uString* pustrFileName, rtl_uString** ppustrResolvedNa
     bool  bRet = realpath(fn.getStr(), rp);
     int   saved_errno = errno;
     if (!bRet)
-        SAL_INFO("sal.file", "realpath(" << fn.getStr() << "): " << UnixErrnoString(saved_errno));
+        SAL_INFO("sal.file", "realpath(" << fn << "): " << UnixErrnoString(saved_errno));
     else
-        SAL_INFO("sal.file", "realpath(" << fn.getStr() << "): OK");
+        SAL_INFO("sal.file", "realpath(" << fn << "): OK");
 
     done_accessing_file_path(fn.getStr(), state);
 
     if (bRet)
     {
-        OUString resolved = OStringToOUString(OString(static_cast<sal_Char*>(rp)),
-                                                        osl_getThreadTextEncoding());
-
-        rtl_uString_assign(ppustrResolvedName, resolved.pData);
+        ppstrResolvedName = fromOString<T>(OString(static_cast<sal_Char*>(rp)));
     }
 
     errno = saved_errno;
 
     return bRet;
+}
+
+}
+
+bool osl::realpath(const OUString& pustrFileName, OUString& ppustrResolvedName)
+{
+    return realpath_(pustrFileName, ppustrResolvedName);
+}
+
+bool osl::realpath(const OString& pstrFileName, OString& ppstrResolvedName)
+{
+    return realpath_(pstrFileName, ppstrResolvedName);
 }
 
 int stat_c(const char* cpPath, struct stat* buf)
@@ -290,31 +310,43 @@ int lstat_c(const char* cpPath, struct stat* buf)
     return result;
 }
 
-int lstat_u(const rtl_uString* pustrPath, struct stat* buf)
+namespace {
+
+template<typename T> int lstat_(const T& pstrPath, struct stat& buf)
 {
-    OString fn = OUStringToOString(pustrPath);
+    OString fn = toOString(pstrPath);
 
 #ifdef MACOSX
     fn = macxp_resolveAliasAndConvert(fn);
 #endif
 
-    return lstat_c(fn.getStr(), buf);
+    return lstat_c(fn.getStr(), &buf);
 }
 
-int mkdir_u(const rtl_uString* path, mode_t mode)
+}
+
+int osl::lstat(const OUString& pustrPath, struct stat& buf)
 {
-    OString fn = OUStringToOString(path);
+    return lstat_(pustrPath, buf);
+}
 
-    accessFilePathState *state = prepare_to_access_file_path(fn.getStr());
+int osl::lstat(const OString& pstrPath, struct stat& buf)
+{
+    return lstat_(pstrPath, buf);
+}
 
-    int result = mkdir(OUStringToOString(path).getStr(), mode);
+int osl::mkdir(const OString& path, mode_t mode)
+{
+    accessFilePathState *state = prepare_to_access_file_path(path.getStr());
+
+    int result = ::mkdir(path.getStr(), mode);
     int saved_errno = errno;
     if (result == -1)
-        SAL_INFO("sal.file", "mkdir(" << OUStringToOString(path).getStr() << ",0" << std::oct << mode << std::dec << "): " << UnixErrnoString(saved_errno));
+        SAL_INFO("sal.file", "mkdir(" << path << ",0" << std::oct << mode << std::dec << "): " << UnixErrnoString(saved_errno));
     else
-        SAL_INFO("sal.file", "mkdir(" << OUStringToOString(path).getStr() << ",0" << std::oct << mode << std::dec << "): OK");
+        SAL_INFO("sal.file", "mkdir(" << path << ",0" << std::oct << mode << std::dec << "): OK");
 
-    done_accessing_file_path(fn.getStr(), state);
+    done_accessing_file_path(path.getStr(), state);
 
     errno = saved_errno;
 

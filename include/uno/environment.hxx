@@ -95,7 +95,7 @@ public:
     inline Environment( const Environment & rEnv );
 
 #if defined LIBO_INTERNAL_ONLY
-    Environment(Environment && other): _pEnv(other._pEnv)
+    Environment(Environment && other) noexcept : _pEnv(other._pEnv)
     { other._pEnv = nullptr; }
 #endif
 
@@ -149,9 +149,9 @@ public:
     void * SAL_CALL getContext() const
         { return _pEnv->pContext; }
 
-    /** Tests if a environment is set.
+    /** Tests if an environment is set.
 
-        @return true, if a environment is set, false otherwise
+        @return true, if an environment is set, false otherwise
     */
     bool SAL_CALL is() const
         { return (_pEnv != NULL); }

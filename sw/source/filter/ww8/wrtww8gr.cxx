@@ -99,9 +99,8 @@ bool WW8Export::TestOleNeedsGraphic(const SwAttrSet& rSet, tools::SvRef<SotStora
 {
     bool bGraphicNeeded = false;
     SfxItemIter aIter( rSet );
-    const SfxPoolItem* pItem = aIter.GetCurItem();
-
-    do {
+    for (auto pItem = aIter.GetCurItem(); !bGraphicNeeded && pItem; pItem = aIter.NextItem())
+    {
         switch (pItem->Which())
         {
             /*
@@ -121,8 +120,7 @@ bool WW8Export::TestOleNeedsGraphic(const SwAttrSet& rSet, tools::SvRef<SotStora
             default:
                 bGraphicNeeded = true;
         }
-    } while( !bGraphicNeeded && !aIter.IsAtEnd() &&
-        nullptr != ( pItem = aIter.NextItem() ) );
+    }
 
     /*
     Now we must see if the object contains a preview itself which is equal to
@@ -240,8 +238,7 @@ void WW8Export::OutputOLENode( const SwOLENode& rOLENode )
             bool bIsNotDuplicate = aRes.second; //.second is false when element already existed
             nPictureId = aRes.first->second;
             Set_UInt32(pDataAdr, nPictureId);
-            OUString sStorageName('_');
-            sStorageName += OUString::number( nPictureId );
+            OUString sStorageName = "_" + OUString::number( nPictureId );
             tools::SvRef<SotStorage> xOleStg = xObjStg->OpenSotStorage( sStorageName );
             if( xOleStg.is() )
             {
@@ -495,7 +492,7 @@ void SwWW8WrGrf::WritePICFHeader(SvStream& rStrm, const ww8::Frame &rFly,
     sal_Int16 nXSizeAdd = 0, nYSizeAdd = 0;
     sal_Int16 nCropL = 0, nCropR = 0, nCropT = 0, nCropB = 0;
 
-            // write Crop-Attribut content in Header ( if available )
+            // write Crop-Attribute content in Header ( if available )
     const SfxPoolItem* pItem;
     if (pAttrSet && (SfxItemState::SET
         == pAttrSet->GetItemState(RES_GRFATR_CROPGRF, false, &pItem)))
@@ -844,7 +841,7 @@ void SwWW8WrGrf::WriteGraphicNode(SvStream& rStrm, const GraphicDetails &rItem)
             what word does the escher export should contain an anchored to
             character element which is drawn over this dummy and the whole
             shebang surrounded with a SHAPE field. This isn't *my* hack :-),
-            its what word does.
+            it's what word does.
             */
             {
                 WritePICFHeader(rStrm, rFly, 0x64, nWidth, nHeight);

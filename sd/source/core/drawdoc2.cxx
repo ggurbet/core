@@ -26,7 +26,6 @@
 #include <editeng/paperinf.hxx>
 #include <svx/svdopage.hxx>
 #include <svx/svdoole2.hxx>
-#include <svx/svdograf.hxx>
 #include <svx/svdundo.hxx>
 #include <vcl/svapp.hxx>
 #include <editeng/eeitem.hxx>
@@ -39,7 +38,6 @@
 #include <svx/svdlayer.hxx>
 
 #include <svx/svditer.hxx>
-#include <vcl/imapobj.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
 #include <xmloff/autolayout.hxx>
@@ -51,8 +49,9 @@
 #include <glob.hxx>
 #include <stlpool.hxx>
 #include <anminfo.hxx>
-#include <imapinfo.hxx>
 #include <undo/undomanager.hxx>
+#include <sfx2/lokhelper.hxx>
+#include <unomodel.hxx>
 
 #include <DrawDocShell.hxx>
 
@@ -289,8 +288,8 @@ void SdDrawDocument::UpdatePageRelativeURLs(const OUString& rOldName, const OUSt
                 {
                     if (aURL.getLength() == rOldName.getLength() + 1) // standard page name
                     {
-                        aURL = aURL.replaceAt(1, aURL.getLength() - 1, "");
-                        aURL += rNewName;
+                        aURL = aURL.replaceAt(1, aURL.getLength() - 1, "") +
+                            rNewName;
                         pURLField->SetURL(aURL);
                     }
                     else
@@ -299,8 +298,8 @@ void SdDrawDocument::UpdatePageRelativeURLs(const OUString& rOldName, const OUSt
                         if (aURL.getLength() == rOldName.getLength() + 2 + sNotes.getLength()
                             && aURL.indexOf(sNotes, rOldName.getLength() + 2) == rOldName.getLength() + 2)
                         {
-                            aURL = aURL.replaceAt(1, aURL.getLength() - 1, "");
-                            aURL += rNewName + " " + sNotes;
+                            aURL = aURL.replaceAt(1, aURL.getLength() - 1, "") +
+                                rNewName + " " + sNotes;
                             pURLField->SetURL(aURL);
                         }
                     }
@@ -329,8 +328,7 @@ void SdDrawDocument::UpdatePageRelativeURLs(SdPage const * pPage, sal_uInt16 nPo
 
                 if (!aURL.isEmpty() && (aURL[0] == 35))
                 {
-                    OUString aHashSlide("#");
-                    aHashSlide += SdResId(STR_PAGE);
+                    OUString aHashSlide = "#" + SdResId(STR_PAGE);
 
                     if (aURL.startsWith(aHashSlide))
                     {
@@ -396,12 +394,8 @@ void SdDrawDocument::InsertPage(SdrPage* pPage, sal_uInt16 nPos)
 
     if (comphelper::LibreOfficeKit::isActive() && static_cast<SdPage*>(pPage)->GetPageKind() == PageKind::Standard)
     {
-        SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-        while (pViewShell)
-        {
-            pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, "");
-            pViewShell = SfxViewShell::GetNext(*pViewShell);
-        }
+        SdXImpressDocument* pDoc = comphelper::getUnoTunnelImplementation<SdXImpressDocument>(this->getUnoModel());
+        SfxLokHelper::notifyDocumentSizeChangedAllViews(pDoc);
     }
 }
 
@@ -429,12 +423,8 @@ SdrPage* SdDrawDocument::RemovePage(sal_uInt16 nPgNum)
 
     if (comphelper::LibreOfficeKit::isActive() && static_cast<SdPage*>(pPage)->GetPageKind() == PageKind::Standard)
     {
-        SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-        while (pViewShell)
-        {
-            pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, "");
-            pViewShell = SfxViewShell::GetNext(*pViewShell);
-        }
+        SdXImpressDocument* pDoc = comphelper::getUnoTunnelImplementation<SdXImpressDocument>(this->getUnoModel());
+        SfxLokHelper::notifyDocumentSizeChangedAllViews(pDoc);
     }
 
     return pPage;
@@ -847,7 +837,7 @@ bool SdDrawDocument::MovePages(sal_uInt16 nTargetPage)
 }
 
 // Return number of links in sfx2::LinkManager
-sal_uLong SdDrawDocument::GetLinkCount()
+sal_uLong SdDrawDocument::GetLinkCount() const
 {
     return pLinkManager->GetLinks().size();
 }
@@ -991,98 +981,6 @@ SdAnimationInfo* SdDrawDocument::GetShapeUserData(SdrObject& rObject, bool bCrea
     }
 
     return pRet;
-}
-
-SdIMapInfo* SdDrawDocument::GetIMapInfo( SdrObject const * pObject )
-{
-    DBG_ASSERT(pObject, "Without an object there is no IMapInfo");
-
-    SdIMapInfo*     pIMapInfo = nullptr;
-    sal_uInt16          nCount = pObject->GetUserDataCount();
-
-    // Can we find IMap information within the user data?
-    for ( sal_uInt16 i = 0; i < nCount; i++ )
-    {
-        SdrObjUserData* pUserData = pObject->GetUserData( i );
-
-        if ( ( pUserData->GetInventor() == SdrInventor::StarDrawUserData ) && ( pUserData->GetId() == SD_IMAPINFO_ID ) )
-            pIMapInfo = static_cast<SdIMapInfo*>(pUserData);
-    }
-
-    return pIMapInfo;
-}
-
-IMapObject* SdDrawDocument::GetHitIMapObject( SdrObject const * pObj,
-                                              const Point& rWinPoint )
-{
-    SdIMapInfo* pIMapInfo = GetIMapInfo( pObj );
-    IMapObject* pIMapObj = nullptr;
-
-    if ( pIMapInfo )
-    {
-        const MapMode       aMap100( MapUnit::Map100thMM );
-        Size                aGraphSize;
-        Point               aRelPoint( rWinPoint );
-        ImageMap&           rImageMap = const_cast<ImageMap&>(pIMapInfo->GetImageMap());
-        const ::tools::Rectangle&    rRect = pObj->GetLogicRect();
-        bool                bObjSupported = false;
-
-        // execute HitTest
-        if ( auto pGrafObj = dynamic_cast< const SdrGrafObj *>( pObj ) ) // simple graphics object
-        {
-            const GeoStat&      rGeo = pGrafObj->GetGeoStat();
-            std::unique_ptr<SdrGrafObjGeoData> pGeoData(static_cast<SdrGrafObjGeoData*>( pGrafObj->GetGeoData() ));
-
-            // Undo rotation
-            if ( rGeo.nRotationAngle )
-                RotatePoint( aRelPoint, rRect.TopLeft(), -rGeo.nSin, rGeo.nCos );
-
-            // Undo mirroring
-            if ( pGeoData->bMirrored )
-                aRelPoint.setX( rRect.Right() + rRect.Left() - aRelPoint.X() );
-
-            // Undo shearing
-            if ( rGeo.nShearAngle )
-                ShearPoint( aRelPoint, rRect.TopLeft(), -rGeo.nTan );
-
-            if ( pGrafObj->GetGrafPrefMapMode().GetMapUnit() == MapUnit::MapPixel )
-                aGraphSize = Application::GetDefaultDevice()->PixelToLogic( pGrafObj->GetGrafPrefSize(), aMap100 );
-            else
-                aGraphSize = OutputDevice::LogicToLogic( pGrafObj->GetGrafPrefSize(),
-                                                         pGrafObj->GetGrafPrefMapMode(), aMap100 );
-
-            bObjSupported = true;
-        }
-        else if ( auto pOleObj = dynamic_cast<const SdrOle2Obj* >(pObj) ) // OLE object
-        {
-            aGraphSize = pOleObj->GetOrigObjSize();
-            bObjSupported = true;
-        }
-
-        // Everything worked out well, thus execute HitTest
-        if ( bObjSupported )
-        {
-            // Calculate relative position of mouse cursor
-            aRelPoint -= rRect.TopLeft();
-            pIMapObj = rImageMap.GetHitIMapObject( aGraphSize, rRect.GetSize(), aRelPoint );
-
-            // We don't care about deactivated objects
-            if ( pIMapObj && !pIMapObj->IsActive() )
-                pIMapObj = nullptr;
-        }
-    }
-
-    return pIMapObj;
-}
-
-ImageMap* SdDrawDocument::GetImageMapForObject(SdrObject* pObj)
-{
-    SdIMapInfo* pIMapInfo = GetIMapInfo( pObj );
-    if ( pIMapInfo )
-    {
-        return const_cast<ImageMap*>( &(pIMapInfo->GetImageMap()) );
-    }
-    return nullptr;
 }
 
 /** this method enforces that the masterpages are in the correct order,

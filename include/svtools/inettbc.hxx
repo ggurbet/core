@@ -72,7 +72,6 @@ public:
     void                            SetOnlyDirectories( bool bDir );
     void                            SetNoURLSelection( bool bSet );
     INetProtocol                    GetSmartProtocol() const { return eSmartProtocol; }
-    void                            SetSmartProtocol( INetProtocol eProt );
     OUString                        GetURL();
     void                            DisableHistory();
 
@@ -80,13 +79,11 @@ public:
 
     static OUString                 ParseSmart( const OUString& aText, const OUString& aBaseURL );
 
-    void                            SetFilter(const OUString& _sFilter);
-
     void                            EnableAutocompletion( bool _bEnable )
                                         { bIsAutoCompleteEnabled = _bEnable; }
     void                            SetPlaceHolder( const OUString& sPlaceHolder )
                                         { aPlaceHolder = sPlaceHolder; }
-    const OUString&                 GetPlaceHolder() { return aPlaceHolder; }
+    const OUString&                 GetPlaceHolder() const { return aPlaceHolder; }
     bool                            MatchesPlaceHolder( const OUString& sToMatch ) const
                                         { return ( !aPlaceHolder.isEmpty() ) && ( aPlaceHolder == sToMatch ); }
 };
@@ -124,6 +121,7 @@ public:
     void                clear() { m_xWidget->clear(); }
     void                connect_entry_activate(const Link<weld::ComboBox&, bool>& rLink) { m_xWidget->connect_entry_activate(rLink); }
     void                connect_changed(const Link<weld::ComboBox&, void>& rLink) { aChangeHdl = rLink; }
+    void                trigger_changed() { aChangeHdl.Call(*m_xWidget); }
     void                connect_focus_out(const Link<weld::Widget&, void>& rLink) { aFocusOutHdl = rLink; }
     void                append_text(const OUString& rStr) { m_xWidget->append_text(rStr); }
     int                 find_text(const OUString& rStr) const { return m_xWidget->find_text(rStr); }

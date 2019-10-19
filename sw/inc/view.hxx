@@ -377,7 +377,7 @@ public:
 
     virtual sal_uInt16      SetPrinter( SfxPrinter* pNew,
                                         SfxPrinterChangeFlags nDiff = SFX_PRINTER_ALL) override;
-    ShellMode               GetShellMode();
+    ShellMode               GetShellMode() const;
 
     css::view::XSelectionSupplier*       GetUNOObject();
 
@@ -513,9 +513,9 @@ public:
     SwDrawBase*     GetDrawFuncPtr() const  { return m_pDrawActual.get(); }
     void            GetDrawState(SfxItemSet &rSet);
     void            ExitDraw();
-    bool     IsDrawRotate()      { return m_bDrawRotate; }
+    bool     IsDrawRotate() const      { return m_bDrawRotate; }
     void     FlipDrawRotate()    { m_bDrawRotate = !m_bDrawRotate; }
-    bool     IsDrawSelMode()     { return m_bDrawSelMode; }
+    bool     IsDrawSelMode() const     { return m_bDrawSelMode; }
     void            SetSelDrawSlot();
     void     FlipDrawSelMode()   { m_bDrawSelMode = !m_bDrawSelMode; }
     void            NoRotate();     // turn off rotate mode
@@ -523,20 +523,21 @@ public:
     /// Same as EnterDrawTextMode(), but takes an SdrObject instead of guessing it by document position.
     bool EnterShapeDrawTextMode(SdrObject* pObject);
     void            LeaveDrawCreate()   { m_nDrawSfxId = m_nFormSfxId = USHRT_MAX; m_sDrawCustom.clear();}
-    bool            IsDrawMode()        { return (m_nDrawSfxId != USHRT_MAX || m_nFormSfxId != USHRT_MAX); }
+    bool            IsDrawMode() const  { return (m_nDrawSfxId != USHRT_MAX || m_nFormSfxId != USHRT_MAX); }
     bool            IsFormMode() const;
-    bool            IsBezierEditMode();
+    bool            IsBezierEditMode() const;
     bool            AreOnlyFormsSelected() const;
     bool            HasOnlyObj(SdrObject const *pSdrObj, SdrInventor eObjInventor) const;
     bool            BeginTextEdit(  SdrObject* pObj, SdrPageView* pPV=nullptr,
                                     vcl::Window* pWin=nullptr, bool bIsNewObj=false, bool bSetSelectionToStart=false );
-    bool isSignatureLineSelected();
-    bool isSignatureLineSigned();
+    bool isSignatureLineSelected() const;
+    bool isSignatureLineSigned() const;
+    bool isQRCodeSelected() const;
 
     void            StateTabWin(SfxItemSet&);
 
     // attributes have changed
-    DECL_LINK( AttrChangedNotify, SwCursorShell*, void );
+    DECL_LINK( AttrChangedNotify, LinkParamNone*, void );
 
     // form control has been activated
     DECL_LINK( FormControlActivated, LinkParamNone*, void );
@@ -591,8 +592,8 @@ public:
 
     // Enable mail merge - mail merge field dialog enabled
     void EnableMailMerge();
-    //apply Accessiblity options
-    void ApplyAccessiblityOptions(SvtAccessibilityOptions const & rAccessibilityOptions);
+    //apply Accessibility options
+    void ApplyAccessibilityOptions(SvtAccessibilityOptions const & rAccessibilityOptions);
 
     SwView(SfxViewFrame* pFrame, SfxViewShell*);
     virtual ~SwView() override;
@@ -629,7 +630,7 @@ public:
     // methods for printing
     SAL_DLLPRIVATE virtual   SfxPrinter*     GetPrinter( bool bCreate = false ) override;
     SAL_DLLPRIVATE virtual bool  HasPrintOptionsPage() const override;
-    SAL_DLLPRIVATE virtual VclPtr<SfxTabPage> CreatePrintOptionsPage(TabPageParent pParent,
+    SAL_DLLPRIVATE virtual std::unique_ptr<SfxTabPage> CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController,
                                                     const SfxItemSet& rSet) override;
     static SvxSearchItem* GetSearchItem() { return s_pSrchItem; }
     /// See SfxViewShell::getPart().
@@ -637,7 +638,7 @@ public:
     /// See SfxViewShell::dumpAsXml().
     void dumpAsXml(xmlTextWriterPtr pWriter) const override;
     void SetRedlineAuthor(const OUString& rAuthor);
-    const OUString& GetRedlineAuthor();
+    const OUString& GetRedlineAuthor() const;
     /// See SfxViewShell::NotifyCursor().
     void NotifyCursor(SfxViewShell* pViewShell) const override;
     void ShowUIElement(const OUString& sElementURL) const;
@@ -689,7 +690,7 @@ inline const SwDocShell *SwView::GetDocShell() const
     return const_cast<SwView*>(this)->GetDocShell();
 }
 
-VclPtr<SfxTabPage> CreatePrintOptionsPage(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController,
                                           const SfxItemSet &rOptions,
                                           bool bPreview);
 

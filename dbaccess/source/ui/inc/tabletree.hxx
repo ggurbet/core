@@ -102,7 +102,7 @@ public:
     SvTreeListEntry*    getEntryByQualifiedName( const OUString& _rName );
 
 private:
-    virtual void InitEntry(SvTreeListEntry* _pEntry, const OUString& _rString, const Image& _rCollapsedBitmap, const Image& _rExpandedBitmap, SvLBoxButtonKind _eButtonKind) override;
+    virtual void InitEntry(SvTreeListEntry* _pEntry, const OUString& _rString, const Image& _rCollapsedBitmap, const Image& _rExpandedBitmap) override;
 
     virtual void checkedButton_noBroadcast(SvTreeListEntry* _pEntry) override;
 
@@ -197,9 +197,9 @@ public:
     /** determine if the given entry is 'wildcard checked'
         @see checkWildcard
     */
-    bool            isWildcardChecked(weld::TreeIter& rEntry);
+    bool            isWildcardChecked(const weld::TreeIter& rEntry);
 
-    std::unique_ptr<weld::TreeIter> GetEntryPosByName(const OUString& aName, weld::TreeIter* pStart = nullptr, const IEntryFilter* _pFilter = nullptr) const;
+    std::unique_ptr<weld::TreeIter> GetEntryPosByName(const OUString& aName, const weld::TreeIter* pStart = nullptr, const IEntryFilter* _pFilter = nullptr) const;
 
     void            CheckButtons();     // make the button states consistent (bottom-up)
 

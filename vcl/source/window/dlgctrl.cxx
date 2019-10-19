@@ -19,6 +19,7 @@
 
 
 #include <svdata.hxx>
+#include <window.h>
 
 #include "dlgctrl.hxx"
 #include <vcl/event.hxx>
@@ -29,7 +30,6 @@
 #include <vcl/tabctrl.hxx>
 #include <vcl/button.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/unohelp.hxx>
 #include <sal/log.hxx>
 #include <i18nlangtag/languagetag.hxx>
 
@@ -1105,16 +1105,6 @@ vcl::Window* Window::ImplFindDlgCtrlWindow( vcl::Window* pWindow )
 
     // find Focus-Window in the Child-List and return
     return ::ImplFindDlgCtrlWindow( this, pWindow, nIndex, nFormStart, nFormEnd );
-}
-
-vcl::Window* Window::GetParentLabelFor( const vcl::Window* ) const
-{
-    return nullptr;
-}
-
-vcl::Window* Window::GetParentLabeledBy( const vcl::Window* ) const
-{
-    return nullptr;
 }
 
 KeyEvent Window::GetActivationKey() const

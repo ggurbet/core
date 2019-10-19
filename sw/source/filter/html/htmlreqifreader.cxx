@@ -89,7 +89,7 @@ OString ExtractOLEClassName(const tools::SvRef<SotStorage>& xStorage)
         return aRet;
 
     pCompObj->ReadUInt32(nData); // Reserved1
-    return read_uInt8s_ToOString(*pCompObj, nData);
+    return read_uInt8s_ToOString(*pCompObj, nData - 1); // -1 because it is null-terminated
 }
 
 /// Parses the presentation stream of an OLE2 storage.
@@ -162,7 +162,7 @@ OString InsertOLE1Header(SvStream& rOle2, SvStream& rOle1, sal_uInt32& nWidth, s
     rOle1.WriteUInt32(0x00000002);
 
     // ClassName
-    rOle1.WriteUInt32(aClassName.getLength());
+    rOle1.WriteUInt32(aClassName.isEmpty() ? 0 : aClassName.getLength() + 1);
     if (!aClassName.isEmpty())
     {
         rOle1.WriteOString(aClassName);
@@ -227,13 +227,13 @@ void WrapOleGraphicInRtf(SvStream& rRtf, const SwOLENode& rOLENode, const Graphi
     rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_WMETAFILE "8");
     Size aSize(rOLENode.GetTwipSize());
     rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_PICW);
-    rRtf.WriteCharPtr(OString::number(aSize.getWidth()).getStr());
+    rRtf.WriteOString(OString::number(aSize.getWidth()));
     rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_PICH);
-    rRtf.WriteCharPtr(OString::number(aSize.getHeight()).getStr());
+    rRtf.WriteOString(OString::number(aSize.getHeight()));
     rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_PICWGOAL);
-    rRtf.WriteCharPtr(OString::number(aSize.getWidth()).getStr());
+    rRtf.WriteOString(OString::number(aSize.getWidth()));
     rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_PICHGOAL);
-    rRtf.WriteCharPtr(OString::number(aSize.getHeight()).getStr());
+    rRtf.WriteOString(OString::number(aSize.getHeight()));
     SvMemoryStream aGraphicStream;
     if (GraphicConverter::Export(aGraphicStream, rGraphic, ConvertDataFormat::WMF) == ERRCODE_NONE)
     {
@@ -318,9 +318,9 @@ bool WrapOleInRtf(SvStream& rOle2, SvStream& rRtf, SwOLENode& rOLENode)
 
     // Object size.
     rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_OBJW);
-    rRtf.WriteCharPtr(OString::number(nWidth).getStr());
+    rRtf.WriteOString(OString::number(nWidth));
     rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_OBJH);
-    rRtf.WriteCharPtr(OString::number(nHeight).getStr());
+    rRtf.WriteOString(OString::number(nHeight));
 
     // Start objdata.
     rRtf.WriteCharPtr(

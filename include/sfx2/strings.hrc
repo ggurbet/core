@@ -32,7 +32,7 @@
 #define STR_DEFAULT_TEMPLATE                    NC_("STR_DEFAULT_TEMPLATE", "Set As Default")
 #define STR_RESET_DEFAULT                       NC_("STR_RESET_DEFAULT", "Reset Default")
 #define STR_DELETE                              NC_("STR_DELETE", "Delete")
-#define STR_RENAME                              NC_("STR_RENAME", "Rename")
+#define STR_SFX_RENAME                          NC_("STR_SFX_RENAME", "Rename")
 #define STR_CATEGORY_RENAME                     NC_("STR_CATEGORY_RENAME", "Rename Category")
 #define STR_RENAME_TEMPLATE                     NC_("STR_RENAME_TEMPLATE", "Enter New Name: ")
 #define STR_TEMPLATE_TOOLTIP                    NC_("STR_TEMPLATE_TOOLTIP", "Title: $1\nCategory: $2")
@@ -142,7 +142,7 @@
 #define STR_QUICKSTART_FILE                     NC_("STR_QUICKSTART_FILE", "File")
 #define STR_QUICKSTART_STARTCENTER              NC_("STR_QUICKSTART_STARTCENTER", "Startcenter")
 #define STR_QUICKSTART_RECENTDOC                NC_("STR_QUICKSTART_RECENTDOC", "Recent Documents")
-#define STR_QUERY_UPDATE_LINKS                  NC_("STR_QUERY_UPDATE_LINKS", "This document contains one or more links to external data.\n\nWould you like to change the document, and update all links\nto get the most recent data?")
+#define STR_QUERY_UPDATE_LINKS                  NC_("STR_QUERY_UPDATE_LINKS", "The document %{filename} contains one or more links to external data.\n\nWould you like to change the document, and update all links\nto get the most recent data?")
 #define STR_DDE_ERROR                           NC_("STR_DDE_ERROR", "DDE link to %1 for %2 area %3 are not available.")
 #define STR_SECURITY_WARNING_NO_HYPERLINKS      NC_("STR_SECURITY_WARNING_NO_HYPERLINKS", "For security reasons, the hyperlink cannot be executed.\nThe stated address will not be opened.")
 #define RID_SECURITY_WARNING_TITLE                  NC_("RID_SECURITY_WARNING_TITLE", "Security Warning")
@@ -181,6 +181,35 @@
 
 #define STR_WELCOME_LINE1                       NC_("STR_WELCOME_LINE1", "Welcome to %PRODUCTNAME.")
 #define STR_WELCOME_LINE2                       NC_("STR_WELCOME_LINE2", "Drop a document here or pick an app from the left side to create one.")
+
+// Translators: Target types in Auto-redaction dialog
+#define STR_REDACTION_TARGET_TYPE_TEXT          NC_("STR_REDACTION_TARGET_TYPE_TEXT", "Text")
+#define STR_REDACTION_TARGET_TYPE_REGEX         NC_("STR_REDACTION_TARGET_TYPE_REGEX", "Regex")
+#define STR_REDACTION_TARGET_TYPE_PREDEF        NC_("STR_REDACTION_TARGET_TYPE_PREDEF", "Predefined")
+#define STR_REDACTION_TARGET_TYPE_UNKNOWN       NC_("STR_REDACTION_TARGET_TYPE_UNKNOWN", "Unknown")
+
+// Translators: Column headers in Auto-redaction dialog's targets list
+#define STR_REDACTION_TARGET_NAME               NC_("STR_REDACTION_TARGET_NAME", "Target Name")
+#define STR_REDACTION_TYPE                      NC_("STR_REDACTION_TYPE", "Type")
+#define STR_REDACTION_CONTENT                   NC_("STR_REDACTION_CONTENT", "Content")
+#define STR_REDACTION_CASE_SENSITIVE            NC_("STR_REDACTION_CASE_SENSITIVE", "Case Sensitive")
+#define STR_REDACTION_WHOLE_WORDS               NC_("STR_REDACTION_WHOLE_WORDS", "Whole Words")
+
+// Translators: Values for the Case Sensitive and the Whole Words columns in Auto-redaction dialog
+#define STR_REDACTION_YES                       NC_("STR_REDACTION_YES", "Yes")
+#define STR_REDACTION_NO                        NC_("STR_REDACTION_NO", "No")
+
+// Translators: Misc strings of the Auto Redaction dialog
+#define STR_REDACTION_TARGET                    NC_("STR_REDACTION_TARGET", "Target")
+#define STR_REDACTION_LOAD_TARGETS              NC_("STR_REDACTION_LOAD_TARGETS", "Load Targets")
+#define STR_REDACTION_SAVE_TARGETS              NC_("STR_REDACTION_SAVE_TARGETS", "Save Targets")
+#define STR_REDACTION_FIELDS_REQUIRED           NC_("STR_REDACTION_FIELDS_REQUIRED", "All fields are required")
+#define STR_REDACTION_TARGET_NAME_CLASH         NC_("STR_REDACTION_TARGET_NAME_CLASH", "There is already a target with this name")
+#define STR_REDACTION_MULTI_EDIT                NC_("STR_REDACTION_MULTI_EDIT", "You have selected multiple targets, but only one target can be edited at once.")
+#define STR_REDACTION_MULTI_DELETE              NC_("STR_REDACTION_MULTI_DELETE", "Are you sure you would like to delete $(TARGETSCOUNT) targets at once?")
+#define STR_REDACTION_JSON_FILE_FILTER          NC_("STR_REDACTION_JSON_FILE_FILTER", "Target Set (*.json)")
+#define STR_REDACTION_EDIT_TARGET               NC_("STR_REDACTION_EDIT_TARGET", "Edit Target")
+#define STR_REDACTION_TARGET_ADD_ERROR          NC_("STR_REDACTION_TARGET_ADD_ERROR", "An error occurred while adding new target. Please report this incident.")
 
 #define STR_SFX_FILEDLG_ACTUALVERSION           NC_("STR_SFX_FILEDLG_ACTUALVERSION", "Current version")
 #define STR_SFX_EXPLORERFILE_EXPORT             NC_("STR_SFX_EXPLORERFILE_EXPORT", "Export")
@@ -238,7 +267,8 @@
 #define STR_ERROR_SEND_MAIL_CODE                NC_("STR_ERROR_SEND_MAIL_CODE", "An error occurred in sending the message. Possible errors could be a missing user account or a defective setup.\n\nError code is $1")
 #define STR_ERROR_SEND_MAIL_HEADER              NC_("STR_ERROR_SEND_MAIL_HEADER", "Error sending mail")
 #define STR_QUERY_OPENASTEMPLATE                NC_("STR_QUERY_OPENASTEMPLATE", "This document cannot be edited, possibly due to missing access rights. Do you want to edit a copy of the document?")
-#define STR_QUERY_OPENASTEMPLATE_ALLOW_IGNORE   NC_("STR_QUERY_OPENASTEMPLATE_ALLOW_IGNORE", "This document cannot be edited, because it is locked in another session. Do you want to edit a copy of the document?\n\nYou can also try to ignore the lock and open the file for editing.")
+#define STR_QUERY_OPENASTEMPLATE_LOCKED         NC_("STR_QUERY_OPENASTEMPLATE_LOCKED", "This document cannot be edited, because it is locked in another session.%LOCKINFO\nDo you want to edit a copy of the document?")
+#define STR_QUERY_OPENASTEMPLATE_ALLOW_IGNORE   NC_("STR_QUERY_OPENASTEMPLATE_ALLOW_IGNORE", "You can also try to ignore the lock and open the file for editing.")
 #define STR_QUERY_OPENASTEMPLATE_OPENCOPY_BTN   NC_("STR_QUERY_OPENASTEMPLATE_OPENCOPY_BTN", "Open ~Copy")
 #define STR_QUERY_OPENASTEMPLATE_OPEN_BTN       NC_("STR_QUERY_OPENASTEMPLATE_OPEN_BTN", "~Open")
 #define STR_REPAIREDDOCUMENT                    NC_("STR_REPAIREDDOCUMENT", " (repaired document)")
@@ -318,6 +348,8 @@
 #define STR_PASSWORD_LEN                        NC_("STR_PASSWORD_LEN", "Password length")
 #define STR_PASSWORD_WARNING                    NC_("STR_PASSWORD_WARNING", "The password you have entered causes interoperability issues. Please enter a password that is shorter than 52 bytes, or longer than 55 bytes.")
 
+#define STR_CTRLCLICKHYPERLINK                  NC_("STR_CTRLCLICKHYPERLINK", "%{key}-click to open hyperlink: %{link}")
+#define STR_CLICKHYPERLINK                      NC_("STR_CLICKHYPERLINK", "Click to open hyperlink: %{link}")
 #endif
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

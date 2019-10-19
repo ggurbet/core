@@ -25,6 +25,9 @@
 #include <vector>
 #include <com/sun/star/accessibility/XAccessibleSelection.hpp>
 
+#include <svl/poolitem.hxx>
+#include <svl/listener.hxx>
+
 #include "acccontext.hxx"
 
 class SwTabFrame;
@@ -32,16 +35,16 @@ class SwAccessibleTableData_Impl;
 class SwTableBox;
 class SwSelBoxes;
 
-namespace sw { namespace access {
+namespace sw::access {
     class SwAccessibleChild;
-} }
+}
 
 class SwAccessibleTable :
         public SwAccessibleContext,
         public css::accessibility::XAccessibleTable,
         public css::accessibility::XAccessibleSelection,
         public css::accessibility::XAccessibleTableSelection,
-        public SwClient
+        public SvtListener
 {
     std::unique_ptr<SwAccessibleTableData_Impl> mpTableData;    // the table's data, protected by SolarMutex
     OUString m_sDesc;
@@ -83,7 +86,7 @@ protected:
     // Is table data evailable?
     bool HasTableData() const { return (mpTableData != nullptr); }
 
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
+    virtual void Notify(const SfxHint&) override;
 
 public:
     SwAccessibleTable(std::shared_ptr<SwAccessibleMap> const& pInitMap,
@@ -181,7 +184,7 @@ public:
     // The object has been moved by the layout
     virtual void InvalidatePosOrSize( const SwRect& rOldBox ) override;
 
-    // The object is not visible an longer and should be destroyed
+    // The object is not visible any longer and should be destroyed
     virtual void Dispose(bool bRecursive, bool bCanSkipInvisible = true) override;
 
     virtual void DisposeChild( const sw::access::SwAccessibleChild& rFrameOrObj,
@@ -235,7 +238,7 @@ protected:
     {}
 
     virtual std::unique_ptr<SwAccessibleTableData_Impl> CreateNewTableData() override;
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
+    virtual void Notify(const SfxHint&) override;
 
 public:
     SwAccessibleTableColHeaders(std::shared_ptr<SwAccessibleMap> const& pMap,

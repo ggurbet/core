@@ -22,7 +22,6 @@
 #include <memory>
 #include <editeng/adjustitem.hxx>
 #include <sot/storage.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/editstat.hxx>
@@ -31,38 +30,29 @@
 #include <editeng/unolingu.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/misspellrange.hxx>
-#include <svx/svdetc.hxx>
 #include <editeng/editobj.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/ipclient.hxx>
 #include <svl/stritem.hxx>
-#include <svl/urlbmk.hxx>
 #include <svl/sharedstringpool.hxx>
 #include <vcl/canvastools.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/cursor.hxx>
-#include <vcl/graph.hxx>
-#include <vcl/hatch.hxx>
 #include <vcl/inputctx.hxx>
 #include <vcl/settings.hxx>
 #include <sot/formats.hxx>
 #include <comphelper/classids.hxx>
-#include <sal/macros.h>
 
 #include <svx/svdview.hxx>
 #include <editeng/outliner.hxx>
-#include <svx/svditer.hxx>
 #include <svx/svdocapt.hxx>
 #include <svx/svdpagv.hxx>
 
 #include <com/sun/star/sheet/DataPilotFieldFilter.hpp>
 #include <com/sun/star/sheet/DataPilotFieldOrientation.hpp>
 #include <com/sun/star/sheet/DataPilotTableHeaderData.hpp>
-#include <com/sun/star/sheet/DataPilotTableResultData.hpp>
-#include <com/sun/star/sheet/DataPilotTablePositionData.hpp>
-#include <com/sun/star/sheet/DataPilotTablePositionType.hpp>
 #include <com/sun/star/sheet/MemberResultFlags.hpp>
 #include <com/sun/star/sheet/TableValidationVisibility.hpp>
 #include <com/sun/star/awt/KeyModifier.hpp>
@@ -92,18 +82,14 @@
 #include <scresid.hxx>
 #include <inputhdl.hxx>
 #include <uiitems.hxx>
-#include <filtdlg.hxx>
-#include <impex.hxx>
 #include <formulacell.hxx>
 #include <patattr.hxx>
 #include <notemark.hxx>
 #include <rfindlst.hxx>
-#include <docpool.hxx>
 #include <output.hxx>
 #include <docfunc.hxx>
 #include <dbdocfun.hxx>
 #include <dpobject.hxx>
-#include <dpoutput.hxx>
 #include <transobj.hxx>
 #include <drwtrans.hxx>
 #include <seltrans.hxx>
@@ -114,7 +100,7 @@
 #include <compiler.hxx>
 #include <editable.hxx>
 #include <fillinfo.hxx>
-#include <userdat.hxx>
+#include <filterentries.hxx>
 #include <drwlayer.hxx>
 #include <validat.hxx>
 #include <tabprotection.hxx>
@@ -122,7 +108,6 @@
 #include <dpcontrol.hxx>
 #include <checklistmenu.hxx>
 #include <clipparam.hxx>
-#include <cellsh.hxx>
 #include <overlayobject.hxx>
 #include <cellsuno.hxx>
 #include <drawview.hxx>
@@ -135,7 +120,6 @@
 #include <hints.hxx>
 #include <spellcheckcontext.hxx>
 #include <uiobject.hxx>
-#include <scabstdlg.hxx>
 #include <undoblk.hxx>
 #include <datamapper.hxx>
 
@@ -344,7 +328,7 @@ void ScFilterFloatingWindow::dispose()
 
 static bool lcl_IsEditableMatrix( ScDocument* pDoc, const ScRange& rRange )
 {
-    // If it is a editable range and if there is a Matrix cell at the bottom right with an
+    // If it is an editable range and if there is a Matrix cell at the bottom right with an
     // origin top left then the range will be set to contain the exact matrix.
     //! Extract the MatrixEdges functions directly from the column ???
     if ( !pDoc->IsBlockEditable( rRange.aStart.Tab(), rRange.aStart.Col(),rRange.aStart.Row(),
@@ -805,9 +789,11 @@ void ScGridWindow::UpdateAutoFilterFromMenu(AutoFilterMode eMode)
         pViewData->GetDispatcher().Execute(SID_FILTER, SfxCallMode::SLOT|SfxCallMode::RECORD);
         return;
     }
-
-    // do not recreate auto-filter rules if there is no any changes from the user
+    if (eMode != AutoFilterMode::Top10
+            && eMode != AutoFilterMode::Empty
+            && eMode != AutoFilterMode::NonEmpty)
     {
+        // do not recreate auto-filter rules if there is no any changes from the user
         ScCheckListMenuWindow::ResultType aResult;
         mpAutoFilterPopup->getResult(aResult);
 
@@ -1803,7 +1789,7 @@ void ScGridWindow::HandleMouseButtonDown( const MouseEvent& rMEvt, MouseEventSta
             //      links in the edit cell
 
     bool bAlt = rMEvt.IsMod2();
-    if ( !bAlt && rMEvt.IsLeft() &&
+    if ( !bAlt && rMEvt.IsLeft() && ScGlobal::ShouldOpenURL() &&
             GetEditUrl(rMEvt.GetPosPixel()) )           // click on link: do not move cursor
     {
         SetPointer( PointerStyle::RefHand );
@@ -2296,7 +2282,7 @@ void ScGridWindow::MouseButtonUp( const MouseEvent& rMEvt )
                 if ( aScRange.aStart == aScRange.aEnd )
                 {
                     //  make sure there is a range selection string even for a single cell
-                    aAddr = aAddr + ":" + aAddr;
+                    aAddr += ":" + aAddr;
                 }
 
                 //! SID_MARKAREA does not exist anymore ???
@@ -2450,7 +2436,7 @@ void ScGridWindow::MouseMove( const MouseEvent& rMEvt )
             }
             //  Field can only be URL field
             bool bAlt = rMEvt.IsMod2();
-            if ( !bAlt && !nButtonDown && pFld )
+            if ( !bAlt && !nButtonDown && ScGlobal::ShouldOpenURL() && pFld )
                 SetPointer( PointerStyle::RefHand );
             else if ( pEditView->GetEditEngine()->IsVertical() )
                 SetPointer( PointerStyle::TextVertical );
@@ -2531,7 +2517,7 @@ void ScGridWindow::MouseMove( const MouseEvent& rMEvt )
 
             if (bEditMode)                                  // First has to be in edit mode!
                 SetPointer( PointerStyle::Arrow );
-            else if ( !bAlt && !nButtonDown &&
+            else if ( !bAlt && !nButtonDown && ScGlobal::ShouldOpenURL() &&
                         GetEditUrl(rMEvt.GetPosPixel()) )
                 SetPointer( PointerStyle::RefHand );
             else if ( DrawMouseMove(rMEvt) )                // Reset pointer
@@ -2660,11 +2646,14 @@ void ScGridWindow::Tracking( const TrackingEvent& rTEvt )
     }
     else if ( rTEvt.IsTrackingEnded() )
     {
-        // MouseButtonUp always with matching buttons (eg for test tool, # 63148 #)
-        // The tracking event will indicate if it was completed and not canceled.
-        MouseEvent aUpEvt( rMEvt.GetPosPixel(), rMEvt.GetClicks(),
-                            rMEvt.GetMode(), nButtonDown, rMEvt.GetModifier() );
-        MouseButtonUp( aUpEvt );
+        if ( !comphelper::LibreOfficeKit::isActive() )
+        {
+            // MouseButtonUp always with matching buttons (eg for test tool, # 63148 #)
+            // The tracking event will indicate if it was completed and not canceled.
+            MouseEvent aUpEvt( rMEvt.GetPosPixel(), rMEvt.GetClicks(),
+                                rMEvt.GetMode(), nButtonDown, rMEvt.GetModifier() );
+            MouseButtonUp( aUpEvt );
+        }
     }
     else
         MouseMove( rMEvt );
@@ -3175,7 +3164,7 @@ void ScGridWindow::KeyInput(const KeyEvent& rKEvt)
         {
             dumpColumnInformationHmm();
         }
-        else if (rKeyCode.GetCode() == KEY_F9)
+        else if (rKeyCode.GetCode() == KEY_F6)
         {
             dumpCellProperties();
         }
@@ -5093,6 +5082,8 @@ void ScGridWindow::RFMouseMove( const MouseEvent& rMEvt, bool bUp )
 
         ScDocShell* pDocSh = pViewData->GetDocShell();
 
+        pHdl->UpdateLokReferenceMarks();
+
         // only redrawing what has been changed...
         lcl_PaintRefChanged( pDocSh, aOld, aNew );
 
@@ -5222,7 +5213,7 @@ bool ScGridWindow::GetEditUrl( const Point& rPos,
 
     std::shared_ptr<ScFieldEditEngine> pEngine = createEditEngine(pDocSh, *pPattern);
 
-    MapMode aEditMode = pViewData->GetLogicMode(eWhich);            // without draw scaleing
+    MapMode aEditMode = pViewData->GetLogicMode(eWhich);            // without draw scaling
     tools::Rectangle aLogicEdit = PixelToLogic( aEditRect, aEditMode );
     long nThisColLogic = aLogicEdit.Right() - aLogicEdit.Left() + 1;
     Size aPaperSize( 1000000, 1000000 );
@@ -5686,7 +5677,7 @@ OString ScGridWindow::getCellCursor(const Fraction& /*rZoomX*/, const Fraction& 
     // one (client-side) for tiled rendering too.
     if (!mpOOCursors)
     {
-        return OString("EMPTY");
+        return "EMPTY";
     }
 
     SCCOL nX = pViewData->GetCurX();
@@ -5910,22 +5901,40 @@ static void updateLibreOfficeKitSelection(const ScViewData* pViewData, const std
         return;
 
     // selection start handle
-    tools::Rectangle aStart(aBoundingBox.Left() / nPPTX, aBoundingBox.Top() / nPPTY,
-            aBoundingBox.Left() / nPPTX, (aBoundingBox.Top() / nPPTY) + 256);
-
-    // selection end handle
-    tools::Rectangle aEnd(aBoundingBox.Right() / nPPTX, (aBoundingBox.Bottom() / nPPTY) - 256,
+    tools::Rectangle aRectangle(
+            aBoundingBox.Left()  / nPPTX, aBoundingBox.Top() / nPPTY,
             aBoundingBox.Right() / nPPTX, aBoundingBox.Bottom() / nPPTY);
 
     // the selection itself
     OString aSelection = comphelper::string::join("; ", aRectangles).getStr();
 
     ScTabViewShell* pViewShell = pViewData->GetViewShell();
-    pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_TEXT_SELECTION_START, aStart.toString().getStr());
-    pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_TEXT_SELECTION_END, aEnd.toString().getStr());
+    pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_CELL_SELECTION_AREA, aRectangle.toString().getStr());
     pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_TEXT_SELECTION, aSelection.getStr());
     SfxLokHelper::notifyOtherViews(pViewShell, LOK_CALLBACK_TEXT_VIEW_SELECTION, "selection", aSelection.getStr());
 }
+
+namespace
+{
+
+void updateLibreOfficeKitAutoFill(const ScViewData* pViewData, tools::Rectangle const & rRectangle)
+{
+    if (!comphelper::LibreOfficeKit::isActive())
+        return;
+
+    double nPPTX = pViewData->GetPPTX();
+    double nPPTY = pViewData->GetPPTY();
+
+    // selection start handle
+    tools::Rectangle aLogicRectangle(
+            rRectangle.Left()  / nPPTX, rRectangle.Top() / nPPTY,
+            rRectangle.Right() / nPPTX, rRectangle.Bottom() / nPPTY);
+
+    ScTabViewShell* pViewShell = pViewData->GetViewShell();
+    pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_CELL_AUTO_FILL_AREA, aLogicRectangle.toString().getStr());
+}
+
+} //end anonymous namespace
 
 void ScGridWindow::UpdateCursorOverlay()
 {
@@ -6167,6 +6176,7 @@ void ScGridWindow::UpdateSelectionOverlay()
     {
         ScTabViewShell* pViewShell = pViewData->GetViewShell();
         pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_TEXT_SELECTION, "EMPTY");
+        pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_CELL_SELECTION_AREA, "EMPTY");
         SfxLokHelper::notifyOtherViews(pViewShell, LOK_CALLBACK_TEXT_VIEW_SELECTION, "selection", "EMPTY");
     }
 
@@ -6197,9 +6207,11 @@ void ScGridWindow::UpdateAutoFillOverlay()
         SCCOL nX = aAutoMarkPos.Col();
         SCROW nY = aAutoMarkPos.Row();
 
-        if (!maVisibleRange.isInside(nX, nY))
+        if (!maVisibleRange.isInside(nX, nY) && !comphelper::LibreOfficeKit::isActive())
+        {
             // Autofill mark is not visible.  Bail out.
             return;
+        }
 
         SCTAB nTab = pViewData->GetTabNo();
         ScDocument* pDoc = pViewData->GetDocument();
@@ -6225,15 +6237,16 @@ void ScGridWindow::UpdateAutoFillOverlay()
         tools::Rectangle aFillRect(aFillPos, aFillHandleSize);
 
         // expand rect to increase hit area
-        mpAutoFillRect = tools::Rectangle(aFillRect.Left()   - fScaleFactor,
-                                           aFillRect.Top()    - fScaleFactor,
-                                           aFillRect.Right()  + fScaleFactor,
-                                           aFillRect.Bottom() + fScaleFactor);
+        mpAutoFillRect = aFillRect;
+        mpAutoFillRect->expand(fScaleFactor);
 
         // #i70788# get the OverlayManager safely
         rtl::Reference<sdr::overlay::OverlayManager> xOverlayManager = getOverlayManager();
-
-        if (xOverlayManager.is() && !comphelper::LibreOfficeKit::isActive())
+        if (comphelper::LibreOfficeKit::isActive()) // notify the LibreOfficeKit
+        {
+            updateLibreOfficeKitAutoFill(pViewData, aFillRect);
+        }
+        else if (xOverlayManager.is())
         {
             Color aHandleColor( SC_MOD()->GetColorConfig().GetColorValue(svtools::FONTCOLOR).nColor );
             if (pViewData->GetActivePart() != eWhich)
@@ -6503,7 +6516,7 @@ void ScGridWindow::UpdateShrinkOverlay()
 }
 
 // #i70788# central method to get the OverlayManager safely
-rtl::Reference<sdr::overlay::OverlayManager> ScGridWindow::getOverlayManager()
+rtl::Reference<sdr::overlay::OverlayManager> ScGridWindow::getOverlayManager() const
 {
     SdrPageView* pPV = pViewData->GetView()->GetScDrawView()->GetSdrPageView();
 

@@ -289,7 +289,7 @@ bool PPTWriterBase::GetPageByIndex( sal_uInt32 nIndex, PageType ePageType )
         if (GetPropertyValue( aAny, mXPagePropSet, "IsBackgroundDark" ) )
             aAny >>= mbIsBackgroundDark;
 
-        mXShapes.set( mXDrawPage, UNO_QUERY );
+        mXShapes = mXDrawPage;
         if ( !mXShapes.is() )
             break;
 
@@ -569,7 +569,7 @@ bool PPTWriterBase::GetStyleSheets()
                                                 if ( nInstance == EPP_TEXTTYPE_Body )
                                                 {
                                                     sal_Unicode cTemp = aStyle[aStyle.getLength() - 1];
-                                                    aStyle = aStyle.copy(0, aStyle.getLength() - 1) + OUStringLiteral1(++cTemp);
+                                                    aStyle = aStyle.copy(0, aStyle.getLength() - 1) + OUStringChar(++cTemp);
                                                     if ( aXFamily->hasByName( aStyle ) )
                                                     {
                                                         aXFamily->getByName( aStyle ) >>= xStyle;
@@ -625,7 +625,7 @@ bool PPTWriterBase::CreateMainNotes()
     if ( !mXPropSet.is() )
         return false;
 
-    mXShapes.set( mXDrawPage, css::uno::UNO_QUERY );
+    mXShapes = mXDrawPage;
     if ( !mXShapes.is() )
         return false;
 

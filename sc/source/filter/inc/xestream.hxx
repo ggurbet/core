@@ -58,7 +58,7 @@ typedef std::shared_ptr< XclExpBiff8Encrypter > XclExpEncrypterRef;
     If some data exceeds the record size limit, a CONTINUE record is started automatically
     and the new data will be written to this record.
 
-    If specific data pieces must not be splitted, use SetSliceSize(). For instance:
+    If specific data pieces must not be split, use SetSliceSize(). For instance:
     To write a sequence of 16-bit values, where 4 values form a unit and cannot be
     split, call SetSliceSize( 8 ) first (4*2 bytes == 8).
 
@@ -265,9 +265,15 @@ public:
     static OUString ToOUString( sc::CompileFormulaContext& rCtx, const ScAddress& rAddress, const ScTokenArray* pTokenArray );
     static OUString ToOUString( const XclExpString& s );
 
-    static sax_fastparser::FSHelperPtr  WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, sal_Int32 nValue );
-    static sax_fastparser::FSHelperPtr  WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, sal_Int64 nValue );
-    static sax_fastparser::FSHelperPtr  WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, const char* sValue );
+    template <class T>
+    static sax_fastparser::FSHelperPtr WriteElement(sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, const T& value)
+    {
+        pStream->startElement(nElement);
+        pStream->write(value);
+        pStream->endElement(nElement);
+
+        return pStream;
+    }
     static sax_fastparser::FSHelperPtr  WriteFontData( sax_fastparser::FSHelperPtr pStream, const XclFontData& rFontData, sal_Int32 nNameId );
 };
 
@@ -287,11 +293,14 @@ public:
     sax_fastparser::FSHelperPtr     GetStreamForPath( const OUString& rPath );
 
     template <typename Str, typename... Args>
-    void WriteAttributes(sal_Int32 nAttribute, const Str& value, Args... rest)
+    void WriteAttributes(sal_Int32 nAttribute, Str&& value, Args&&... rest)
     {
-        WriteAttribute(nAttribute, value);
+        WriteAttribute(nAttribute, std::forward<Str>(value));
         if constexpr(sizeof...(rest) > 0)
-            WriteAttributes(rest...);
+        {
+            // coverity[stray_semicolon : FALSE] - coverity parse error
+            WriteAttributes(std::forward<Args>(rest)...);
+        }
     }
 
     sax_fastparser::FSHelperPtr     CreateOutputStream (
@@ -309,7 +318,7 @@ public:
     virtual bool importDocument() throw() override;
     virtual oox::vml::Drawing* getVmlDrawing() override;
     virtual const oox::drawingml::Theme* getCurrentTheme() const override;
-    virtual const oox::drawingml::table::TableStyleListPtr getTableStyles() override;
+    virtual oox::drawingml::table::TableStyleListPtr getTableStyles() override;
     virtual oox::drawingml::chart::ChartConverter* getChartConverter() override;
 
 private:

@@ -88,8 +88,7 @@ static void lcl_html_outEvents( SvStream& rStrm,
                          rtl_TextEncoding eDestEnc,
                          OUString *pNonConvertableChars )
 {
-    uno::Reference< container::XChild > xChild( rFormComp, uno::UNO_QUERY );
-    uno::Reference< uno::XInterface > xParentIfc = xChild->getParent();
+    uno::Reference< uno::XInterface > xParentIfc = rFormComp->getParent();
     OSL_ENSURE( xParentIfc.is(), "lcl_html_outEvents: no parent interface" );
     if( !xParentIfc.is() )
         return;
@@ -125,17 +124,15 @@ static void lcl_html_outEvents( SvStream& rStrm,
     if( nPos == nCount )
         return;
 
-    uno::Sequence< script::ScriptEventDescriptor > aDescs =
+    const uno::Sequence< script::ScriptEventDescriptor > aDescs =
             xEventManager->getScriptEvents( nPos );
-    nCount = aDescs.getLength();
-    if( !nCount )
+    if( !aDescs.hasElements() )
         return;
 
-    const script::ScriptEventDescriptor *pDescs = aDescs.getConstArray();
-    for( sal_Int32 i = 0; i < nCount; i++ )
+    for( const script::ScriptEventDescriptor& rDesc : aDescs )
     {
         ScriptType eScriptType = EXTENDED_STYPE;
-        OUString aScriptType( pDescs[i].ScriptType );
+        OUString aScriptType( rDesc.ScriptType );
         if( aScriptType.equalsIgnoreAsciiCase(SVX_MACRO_LANGUAGE_JAVASCRIPT) )
             eScriptType = JAVASCRIPT;
         else if( aScriptType.equalsIgnoreAsciiCase(SVX_MACRO_LANGUAGE_STARBASIC ) )
@@ -143,7 +140,7 @@ static void lcl_html_outEvents( SvStream& rStrm,
         if( JAVASCRIPT != eScriptType && !bCfgStarBasic )
             continue;
 
-        OUString sListener( pDescs[i].ListenerType );
+        OUString sListener( rDesc.ListenerType );
         if (!sListener.isEmpty())
         {
             const sal_Int32 nIdx { sListener.lastIndexOf('.')+1 };
@@ -159,7 +156,7 @@ static void lcl_html_outEvents( SvStream& rStrm,
                 }
             }
         }
-        OUString sMethod( pDescs[i].EventMethod );
+        OUString sMethod( rDesc.EventMethod );
 
         const sal_Char *pOpt = nullptr;
         for( int j=0; aEventListenerTable[j]; j++ )
@@ -175,26 +172,26 @@ static void lcl_html_outEvents( SvStream& rStrm,
 
         OString sOut = " ";
         if( pOpt && (EXTENDED_STYPE != eScriptType ||
-                     pDescs[i].AddListenerParam.isEmpty()) )
+                     rDesc.AddListenerParam.isEmpty()) )
             sOut += OString(pOpt);
         else
         {
-            sOut += OString(OOO_STRING_SVTOOLS_HTML_O_sdevent) +
+            sOut += OOO_STRING_SVTOOLS_HTML_O_sdevent +
                 OUStringToOString(sListener, RTL_TEXTENCODING_ASCII_US) + "-" +
                 OUStringToOString(sMethod, RTL_TEXTENCODING_ASCII_US);
         }
         sOut += "=\"";
         rStrm.WriteOString( sOut );
-        HTMLOutFuncs::Out_String( rStrm, pDescs[i].ScriptCode, eDestEnc, pNonConvertableChars );
+        HTMLOutFuncs::Out_String( rStrm, rDesc.ScriptCode, eDestEnc, pNonConvertableChars );
         rStrm.WriteChar( '\"' );
         if( EXTENDED_STYPE == eScriptType &&
-            !pDescs[i].AddListenerParam.isEmpty() )
+            !rDesc.AddListenerParam.isEmpty() )
         {
             sOut = " " OOO_STRING_SVTOOLS_HTML_O_sdaddparam +
                 OUStringToOString(sListener, RTL_TEXTENCODING_ASCII_US) + "-" +
                 OUStringToOString(sMethod, RTL_TEXTENCODING_ASCII_US) + "=\"";
             rStrm.WriteOString( sOut );
-            HTMLOutFuncs::Out_String( rStrm, pDescs[i].AddListenerParam,
+            HTMLOutFuncs::Out_String( rStrm, rDesc.AddListenerParam,
                                       eDestEnc, pNonConvertableChars );
             rStrm.WriteChar( '\"' );
         }
@@ -513,8 +510,8 @@ void SwHTMLWriter::OutForm( bool bOn,
 
         if( pStr )
         {
-            sOut += " " OOO_STRING_SVTOOLS_HTML_O_enctype "=\"" +
-                OString(pStr) + "\"";
+            sOut += OStringLiteral(" " OOO_STRING_SVTOOLS_HTML_O_enctype "=\"") +
+                pStr + "\"";
         }
     }
 
@@ -736,10 +733,9 @@ Writer& OutHTML_DrawFrameFormatAsControl( Writer& rWrt,
         {
             if ( TRISTATE_FALSE != *n )
             {
-                sOptions += " " OOO_STRING_SVTOOLS_HTML_O_checked;
-                sOptions += "=\"";
-                sOptions += OString(OOO_STRING_SVTOOLS_HTML_O_checked);
-                sOptions += "\"";
+                sOptions += " " OOO_STRING_SVTOOLS_HTML_O_checked "=\""
+                    OOO_STRING_SVTOOLS_HTML_O_checked
+                    "\"";
             }
         }
 
@@ -857,8 +853,8 @@ Writer& OutHTML_DrawFrameFormatAsControl( Writer& rWrt,
                     auto b = o3tl::tryAccess<bool>(aTmp2);
                     pWrapStr = (b && *b) ? OOO_STRING_SVTOOLS_HTML_WW_hard
                                          : OOO_STRING_SVTOOLS_HTML_WW_soft;
-                    sOptions += " " OOO_STRING_SVTOOLS_HTML_O_wrap "=\"" +
-                        OString(pWrapStr) + "\"";
+                    sOptions += OStringLiteral(" " OOO_STRING_SVTOOLS_HTML_O_wrap "=\"") +
+                        pWrapStr + "\"";
                 }
             }
             else
@@ -935,11 +931,11 @@ Writer& OutHTML_DrawFrameFormatAsControl( Writer& rWrt,
     if( eTag == TAG_NONE )
         return rWrt;
 
-    OString sOut = "<" + OString(TagNames[eTag]);
+    OString sOut = OStringLiteral("<") + TagNames[eTag];
     if( eType != TYPE_NONE )
     {
-        sOut += " " OOO_STRING_SVTOOLS_HTML_O_type "=\"" +
-            OString(TypeNames[eType]) + "\"";
+        sOut += OStringLiteral(" " OOO_STRING_SVTOOLS_HTML_O_type "=\"") +
+            TypeNames[eType] + "\"";
     }
 
     aTmp = xPropSet->getPropertyValue("Name");
@@ -1278,7 +1274,7 @@ Writer& OutHTML_DrawFrameFormatAsControl( Writer& rWrt,
     }
 
     if( !aEndTags.isEmpty() )
-        rWrt.Strm().WriteCharPtr( aEndTags.getStr() );
+        rWrt.Strm().WriteOString( aEndTags );
 
     // Controls aren't bound to a paragraph, therefore don't output LF anymore!
     rHTMLWrt.m_bLFPossible = false;

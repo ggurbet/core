@@ -17,10 +17,9 @@ $(eval $(call gb_Library_set_include,cui,\
     -I$(SRCDIR)/cui/source/inc \
 ))
 
-$(eval $(call gb_Library_set_precompiled_header,cui,$(SRCDIR)/cui/inc/pch/precompiled_cui))
+$(eval $(call gb_Library_set_precompiled_header,cui,cui/inc/pch/precompiled_cui))
 
 $(eval $(call gb_Library_add_defs,cui,\
-    $(if $(filter TRUE,$(ENABLE_GTK)),-DENABLE_GTK) \
     -DCUI_DLLIMPLEMENTATION \
 ))
 
@@ -60,6 +59,9 @@ $(eval $(call gb_Library_use_libraries,cui,\
     ucbhelper \
     utl \
     vcl \
+    $(if $(ENABLE_BREAKPAD), \
+        crashreport \
+    ) \
 ))
 
 $(eval $(call gb_Library_use_externals,cui,\
@@ -73,6 +75,7 @@ $(eval $(call gb_Library_use_externals,cui,\
     libxml2 \
     orcus-parser \
     orcus \
+    qrcodegen \
 ))
 ifeq ($(DISABLE_GUI),)
 $(eval $(call gb_Library_use_externals,cui,\
@@ -109,6 +112,7 @@ $(eval $(call gb_Library_add_exception_objects,cui,\
     cui/source/dialogs/cuiimapwnd \
     cui/source/dialogs/cuitbxform \
     cui/source/dialogs/dlgname \
+    cui/source/dialogs/DiagramDialog \
     cui/source/dialogs/FontFeaturesDialog \
     cui/source/dialogs/hangulhanjadlg \
     cui/source/dialogs/hldocntp \
@@ -129,6 +133,7 @@ $(eval $(call gb_Library_add_exception_objects,cui,\
     cui/source/dialogs/screenshotannotationdlg \
     cui/source/dialogs/pastedlg \
     cui/source/dialogs/postdlg \
+    cui/source/dialogs/QrCodeGenDialog \
     cui/source/dialogs/scriptdlg \
     cui/source/dialogs/SignatureLineDialogBase \
     cui/source/dialogs/SignatureLineDialog \
@@ -167,7 +172,6 @@ $(eval $(call gb_Library_add_exception_objects,cui,\
     cui/source/options/optfltr \
     cui/source/options/optgdlg \
     cui/source/options/optgenrl \
-    cui/source/options/optHeaderTabListbox \
     cui/source/options/opthtml \
     cui/source/options/optinet2 \
     cui/source/options/optjava \
@@ -180,7 +184,6 @@ $(eval $(call gb_Library_add_exception_objects,cui,\
     cui/source/options/optupdt \
     $(call gb_Helper_optional,DESKTOP,\
         cui/source/options/personalization) \
-    cui/source/options/radiobtnbox \
     cui/source/options/sdbcdriverenum \
     cui/source/options/securityoptions \
     cui/source/options/treeopt \

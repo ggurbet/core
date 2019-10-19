@@ -131,7 +131,8 @@ namespace param
     OUString ParameterWrapper::impl_getPseudoAggregatePropertyName( sal_Int32 _nHandle ) const
     {
         Reference< XPropertySetInfo >  xInfo = const_cast<ParameterWrapper*>( this )->getPropertySetInfo();
-        for ( const Property& rProperty : xInfo->getProperties() )
+        const css::uno::Sequence<Property> aProperties = xInfo->getProperties();
+        for ( const Property& rProperty : aProperties )
         {
             if ( rProperty.Handle == _nHandle )
                 return rProperty.Name;
@@ -193,7 +194,7 @@ namespace param
         {
             try
             {
-                // TODO : aParamType & nScale can be obtained within the constructor ....
+                // TODO : aParamType & nScale can be obtained within the constructor...
                 sal_Int32 nParamType = DataType::VARCHAR;
                 OSL_VERIFY( m_xDelegator->getPropertyValue("Type") >>= nParamType );
 

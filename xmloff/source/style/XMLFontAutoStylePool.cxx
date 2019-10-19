@@ -34,7 +34,6 @@
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/embed/XStorage.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/style/XStyle.hpp>
@@ -304,14 +303,16 @@ std::unordered_set<OUString> XMLFontAutoStylePool::getUsedFontList()
     uno::Reference<container::XNameAccess> xFamilies(xFamiliesSupp->getStyleFamilies());
     if (xFamilies.is())
     {
-        for (OUString const & sFamilyName : xFamilies->getElementNames())
+        const uno::Sequence<OUString> aFamilyNames = xFamilies->getElementNames();
+        for (OUString const & sFamilyName : aFamilyNames)
         {
             uno::Reference<container::XNameAccess> xStyleContainer;
             xFamilies->getByName(sFamilyName) >>= xStyleContainer;
 
             if (xStyleContainer.is())
             {
-                for (OUString const & rName : xStyleContainer->getElementNames())
+                const uno::Sequence<OUString> aStyleNames = xStyleContainer->getElementNames();
+                for (OUString const & rName : aStyleNames)
                 {
                     uno::Reference<style::XStyle> xStyle;
                     xStyleContainer->getByName(rName) >>= xStyle;
@@ -392,16 +393,13 @@ void XMLFontAutoStylePool::exportXML()
     const SvXMLUnitConverter& rUnitConv = GetExport().GetMM100UnitConverter();
 
     std::map<OUString, OUString> fontFilesMap; // our url to document url
-    sal_uInt32 nCount = m_pFontAutoStylePool->size();
 
     std::unordered_set<OUString> aUsedFontNames;
     if (m_bEmbedUsedOnly)
         aUsedFontNames = getUsedFontList();
 
-    for (sal_uInt32 i = 0; i < nCount; i++)
+    for (const auto& pEntry : *m_pFontAutoStylePool)
     {
-        const XMLFontAutoStylePoolEntry_Impl* pEntry = (*m_pFontAutoStylePool)[i].get();
-
         GetExport().AddAttribute(XML_NAMESPACE_STYLE, XML_NAME, pEntry->GetName());
 
         aAny <<= pEntry->GetFamilyName();
@@ -554,7 +552,7 @@ static OString convertToHashString(std::vector<unsigned char> const & rHash)
         aStringStream << std::setw(2) << std::setfill('0') << std::hex << int(rByte);
     }
 
-    return OString(aStringStream.str().c_str());
+    return aStringStream.str().c_str();
 }
 
 static OString getFileHash(OUString const & rFileUrl)
@@ -617,7 +615,7 @@ OUString XMLFontAutoStylePool::embedFontFile(OUString const & fileUrl, OUString 
         propertySet->setPropertyValue( "MediaType", uno::makeAny( OUString( "application/x-font-ttf" ))); // TODO
         for(;;)
         {
-            char buffer[ 4096 ];
+            sal_Int8 buffer[ 4096 ];
             sal_uInt64 readSize;
             sal_Bool eof;
             if( file.isEndOfFile( &eof ) != osl::File::E_None )
@@ -636,7 +634,8 @@ OUString XMLFontAutoStylePool::embedFontFile(OUString const & fileUrl, OUString 
             }
             if( readSize == 0 )
                 break;
-            outputStream->writeBytes( uno::Sequence< sal_Int8 >( reinterpret_cast< const sal_Int8* >( buffer ), readSize ));
+            // coverity[overrun-buffer-arg : FALSE] - coverity has difficulty with css::uno::Sequence
+            outputStream->writeBytes(uno::Sequence<sal_Int8>(buffer, readSize));
         }
         outputStream->closeOutput();
         if( storage.is() )

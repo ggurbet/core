@@ -19,18 +19,15 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_OPTLOAD_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_OPTLOAD_HXX
 
+#include <tools/globname.hxx>
 #include <sfx2/tabdlg.hxx>
 
 #include <vcl/customweld.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/layout.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/field.hxx>
+#include <vcl/textfilter.hxx>
 #include <vcl/weld.hxx>
-#include <svx/strarray.hxx>
 #include <sfx2/basedlgs.hxx>
-#include <svx/checklbx.hxx>
-#include "caption.hxx"
+
+#include <SwCapObjType.hxx>
 
 class SwFieldMgr;
 class SvTreeListEntry;
@@ -60,35 +57,34 @@ public:
 class SwLoadOptPage : public SfxTabPage
 {
 private:
-    VclPtr<RadioButton>     m_pAlwaysRB;
-    VclPtr<RadioButton>     m_pRequestRB;
-    VclPtr<RadioButton>     m_pNeverRB;
-
-    VclPtr<CheckBox>        m_pAutoUpdateFields;
-    VclPtr<CheckBox>        m_pAutoUpdateCharts;
-
-    VclPtr<ListBox>         m_pMetricLB;
-    VclPtr<FixedText>       m_pTabFT;
-    VclPtr<MetricField>     m_pTabMF;
-    VclPtr<CheckBox>        m_pUseSquaredPageMode;
-    VclPtr<CheckBox>        m_pUseCharUnit;
-    VclPtr<Edit>            m_pWordCountED;
-    VclPtr<CheckBox>        m_pShowStandardizedPageCount;
-    VclPtr<NumericField>    m_pStandardizedPageSizeNF;
-
     SwWrtShell*      m_pWrtShell;
     sal_uInt16       m_nLastTab;
     sal_Int32        m_nOldLinkMode;
 
-    DECL_LINK(MetricHdl, ListBox&, void);
-    DECL_LINK(StandardizedPageCountCheckHdl, Button*, void);
+    std::unique_ptr<weld::RadioButton> m_xAlwaysRB;
+    std::unique_ptr<weld::RadioButton> m_xRequestRB;
+    std::unique_ptr<weld::RadioButton> m_xNeverRB;
+
+    std::unique_ptr<weld::CheckButton> m_xAutoUpdateFields;
+    std::unique_ptr<weld::CheckButton> m_xAutoUpdateCharts;
+
+    std::unique_ptr<weld::ComboBox> m_xMetricLB;
+    std::unique_ptr<weld::Label> m_xTabFT;
+    std::unique_ptr<weld::MetricSpinButton> m_xTabMF;
+    std::unique_ptr<weld::CheckButton> m_xUseSquaredPageMode;
+    std::unique_ptr<weld::CheckButton> m_xUseCharUnit;
+    std::unique_ptr<weld::Entry> m_xWordCountED;
+    std::unique_ptr<weld::CheckButton> m_xShowStandardizedPageCount;
+    std::unique_ptr<weld::SpinButton> m_xStandardizedPageSizeNF;
+
+    DECL_LINK(MetricHdl, weld::ComboBox&, void);
+    DECL_LINK(StandardizedPageCountCheckHdl, weld::Button&, void);
 
 public:
-    SwLoadOptPage(vcl::Window* pParent, const SfxItemSet& rSet);
+    SwLoadOptPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwLoadOptPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                       const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -187,11 +183,10 @@ private:
     void InvalidatePreview();
 
 public:
-    SwCaptionOptPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwCaptionOptPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwCaptionOptPage() override;
-    virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController,
                                      const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;

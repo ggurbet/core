@@ -84,7 +84,7 @@ void OImageButtonModel::describeFixedProperties( Sequence< Property >& _rProps )
 
 OUString OImageButtonModel::getServiceName()
 {
-    return OUString(FRM_COMPONENT_IMAGEBUTTON);   // old (non-sun) name for compatibility !
+    return FRM_COMPONENT_IMAGEBUTTON;   // old (non-sun) name for compatibility !
 }
 
 void OImageButtonModel::write(const Reference<XObjectOutputStream>& _rxOutStream)
@@ -200,7 +200,7 @@ void OImageButtonControl::mousePressed(const awt::MouseEvent& e)
     else
     {
         // Or else don't; we must not notify the listeners in that case.
-        // Even not if its added later on.
+        // Even not if it's added later on.
         aGuard.clear();
         actionPerformed_Impl( false, e );
     }

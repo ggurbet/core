@@ -168,7 +168,8 @@ void OQuery::rebuildColumns()
                 throw RuntimeException();
         }
 
-        for ( const OUString& rName : xColumns->getElementNames() )
+        const Sequence<OUString> aColNames = xColumns->getElementNames();
+        for ( const OUString& rName : aColNames )
         {
             Reference<XPropertySet> xSource(xColumns->getByName( rName ),UNO_QUERY);
             OUString sLabel = rName;
@@ -290,7 +291,7 @@ void OQuery::setFastPropertyValue_NoBroadcast( sal_Int32 _nHandle, const Any& _r
         m_xCommandDefinition->setPropertyValue(sAggPropName, _rValue);
 
         if ( PROPERTY_ID_COMMAND == _nHandle )
-            // the columns are out of date if we are based on a new statement ....
+            // the columns are out of date if we are based on a new statement...
             setColumnsOutOfDate();
     }
 }
@@ -355,7 +356,7 @@ void OQuery::registerProperties()
 
 OUString OQuery::determineContentType() const
 {
-    return OUString( "application/vnd.org.openoffice.DatabaseQuery" );
+    return "application/vnd.org.openoffice.DatabaseQuery";
 }
 
 }   // namespace dbaccess

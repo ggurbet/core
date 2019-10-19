@@ -67,7 +67,7 @@ static void getAllHit3DObjectWithRelativePoint(
 
     if(!rFront.equal(rBack))
     {
-        // rObject is a E3dCompoundObject, so it cannot be a scene (which is a E3dObject)
+        // rObject is an E3dCompoundObject, so it cannot be a scene (which is an E3dObject)
         const sdr::contact::ViewContactOfE3d& rVCObject = static_cast< sdr::contact::ViewContactOfE3d& >(rObject.GetViewContact());
         const drawinglayer::primitive3d::Primitive3DContainer aPrimitives(rVCObject.getViewIndependentPrimitive3DContainer());
 
@@ -110,7 +110,7 @@ E3dScene* fillViewInformation3DForCompoundObject(drawinglayer::geometry::ViewInf
 
         if(pParentParentScene)
         {
-            // pParentScene is a in-between scene
+            // pParentScene is an in-between scene
             aInBetweenSceneMatrix = pParentScene->GetTransform() * aInBetweenSceneMatrix;
         }
         else
@@ -200,7 +200,7 @@ void getAllHit3DObjectsSortedFrontToBack(
                         ::std::vector< basegfx::B3DPoint > aHitsWithObject;
                         getAllHit3DObjectWithRelativePoint(aFront, aBack, *pCandidate, aViewInfo3D, aHitsWithObject, false);
 
-                        for(basegfx::B3DPoint & a : aHitsWithObject)
+                        for(const basegfx::B3DPoint & a : aHitsWithObject)
                         {
                             const basegfx::B3DPoint aPointInViewCoordinates(aViewInfo3D.getObjectToView() * a);
                             aDepthAndObjectResults.emplace_back(pCandidate, aPointInViewCoordinates.getZ());

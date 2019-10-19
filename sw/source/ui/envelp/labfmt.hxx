@@ -19,8 +19,10 @@
 #ifndef INCLUDED_SW_SOURCE_UI_ENVELP_LABFMT_HXX
 #define INCLUDED_SW_SOURCE_UI_ENVELP_LABFMT_HXX
 
-#include "swuilabimp.hxx"
 #include <labimg.hxx>
+#include <label.hxx>
+
+#include <sfx2/tabdlg.hxx>
 #include <vcl/idle.hxx>
 #include <vcl/customweld.hxx>
 #include <vcl/weld.hxx>
@@ -93,14 +95,11 @@ class SwLabFormatPage : public SfxTabPage
 
     void ChangeMinMax();
 
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 public:
-    SwLabFormatPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwLabFormatPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwLabFormatPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
 
     virtual void ActivatePage(const SfxItemSet& rSet) override;
     virtual DeactivateRC DeactivatePage(SfxItemSet* pSet) override;

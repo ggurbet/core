@@ -314,7 +314,7 @@ void SdrRectObj::AddToHdlList(SdrHdlList& rHdlList) const
     // A text box has an additional (pseudo-)handle for the blinking frame.
     if(IsTextFrame())
     {
-        OSL_ENSURE(!IsTextEditActive(), "Do not use a ImpTextframeHdl for highlighting text in active text edit, this will collide with EditEngine paints (!)");
+        OSL_ENSURE(!IsTextEditActive(), "Do not use an ImpTextframeHdl for highlighting text in active text edit, this will collide with EditEngine paints (!)");
         std::unique_ptr<SdrHdl> pH(new ImpTextframeHdl(maRect));
         pH->SetObj(const_cast<SdrRectObj*>(this));
         pH->SetRotationAngle(aGeo.nRotationAngle);
@@ -438,9 +438,7 @@ OUString SdrRectObj::getSpecialDragComment(const SdrDragStat& rDrag) const
             if(nRad < 0)
                 nRad = 0;
 
-            OUString aStr;
-            ImpTakeDescriptionStr(STR_DragRectEckRad, aStr);
-            OUStringBuffer aBuf(aStr);
+            OUStringBuffer aBuf(ImpGetDescriptionStr(STR_DragRectEckRad));
             aBuf.append(" (");
             aBuf.append(GetMetrStr(nRad));
             aBuf.append(')');
@@ -554,7 +552,7 @@ SdrGluePoint SdrRectObj::GetCornerGluePoint(sal_uInt16 nPosNum) const
     return aGP;
 }
 
-SdrObject* SdrRectObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
+SdrObjectUniquePtr SdrRectObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 {
     XPolygon aXP(ImpCalcXPoly(maRect,GetEckenradius()));
     { // TODO: this is only for the moment, until we have the new TakeContour()
@@ -564,7 +562,7 @@ SdrObject* SdrRectObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 
     basegfx::B2DPolyPolygon aPolyPolygon(aXP.getB2DPolygon());
     aPolyPolygon.removeDoublePoints();
-    SdrObject* pRet = nullptr;
+    SdrObjectUniquePtr pRet;
 
     // small correction: Do not create something when no fill and no line. To
     // be sure to not damage something with non-text frames, do this only
@@ -576,7 +574,7 @@ SdrObject* SdrRectObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 
     if(bAddText)
     {
-        pRet = ImpConvertAddText(pRet, bBezier);
+        pRet = ImpConvertAddText(std::move(pRet), bBezier);
     }
 
     return pRet;

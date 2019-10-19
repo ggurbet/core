@@ -27,11 +27,11 @@
 #include <cppuhelper/implbase.hxx>
 #include <tools/fract.hxx>
 #include <unotools/configmgr.hxx>
-#include <unotools/resmgr.hxx>
 #include <tools/stream.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/zcodec.hxx>
 #include <vcl/dibtools.hxx>
+#include <vcl/fltcall.hxx>
 #include <vcl/salctype.hxx>
 #include <vcl/pngread.hxx>
 #include <vcl/pngwrite.hxx>
@@ -43,7 +43,6 @@
 #include <vcl/graphicfilter.hxx>
 #include <vcl/FilterConfigItem.hxx>
 #include <vcl/wmf.hxx>
-#include <vcl/settings.hxx>
 #include "igif/gifread.hxx"
 #include <vcl/pdfread.hxx>
 #include "jpeg/jpeg.hxx"
@@ -53,10 +52,6 @@
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
-#include <com/sun/star/uno/XWeak.hpp>
-#include <com/sun/star/uno/XAggregation.hpp>
-#include <com/sun/star/lang/XTypeProvider.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/io/XActiveDataSource.hpp>
 #include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/svg/XSVGWriter.hpp>
@@ -67,7 +62,8 @@
 #include <unotools/ucbstreamhelper.hxx>
 #include <rtl/bootstrap.hxx>
 #include <rtl/instance.hxx>
-#include <vcl/metaact.hxx>
+#include <tools/svlibrary.h>
+#include <comphelper/string.hxx>
 #include <vector>
 #include <memory>
 
@@ -873,7 +869,7 @@ ErrCode GraphicFilter::ImplSetError( ErrCode nError, const SvStream* pStm )
     return nError;
 }
 
-sal_uInt16 GraphicFilter::GetImportFormatCount()
+sal_uInt16 GraphicFilter::GetImportFormatCount() const
 {
     return pConfig->GetImportFormatCount();
 }
@@ -920,7 +916,7 @@ OUString GraphicFilter::GetImportWildcard( sal_uInt16 nFormat, sal_Int32 nEntry 
     return pConfig->GetImportWildcard( nFormat, nEntry );
 }
 
-sal_uInt16 GraphicFilter::GetExportFormatCount()
+sal_uInt16 GraphicFilter::GetExportFormatCount() const
 {
     return pConfig->GetExportFormatCount();
 }
@@ -1180,7 +1176,7 @@ void GraphicFilter::ImportGraphics(std::vector< std::shared_ptr<Graphic> >& rGra
 }
 
 Graphic GraphicFilter::ImportUnloadedGraphic(SvStream& rIStream, sal_uInt64 sizeLimit,
-                                             Size* pSizeHint)
+                                             const Size* pSizeHint)
 {
     Graphic aGraphic;
     sal_uInt16 nFormat = GRFILTER_FORMAT_DONTKNOW;
@@ -1264,7 +1260,7 @@ Graphic GraphicFilter::ImportUnloadedGraphic(SvStream& rIStream, sal_uInt64 size
                     ZCodec aCodec;
                     long nMemoryLength;
 
-                    aCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, false, true);
+                    aCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, /*gzLib*/true);
                     nMemoryLength = aCodec.Decompress(rIStream, aMemStream);
                     aCodec.EndCompression();
 
@@ -1418,9 +1414,33 @@ Graphic GraphicFilter::ImportUnloadedGraphic(SvStream& rIStream, sal_uInt64 size
     return aGraphic;
 }
 
+void GraphicFilter::preload()
+{
+    sal_Int32 nTokenCount = comphelper::string::getTokenCount(aFilterPath, ';');
+    ImpFilterLibCache& rCache = Cache::get();
+    static const std::initializer_list<OUStringLiteral> aFilterNames = {
+        "icd", "idx", "ime", "ipb", "ipd", "ips", "ipt", "ipx", "ira", "itg", "iti",
+    };
+
+    // Load library for each filter.
+    for (const auto& rFilterName : aFilterNames)
+    {
+        ImpFilterLibCacheEntry* pFilter = nullptr;
+        // Look at the library in each element inside the filter path.
+        for (sal_Int32 i = 0; i < nTokenCount; ++i)
+        {
+            pFilter = rCache.GetFilter(aFilterPath.getToken(i, ';'), SVLIBRARY("gie"), rFilterName);
+            if (pFilter)
+            {
+                break;
+            }
+        }
+    }
+}
+
 ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, SvStream& rIStream,
                                      sal_uInt16 nFormat, sal_uInt16* pDeterminedFormat, GraphicFilterImportFlags nImportFlags,
-                                     css::uno::Sequence< css::beans::PropertyValue >* pFilterData,
+                                     const css::uno::Sequence< css::beans::PropertyValue >* pFilterData,
                                      WmfExternal const *pExtHeader )
 {
     OUString                       aFilterName;
@@ -1608,7 +1628,7 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
                     ZCodec aCodec;
                     long nMemoryLength;
 
-                    aCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, false, true);
+                    aCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, /*gzLib*/true);
                     nMemoryLength = aCodec.Decompress(rIStream, aMemStream);
                     aCodec.EndCompression();
 
@@ -2057,7 +2077,7 @@ ErrCode GraphicFilter::ExportGraphic( const Graphic& rGraphic, const OUString& r
                             css::uno::Sequence< css::beans::PropertyValue > aAdditionalChunkSequence;
                             if ( rPropVal.Value >>= aAdditionalChunkSequence )
                             {
-                                for ( const auto& rAdditionalChunk : aAdditionalChunkSequence )
+                                for ( const auto& rAdditionalChunk : std::as_const(aAdditionalChunkSequence) )
                                 {
                                     if ( rAdditionalChunk.Name.getLength() == 4 )
                                     {
@@ -2216,9 +2236,9 @@ void GraphicFilter::ResetLastError()
     pErrorEx->nStreamError = ERRCODE_NONE;
 }
 
-const Link<ConvertData&,bool> GraphicFilter::GetFilterCallback() const
+Link<ConvertData&,bool> GraphicFilter::GetFilterCallback() const
 {
-    const Link<ConvertData&,bool> aLink( LINK( const_cast<GraphicFilter*>(this), GraphicFilter, FilterCallback ) );
+    Link<ConvertData&,bool> aLink( LINK( const_cast<GraphicFilter*>(this), GraphicFilter, FilterCallback ) );
     return aLink;
 }
 

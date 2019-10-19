@@ -20,6 +20,7 @@
 #include <memory>
 
 #include <vcl/button.hxx>
+#include <vcl/stdtext.hxx>
 #include <helper/btndlg.hxx>
 #include <sal/log.hxx>
 
@@ -103,7 +104,7 @@ long ButtonDialog::ImplGetButtonSize()
     long nSepSize = 0;
     maCtrlSize = Size( IMPL_MINSIZE_BUTTON_WIDTH, IMPL_MINSIZE_BUTTON_HEIGHT );
 
-    for (auto & it : m_ItemList)
+    for (const auto & it : m_ItemList)
     {
         nSepSize += nLastSepSize;
 
@@ -203,7 +204,7 @@ void ButtonDialog::ImplPosControls()
 
 IMPL_LINK( ButtonDialog, ImplClickHdl, Button*, pBtn, void )
 {
-    for (auto & it : m_ItemList)
+    for (const auto & it : m_ItemList)
     {
         if ( it->mpPushButton == pBtn )
         {
@@ -279,7 +280,7 @@ void ButtonDialog::AddButton( StandardButtonType eType, sal_uInt16 nId,
         auto itr = mapButtonTypeToID.find(eType);
         if (itr != mapButtonTypeToID.end())
             pItem->mpPushButton->set_id(itr->second);
-        pItem->mpPushButton->SetText( Button::GetStandardText( eType ) );
+        pItem->mpPushButton->SetText( GetStandardText( eType ) );
     }
 
     if ( nBtnFlags & ButtonDialogFlags::Focus )

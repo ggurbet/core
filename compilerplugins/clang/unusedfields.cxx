@@ -247,7 +247,7 @@ MyFieldInfo UnusedFields::niceName(const FieldDecl* fieldDecl)
     aInfo.fieldType = fieldDecl->getType().getAsString();
 
     SourceLocation expansionLoc = compiler.getSourceManager().getExpansionLoc( fieldDecl->getLocation() );
-    StringRef name = compiler.getSourceManager().getFilename(expansionLoc);
+    StringRef name = getFilenameOfLocation(expansionLoc);
     aInfo.sourceLocation = std::string(name.substr(strlen(SRCDIR)+1)) + ":" + std::to_string(compiler.getSourceManager().getSpellingLineNumber(expansionLoc));
     loplugin::normalizeDotDotInFilePath(aInfo.sourceLocation);
 
@@ -733,7 +733,7 @@ void UnusedFields::checkIfWrittenTo(const FieldDecl* fieldDecl, const Expr* memb
 
     // if we're inside a block that looks like
     //   if (fieldDecl)
-    //       ....
+    //       ...
     // then writes to this field don't matter, because unless we find another write to this field, this field is dead
     if (std::find(insideConditionalCheckOfMemberSet.begin(), insideConditionalCheckOfMemberSet.end(), fieldDecl) != insideConditionalCheckOfMemberSet.end())
         return;

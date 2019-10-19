@@ -63,7 +63,7 @@ VCLXAccessibleTabPage::~VCLXAccessibleTabPage()
 }
 
 
-bool VCLXAccessibleTabPage::IsFocused()
+bool VCLXAccessibleTabPage::IsFocused() const
 {
     bool bFocused = false;
 
@@ -74,7 +74,7 @@ bool VCLXAccessibleTabPage::IsFocused()
 }
 
 
-bool VCLXAccessibleTabPage::IsSelected()
+bool VCLXAccessibleTabPage::IsSelected() const
 {
     bool bSelected = false;
 
@@ -248,7 +248,7 @@ void VCLXAccessibleTabPage::disposing()
 
 OUString VCLXAccessibleTabPage::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.toolkit.AccessibleTabPage" );
+    return "com.sun.star.comp.toolkit.AccessibleTabPage";
 }
 
 

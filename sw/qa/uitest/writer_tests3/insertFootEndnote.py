@@ -17,7 +17,6 @@ class insertFootEndnote(UITestCase):
         self.ui_test.create_doc_in_start_center("writer")
         document = self.ui_test.get_component()
         xWriterDoc = self.xUITest.getTopFocusWindow()
-        xWriterEdit = xWriterDoc.getChild("writer_edit")
 
 #Automatic - Footnote
         self.ui_test.execute_dialog_through_command(".uno:InsertFootnoteDialog")
@@ -71,6 +70,12 @@ class insertFootEndnote(UITestCase):
         self.assertEqual(document.Endnotes.getCount(), 1)
         self.xUITest.executeCommand(".uno:Undo")
         self.assertEqual(document.Endnotes.getCount(), 0)
+
+#Cancel button
+        self.ui_test.execute_dialog_through_command(".uno:InsertFootnoteDialog")
+        xDialog = self.xUITest.getTopFocusWindow()
+        xCancelBtn = xDialog.getChild("cancel")
+        self.ui_test.close_dialog_through_button(xCancelBtn)
 
         self.ui_test.close_doc()
 # vim: set shiftwidth=4 softtabstop=4 expandtab:

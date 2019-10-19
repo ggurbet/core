@@ -142,7 +142,6 @@ struct ImpTextView
     bool                mbHighlightSelection    : 1;
     bool                mbCursorEnabled         : 1;
     bool                mbClickedInSelection    : 1;
-    bool                mbSupportProtectAttribute : 1;
     bool                mbCursorAtEndOfLine;
 };
 
@@ -162,8 +161,6 @@ TextView::TextView( ExtTextEngine* pEng, vcl::Window* pWindow ) :
     mpImpl->mbAutoIndent = false;
     mpImpl->mbCursorEnabled = true;
     mpImpl->mbClickedInSelection = false;
-    mpImpl->mbSupportProtectAttribute = false;
-    mpImpl->mbCursorAtEndOfLine = false;
 //  mbInSelection = false;
 
     mpImpl->mnTravelXPos = TRAVEL_X_DONTKNOW;
@@ -579,28 +576,6 @@ bool TextView::KeyInput( const KeyEvent& rKeyEvent )
                     }
 
                     mpImpl->mpTextEngine->UndoActionStart();
-                    if(mpImpl->mbSupportProtectAttribute)
-                    {
-                        //expand selection to include all protected content - if there is any
-                        const TextCharAttrib* pStartAttr = mpImpl->mpTextEngine->FindCharAttrib(
-                                    TextPaM(mpImpl->maSelection.GetStart().GetPara(),
-                                            mpImpl->maSelection.GetStart().GetIndex()),
-                                    TEXTATTR_PROTECTED );
-                        const TextCharAttrib* pEndAttr = mpImpl->mpTextEngine->FindCharAttrib(
-                                    TextPaM(mpImpl->maSelection.GetEnd().GetPara(),
-                                            mpImpl->maSelection.GetEnd().GetIndex()),
-                                    TEXTATTR_PROTECTED );
-                        if(pStartAttr && pStartAttr->GetStart() < mpImpl->maSelection.GetStart().GetIndex())
-                        {
-                            mpImpl->maSelection.GetStart().GetIndex() = pStartAttr->GetStart();
-                            aOldSel = mpImpl->maSelection; // update to deleted!
-                        }
-                        if(pEndAttr && pEndAttr->GetEnd() > mpImpl->maSelection.GetEnd().GetIndex())
-                        {
-                            mpImpl->maSelection.GetEnd().GetIndex() = pEndAttr->GetEnd();
-                            aOldSel = mpImpl->maSelection; // update to deleted!
-                        }
-                    }
                     aCurSel = ImpDelete( nDel, nMode );
                     mpImpl->mpTextEngine->UndoActionEnd();
                     bModified = true;
@@ -761,24 +736,6 @@ void TextView::MouseButtonDown( const MouseEvent& rMouseEvent )
                 TextSelection aNewSel( mpImpl->maSelection );
                 aNewSel.GetStart().GetIndex() = aBoundary.startPos;
                 aNewSel.GetEnd().GetIndex() = aBoundary.endPos;
-                if(mpImpl->mbSupportProtectAttribute)
-                {
-                    //expand selection to include all protected content - if there is any
-                    const TextCharAttrib* pStartAttr = mpImpl->mpTextEngine->FindCharAttrib(
-                                TextPaM(aNewSel.GetStart().GetPara(), aBoundary.startPos),
-                                TEXTATTR_PROTECTED );
-                    const TextCharAttrib* pEndAttr = mpImpl->mpTextEngine->FindCharAttrib(
-                                TextPaM(aNewSel.GetEnd().GetPara(), aBoundary.endPos),
-                                TEXTATTR_PROTECTED );
-                    if(pStartAttr && pStartAttr->GetStart() < aNewSel.GetStart().GetIndex())
-                    {
-                        aNewSel.GetStart().GetIndex() = pStartAttr->GetStart();
-                    }
-                    if(pEndAttr && pEndAttr->GetEnd() > aNewSel.GetEnd().GetIndex())
-                    {
-                        aNewSel.GetEnd().GetIndex() = pEndAttr->GetEnd();
-                    }
-                }
                 ImpSetSelection( aNewSel );
                 ShowSelection();
                 ShowCursor();
@@ -1911,19 +1868,10 @@ void TextView::drop( const css::datatransfer::dnd::DropTargetDropEvent& rDTDE )
         if ( !aText.isEmpty() && ( aText[ aText.getLength()-1 ] == LINE_SEP ) )
             aText = aText.copy(0, aText.getLength()-1);
 
-        TextPaM aTempStart = mpImpl->maSelection.GetStart();
         if ( ImplCheckTextLen( aText ) )
             ImpSetSelection( mpImpl->mpTextEngine->ImpInsertText( mpImpl->mpDDInfo->maDropPos, aText ) );
-        if(mpImpl->mbSupportProtectAttribute)
-        {
-            mpImpl->mpTextEngine->SetAttrib( TextAttribProtect(),
-                aTempStart.GetPara(),
-                aTempStart.GetIndex(),
-                mpImpl->maSelection.GetEnd().GetIndex(), false );
-        }
 
         if ( aPrevSel.HasRange() &&
-                !mpImpl->mbSupportProtectAttribute && // don't remove currently selected element
                 (( rDTDE.DropAction & css::datatransfer::dnd::DNDConstants::ACTION_MOVE ) || !bStarterOfDD) )
         {
             // adjust selection if necessary
@@ -1997,18 +1945,8 @@ void TextView::dragOver( const css::datatransfer::dnd::DropTargetDragEvent& rDTD
     Point aDocPos = GetDocPos( aMousePos );
     mpImpl->mpDDInfo->maDropPos = mpImpl->mpTextEngine->GetPaM( aDocPos );
 
-    bool bProtected = false;
-    if(mpImpl->mbSupportProtectAttribute)
-    {
-        const TextCharAttrib* pStartAttr = mpImpl->mpTextEngine->FindCharAttrib(
-                    mpImpl->mpDDInfo->maDropPos,
-                    TEXTATTR_PROTECTED );
-        bProtected = pStartAttr != nullptr &&
-                pStartAttr->GetStart() != mpImpl->mpDDInfo->maDropPos.GetIndex() &&
-                pStartAttr->GetEnd() != mpImpl->mpDDInfo->maDropPos.GetIndex();
-    }
     // Don't drop in selection or in read only engine
-    if ( IsReadOnly() || IsInSelection( mpImpl->mpDDInfo->maDropPos ) || bProtected)
+    if ( IsReadOnly() || IsInSelection( mpImpl->mpDDInfo->maDropPos ))
     {
         ImpHideDDCursor();
         rDTDE.Context->rejectDrag();
@@ -2164,8 +2102,6 @@ bool                TextView::HasSelection() const
 { return mpImpl->maSelection.HasRange(); }
 bool                TextView::IsInsertMode() const
 { return mpImpl->mbInsertMode; }
-void                TextView::SupportProtectAttribute(bool bSupport)
-{ mpImpl->mbSupportProtectAttribute = bSupport;}
 
 void TextView::MatchGroup()
 {
@@ -2180,6 +2116,20 @@ void TextView::MatchGroup()
     TextSelection aMatchSel = static_cast<ExtTextEngine*>(GetTextEngine())->MatchGroup( aTmpSel.GetStart() );
     if ( aMatchSel.HasRange() )
         SetSelection( aMatchSel );
+}
+
+void TextView::CenterPaM( const TextPaM& rPaM )
+{
+    // Get textview size and the corresponding y-coordinates
+    Size aOutSz = mpImpl->mpWindow->GetOutputSizePixel();
+    long nVisStartY = mpImpl->maStartDocPos.Y();
+    long nVisEndY = mpImpl->maStartDocPos.Y() + aOutSz.Height();
+
+    // Retrieve the coordinates of the PaM
+    tools::Rectangle aRect = mpImpl->mpTextEngine->PaMtoEditCursor(rPaM);
+
+    // Recalculate the offset of the center y-coordinates and scroll
+    Scroll(0, (nVisStartY + nVisEndY) / 2 - aRect.TopLeft().getY());
 }
 
 bool TextView::Search( const i18nutil::SearchOptions& rSearchOptions, bool bForward )
@@ -2200,6 +2150,11 @@ bool TextView::Search( const i18nutil::SearchOptions& rSearchOptions, bool bForw
     }
 
     SetSelection( aSel );
+    // tdf#49482: Move the start of the selection to the center of the textview
+    if (bFound)
+    {
+        CenterPaM( aSel.GetStart() );
+    }
     ShowCursor();
 
     return bFound;

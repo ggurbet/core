@@ -80,14 +80,10 @@ sal_Int16 SwXFilterOptions::execute()
     if ( xInputStream.is() )
         pInStream = utl::UcbStreamHelper::CreateStream( xInputStream );
 
-    uno::Reference< XUnoTunnel > xTunnel(xModel, uno::UNO_QUERY);
     SwDocShell* pDocShell = nullptr;
-    if(xTunnel.is())
-    {
-        SwXTextDocument* pXDoc = reinterpret_cast< SwXTextDocument * >(
-                sal::static_int_cast< sal_IntPtr >(xTunnel->getSomething(SwXTextDocument::getUnoTunnelId())));
-        pDocShell = pXDoc ? pXDoc->GetDocShell() : nullptr;
-    }
+    if (auto pXDoc = comphelper::getUnoTunnelImplementation<SwXTextDocument>(xModel); pXDoc)
+        pDocShell = pXDoc->GetDocShell();
+
     if(pDocShell)
     {
         SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
@@ -124,7 +120,7 @@ void SAL_CALL SwXFilterOptions::initialize(const uno::Sequence<uno::Any>& rArgum
 
 OUString SwXFilterOptions::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Writer.FilterOptionsDialog");
+    return "com.sun.star.comp.Writer.FilterOptionsDialog";
 }
 
 sal_Bool SwXFilterOptions::supportsService( const OUString& rServiceName )
@@ -134,8 +130,7 @@ sal_Bool SwXFilterOptions::supportsService( const OUString& rServiceName )
 
 uno::Sequence< OUString > SwXFilterOptions::getSupportedServiceNames()
 {
-    OUString sService("com.sun.star.ui.dialogs.FilterOptionsDialog");
-    return uno::Sequence< OUString> (&sService, 1);
+    return { "com.sun.star.ui.dialogs.FilterOptionsDialog" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*

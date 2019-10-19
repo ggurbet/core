@@ -47,7 +47,6 @@
 
 #include <com/sun/star/embed/XEmbedPersist.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/frame/XFramesSupplier.hpp>
 #include <svtools/acceleratorexecute.hxx>
 #include <svtools/embedtransfer.hxx>
 #include <vcl/svlbitm.hxx>
@@ -142,8 +141,7 @@ sal_Int64 SAL_CALL SdPageObjsTLB::SdPageObjsTransferable::getSomething( const cs
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) &&
-        ( 0 == memcmp( getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<SdPageObjsTLB::SdPageObjsTransferable>(rId) )
     {
         nRet = static_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }
@@ -289,10 +287,10 @@ OUString SdPageObjsTLB::GetEntryLongDescription( SvTreeListEntry* pEntry ) const
 }
 
 void SdPageObjsTLB::InitEntry(SvTreeListEntry* pEntry,
-    const OUString& rStr, const Image& rImg1, const Image& rImg2, SvLBoxButtonKind eButtonKind)
+    const OUString& rStr, const Image& rImg1, const Image& rImg2)
 {
     sal_uInt16 nColToHilite = 1; //0==Bitmap;1=="Spalte1";2=="Spalte2"
-    SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2, eButtonKind );
+    SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2 );
     SvLBoxString& rCol = static_cast<SvLBoxString&>(pEntry->GetItem( nColToHilite ));
     pEntry->ReplaceItem(std::make_unique<SvLBoxString>(rCol.GetText()), nColToHilite );
 }
@@ -357,7 +355,7 @@ OUString SdPageObjsTLB::GetObjectName(
 }
 
 /**
- * select a entry in TreeLB
+ * select an entry in TreeLB
  */
 bool SdPageObjsTLB::SelectEntry( const OUString& rName )
 {
@@ -703,7 +701,7 @@ bool SdPageObjsTLB::IsEqualToDoc( const SdDrawDocument* pInDoc )
 /**
  * @return selected string
  */
-OUString SdPageObjsTLB::GetSelectedEntry()
+OUString SdPageObjsTLB::GetSelectedEntry() const
 {
     return GetEntryText( GetCurEntry() );
 }
@@ -1128,18 +1126,15 @@ sal_Int8 SdPageObjsTLB::ExecuteDrop( const ExecuteDropEvent& rEvt )
 
     try
     {
-        if( !bIsInDrag )
+        if( !bIsInDrag && mpNavigator)
         {
-            if (mpNavigator)
-            {
-                TransferableDataHelper  aDataHelper( rEvt.maDropEvent.Transferable );
-                OUString                aFile;
+            TransferableDataHelper  aDataHelper( rEvt.maDropEvent.Transferable );
+            OUString                aFile;
 
-                if( aDataHelper.GetString( SotClipboardFormatId::SIMPLE_FILE, aFile ) &&
-                    mpNavigator->InsertFile( aFile ) )
-                {
-                    nRet = rEvt.mnAction;
-                }
+            if( aDataHelper.GetString( SotClipboardFormatId::SIMPLE_FILE, aFile ) &&
+                mpNavigator->InsertFile( aFile ) )
+            {
+                nRet = rEvt.mnAction;
             }
         }
     }
@@ -1353,11 +1348,10 @@ void SdPageObjsTLB::AddShapeToTransferable (
 
         uno::Reference<frame::XDesktop2> xDesktop = frame::Desktop::create(xContext);
 
-        uno::Reference<frame::XFramesSupplier> xFrameSupplier (xDesktop, uno::UNO_QUERY);
-        if ( ! xFrameSupplier.is())
+        if ( ! xDesktop.is())
             return nullptr;
 
-        uno::Reference<container::XIndexAccess> xFrameAccess (xFrameSupplier->getFrames(), uno::UNO_QUERY);
+        uno::Reference<container::XIndexAccess> xFrameAccess = xDesktop->getFrames();
         if ( ! xFrameAccess.is())
             return nullptr;
 
@@ -1523,7 +1517,7 @@ IMPL_LINK(SdPageObjsTLV, RequestingChildrenHdl, const weld::TreeIter&, rFileEntr
                         m_xTreeView->iter_children(*xPageEntry);
                     }
                     else
-                        m_xTreeView->iter_next_sibling(*xPageEntry);
+                        (void)m_xTreeView->iter_next_sibling(*xPageEntry);
 
                     SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
 
@@ -1628,7 +1622,7 @@ void SdPageObjsTLV::AddShapeList (
     SdrObject* pShape,
     const OUString& rsName,
     const bool bIsExcluded,
-    weld::TreeIter* pParentEntry)
+    const weld::TreeIter* pParentEntry)
 {
     OUString aIcon(BMP_PAGE);
     if (bIsExcluded)
@@ -1763,7 +1757,7 @@ void SdPageObjsTLV::Fill( const SdDrawDocument* pInDoc, SfxMedium* pInMedium,
 }
 
 /**
- * select a entry in TreeLB
+ * select an entry in TreeLB
  */
 bool SdPageObjsTLV::SelectEntry( const OUString& rName )
 {

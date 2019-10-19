@@ -27,6 +27,7 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <com/sun/star/script/BasicErrorException.hpp>
 #include <com/sun/star/script/XTypeConverter.hpp>
 #include <com/sun/star/text/XText.hpp>
 #include <com/sun/star/text/XTextDocument.hpp>
@@ -82,7 +83,7 @@ void ScVbaShapes::initBaseCollection()
     for ( sal_Int32 index=0; index<nLen; ++index )
         aShapes.emplace_back( m_xIndexAccess->getByIndex( index ) , uno::UNO_QUERY );
     uno::Reference< container::XIndexAccess > xShapes( new XNamedObjectCollectionHelper< drawing::XShape >( aShapes ) );
-    m_xIndexAccess.set( xShapes, uno::UNO_QUERY );
+    m_xIndexAccess = xShapes;
     m_xNameAccess.set( xShapes, uno::UNO_QUERY );
 }
 
@@ -119,7 +120,7 @@ ScVbaShapes::getElementType()
 OUString
 ScVbaShapes::getServiceImplName()
 {
-    return OUString("ScVbaShapes");
+    return "ScVbaShapes";
 }
 
 uno::Sequence< OUString >
@@ -144,7 +145,7 @@ ScVbaShapes::getShapesByArrayIndices( const uno::Any& Index  )
     uno::Sequence< uno::Any > sIndices;
     aConverted >>= sIndices;
     XNamedObjectCollectionHelper< drawing::XShape >::XNamedVec aShapes;
-    for( const auto& rIndex : sIndices )
+    for( const auto& rIndex : std::as_const(sIndices) )
     {
         uno::Reference< drawing::XShape > xShape;
         if ( rIndex.getValueTypeClass() == uno::TypeClass_STRING )

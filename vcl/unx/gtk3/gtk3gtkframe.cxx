@@ -23,8 +23,8 @@
 #include <unx/gtk/gtkgdi.hxx>
 #include <unx/gtk/gtksalmenu.hxx>
 #include <unx/gtk/hudawareness.h>
+#include <vcl/event.hxx>
 #include <vcl/keycodes.hxx>
-#include <vcl/layout.hxx>
 #include <unx/wmadaptor.hxx>
 #include <unx/sm.hxx>
 #include <unx/salbmp.h>
@@ -54,7 +54,6 @@
 #include <unx/gtk/gtkbackend.hxx>
 
 #include <dlfcn.h>
-#include <vcl/salbtype.hxx>
 #include <window.h>
 #include <strings.hrc>
 #include <bitmaps.hlst>
@@ -474,7 +473,6 @@ GtkSalFrame::GtkSalFrame( SalFrame* pParent, SalFrameStyleFlags nStyle )
     getDisplay()->registerFrame( this );
     m_bDefaultPos       = true;
     m_bDefaultSize      = ( (nStyle & SalFrameStyleFlags::SIZEABLE) && ! pParent );
-    m_bWindowIsGtkPlug  = false;
     Init( pParent, nStyle );
 }
 
@@ -965,30 +963,32 @@ void GtkSalFrame::InitCommon()
     gtk_widget_realize( m_pWindow );
 
     //system data
-    m_aSystemData.nSize         = sizeof( SystemEnvData );
     m_aSystemData.aWindow       = GetNativeWindowHandle(m_pWindow);
     m_aSystemData.aShellWindow  = reinterpret_cast<sal_IntPtr>(this);
     m_aSystemData.pSalFrame     = this;
     m_aSystemData.pWidget       = m_pWindow;
     m_aSystemData.nScreen       = m_nXScreen.getXScreen();
-    m_aSystemData.pToolkit      = "gtk3";
-    GdkScreen* pScreen = gtk_window_get_screen(GTK_WINDOW(m_pWindow));
-    GdkVisual* pVisual = gdk_screen_get_system_visual(pScreen);
+    m_aSystemData.toolkit       = SystemEnvData::Toolkit::Gtk3;
 
 #if defined(GDK_WINDOWING_X11)
     GdkDisplay *pDisplay = getGdkDisplay();
     if (DLSYM_GDK_IS_X11_DISPLAY(pDisplay))
     {
         m_aSystemData.pDisplay = gdk_x11_display_get_xdisplay(pDisplay);
-        m_aSystemData.pVisual = gdk_x11_visual_get_xvisual(pVisual);
-        m_aSystemData.pPlatformName = "xcb";
+        m_aSystemData.platform = SystemEnvData::Platform::Xcb;
+        if (GTK_IS_WINDOW(m_pWindow))
+        {
+            GdkScreen* pScreen = gtk_window_get_screen(GTK_WINDOW(m_pWindow));
+            GdkVisual* pVisual = gdk_screen_get_system_visual(pScreen);
+            m_aSystemData.pVisual = gdk_x11_visual_get_xvisual(pVisual);
+        }
     }
 #endif
 #if defined(GDK_WINDOWING_WAYLAND)
     if (DLSYM_GDK_IS_WAYLAND_DISPLAY(pDisplay))
     {
         m_aSystemData.pDisplay = gdk_wayland_display_get_wl_display(pDisplay);
-        m_aSystemData.pPlatformName = "wayland";
+        m_aSystemData.platform = SystemEnvData::Platform::Wayland;
     }
 #endif
 
@@ -1071,20 +1071,24 @@ void GtkSalFrame::Init( SalFrame* pParent, SalFrameStyleFlags nStyle )
         updateWMClass();
     }
 
-    if( m_pParent && m_pParent->m_pWindow && ! isChild() )
-        gtk_window_set_screen( GTK_WINDOW(m_pWindow), gtk_window_get_screen( GTK_WINDOW(m_pParent->m_pWindow) ) );
+    if (GTK_IS_WINDOW(m_pWindow))
+    {
+        if (m_pParent)
+        {
+            GtkWidget* pTopLevel = gtk_widget_get_toplevel(m_pParent->m_pWindow);
+            if (!isChild())
+                gtk_window_set_screen(GTK_WINDOW(m_pWindow), gtk_window_get_screen(GTK_WINDOW(pTopLevel)));
 
-    if (m_pParent)
-    {
-        if (!(m_pParent->m_nStyle & SalFrameStyleFlags::PLUG))
-            gtk_window_set_transient_for( GTK_WINDOW(m_pWindow), GTK_WINDOW(m_pParent->m_pWindow) );
-        m_pParent->m_aChildren.push_back( this );
-        gtk_window_group_add_window(gtk_window_get_group(GTK_WINDOW(m_pParent->m_pWindow)), GTK_WINDOW(m_pWindow));
-    }
-    else
-    {
-        gtk_window_group_add_window(gtk_window_group_new(), GTK_WINDOW(m_pWindow));
-        g_object_unref(gtk_window_get_group(GTK_WINDOW(m_pWindow)));
+            if (!(m_pParent->m_nStyle & SalFrameStyleFlags::PLUG))
+                gtk_window_set_transient_for(GTK_WINDOW(m_pWindow), GTK_WINDOW(pTopLevel));
+            m_pParent->m_aChildren.push_back( this );
+            gtk_window_group_add_window(gtk_window_get_group(GTK_WINDOW(pTopLevel)), GTK_WINDOW(m_pWindow));
+        }
+        else
+        {
+            gtk_window_group_add_window(gtk_window_group_new(), GTK_WINDOW(m_pWindow));
+            g_object_unref(gtk_window_get_group(GTK_WINDOW(m_pWindow)));
+        }
     }
 
     // set window type
@@ -1170,7 +1174,6 @@ void GtkSalFrame::Init( SystemParentData* pSysData )
     if( pSysData->nSize > sizeof(pSysData->nSize)+sizeof(pSysData->aWindow) && pSysData->bXEmbedSupport )
     {
         m_pWindow = gtk_plug_new_for_display( getGdkDisplay(), pSysData->aWindow );
-        m_bWindowIsGtkPlug  = true;
         widget_set_can_default( m_pWindow, true );
         widget_set_can_focus( m_pWindow, true );
         gtk_widget_set_sensitive( m_pWindow, true );
@@ -1178,7 +1181,6 @@ void GtkSalFrame::Init( SystemParentData* pSysData )
     else
     {
         m_pWindow = gtk_window_new( GTK_WINDOW_POPUP );
-        m_bWindowIsGtkPlug  = false;
     }
     m_nStyle = SalFrameStyleFlags::PLUG;
     InitCommon();
@@ -1227,7 +1229,6 @@ bool GtkSalFrame::PostEvent(std::unique_ptr<ImplSVEvent> pData)
 
 void GtkSalFrame::SetTitle( const OUString& rTitle )
 {
-    m_aTitle = rTitle;
     if( m_pWindow && ! isChild() )
     {
         OString sTitle(OUStringToOString(rTitle, RTL_TEXTENCODING_UTF8));
@@ -1280,6 +1281,8 @@ void GtkSalFrame::DrawMenuBar()
 
 void GtkSalFrame::Center()
 {
+    if (!GTK_IS_WINDOW(m_pWindow))
+        return;
     if (m_pParent)
         gtk_window_set_position(GTK_WINDOW(m_pWindow), GTK_WIN_POS_CENTER_ON_PARENT);
     else
@@ -2647,6 +2650,51 @@ IMPL_LINK_NOARG(GtkSalFrame, AsyncScroll, Timer *, void)
     }
 }
 
+SalWheelMouseEvent GtkSalFrame::GetWheelEvent(GdkEventScroll& rEvent)
+{
+    SalWheelMouseEvent aEvent;
+
+    aEvent.mnTime = rEvent.time;
+    aEvent.mnX = static_cast<sal_uLong>(rEvent.x);
+    aEvent.mnY = static_cast<sal_uLong>(rEvent.y);
+    aEvent.mnCode = GetMouseModCode(rEvent.state);
+
+    switch (rEvent.direction)
+    {
+        case GDK_SCROLL_UP:
+            aEvent.mnDelta = 120;
+            aEvent.mnNotchDelta = 1;
+            aEvent.mnScrollLines = 3;
+            aEvent.mbHorz = false;
+            break;
+
+        case GDK_SCROLL_DOWN:
+            aEvent.mnDelta = -120;
+            aEvent.mnNotchDelta = -1;
+            aEvent.mnScrollLines = 3;
+            aEvent.mbHorz = false;
+            break;
+
+        case GDK_SCROLL_LEFT:
+            aEvent.mnDelta = 120;
+            aEvent.mnNotchDelta = 1;
+            aEvent.mnScrollLines = 3;
+            aEvent.mbHorz = true;
+            break;
+
+        case GDK_SCROLL_RIGHT:
+            aEvent.mnDelta = -120;
+            aEvent.mnNotchDelta = -1;
+            aEvent.mnScrollLines = 3;
+            aEvent.mbHorz = true;
+            break;
+        default:
+            break;
+    }
+
+    return aEvent;
+}
+
 gboolean GtkSalFrame::signalScroll(GtkWidget*, GdkEvent* pInEvent, gpointer frame)
 {
     GdkEventScroll& rEvent = pInEvent->scroll;
@@ -2669,52 +2717,13 @@ gboolean GtkSalFrame::signalScroll(GtkWidget*, GdkEvent* pInEvent, gpointer fram
         assert(pThis->m_aPendingScrollEvents.empty());
     }
 
-    SalWheelMouseEvent aEvent;
+    SalWheelMouseEvent aEvent(GetWheelEvent(rEvent));
 
-    aEvent.mnTime = rEvent.time;
-    aEvent.mnX = static_cast<sal_uLong>(rEvent.x);
     // --- RTL --- (mirror mouse pos)
     if (AllSettings::GetLayoutRTL())
         aEvent.mnX = pThis->maGeometry.nWidth - 1 - aEvent.mnX;
-    aEvent.mnY = static_cast<sal_uLong>(rEvent.y);
-    aEvent.mnCode = GetMouseModCode(rEvent.state);
 
-    switch (rEvent.direction)
-    {
-        case GDK_SCROLL_UP:
-            aEvent.mnDelta = 120;
-            aEvent.mnNotchDelta = 1;
-            aEvent.mnScrollLines = 3;
-            aEvent.mbHorz = false;
-            pThis->CallCallbackExc(SalEvent::WheelMouse, &aEvent);
-            break;
-
-        case GDK_SCROLL_DOWN:
-            aEvent.mnDelta = -120;
-            aEvent.mnNotchDelta = -1;
-            aEvent.mnScrollLines = 3;
-            aEvent.mbHorz = false;
-            pThis->CallCallbackExc(SalEvent::WheelMouse, &aEvent);
-            break;
-
-        case GDK_SCROLL_LEFT:
-            aEvent.mnDelta = 120;
-            aEvent.mnNotchDelta = 1;
-            aEvent.mnScrollLines = 3;
-            aEvent.mbHorz = true;
-            pThis->CallCallbackExc(SalEvent::WheelMouse, &aEvent);
-            break;
-
-        case GDK_SCROLL_RIGHT:
-            aEvent.mnDelta = -120;
-            aEvent.mnNotchDelta = -1;
-            aEvent.mnScrollLines = 3;
-            aEvent.mbHorz = true;
-            pThis->CallCallbackExc(SalEvent::WheelMouse, &aEvent);
-            break;
-        default:
-            break;
-    }
+    pThis->CallCallbackExc(SalEvent::WheelMouse, &aEvent);
 
     return true;
 }
@@ -3439,6 +3448,13 @@ gboolean GtkSalFrame::signalDragDrop(GtkWidget* pWidget, GdkDragContext* context
 
 gboolean GtkDropTarget::signalDragDrop(GtkWidget* pWidget, GdkDragContext* context, gint x, gint y, guint time)
 {
+    // remove the deferred dragExit, as we'll do a drop
+#ifndef NDEBUG
+    gboolean res =
+#endif
+        g_idle_remove_by_data(this);
+    assert(res);
+
     css::datatransfer::dnd::DropTargetDropEvent aEvent;
     aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(this);
     aEvent.Context = new GtkDropTargetDropContext(context, time);
@@ -3607,10 +3623,24 @@ void GtkSalFrame::signalDragLeave(GtkWidget *pWidget, GdkDragContext *context, g
     pThis->m_pDropTarget->signalDragLeave(pWidget, context, time);
 }
 
+static gboolean lcl_deferred_dragExit(gpointer user_data)
+{
+    GtkDropTarget* pThis = static_cast<GtkDropTarget*>(user_data);
+    css::datatransfer::dnd::DropTargetEvent aEvent;
+    aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(pThis);
+    pThis->fire_dragExit(aEvent);
+    return FALSE;
+}
+
 void GtkDropTarget::signalDragLeave(GtkWidget* pWidget, GdkDragContext* /*context*/, guint /*time*/)
 {
     m_bInDrag = false;
     gtk_drag_unhighlight(pWidget);
+    // defer fire_dragExit, since gtk also sends a drag-leave before the drop, while
+    // LO expect to either handle the drop or the exit... at least in Writer.
+    // but since we don't know there will be a drop following the leave, defer the
+    // exit handling to an idle.
+    g_idle_add(lcl_deferred_dragExit, this);
 }
 
 void GtkSalFrame::signalDestroy( GtkWidget* pObj, gpointer frame )
@@ -3900,7 +3930,7 @@ void GtkSalFrame::IMHandler::signalIMCommit( GtkIMContext* /*pContext*/, gchar* 
 
         pThis->m_aInputFlags.clear();
 
-        /* necessary HACK: all keyboard input comes in here as soon as a IMContext is set
+        /* necessary HACK: all keyboard input comes in here as soon as an IMContext is set
          *  which is logical and consequent. But since even simple input like
          *  <space> comes through the commit signal instead of signalKey
          *  and all kinds of windows only implement KeyInput (e.g. PushButtons,
@@ -3971,34 +4001,60 @@ void GtkSalFrame::IMHandler::signalIMPreeditChanged( GtkIMContext*, gpointer im_
     pThis->m_bPreeditJustChanged = true;
 
     bool bEndPreedit = (!pText || !*pText) && pThis->m_aInputEvent.mpTextAttr != nullptr;
-    pThis->m_aInputEvent.maText             = pText ? OUString( pText, strlen(pText), RTL_TEXTENCODING_UTF8 ) : OUString();
-    pThis->m_aInputEvent.mnCursorPos        = nCursorPos;
-    pThis->m_aInputEvent.mnCursorFlags      = 0;
+    gint nUtf8Len = pText ? strlen(pText) : 0;
+    pThis->m_aInputEvent.maText             = pText ? OUString(pText, nUtf8Len, RTL_TEXTENCODING_UTF8) : OUString();
+    const OUString& rText = pThis->m_aInputEvent.maText;
 
-    pThis->m_aInputFlags = std::vector<ExtTextInputAttr>( std::max( 1, static_cast<int>(pThis->m_aInputEvent.maText.getLength()) ), ExtTextInputAttr::NONE );
+    std::vector<sal_Int32> aUtf16Offsets;
+    for (sal_Int32 nUtf16Offset = 0; nUtf16Offset < rText.getLength(); rText.iterateCodePoints(&nUtf16Offset))
+        aUtf16Offsets.push_back(nUtf16Offset);
+
+    sal_Int32 nUtf32Len = aUtf16Offsets.size();
+        // from the above loop filling aUtf16Offsets, we know that its size() fits into sal_Int32
+    aUtf16Offsets.push_back(rText.getLength());
+
+    // sanitize the CurPos which is in utf-32
+    if (nCursorPos < 0)
+        nCursorPos = 0;
+    else if (nCursorPos > nUtf32Len)
+        nCursorPos = nUtf32Len;
+
+    pThis->m_aInputEvent.mnCursorPos = aUtf16Offsets[nCursorPos];
+    pThis->m_aInputEvent.mnCursorFlags = 0;
+
+    pThis->m_aInputFlags = std::vector<ExtTextInputAttr>( std::max( 1, static_cast<int>(rText.getLength()) ), ExtTextInputAttr::NONE );
 
     PangoAttrIterator *iter = pango_attr_list_get_iterator(pAttrs);
     do
     {
         GSList *attr_list = nullptr;
         GSList *tmp_list = nullptr;
-        gint start, end;
+        gint nUtf8Start, nUtf8End;
         ExtTextInputAttr sal_attr = ExtTextInputAttr::NONE;
 
-        pango_attr_iterator_range (iter, &start, &end);
-        if (start == G_MAXINT || end == G_MAXINT)
-        {
-            auto len = pText ? g_utf8_strlen(pText, -1) : 0;
-            if (end == G_MAXINT)
-                end = len;
-            if (start == G_MAXINT)
-                start = len;
-        }
-        if (end == start)
+        // docs say... "Get the range of the current segment ... the stored
+        // return values are signed, not unsigned like the values in
+        // PangoAttribute", which implies that the units are otherwise the same
+        // as that of PangoAttribute whose docs state these units are "in
+        // bytes"
+        // so this is the utf8 range
+        pango_attr_iterator_range(iter, &nUtf8Start, &nUtf8End);
+
+        // sanitize the utf8 range
+        nUtf8Start = std::min(nUtf8Start, nUtf8Len);
+        nUtf8End = std::min(nUtf8End, nUtf8Len);
+        if (nUtf8Start >= nUtf8End)
             continue;
 
-        start = g_utf8_pointer_to_offset (pText, pText + start);
-        end = g_utf8_pointer_to_offset (pText, pText + end);
+        // get the utf32 range
+        sal_Int32 nUtf32Start = g_utf8_pointer_to_offset(pText, pText + nUtf8Start);
+        sal_Int32 nUtf32End = g_utf8_pointer_to_offset(pText, pText + nUtf8End);
+
+        // sanitize the utf32 range
+        nUtf32Start = std::min(nUtf32Start, nUtf32Len);
+        nUtf32End = std::min(nUtf32End, nUtf32Len);
+        if (nUtf32Start >= nUtf32End)
+            continue;
 
         tmp_list = attr_list = pango_attr_iterator_get_attrs (iter);
         while (tmp_list)
@@ -4028,11 +4084,12 @@ void GtkSalFrame::IMHandler::signalIMPreeditChanged( GtkIMContext*, gpointer im_
         g_slist_free (attr_list);
 
         // Set the sal attributes on our text
-        for (int i = start; i < end; ++i)
+        // rhbz#1648281 apply over our utf-16 range derived from the input utf-32 range
+        for (sal_Int32 i = aUtf16Offsets[nUtf32Start]; i < aUtf16Offsets[nUtf32End]; ++i)
         {
             SAL_WARN_IF(i >= static_cast<int>(pThis->m_aInputFlags.size()),
                 "vcl.gtk3", "pango attrib out of range. Broken range: "
-                << start << "," << end << " Legal range: 0,"
+                << aUtf16Offsets[nUtf32Start] << "," << aUtf16Offsets[nUtf32End] << " Legal range: 0,"
                 << pThis->m_aInputFlags.size());
             if (i >= static_cast<int>(pThis->m_aInputFlags.size()))
                 continue;
@@ -4082,7 +4139,7 @@ static uno::Reference<accessibility::XAccessibleEditableText> lcl_GetxText(vcl::
         if (xAccessible.is())
             xText = FindFocusedEditableText(xAccessible->getAccessibleContext());
     }
-    catch(const uno::Exception& e)
+    catch(const uno::Exception&)
     {
         TOOLS_WARN_EXCEPTION( "vcl.gtk3", "Exception in getting input method surrounding text");
     }

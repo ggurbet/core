@@ -94,7 +94,7 @@ public:
             it is created.  When <FALSE/> then an empty reference is
             returned for missing descriptors.
         @return
-            When the given index is not valid, i.e. lower then zero or
+            When the given index is not valid, i.e. lower than zero or
             larger than or equal to the number of pages then an empty
             reference is returned. Note that the page count may change
             between calls to GetPageCount() and GetPageDescriptor().
@@ -137,7 +137,7 @@ public:
 
     /** Call this method after the document has changed its structure.  This
         will get the model in sync with the SdDrawDocument.  This method
-        tries not to throw away to much information already gathered.  This
+        tries not to throw away too much information already gathered.  This
         is especially important for previews of complex pages that take some
         time to create.
     */

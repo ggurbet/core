@@ -20,6 +20,7 @@
 #include <iostream>
 
 #include "check.hxx"
+#include "compat.hxx"
 #include "plugin.hxx"
 
 // Define a "string constant" to be a constant expression either of type "array
@@ -110,6 +111,70 @@ public:
 
     void run() override;
 
+    bool TraverseFunctionDecl(FunctionDecl * decl) {
+        returnTypes_.push(compat::getDeclaredReturnType(decl));
+        auto const ret = RecursiveASTVisitor::TraverseFunctionDecl(decl);
+        assert(!returnTypes_.empty());
+        assert(returnTypes_.top() == compat::getDeclaredReturnType(decl));
+        returnTypes_.pop();
+        return ret;
+    }
+
+    bool TraverseCXXDeductionGuideDecl(CXXDeductionGuideDecl * decl) {
+        returnTypes_.push(compat::getDeclaredReturnType(decl));
+        auto const ret = RecursiveASTVisitor::TraverseCXXDeductionGuideDecl(
+            decl);
+        assert(!returnTypes_.empty());
+        assert(returnTypes_.top() == compat::getDeclaredReturnType(decl));
+        returnTypes_.pop();
+        return ret;
+    }
+
+    bool TraverseCXXMethodDecl(CXXMethodDecl * decl) {
+        returnTypes_.push(compat::getDeclaredReturnType(decl));
+        auto const ret = RecursiveASTVisitor::TraverseCXXMethodDecl(decl);
+        assert(!returnTypes_.empty());
+        assert(returnTypes_.top() == compat::getDeclaredReturnType(decl));
+        returnTypes_.pop();
+        return ret;
+    }
+
+    bool TraverseCXXConstructorDecl(CXXConstructorDecl * decl) {
+        returnTypes_.push(compat::getDeclaredReturnType(decl));
+        auto const ret = RecursiveASTVisitor::TraverseCXXConstructorDecl(decl);
+        assert(!returnTypes_.empty());
+        assert(returnTypes_.top() == compat::getDeclaredReturnType(decl));
+        returnTypes_.pop();
+        return ret;
+    }
+
+    bool TraverseCXXDestructorDecl(CXXDestructorDecl * decl) {
+        returnTypes_.push(compat::getDeclaredReturnType(decl));
+        auto const ret = RecursiveASTVisitor::TraverseCXXDestructorDecl(decl);
+        assert(!returnTypes_.empty());
+        assert(returnTypes_.top() == compat::getDeclaredReturnType(decl));
+        returnTypes_.pop();
+        return ret;
+    }
+
+    bool TraverseCXXConversionDecl(CXXConversionDecl * decl) {
+        returnTypes_.push(compat::getDeclaredReturnType(decl));
+        auto const ret = RecursiveASTVisitor::TraverseCXXConversionDecl(decl);
+        assert(!returnTypes_.empty());
+        assert(returnTypes_.top() == compat::getDeclaredReturnType(decl));
+        returnTypes_.pop();
+        return ret;
+    }
+
+    bool TraverseObjCMethodDecl(ObjCMethodDecl * decl) {
+        returnTypes_.push(decl->getReturnType());
+        auto const ret = RecursiveASTVisitor::TraverseObjCMethodDecl(decl);
+        assert(!returnTypes_.empty());
+        assert(returnTypes_.top() == decl->getReturnType());
+        returnTypes_.pop();
+        return ret;
+    }
+
     bool TraverseCallExpr(CallExpr * expr);
 
     bool TraverseCXXMemberCallExpr(CXXMemberCallExpr * expr);
@@ -122,12 +187,14 @@ public:
 
     bool VisitCXXConstructExpr(CXXConstructExpr const * expr);
 
+    bool VisitReturnStmt(ReturnStmt const * stmt);
+
 private:
     enum class ContentKind { Ascii, Utf8, Arbitrary };
 
     enum class TreatEmpty { DefaultCtor, CheckEmpty, Error };
 
-    enum class ChangeKind { Char, CharLen, SingleChar, OUStringLiteral1 };
+    enum class ChangeKind { Char, CharLen, SingleChar, OUStringChar };
 
     enum class PassThrough { No, EmptyConstantString, NonEmptyConstantString };
 
@@ -183,6 +250,7 @@ private:
     void handleFunArgOstring(
         CallExpr const * expr, unsigned arg, FunctionDecl const * callee);
 
+    std::stack<QualType> returnTypes_;
     std::stack<Expr const *> calls_;
 };
 
@@ -349,7 +417,7 @@ bool StringConstant::VisitCallExpr(CallExpr const * expr) {
         // u.equalsIgnoreAsciiCaseAscii("foo") ->
         // u.equalsIngoreAsciiCase("foo"):
 
-        auto file = getFileNameOfSpellingLoc(
+        auto file = getFilenameOfLocation(
             compiler.getSourceManager().getSpellingLoc(compat::getBeginLoc(expr)));
         if (loplugin::isSamePathname(
                 file, SRCDIR "/sal/qa/rtl/strings/test_oustring_compare.cxx"))
@@ -367,7 +435,7 @@ bool StringConstant::VisitCallExpr(CallExpr const * expr) {
     {
         // u.equalsIgnoreAsciiCaseAsciiL("foo", 3) ->
         // u.equalsIngoreAsciiCase("foo"):
-        auto file = getFileNameOfSpellingLoc(
+        auto file = getFilenameOfLocation(
             compiler.getSourceManager().getSpellingLoc(compat::getBeginLoc(expr)));
         if (loplugin::isSamePathname(
                 file, SRCDIR "/sal/qa/rtl/strings/test_oustring_compare.cxx"))
@@ -734,7 +802,7 @@ bool StringConstant::VisitCallExpr(CallExpr const * expr) {
         case 2:
             {
                 // b.append("foo", 3) -> b.append("foo"):
-                auto file = getFileNameOfSpellingLoc(
+                auto file = getFilenameOfLocation(
                     compiler.getSourceManager().getSpellingLoc(
                         compat::getBeginLoc(expr)));
                 if (loplugin::isSamePathname(
@@ -803,10 +871,10 @@ bool StringConstant::VisitCXXConstructExpr(CXXConstructExpr const * expr) {
             {
                 auto arg = expr->getArg(0);
                 if (loplugin::TypeCheck(arg->getType())
-                    .Class("OUStringLiteral1_").Namespace("rtl")
+                    .Class("OUStringChar_").Namespace("rtl")
                     .GlobalNamespace())
                 {
-                    kind = ChangeKind::OUStringLiteral1;
+                    kind = ChangeKind::OUStringChar;
                     pass = PassThrough::NonEmptyConstantString;
                     simplify = false;
                 } else {
@@ -1101,7 +1169,7 @@ bool StringConstant::VisitCXXConstructExpr(CXXConstructExpr const * expr) {
                                 if (dc.Operator(OO_Plus).Namespace("rtl")
                                     .GlobalNamespace())
                                 {
-                                    auto file = getFileNameOfSpellingLoc(
+                                    auto file = getFilenameOfLocation(
                                             compiler.getSourceManager()
                                             .getSpellingLoc(
                                                 compat::getBeginLoc(expr)));
@@ -1138,7 +1206,7 @@ bool StringConstant::VisitCXXConstructExpr(CXXConstructExpr const * expr) {
                                         DiagnosticsEngine::Warning,
                                         ("rewrite construction of %0 with %1 in"
                                          " call of '%2' as construction of"
-                                         " 'OUStringLiteral1'"),
+                                         " 'OUStringChar'"),
                                         getMemberLocation(expr))
                                         << classdecl << describeChangeKind(kind)
                                         << fdecl->getQualifiedNameAsString()
@@ -1207,6 +1275,54 @@ bool StringConstant::VisitCXXConstructExpr(CXXConstructExpr const * expr) {
     return true;
 }
 
+bool StringConstant::VisitReturnStmt(ReturnStmt const * stmt) {
+    if (ignoreLocation(stmt)) {
+        return true;
+    }
+    auto const e1 = stmt->getRetValue();
+    if (e1 == nullptr) {
+        return true;
+    }
+    auto const tc1 = loplugin::TypeCheck(e1->getType().getTypePtr());
+    if (!(tc1.Class("OString").Namespace("rtl").GlobalNamespace()
+          || tc1.Class("OUString").Namespace("rtl").GlobalNamespace()))
+    {
+        return true;
+    }
+    assert(!returnTypes_.empty());
+    auto const tc2 = loplugin::TypeCheck(returnTypes_.top().getTypePtr());
+    if (!(tc2.Class("OString").Namespace("rtl").GlobalNamespace()
+          || tc2.Class("OUString").Namespace("rtl").GlobalNamespace()))
+    {
+        return true;
+    }
+    auto const e2 = dyn_cast<CXXFunctionalCastExpr>(e1->IgnoreImplicit());
+    if (e2 == nullptr) {
+        return true;
+    }
+    auto const e3 = dyn_cast<CXXBindTemporaryExpr>(e2->getSubExpr());
+    if (e3 == nullptr) {
+        return true;
+    }
+    auto const e4 = dyn_cast<CXXConstructExpr>(e3->getSubExpr());
+    if (e4 == nullptr) {
+        return true;
+    }
+    if (e4->getNumArgs() != 2) {
+        return true;
+    }
+    auto const e5 = e4->getArg(1);
+    if (!(isa<CXXDefaultArgExpr>(e5)
+          && (loplugin::TypeCheck(e5->getType()).Struct("Dummy").Namespace("libreoffice_internal")
+              .Namespace("rtl").GlobalNamespace())))
+    {
+        return true;
+    }
+    report(DiagnosticsEngine::Warning, "elide constructor call", compat::getBeginLoc(e1))
+        << e1->getSourceRange();
+    return true;
+}
+
 std::string StringConstant::describeChangeKind(ChangeKind kind) {
     switch (kind) {
     case ChangeKind::Char:
@@ -1215,11 +1331,10 @@ std::string StringConstant::describeChangeKind(ChangeKind kind) {
         return "string constant and matching length arguments";
     case ChangeKind::SingleChar:
         return "sal_Unicode argument";
-    case ChangeKind::OUStringLiteral1:
-        return "OUStringLiteral1 argument";
-    default:
-        std::abort();
+    case ChangeKind::OUStringChar:
+        return "OUStringChar argument";
     }
+    llvm_unreachable("unknown change kind");
 }
 
 bool StringConstant::isStringConstant(
@@ -1885,12 +2000,12 @@ void StringConstant::handleStringCtor(
             .Typedef(stringKind == StringKind::Unicode ? "sal_Unicode" : "char").GlobalNamespace()))
     {
         // It may not be easy to rewrite OUString(c), esp. given there is no
-        // OUString ctor taking an OUStringLiteral1 arg, so don't warn there:
+        // OUString ctor taking an OUStringChar arg, so don't warn there:
         if (!explicitFunctionalCastNotation) {
             report(
                 DiagnosticsEngine::Warning,
                 ("in call of '%0', replace 'OUString' constructed from a"
-                 " 'sal_Unicode' with an 'OUStringLiteral1'"),
+                 " 'sal_Unicode' with an 'OUStringChar'"),
                 e3->getExprLoc())
                 << callee->getQualifiedNameAsString() << expr->getSourceRange();
         }

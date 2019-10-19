@@ -57,7 +57,7 @@ namespace accessibility
         addEventListener()/removeEventListener() methods to the
         AccessibleTextHelper (methods
         AddEventListener/RemoveEventListener), otherwise none or not
-        every one of your event listener will notice child changes.
+        everyone of your event listener will notice child changes.
 
         You have to implement the SvxEditSource, SvxTextForwarder,
         SvxViewForwarder and SvxEditViewForwarder interfaces in order
@@ -322,7 +322,7 @@ namespace accessibility
             @attention Don't call with locked mutexes. You may hold
             the solar mutex, but this method acquires it anyway.
         */
-        sal_Int32 GetChildCount();
+        sal_Int32 GetChildCount() const;
         /** Implements getAccessibleChild
 
             @attention Don't call with locked mutexes. You may hold

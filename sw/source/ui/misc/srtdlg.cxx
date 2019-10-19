@@ -21,6 +21,7 @@
 
 #include <srtdlg.hxx>
 
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svl/intitem.hxx>
 #include <svl/eitem.hxx>
@@ -38,6 +39,7 @@
 #include <app.hrc>
 #include <strings.hrc>
 #include <swtable.hxx>
+#include <sortopt.hxx>
 #include <node.hxx>
 #include <tblsel.hxx>
 #include <sfx2/request.hxx>
@@ -120,7 +122,7 @@ SwSortDlg::SwSortDlg(weld::Window* pParent, SwWrtShell &rShell)
     , m_xDelimFreeRB(m_xBuilder->weld_radio_button("character"))
     , m_xDelimEdt(m_xBuilder->weld_entry("separator"))
     , m_xDelimPB(m_xBuilder->weld_button("delimpb"))
-    , m_xLangLB(new LanguageBox(m_xBuilder->weld_combo_box("langlb")))
+    , m_xLangLB(new SvxLanguageBox(m_xBuilder->weld_combo_box("langlb")))
     , m_xCaseCB(m_xBuilder->weld_check_button("matchcase"))
     , aColText(SwResId(STR_COL))
     , aRowText(SwResId(STR_ROW))

@@ -27,7 +27,6 @@
 
 #include "txtfldi.hxx"
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/beans/XPropertySetInfo.hpp>
 
 
 /** helper class: parses value-type and associated value attributes */
@@ -71,10 +70,10 @@ public:
         const css::uno::Reference<css::beans::XPropertySet> & xPropertySet);
 
     /// is value a string (rather than double)?
-    bool IsStringValue() { return bStringType; }
+    bool IsStringValue() const { return bStringType; }
 
     /// has format been read?
-    bool IsFormatOK() { return bFormatOK; }
+    bool IsFormatOK() const { return bFormatOK; }
 
     void SetDefault(const OUString& sStr) { sDefault = sStr; }
 };
@@ -165,8 +164,8 @@ protected:
         css::beans::XPropertySet> & xPropertySet) override;
 
     // various accessor methods:
-    const OUString& GetName()       { return sName; }
-    bool IsStringValue()     { return aValueHelper.IsStringValue();}
+    const OUString& GetName() const { return sName; }
+    bool IsStringValue() const { return aValueHelper.IsStringValue();}
 };
 
 

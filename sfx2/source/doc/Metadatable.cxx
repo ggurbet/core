@@ -628,7 +628,7 @@ removeLink(Metadatable* i_pObject)
 XmlIdRegistryDocument::~XmlIdRegistryDocument()
 {
     // notify all list elements that are actually in the clipboard
-    for (auto& aXmlId : m_pImpl->m_XmlIdMap) {
+    for (const auto& aXmlId : m_pImpl->m_XmlIdMap) {
         for (auto aLink : aXmlId.second.first)
             removeLink(aLink);
         for (auto aLink : aXmlId.second.second)
@@ -1527,11 +1527,7 @@ OUString SAL_CALL MetadatableMixin::getLocalName()
         ensureMetadataReference(); // N.B.: side effect!
         mdref = getMetadataReference();
     }
-    OUStringBuffer buf;
-    buf.append(mdref.First);
-    buf.append('#');
-    buf.append(mdref.Second);
-    return buf.makeStringAndClear();
+    return mdref.First + "#" + mdref.Second;
 }
 
 OUString SAL_CALL MetadatableMixin::getNamespace()

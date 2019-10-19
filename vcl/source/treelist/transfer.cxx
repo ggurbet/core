@@ -51,7 +51,6 @@
 #include <com/sun/star/datatransfer/XMimeContentType.hpp>
 #include <com/sun/star/datatransfer/XTransferable2.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/lang/XInitialization.hpp>
 
 #include <svl/urlbmk.hxx>
 #include <vcl/inetimg.hxx>
@@ -65,7 +64,7 @@
 #include <vcl/pngwrite.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <memory>
-
+#include <utility>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::lang;
@@ -257,7 +256,7 @@ void SAL_CALL TransferableHelper::TerminateListener::notifyTermination( const Ev
 
 OUString SAL_CALL TransferableHelper::TerminateListener::getImplementationName()
 {
-    return OUString("com.sun.star.comp.svt.TransferableHelperTerminateListener");
+    return "com.sun.star.comp.svt.TransferableHelperTerminateListener";
 }
 
 sal_Bool SAL_CALL TransferableHelper::TerminateListener::supportsService(const OUString& /*rServiceName*/)
@@ -270,6 +269,18 @@ css::uno::Sequence<OUString> TransferableHelper::TerminateListener::getSupported
     return css::uno::Sequence<OUString>();
 }
 
+TransferableHelper::~TransferableHelper()
+{
+    css::uno::Reference<css::frame::XTerminateListener> listener;
+    {
+        const SolarMutexGuard aGuard;
+        std::swap(listener, mxTerminateListener);
+    }
+    if (listener.is()) {
+        Desktop::create(comphelper::getProcessComponentContext())->removeTerminateListener(
+            listener);
+    }
+}
 
 Any SAL_CALL TransferableHelper::getTransferData( const DataFlavor& rFlavor )
 {
@@ -388,6 +399,12 @@ Any SAL_CALL TransferableHelper::getTransferData2( const DataFlavor& rFlavor, co
     return maAny;
 }
 
+sal_Bool SAL_CALL TransferableHelper::isComplex()
+{
+    // By default everything is complex, until proven otherwise
+    // in the respective document type transferable handler.
+    return true;
+}
 
 Sequence< DataFlavor > SAL_CALL TransferableHelper::getTransferDataFlavors()
 {
@@ -497,8 +514,7 @@ sal_Int64 SAL_CALL TransferableHelper::getSomething( const Sequence< sal_Int8 >&
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) &&
-        ( 0 == memcmp( getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<TransferableHelper>(rId) )
     {
         nRet = sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }
@@ -912,17 +928,10 @@ void TransferableHelper::PrepareOLE( const TransferableObjectDescriptor& rObjDes
         AddFormat( SotClipboardFormatId::OBJECTDESCRIPTOR );
 }
 
-
-void TransferableHelper::CopyToClipboard( vcl::Window *pWindow ) const
+void TransferableHelper::CopyToClipboard(const Reference<XClipboard>& rClipboard) const
 {
-    DBG_ASSERT( pWindow, "Window pointer is NULL" );
-    Reference< XClipboard > xClipboard;
-
-    if( pWindow )
-        xClipboard = pWindow->GetClipboard();
-
-    if( xClipboard.is() )
-        mxClipboard = xClipboard;
+    if( rClipboard.is() )
+        mxClipboard = rClipboard;
 
     if( !(mxClipboard.is() && !mxTerminateListener.is()) )
         return;
@@ -941,16 +950,20 @@ void TransferableHelper::CopyToClipboard( vcl::Window *pWindow ) const
     }
 }
 
-
-void TransferableHelper::CopyToSelection( vcl::Window *pWindow ) const
+void TransferableHelper::CopyToClipboard( vcl::Window *pWindow ) const
 {
     DBG_ASSERT( pWindow, "Window pointer is NULL" );
-    Reference< XClipboard > xSelection;
+    Reference< XClipboard > xClipboard;
 
     if( pWindow )
-        xSelection = pWindow->GetPrimarySelection();
+        xClipboard = pWindow->GetClipboard();
 
-    if( !(xSelection.is() && !mxTerminateListener.is()) )
+    CopyToClipboard(xClipboard);
+}
+
+void TransferableHelper::CopyToSelection(const Reference<XClipboard>& rSelection) const
+{
+    if( !(rSelection.is() && !mxTerminateListener.is()) )
         return;
 
     try
@@ -960,13 +973,23 @@ void TransferableHelper::CopyToSelection( vcl::Window *pWindow ) const
         Reference< XDesktop2 > xDesktop = Desktop::create( ::comphelper::getProcessComponentContext() );
         xDesktop->addTerminateListener( pThis->mxTerminateListener );
 
-        xSelection->setContents( pThis, pThis );
+        rSelection->setContents( pThis, pThis );
     }
     catch( const css::uno::Exception& )
     {
     }
 }
 
+void TransferableHelper::CopyToSelection( vcl::Window *pWindow ) const
+{
+    DBG_ASSERT( pWindow, "Window pointer is NULL" );
+    Reference< XClipboard > xSelection;
+
+    if( pWindow )
+        xSelection = pWindow->GetPrimarySelection();
+
+    CopyToSelection(xSelection);
+}
 
 void TransferableHelper::StartDrag( vcl::Window* pWindow, sal_Int8 nDnDSourceActions )
 
@@ -1136,7 +1159,7 @@ TransferableDataHelper::TransferableDataHelper(const TransferableDataHelper& rDa
 {
 }
 
-TransferableDataHelper::TransferableDataHelper(TransferableDataHelper&& rDataHelper)
+TransferableDataHelper::TransferableDataHelper(TransferableDataHelper&& rDataHelper) noexcept
     : mxTransfer(std::move(rDataHelper.mxTransfer))
     , mxClipboard(std::move(rDataHelper.mxClipboard))
     , maFormats(std::move(rDataHelper.maFormats))

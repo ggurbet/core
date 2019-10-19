@@ -20,6 +20,7 @@
 #define INCLUDED_SW_INC_SHELLRES_HXX
 
 #include <memory>
+#include <vector>
 #include "swdllapi.h"
 #include <rtl/ustring.hxx>
 
@@ -56,9 +57,6 @@ struct SW_DLLPUBLIC ShellResource
     OUString const        aTOXTablesName;
     OUString const        aTOXAuthoritiesName;
     OUString const        aTOXCitationName;
-
-    OUString        aLinkCtrlClick;
-    OUString const        aLinkClick;
 
     std::vector<OUString> aDocInfoLst;
 

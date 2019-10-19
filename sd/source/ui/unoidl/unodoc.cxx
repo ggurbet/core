@@ -18,7 +18,6 @@
  */
 
 #include <rtl/ustring.hxx>
-#include <sfx2/docfac.hxx>
 #include <sfx2/sfxmodelfactory.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
@@ -34,16 +33,12 @@ using namespace ::com::sun::star;
 
 OUString SdDrawingDocument_getImplementationName()
 {
-    return OUString( "com.sun.star.comp.Draw.DrawingDocument" );
+    return "com.sun.star.comp.Draw.DrawingDocument";
 }
 
 uno::Sequence< OUString > SdDrawingDocument_getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aSeq( 2 );
-    aSeq[0] = "com.sun.star.drawing.DrawingDocument";
-    aSeq[1] = "com.sun.star.drawing.DrawingDocumentFactory";
-
-    return aSeq;
+    return { "com.sun.star.drawing.DrawingDocument", "com.sun.star.drawing.DrawingDocumentFactory" };
 }
 
 uno::Reference< uno::XInterface > SdDrawingDocument_createInstance(
@@ -61,7 +56,7 @@ uno::Reference< uno::XInterface > SdDrawingDocument_createInstance(
 
 OUString SdPresentationDocument_getImplementationName()
 {
-    return OUString( "com.sun.star.comp.Draw.PresentationDocument" );
+    return "com.sun.star.comp.Draw.PresentationDocument";
 }
 
 uno::Sequence< OUString > SdPresentationDocument_getSupportedServiceNames()

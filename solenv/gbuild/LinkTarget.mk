@@ -266,18 +266,21 @@ gb_CxxObject_get_source = $(1)/$(2).cxx
 # should never be overridden on an object -- they should be the same as for the
 # whole linktarget. In general it should be cleaner to use a static library
 # compiled with different flags and link that in rather than mixing different
-# flags in one linktarget.
+# flags in one linktarget. If OBJECT_HAS_EXTRA_CXXFLAGS is set, the object
+# has explicitly set additional CXXFLAGS, so in that case avoid using the PCH.
 define gb_CxxObject__set_pchflags
 ifneq ($(gb_ENABLE_PCH),)
 ifneq ($(strip $$(PCH_NAME)),)
-ifeq ($$(sort $$(PCH_CXXFLAGS) $$(PCH_DEFS) $$(gb_LinkTarget_EXCEPTIONFLAGS)),$$(sort $$(T_CXXFLAGS) $$(T_CXXFLAGS_APPEND) $$(DEFS)))
+ifeq ($(OBJECT_HAS_EXTRA_CXXFLAGS),)
+ifeq ($$(sort $$(PCH_CXXFLAGS) $$(PCH_DEFS)),$$(sort $$(T_CXXFLAGS) $$(T_CXXFLAGS_APPEND) $$(DEFS)))
 $$@ : PCHFLAGS := $$(call gb_PrecompiledHeader_get_enableflags,$$(PCH_NAME),$$(PCH_LINKTARGETMAKEFILENAME))
 else
 $$(warning No precompiled header available for $$*.cxx .)
-$$(info precompiled header flags : $$(sort $$(PCH_CXXFLAGS) $$(PCH_DEFS) $$(gb_LinkTarget_EXCEPTIONFLAGS)))
+$$(info precompiled header flags : $$(sort $$(PCH_CXXFLAGS) $$(PCH_DEFS)))
 $$(info .           object flags : $$(sort $$(T_CXXFLAGS) $$(T_CXXFLAGS_APPEND) $$(DEFS)))
 $$(error   Incorrect precompiled header setup or internal gbuild error.)
 $$@ : PCHFLAGS :=
+endif
 endif
 endif
 endif
@@ -301,8 +304,7 @@ $(dir $(call gb_CxxObject_get_dep_target,%))%/.dir :
 	$(if $(wildcard $(dir $@)),,mkdir -p $(dir $@))
 
 $(call gb_CxxObject_get_dep_target,%) :
-	$(if $(wildcard $@),touch $@,\
-	  $(eval $(gb_CxxObject__set_pchflags)))
+	$(if $(wildcard $@),touch $@)
 
 endif
 
@@ -347,8 +349,7 @@ $(dir $(call gb_GenCxxObject_get_dep_target,%))%/.dir :
 	$(if $(wildcard $(dir $@)),,mkdir -p $(dir $@))
 
 $(call gb_GenCxxObject_get_dep_target,%) :
-	$(if $(wildcard $@),touch $@,\
-	  $(eval $(gb_CxxObject__set_pchflags)))
+	$(if $(wildcard $@),touch $@)
 
 endif
 
@@ -539,7 +540,7 @@ gb_LinkTarget_DEFAULTDEFS := $(gb_GLOBALDEFS)
 
 .PHONY : $(WORKDIR)/Clean/LinkTarget/%
 $(WORKDIR)/Clean/LinkTarget/% :
-	$(call gb_Output_announce,$*,$(false),LNK,4)
+	$(call gb_Output_announce,$(LINKTARGETMAKEFILENAME),$(false),LNK,4)
 	RESPONSEFILE=$(call var2file,$(shell $(gb_MKTEMP)),200,\
 		$(foreach object,$(COBJECTS),$(call gb_CObject_get_target,$(object))) \
 		$(foreach object,$(COBJECTS),$(call gb_CObject_get_dep_target,$(object))) \
@@ -572,6 +573,8 @@ $(WORKDIR)/Clean/LinkTarget/% :
 		$(call gb_LinkTarget_get_dep_target,$(LINKTARGET)) \
 		$(call gb_LinkTarget_get_headers_target,$(LINKTARGET)) \
 		$(call gb_LinkTarget_get_objects_list,$(LINKTARGET)) \
+		$(call gb_LinkTarget_get_pch_timestamp,$(LINKTARGETMAKEFILENAME)) \
+		$(call gb_LinkTarget_get_pch_reuse_timestamp,$(LINKTARGETMAKEFILENAME)) \
 		$(ILIBTARGET) \
 		$(AUXTARGETS)) && \
 		cat $${RESPONSEFILE} /dev/null | $(if $(filter WNT,$(OS)),env -i PATH="$$PATH") xargs -n 200 rm -fr && \
@@ -726,6 +729,7 @@ $(WORKDIR)/Headers/% :
 # call gb_LinkTarget_LinkTarget,linktarget,linktargetmakefilename,layer
 define gb_LinkTarget_LinkTarget
 $(call gb_LinkTarget_get_clean_target,$(1)) : LINKTARGET := $(1)
+$(call gb_LinkTarget_get_clean_target,$(1)) : LINKTARGETMAKEFILENAME := $(2)
 $(call gb_LinkTarget_get_clean_target,$(1)) : AUXTARGETS :=
 $(call gb_LinkTarget_get_headers_target,$(1)) : SELF := $(call gb_LinkTarget__get_workdir_linktargetname,$(1))
 $(call gb_LinkTarget_get_headers_target,$(1)) : \
@@ -762,6 +766,7 @@ $(call gb_LinkTarget_get_target,$(1)) : T_CFLAGS_APPEND :=
 $(call gb_LinkTarget_get_target,$(1)) : T_CXXFLAGS := $$(gb_LinkTarget_CXXFLAGS)
 $(call gb_LinkTarget_get_target,$(1)) : T_CXXFLAGS_APPEND :=
 $(call gb_LinkTarget_get_target,$(1)) : PCH_CXXFLAGS := $$(gb_LinkTarget_CXXFLAGS)
+$(call gb_LinkTarget_get_target,$(1)) : OBJECT_HAS_EXTRA_CXXFLAGS :=
 $(call gb_LinkTarget_get_target,$(1)) : T_OBJCXXFLAGS := $$(gb_LinkTarget_OBJCXXFLAGS)
 $(call gb_LinkTarget_get_target,$(1)) : T_OBJCXXFLAGS_APPEND :=
 $(call gb_LinkTarget_get_target,$(1)) : T_OBJCFLAGS := $$(gb_LinkTarget_OBJCFLAGS)
@@ -775,6 +780,7 @@ $(call gb_LinkTarget_get_target,$(1)) : T_LDFLAGS := $$(gb_LinkTarget_LDFLAGS) $
 $(call gb_LinkTarget_get_target,$(1)) : LINKED_LIBS :=
 $(call gb_LinkTarget_get_target,$(1)) : LINKED_STATIC_LIBS :=
 $(call gb_LinkTarget_get_target,$(1)) : T_LIBS :=
+$(call gb_LinkTarget_get_target,$(1)) : T_STDLIBS_CXX := $(gb_STDLIBS_CXX)
 $(call gb_LinkTarget_get_target,$(1)) : TARGETTYPE :=
 $(call gb_LinkTarget_get_target,$(1)) : LIBRARY_X64 :=
 $(call gb_LinkTarget_get_target,$(1)) : PCH_NAME :=
@@ -911,6 +917,7 @@ endef
 # call gb_LinkTarget_disable_standard_system_libs,linktarget
 define gb_LinkTarget_disable_standard_system_libs
 $(call gb_LinkTarget_get_target,$(1)) : T_LIBS := $$(filter-out $$(gb_STDLIBS),$$(T_LIBS))
+$(call gb_LinkTarget_get_target,$(1)) : T_STDLIBS_CXX :=
 
 endef
 
@@ -1112,19 +1119,24 @@ endif
 
 endef
 
-# call gb_LinkTarget_add_cxxobject,linktarget,sourcefile,cxxflags,linktargetmakefilename
-define gb_LinkTarget_add_cxxobject
+# call gb_LinkTarget_add_cxxobject_internal,linktarget,sourcefile,cxxflags,linktargetmakefilename,exceptionflags
+# The purpose of the exceptionflags extra argument is to differentiate between usage that just needs
+# exception flags and usage that adds other flags. Using a PCH requires the same cxxflags as the ones used
+# to create the PCH, so non-empty cxxflags here mean the object cannot use the PCH, and the add_exception_cxxobject
+# variant passes the necessary flags by setting the extra argument.
+define gb_LinkTarget_add_cxxobject_internal
 $(if $(wildcard $(call gb_CxxObject_get_source,$(SRCDIR),$(2))),,$(eval $(call gb_Output_error,No such source file $(call gb_CxxObject_get_source,$(SRCDIR),$(2)))))
 $(call gb_LinkTarget_get_target,$(1)) : CXXOBJECTS += $(2)
 $(call gb_LinkTarget_get_clean_target,$(1)) : CXXOBJECTS += $(2)
 
 $(call gb_LinkTarget_get_target,$(1)) : $(call gb_CxxObject_get_target,$(2))
 $(call gb_CxxObject_get_target,$(2)) : | $(call gb_LinkTarget_get_headers_target,$(1))
-$(call gb_CxxObject_get_target,$(2)) : T_CXXFLAGS += $(3)
+$(call gb_CxxObject_get_target,$(2)) : T_CXXFLAGS += $(call gb_LinkTarget__get_cxxflags,$(4)) $(3) $(5)
+$(call gb_CxxObject_get_target,$(2)) : OBJECT_HAS_EXTRA_CXXFLAGS := $(if $(strip $(3)),1)
 $(call gb_CxxObject_get_target,$(2)) : \
 	OBJECTOWNER := $(call gb_Object__owner,$(2),$(1))
 ifneq ($(gb_ENABLE_PCH),)
-$(call gb_CxxObject_get_target,$(2)) : $(call gb_PrecompiledHeader_get_timestamp,$(4))
+$(call gb_CxxObject_get_target,$(2)) : $(call gb_LinkTarget_get_pch_timestamp,$(4))
 endif
 
 ifeq ($(gb_FULLDEPS),$(true))
@@ -1134,6 +1146,11 @@ $(call gb_CxxObject_get_dep_target,$(2)) :| $(dir $(call gb_CxxObject_get_dep_ta
 $(call gb_CxxObject_get_target,$(2)) :| $(dir $(call gb_CxxObject_get_dep_target,$(2))).dir
 endif
 
+endef
+
+# call gb_LinkTarget_add_cxxobject,linktarget,sourcefile,cxxflags,linktargetmakefilename
+define gb_LinkTarget_add_cxxobject
+$(call gb_LinkTarget_add_cxxobject_internal,$(1),$(2),$(3),$(4))
 endef
 
 # call gb_LinkTarget_add_objcobject,linktarget,sourcefile,objcflags,linktargetmakefilename
@@ -1244,8 +1261,8 @@ endif
 
 endef
 
-# call gb_LinkTarget_add_generated_cxx_object,linktarget,sourcefile,cxxflags,linktargetmakefilename
-define gb_LinkTarget_add_generated_cxx_object
+# call gb_LinkTarget_add_generated_cxx_object_internal,linktarget,sourcefile,cxxflags,linktargetmakefilename,exceptionflags
+define gb_LinkTarget_add_generated_cxx_object_internal
 $(call gb_LinkTarget_get_target,$(1)) : GENCXXOBJECTS += $(2)
 $(call gb_LinkTarget_get_clean_target,$(1)) : GENCXXOBJECTS += $(2)
 
@@ -1256,12 +1273,13 @@ $(call gb_GenCxxObject_get_target,$(2)) : $(call gb_GenCxxObject_get_source,$(2)
 $(call gb_GenCxxObject_get_source,$(2),$(1)) : | $(gb_Helper_MISCDUMMY)
 $(call gb_GenCxxObject_get_target,$(2)) : | $(call gb_LinkTarget_get_headers_target,$(1))
 $(call gb_GenCxxObject_get_target,$(2)) : WARNINGS_NOT_ERRORS := $(true)
-$(call gb_GenCxxObject_get_target,$(2)) : T_CXXFLAGS += $(3)
+$(call gb_GenCxxObject_get_target,$(2)) : T_CXXFLAGS += $(call gb_LinkTarget__get_cxxflags,$(4)) $(3) $(5)
+$(call gb_GenCxxObject_get_target,$(2)) : OBJECT_HAS_EXTRA_CXXFLAGS := $(if $(strip $(3)),1)
 $(call gb_GenCxxObject_get_target,$(2)) : \
 	OBJECTOWNER := $(call gb_Object__owner,$(2),$(1))
 $(call gb_GenCxxObject_get_target,$(2)) : GEN_CXX_SOURCE := $(call gb_GenCxxObject_get_source,$(2),$(1))
 ifneq ($(gb_ENABLE_PCH),)
-$(call gb_GenCxxObject_get_target,$(2)) : $(call gb_PrecompiledHeader_get_timestamp,$(4))
+$(call gb_GenCxxObject_get_target,$(2)) : $(call gb_LinkTarget_get_pch_timestamp,$(4))
 endif
 
 ifeq ($(gb_FULLDEPS),$(true))
@@ -1271,6 +1289,11 @@ $(call gb_GenCxxObject_get_dep_target,$(2)) :| $(dir $(call gb_GenCxxObject_get_
 $(call gb_GenCxxObject_get_target,$(2)) :| $(dir $(call gb_GenCxxObject_get_dep_target,$(2))).dir
 endif
 
+endef
+
+# call gb_LinkTarget_add_generated_cxx_object,linktarget,sourcefile,cxxflags,linktargetmakefilename
+define gb_LinkTarget_add_generated_cxx_object
+$(call gb_LinkTarget_add_generated_cxx_object_internal,$(1),$(2),$(3),$(4))
 endef
 
 # call gb_LinkTarget_add_generated_cxxclrobject,linktarget,sourcefile,cxxclrflags,linktargetmakefilename
@@ -1331,7 +1354,7 @@ endef
 
 # call gb_LinkTarget_add_exception_object,linktarget,sourcefile,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_exception_object
-$(call gb_LinkTarget_add_cxxobject,$(1),$(2),$(gb_LinkTarget_EXCEPTIONFLAGS) $(call gb_LinkTarget__get_cxxflags,$(4)) $(3),$(4))
+$(call gb_LinkTarget_add_cxxobject_internal,$(1),$(2),$(3),$(4),$(gb_LinkTarget_EXCEPTIONFLAGS))
 endef
 
 # call gb_LinkTarget__use_linktarget_objects,linktarget,linktargets
@@ -1416,7 +1439,7 @@ endef
 
 # call gb_LinkTarget_add_generated_exception_object,linktarget,sourcefile,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_generated_exception_object
-$(call gb_LinkTarget_add_generated_cxx_object,$(1),$(2),$(gb_LinkTarget_EXCEPTIONFLAGS) $(call gb_LinkTarget__get_cxxflags,$(4)) $(3),$(4))
+$(call gb_LinkTarget_add_generated_cxx_object_internal,$(1),$(2),$(3),$(4),$(gb_LinkTarget_EXCEPTIONFLAGS))
 endef
 
 # call gb_LinkTarget_add_generated_exception_objects,linktarget,sourcefile,cxxflags,linktargetmakefilename
@@ -1503,27 +1526,33 @@ $(call gb_LinkTarget_get_clean_target,$(1)) : $(foreach sdi,$(2),$(call gb_SdiTa
 
 endef
 
-# call gb_LinkTarget__set_precompiled_header_impl,linktarget,pchcxxfile,pchtarget,linktargetmakefilename
-define gb_LinkTarget__set_precompiled_header_impl
-$(call gb_LinkTarget_get_clean_target,$(1)) : $(call gb_PrecompiledHeader_get_clean_target,$(3))
-$(call gb_PrecompiledHeader_get_target,$(3),$(4)) : $(2).cxx
-
-$(call gb_PrecompiledHeader_get_target,$(3),$(4)) : $(call gb_LinkTarget_get_headers_target,$(1))
-
+# call gb_LinkTarget__set_precompiled_header_variables,linktarget,pchcxxfile,pchtarget,linktargetmakefilename
+define gb_LinkTarget__set_precompiled_header_variables
 $(call gb_LinkTarget_get_target,$(1)) : PCH_NAME := $(3)
 $(call gb_LinkTarget_get_target,$(1)) : PCH_LINKTARGETMAKEFILENAME := $(4)
 $(call gb_LinkTarget_get_target,$(1)) : PCHOBJEX = $(call gb_PrecompiledHeader_get_objectfile, $(call gb_PrecompiledHeader_get_target,$(3),$(4)))
 $(call gb_LinkTarget_get_target,$(1)) : PCHOBJS = $$(PCHOBJEX)
 
 $(call gb_LinkTarget_get_target,$(1)) : PCH_DEFS := $$(DEFS)
-$(call gb_LinkTarget_get_target,$(1)) : PCH_CXXFLAGS := $$(T_CXXFLAGS) $(call gb_LinkTarget__get_cxxflags,$(4))
+$(call gb_LinkTarget_get_target,$(1)) : PCH_CXXFLAGS := $$(T_CXXFLAGS) $(call gb_LinkTarget__get_cxxflags,$(4)) $(gb_LinkTarget_EXCEPTIONFLAGS)
 
 $(call gb_LinkTarget_get_target,$(1)) : DEFS += -DPCH_LEVEL=$(gb_ENABLE_PCH)
 $(call gb_LinkTarget_get_target,$(1)) : PCH_DEFS += -DPCH_LEVEL=$(gb_ENABLE_PCH)
 
+endef
+
+# call gb_LinkTarget__set_precompiled_header_impl,linktarget,pchcxxfile,pchtarget,linktargetmakefilename
+define gb_LinkTarget__set_precompiled_header_impl
+$(call gb_LinkTarget_get_clean_target,$(1)) : $(call gb_PrecompiledHeader_get_clean_target,$(3))
+$(call gb_PrecompiledHeader_get_target,$(3),$(4)) : $(call gb_CxxObject_get_source,$(SRCDIR),$(2))
+
+$(call gb_PrecompiledHeader_get_target,$(3),$(4)) : $(call gb_LinkTarget_get_headers_target,$(1))
+
 $(call gb_PrecompiledHeader_get_target,$(3),$(4)) : VISIBILITY :=
 
-$(call gb_PrecompiledHeader_get_timestamp,$(4)) : $(call gb_PrecompiledHeader_get_target,$(3),$(4))
+$(call gb_LinkTarget_get_pch_timestamp,$(4)) : $(call gb_PrecompiledHeader_get_target,$(3),$(4))
+
+$(call gb_LinkTarget__set_precompiled_header_variables,$(1),$(2),$(3),$(4))
 
 ifeq ($(gb_FULLDEPS),$(true))
 -include $(call gb_PrecompiledHeader_get_dep_target,$(3),$(4))
@@ -1535,7 +1564,52 @@ endef
 define gb_LinkTarget_set_precompiled_header
 ifneq ($(gb_ENABLE_PCH),)
 $(call gb_LinkTarget__set_precompiled_header_impl,$(1),$(2),$(notdir $(2)),$(4))
-$(call gb_PrecompiledHeader_generate_rules,$(notdir $(2)),$(4))
+$(call gb_PrecompiledHeader_generate_rules,$(notdir $(2)),$(1),$(4))
+endif
+
+endef
+
+# call gb_LinkTarget__reuse_precompiled_header_impl,linktarget,pchcxxfile,pchtarget,linktargetmakefilename
+# Use the PCH as if it was LinkTarget's own, but do nothing with the PCH itself, just depend on it.
+define gb_LinkTarget__reuse_precompiled_header_impl
+$(call gb_LinkTarget__set_precompiled_header_variables,$(1),$(2),$(3),$(4))
+
+$(call gb_LinkTarget_get_pch_timestamp,$(4)) : $(call gb_LinkTarget_get_pch_reuse_timestamp,$(4))
+
+# We need to depend on a special for_reuse target that depends on the linktarget that owns the PCH.
+# Depending directly on the PCH could cause that PCH to be built with this linktarget's flags.
+$(call gb_LinkTarget_get_pch_reuse_timestamp,$(4)) : $(call gb_PrecompiledHeader_get_for_reuse_target,$(3),$(4))
+	$(call gb_PrecompiledHeader_check_flags,$(4),$(2),\
+		$(call gb_PrecompiledHeader_get_target,$(3),$(4)),$$(PCH_CXXFLAGS) $$(PCH_DEFS) $$(gb_LinkTarget_EXCEPTIONFLAGS))
+	$$(call gb_PrecompiledHeader__copy_reuse_files,$(1),$(3),$(4))
+	mkdir -p $$(dir $$@) && touch $$@
+
+endef
+
+
+# call gb_LinkTarget__reuse_precompiled_header_workarounds,linktarget,pchcxxfile,pchtarget,linktargetmakefilename
+define gb_LinkTarget__reuse_precompiled_header_workarounds
+ifeq ($(COM_IS_CLANG),TRUE)
+$(call gb_LinkTarget_add_defs,$(1),-include $(SRCDIR)/pch/inc/clangfix.hxx)
+endif
+$(if $(filter precompiled_system,$(3)), $(call gb_LinkTarget_add_defs,$(1),-DBOOST_ALL_NO_LIB))
+endef
+
+# call gb_LinkTarget_reuse_precompiled_header,linktarget,pchcxxfile,,linktargetmakefilename
+define gb_LinkTarget_reuse_precompiled_header
+ifneq ($(gb_ENABLE_PCH),)
+ifeq ($(gb_DISABLE_PCH_REUSE),$(false))
+$(call gb_LinkTarget__reuse_precompiled_header_impl,$(1),$(2),$(notdir $(2)),$(4))
+$(call gb_LinkTarget__reuse_precompiled_header_workarounds,$(1),$(2),$(notdir $(2)),$(4))
+endif
+endif
+
+endef
+
+# call gb_LinkTarget_use_common_precompiled_header,linktarget,,,linktargetmakefilename
+define gb_LinkTarget_use_common_precompiled_header
+ifneq ($(gb_ENABLE_PCH),)
+$(call gb_LinkTarget_reuse_precompiled_header,$(1),pch/inc/pch/precompiled_system,,$(4))
 endif
 
 endef

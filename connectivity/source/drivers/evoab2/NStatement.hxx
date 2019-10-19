@@ -82,7 +82,7 @@ namespace connectivity
                 if (mpQuery)
                     e_book_query_ref(mpQuery);
             }
-            EBookQueryWrapper(EBookQueryWrapper&& rhs)
+            EBookQueryWrapper(EBookQueryWrapper&& rhs) noexcept
                 : mpQuery(rhs.mpQuery)
             {
                 rhs.mpQuery = nullptr;
@@ -185,7 +185,7 @@ namespace connectivity
             void         parseSql( const OUString& sql, QueryData& _out_rQueryData );
             EBookQuery  *whereAnalysis( const OSQLParseNode*  parseTree );
             void         orderByAnalysis( const OSQLParseNode* _pOrderByClause, SortDescriptor& _out_rSort );
-            OUString getTableName();
+            OUString getTableName() const;
 
         public:
 

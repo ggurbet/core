@@ -65,7 +65,7 @@ class SdrDragEntrySdrObject : public SdrDragEntry
 {
 private:
     const SdrObject&                                maOriginal;
-    SdrObject*                                      mpClone;
+    SdrObjectUniquePtr                              mxClone;
     bool const                                      mbModify;
 
 public:
@@ -78,7 +78,7 @@ public:
     // added accessors to original and clone
     void prepareCurrentState(SdrDragMethod& rDragMethod);
     const SdrObject& getOriginal() const { return maOriginal; }
-    SdrObject* getClone() { return mpClone; }
+    SdrObject* getClone() { return mxClone.get(); }
 
     virtual drawinglayer::primitive2d::Primitive2DContainer createPrimitive2DSequenceInCurrentState(SdrDragMethod& rDragMethod) override;
 };
@@ -157,7 +157,7 @@ protected:
     void createSdrDragEntries_GlueDrag();
 
     // old call forwarders to the SdrDragView
-    void               ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rStr) const;
+    OUString           ImpGetDescriptionStr(const char* pStrCacheID) const;
     SdrHdl*            GetDragHdl() const              { return getSdrDragView().mpDragHdl; }
     SdrHdlKind         GetDragHdlKind() const          { return getSdrDragView().meDragHdl; }
     SdrDragStat&       DragStat()                      { return getSdrDragView().maDragStat; }
@@ -193,9 +193,9 @@ public:
 
     void Show();
     void Hide();
-    bool IsShiftPressed() { return mbShiftPressed; }
+    bool IsShiftPressed() const { return mbShiftPressed; }
     void SetShiftPressed(bool bShiftPressed) { mbShiftPressed = bShiftPressed; }
-    virtual void TakeSdrDragComment(OUString& rStr) const=0;
+    virtual OUString GetSdrDragComment() const=0;
     virtual bool BeginSdrDrag()=0;
     virtual void MoveSdrDrag(const Point& rPnt)=0;
     virtual bool EndSdrDrag(bool bCopy)=0;
@@ -242,7 +242,7 @@ protected:
 public:
     SdrDragMove(SdrDragView& rNewView);
 
-    virtual void TakeSdrDragComment(OUString& rStr) const override;
+    virtual OUString GetSdrDragComment() const override;
     virtual bool BeginSdrDrag() override;
     virtual void MoveSdrDrag(const Point& rPnt) override;
     virtual bool EndSdrDrag(bool bCopy) override;
@@ -264,7 +264,7 @@ protected:
 public:
     SdrDragResize(SdrDragView& rNewView);
 
-    virtual void TakeSdrDragComment(OUString& rStr) const override;
+    virtual OUString GetSdrDragComment() const override;
     virtual bool BeginSdrDrag() override;
     virtual void MoveSdrDrag(const Point& rPnt) override;
     virtual bool EndSdrDrag(bool bCopy) override;
@@ -284,7 +284,7 @@ private:
     // mechanism to modify wireframe visualisations, but uses the
     // SdrObject::applySpecialDrag() method to change a clone of the
     // SdrObject
-    SdrObject*                  mpClone;
+    SdrObjectUniquePtr               mxClone;
 
 protected:
     virtual void createSdrDragEntries() override;
@@ -293,7 +293,7 @@ public:
     SdrDragObjOwn(SdrDragView& rNewView);
     virtual ~SdrDragObjOwn() override;
 
-    virtual void TakeSdrDragComment(OUString& rStr) const override;
+    virtual OUString GetSdrDragComment() const override;
     virtual bool BeginSdrDrag() override;
     virtual void MoveSdrDrag(const Point& rPnt) override;
     virtual bool EndSdrDrag(bool bCopy) override;

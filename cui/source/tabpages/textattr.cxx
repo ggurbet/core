@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
 #include <svx/svddef.hxx>
 #include <svx/sdasitm.hxx>
 #include <svx/sdtditm.hxx>
@@ -27,16 +25,10 @@
 #include <svx/sdtfsitm.hxx>
 #include <svx/sdtcfitm.hxx>
 #include <svx/svdobj.hxx>
-#include <svx/svdmark.hxx>
-#include <svx/svdview.hxx>
-#include <svx/svdotext.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 
 #include <textattr.hxx>
 #include <svx/dlgutil.hxx>
-#include <sfx2/request.hxx>
-#include <svx/ofaitem.hxx>
 #include <editeng/writingmodeitem.hxx>
 #include <svtools/unitconv.hxx>
 
@@ -56,8 +48,8 @@ const sal_uInt16 SvxTextAttrPage::pRanges[] =
 |* dialog (page) for copying objects
 |*
 \************************************************************************/
-SvxTextAttrPage::SvxTextAttrPage(TabPageParent pPage, const SfxItemSet& rInAttrs)
-    : SvxTabPage(pPage, "cui/ui/textattrtabpage.ui", "TextAttributesPage", rInAttrs)
+SvxTextAttrPage::SvxTextAttrPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SvxTabPage(pPage, pController, "cui/ui/textattrtabpage.ui", "TextAttributesPage", rInAttrs)
     , rOutAttrs(rInAttrs)
     , m_eObjKind(OBJ_NONE)
     , bAutoGrowSizeEnabled(false)
@@ -482,9 +474,9 @@ void SvxTextAttrPage::Construct()
     m_xTsbWordWrapText->set_visible( bWordWrapTextEnabled );
 }
 
-VclPtr<SfxTabPage> SvxTextAttrPage::Create(TabPageParent pWindow, const SfxItemSet* rAttrs)
+std::unique_ptr<SfxTabPage> SvxTextAttrPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrs)
 {
-    return VclPtr<SvxTextAttrPage>::Create(pWindow, *rAttrs);
+    return std::make_unique<SvxTextAttrPage>(pPage, pController, *rAttrs);
 }
 
 /** Check whether we have to uncheck the "Full width" check box.

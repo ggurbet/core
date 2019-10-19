@@ -87,10 +87,10 @@ namespace
 
         if( aDBData != aDocData )
         {
-            sDBNumNm = aDBData.sDataSource + OUStringLiteral1(DB_DELIM)
-                + aDBData.sCommand + OUStringLiteral1(DB_DELIM);
+            sDBNumNm = aDBData.sDataSource + OUStringChar(DB_DELIM)
+                + aDBData.sCommand + OUStringChar(DB_DELIM);
         }
-        sDBNumNm += SwFieldType::GetTypeStr(TYP_DBSETNUMBERFLD);
+        sDBNumNm += SwFieldType::GetTypeStr(SwFieldTypesEnum::DatabaseSetNumber);
 
         return sDBNumNm;
     }
@@ -374,11 +374,10 @@ void DocumentFieldsManager::RemoveFieldType(size_t nField)
         if( nWhich != SwFieldIds::Database )
         {
             OSL_ENSURE( !pTmp->HasWriterListeners(), "Dependent fields present!" );
-            // delete field type
-            delete pTmp;
         }
         else
             (*mpFieldTypes)[nField].release(); // DB fields are ref-counted and delete themselves
+
         mpFieldTypes->erase( mpFieldTypes->begin() + nField );
         m_rDoc.getIDocumentState().SetModified();
     }
@@ -981,7 +980,7 @@ void DocumentFieldsManager::UpdateExpFieldsImpl(
     SwCalc aCalc( m_rDoc );
 
 #if HAVE_FEATURE_DBCONNECTIVITY
-    OUString sDBNumNm( SwFieldType::GetTypeStr( TYP_DBSETNUMBERFLD ) );
+    OUString sDBNumNm( SwFieldType::GetTypeStr( SwFieldTypesEnum::DatabaseSetNumber ) );
 
     // already set the current record number
     SwDBManager* pMgr = m_rDoc.GetDBManager();
@@ -1246,14 +1245,17 @@ void DocumentFieldsManager::UpdateExpFieldsImpl(
                     aNew += pSField->GetFormula();
 
                     SwSbxValue aValue = aCalc.Calculate( aNew );
-                    double nErg = aValue.GetDouble();
-                    // only update one field
-                    if( !aValue.IsVoidValue() && (!pUpdateField || pUpdateField == pTextField) )
+                    if (!aCalc.IsCalcError())
                     {
-                        pSField->SetValue(nErg, pLayout);
+                        double nErg = aValue.GetDouble();
+                        // only update one field
+                        if( !aValue.IsVoidValue() && (!pUpdateField || pUpdateField == pTextField) )
+                        {
+                            pSField->SetValue(nErg, pLayout);
 
-                        if( pSeqNd )
-                            pSFieldTyp->SetChapter(*pSField, *pSeqNd, pLayout);
+                            if( pSeqNd )
+                                pSFieldTyp->SetChapter(*pSField, *pSeqNd, pLayout);
+                        }
                     }
                 }
             }

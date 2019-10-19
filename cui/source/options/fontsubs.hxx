@@ -20,89 +20,42 @@
 #define INCLUDED_CUI_SOURCE_OPTIONS_FONTSUBS_HXX
 
 #include <sfx2/tabdlg.hxx>
-#include <svtools/ctrlbox.hxx>
-#include <svtools/simptabl.hxx>
-#include <vcl/treelistentry.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/layout.hxx>
-#include <vcl/toolbox.hxx>
-
-// class SvxFontSubstCheckListBox ------------------------------------------
-
-class SvxFontSubstCheckListBox : public SvSimpleTable
-{
-    friend class SvxFontSubstTabPage;
-    using SvSimpleTable::SetTabs;
-    using SvTreeListBox::GetCheckButtonState;
-    using SvTreeListBox::SetCheckButtonState;
-
-    protected:
-        virtual void    SetTabs() override;
-        virtual void    KeyInput( const KeyEvent& rKEvt ) override;
-        virtual void    Resize() override;
-
-    public:
-        SvxFontSubstCheckListBox(SvSimpleTableContainer& rParent, WinBits nBits)
-            : SvSimpleTable(rParent, nBits)
-        {
-        }
-
-        bool            IsChecked(sal_uLong nPos, sal_uInt16 nCol = 0);
-        static bool     IsChecked(SvTreeListEntry* pEntry, sal_uInt16 nCol = 0);
-        void            CheckEntryPos(sal_uLong nPos, sal_uInt16 nCol, bool bChecked);
-        void            CheckEntry(SvTreeListEntry* pEntry, sal_uInt16 nCol, bool bChecked);
-        static SvButtonState GetCheckButtonState( SvTreeListEntry*, sal_uInt16 nCol );
-        void            SetCheckButtonState( SvTreeListEntry*, sal_uInt16 nCol, SvButtonState );
-
-        void setColSizes();
-};
 
 // class SvxFontSubstTabPage ----------------------------------------------------
 class SvtFontSubstConfig;
 class SvxFontSubstTabPage : public SfxTabPage
 {
-    VclPtr<CheckBox>                   m_pUseTableCB;
-    VclPtr<VclContainer>               m_pReplacements;
-    VclPtr<FontNameBox>                m_pFont1CB;
-    VclPtr<FontNameBox>                m_pFont2CB;
-    VclPtr<PushButton>                 m_pApply;
-    VclPtr<PushButton>                 m_pDelete;
-
-    VclPtr<SvxFontSubstCheckListBox>   m_pCheckLB;
-
-    VclPtr<ListBox>                    m_pFontNameLB;
-    VclPtr<CheckBox>                   m_pNonPropFontsOnlyCB;
-    VclPtr<ListBox>                    m_pFontHeightLB;
-
     OUString                    m_sAutomatic;
+    std::unique_ptr<SvtFontSubstConfig> m_xConfig;
+    bool m_bSorted;
 
-    std::unique_ptr<SvtFontSubstConfig> pConfig;
+    std::unique_ptr<weld::CheckButton> m_xUseTableCB;
+    std::unique_ptr<weld::ComboBox> m_xFont1CB;
+    std::unique_ptr<weld::ComboBox> m_xFont2CB;
+    std::unique_ptr<weld::Button> m_xApply;
+    std::unique_ptr<weld::Button> m_xDelete;
+    std::unique_ptr<weld::TreeView> m_xCheckLB;
+    std::unique_ptr<weld::ComboBox> m_xFontNameLB;
+    std::unique_ptr<weld::CheckButton> m_xNonPropFontsOnlyCB;
+    std::unique_ptr<weld::ComboBox> m_xFontHeightLB;
 
-    Color           aTextColor;
+    DECL_LINK(SelectComboBoxHdl, weld::ComboBox&, void);
+    DECL_LINK(ClickHdl, weld::Button&, void);
+    DECL_LINK(TreeListBoxSelectHdl, weld::TreeView&, void);
+    DECL_LINK(NonPropFontsHdl, weld::ToggleButton&, void);
+    DECL_LINK(HeaderBarClick, int, void);
+    void SelectHdl(const weld::Widget* pWidget);
 
-    std::unique_ptr<SvLBoxButtonData> m_xCheckButtonData;
-
-    DECL_LINK(SelectEditHdl, Edit&, void);
-    DECL_LINK(SelectComboBoxHdl, ComboBox&, void);
-    DECL_LINK(ClickHdl, Button*, void);
-    DECL_LINK(TreeListBoxSelectHdl, SvTreeListBox*, void);
-    DECL_LINK(NonPropFontsHdl, Button*, void);
-    void SelectHdl(vcl::Window const *);
-
-    SvTreeListEntry*    CreateEntry(OUString& rFont1, OUString& rFont2);
     void            CheckEnable();
-
-
-    virtual ~SvxFontSubstTabPage() override;
-    virtual void dispose() override;
+    void            setColSizes();
 
 public:
-    SvxFontSubstTabPage( vcl::Window* pParent, const SfxItemSet& rSet );
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
+    SvxFontSubstTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
+    virtual ~SvxFontSubstTabPage() override;
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
 };
-
 
 #endif // INCLUDED_CUI_SOURCE_OPTIONS_FONTSUBS_HXX
 

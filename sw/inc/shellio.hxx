@@ -33,6 +33,7 @@
 #include <o3tl/typed_flags_set.hxx>
 #include "swdllapi.h"
 #include "docfac.hxx"
+#include "unocrsr.hxx"
 
 class SfxItemPool;
 class SfxItemSet;
@@ -266,7 +267,7 @@ public:
     virtual size_t GetSectionList( SfxMedium& rMedium,
                                    std::vector<OUString>& rStrings) const;
 
-    const tools::SvRef<SotStorage>& getSotStorageRef() { return m_pStorage; };
+    const tools::SvRef<SotStorage>& getSotStorageRef() const { return m_pStorage; };
     void setSotStorageRef(const tools::SvRef<SotStorage>& pStgRef) { m_pStorage = pStgRef; };
 
 private:
@@ -291,7 +292,7 @@ class SW_DLLPUBLIC StgReader : public Reader
 
 public:
     virtual SwReaderType GetReaderType() override;
-    const OUString& GetFltName() { return aFltName; }
+    const OUString& GetFltName() const { return aFltName; }
     virtual void SetFltName( const OUString& r ) override;
 };
 
@@ -311,14 +312,12 @@ public:
 
     SwDoc* GetDoc();
     void   ClearDoc();                  // Delete Doc-contents.
-    OUString GetName();
+    OUString GetName() const;
     void   SetName( const OUString& );
     ErrCode const & GetError() const { return nErr; }
 
     OUString GetBaseURL() const;
     void   SetBaseURL( const OUString& rURL );
-
-    bool   IsOld() const;
 
     sal_uInt16 GetCount() const;                        // Get count text modules.
     sal_uInt16 GetIndex( const OUString& ) const;       // Get index of short names.
@@ -401,7 +400,7 @@ protected:
 public:
     SwDoc* m_pDoc;
     SwPaM* m_pOrigPam;            // Last Pam that has to be processed.
-    SwPaM* m_pCurrentPam;
+    std::shared_ptr<SwUnoCursor> m_pCurrentPam;
     bool m_bWriteAll : 1;
     bool m_bShowProgress : 1;
     bool m_bWriteClipboardDoc : 1;
@@ -448,7 +447,7 @@ public:
                         std::vector< const ::sw::mark::IMark* >& rArr );
 
     // Create new PaM at position.
-    static SwPaM * NewSwPaM(SwDoc & rDoc,
+    static std::shared_ptr<SwUnoCursor> NewUnoCursor(SwDoc & rDoc,
                             sal_uLong const nStartIdx, sal_uLong const nEndIdx);
 
     // If applicable copy a local file into internet.

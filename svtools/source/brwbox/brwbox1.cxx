@@ -22,16 +22,13 @@
 #include <o3tl/numeric.hxx>
 #include "datwin.hxx"
 #include <tools/debug.hxx>
-#include <tools/stream.hxx>
 #include <tools/fract.hxx>
 #include <sal/log.hxx>
 
-#include <functional>
 #include <algorithm>
 #include <com/sun/star/accessibility/AccessibleTableModelChange.hpp>
 #include <com/sun/star/accessibility/AccessibleTableModelChangeType.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
-#include <com/sun/star/accessibility/XAccessible.hpp>
 #include <tools/multisel.hxx>
 #include "brwimpl.hxx"
 
@@ -1869,6 +1866,9 @@ void BrowseBox::MakeFieldVisible
 */
 
 {
+    if (!pDataWin)
+        return;
+
     Size aTestSize = pDataWin->GetSizePixel();
 
     if ( !bBootstrapped ||
@@ -2333,7 +2333,7 @@ void BrowseBox::GetFocus()
 }
 
 
-sal_uInt16 BrowseBox::GetVisibleRows()
+sal_uInt16 BrowseBox::GetVisibleRows() const
 {
     return static_cast<sal_uInt16>((pDataWin->GetOutputSizePixel().Height() - 1 )/ GetDataRowHeight() + 1);
 }

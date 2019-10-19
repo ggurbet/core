@@ -47,7 +47,6 @@
 #include <win/salbmp.h>
 #include <win/winlayout.hxx>
 
-#include <salimestatus.hxx>
 #include <salsys.hxx>
 
 #include <desktop/crashreport.hxx>
@@ -80,7 +79,7 @@ void SalAbort( const OUString& rErrorText, bool )
     }
     else
     {
-        CrashReporter::AddKeyValue("AbortMessage", rErrorText);
+        CrashReporter::addKeyValue("AbortMessage", rErrorText, CrashReporter::Write);
         // make sure crash reporter is triggered
         RaiseException( 0, EXCEPTION_NONCONTINUABLE, 0, nullptr );
         FatalAppExitW( 0, o3tl::toW(rErrorText.getStr()) );
@@ -289,7 +288,8 @@ SalData::SalData()
     mnAppThreadId = 0;          // Id from Application-Thread
     mbScrSvrEnabled = FALSE;    // ScreenSaver enabled
     mpFirstIcon = nullptr;      // icon cache, points to first icon, NULL if none
-    mpTempFontItem = nullptr;
+    mpSharedTempFontItem = nullptr;
+    mpOtherTempFontItem = nullptr;
     mbThemeChanged = false;     // true if visual theme was changed: throw away theme handles
     mbThemeMenuSupport = false;
 
@@ -458,7 +458,7 @@ bool ImplSalYield( bool bWait, bool bHandleAllCurrentEvents )
 
     // 0ms timeouts are handled out-of-bounds to prevent busy-locking the
     // event loop with timeout messages.
-    // We ensure we never handle more then one timeout per call.
+    // We ensure we never handle more than one timeout per call.
     // This way we'll always process a normal system message.
     if ( !bWasTimeoutMsg && pTimer && pTimer->IsDirectTimeout() )
     {
@@ -988,20 +988,25 @@ int WinSalInstance::WorkaroundExceptionHandlingInUSER32Lib(int, LPEXCEPTION_POIN
     return UnhandledExceptionFilter( pExceptionInfo );
 }
 
+typedef LONG NTSTATUS;
+typedef NTSTATUS(WINAPI* RtlGetVersion_t)(PRTL_OSVERSIONINFOW);
+constexpr NTSTATUS STATUS_SUCCESS = 0x00000000;
+
 OUString WinSalInstance::getOSVersion()
 {
+    OUStringBuffer aVer(50); // capacity for string like "Windows 6.1 Service Pack 1 build 7601"
+    aVer.append("Windows ");
     // GetVersion(Ex) and VersionHelpers (based on VerifyVersionInfo) API are
     // subject to manifest-based behavior since Windows 8.1, so give wrong results.
     // Another approach would be to use NetWkstaGetInfo, but that has some small
     // reported delays (some milliseconds), and might get slower in domains with
     // poor network connections.
     // So go with a solution described at https://msdn.microsoft.com/en-us/library/ms724429
-    HINSTANCE hLibrary = LoadLibraryW(L"kernel32.dll");
-    if (hLibrary != nullptr)
+    bool bHaveVerFromKernel32 = false;
+    if (HMODULE h_kernel32 = GetModuleHandleW(L"kernel32.dll"))
     {
         wchar_t szPath[MAX_PATH];
-        DWORD dwCount = GetModuleFileNameW(hLibrary, szPath, SAL_N_ELEMENTS(szPath));
-        FreeLibrary(hLibrary);
+        DWORD dwCount = GetModuleFileNameW(h_kernel32, szPath, SAL_N_ELEMENTS(szPath));
         if (dwCount != 0 && dwCount < SAL_N_ELEMENTS(szPath))
         {
             dwCount = GetFileVersionInfoSizeW(szPath, nullptr);
@@ -1014,19 +1019,41 @@ OUString WinSalInstance::getOSVersion()
                     UINT dwBlockSz = 0;
                     if (VerQueryValueW(ver.get(), L"\\", &pBlock, &dwBlockSz) != FALSE && dwBlockSz >= sizeof(VS_FIXEDFILEINFO))
                     {
-                        VS_FIXEDFILEINFO *vinfo = static_cast<VS_FIXEDFILEINFO *>(pBlock);
-                        OUStringBuffer aVer;
-                        aVer.append("Windows ");
-                        aVer.append(static_cast<sal_Int32>(HIWORD(vinfo->dwProductVersionMS)));
-                        aVer.append(".");
-                        aVer.append(static_cast<sal_Int32>(LOWORD(vinfo->dwProductVersionMS)));
-                        return aVer.makeStringAndClear();
+                        VS_FIXEDFILEINFO* vi1 = static_cast<VS_FIXEDFILEINFO*>(pBlock);
+                        aVer.append(OUString::number(HIWORD(vi1->dwProductVersionMS)) + "."
+                                    + OUString::number(LOWORD(vi1->dwProductVersionMS)));
+                        bHaveVerFromKernel32 = true;
                     }
                 }
             }
         }
     }
-    return "unknown";
+    // Now use RtlGetVersion (which is not subject to deprecation for GetVersion(Ex) API)
+    // to get build number and SP info
+    bool bHaveVerFromRtlGetVersion = false;
+    if (HMODULE h_ntdll = GetModuleHandleW(L"ntdll.dll"))
+    {
+        if (auto RtlGetVersion
+            = reinterpret_cast<RtlGetVersion_t>(GetProcAddress(h_ntdll, "RtlGetVersion")))
+        {
+            RTL_OSVERSIONINFOW vi2{}; // initialize with zeroes - a better alternative to memset
+            vi2.dwOSVersionInfoSize = sizeof(vi2);
+            if (STATUS_SUCCESS == RtlGetVersion(&vi2))
+            {
+                if (!bHaveVerFromKernel32) // we failed above; let's hope this would be useful
+                    aVer.append(OUString::number(vi2.dwMajorVersion) + "."
+                                + OUString::number(vi2.dwMinorVersion));
+                aVer.append(" ");
+                if (vi2.szCSDVersion[0])
+                    aVer.append(o3tl::toU(vi2.szCSDVersion)).append(" ");
+                aVer.append("Build " + OUString::number(vi2.dwBuildNumber));
+                bHaveVerFromRtlGetVersion = true;
+            }
+        }
+    }
+    if (!bHaveVerFromKernel32 && !bHaveVerFromRtlGetVersion)
+        aVer.append("unknown");
+    return aVer.makeStringAndClear();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

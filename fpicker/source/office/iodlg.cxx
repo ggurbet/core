@@ -21,6 +21,7 @@
 
 #include <sal/macros.h>
 #include <sal/log.hxx>
+#include "fileview.hxx"
 #include "iodlg.hxx"
 #include <svtools/PlaceEditDialog.hxx>
 #include "PlacesListBox.hxx"
@@ -37,7 +38,6 @@
 #include <svl/urihelper.hxx>
 #include <unotools/pathoptions.hxx>
 #include <unotools/viewoptions.hxx>
-#include <svtools/fileview.hxx>
 #include <svtools/sfxecode.hxx>
 #include <vcl/svtabbx.hxx>
 #include <vcl/treelistentry.hxx>
@@ -184,7 +184,7 @@ namespace
 
     void lcl_autoUpdateFileExtension( SvtFileDialog* _pDialog, const OUString& _rLastFilterExt )
     {
-        // if auto extension is enabled ....
+        // if auto extension is enabled...
         if ( _pDialog->isAutoExtensionEnabled() )
         {
             // automatically switch to the extension of the (maybe just newly selected) extension
@@ -520,8 +520,8 @@ void SvtFileDialog::dispose()
         batch->commit();
     }
 
-    pImpl.reset();
     _pFileView.disposeAndClear();
+    pImpl.reset();
     _pSplitter.disposeAndClear();
     _pContainer.disposeAndClear();
     _pPrevBmp.disposeAndClear();
@@ -862,7 +862,7 @@ void SvtFileDialog::OpenHdl_Impl(void const * pVoid)
 
     if ( aFileName.isEmpty() )
     {
-        // if an entry is selected in the view ....
+        // if an entry is selected in the view...
         if ( _pFileView->GetSelectionCount() )
         {   // -> use this one. This will allow us to step down this folder
             aFileName = _pFileView->GetCurrentURL();
@@ -2301,7 +2301,7 @@ Control* SvtFileDialog::getControl( sal_Int16 _nControlId, bool _bLabelControl )
             break;
 
         case EDIT_FILEURL_LABEL:
-            pReturn = static_cast< Control* >( pImpl->_pFtFileName );
+            pReturn = pImpl->_pFtFileName;
             break;
 
         case CHECKBOX_AUTOEXTENSION:
@@ -2628,7 +2628,7 @@ void SvtFileDialog::setCurrentFileText( const OUString& _rText, bool _bSelectAll
 }
 
 
-bool SvtFileDialog::isAutoExtensionEnabled()
+bool SvtFileDialog::isAutoExtensionEnabled() const
 {
     return pImpl->_pCbAutoExtension && pImpl->_pCbAutoExtension->IsChecked();
 }

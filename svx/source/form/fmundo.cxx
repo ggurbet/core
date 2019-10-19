@@ -617,7 +617,7 @@ void SAL_CALL FmXUndoEnvironment::propertyChange(const PropertyChangeEvent& evt)
         PropertySetInfo::AllProperties& rPropInfos = aSetPos->second.aProps;
         PropertySetInfo::AllProperties::iterator aPropertyPos = rPropInfos.find(evt.PropertyName);
         if (aPropertyPos == rPropInfos.end())
-        {   // nothing 'til now ... have to change this ....
+        {   // nothing 'til now ... have to change this...
             PropertyInfo aNewEntry;
 
             // the attributes
@@ -1039,7 +1039,7 @@ FmUndoContainerAction::FmUndoContainerAction(FmFormModel& _rMod,
     if ( xCont.is() && xElem.is() )
     {
         // normalize
-        m_xElement.set(xElem, css::uno::UNO_QUERY);
+        m_xElement = xElem;
         if ( m_eAction == Removed )
         {
             if (m_nIndex >= 0)
@@ -1060,7 +1060,7 @@ FmUndoContainerAction::FmUndoContainerAction(FmFormModel& _rMod,
 
 FmUndoContainerAction::~FmUndoContainerAction()
 {
-    // if we own the object ....
+    // if we own the object...
     DisposeElement( m_xOwnElement );
 }
 

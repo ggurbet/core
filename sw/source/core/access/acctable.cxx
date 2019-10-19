@@ -17,12 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 
 #include <algorithm>
 #include <vector>
-#include <set>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
@@ -33,19 +31,16 @@
 #include <vcl/svapp.hxx>
 #include <frmfmt.hxx>
 #include <tabfrm.hxx>
-#include <rowfrm.hxx>
 #include <cellfrm.hxx>
 #include <swtable.hxx>
 #include <crsrsh.hxx>
 #include <viscrs.hxx>
 #include <hints.hxx>
-#include <fesh.hxx>
 #include "accfrmobjslist.hxx"
 #include <accmap.hxx>
 #include <strings.hrc>
 #include "acctable.hxx"
 
-#include <layfrm.hxx>
 #include <com/sun/star/accessibility/XAccessibleText.hpp>
 
 #include <editeng/brushitem.hxx>
@@ -552,9 +547,9 @@ void SwAccAllTableSelHander_Impl::Unselect( sal_Int32 nRowOrCol,
                                             sal_Int32 nExt )
 {
     OSL_ENSURE( static_cast< size_t >( nRowOrCol ) < m_aSelected.size(),
-             "index to large" );
+             "index too large" );
     OSL_ENSURE( static_cast< size_t >( nRowOrCol+nExt ) <= m_aSelected.size(),
-             "extent to large" );
+             "extent too large" );
     while( nExt )
     {
         if( m_aSelected[static_cast< size_t >( nRowOrCol )] )
@@ -676,8 +671,9 @@ SwAccessibleTable::SwAccessibleTable(
         const SwTabFrame* pTabFrame  ) :
     SwAccessibleContext( pInitMap, AccessibleRole::TABLE, pTabFrame )
 {
-    const SwFrameFormat *pFrameFormat = pTabFrame->GetFormat();
-    const_cast< SwFrameFormat * >( pFrameFormat )->Add( this );
+    const SwFrameFormat* pFrameFormat = pTabFrame->GetFormat();
+    if(pFrameFormat)
+        StartListening(const_cast<SwFrameFormat*>(pFrameFormat)->GetNotifier());
 
     SetName( pFrameFormat->GetName() + "-" + OUString::number( pTabFrame->GetPhyPageNum() ) );
 
@@ -695,17 +691,19 @@ SwAccessibleTable::~SwAccessibleTable()
     mpTableData.reset();
 }
 
-void SwAccessibleTable::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwAccessibleTable::Notify(const SfxHint& rHint)
 {
-    sal_uInt16 nWhich = pOld ? pOld->Which() : pNew ? pNew->Which() : 0 ;
-    const SwTabFrame *pTabFrame = static_cast< const SwTabFrame * >( GetFrame() );
-    switch( nWhich )
+    if(rHint.GetId() == SfxHintId::Dying)
     {
-    case RES_NAME_CHANGED:
-        if( pTabFrame )
+        EndListeningAll();
+    }
+    else if(auto pLegacyHint = dynamic_cast<const sw::LegacyModifyHint*>(&rHint))
+    {
+        sal_uInt16 nWhich = pLegacyHint->m_pOld ? pLegacyHint->m_pOld->Which() : pLegacyHint->m_pNew ? pLegacyHint->m_pNew->Which() : 0;
+        const SwTabFrame* pTabFrame = static_cast<const SwTabFrame*>(GetFrame());
+        if(nWhich == RES_NAME_CHANGED && pTabFrame)
         {
             const SwFrameFormat *pFrameFormat = pTabFrame->GetFormat();
-            OSL_ENSURE( pFrameFormat == GetRegisteredIn(), "invalid frame" );
 
             const OUString sOldName( GetName() );
             const OUString sNewTabName = pFrameFormat->GetName();
@@ -734,17 +732,6 @@ void SwAccessibleTable::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew
                 FireAccessibleEvent( aEvent );
             }
         }
-        break;
-
-    case RES_OBJECTDYING:
-        // mba: it seems that this class intentionally does not call code in base class SwClient
-        if( pOld && ( GetRegisteredIn() == static_cast< SwModify *>( static_cast< const SwPtrMsgPoolItem * >( pOld )->pObject ) ) )
-            EndListeningAll();
-        break;
-
-    default:
-        // mba: former call to base class method removed as it is meant to handle only RES_OBJECTDYING
-        break;
     }
 }
 
@@ -858,7 +845,7 @@ OUString SAL_CALL SwAccessibleTable::getAccessibleRowDescription(
             uno::Reference< XAccessibleText > xChildText( xChild, uno::UNO_QUERY );
             if ( xChildText.is() )
             {
-                sRowDesc = sRowDesc + xChildText->getText();
+                sRowDesc += xChildText->getText();
             }
         }
     }
@@ -891,7 +878,7 @@ OUString SAL_CALL SwAccessibleTable::getAccessibleColumnDescription(
             uno::Reference< XAccessibleText > xChildText( xChild, uno::UNO_QUERY );
             if ( xChildText.is() )
             {
-                sColumnDesc = sColumnDesc + xChildText->getText();
+                sColumnDesc += xChildText->getText();
             }
         }
     }
@@ -1230,7 +1217,7 @@ sal_Int32 SAL_CALL SwAccessibleTable::getAccessibleColumn(
 
 OUString SAL_CALL SwAccessibleTable::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Writer.SwAccessibleTableView");
+    return "com.sun.star.comp.Writer.SwAccessibleTableView";
 }
 
 sal_Bool SAL_CALL SwAccessibleTable::supportsService(
@@ -1241,11 +1228,7 @@ sal_Bool SAL_CALL SwAccessibleTable::supportsService(
 
 uno::Sequence< OUString > SAL_CALL SwAccessibleTable::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.table.AccessibleTableView";
-    pArray[1] = sAccessibleServiceName;
-    return aRet;
+    return { "com.sun.star.table.AccessibleTableView", sAccessibleServiceName };
 }
 
 void SwAccessibleTable::InvalidatePosOrSize( const SwRect& rOldBox )
@@ -1712,8 +1695,9 @@ SwAccessibleTableColHeaders::SwAccessibleTableColHeaders(
 {
     SolarMutexGuard aGuard;
 
-    const SwFrameFormat *pFrameFormat = pTabFrame->GetFormat();
-    const_cast< SwFrameFormat * >( pFrameFormat )->Add( this );
+    const SwFrameFormat* pFrameFormat = pTabFrame->GetFormat();
+    if(pFrameFormat)
+        StartListening(const_cast<SwFrameFormat*>(pFrameFormat)->GetNotifier());
     const OUString aName = pFrameFormat->GetName() + "-ColumnHeaders";
 
     SetName( aName + "-" + OUString::number( pTabFrame->GetPhyPageNum() ) );
@@ -1731,7 +1715,7 @@ std::unique_ptr<SwAccessibleTableData_Impl> SwAccessibleTableColHeaders::CreateN
     return std::unique_ptr<SwAccessibleTableData_Impl>(new SwAccessibleTableData_Impl( *(GetMap()), pTabFrame, IsInPagePreview(), true ));
 }
 
-void SwAccessibleTableColHeaders::Modify( const SfxPoolItem * /*pOld*/, const SfxPoolItem * /*pNew*/ )
+void SwAccessibleTableColHeaders::Notify(const SfxHint& )
 {
 }
 
@@ -1807,7 +1791,7 @@ uno::Reference< XAccessibleTable >
 OUString SAL_CALL SwAccessibleTableColHeaders::getImplementationName()
 {
     static const sal_Char sImplName[] = "com.sun.star.comp.Writer.SwAccessibleTableColumnHeadersView";
-    return OUString(sImplName);
+    return sImplName;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

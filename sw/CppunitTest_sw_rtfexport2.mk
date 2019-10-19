@@ -11,6 +11,8 @@
 
 $(eval $(call gb_CppunitTest_CppunitTest,sw_rtfexport2))
 
+$(eval $(call gb_CppunitTest_use_common_precompiled_header,sw_rtfexport2))
+
 $(eval $(call gb_CppunitTest_add_exception_objects,sw_rtfexport2, \
     sw/qa/extras/rtfexport/rtfexport2 \
 ))
@@ -41,12 +43,6 @@ $(eval $(call gb_CppunitTest_set_include,sw_rtfexport2,\
     -I$(SRCDIR)/sw/qa/extras/inc \
     $$(INCLUDE) \
 ))
-
-ifeq ($(OS),WNT)
-$(eval $(call gb_CppunitTest_add_cxxflags,sw_rtfexport2,\
-    -bigobj \
-))
-endif
 
 $(eval $(call gb_CppunitTest_use_api,sw_rtfexport2,\
 	udkapi \

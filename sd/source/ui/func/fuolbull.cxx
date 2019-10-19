@@ -23,7 +23,6 @@
 #include <editeng/outliner.hxx>
 #include <editeng/eeitem.hxx>
 #include <sfx2/request.hxx>
-#include <sfx2/sfxdlg.hxx>
 #include <editeng/numitem.hxx>
 #include <strings.hxx>
 
@@ -38,7 +37,6 @@
 #include <svx/nbdtmgfact.hxx>
 #include <svx/svdoutl.hxx>
 #include <memory>
-#include <sdpage.hxx>
 
 using namespace svx::sidebar;
 namespace sd {
@@ -81,8 +79,14 @@ void FuBulletAndPosition::DoExecute( SfxRequest& rReq )
     SfxItemSet aEditAttr( mpDoc->GetPool() );
     mpView->GetAttributes( aEditAttr );
 
-    SfxItemSet aNewAttr( mpViewShell->GetPool(),
-                             svl::Items<EE_ITEMS_START, EE_ITEMS_END>{} );
+    static const sal_uInt16 aAttrMap[] =
+    {
+        EE_PARA_NUMBULLET,
+        EE_PARA_BULLET,
+        0
+    };
+
+    SfxItemSet aNewAttr( mpViewShell->GetPool(), aAttrMap );
     aNewAttr.Put( aEditAttr, false );
 
     auto pView = mpView;

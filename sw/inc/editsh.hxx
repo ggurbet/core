@@ -208,7 +208,7 @@ public:
     bool AppendTextNode();
     void AutoFormatBySplitNode();
 
-    /** If cursor is in a INetAttribute it will be deleted completely
+    /** If cursor is in an INetAttribute it will be deleted completely
      including the descriptive text (needed at drag & drop). */
     void DelINetAttrWithText();
 
@@ -362,7 +362,7 @@ public:
     void ApplyAdvancedClassification(std::vector<svx::ClassificationResult> const & rResult);
     std::vector<svx::ClassificationResult> CollectAdvancedClassification();
 
-    SfxWatermarkItem GetWatermark();
+    SfxWatermarkItem GetWatermark() const;
     void SetWatermark(const SfxWatermarkItem& rText);
 
     /// Sign the paragraph at the cursor.
@@ -685,7 +685,7 @@ public:
     /// Update content of all charts for table with given name.
     void UpdateCharts( const OUString &rName );
 
-    OUString GetCurWord();
+    OUString GetCurWord() const;
 
     /** Glossary from glossary document in current document.
      Styles only if not already existent. */
@@ -816,7 +816,11 @@ public:
     /// Call AutoCorrect
     void AutoCorrect( SvxAutoCorrect& rACorr, bool bInsertMode,
                         sal_Unicode cChar );
-    bool GetPrevAutoCorrWord( SvxAutoCorrect const & rACorr, OUString& rWord );
+    OUString GetPrevAutoCorrWord(SvxAutoCorrect& rACorr);
+
+    // We consider no more than 9 characters before the cursor, and they must not start in the
+    // middle of a word (leading spaces are OK)
+    std::vector<OUString> GetChunkForAutoText();
 
     /// Set our styles according to the respective rules.
     void AutoFormat( const SvxSwAutoFormatFlags* pAFlags );
@@ -841,7 +845,7 @@ public:
 
     sal_uInt16 GetLineCount();
 
-    /// Query and set footnote-text/number. Set.. to current SSelection!
+    /// Query and set footnote-text/number. Set... to current SSelection!
     bool GetCurFootnote( SwFormatFootnote* pToFillFootnote = nullptr );
     bool SetCurFootnote( const SwFormatFootnote& rFillFootnote );
     bool HasFootnotes( bool bEndNotes = false ) const;

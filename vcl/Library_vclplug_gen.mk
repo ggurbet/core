@@ -30,6 +30,8 @@ $(eval $(call gb_Library_use_custom_headers,vclplug_gen,\
 
 $(eval $(call gb_Library_use_sdk_api,vclplug_gen))
 
+$(eval $(call gb_Library_use_common_precompiled_header,vclplug_gen))
+
 $(eval $(call gb_Library_use_libraries,vclplug_gen,\
     vcl \
     tl \
@@ -72,7 +74,6 @@ $(eval $(call gb_Library_add_exception_objects,vclplug_gen,\
     vcl/unx/generic/app/i18n_ic \
     vcl/unx/generic/app/i18n_im \
     vcl/unx/generic/app/i18n_keysym \
-    vcl/unx/generic/app/i18n_status \
     vcl/unx/generic/app/i18n_xkb \
     vcl/unx/generic/app/keysymnames \
     vcl/unx/generic/app/randrwrapper \

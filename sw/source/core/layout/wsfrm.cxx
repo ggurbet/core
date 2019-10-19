@@ -18,6 +18,7 @@
  */
 
 #include <hints.hxx>
+#include <o3tl/safeint.hxx>
 #include <svl/itemiter.hxx>
 #include <editeng/brushitem.hxx>
 #include <fmtornt.hxx>
@@ -478,15 +479,14 @@ void SwFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem * pNew )
     {
         SfxItemIter aNIter( *static_cast<const SwAttrSetChg*>(pNew)->GetChgSet() );
         SfxItemIter aOIter( *static_cast<const SwAttrSetChg*>(pOld)->GetChgSet() );
-        while( true )
+        const SfxPoolItem* pNItem = aNIter.GetCurItem();
+        const SfxPoolItem* pOItem = aOIter.GetCurItem();
+        do
         {
-            UpdateAttrFrame( aOIter.GetCurItem(),
-                         aNIter.GetCurItem(), nInvFlags );
-            if( aNIter.IsAtEnd() )
-                break;
-            aNIter.NextItem();
-            aOIter.NextItem();
-        }
+            UpdateAttrFrame(pOItem, pNItem, nInvFlags);
+            pNItem = aNIter.NextItem();
+            pOItem = aOIter.NextItem();
+        } while (pNItem);
     }
     else
         UpdateAttrFrame( pOld, pNew, nInvFlags );
@@ -1316,7 +1316,7 @@ void SwLayoutFrame::Paste( SwFrame* pParent, SwFrame* pSibling)
     // There are the following cases:
     // (A) Header and footer frames both in vertical and in horizontal layout
     //      have to size the width to the upper/parent. A dimension in the height
-    //      has to cause a adjustment/grow of the upper/parent.
+    //      has to cause an adjustment/grow of the upper/parent.
     //      --> <fnRect> = fnRectHori
     // (B) Cell and column frames in vertical layout, the width has to be the
     //          same as upper/parent and a dimension in height causes adjustment/grow
@@ -2307,18 +2307,16 @@ void SwContentFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem * pNew )
     {
         SfxItemIter aNIter( *static_cast<const SwAttrSetChg*>(pNew)->GetChgSet() );
         SfxItemIter aOIter( *static_cast<const SwAttrSetChg*>(pOld)->GetChgSet() );
+        const SfxPoolItem* pNItem = aNIter.GetCurItem();
+        const SfxPoolItem* pOItem = aOIter.GetCurItem();
         SwAttrSetChg aOldSet( *static_cast<const SwAttrSetChg*>(pOld) );
         SwAttrSetChg aNewSet( *static_cast<const SwAttrSetChg*>(pNew) );
-        while( true )
+        do
         {
-            UpdateAttr_( aOIter.GetCurItem(),
-                         aNIter.GetCurItem(), nInvFlags,
-                         &aOldSet, &aNewSet );
-            if( aNIter.IsAtEnd() )
-                break;
-            aNIter.NextItem();
-            aOIter.NextItem();
-        }
+            UpdateAttr_(pOItem, pNItem, nInvFlags, &aOldSet, &aNewSet);
+            pNItem = aNIter.NextItem();
+            pOItem = aOIter.NextItem();
+        } while (pNItem);
         if ( aOldSet.Count() || aNewSet.Count() )
             SwFrame::Modify( &aOldSet, &aNewSet );
     }
@@ -2656,7 +2654,7 @@ SwTwips SwLayoutFrame::GrowFrame( SwTwips nDist, bool bTst, bool bInfo )
                 }
 
                 if( SwNeighbourAdjust::GrowAdjust == nAdjust && nGrow < nReal )
-                    nReal += AdjustNeighbourhood( nReal - nGrow, bTst );
+                    nReal = o3tl::saturating_add(nReal, AdjustNeighbourhood( nReal - nGrow, bTst ));
 
                 if ( IsFootnoteFrame() && (nGrow != nReal) && GetNext() )
                 {
@@ -4180,18 +4178,19 @@ static void AddRemoveFlysForNode(
         SwPageFrame *const pPage,
         SwTextNode const*const pNode,
         std::vector<sw::Extent>::const_iterator & rIterFirst,
-        std::vector<sw::Extent>::const_iterator const& rIterEnd)
+        std::vector<sw::Extent>::const_iterator const& rIterEnd,
+        SwTextNode const*const pFirstNode, SwTextNode const*const pLastNode)
 {
     if (pNode == &rTextNode)
     {   // remove existing hidden at-char anchored flys
-        RemoveHiddenObjsOfNode(rTextNode, &rIterFirst, &rIterEnd);
+        RemoveHiddenObjsOfNode(rTextNode, &rIterFirst, &rIterEnd, pFirstNode, pLastNode);
     }
     else if (rTextNode.GetIndex() < pNode->GetIndex())
     {
         // pNode's frame has been deleted by CheckParaRedlineMerge()
         AppendObjsOfNode(&rTable,
             pNode->GetIndex(), &rFrame, pPage, rTextNode.GetDoc(),
-            &rIterFirst, &rIterEnd);
+            &rIterFirst, &rIterEnd, pFirstNode, pLastNode);
         if (pSkipped)
         {
             // if a fly has been added by AppendObjsOfNode, it must be skipped; if not, then it doesn't matter if it's skipped or not because it has no frames and because of that it would be skipped anyway
@@ -4239,7 +4238,8 @@ void AddRemoveFlysAnchoredToFrameStartingAtNode(
                 || iter->pNode != pNode)
             {
                 AddRemoveFlysForNode(rFrame, rTextNode, pSkipped, rTable, pPage,
-                        pNode, iterFirst, iter);
+                        pNode, iterFirst, iter,
+                        pMerged->pFirstNode, pMerged->pLastNode);
                 sal_uLong const until = iter == pMerged->extents.end()
                     ? pMerged->pLastNode->GetIndex() + 1
                     : iter->pNode->GetIndex();
@@ -4251,7 +4251,8 @@ void AddRemoveFlysAnchoredToFrameStartingAtNode(
                     if (pTmp->GetRedlineMergeFlag() == SwNode::Merge::NonFirst)
                     {
                         AddRemoveFlysForNode(rFrame, rTextNode, pSkipped,
-                            rTable, pPage, pTmp->GetTextNode(), iter, iter);
+                            rTable, pPage, pTmp->GetTextNode(), iter, iter,
+                            pMerged->pFirstNode, pMerged->pLastNode);
                     }
                 }
                 if (iter == pMerged->extents.end())

@@ -220,8 +220,6 @@ bool SvxXMLXTableExportComponent::save(
         uno::Reference<embed::XStorage > xSubStorage;
         uno::Reference<XGraphicStorageHandler> xGraphicStorageHandler;
 
-        uno::Reference<xml::sax::XDocumentHandler> xHandler( xWriter, uno::UNO_QUERY );
-
         if( !bToStorage || !xStorage.is() )
         { // local URL -> SfxMedium route
             if( bSaveAsStorage )
@@ -276,14 +274,13 @@ bool SvxXMLXTableExportComponent::save(
         if( !xOut.is() )
             return false;
 
-        uno::Reference<io::XActiveDataSource> xMetaSrc( xWriter, uno::UNO_QUERY );
-        xMetaSrc->setOutputStream( xOut );
+        xWriter->setOutputStream( xOut );
         if( xGraphicHelper.is() )
             xGraphicStorageHandler = xGraphicHelper.get();
 
         // Finally do the export
         const OUString aName;
-        rtl::Reference< SvxXMLXTableExportComponent > xExporter( new SvxXMLXTableExportComponent( xContext, aName, xHandler, xTable, xGraphicStorageHandler ) );
+        rtl::Reference< SvxXMLXTableExportComponent > xExporter( new SvxXMLXTableExportComponent( xContext, aName, xWriter, xTable, xGraphicStorageHandler ) );
         bRet = xExporter->exportTable();
 
         if( xGraphicHelper )
@@ -296,9 +293,7 @@ bool SvxXMLXTableExportComponent::save(
             if( xTrans.is() )
                 xTrans->commit();
 
-            uno::Reference< XComponent > xComp( xSubStorage, UNO_QUERY );
-            if( xComp.is() )
-                xSubStorage->dispose();
+            xSubStorage->dispose();
         }
     }
     catch( uno::Exception& )
@@ -377,16 +372,13 @@ bool SvxXMLXTableExportComponent::exportTable() throw()
 
             SvXMLElementExport aElem( *this, XML_NAMESPACE_OOO, pEleName, true, true );
 
-            Sequence< OUString > aNames = mxTable->getElementNames();
-            const sal_Int32 nCount = aNames.getLength();
-            const OUString* pNames = aNames.getConstArray();
+            const Sequence< OUString > aNames = mxTable->getElementNames();
             Any aAny;
 
-            sal_Int32 nIndex;
-            for( nIndex = 0; nIndex < nCount; nIndex++, pNames++ )
+            for( const OUString& rName : aNames )
             {
-                aAny = mxTable->getByName( *pNames );
-                pExporter->exportEntry( *pNames, aAny );
+                aAny = mxTable->getByName( rName );
+                pExporter->exportEntry( rName, aAny );
             }
 
             bRet = true;

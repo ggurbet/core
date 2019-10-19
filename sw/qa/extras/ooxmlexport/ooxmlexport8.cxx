@@ -44,6 +44,9 @@
 #include <unotools/fltrcfg.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <oox/drawingml/drawingmltypes.hxx>
+#include <xmloff/odffields.hxx>
+#include <IDocumentMarkAccess.hxx>
+#include <IMark.hxx>
 
 #include <bordertest.hxx>
 
@@ -140,15 +143,13 @@ DECLARE_OOXMLEXPORT_TEST(testFdo49940, "fdo49940.docx")
 DECLARE_OOXMLEXPORT_TEST(testFdo74745, "fdo74745.docx")
 {
     uno::Reference<text::XTextRange > paragraph = getParagraph(3);
-    uno::Reference<text::XTextRange> text(paragraph, uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(OUString("09/02/14"), text->getString());
+    CPPUNIT_ASSERT_EQUAL(OUString("09/02/14"), paragraph->getString());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testFdo81486, "fdo81486.docx")
 {
     uno::Reference<text::XTextRange > paragraph = getParagraph(1);
-    uno::Reference<text::XTextRange> text(paragraph, uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(OUString("CustomTitle"), text->getString());
+    CPPUNIT_ASSERT_EQUAL(OUString("CustomTitle"), paragraph->getString());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testFdo79738, "fdo79738.docx")
@@ -357,7 +358,7 @@ note that the indexes may get off as the implementation evolves, C++ code search
     uno::Reference< text::XTextRange > paragraph(getParagraph( 1, "Text1." ));
     OUString numberingStyleName = getProperty< OUString >( paragraph, "NumberingStyleName" );
     uno::Reference<text::XNumberingRulesSupplier> xNumberingRulesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> numberingRules(xNumberingRulesSupplier->getNumberingRules(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> numberingRules = xNumberingRulesSupplier->getNumberingRules();
     uno::Reference<container::XIndexAccess> numberingRule;
     for( int i = 0;
          i < numberingRules->getCount();
@@ -502,7 +503,7 @@ DECLARE_OOXMLEXPORT_TEST(testFdo74357, "fdo74357.docx")
 {
     // Floating table wasn't converted to a textframe.
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDrawPage(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDrawPage = xDrawPageSupplier->getDrawPage();
     // This was 0.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDrawPage->getCount());
 
@@ -636,7 +637,7 @@ DECLARE_OOXMLEXPORT_TEST(testN785767, "n785767.docx")
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables( ), uno::UNO_QUERY);
     uno::Reference<text::XTextTable> xTextTable(xTables->getByIndex(0), uno::UNO_QUERY);
-    uno::Reference<table::XTableRows> xTableRows(xTextTable->getRows(), uno::UNO_QUERY);
+    uno::Reference<table::XTableRows> xTableRows = xTextTable->getRows();
     // Check the A1 and B1 cells, the width of both of them was the default value (10000 / 9, as there were 9 cells in the row).
     CPPUNIT_ASSERT_MESSAGE("A1 must not have default width", sal_Int16(10000 / 9) != getProperty< uno::Sequence<text::TableColumnSeparator> >(xTableRows->getByIndex(0), "TableColumnSeparators")[0].Position);
     CPPUNIT_ASSERT_MESSAGE("B1 must not have default width", sal_Int16(10000 / 9) != getProperty< uno::Sequence<text::TableColumnSeparator> >(xTableRows->getByIndex(1), "TableColumnSeparators")[0].Position);
@@ -666,7 +667,7 @@ DECLARE_OOXMLEXPORT_TEST(testN792778, "n792778.docx")
      * xray ThisComponent.DrawPage(0).getByIndex(1).getByIndex(0).Position.Y ' 11684
      */
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDrawPage(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDrawPage = xDrawPageSupplier->getDrawPage();
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDrawPage->getCount());
 
     uno::Reference<drawing::XShapes> xGroupShape(xDrawPage->getByIndex(0), uno::UNO_QUERY);
@@ -817,7 +818,7 @@ DECLARE_OOXMLEXPORT_TEST(testFdo61343, "fdo61343.docx")
     // The problem was that there were a groupshape in the doc, followed by an
     // OLE object, and this lead to a crash.
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws = xDrawPageSupplier->getDrawPage();
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDraws->getCount());
 }
 
@@ -881,7 +882,7 @@ DECLARE_OOXMLEXPORT_TEST(testFdo59273, "fdo59273.docx")
     // Was 115596 (i.e. 10 times wider than necessary), as w:tblW was missing and the importer didn't set it.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(12961), getProperty<sal_Int32>(xTextTable, "Width"));
 
-    uno::Reference<table::XTableRows> xTableRows(xTextTable->getRows(), uno::UNO_QUERY);
+    uno::Reference<table::XTableRows> xTableRows = xTextTable->getRows();
     // Was 9997, so the 4th column had ~zero width
     CPPUNIT_ASSERT_EQUAL(sal_Int16(7498), getProperty< uno::Sequence<text::TableColumnSeparator> >(xTableRows->getByIndex(0), "TableColumnSeparators")[2].Position);
 }
@@ -919,19 +920,10 @@ DECLARE_OOXMLEXPORT_TEST(testN592908_Picture, "n592908-picture.docx")
 
 DECLARE_OOXMLEXPORT_TEST(testN779630, "n779630.docx")
 {
-    // First shape: date picker
+    // A combo box is imported
     uno::Reference<drawing::XControlShape> xControlShape(getShape(1), uno::UNO_QUERY);
     uno::Reference<beans::XPropertySet> xPropertySet(xControlShape->getControl(), uno::UNO_QUERY);
     uno::Reference<lang::XServiceInfo> xServiceInfo(xPropertySet, uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(true, bool(xServiceInfo->supportsService("com.sun.star.form.component.DateField")));
-    CPPUNIT_ASSERT_EQUAL(OUString("date default text"), getProperty<OUString>(xPropertySet, "HelpText"));
-    CPPUNIT_ASSERT_EQUAL(sal_Int16(8), getProperty<sal_Int16>(xPropertySet, "DateFormat"));
-    CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xPropertySet, "Dropdown"));
-
-    // Second shape: combo box
-    xControlShape.set(getShape(2), uno::UNO_QUERY);
-    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY);
-    xServiceInfo.set(xPropertySet, uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(true, bool(xServiceInfo->supportsService("com.sun.star.form.component.ComboBox")));
     CPPUNIT_ASSERT_EQUAL(OUString("dropdown default text"), getProperty<OUString>(xPropertySet, "DefaultText"));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(2), getProperty< uno::Sequence<OUString> >(xPropertySet, "StringItemList").getLength());
@@ -969,16 +961,26 @@ DECLARE_OOXMLEXPORT_TEST(testN816593, "n816593.docx")
 
 DECLARE_OOXMLEXPORT_TEST(testN820509, "n820509.docx")
 {
-    // Design mode was enabled.
-    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
-    uno::Reference<view::XFormLayerAccess> xFormLayerAccess(xModel->getCurrentController(), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(false, bool(xFormLayerAccess->isFormDesignMode()));
-
     // M.d.yyyy date format was unhandled.
-    uno::Reference<drawing::XControlShape> xControlShape(getShape(1), uno::UNO_QUERY);
-    uno::Reference<beans::XPropertySet> xPropertySet(xControlShape->getControl(), uno::UNO_QUERY);
-    uno::Reference<lang::XServiceInfo> xServiceInfo(xPropertySet, uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(sal_Int16(8), getProperty<sal_Int16>(xPropertySet, "DateFormat"));
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+
+    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*pMarkAccess->getAllMarksBegin());
+
+    CPPUNIT_ASSERT(pFieldmark);
+    CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMDATE), pFieldmark->GetFieldname());
+
+    const sw::mark::IFieldmark::parameter_map_t* const pParameters = pFieldmark->GetParameters();
+    OUString sDateFormat;
+    auto pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT);
+    if (pResult != pParameters->end())
+    {
+        pResult->second >>= sDateFormat;
+    }
+    CPPUNIT_ASSERT_EQUAL(OUString("M.d.yyyy"), sDateFormat);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testN830205, "n830205.docx")
@@ -1033,7 +1035,7 @@ DECLARE_OOXMLEXPORT_TEST(testFdo65632, "fdo65632.docx")
     // The problem was that the footnote text had fake redline: only the body
     // text has redline in fact.
     uno::Reference<text::XFootnotesSupplier> xFootnotesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xFootnotes(xFootnotesSupplier->getFootnotes(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xFootnotes = xFootnotesSupplier->getFootnotes();
     uno::Reference<text::XText> xText(xFootnotes->getByIndex(0), uno::UNO_QUERY);
     //uno::Reference<text::XTextRange> xParagraph = getParagraphOfText(1, xText);
     CPPUNIT_ASSERT_EQUAL(OUString("Text"), getProperty<OUString>(getRun(getParagraphOfText(1, xText), 1), "TextPortionType"));
@@ -1123,7 +1125,7 @@ DECLARE_OOXMLEXPORT_TEST(testChartProp, "chart-prop.docx")
 {
     // The problem was that chart was not getting parsed in writer module.
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDrawPage(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDrawPage = xDrawPageSupplier->getDrawPage();
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDrawPage->getCount());
 
     uno::Reference<beans::XPropertySet> xPropertySet(getShape(1), uno::UNO_QUERY);

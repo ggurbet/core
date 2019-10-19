@@ -35,6 +35,7 @@
 
 #include <vcl/scrbar.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/weld.hxx>
 #include <osl/diagnose.h>
 
 class ImpVclMEdit : public SfxListener
@@ -631,7 +632,7 @@ bool ImpVclMEdit::HandleCommand( const CommandEvent& rCEvt )
     {
         ScrollBar* pHScrollBar = mpHScrollBar->IsVisible() ? mpHScrollBar.get() : nullptr;
         ScrollBar* pVScrollBar = mpVScrollBar->IsVisible() ? mpVScrollBar.get() : nullptr;
-        (void)mpTextWindow->HandleScrollCommand(rCEvt, pHScrollBar, pVScrollBar);
+        mpTextWindow->HandleScrollCommand(rCEvt, pHScrollBar, pVScrollBar);
         bDone = true;
     }
     return bDone;
@@ -1006,7 +1007,6 @@ IMPL_LINK_NOARG(VclMultiLineEdit, ImpUpdateDataHdl, Timer *, void)
 
 void VclMultiLineEdit::UpdateData()
 {
-    aUpdateDataHdlLink.Call( *this );
 }
 
 void VclMultiLineEdit::SetModifyFlag()

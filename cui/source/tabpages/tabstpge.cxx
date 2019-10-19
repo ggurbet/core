@@ -17,10 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/app.hxx>
 #include <svtools/ruler.hxx>
 #include <svtools/unitconv.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
@@ -28,10 +26,8 @@
 #include <editeng/lrspitem.hxx>
 #include <tabstpge.hxx>
 #include <svx/dlgutil.hxx>
-#include <sfx2/module.hxx>
 #include <svl/cjkoptions.hxx>
 #include <unotools/localedatawrapper.hxx>
-#include <sfx2/request.hxx>
 #include <svl/intitem.hxx>
 
 constexpr FieldUnit eDefUnit = FieldUnit::MM_100TH;
@@ -63,8 +59,8 @@ void TabWin_Impl::Paint(vcl::RenderContext& rRenderContext, const ::tools::Recta
     Ruler::DrawTab(rRenderContext, rRenderContext.GetSettings().GetStyleSettings().GetFontColor(), aPoint, nTabStyle);
 }
 
-SvxTabulatorTabPage::SvxTabulatorTabPage(TabPageParent pParent, const SfxItemSet& rAttr)
-    : SfxTabPage(pParent, "cui/ui/paratabspage.ui", "ParagraphTabsPage", &rAttr)
+SvxTabulatorTabPage::SvxTabulatorTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttr)
+    : SfxTabPage(pPage, pController, "cui/ui/paratabspage.ui", "ParagraphTabsPage", &rAttr)
     , aCurrentTab(0)
     , aNewTabs(std::make_unique<SvxTabStopItem>(0, 0, SvxTabAdjust::Left, GetWhich(SID_ATTR_TABSTOP)))
     , nDefDist(0)
@@ -146,11 +142,6 @@ SvxTabulatorTabPage::SvxTabulatorTabPage(TabPageParent pParent, const SfxItemSet
 
 SvxTabulatorTabPage::~SvxTabulatorTabPage()
 {
-    disposeOnce();
-}
-
-void SvxTabulatorTabPage::dispose()
-{
     m_xDezWin.reset();
     m_xCenterWin.reset();
     m_xRightWin.reset();
@@ -158,7 +149,6 @@ void SvxTabulatorTabPage::dispose()
     m_xFillChar.reset();
     m_xDezChar.reset();
     m_xTabBox.reset();
-    SfxTabPage::dispose();
 }
 
 bool SvxTabulatorTabPage::FillItemSet(SfxItemSet* rSet)
@@ -199,7 +189,7 @@ bool SvxTabulatorTabPage::FillItemSet(SfxItemSet* rSet)
         for (sal_uInt16 i = 0; i < aNewTabs->Count(); ++i)
         {
             SvxTabStop aTmpStop = (*aNewTabs)[i];
-            aTmpStop.GetTabPos() = LogicToLogic(aTmpStop.GetTabPos(), MapUnit::Map100thMM, eUnit);
+            aTmpStop.GetTabPos() = OutputDevice::LogicToLogic(aTmpStop.GetTabPos(), MapUnit::Map100thMM, eUnit);
             aTmp->Insert(aTmpStop);
         }
 
@@ -218,9 +208,9 @@ bool SvxTabulatorTabPage::FillItemSet(SfxItemSet* rSet)
     return bModified;
 }
 
-VclPtr<SfxTabPage> SvxTabulatorTabPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SvxTabulatorTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SvxTabulatorTabPage>::Create(pParent, *rSet);
+    return std::make_unique<SvxTabulatorTabPage>(pPage, pController, *rSet);
 }
 
 void SvxTabulatorTabPage::Reset(const SfxItemSet* rSet)
@@ -241,7 +231,7 @@ void SvxTabulatorTabPage::Reset(const SfxItemSet* rSet)
             for (sal_uInt16 i = 0; i < aTmp->Count(); ++i)
             {
                 SvxTabStop aTmpStop = (*aTmp)[i];
-                aTmpStop.GetTabPos() = LogicToLogic(aTmpStop.GetTabPos(), eUnit, MapUnit::Map100thMM);
+                aTmpStop.GetTabPos() = OutputDevice::LogicToLogic(aTmpStop.GetTabPos(), eUnit, MapUnit::Map100thMM);
                 aNewTabs->Insert(aTmpStop);
             }
         }
@@ -260,7 +250,7 @@ void SvxTabulatorTabPage::Reset(const SfxItemSet* rSet)
     pItem = GetItem(*rSet, SID_ATTR_TABSTOP_DEFAULTS);
 
     if (pItem)
-        nDefDist = LogicToLogic(long(static_cast<const SfxUInt16Item*>(pItem)->GetValue()), eUnit, MapUnit::Map100thMM);
+        nDefDist = OutputDevice::LogicToLogic(long(static_cast<const SfxUInt16Item*>(pItem)->GetValue()), eUnit, MapUnit::Map100thMM);
 
     // Tab pos currently selected
     sal_uInt16 nTabPos = 0;
@@ -625,7 +615,7 @@ IMPL_LINK_NOARG(SvxTabulatorTabPage, GetDezCharHdl_Impl, weld::Widget&, void)
     }
 }
 
-IMPL_LINK_NOARG(SvxTabulatorTabPage, SelectHdl_Impl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SvxTabulatorTabPage, SelectHdl_Impl, weld::TreeView&, bool)
 {
     const int nPos = FindCurrentTab();
     if (nPos != -1)
@@ -634,6 +624,7 @@ IMPL_LINK_NOARG(SvxTabulatorTabPage, SelectHdl_Impl, weld::TreeView&, void)
         m_xNewBtn->set_sensitive(false);
         SetFillAndTabType_Impl();
     }
+    return true;
 }
 
 OUString SvxTabulatorTabPage::FormatTab()

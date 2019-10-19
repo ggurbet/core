@@ -193,7 +193,7 @@ public:
                                                     const css::uno::Reference<css::xml::sax::XAttributeList>& xAttrList ) override;
 
     void CreateTextPContext(bool bIsNewParagraph);
-    bool IsEditCell() { return mpEditTextObj.is(); }
+    bool IsEditCell() const { return mpEditTextObj.is(); }
     void SetText(const OUString& sTempText) { sText = sTempText; }
 
     virtual void SAL_CALL endFastElement( sal_Int32 nElement ) override;
@@ -549,7 +549,7 @@ ScXMLCellContentDeletionContext::ScXMLCellContentDeletionContext(  ScXMLImport& 
 {
     if ( rAttrList.is() )
     {
-        auto &aIter( rAttrList->find( XML_ELEMENT( TABLE, XML_ID ) ) );
+        auto aIter( rAttrList->find( XML_ELEMENT( TABLE, XML_ID ) ) );
         if (aIter != rAttrList->end())
             nID = ScXMLChangeTrackingImportHelper::GetIDFromString( aIter.toString() );
     }
@@ -598,7 +598,7 @@ ScXMLDependenceContext::ScXMLDependenceContext(  ScXMLImport& rImport,
     sal_uInt32 nID(0);
     if ( rAttrList.is() )
     {
-        auto &aIter( rAttrList->find( XML_ELEMENT( TABLE, XML_ID ) ) );
+        auto aIter( rAttrList->find( XML_ELEMENT( TABLE, XML_ID ) ) );
         if (aIter != rAttrList->end())
             nID = ScXMLChangeTrackingImportHelper::GetIDFromString(aIter.toString());
     }
@@ -641,7 +641,7 @@ ScXMLChangeDeletionContext::ScXMLChangeDeletionContext(  ScXMLImport& rImport,
     sal_uInt32 nID(0);
     if ( rAttrList.is() )
     {
-        auto &aIter( rAttrList->find( XML_ELEMENT( TABLE, XML_ID ) ) );
+        auto aIter( rAttrList->find( XML_ELEMENT( TABLE, XML_ID ) ) );
         if (aIter != rAttrList->end())
             nID = ScXMLChangeTrackingImportHelper::GetIDFromString( aIter.toString() );
     }
@@ -884,9 +884,7 @@ void ScXMLChangeCellContext::CreateTextPContext(bool bIsNewParagraph)
             {
                 xText->setString(sText);
                 xTextCursor->gotoEnd(false);
-                uno::Reference < text::XTextRange > xTextRange (xTextCursor, uno::UNO_QUERY);
-                if (xTextRange.is())
-                    xText->insertControlCharacter(xTextRange, text::ControlCharacter::PARAGRAPH_BREAK, false);
+                xText->insertControlCharacter(xTextCursor, text::ControlCharacter::PARAGRAPH_BREAK, false);
             }
             GetScImport().GetTextImport()->SetCursor(xTextCursor);
         }
@@ -955,7 +953,7 @@ ScXMLPreviousContext::ScXMLPreviousContext(  ScXMLImport& rImport,
 {
     if ( rAttrList.is() )
     {
-        auto &aIter( rAttrList->find( XML_ELEMENT( TABLE, XML_ID ) ) );
+        auto aIter( rAttrList->find( XML_ELEMENT( TABLE, XML_ID ) ) );
         if (aIter != rAttrList->end())
             nID = ScXMLChangeTrackingImportHelper::GetIDFromString( aIter.toString() );
     }

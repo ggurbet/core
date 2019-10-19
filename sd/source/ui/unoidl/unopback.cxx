@@ -25,7 +25,6 @@
 #include <svx/xflbstit.hxx>
 #include <svx/xflbmtit.hxx>
 #include <svx/svdobj.hxx>
-#include <svx/unoprov.hxx>
 #include <svx/unoshape.hxx>
 #include <svx/unoshprp.hxx>
 
@@ -88,7 +87,7 @@ void SdUnoPageBackground::Notify( SfxBroadcaster&, const SfxHint& rHint )
     }
 }
 
-void SdUnoPageBackground::fillItemSet( SdDrawDocument* pDoc, SfxItemSet& rSet ) throw()
+void SdUnoPageBackground::fillItemSet( SdDrawDocument* pDoc, SfxItemSet& rSet )
 {
     rSet.ClearItem();
 
@@ -169,7 +168,7 @@ void SdUnoPageBackground::fillItemSet( SdDrawDocument* pDoc, SfxItemSet& rSet ) 
 // XServiceInfo
 OUString SAL_CALL SdUnoPageBackground::getImplementationName()
 {
-    return OUString("SdUnoPageBackground");
+    return "SdUnoPageBackground";
 }
 
 sal_Bool SAL_CALL SdUnoPageBackground::supportsService( const OUString& ServiceName )
@@ -179,13 +178,7 @@ sal_Bool SAL_CALL SdUnoPageBackground::supportsService( const OUString& ServiceN
 
 uno::Sequence< OUString > SAL_CALL SdUnoPageBackground::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aNameSequence( 2 );
-    OUString* pStrings = aNameSequence.getArray();
-
-    *pStrings++ = sUNO_Service_PageBackground;
-    *pStrings   = sUNO_Service_FillProperties;
-
-    return aNameSequence;
+    return { sUNO_Service_PageBackground, sUNO_Service_FillProperties };
 }
 
 // XPropertySet
@@ -355,13 +348,11 @@ uno::Sequence< beans::PropertyState > SAL_CALL SdUnoPageBackground::getPropertyS
     SolarMutexGuard aGuard;
 
     sal_Int32 nCount = aPropertyName.getLength();
-    const OUString* pNames = aPropertyName.getConstArray();
 
     uno::Sequence< beans::PropertyState > aPropertyStateSequence( nCount );
-    beans::PropertyState* pState = aPropertyStateSequence.getArray();
 
-    while( nCount-- )
-        *pState++ = getPropertyState( *pNames++ );
+    std::transform(aPropertyName.begin(), aPropertyName.end(), aPropertyStateSequence.begin(),
+        [this](const OUString& rName) -> beans::PropertyState { return getPropertyState(rName); });
 
     return aPropertyStateSequence;
 }

@@ -231,7 +231,7 @@ void SAL_CALL XMLTransformerBase::startElement( const OUString& rName,
             // Add namespace, but only if it is known.
             sal_uInt16 nKey = m_pNamespaceMap->AddIfKnown( aPrefix, rAttrValue );
             // If namespace is unknown, try to match a name with similar
-            // TC Id an version
+            // TC Id and version
             if( XML_NAMESPACE_UNKNOWN == nKey  )
             {
                 OUString aTestName( rAttrValue );
@@ -840,8 +840,7 @@ XMLMutableAttributeList *XMLTransformerBase::ProcessAttrList(
                     break;
                 case XML_ATACTION_SHAPEID:
                 {
-                    OUString sNewValue( "shape"  );
-                    sNewValue += rAttrValue;
+                    OUString sNewValue = "shape" + rAttrValue;
                     pMutableAttrList->SetValueByIndex( i, sNewValue );
                     break;
                 }
@@ -1276,9 +1275,7 @@ bool XMLTransformerBase::ConvertURIToOASIS( OUString& rURI,
 
         if( bRel )
         {
-            OUString sTmp( m_aExtPathPrefix );
-            sTmp += rURI;
-            rURI = sTmp;
+            rURI = m_aExtPathPrefix + rURI;
             bRet = true;
         }
     }

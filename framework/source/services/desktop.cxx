@@ -81,7 +81,7 @@ enum PropHandle {
 
 OUString SAL_CALL Desktop::getImplementationName()
 {
-    return OUString("com.sun.star.comp.framework.Desktop");
+    return "com.sun.star.comp.framework.Desktop";
 }
 
 sal_Bool SAL_CALL Desktop::supportsService(OUString const & ServiceName)
@@ -116,14 +116,12 @@ void Desktop::constructorInit()
     InterceptionHelper* pInterceptionHelper = new InterceptionHelper( this, xDispatchProvider );
     m_xDispatchHelper.set( static_cast< ::cppu::OWeakObject* >(pInterceptionHelper), css::uno::UNO_QUERY );
 
-    OUStringBuffer sUntitledPrefix (256);
-    sUntitledPrefix.append      (FwkResId(STR_UNTITLED_DOCUMENT));
-    sUntitledPrefix.append (" ");
+    OUString sUntitledPrefix = FwkResId(STR_UNTITLED_DOCUMENT) + " ";
 
     ::comphelper::NumberedCollection* pNumbers = new ::comphelper::NumberedCollection ();
     m_xTitleNumberGenerator.set(static_cast< ::cppu::OWeakObject* >(pNumbers), css::uno::UNO_QUERY_THROW);
     pNumbers->setOwner          ( static_cast< ::cppu::OWeakObject* >(this) );
-    pNumbers->setUntitledPrefix ( sUntitledPrefix.makeStringAndClear ()     );
+    pNumbers->setUntitledPrefix ( sUntitledPrefix );
 
     // Safe impossible cases
     // We can't work without this helper!
@@ -320,7 +318,7 @@ sal_Bool SAL_CALL Desktop::terminate()
         // see dispose() for further information.
         /* SAFE AREA --------------------------------------------------------------------------------------- */
         SolarMutexClearableGuard aWriteLock;
-        CrashReporter::AddKeyValue("ShutDown", OUString::boolean(true));
+        CrashReporter::addKeyValue("ShutDown", OUString::boolean(true), CrashReporter::Write);
         m_bIsTerminated = true;
         aWriteLock.clear();
         /* UNSAFE AREA ------------------------------------------------------------------------------------- */
@@ -441,7 +439,7 @@ void SAL_CALL Desktop::addTerminateListener( const css::uno::Reference< css::fra
         }
     }
 
-    // No lock required ... container is threadsafe by itself.
+    // No lock required... container is threadsafe by itself.
     m_aListenerContainer.addInterface( cppu::UnoType<css::frame::XTerminateListener>::get(), xListener );
 }
 
@@ -589,7 +587,7 @@ css::uno::Reference< css::frame::XFrame > SAL_CALL Desktop::getCurrentFrame()
             xNext.set( xNext->getActiveFrame(), css::uno::UNO_QUERY );
         }
     }
-    return css::uno::Reference< css::frame::XFrame >( xLast, css::uno::UNO_QUERY );
+    return xLast;
 }
 
 /*-************************************************************************************************************
@@ -731,9 +729,9 @@ css::uno::Sequence< css::uno::Reference< css::frame::XDispatch > > SAL_CALL Desk
     @short      supports registration/deregistration of interception objects, which
                 are interested on special dispatches.
 
-    @descr      Its really provided by an internal helper, which is used inside the dispatch api too.
+    @descr      It's really provided by an internal helper, which is used inside the dispatch API too.
     @param      xInterceptor
-                the interceptor object, which wish to be (de)registered.
+                the interceptor object, which wishes to be (de)registered.
 
     @threadsafe yes
 *//*-*************************************************************************************************************/
@@ -1546,21 +1544,21 @@ css::uno::Reference< css::lang::XComponent > Desktop::impl_getFrameComponent( co
     if( !xController.is() )
     {
         // Controller not exist - use the VCL-component.
-        xComponent.set( xFrame->getComponentWindow(), css::uno::UNO_QUERY );
+        xComponent = xFrame->getComponentWindow();
     }
     else
     {
         // Does no model exists?
-        css::uno::Reference< css::frame::XModel > xModel( xController->getModel(), css::uno::UNO_QUERY );
+        css::uno::Reference< css::frame::XModel > xModel = xController->getModel();
         if( xModel.is() )
         {
             // Model exist - use the model as component.
-            xComponent.set( xModel, css::uno::UNO_QUERY );
+            xComponent = xModel;
         }
         else
         {
             // Model not exist - use the controller as component.
-            xComponent.set( xController, css::uno::UNO_QUERY );
+            xComponent = xController;
         }
     }
 
@@ -1716,7 +1714,7 @@ bool Desktop::impl_closeFrames(bool bAllowUI)
             // XController.suspend() will show a UI ...
             // Use it in case it was allowed from outside only.
             bool                                       bSuspended = false;
-            css::uno::Reference< css::frame::XController > xController( xFrame->getController(), css::uno::UNO_QUERY );
+            css::uno::Reference< css::frame::XController > xController = xFrame->getController();
             if ( bAllowUI && xController.is() )
             {
                 bSuspended = xController->suspend( true );
@@ -1761,9 +1759,8 @@ bool Desktop::impl_closeFrames(bool bAllowUI)
 
             // XClosable not supported ?
             // Then we have to dispose these frame hardly.
-            css::uno::Reference< css::lang::XComponent > xDispose( xFrame, css::uno::UNO_QUERY );
-            if ( xDispose.is() )
-                xDispose->dispose();
+            if ( xFrame.is() )
+                xFrame->dispose();
 
             // Don't remove these frame from our child container!
             // A frame do it by itself inside close()/dispose() method.

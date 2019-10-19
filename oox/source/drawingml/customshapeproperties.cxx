@@ -46,6 +46,7 @@ CustomShapeProperties::CustomShapeProperties()
 , mbMirroredX   ( false )
 , mbMirroredY   ( false )
 , mnTextRotateAngle ( 0 )
+, mnTextCameraZRotateAngle ( 0 )
 , mnArcNum ( 0 )
 {
 }
@@ -150,24 +151,23 @@ void CustomShapeProperties::pushToPropSet(
         aPropertyMap.setProperty( PROP_MirroredX, mbMirroredX );
         aPropertyMap.setProperty( PROP_MirroredY, mbMirroredY );
         aPropertyMap.setProperty( PROP_TextPreRotateAngle, mnTextRotateAngle );
+        aPropertyMap.setProperty( PROP_TextCameraZRotateAngle, mnTextCameraZRotateAngle );
         Sequence< PropertyValue > aSeq = aPropertyMap.makePropertyValueSequence();
         aPropSet.setProperty( PROP_CustomShapeGeometry, aSeq );
 
         const OUString sCustomShapeGeometry("CustomShapeGeometry");
+        const OUString sAdjustmentValues("AdjustmentValues");
         uno::Any aGeoPropSet = xPropSet->getPropertyValue( sCustomShapeGeometry );
         uno::Sequence< beans::PropertyValue > aGeoPropSeq;
 
-        sal_Int32 i, nCount = 0;
         if (aGeoPropSet >>= aGeoPropSeq)
         {
-            nCount = aGeoPropSeq.getLength();
-            for ( i = 0; i < nCount; i++ )
+            for ( const auto& rGeoProp : std::as_const(aGeoPropSeq) )
             {
-                const OUString sAdjustmentValues("AdjustmentValues");
-                if ( aGeoPropSeq[ i ].Name == sAdjustmentValues )
+                if ( rGeoProp.Name == sAdjustmentValues )
                 {
                     OUString presetTextWarp;
-                    if ( aGeoPropSeq[ i ].Value >>= presetTextWarp )
+                    if ( rGeoProp.Value >>= presetTextWarp )
                     {
                         aPropertyMap.setProperty( PROP_PresetTextWarp, presetTextWarp );
                     }
@@ -180,14 +180,12 @@ void CustomShapeProperties::pushToPropSet(
             const OUString sType = "Type";
             if ( aGeoPropSet >>= aGeoPropSeq )
             {
-                nCount = aGeoPropSeq.getLength();
-                for ( i = 0; i < nCount; i++ )
+                for ( auto& rGeoProp : aGeoPropSeq )
                 {
-                    const OUString sAdjustmentValues("AdjustmentValues");
-                    if ( aGeoPropSeq[ i ].Name == sAdjustmentValues )
+                    if ( rGeoProp.Name == sAdjustmentValues )
                     {
                         uno::Sequence< css::drawing::EnhancedCustomShapeAdjustmentValue > aAdjustmentSeq;
-                        if ( aGeoPropSeq[ i ].Value >>= aAdjustmentSeq )
+                        if ( rGeoProp.Value >>= aAdjustmentSeq )
                         {
                             int nIndex=0;
                             for (auto const& adjustmentGuide : maAdjustmentGuideList)
@@ -211,16 +209,16 @@ void CustomShapeProperties::pushToPropSet(
                                     aAdjustmentSeq[ nIndex++ ] = aAdjustmentVal;
                                 }
                             }
-                            aGeoPropSeq[ i ].Value <<= aAdjustmentSeq;
+                            rGeoProp.Value <<= aAdjustmentSeq;
                             xPropSet->setPropertyValue( sCustomShapeGeometry, Any( aGeoPropSeq ) );
                         }
                     }
-                    else if ( aGeoPropSeq[ i ].Name == sType )
+                    else if ( rGeoProp.Name == sType )
                     {
                         if ( sConnectorShapeType.getLength() > 0 )
-                            aGeoPropSeq[ i ].Value <<= sConnectorShapeType;
+                            rGeoProp.Value <<= sConnectorShapeType;
                         else
-                            aGeoPropSeq[ i ].Value <<= OUString( "ooxml-CustomShape" );
+                            rGeoProp.Value <<= OUString( "ooxml-CustomShape" );
                     }
                 }
             }

@@ -204,7 +204,7 @@ FontMetric OutputDevice::GetFontMetric() const
     ImplFontMetricDataRef xFontMetric = pFontInstance->mxFontMetric;
 
     // prepare metric
-    aMetric.Font::operator=( maFont );
+    aMetric = maFont;
 
     // set aMetric with info from font
     aMetric.SetFamilyName( maFont.GetFamilyName() );
@@ -523,29 +523,8 @@ void OutputDevice::RefreshFontData( const bool bNewFontLists )
 
 void OutputDevice::ImplRefreshFontData( const bool bNewFontLists )
 {
-    ImplSVData* pSVData = ImplGetSVData();
-
     if (bNewFontLists && AcquireGraphics())
-    {
-        if (GetOutDevType() == OUTDEV_PDF)
-        {
-            mxFontCollection = pSVData->maGDIData.mxScreenFontList->Clone();
-            mxFontCache.reset(new ImplFontCache);
-        }
-        else
             mpGraphics->GetDevFontList( mxFontCollection.get() );
-    }
-
-    // also update child windows if needed
-    if ( GetOutDevType() == OUTDEV_WINDOW )
-    {
-        vcl::Window* pChild = static_cast<vcl::Window*>(this)->mpWindowImpl->mpFirstChild;
-        while ( pChild )
-        {
-            pChild->ImplRefreshFontData( true );
-            pChild = pChild->mpWindowImpl->mpNext;
-        }
-    }
 }
 
 void OutputDevice::ImplUpdateFontData()
@@ -853,7 +832,7 @@ vcl::Font OutputDevice::GetDefaultFont( DefaultFontType nType, LanguageType eLan
             aFont.SetFamilyName( aName );
         }
 
-        // No Name, than set all names
+        // No Name, then set all names
         if ( aFont.GetFamilyName().isEmpty() )
         {
             if ( nFlags & GetDefaultFontFlags::OnlyOne )
@@ -1484,6 +1463,20 @@ sal_Int32 OutputDevice::HasGlyphs( const vcl::Font& rTempFont, const OUString& r
             return nIndex;
 
     return -1;
+}
+
+void OutputDevice::ReleaseFontCache() { mxFontCache.reset(); }
+
+void OutputDevice::ReleaseFontCollection() { mxFontCollection.reset(); }
+
+void OutputDevice::SetFontCollectionFromSVData()
+{
+    mxFontCollection = ImplGetSVData()->maGDIData.mxScreenFontList->Clone();
+}
+
+void OutputDevice::ResetNewFontCache()
+{
+    mxFontCache.reset(new ImplFontCache{});
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

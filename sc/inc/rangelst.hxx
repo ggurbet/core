@@ -34,18 +34,18 @@ class SAL_WARN_UNUSED SC_DLLPUBLIC ScRangeList final : public SvRefBase
 public:
     ScRangeList();
     ScRangeList( const ScRangeList& rList );
-    ScRangeList( const ScRangeList&& rList );
+    ScRangeList(ScRangeList&& rList) noexcept;
     ScRangeList( const ScRange& rRange );
     virtual ~ScRangeList() override;
 
     ScRangeList& operator=(const ScRangeList& rList);
-    ScRangeList& operator=(ScRangeList&& rList);
+    ScRangeList& operator=(ScRangeList&& rList) noexcept;
 
     ScRefFlags      Parse( const OUString&, const ScDocument*,
                            formula::FormulaGrammar::AddressConvention eConv = formula::FormulaGrammar::CONV_OOO,
                            SCTAB nDefaultTab = 0, sal_Unicode cDelimiter = 0 );
 
-    void            Format( OUString&, ScRefFlags nFlags, ScDocument*,
+    void            Format( OUString&, ScRefFlags nFlags, const ScDocument*,
                             formula::FormulaGrammar::AddressConvention eConv = formula::FormulaGrammar::CONV_OOO,
                             sal_Unicode cDelimiter = 0, bool bFullAddressNotation = false ) const;
 

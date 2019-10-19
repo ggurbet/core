@@ -33,11 +33,9 @@
 #include <fmtanchr.hxx>
 #include <dcontact.hxx>
 
-#include <pam.hxx>
-
 #include <vcl/window.hxx>
 
-namespace sw { namespace access {
+namespace sw::access {
 
 SwAccessibleChild::SwAccessibleChild()
     : mpFrame( nullptr )
@@ -405,6 +403,6 @@ const SwFrame* SwAccessibleChild::GetParent( const bool bInPagePreview ) const
     return pParent;
 }
 
-} } // eof of namespace sw::access
+} // eof of namespace sw::access
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

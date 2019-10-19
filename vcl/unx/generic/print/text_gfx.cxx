@@ -17,18 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <math.h>
-
 #include "psputil.hxx"
 #include "glyphset.hxx"
 
 #include <unx/printergfx.hxx>
 #include <unx/fontmanager.hxx>
-#include <unx/helper.hxx>
-
-#include <osl/thread.h>
-
-#include <sal/alloca.h>
 
 using namespace psp ;
 
@@ -123,14 +116,14 @@ void PrinterGfx::DrawGlyph(const Point& rPoint,
             PSTranslate( aPoint );
         PSRotate (900);
         // draw the rotated glyph
-        drawGlyph(aRotPoint, rGlyph.m_aGlyphId);
+        drawGlyph(aRotPoint, rGlyph.glyphId());
 
         // restore previous state
         maVirtualStatus = aSaveStatus;
         PSGRestore();
     }
     else
-        drawGlyph(aPoint, rGlyph.m_aGlyphId);
+        drawGlyph(aPoint, rGlyph.glyphId());
 
     // restore the user coordinate system
     if (nCurrentTextAngle != 0)

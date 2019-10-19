@@ -8,11 +8,17 @@
  */
 
 #include <sal/config.h>
+
+#include <config_features.h>
+#include <vcl/print.hxx>
+
 #include <test/bootstrapfixture.hxx>
 
 #include <smdll.hxx>
 #include <document.hxx>
 #include <view.hxx>
+
+#include <tmpdevice.hxx>
 
 #include <sfx2/sfxmodelfactory.hxx>
 #include <sfx2/bindings.hxx>
@@ -61,6 +67,10 @@ public:
     void replacePlaceholder();
     void viewZoom();
 
+#if HAVE_MORE_FONTS
+    void testSmTmpDeviceRestoreFont();
+#endif
+
     CPPUNIT_TEST_SUITE(Test);
     CPPUNIT_TEST(editUndoRedo);
     CPPUNIT_TEST(editMarker);
@@ -80,6 +90,9 @@ public:
     CPPUNIT_TEST(ParseErrorDoubleSubsupscript);
     CPPUNIT_TEST(replacePlaceholder);
     CPPUNIT_TEST(viewZoom);
+#if HAVE_MORE_FONTS
+    CPPUNIT_TEST(testSmTmpDeviceRestoreFont);
+#endif
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -132,6 +145,37 @@ void Test::tearDown()
 
     BootstrapFixture::tearDown();
 }
+
+#if HAVE_MORE_FONTS
+void Test::testSmTmpDeviceRestoreFont()
+{
+    ScopedVclPtrInstance<Printer> pPrinter;
+    bool bUseMap100th_mm = true;
+
+    OUString aFontName("Linux Libertine G");
+    CPPUNIT_ASSERT(pPrinter->IsFontAvailable(aFontName));
+
+    vcl::Font aOriginalFont = pPrinter->GetFont();
+    aOriginalFont.SetColor(COL_RED);
+    pPrinter->SetTextColor(COL_RED);
+
+    vcl::Font aNewFont;
+
+    {
+        SmTmpDevice aTmpDev(*pPrinter.get(), bUseMap100th_mm);
+
+        aNewFont = pPrinter->GetFont();
+        aNewFont.SetFamilyName(aFontName);
+        aTmpDev.SetFont(aNewFont);
+
+        CPPUNIT_ASSERT_EQUAL(aFontName, pPrinter->GetFont().GetFamilyName());
+        CPPUNIT_ASSERT_EQUAL(COL_BLACK, pPrinter->GetTextColor());
+    }
+
+    CPPUNIT_ASSERT(aNewFont != pPrinter->GetFont());
+    CPPUNIT_ASSERT_EQUAL(COL_RED, pPrinter->GetTextColor());
+}
+#endif
 
 void Test::editMarker()
 {

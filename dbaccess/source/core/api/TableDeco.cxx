@@ -29,6 +29,7 @@
 
 #include <cppuhelper/typeprovider.hxx>
 #include <comphelper/property.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/types.hxx>
 #include <com/sun/star/util/XRefreshListener.hpp>
 #include <com/sun/star/sdbc/SQLException.hpp>
@@ -109,6 +110,7 @@ sal_Bool SAL_CALL ODBTableDecorator::convertFastPropertyValue(
         case PROPERTY_ID_APPLYFILTER:
         case PROPERTY_ID_FONT:
         case PROPERTY_ID_ROW_HEIGHT:
+        case PROPERTY_ID_AUTOGROW:
         case PROPERTY_ID_TEXTCOLOR:
         case PROPERTY_ID_TEXTLINECOLOR:
         case PROPERTY_ID_TEXTEMPHASIS:
@@ -155,6 +157,7 @@ void ODBTableDecorator::setFastPropertyValue_NoBroadcast(sal_Int32 _nHandle, con
         case PROPERTY_ID_APPLYFILTER:
         case PROPERTY_ID_FONT:
         case PROPERTY_ID_ROW_HEIGHT:
+        case PROPERTY_ID_AUTOGROW:
         case PROPERTY_ID_TEXTCOLOR:
         case PROPERTY_ID_TEXTLINECOLOR:
         case PROPERTY_ID_TEXTEMPHASIS:
@@ -235,6 +238,7 @@ void ODBTableDecorator::getFastPropertyValue(Any& _rValue, sal_Int32 _nHandle) c
         case PROPERTY_ID_APPLYFILTER:
         case PROPERTY_ID_FONT:
         case PROPERTY_ID_ROW_HEIGHT:
+        case PROPERTY_ID_AUTOGROW:
         case PROPERTY_ID_TEXTCOLOR:
         case PROPERTY_ID_TEXTLINECOLOR:
         case PROPERTY_ID_TEXTEMPHASIS:
@@ -452,7 +456,7 @@ OUString SAL_CALL ODBTableDecorator::getName()
 
 sal_Int64 SAL_CALL ODBTableDecorator::getSomething( const Sequence< sal_Int8 >& rId )
 {
-    if (rId.getLength() == 16 && 0 == memcmp(getUnoTunnelImplementationId().getConstArray(),  rId.getConstArray(), 16 ) )
+    if (isUnoTunnelId<ODBTableDecorator>(rId))
         return reinterpret_cast<sal_Int64>(this);
 
     sal_Int64 nRet = 0;
@@ -462,7 +466,7 @@ sal_Int64 SAL_CALL ODBTableDecorator::getSomething( const Sequence< sal_Int8 >& 
     return nRet;
 }
 
-Sequence< sal_Int8 > ODBTableDecorator::getUnoTunnelImplementationId()
+Sequence< sal_Int8 > ODBTableDecorator::getUnoTunnelId()
 {
     static ::cppu::OImplementationId implId;
 

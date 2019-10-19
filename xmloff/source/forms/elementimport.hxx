@@ -31,7 +31,6 @@
 
 #include <com/sun/star/text/XTextCursor.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/form/XGridColumnFactory.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <osl/diagnose.h>
@@ -133,7 +132,7 @@ namespace xmloff
 
         /** create the (uninitialized) element which is to represent the read data
 
-            <p>The default implementation uses <member>m_xORB</member> to create a object with <member>m_sServiceName</member>.
+            <p>The default implementation uses <member>m_xORB</member> to create an object with <member>m_sServiceName</member>.
         */
         virtual css::uno::Reference< css::beans::XPropertySet >
                         createElement();
@@ -501,7 +500,7 @@ namespace xmloff
             const OUString& _rLocalName,
             const OUString& _rValue) override;
 
-        // OControlImport ovrridables
+        // OControlImport overridables
         virtual void doRegisterCellValueBinding( const OUString& _rBoundCellAddress ) override;
 
     protected:

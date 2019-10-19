@@ -4531,6 +4531,22 @@ SfxVoidItem ShowAnnotations SID_TOGGLE_NOTES
     GroupId = SfxGroupId::View;
 ]
 
+SfxVoidItem ShowResolvedAnnotations SID_TOGGLE_RESOLVED_NOTES
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = TRUE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::View;
+]
 
 
 SfxVoidItem ReplyToAnnotation SID_REPLYTO_POSTIT
@@ -7190,6 +7206,25 @@ SfxVoidItem RulerChangeState SID_RULER_CHANGE_STATE
     GroupId = ;
 ]
 
+SfxVoidItem TableChangeCurrentBorderPosition SID_TABLE_CHANGE_CURRENT_BORDER_POSITION
+    (SfxStringItem BorderType SID_TABLE_BORDER_TYPE,
+     SfxUInt16Item Index SID_TABLE_BORDER_INDEX,
+     SfxInt32Item Offset SID_TABLE_BORDER_OFFSET)
+[
+    AutoUpdate = FALSE,
+    FastCall = TRUE,
+    ReadOnlyDoc = TRUE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+
+    AccelConfig = FALSE,
+    MenuConfig = FALSE,
+    ToolBoxConfig = FALSE,
+    GroupId = ;
+]
 
 SfxVoidItem SbaExecuteSql SID_FM_EXECUTE
 ()
@@ -9360,6 +9395,24 @@ SfxVoidItem OpenHyperlinkOnCursor SID_OPEN_HYPERLINK
         MenuConfig = TRUE,
         ToolBoxConfig = TRUE,
         GroupId = SfxGroupId::Edit;
+]
+
+SfxVoidItem EditHyperlink SID_EDIT_HYPERLINK
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerItem;
+    Asynchron;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Edit;
 ]
 
 SfxBoolItem CTLFontState SID_CTLFONT_STATE
@@ -12049,6 +12102,57 @@ SfxVoidItem SignSignatureLine SID_SIGN_SIGNATURELINE
 ]
 
 SfxVoidItem RemoveHyperlink SID_REMOVE_HYPERLINK
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Edit;
+]
+
+SfxVoidItem CopyHyperlinkLocation SID_COPY_HYPERLINK_LOCATION
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+    Asynchron;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Edit;
+]
+
+SfxVoidItem InsertQrCode SID_INSERT_QRCODE
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Insert;
+]
+
+SfxVoidItem EditQrCode SID_EDIT_QRCODE
 ()
 [
     AutoUpdate = FALSE,

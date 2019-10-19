@@ -556,8 +556,7 @@ bool SvxLRSpaceItem::GetPresentation
                     Application::GetSettings().GetUILanguageTag());
             else
             {
-                rText = rText +
-                        GetMetricText( nLeftMargin, eCoreUnit, ePresUnit, &rIntl ) +
+                rText += GetMetricText( nLeftMargin, eCoreUnit, ePresUnit, &rIntl ) +
                         " " + EditResId(GetMetricId(ePresUnit));
             }
             rText += OUString(cpDelim);
@@ -565,12 +564,11 @@ bool SvxLRSpaceItem::GetPresentation
             {
                 rText += EditResId(RID_SVXITEMS_LRSPACE_FLINE);
                 if ( 100 != nPropFirstLineOfst )
-                    rText = rText + unicode::formatPercent(nPropFirstLineOfst,
-                    Application::GetSettings().GetUILanguageTag());
+                    rText += unicode::formatPercent(nPropFirstLineOfst,
+                                Application::GetSettings().GetUILanguageTag());
                 else
                 {
-                    rText = rText +
-                            GetMetricText( static_cast<long>(nFirstLineOfst),
+                    rText += GetMetricText( static_cast<long>(nFirstLineOfst),
                                             eCoreUnit, ePresUnit, &rIntl ) +
                             " " + EditResId(GetMetricId(ePresUnit));
                 }
@@ -578,12 +576,11 @@ bool SvxLRSpaceItem::GetPresentation
             }
             rText += EditResId(RID_SVXITEMS_LRSPACE_RIGHT);
             if ( 100 != nPropRightMargin )
-                rText = rText + unicode::formatPercent(nPropRightMargin,
+                rText += unicode::formatPercent(nPropRightMargin,
                     Application::GetSettings().GetUILanguageTag());
             else
             {
-                rText = rText +
-                        GetMetricText( nRightMargin,
+                rText += GetMetricText( nRightMargin,
                                        eCoreUnit, ePresUnit, &rIntl ) +
                         " " + EditResId(GetMetricId(ePresUnit));
             }
@@ -799,11 +796,10 @@ bool SvxULSpaceItem::GetPresentation
             }
             else
             {
-                rText = rText +
-                        GetMetricText( static_cast<long>(nUpper), eCoreUnit, ePresUnit, &rIntl ) +
+                rText += GetMetricText( static_cast<long>(nUpper), eCoreUnit, ePresUnit, &rIntl ) +
                         " " + EditResId(GetMetricId(ePresUnit));
             }
-            rText = rText + OUString(cpDelim) + EditResId(RID_SVXITEMS_ULSPACE_LOWER);
+            rText += cpDelim + EditResId(RID_SVXITEMS_ULSPACE_LOWER);
             if ( 100 != nPropLower )
             {
                 rText += unicode::formatPercent(nPropLower,
@@ -811,8 +807,7 @@ bool SvxULSpaceItem::GetPresentation
             }
             else
             {
-                rText = rText +
-                        GetMetricText( static_cast<long>(nLower), eCoreUnit, ePresUnit, &rIntl ) +
+                rText += GetMetricText( static_cast<long>(nLower), eCoreUnit, ePresUnit, &rIntl ) +
                         " " + EditResId(GetMetricId(ePresUnit));
             }
             return true;
@@ -960,12 +955,12 @@ bool SvxProtectItem::GetPresentation
 
     if ( bCntnt )
         pId = RID_SVXITEMS_PROT_CONTENT_TRUE;
-    rText = EditResId(pId) + OUString(cpDelim);
+    rText = EditResId(pId) + cpDelim;
     pId = RID_SVXITEMS_PROT_SIZE_FALSE;
 
     if ( bSize )
         pId = RID_SVXITEMS_PROT_SIZE_TRUE;
-    rText = rText + EditResId(pId) + OUString(cpDelim);
+    rText += EditResId(pId) + cpDelim;
     pId = RID_SVXITEMS_PROT_POS_FALSE;
 
     if ( bPos )
@@ -1171,16 +1166,15 @@ bool SvxShadowItem::GetPresentation
     {
         case SfxItemPresentation::Nameless:
         {
-            rText = ::GetColorString( aShadowColor ) + OUString(cpDelim);
+            rText = ::GetColorString( aShadowColor ) + cpDelim;
             const char* pId = RID_SVXITEMS_TRANSPARENT_FALSE;
 
             if ( aShadowColor.GetTransparency() )
                 pId = RID_SVXITEMS_TRANSPARENT_TRUE;
-            rText = rText +
-                    EditResId(pId) +
-                    OUString(cpDelim) +
+            rText += EditResId(pId) +
+                    cpDelim +
                     GetMetricText( static_cast<long>(nWidth), eCoreUnit, ePresUnit, &rIntl ) +
-                    OUString(cpDelim) +
+                    cpDelim +
                     EditResId(RID_SVXITEMS_SHADOW[static_cast<int>(eLocation)]);
             return true;
         }
@@ -1188,17 +1182,16 @@ bool SvxShadowItem::GetPresentation
         {
             rText = EditResId(RID_SVXITEMS_SHADOW_COMPLETE) +
                     ::GetColorString( aShadowColor ) +
-                    OUString(cpDelim);
+                    cpDelim;
 
             const char* pId = RID_SVXITEMS_TRANSPARENT_FALSE;
             if ( aShadowColor.GetTransparency() )
                 pId = RID_SVXITEMS_TRANSPARENT_TRUE;
-            rText = rText +
-                    EditResId(pId) +
-                    OUString(cpDelim) +
+            rText += EditResId(pId) +
+                    cpDelim +
                     GetMetricText( static_cast<long>(nWidth), eCoreUnit, ePresUnit, &rIntl ) +
                     " " + EditResId(GetMetricId(ePresUnit)) +
-                    OUString(cpDelim) +
+                    cpDelim +
                     EditResId(RID_SVXITEMS_SHADOW[static_cast<int>(eLocation)]);
             return true;
         }
@@ -1722,23 +1715,22 @@ bool SvxBoxItem::GetPresentation
             {
                 if ( pBottom )
                 {
-                    rText = rText + pBottom->GetValueString( eCoreUnit, ePresUnit, &rIntl ) + cpDelimTmp;
+                    rText += pBottom->GetValueString( eCoreUnit, ePresUnit, &rIntl ) + cpDelimTmp;
                 }
                 if ( pLeft )
                 {
-                    rText = rText + pLeft->GetValueString( eCoreUnit, ePresUnit, &rIntl ) + cpDelimTmp;
+                    rText += pLeft->GetValueString( eCoreUnit, ePresUnit, &rIntl ) + cpDelimTmp;
                 }
                 if ( pRight )
                 {
-                    rText = rText + pRight->GetValueString( eCoreUnit, ePresUnit, &rIntl ) + cpDelimTmp;
+                    rText += pRight->GetValueString( eCoreUnit, ePresUnit, &rIntl ) + cpDelimTmp;
                 }
             }
             rText += GetMetricText( static_cast<long>(nTopDist), eCoreUnit, ePresUnit, &rIntl );
             if( nTopDist != nBottomDist || nTopDist != nLeftDist ||
                 nTopDist != nRightDist )
             {
-                rText = rText +
-                        cpDelimTmp +
+                rText += cpDelimTmp +
                         GetMetricText( static_cast<long>(nBottomDist), eCoreUnit,
                                         ePresUnit, &rIntl ) +
                         cpDelimTmp +
@@ -1767,29 +1759,25 @@ bool SvxBoxItem::GetPresentation
                 {
                     if ( pTop )
                     {
-                        rText = rText +
-                                EditResId(RID_SVXITEMS_BORDER_TOP) +
+                        rText += EditResId(RID_SVXITEMS_BORDER_TOP) +
                                 pTop->GetValueString( eCoreUnit, ePresUnit, &rIntl, true ) +
                                 cpDelimTmp;
                     }
                     if ( pBottom )
                     {
-                        rText = rText +
-                                EditResId(RID_SVXITEMS_BORDER_BOTTOM) +
+                        rText += EditResId(RID_SVXITEMS_BORDER_BOTTOM) +
                                 pBottom->GetValueString( eCoreUnit, ePresUnit, &rIntl, true ) +
                                 cpDelimTmp;
                     }
                     if ( pLeft )
                     {
-                        rText = rText +
-                                EditResId(RID_SVXITEMS_BORDER_LEFT) +
+                        rText += EditResId(RID_SVXITEMS_BORDER_LEFT) +
                                 pLeft->GetValueString( eCoreUnit, ePresUnit, &rIntl, true ) +
                                 cpDelimTmp;
                     }
                     if ( pRight )
                     {
-                        rText = rText +
-                                EditResId(RID_SVXITEMS_BORDER_RIGHT) +
+                        rText += EditResId(RID_SVXITEMS_BORDER_RIGHT) +
                                 pRight->GetValueString( eCoreUnit, ePresUnit, &rIntl, true ) +
                                 cpDelimTmp;
                     }
@@ -1800,15 +1788,13 @@ bool SvxBoxItem::GetPresentation
             if( nTopDist == nBottomDist && nTopDist == nLeftDist &&
                 nTopDist == nRightDist )
             {
-                rText = rText +
-                        GetMetricText( static_cast<long>(nTopDist), eCoreUnit,
+                rText += GetMetricText( static_cast<long>(nTopDist), eCoreUnit,
                                             ePresUnit, &rIntl ) +
                         " " + EditResId(GetMetricId(ePresUnit));
             }
             else
             {
-                rText = rText +
-                        EditResId(RID_SVXITEMS_BORDER_TOP) +
+                rText += EditResId(RID_SVXITEMS_BORDER_TOP) +
                         GetMetricText( static_cast<long>(nTopDist), eCoreUnit,
                                         ePresUnit, &rIntl ) +
                         " " + EditResId(GetMetricId(ePresUnit)) +
@@ -3061,7 +3047,7 @@ bool SvxBrushItem::GetPresentation
 {
     if ( GPOS_NONE  == eGraphicPos )
     {
-        rText = ::GetColorString( aColor ) + OUString(cpDelim);
+        rText = ::GetColorString( aColor ) + cpDelim;
         const char* pId = RID_SVXITEMS_TRANSPARENT_FALSE;
 
         if ( aColor.GetTransparency() )
@@ -3327,7 +3313,8 @@ const char* getFrmDirResId(size_t nIndex)
         RID_SVXITEMS_FRMDIR_HORI_RIGHT_TOP,
         RID_SVXITEMS_FRMDIR_VERT_TOP_RIGHT,
         RID_SVXITEMS_FRMDIR_VERT_TOP_LEFT,
-        RID_SVXITEMS_FRMDIR_ENVIRONMENT
+        RID_SVXITEMS_FRMDIR_ENVIRONMENT,
+        RID_SVXITEMS_FRMDIR_VERT_BOT_LEFT
     };
     return RID_SVXITEMS_FRMDIR[nIndex];
 }

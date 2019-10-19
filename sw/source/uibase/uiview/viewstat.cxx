@@ -117,6 +117,17 @@ void SwView::GetState(SfxItemSet &rSet)
                 if (!isSignatureLineSelected() || isSignatureLineSigned())
                     rSet.DisableItem(nWhich);
                 break;
+            case SID_INSERT_QRCODE:
+                if( !( m_nSelectionType & SelectionType::Text ||
+                    m_nSelectionType & SelectionType::NumberList ) )
+                {
+                    rSet.DisableItem(nWhich);
+                }
+                break;
+            case SID_EDIT_QRCODE:
+                if (!isQRCodeSelected())
+                    rSet.DisableItem(nWhich);
+                break;
             case FN_INSERT_CAPTION:
                 {
                     // There are captions for graphics, OLE objects, frames and tables
@@ -296,6 +307,8 @@ void SwView::GetState(SfxItemSet &rSet)
             break;
             case FN_REDLINE_ACCEPT_DIRECT:
             case FN_REDLINE_REJECT_DIRECT:
+            case FN_REDLINE_ACCEPT_TONEXT:
+            case FN_REDLINE_REJECT_TONEXT:
             {
                 SwDoc *pDoc = m_pWrtShell->GetDoc();
                 SwPaM *pCursor = m_pWrtShell->GetCursor();

@@ -15,7 +15,7 @@
 #include <app.hxx>
 
 #include <config_version.h>
-#include <config_features.h>
+#include <config_feature_opencl.h>
 #include <config_folders.h>
 
 #include <rtl/bootstrap.hxx>
@@ -217,12 +217,12 @@ void Desktop::CheckOpenCLCompute(const Reference< XDesktop2 > &xDesktop)
     rtl::Bootstrap::expandMacros(aURL);
 
     DirectoryItem aItem;
-    DirectoryItem::get( aURL, aItem );
+    (void)DirectoryItem::get( aURL, aItem );
     FileStatus aFileStatus( osl_FileStatus_Mask_ModifyTime );
-    aItem.getFileStatus( aFileStatus );
+    (void)aItem.getFileStatus( aFileStatus );
     TimeValue aTimeVal = aFileStatus.getModifyTime();
-    aSelectedCLDeviceVersionID += "--";
-    aSelectedCLDeviceVersionID += OUString::number(aTimeVal.Seconds);
+    aSelectedCLDeviceVersionID += "--" +
+        OUString::number(aTimeVal.Seconds);
 
     if (aSelectedCLDeviceVersionID != officecfg::Office::Common::Misc::SelectedOpenCLDeviceIdentifier::get())
     {

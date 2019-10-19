@@ -100,7 +100,7 @@ class SwTabFrame: public SwLayoutFrame, public SwFlowFrame
         SwAttrSetChg *pa = nullptr,
         SwAttrSetChg *pb = nullptr );
 
-    virtual bool ShouldBwdMoved( SwLayoutFrame *pNewUpper, bool bHead, bool &rReformat ) override;
+    virtual bool ShouldBwdMoved( SwLayoutFrame *pNewUpper, bool &rReformat ) override;
 
     virtual void DestroyImpl() override;
     virtual ~SwTabFrame() override;
@@ -136,13 +136,15 @@ public:
     virtual bool Prepare( const PrepareHint ePrep = PREP_CLEAR,
                           const void *pVoid = nullptr, bool bNotify = true ) override;
 
+                 SwFrame *FindLastContentOrTable();
+    inline const SwFrame *FindLastContentOrTable() const;
                  SwContentFrame *FindLastContent();
     inline const SwContentFrame *FindLastContent() const;
 
     const SwTable *GetTable() const { return m_pTable; }
           SwTable *GetTable()       { return m_pTable; }
 
-    bool IsComplete()  { return m_bComplete; }
+    bool IsComplete() const { return m_bComplete; }
     void SetComplete() { m_bComplete = true; }
     void ResetComplete() { m_bComplete = false; }
 
@@ -227,6 +229,11 @@ public:
 
     virtual void dumpAsXmlAttributes(xmlTextWriterPtr writer) const override;
 };
+
+inline const SwFrame *SwTabFrame::FindLastContentOrTable() const
+{
+    return const_cast<SwTabFrame*>(this)->FindLastContentOrTable();
+}
 
 inline const SwContentFrame *SwTabFrame::FindLastContent() const
 {

@@ -233,7 +233,7 @@ OSingleSelectQueryComposer::OSingleSelectQueryComposer(const Reference< XNameAcc
     if ( !m_aContext.is() || !m_xConnection.is() || !m_xConnectionTables.is() )
         throw IllegalArgumentException();
 
-    registerProperty(PROPERTY_ORIGINAL,PROPERTY_ID_ORIGINAL,PropertyAttribute::BOUND|PropertyAttribute::READONLY,&m_sOrignal,cppu::UnoType<decltype(m_sOrignal)>::get());
+    registerProperty(PROPERTY_ORIGINAL,PROPERTY_ID_ORIGINAL,PropertyAttribute::BOUND|PropertyAttribute::READONLY,&m_sOriginal,cppu::UnoType<decltype(m_sOriginal)>::get());
 
     m_aCurrentColumns.resize(4);
 
@@ -311,10 +311,10 @@ void SAL_CALL OSingleSelectQueryComposer::setQuery( const OUString& command )
     clearCurrentCollections();
     // now set the new one
     setQuery_Impl(command);
-    m_sOrignal = command;
+    m_sOriginal = command;
 
     // reset the additive iterator to the same statement
-    parseAndCheck_throwError( m_aSqlParser, m_sOrignal, m_aAdditiveIterator, *this );
+    parseAndCheck_throwError( m_aSqlParser, m_sOriginal, m_aAdditiveIterator, *this );
 
     // we have no "elementary" parts anymore (means filter/groupby/having/order clauses)
     for ( SQLPart eLoopParts = Where; eLoopParts != SQLPartCount; incSQLPart( eLoopParts ) )
@@ -386,7 +386,7 @@ void SAL_CALL OSingleSelectQueryComposer::setCommand( const OUString& Command,sa
     // now set the new one
     OUString sCommand = sSQL.makeStringAndClear();
     setElementaryQuery(sCommand);
-    m_sOrignal = sCommand;
+    m_sOriginal = sCommand;
 }
 
 void OSingleSelectQueryComposer::setQuery_Impl( const OUString& command )
@@ -1127,7 +1127,7 @@ bool OSingleSelectQueryComposer::setLikePredicate(OSQLParseNode const * pConditi
         for (size_t i=2; i < pPart2->count(); i++)
         {
             pPart2->getChild(i)->parseNodeToPredicateStr(
-                aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>(m_sDecimalSep.toChar() ) );
+                aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
         }
 
         aItem.Name = getColumnName(pRowValue,_rIterator);
@@ -1140,9 +1140,9 @@ bool OSingleSelectQueryComposer::setLikePredicate(OSQLParseNode const * pConditi
         OUString aValue;
         OUString aColumnName;
 
-        pPart2->getChild(2)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
-        pPart2->getChild(3)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
-        pRowValue->parseNodeToPredicateStr( aColumnName, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep .toChar() ) );
+        pPart2->getChild(2)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
+        pPart2->getChild(3)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
+        pRowValue->parseNodeToPredicateStr( aColumnName, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
 
         aItem.Name = getColumnName(pRowValue,_rIterator);
         aItem.Value <<= aValue;
@@ -1156,12 +1156,12 @@ bool OSingleSelectQueryComposer::setLikePredicate(OSQLParseNode const * pConditi
 
         // Field names
         for (size_t i=0;i< pRowValue->count();i++)
-             pRowValue->getChild(i)->parseNodeToPredicateStr( aName, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
+             pRowValue->getChild(i)->parseNodeToPredicateStr( aName, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
 
         // Criterion
         for(size_t i=0;i< pValue->count();i++)
-            pValue->getChild(i)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
-        pPart2->getChild(3)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
+            pValue->getChild(i)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
+        pPart2->getChild(3)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
 
         aItem.Name = aName;
         aItem.Value <<= aValue;
@@ -1190,7 +1190,7 @@ bool OSingleSelectQueryComposer::setComparsionPredicate(OSQLParseNode const * pC
             // go forward - don't display the operator
             for (i++;i < pCondition->count();i++)
                 pCondition->getChild(i)->parseNodeToPredicateStr(
-                    aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>(m_sDecimalSep.toChar() ) );
+                    aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
         }
         else if (SQL_ISRULE(pCondition->getChild(pCondition->count()-1), column_ref))
         {
@@ -1228,7 +1228,7 @@ bool OSingleSelectQueryComposer::setComparsionPredicate(OSQLParseNode const * pC
             // go backward - don't display the operator
             for (i--; i >= 0; i--)
                 pCondition->getChild(i)->parseNodeToPredicateStr(
-                    aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
+                    aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
         }
         else
             return false;
@@ -1244,8 +1244,8 @@ bool OSingleSelectQueryComposer::setComparsionPredicate(OSQLParseNode const * pC
         OUString aValue;
         OUString aColumnName;
 
-        pCondition->getChild(2)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
-        pCondition->getChild(0)->parseNodeToPredicateStr( aColumnName, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep .toChar() ) );
+        pCondition->getChild(2)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
+        pCondition->getChild(0)->parseNodeToPredicateStr( aColumnName, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
 
         aItem.Name = getColumnName(pCondition->getChild(0),_rIterator);
         aItem.Value <<= aValue;
@@ -1262,12 +1262,12 @@ bool OSingleSelectQueryComposer::setComparsionPredicate(OSQLParseNode const * pC
 
         // Field names
         for (size_t i=0;i< pLhs->count();i++)
-             pLhs->getChild(i)->parseNodeToPredicateStr( aName, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
+             pLhs->getChild(i)->parseNodeToPredicateStr( aName, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
 
         // Criterion
         aItem.Handle = getPredicateType(pCondition->getChild(1));
         for(size_t i=0;i< pRhs->count();i++)
-            pRhs->getChild(i)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, static_cast<sal_Char>( m_sDecimalSep.toChar() ) );
+            pRhs->getChild(i)->parseNodeToPredicateStr(aValue, m_xConnection, xFormatter, m_aLocale, m_sDecimalSep );
 
         aItem.Name = aName;
         aItem.Value <<= aValue;

@@ -20,9 +20,6 @@
 #include "layerexport.hxx"
 #include "strings.hxx"
 #include <xmloff/xmlexp.hxx>
-#include <xmloff/nmspmap.hxx>
-#include <xmloff/xmlnmspe.hxx>
-#include <xmloff/xmluconv.hxx>
 #include <xmloff/xmlprmap.hxx>
 #include <xmloff/prhdlfac.hxx>
 #include "elementexport.hxx"
@@ -32,22 +29,18 @@
 #include <xmloff/maptype.hxx>
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
-#include <tools/debug.hxx>
 #include "controlpropertymap.hxx"
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/form/XFormsSupplier2.hpp>
 #include <com/sun/star/xforms/XFormsSupplier.hpp>
 #include <com/sun/star/form/FormComponentType.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/script/XEventAttacherManager.hpp>
 #include <com/sun/star/util/NumberFormatsSupplier.hpp>
-#include "eventexport.hxx"
 #include <xmloff/XMLEventExport.hxx>
 #include "formevents.hxx"
 #include <xmloff/xmlnumfe.hxx>
 #include <xmloff/xformsexport.hxx>
-#include <comphelper/processfactory.hxx>
 
 #include <com/sun/star/text/XText.hpp>
 
@@ -198,7 +191,7 @@ namespace xmloff
                     // without this, a lot of stuff in the export routines may fail
                     continue;
 
-                // if the element is part of a ignore list, we are not allowed to export it
+                // if the element is part of an ignore list, we are not allowed to export it
                 if ( m_aIgnoreList.end() != m_aIgnoreList.find( xCurrentProps ) )
                     continue;
 

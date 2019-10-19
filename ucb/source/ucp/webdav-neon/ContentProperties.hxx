@@ -36,6 +36,7 @@
 #include <rtl/ustring.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
+#include "DAVResource.hxx"
 
 namespace com { namespace sun { namespace star { namespace beans {
     struct Property;
@@ -110,7 +111,7 @@ public:
                                     std::vector< OUString > & resources );
 
     // return true, if all properties contained in rProps are contained in
-    // this ContentProperties instance. Otherwiese, false will be returned.
+    // this ContentProperties instance. Otherwise, false will be returned.
     // rNamesNotContained contain the missing names.
     bool containsAllNames(
                     const css::uno::Sequence< css::beans::Property >& rProps,

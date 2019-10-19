@@ -165,9 +165,8 @@ void SwXMLTextBlocks::AddName( const OUString& rShort, const OUString& rLong,
 ErrCode SwXMLTextBlocks::Delete( sal_uInt16 n )
 {
     const OUString aPckName (m_aNames[n]->aPackageName);
-    uno::Reference < container::XNameAccess > xAccess( xBlkRoot, uno::UNO_QUERY );
-    if ( xAccess.is() &&
-            xAccess->hasByName( aPckName ) && xBlkRoot->isStreamElement( aPckName ) )
+    if ( xBlkRoot.is() &&
+            xBlkRoot->hasByName( aPckName ) && xBlkRoot->isStreamElement( aPckName ) )
     {
         try
         {
@@ -185,7 +184,7 @@ ErrCode SwXMLTextBlocks::Delete( sal_uInt16 n )
     return ERRCODE_NONE;
 }
 
-ErrCode SwXMLTextBlocks::Rename( sal_uInt16 nIdx, const OUString& rNewShort, const OUString& )
+ErrCode SwXMLTextBlocks::Rename( sal_uInt16 nIdx, const OUString& rNewShort )
 {
     OSL_ENSURE( xBlkRoot.is(), "No storage set" );
     if(!xBlkRoot.is())
@@ -199,8 +198,8 @@ ErrCode SwXMLTextBlocks::Rename( sal_uInt16 nIdx, const OUString& rNewShort, con
         if (IsOnlyTextBlock ( nIdx ) )
         {
             OUString sExt(".xml");
-            OUString aOldStreamName( aOldName ); aOldStreamName += sExt;
-            OUString aNewStreamName( aPackageName ); aNewStreamName += sExt;
+            OUString aOldStreamName = aOldName  + sExt;
+            OUString aNewStreamName = aPackageName + sExt;
 
             xRoot = xBlkRoot->openStorageElement( aOldName, embed::ElementModes::READWRITE );
             try
@@ -460,11 +459,6 @@ bool SwXMLTextBlocks::IsFileUCBStorage( const OUString & rFileName)
     std::unique_ptr<SvStream> pStm = ::utl::UcbStreamHelper::CreateStream( aName, StreamMode::STD_READ );
     bool bRet = UCBStorage::IsStorageFile( pStm.get() );
     return bRet;
-}
-
-SwImpBlocks::FileType SwXMLTextBlocks::GetFileType() const
-{
-    return FileType::XML;
 }
 
 OUString SwXMLTextBlocks::GeneratePackageName ( const OUString& rShort )

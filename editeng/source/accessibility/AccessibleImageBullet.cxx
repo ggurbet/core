@@ -348,7 +348,7 @@ namespace accessibility
     OUString SAL_CALL AccessibleImageBullet::getImplementationName()
     {
 
-        return OUString("AccessibleImageBullet");
+        return "AccessibleImageBullet";
     }
 
     sal_Bool SAL_CALL AccessibleImageBullet::supportsService (const OUString& sServiceName)
@@ -359,9 +359,7 @@ namespace accessibility
 
     uno::Sequence< OUString > SAL_CALL AccessibleImageBullet::getSupportedServiceNames()
     {
-
-        const OUString sServiceName ("com.sun.star.accessibility.AccessibleContext");
-        return uno::Sequence< OUString > (&sServiceName, 1);
+        return { "com.sun.star.accessibility.AccessibleContext" };
     }
 
     void AccessibleImageBullet::SetIndexInParent( sal_Int32 nIndex )

@@ -91,12 +91,10 @@ void deleteAllLinkReferences(const Reference < XSimpleRegistry >& xReg,
     if (!(xKey.is() && (xKey->getValueType() == RegistryValueType_ASCIILIST)))
         return;
 
-    Sequence<OUString> linkNames = xKey->getAsciiListValue();
+    const Sequence<OUString> linkNames = xKey->getAsciiListValue();
 
     if (!linkNames.hasElements())
         return;
-
-    const OUString* pLinkNames = linkNames.getConstArray();
 
     OUString            aLinkName;
     OUString            aLinkParent;
@@ -105,9 +103,9 @@ void deleteAllLinkReferences(const Reference < XSimpleRegistry >& xReg,
     const sal_Unicode*  pShortName = nullptr;
     sal_Int32           sEnd = 0;
 
-    for (sal_Int32 i = 0; i < linkNames.getLength(); i++)
+    for (const OUString& rLinkName : linkNames)
     {
-        aLinkName = pLinkNames[i];
+        aLinkName = rLinkName;
 
         pTmpName = aLinkName.getStr();
 
@@ -196,7 +194,7 @@ void prepareLink( const Reference < XSimpleRegistry > & xDest,
 
     if (pShortName)
     {
-        linkRefName = linkRefName + link.copy(pShortName - pTmpName + 1);
+        linkRefName += link.copy(pShortName - pTmpName + 1);
         linkName = link.copy(0, pShortName - pTmpName);
     }
 
@@ -218,15 +216,13 @@ OUString searchImplForLink(
     Reference < XRegistryKey > xKey = xRootKey->openKey( slash_IMPLEMENTATIONS );
     if (xKey.is())
     {
-        Sequence< Reference < XRegistryKey > > subKeys( xKey->openKeys() );
-        const Reference < XRegistryKey > * pSubKeys = subKeys.getConstArray();
+        const Sequence< Reference < XRegistryKey > > subKeys( xKey->openKeys() );
         OUString key_name( slash_UNO + linkName );
 
-        for (sal_Int32 i = 0; i < subKeys.getLength(); i++)
+        for (const Reference < XRegistryKey >& xImplKey : subKeys)
         {
             try
             {
-                Reference < XRegistryKey > xImplKey( pSubKeys[i] );
                 if (xImplKey->getKeyType( key_name ) == RegistryKeyType_LINK)
                 {
                     OUString oldImplName = xImplKey->getKeyName().copy(strlen("/IMPLEMENTATIONS/"));
@@ -252,31 +248,25 @@ OUString searchLinkTargetForImpl(const Reference < XRegistryKey >& xRootKey,
                                         const OUString& linkName,
                                         const OUString& implName)
 {
-        Reference < XRegistryKey > xKey = xRootKey->openKey( slash_IMPLEMENTATIONS );
+    Reference < XRegistryKey > xKey = xRootKey->openKey( slash_IMPLEMENTATIONS );
 
-        if (xKey.is())
-        {
-            Sequence< Reference < XRegistryKey > > subKeys = xKey->openKeys();
+    if (xKey.is())
+    {
+        Sequence< Reference < XRegistryKey > > subKeys = xKey->openKeys();
 
-            const Reference < XRegistryKey >* pSubKeys = subKeys.getConstArray();
-            Reference < XRegistryKey > xImplKey;
+        OUString qualifiedLinkName( slash_UNO + linkName );
 
-            for (sal_Int32 i = 0; i < subKeys.getLength(); i++)
-            {
-                xImplKey = pSubKeys[i];
+        auto pSubKey = std::find_if(subKeys.begin(), subKeys.end(),
+            [&implName, &qualifiedLinkName](const Reference<XRegistryKey>& rSubKey) {
+                OUString tmpImplName = rSubKey->getKeyName().copy(strlen("/IMPLEMENTATIONS/"));
+                return tmpImplName == implName
+                    && rSubKey->getKeyType( qualifiedLinkName ) == RegistryKeyType_LINK;
+            });
+        if (pSubKey != subKeys.end())
+            return (*pSubKey)->getLinkTarget( qualifiedLinkName );
+    }
 
-                OUString tmpImplName = xImplKey->getKeyName().copy(strlen("/IMPLEMENTATIONS/"));
-                OUString qualifiedLinkName( slash_UNO );
-                qualifiedLinkName += linkName;
-                if (tmpImplName == implName &&
-                    xImplKey->getKeyType( qualifiedLinkName ) == RegistryKeyType_LINK)
-                {
-                    return xImplKey->getLinkTarget( qualifiedLinkName );
-                }
-            }
-        }
-
-        return OUString();
+    return OUString();
 }
 
 
@@ -291,37 +281,25 @@ void createUniqueSubEntry(const Reference < XRegistryKey > & xSuperKey,
 
     if (xSuperKey->getValueType() == RegistryValueType_ASCIILIST)
     {
-        sal_Int32 length = 0;
-        bool bReady = false;
-
         Sequence<OUString> implEntries = xSuperKey->getAsciiListValue();
-        length = implEntries.getLength();
+        sal_Int32 length = implEntries.getLength();
 
-        for (sal_Int32 i = 0; !bReady && (i < length); i++)
-        {
-            bReady = (implEntries.getConstArray()[i] == value);
-        }
+        bool bReady = comphelper::findValue(implEntries, value) != -1;
 
         if (bReady)
         {
             Sequence<OUString> implEntriesNew(length);
             implEntriesNew.getArray()[0] = value;
 
-            for (sal_Int32 i=0, j=1; i < length; i++)
-            {
-                if (implEntries.getConstArray()[i] != value)
-                    implEntriesNew.getArray()[j++] = implEntries.getConstArray()[i];
-            }
+            std::copy_if(implEntries.begin(), implEntries.end(), std::next(implEntriesNew.begin()),
+                [&value](const OUString& rEntry) { return rEntry != value; });
             xSuperKey->setAsciiListValue(implEntriesNew);
         } else
         {
             Sequence<OUString> implEntriesNew(length+1);
             implEntriesNew.getArray()[0] = value;
 
-            for (sal_Int32 i = 0; i < length; i++)
-            {
-                implEntriesNew.getArray()[i+1] = implEntries.getConstArray()[i];
-            }
+            std::copy(implEntries.begin(), implEntries.end(), std::next(implEntriesNew.begin()));
             xSuperKey->setAsciiListValue(implEntriesNew);
         }
     } else
@@ -342,14 +320,8 @@ bool deleteSubEntry(const Reference < XRegistryKey >& xSuperKey, const OUString&
     {
         Sequence<OUString> implEntries = xSuperKey->getAsciiListValue();
         sal_Int32 length = implEntries.getLength();
-        sal_Int32 equals = 0;
+        sal_Int32 equals = static_cast<sal_Int32>(std::count(implEntries.begin(), implEntries.end(), value));
         bool hasNoImplementations = false;
-
-        for (sal_Int32 i = 0; i < length; i++)
-        {
-            if (implEntries.getConstArray()[i] == value)
-                equals++;
-        }
 
         if (equals == length)
         {
@@ -358,14 +330,8 @@ bool deleteSubEntry(const Reference < XRegistryKey >& xSuperKey, const OUString&
         {
             Sequence<OUString> implEntriesNew(length - equals);
 
-            sal_Int32 j = 0;
-            for (sal_Int32 i = 0; i < length; i++)
-            {
-                if (implEntries.getConstArray()[i] != value)
-                {
-                        implEntriesNew.getArray()[j++] = implEntries.getConstArray()[i];
-                }
-            }
+            std::copy_if(implEntries.begin(), implEntries.end(), implEntriesNew.begin(),
+                [&value](const OUString& rEntry) { return rEntry != value; });
             xSuperKey->setAsciiListValue(implEntriesNew);
         }
 
@@ -457,14 +423,8 @@ void deleteUserLink(const Reference < XRegistryKey >& xRootKey,
         {
             Sequence<OUString> implEntries = xOldKey->getAsciiListValue();
             sal_Int32 length = implEntries.getLength();
-            sal_Int32 equals = 0;
+            sal_Int32 equals = static_cast<sal_Int32>(std::count(implEntries.begin(), implEntries.end(), implName));
             bool hasNoImplementations = false;
-
-            for (sal_Int32 i = 0; i < length; i++)
-            {
-                if (implEntries.getConstArray()[i] == implName)
-                    equals++;
-            }
 
             if (equals == length)
             {
@@ -555,7 +515,7 @@ void prepareUserKeys(const Reference < XSimpleRegistry >& xDest,
         OUString linkTarget = xKey->getLinkTarget(relativKey);
         OUString linkName(xKey->getKeyName().copy(xUnoKey->getKeyName().getLength()));
 
-        linkName = linkName + "/" + relativKey;
+        linkName += "/" + relativKey;
 
         if (bRegister)
         {
@@ -566,16 +526,15 @@ void prepareUserKeys(const Reference < XSimpleRegistry >& xDest,
         }
     } else
     {
-        Sequence< Reference < XRegistryKey> > subKeys = xKey->openKeys();
+        const Sequence< Reference < XRegistryKey> > subKeys = xKey->openKeys();
 
         if (subKeys.hasElements())
         {
             hasSubKeys = true;
-            const Reference < XRegistryKey > * pSubKeys = subKeys.getConstArray();
 
-            for (sal_Int32 i = 0; i < subKeys.getLength(); i++)
+            for (const Reference < XRegistryKey > & rSubKey : subKeys)
             {
-                prepareUserKeys(xDest, xUnoKey, pSubKeys[i], implName, bRegister);
+                prepareUserKeys(xDest, xUnoKey, rSubKey, implName, bRegister);
             }
         }
     }
@@ -620,13 +579,10 @@ void deleteAllImplementations(   const Reference < XSimpleRegistry >& xReg,
 
     if (subKeys.hasElements())
     {
-        const Reference < XRegistryKey> * pSubKeys = subKeys.getConstArray();
-        Reference < XRegistryKey > xImplKey;
         bool hasLocationUrl = false;
 
-        for (sal_Int32 i = 0; i < subKeys.getLength(); i++)
+        for (const Reference < XRegistryKey> & xImplKey : std::as_const(subKeys))
         {
-            xImplKey = pSubKeys[i];
             Reference < XRegistryKey > xKey = xImplKey->openKey(
                 slash_UNO_slash_LOCATION );
 
@@ -649,22 +605,17 @@ void deleteAllImplementations(   const Reference < XSimpleRegistry >& xReg,
                     xKey = xImplKey->openKey( slash_UNO );
                     if (xKey.is())
                     {
-                        Sequence< Reference < XRegistryKey > > subKeys2 = xKey->openKeys();
+                        const Sequence< Reference < XRegistryKey > > subKeys2 = xKey->openKeys();
 
-                        if (subKeys2.hasElements())
+                        for (const Reference < XRegistryKey > & rSubKey2 : subKeys2)
                         {
-                            const Reference < XRegistryKey > * pSubKeys2 = subKeys2.getConstArray();
-
-                            for (sal_Int32 j = 0; j < subKeys2.getLength(); j++)
+                            if (rSubKey2->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_SERVICES ) &&
+                                rSubKey2->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_REGISTRY_LINKS ) &&
+                                rSubKey2->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_ACTIVATOR ) &&
+                                rSubKey2->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_SINGLETONS ) &&
+                                rSubKey2->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_LOCATION) )
                             {
-                                if (pSubKeys2[j]->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_SERVICES ) &&
-                                    pSubKeys2[j]->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_REGISTRY_LINKS ) &&
-                                    pSubKeys2[j]->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_ACTIVATOR ) &&
-                                    pSubKeys2[j]->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_SINGLETONS ) &&
-                                    pSubKeys2[j]->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_LOCATION) )
-                                {
-                                    prepareUserKeys(xReg, xKey, pSubKeys2[j], implName, false);
-                                }
+                                prepareUserKeys(xReg, xKey, rSubKey2, implName, false);
                             }
                         }
                     }
@@ -768,25 +719,15 @@ void deleteAllServiceEntries(    const Reference < XSimpleRegistry >& xReg,
 
     if (subKeys.hasElements())
     {
-        const Reference < XRegistryKey > * pSubKeys = subKeys.getConstArray();
-        Reference < XRegistryKey > xServiceKey;
         bool hasNoImplementations = false;
 
-        for (sal_Int32 i = 0; i < subKeys.getLength(); i++)
+        for (const Reference < XRegistryKey > & xServiceKey : std::as_const(subKeys))
         {
-            xServiceKey = pSubKeys[i];
-
             if (xServiceKey->getValueType() == RegistryValueType_ASCIILIST)
             {
                 Sequence<OUString> implEntries = xServiceKey->getAsciiListValue();
                 sal_Int32 length = implEntries.getLength();
-                sal_Int32 equals = 0;
-
-                for (sal_Int32 j = 0; j < length; j++)
-                {
-                    if (implEntries.getConstArray()[j] == implName)
-                        equals++;
-                }
+                sal_Int32 equals = static_cast<sal_Int32>(std::count(implEntries.begin(), implEntries.end(), implName));
 
                 if (equals == length)
                 {
@@ -797,14 +738,8 @@ void deleteAllServiceEntries(    const Reference < XSimpleRegistry >& xReg,
                     {
                         Sequence<OUString> implEntriesNew(length-equals);
 
-                        sal_Int32 j = 0;
-                        for (sal_Int32 k = 0; k < length; k++)
-                        {
-                            if (implEntries.getConstArray()[k] != implName)
-                            {
-                                implEntriesNew.getArray()[j++] = implEntries.getConstArray()[k];
-                            }
-                        }
+                        std::copy_if(implEntries.begin(), implEntries.end(), implEntriesNew.begin(),
+                            [&implName](const OUString& rEntry) { return rEntry != implName; });
 
                         xServiceKey->setAsciiListValue(implEntriesNew);
                     }
@@ -844,13 +779,8 @@ bool is_supported_service(
         return true;
     Sequence< Reference< reflection::XServiceTypeDescription > > seq(
         xService_td->getMandatoryServices() );
-    Reference< reflection::XServiceTypeDescription > const * p = seq.getConstArray();
-    for ( sal_Int32 nPos = seq.getLength(); nPos--; )
-    {
-        if (is_supported_service( service_name, p[ nPos ] ))
-            return true;
-    }
-    return false;
+    return std::any_of(seq.begin(), seq.end(), [&service_name](const auto& rService) {
+        return is_supported_service( service_name, rService ); });
 }
 
 
@@ -951,14 +881,7 @@ void insert_singletons(
         {
         }
         // check implname is already in
-        sal_Int32 nPos_implnames = implnames.getLength();
-        OUString const * pImplnames = implnames.getConstArray();
-        while (nPos_implnames--)
-        {
-            if (implname == pImplnames[ nPos_implnames ])
-                break;
-        }
-        if (nPos_implnames < 0)
+        if (comphelper::findValue(implnames, implname) == -1)
         {
             // append and write back
             implnames.realloc( implnames.getLength() +1 );
@@ -979,7 +902,7 @@ void prepareRegistry(
     Reference< XComponentContext > const & xContext )
     // throw ( InvalidRegistryException, CannotRegisterImplementationException, RuntimeException )
 {
-    Sequence< Reference < XRegistryKey > > subKeys = xSource->openKeys();
+    const Sequence< Reference < XRegistryKey > > subKeys = xSource->openKeys();
 
     if (!subKeys.hasElements())
     {
@@ -987,21 +910,15 @@ void prepareRegistry(
             "prepareRegistry(): source registry is empty" );
     }
 
-    const Reference < XRegistryKey >* pSubKeys = subKeys.getConstArray();
-    Reference < XRegistryKey > xImplKey;
-
-    for (sal_Int32 i = 0; i < subKeys.getLength(); i++)
+    for (const Reference < XRegistryKey >& xImplKey : subKeys)
     {
-        xImplKey = pSubKeys[i];
-
         Reference < XRegistryKey >  xKey = xImplKey->openKey(
             slash_UNO_slash_SERVICES );
 
         if (xKey.is())
         {
             // update entries in SERVICES section
-            Sequence< Reference < XRegistryKey > > serviceKeys = xKey->openKeys();
-            const Reference < XRegistryKey > * pServiceKeys = serviceKeys.getConstArray();
+            const Sequence< Reference < XRegistryKey > > serviceKeys = xKey->openKeys();
 
             OUString implName = xImplKey->getKeyName().copy(1);
             sal_Int32 firstDot = implName.indexOf('/');
@@ -1011,9 +928,9 @@ void prepareRegistry(
 
             sal_Int32 offset = xKey->getKeyName().getLength() + 1;
 
-            for (sal_Int32 j = 0; j < serviceKeys.getLength(); j++)
+            for (const Reference < XRegistryKey >& rServiceKey : serviceKeys)
             {
-                OUString serviceName = pServiceKeys[j]->getKeyName().copy(offset);
+                OUString serviceName = rServiceKey->getKeyName().copy(offset);
 
                 createUniqueSubEntry(
                     xDest->getRootKey()->createKey(
@@ -1024,20 +941,15 @@ void prepareRegistry(
             xKey = xImplKey->openKey( slash_UNO );
             if (xKey.is())
             {
-                Sequence< Reference < XRegistryKey > > subKeys2 = xKey->openKeys();
+                const Sequence< Reference < XRegistryKey > > subKeys2 = xKey->openKeys();
 
-                if (subKeys2.hasElements())
+                for (const Reference < XRegistryKey >& rSubKey2 : subKeys2)
                 {
-                    const Reference < XRegistryKey > * pSubKeys2 = subKeys2.getConstArray();
-
-                    for (sal_Int32 j = 0; j < subKeys2.getLength(); j++)
+                    if (rSubKey2->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_SERVICES) &&
+                        rSubKey2->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_REGISTRY_LINKS ) &&
+                        rSubKey2->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_SINGLETONS ))
                     {
-                        if (pSubKeys2[j]->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_SERVICES) &&
-                            pSubKeys2[j]->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_REGISTRY_LINKS ) &&
-                            pSubKeys2[j]->getKeyName() != (xImplKey->getKeyName() + slash_UNO_slash_SINGLETONS ))
-                        {
-                            prepareUserKeys(xDest, xKey, pSubKeys2[j], implName, true);
-                        }
+                        prepareUserKeys(xDest, xKey, rSubKey2, implName, true);
                     }
                 }
             }
@@ -1064,16 +976,11 @@ void prepareRegistry(
         if (xKey.is() && (xKey->getValueType() == RegistryValueType_ASCIILIST))
         {
             // update link entries in REGISTRY_LINKS section
-            Sequence<OUString> linkNames = xKey->getAsciiListValue();
+            const Sequence<OUString> linkNames = xKey->getAsciiListValue();
 
-            if (linkNames.hasElements())
+            for (const OUString& rLinkName : linkNames)
             {
-                const OUString* pLinkNames = linkNames.getConstArray();
-
-                for (sal_Int32 j = 0; j < linkNames.getLength(); j++)
-                {
-                    prepareLink(xDest, xImplKey, pLinkNames[j]);
-                }
+                prepareLink(xDest, xImplKey, rLinkName);
             }
         }
 
@@ -1113,17 +1020,11 @@ void findImplementations(    const Reference < XRegistryKey > & xSource,
 
     try
     {
-        Sequence< Reference < XRegistryKey > > subKeys = xSource->openKeys();
+        const Sequence< Reference < XRegistryKey > > subKeys = xSource->openKeys();
 
-        if (subKeys.hasElements())
+        for (const Reference < XRegistryKey >& rSubKey : subKeys)
         {
-            const Reference < XRegistryKey >* pSubKeys = subKeys.getConstArray();
-
-            for (sal_Int32 i = 0; i < subKeys.getLength(); i++)
-            {
-                findImplementations(pSubKeys[i], implNames);
-            }
-
+            findImplementations(rSubKey, implNames);
         }
     }
     catch(InvalidRegistryException&)
@@ -1214,7 +1115,7 @@ ImplementationRegistration::ImplementationRegistration( const Reference < XCompo
 // XServiceInfo
 OUString ImplementationRegistration::getImplementationName()
 {
-    return OUString("com.sun.star.comp.stoc.ImplementationRegistration");
+    return "com.sun.star.comp.stoc.ImplementationRegistration";
 }
 
 // XServiceInfo

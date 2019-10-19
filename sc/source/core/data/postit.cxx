@@ -74,7 +74,7 @@ public:
     /** Stores the cell position of the note in the user data area of the caption. */
     static void         SetCaptionUserData( SdrCaptionObj& rCaption, const ScAddress& rPos );
     /** Sets all default formatting attributes to the caption object. */
-    static void         SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc, SfxItemSet* pExtraItemSet );
+    static void         SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc, const SfxItemSet* pExtraItemSet );
 };
 
 void ScCaptionUtil::SetCaptionLayer( SdrCaptionObj& rCaption, bool bShown )
@@ -100,7 +100,7 @@ void ScCaptionUtil::SetCaptionUserData( SdrCaptionObj& rCaption, const ScAddress
     pObjData->meType = ScDrawObjData::CellNote;
 }
 
-void ScCaptionUtil::SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc, SfxItemSet* pExtraItemSet )
+void ScCaptionUtil::SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc, const SfxItemSet* pExtraItemSet )
 {
     SfxItemSet aItemSet = rCaption.GetMergedItemSet();
 
@@ -482,15 +482,15 @@ ScCaptionPtr::ScCaptionPtr( const ScCaptionPtr& r ) :
     }
 }
 
-ScCaptionPtr::ScCaptionPtr( ScCaptionPtr&& r ) :
-    mpHead(r.mpHead), mpNext(r.mpNext), mpCaption(r.mpCaption), mbNotOwner(false)
+ScCaptionPtr::ScCaptionPtr(ScCaptionPtr&& r) noexcept
+    : mpHead(r.mpHead), mpNext(r.mpNext), mpCaption(r.mpCaption), mbNotOwner(false)
 {
     r.replaceInList( this );
     r.mpCaption = nullptr;
     r.mbNotOwner = false;
 }
 
-ScCaptionPtr& ScCaptionPtr::operator=( ScCaptionPtr&& r )
+ScCaptionPtr& ScCaptionPtr::operator=(ScCaptionPtr&& r) noexcept
 {
     assert(this != &r);
 
@@ -560,7 +560,7 @@ void ScCaptionPtr::newHead()
     mpHead = new Head(this);
 }
 
-void ScCaptionPtr::replaceInList( ScCaptionPtr* pNew )
+void ScCaptionPtr::replaceInList(ScCaptionPtr* pNew) noexcept
 {
     if (!mpHead && !mpNext)
         return;
@@ -1045,6 +1045,7 @@ void ScPostIt::CreateCaptionFromInitData( const ScAddress& rPos ) const
         return;
 
     // Prevent triple change broadcasts of the same object.
+    bool bWasLocked = maNoteData.mxCaption->getSdrModelFromSdrObject().isLocked();
     maNoteData.mxCaption->getSdrModelFromSdrObject().setLock(true);
 
     // transfer ownership of outliner object to caption, or set simple text
@@ -1079,7 +1080,7 @@ void ScPostIt::CreateCaptionFromInitData( const ScAddress& rPos ) const
     }
 
     // End prevent triple change broadcasts of the same object.
-    maNoteData.mxCaption->getSdrModelFromSdrObject().setLock(false);
+    maNoteData.mxCaption->getSdrModelFromSdrObject().setLock(bWasLocked);
     maNoteData.mxCaption->BroadcastObjectChange();
 }
 

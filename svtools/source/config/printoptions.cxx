@@ -18,15 +18,11 @@
  */
 
 #include <svtools/printoptions.hxx>
-#include <unotools/configmgr.hxx>
-#include <unotools/configitem.hxx>
 #include <vcl/print.hxx>
 #include <com/sun/star/uno/Any.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
-#include <com/sun/star/container/XNameContainer.hpp>
-#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 
 #include <comphelper/configurationhelper.hxx>
 #include <comphelper/processfactory.hxx>
@@ -700,8 +696,7 @@ SvtPrinterOptions::SvtPrinterOptions()
     // ... and initialize our data container only if it not already!
     if( m_pStaticDataContainer == nullptr )
     {
-        OUString aRootPath( ROOTNODE_START );
-        aRootPath += "/Printer";
+        OUString aRootPath = ROOTNODE_START "/Printer";
         m_pStaticDataContainer = new SvtPrintOptions_Impl( aRootPath );
         pPrinterOptionsDataContainer = m_pStaticDataContainer;
         svtools::ItemHolder2::holdConfigItem(EItem::PrintOptions);
@@ -735,8 +730,7 @@ SvtPrintFileOptions::SvtPrintFileOptions()
     // ... and initialize our data container only if it not already!
     if( m_pStaticDataContainer == nullptr )
     {
-        OUString aRootPath( ROOTNODE_START );
-        aRootPath += "/File";
+        OUString aRootPath = ROOTNODE_START "/File";
         m_pStaticDataContainer = new SvtPrintOptions_Impl( aRootPath );
         pPrintFileOptionsDataContainer = m_pStaticDataContainer;
 

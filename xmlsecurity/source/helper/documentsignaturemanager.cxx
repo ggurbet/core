@@ -145,11 +145,7 @@ bool DocumentSignatureManager::readManifest()
     uno::Reference<packages::manifest::XManifestReader> xReader
         = packages::manifest::ManifestReader::create(mxContext);
 
-    uno::Reference<container::XNameAccess> xNameAccess(mxStore, uno::UNO_QUERY);
-    if (!xNameAccess.is())
-        return false;
-
-    if (xNameAccess->hasByName("META-INF"))
+    if (mxStore->hasByName("META-INF"))
     {
         //Get the manifest.xml
         uno::Reference<embed::XStorage> xSubStore(
@@ -181,7 +177,7 @@ bool DocumentSignatureManager::isXML(const OUString& rURI)
 
     if (readManifest())
     {
-        for (const uno::Sequence<beans::PropertyValue>& entry : m_manifest)
+        for (const uno::Sequence<beans::PropertyValue>& entry : std::as_const(m_manifest))
         {
             OUString sPath;
             OUString sMediaType;
@@ -231,12 +227,8 @@ SignatureStreamHelper DocumentSignatureManager::ImplOpenSignatureStream(sal_Int3
                                                                         bool bTempStream)
 {
     SignatureStreamHelper aHelper;
-    if (mxStore.is())
-    {
-        uno::Reference<container::XNameAccess> xNameAccess(mxStore, uno::UNO_QUERY);
-        if (xNameAccess.is() && xNameAccess->hasByName("[Content_Types].xml"))
-            aHelper.nStorageFormat = embed::StorageFormats::OFOPXML;
-    }
+    if (mxStore.is() && mxStore->hasByName("[Content_Types].xml"))
+        aHelper.nStorageFormat = embed::StorageFormats::OFOPXML;
 
     if (bTempStream)
     {
@@ -401,7 +393,7 @@ bool DocumentSignatureManager::add(
                                              eAlgorithmID);
     }
 
-    uno::Sequence<uno::Reference<security::XCertificate>> aCertPath
+    const uno::Sequence<uno::Reference<security::XCertificate>> aCertPath
         = xSecurityContext->getSecurityEnvironment()->buildCertificatePath(xCert);
 
     OUStringBuffer aStrBuffer;
@@ -657,7 +649,7 @@ void DocumentSignatureManager::write(bool bXAdESCompliantIfODF)
                                                    maCurrentSignatureInformations[i], i + 1);
     }
 
-    // If stream was not provided, we are responsible for committing it....
+    // If stream was not provided, we are responsible for committing it...
     if (!mxSignatureStream.is() && aStreamHelper.xSignatureStorage.is())
     {
         uno::Reference<embed::XTransactedObject> xTrans(aStreamHelper.xSignatureStorage,
@@ -680,13 +672,13 @@ DocumentSignatureManager::getGpgSecurityEnvironment()
 }
 
 uno::Reference<xml::crypto::XXMLSecurityContext> const&
-DocumentSignatureManager::getSecurityContext()
+DocumentSignatureManager::getSecurityContext() const
 {
     return mxSecurityContext;
 }
 
 uno::Reference<xml::crypto::XXMLSecurityContext> const&
-DocumentSignatureManager::getGpgSecurityContext()
+DocumentSignatureManager::getGpgSecurityContext() const
 {
     return mxGpgSecurityContext;
 }

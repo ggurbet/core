@@ -314,7 +314,7 @@ SalFrame* ImplSalCreateFrame( WinSalInstance* pInst,
         }
         else
         {
-            // Only with WS_OVRLAPPED we get a useful default position/size
+            // Only with WS_OVERLAPPED we get a useful default position/size
             if ( (nSalFrameStyle & (SalFrameStyleFlags::SIZEABLE | SalFrameStyleFlags::MOVEABLE)) ==
                  (SalFrameStyleFlags::SIZEABLE | SalFrameStyleFlags::MOVEABLE) )
                 nSysStyle |= WS_OVERLAPPED;
@@ -447,8 +447,8 @@ SalFrame* ImplSalCreateFrame( WinSalInstance* pInst,
         return nullptr;
     }
 
-    // If we have a Window with an Caption Bar and without
-    // an MaximizeBox, we change the SystemMenu
+    // If we have a Window with a Caption Bar and without
+    // a MaximizeBox, we change the SystemMenu
     if ( (nSysStyle & (WS_CAPTION | WS_MAXIMIZEBOX)) == (WS_CAPTION) )
     {
         HMENU hSysMenu = GetSystemMenu( hWnd, FALSE );
@@ -867,11 +867,6 @@ WinSalFrame::WinSalFrame()
     mpNextClipRect      = nullptr;
     mnDisplay           = 0;
     mbPropertiesStored  = false;
-
-    memset( &maState, 0, sizeof( SalFrameState ) );
-    maSysData.nSize     = sizeof( SystemEnvData );
-
-    memset( &maGeometry, 0, sizeof( maGeometry ) );
 
     // get data, when making 1st frame
     if ( !pSalData->mpFirstFrame )
@@ -3376,7 +3371,7 @@ static bool ImplHandleKeyMsg( HWND hWnd, UINT nMsg,
             return false;
 
         // only "free flying" WM_CHAR messages arrive here, that are
-        // created by typing a ALT-NUMPAD combination
+        // created by typing an ALT-NUMPAD combination
         SalKeyEvent aKeyEvt;
 
         if ( (wParam >= '0') && (wParam <= '9') )
@@ -4342,8 +4337,7 @@ static bool ImplHandleMinMax( HWND hWnd, LPARAM lParam )
 // if bByPosition is false then nPos denotes a menu id instead of a position
 static WinSalMenuItem* ImplGetSalMenuItem( HMENU hMenu, UINT nPos, bool bByPosition=true )
 {
-    MENUITEMINFOW mi;
-    memset(&mi, 0, sizeof(mi));
+    MENUITEMINFOW mi = {};
     mi.cbSize = sizeof( mi );
     mi.fMask = MIIM_DATA;
     if( !GetMenuItemInfoW( hMenu, nPos, bByPosition, &mi) )
@@ -4355,8 +4349,7 @@ static WinSalMenuItem* ImplGetSalMenuItem( HMENU hMenu, UINT nPos, bool bByPosit
 // returns the index of the currently selected item if any or -1
 static int ImplGetSelectedIndex( HMENU hMenu )
 {
-    MENUITEMINFOW mi;
-    memset(&mi, 0, sizeof(mi));
+    MENUITEMINFOW mi = {};
     mi.cbSize = sizeof( mi );
     mi.fMask = MIIM_STATE;
     int n = GetMenuItemCount( hMenu );
@@ -4380,7 +4373,7 @@ static LRESULT ImplMenuChar( HWND, WPARAM wParam, LPARAM lParam )
 {
     LRESULT nRet = MNC_IGNORE;
     HMENU hMenu = reinterpret_cast<HMENU>(lParam);
-    OUString aMnemonic( "&" + OUStringLiteral1(static_cast<sal_Unicode>(LOWORD(wParam))) );
+    OUString aMnemonic( "&" + OUStringChar(static_cast<sal_Unicode>(LOWORD(wParam))) );
     aMnemonic = aMnemonic.toAsciiLowerCase();   // we only have ascii mnemonics
 
     // search the mnemonic in the current menu
@@ -4431,8 +4424,7 @@ static LRESULT ImplMeasureItem( HWND hWnd, WPARAM wParam, LPARAM lParam )
         HDC hdc = GetDC( hWnd );
         SIZE strSize;
 
-        NONCLIENTMETRICSW ncm;
-        memset( &ncm, 0, sizeof(ncm) );
+        NONCLIENTMETRICSW ncm = {};
         ncm.cbSize = sizeof( ncm );
         SystemParametersInfoW( SPI_GETNONCLIENTMETRICS, 0, &ncm, 0 );
 
@@ -4570,8 +4562,7 @@ static LRESULT ImplDrawItem(HWND, WPARAM wParam, LPARAM lParam )
         x += bmpSize.Width() + 3;
         aRect.left = x;
 
-        NONCLIENTMETRICSW ncm;
-        memset( &ncm, 0, sizeof(ncm) );
+        NONCLIENTMETRICSW ncm = {};
         ncm.cbSize = sizeof( ncm );
         SystemParametersInfoW( SPI_GETNONCLIENTMETRICS, 0, &ncm, 0 );
 
@@ -4704,8 +4695,7 @@ static bool ImplHandleMenuSelect( HWND hWnd, WPARAM wParam, LPARAM lParam )
         {
             // submenu selected
             // wParam now carries an index instead of an id -> retrieve id
-            MENUITEMINFOW mi;
-            memset(&mi, 0, sizeof(mi));
+            MENUITEMINFOW mi = {};
             mi.cbSize = sizeof( mi );
             mi.fMask = MIIM_ID;
             if( GetMenuItemInfoW( hMenu, LOWORD(wParam), TRUE, &mi) )
@@ -4893,8 +4883,7 @@ static void ImplHandleInputLangChange( HWND hWnd, WPARAM, LPARAM lParam )
 
 static void ImplUpdateIMECursorPos( WinSalFrame* pFrame, HIMC hIMC )
 {
-    COMPOSITIONFORM aForm;
-    memset( &aForm, 0, sizeof( aForm ) );
+    COMPOSITIONFORM aForm = {};
 
     // get cursor position and from it calculate default position
     // for the composition window

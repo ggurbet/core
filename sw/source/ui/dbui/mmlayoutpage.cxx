@@ -75,8 +75,8 @@ using namespace ::com::sun::star::view;
 #define DEFAULT_ADDRESS_WIDTH  (MM50*15)// 7,5 cm
 #define DEFAULT_ADDRESS_HEIGHT (MM50*7) // 3,5cm
 
-SwMailMergeLayoutPage::SwMailMergeLayoutPage(SwMailMergeWizard* pWizard, TabPageParent pParent)
-    : svt::OWizardPage(pParent, "modules/swriter/ui/mmlayoutpage.ui", "MMLayoutPage")
+SwMailMergeLayoutPage::SwMailMergeLayoutPage(weld::Container* pPage, SwMailMergeWizard* pWizard)
+    : vcl::OWizardPage(pPage, pWizard, "modules/swriter/ui/mmlayoutpage.ui", "MMLayoutPage")
     , m_pExampleWrtShell(nullptr)
     , m_pAddressBlockFormat(nullptr)
     , m_bIsGreetingInserted(false)
@@ -153,17 +153,10 @@ SwMailMergeLayoutPage::SwMailMergeLayoutPage(SwMailMergeWizard* pWizard, TabPage
 
 SwMailMergeLayoutPage::~SwMailMergeLayoutPage()
 {
-    disposeOnce();
-}
-
-void SwMailMergeLayoutPage::dispose()
-{
     File::remove( m_sExampleURL );
-    m_pWizard.clear();
-    svt::OWizardPage::dispose();
 }
 
-void SwMailMergeLayoutPage::ActivatePage()
+void SwMailMergeLayoutPage::Activate()
 {
     SwMailMergeConfigItem& rConfigItem = m_pWizard->GetConfigItem();
     bool bGreetingLine = rConfigItem.IsGreetingLine(false) && !rConfigItem.IsGreetingInserted();
@@ -216,11 +209,11 @@ void SwMailMergeLayoutPage::ActivatePage()
     }
 }
 
-bool SwMailMergeLayoutPage::commitPage(::svt::WizardTypes::CommitPageReason eReason)
+bool SwMailMergeLayoutPage::commitPage(::vcl::WizardTypes::CommitPageReason eReason)
 {
     //now insert the frame and the greeting
     SwMailMergeConfigItem& rConfigItem = m_pWizard->GetConfigItem();
-    if (eReason == ::svt::WizardTypes::eTravelForward || eReason == ::svt::WizardTypes::eFinish)
+    if (eReason == ::vcl::WizardTypes::eTravelForward || eReason == ::vcl::WizardTypes::eFinish)
     {
         long nLeft = static_cast< long >(m_xLeftMF->denormalize(m_xLeftMF->get_value(FieldUnit::TWIP)));
         long nTop  = static_cast< long >(m_xTopMF->denormalize(m_xTopMF->get_value(FieldUnit::TWIP)));
@@ -303,10 +296,10 @@ SwFrameFormat* SwMailMergeLayoutPage::InsertAddressFrame(
         SwFieldMgr aFieldMgr(&rShell);
         //create a database string source.command.commandtype.column
         const SwDBData& rData = rConfigItem.GetCurrentDBData();
-        OUString sDBName(rData.sDataSource + OUStringLiteral1(DB_DELIM)
-            + rData.sCommand + OUStringLiteral1(DB_DELIM));
+        OUString sDBName(rData.sDataSource + OUStringChar(DB_DELIM)
+            + rData.sCommand + OUStringChar(DB_DELIM));
         const OUString sDatabaseConditionPrefix(sDBName.replace(DB_DELIM, '.'));
-        sDBName += OUString::number(rData.nCommandType) + OUStringLiteral1(DB_DELIM);
+        sDBName += OUString::number(rData.nCommandType) + OUStringChar(DB_DELIM);
 
         // if only the country is in an address line the
         // paragraph has to be hidden depending on the
@@ -357,7 +350,7 @@ SwFrameFormat* SwMailMergeLayoutPage::InsertAddressFrame(
                     if( !rExcludeCountry.isEmpty() )
                     {
                         const OUString sExpression("[" + sDatabaseConditionPrefix + sCountryColumn + "]");
-                        SwInsertField_Data aData(TYP_CONDTXTFLD, 0,
+                        SwInsertField_Data aData(SwFieldTypesEnum::ConditionalText, 0,
                                                sExpression + " != \"" + rExcludeCountry + "\"",
                                                sExpression,
                                                0, &rShell );
@@ -365,13 +358,13 @@ SwFrameFormat* SwMailMergeLayoutPage::InsertAddressFrame(
                     }
                     else
                     {
-                        SwInsertField_Data aData(TYP_HIDDENPARAFLD, 0, "", "", 0, &rShell );
+                        SwInsertField_Data aData(SwFieldTypesEnum::HiddenParagraph, 0, "", "", 0, &rShell );
                         aFieldMgr.InsertField( aData );
                     }
                 }
                 else
                 {
-                    SwInsertField_Data aData(TYP_DBFLD, 0, sDB, OUString(), 0, &rShell);
+                    SwInsertField_Data aData(SwFieldTypesEnum::Database, 0, sDB, OUString(), 0, &rShell);
                     aFieldMgr.InsertField( aData );
                 }
             }
@@ -383,7 +376,7 @@ SwFrameFormat* SwMailMergeLayoutPage::InsertAddressFrame(
             {
                 if(bHideEmptyParagraphs)
                 {
-                    SwInsertField_Data aData(TYP_HIDDENPARAFLD, 0, sHideParagraphsExpression, OUString(), 0, &rShell);
+                    SwInsertField_Data aData(SwFieldTypesEnum::HiddenParagraph, 0, sHideParagraphsExpression, OUString(), 0, &rShell);
                     aFieldMgr.InsertField( aData );
                 }
                 sHideParagraphsExpression.clear();
@@ -393,7 +386,7 @@ SwFrameFormat* SwMailMergeLayoutPage::InsertAddressFrame(
         }
         if(bHideEmptyParagraphs && !sHideParagraphsExpression.isEmpty())
         {
-            SwInsertField_Data aData(TYP_HIDDENPARAFLD, 0, sHideParagraphsExpression, OUString(), 0, &rShell);
+            SwInsertField_Data aData(SwFieldTypesEnum::HiddenParagraph, 0, sHideParagraphsExpression, OUString(), 0, &rShell);
             aFieldMgr.InsertField( aData );
         }
     }
@@ -494,9 +487,9 @@ void SwMailMergeLayoutPage::InsertGreeting(SwWrtShell& rShell, SwMailMergeConfig
             const OUString sConditionBase("[" + sCommonBase + sGenderColumn + "]");
             const OUString sNameColumnBase("[" + sCommonBase + sNameColumn + "]");
 
-            const OUString sDBName(rData.sDataSource + OUStringLiteral1(DB_DELIM)
-                + rData.sCommand + OUStringLiteral1(DB_DELIM)
-                + OUString::number(rData.nCommandType) + OUStringLiteral1(DB_DELIM));
+            const OUString sDBName(rData.sDataSource + OUStringChar(DB_DELIM)
+                + rData.sCommand + OUStringChar(DB_DELIM)
+                + OUString::number(rData.nCommandType) + OUStringChar(DB_DELIM));
 
 //          Female:  [database.sGenderColumn] != "rFemaleGenderValue" && [database.NameColumn]
 //          Male:    [database.sGenderColumn] == "rFemaleGenderValue" && [database.rGenderColumn]
@@ -533,12 +526,12 @@ void SwMailMergeLayoutPage::InsertGreeting(SwWrtShell& rShell, SwMailMergeConfig
                     if(bHideEmptyParagraphs && !sHideParagraphsExpression.isEmpty())
                     {
                         OUString sComplete = "(" + sCondition + ") OR (" + sHideParagraphsExpression + ")";
-                        SwInsertField_Data aData(TYP_HIDDENPARAFLD, 0, sComplete, OUString(), 0, &rShell);
+                        SwInsertField_Data aData(SwFieldTypesEnum::HiddenParagraph, 0, sComplete, OUString(), 0, &rShell);
                         aFieldMgr.InsertField( aData );
                     }
                     else
                     {
-                        SwInsertField_Data aData(TYP_HIDDENPARAFLD, 0, sCondition, OUString(), 0, &rShell);
+                        SwInsertField_Data aData(SwFieldTypesEnum::HiddenParagraph, 0, sCondition, OUString(), 0, &rShell);
                         aFieldMgr.InsertField( aData );
                     }
                     //now the text has to be inserted
@@ -564,7 +557,7 @@ void SwMailMergeLayoutPage::InsertGreeting(SwWrtShell& rShell, SwMailMergeConfig
                                     break;
                                 }
                             }
-                            SwInsertField_Data aData(TYP_DBFLD, 0,
+                            SwInsertField_Data aData(SwFieldTypesEnum::Database, 0,
                                 sDBName + sConvertedColumn,
                                 OUString(), 0, &rShell);
                             aFieldMgr.InsertField( aData );
@@ -611,8 +604,7 @@ IMPL_LINK_NOARG(SwMailMergeLayoutPage, PreviewLoadedHdl_Impl, SwOneExampleFrame&
     //now the ViewOptions should be set properly
     Reference< XViewSettingsSupplier >  xSettings(xModel->getCurrentController(), UNO_QUERY);
     m_xViewProperties = xSettings->getViewSettings();
-    Reference< XUnoTunnel > xDocTunnel(xModel, UNO_QUERY);
-    SwXTextDocument* pXDoc = reinterpret_cast<SwXTextDocument*>(xDocTunnel->getSomething(SwXTextDocument::getUnoTunnelId()));
+    auto pXDoc = comphelper::getUnoTunnelImplementation<SwXTextDocument>(xModel);
     SwDocShell* pDocShell = pXDoc->GetDocShell();
     m_pExampleWrtShell = pDocShell->GetWrtShell();
     OSL_ENSURE(m_pExampleWrtShell, "No SwWrtShell found!");

@@ -304,7 +304,7 @@ void NotebookbarTabControl::FillShortcutsToolBox(Reference<XComponentContext> co
                 sal_uInt16 nType = ItemType::DEFAULT;
                 bool bVisible = true;
 
-                for ( const auto& aProp: aPropSequence )
+                for ( const auto& aProp: std::as_const(aPropSequence) )
                 {
                     if ( aProp.Name == "CommandURL" )
                         aProp.Value >>= aCommandURL;
@@ -361,7 +361,7 @@ Size NotebookbarTabControl::calculateRequisition() const
 
     for (int i = 0; i < GetPageCount(); i++)
     {
-        vcl::Window* pChild = static_cast<vcl::Window*>(GetTabPage(TabControl::GetPageId(i)));
+        vcl::Window* pChild = GetTabPage(TabControl::GetPageId(i));
 
         if (pChild)
         {

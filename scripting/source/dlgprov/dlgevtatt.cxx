@@ -203,7 +203,7 @@ namespace dlgprov
         {
             Reference< ooo::vba::XVBAToOOEventDescGen > xVBAToOOEvtDesc( xSMgr->createInstanceWithContext("ooo.vba.VBAToOOEventDesc", m_xContext ), UNO_QUERY );
             if ( xVBAToOOEvtDesc.is() )
-                xEventsSupplier.set( xVBAToOOEvtDesc->getEventSupplier( xControl, sControlName ), UNO_QUERY );
+                xEventsSupplier = xVBAToOOEvtDesc->getEventSupplier( xControl, sControlName );
 
         }
         return xEventsSupplier;
@@ -220,15 +220,13 @@ namespace dlgprov
             Reference< XPropertySet > xProps( xControlModel, uno::UNO_QUERY );
             if ( xEventCont.is() )
             {
-                Sequence< OUString > aNames = xEventCont->getElementNames();
-                const OUString* pNames = aNames.getConstArray();
-                sal_Int32 nNameCount = aNames.getLength();
+                const Sequence< OUString > aNames = xEventCont->getElementNames();
 
-                for ( sal_Int32 j = 0; j < nNameCount; ++j )
+                for ( const OUString& rName : aNames )
                 {
                     ScriptEventDescriptor aDesc;
 
-                    Any aElement = xEventCont->getByName( pNames[ j ] );
+                    Any aElement = xEventCont->getByName( rName );
                     aElement >>= aDesc;
                     OUString sKey = aDesc.ScriptType;
                     if ( aDesc.ScriptType == "Script" || aDesc.ScriptType == "UNO" )
@@ -277,15 +275,12 @@ namespace dlgprov
 
     void DialogEventsAttacherImpl::nestedAttachEvents( const Sequence< Reference< XInterface > >& Objects, const Any& Helper, OUString& sDialogCodeName )
     {
-        const Reference< XInterface >* pObjects = Objects.getConstArray();
-        sal_Int32 nObjCount = Objects.getLength();
-
-        for ( sal_Int32 i = 0; i < nObjCount; ++i )
+        for ( const Reference< XInterface >& rObject : Objects )
         {
             // We know that we have to do with instances of XControl.
             // Otherwise this is not the right implementation for
             // XScriptEventsAttacher and we have to give up.
-            Reference< XControl > xControl( pObjects[ i ], UNO_QUERY );
+            Reference< XControl > xControl( rObject, UNO_QUERY );
             Reference< XControlContainer > xControlContainer( xControl, UNO_QUERY );
             Reference< XDialog > xDialog( xControl, UNO_QUERY );
             if ( !xControl.is() )
@@ -473,7 +468,7 @@ namespace dlgprov
 
                     Any aCtx;
                     aCtx <<= OUString("user");
-                    xScriptProvider.set( xFactory->createScriptProvider( aCtx ), UNO_QUERY );
+                    xScriptProvider = xFactory->createScriptProvider( aCtx );
                 }
             }
 
@@ -516,10 +511,10 @@ namespace dlgprov
             sal_Int32 nIndex = sScriptCode.indexOf( ':' );
             if ( nIndex >= 0 && nIndex < sScriptCode.getLength() )
             {
-                sScriptURL = "vnd.sun.star.script:";
-                sScriptURL += sScriptCode.copy( nIndex + 1 );
-                sScriptURL += "?language=Basic&location=";
-                sScriptURL += sScriptCode.copy( 0, nIndex );
+                sScriptURL = "vnd.sun.star.script:" +
+                    sScriptCode.copy( nIndex + 1 ) +
+                    "?language=Basic&location=" +
+                    sScriptCode.copy( 0, nIndex );
             }
             ScriptEvent aSFScriptEvent( aScriptEvent );
             aSFScriptEvent.ScriptCode = sScriptURL;
@@ -616,12 +611,10 @@ namespace dlgprov
 
             sal_Int32 nIndex = aRes.indexOf( '%' );
 
-            OUString aOUFinal;
-            aOUFinal += aRes.copy( 0, nIndex );
-            aOUFinal += aQuoteChar;
-            aOUFinal += aMethodName;
-            aOUFinal += aQuoteChar;
-            aOUFinal += aRes.copy( nIndex + 2 );
+            OUString aOUFinal =
+                aRes.copy( 0, nIndex ) +
+                aQuoteChar + aMethodName + aQuoteChar +
+                aRes.copy( nIndex + 2 );
 
             std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(nullptr,
                                                       VclMessageType::Warning, VclButtonsType::Ok, aOUFinal));

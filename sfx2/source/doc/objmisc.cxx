@@ -43,6 +43,8 @@
 #include <com/sun/star/script/provider/XScriptProvider.hpp>
 #include <com/sun/star/script/provider/XScriptProviderSupplier.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
+#include <com/sun/star/uri/UriReferenceFactory.hpp>
+#include <com/sun/star/uri/XVndSunStarScriptUrlReference.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
 
 #include <toolkit/helper/vclunohelper.hxx>
@@ -78,6 +80,7 @@
 #include <svl/sharecontrolfile.hxx>
 #include <osl/file.hxx>
 #include <rtl/bootstrap.hxx>
+#include <rtl/uri.hxx>
 #include <vcl/svapp.hxx>
 #include <framework/interaction.hxx>
 #include <framework/documentundoguard.hxx>
@@ -166,7 +169,7 @@ bool SfxObjectShell::IsAbortingImport() const
 
 
 uno::Reference<document::XDocumentProperties>
-SfxObjectShell::getDocProperties()
+SfxObjectShell::getDocProperties() const
 {
     uno::Reference<document::XDocumentPropertiesSupplier> xDPS(
         GetModel(), uno::UNO_QUERY_THROW);
@@ -241,7 +244,7 @@ bool SfxObjectShell::IsEnableSetModified() const
 }
 
 
-bool SfxObjectShell::IsModified()
+bool SfxObjectShell::IsModified() const
 {
     if ( pImpl->m_bIsModified )
         return true;
@@ -256,10 +259,10 @@ bool SfxObjectShell::IsModified()
 
     if (pImpl->mpObjectContainer)
     {
-        uno::Sequence < OUString > aNames = GetEmbeddedObjectContainer().GetObjectNames();
-        for ( sal_Int32 n=0; n<aNames.getLength(); n++ )
+        const uno::Sequence < OUString > aNames = GetEmbeddedObjectContainer().GetObjectNames();
+        for ( const auto& rName : aNames )
         {
-            uno::Reference < embed::XEmbeddedObject > xObj = GetEmbeddedObjectContainer().GetEmbeddedObject( aNames[n] );
+            uno::Reference < embed::XEmbeddedObject > xObj = GetEmbeddedObjectContainer().GetEmbeddedObject( rName );
             OSL_ENSURE( xObj.is(), "An empty entry in the embedded objects list!" );
             if ( xObj.is() )
             {
@@ -359,7 +362,7 @@ void SfxObjectShell::SetReadOnlyUI( bool bReadOnly )
 
 /*  [Description]
 
-    Turns the document in an r/o and r/w state respectively without reloading
+    Turns the document in a r/o and r/w state respectively without reloading
     it and without changing the open mode of the medium.
 */
 
@@ -628,7 +631,7 @@ OUString SfxObjectShell::GetSharedFileURL() const
 #endif
 }
 
-Size SfxObjectShell::GetFirstPageSize()
+Size SfxObjectShell::GetFirstPageSize() const
 {
     return GetVisArea(ASPECT_THUMBNAIL).GetSize();
 }
@@ -707,7 +710,7 @@ OUString SfxObjectShell::GetTitle( sal_uInt16  nMaxLength ) const
     {
         static bool bRecur = false;
         if ( bRecur )
-            return OUString("-not available-");
+            return "-not available-";
         bRecur = true;
 
         OUString aTitle;
@@ -1029,7 +1032,7 @@ void SfxObjectShell::InitOwnModel_Impl()
     }
 
     pMedium->GetItemSet()->ClearItem( SID_REFERER );
-    uno::Reference< frame::XModel >  xModel ( GetModel(), uno::UNO_QUERY );
+    uno::Reference< frame::XModel >  xModel = GetModel();
     if ( xModel.is() )
     {
         SfxItemSet *pSet = GetMedium()->GetItemSet();
@@ -1344,14 +1347,36 @@ namespace
     }
 }
 
-namespace {
-
 // don't allow LibreLogo to be used with our mouseover/etc dom-alike events
-bool UnTrustedScript(const OUString& rScriptURL)
+bool SfxObjectShell::UnTrustedScript(const OUString& rScriptURL)
 {
-    return rScriptURL.startsWithIgnoreAsciiCase("vnd.sun.star.script:LibreLogo");
-}
+    if (!rScriptURL.startsWith("vnd.sun.star.script:"))
+        return false;
 
+    // ensure URL Escape Codes are decoded
+    css::uno::Reference<css::uri::XUriReference> uri(
+        css::uri::UriReferenceFactory::create(comphelper::getProcessComponentContext())->parse(rScriptURL));
+    css::uno::Reference<css::uri::XVndSunStarScriptUrl> sfUri(uri, css::uno::UNO_QUERY);
+
+    if (!sfUri.is())
+        return false;
+
+    // pyuno encodes path separator as |
+    OUString sScript = sfUri->getName().replace('|', '/');
+
+    // check if any path portion matches LibreLogo and ban it if it does
+    sal_Int32 nIndex = 0;
+    do
+    {
+        OUString aToken = sScript.getToken(0, '/', nIndex);
+        if (aToken.startsWithIgnoreAsciiCase("LibreLogo") || aToken.indexOf('~') != -1)
+        {
+            return true;
+        }
+    }
+    while (nIndex >= 0);
+
+    return false;
 }
 
 ErrCode SfxObjectShell::CallXScript( const Reference< XInterface >& _rxScriptContext, const OUString& _rScriptURL,
@@ -1360,19 +1385,16 @@ ErrCode SfxObjectShell::CallXScript( const Reference< XInterface >& _rxScriptCon
     SAL_INFO("sfx", "in CallXScript" );
     ErrCode nErr = ERRCODE_NONE;
 
-    bool bIsDocumentScript = ( _rScriptURL.indexOf( "location=document" ) >= 0 );
-        // TODO: we should parse the URL, and check whether there is a parameter with this name.
-        // Otherwise, we might find too much.
-    if ( bIsDocumentScript && !lcl_isScriptAccessAllowed_nothrow( _rxScriptContext ) )
-        return ERRCODE_IO_ACCESSDENIED;
-
-    if ( UnTrustedScript(_rScriptURL) )
-        return ERRCODE_IO_ACCESSDENIED;
-
     bool bCaughtException = false;
     Any aException;
     try
     {
+        if ( !lcl_isScriptAccessAllowed_nothrow( _rxScriptContext ) )
+            return ERRCODE_IO_ACCESSDENIED;
+
+        if ( UnTrustedScript(_rScriptURL) )
+            return ERRCODE_IO_ACCESSDENIED;
+
         // obtain/create a script provider
         Reference< provider::XScriptProvider > xScriptProvider;
         Reference< provider::XScriptProviderSupplier > xSPS( _rxScriptContext, UNO_QUERY );
@@ -1456,10 +1478,12 @@ void SfxHeaderAttributes_Impl::SetAttribute( const SvKeyValue& rKV )
             pDoc->getDocProperties());
         if( aURL.startsWithIgnoreAsciiCase( "url=" ) )
         {
-            INetURLObject aObj;
-            INetURLObject( pDoc->GetMedium()->GetName() ).GetNewAbsURL( aURL.copy( 4 ), &aObj );
-            xDocProps->setAutoloadURL(
-                aObj.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
+            try {
+                xDocProps->setAutoloadURL(
+                    rtl::Uri::convertRelToAbs(pDoc->GetMedium()->GetName(), aURL.copy( 4 )) );
+            } catch (rtl::MalformedUriException &) {
+                TOOLS_WARN_EXCEPTION("sfx", "");
+            }
         }
         try
         {
@@ -1633,7 +1657,7 @@ void SfxObjectShell::SetCreateMode_Impl( SfxObjectCreateMode nMode )
     eCreateMode = nMode;
 }
 
-bool SfxObjectShell::IsInPlaceActive()
+bool SfxObjectShell::IsInPlaceActive() const
 {
     if ( eCreateMode != SfxObjectCreateMode::EMBEDDED )
         return false;
@@ -1642,7 +1666,7 @@ bool SfxObjectShell::IsInPlaceActive()
     return pFrame && pFrame->GetFrame().IsInPlace();
 }
 
-bool SfxObjectShell::IsUIActive()
+bool SfxObjectShell::IsUIActive() const
 {
     if ( eCreateMode != SfxObjectCreateMode::EMBEDDED )
         return false;
@@ -1729,6 +1753,11 @@ bool SfxObjectShell_Impl::documentStorageHasMacros() const
     return ::sfx2::DocumentMacroMode::storageHasMacros( m_xDocStorage );
 }
 
+bool SfxObjectShell_Impl::macroCallsSeenWhileLoading() const
+{
+    return rDocShell.GetMacroCallsSeenWhileLoading();
+}
+
 Reference< XEmbeddedScripts > SfxObjectShell_Impl::getEmbeddedDocumentScripts() const
 {
     return Reference< XEmbeddedScripts >( rDocShell.GetModel(), UNO_QUERY );
@@ -1779,10 +1808,9 @@ bool SfxObjectShell_Impl::hasTrustedScriptingSignature( bool bAllowUIToAddAuthor
                 if ( nScriptingSignatureState == SignatureState::OK
                   || nScriptingSignatureState == SignatureState::NOTVALIDATED )
                 {
-                    for ( sal_Int32 nInd = 0; !bResult && nInd < aInfo.getLength(); nInd++ )
-                    {
-                        bResult = xSigner->isAuthorTrusted( aInfo[nInd].Signer );
-                    }
+                    bResult = std::any_of(aInfo.begin(), aInfo.end(),
+                        [&xSigner](const security::DocumentSignatureInformation& rInfo) {
+                            return xSigner->isAuthorTrusted( rInfo.Signer ); });
 
                     if ( !bResult && bAllowUIToAddAuthor )
                     {

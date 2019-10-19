@@ -17,30 +17,16 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <stdlib.h>
-
-#include <tools/urlobj.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
-
-#include <svx/xpool.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflbckit.hxx>
-#include <svx/xtable.hxx>
-#include <svx/xlineit0.hxx>
 #include <svx/drawitem.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xflgrit.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/xbtmpit.hxx>
 #include <cuitabarea.hxx>
-#include <dlgname.hxx>
-#include <svx/dlgutil.hxx>
-#include <svl/intitem.hxx>
-#include <sfx2/request.hxx>
 #include <sfx2/tabdlg.hxx>
-#include <sfx2/opengrf.hxx>
 
 using namespace com::sun::star;
 
@@ -84,8 +70,8 @@ void lclExtendSize(Size& rSize, const Size& rInputSize)
 |*
 \************************************************************************/
 
-SvxAreaTabPage::SvxAreaTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/areatabpage.ui", "AreaTabPage", &rInAttrs)
+SvxAreaTabPage::SvxAreaTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/areatabpage.ui", "AreaTabPage", &rInAttrs)
     // local fixed not o be changed values for local pointers
     , maFixed_ChangeType(ChangeType::NONE)
     // init with pointers to fixed ChangeType
@@ -125,40 +111,35 @@ void SvxAreaTabPage::SetOptimalSize(weld::DialogController* pController)
 {
     m_xFillTab->set_size_request(-1, -1);
 
-    TabPageParent aFillTab(m_xFillTab.get(), pController);
-    // TEMP
-    if (!aFillTab.pController)
-        aFillTab.pParent = GetParentDialog();
-
-    // Calculate optimal size of all pages..
-    m_pFillTabPage.disposeAndReset(SvxColorTabPage::Create(aFillTab, &m_rXFSet));
+    // Calculate optimal size of all pages...
+    m_xFillTabPage = SvxColorTabPage::Create(m_xFillTab.get(), pController, &m_rXFSet);
     Size aSize(m_xFillTab->get_preferred_size());
 
     if (m_xBtnGradient->get_visible())
     {
-        m_pFillTabPage.disposeAndReset(SvxGradientTabPage::Create(aFillTab, &m_rXFSet));
+        m_xFillTabPage = SvxGradientTabPage::Create(m_xFillTab.get(), pController, &m_rXFSet);
         Size aGradientSize = m_xFillTab->get_preferred_size();
         lclExtendSize(aSize, aGradientSize);
     }
     if (m_xBtnBitmap->get_visible())
     {
-        m_pFillTabPage.disposeAndReset(SvxBitmapTabPage::Create(aFillTab, &m_rXFSet));
+        m_xFillTabPage = SvxBitmapTabPage::Create(m_xFillTab.get(), pController, &m_rXFSet);
         Size aBitmapSize = m_xFillTab->get_preferred_size();
         lclExtendSize(aSize, aBitmapSize);
     }
     if (m_xBtnHatch->get_visible())
     {
-        m_pFillTabPage.disposeAndReset(SvxHatchTabPage::Create(aFillTab, &m_rXFSet));
+        m_xFillTabPage = SvxHatchTabPage::Create(m_xFillTab.get(), pController, &m_rXFSet);
         Size aHatchSize = m_xFillTab->get_preferred_size();
         lclExtendSize(aSize, aHatchSize);
     }
     if (m_xBtnPattern->get_visible())
     {
-        m_pFillTabPage.disposeAndReset(SvxPatternTabPage::Create(aFillTab, &m_rXFSet));
+        m_xFillTabPage = SvxPatternTabPage::Create(m_xFillTab.get(), pController, &m_rXFSet);
         Size aPatternSize = m_xFillTab->get_preferred_size();
         lclExtendSize(aSize, aPatternSize);
     }
-    m_pFillTabPage.disposeAndClear();
+    m_xFillTabPage.reset();
 
     aSize.extendBy(10, 10); // apply a bit of margin
 
@@ -167,13 +148,7 @@ void SvxAreaTabPage::SetOptimalSize(weld::DialogController* pController)
 
 SvxAreaTabPage::~SvxAreaTabPage()
 {
-    disposeOnce();
-}
-
-void SvxAreaTabPage::dispose()
-{
-    m_pFillTabPage.disposeAndClear();
-    SfxTabPage::dispose();
+    m_xFillTabPage.reset();
 }
 
 void SvxAreaTabPage::ActivatePage( const SfxItemSet& rSet )
@@ -232,7 +207,7 @@ void SvxAreaTabPage::ActivatePage( const SfxItemSet& rSet )
 template< typename TTabPage >
 DeactivateRC SvxAreaTabPage::DeactivatePage_Impl( SfxItemSet* _pSet )
 {
-    return static_cast<TTabPage&>(*m_pFillTabPage).DeactivatePage(_pSet);
+    return static_cast<TTabPage&>(*m_xFillTabPage).DeactivatePage(_pSet);
 }
 
 DeactivateRC SvxAreaTabPage::DeactivatePage( SfxItemSet* _pSet )
@@ -270,7 +245,7 @@ DeactivateRC SvxAreaTabPage::DeactivatePage( SfxItemSet* _pSet )
 template< typename TTabPage >
 bool SvxAreaTabPage::FillItemSet_Impl( SfxItemSet* rAttrs)
 {
-    return static_cast<TTabPage&>( *m_pFillTabPage ).FillItemSet( rAttrs );
+    return static_cast<TTabPage&>( *m_xFillTabPage ).FillItemSet( rAttrs );
 }
 
 bool SvxAreaTabPage::FillItemSet( SfxItemSet* rAttrs )
@@ -311,7 +286,7 @@ bool SvxAreaTabPage::FillItemSet( SfxItemSet* rAttrs )
 template< typename TTabPage >
 void SvxAreaTabPage::Reset_Impl( const SfxItemSet* rAttrs )
 {
-    static_cast<TTabPage&>( *m_pFillTabPage ).Reset( rAttrs );
+    static_cast<TTabPage&>( *m_xFillTabPage ).Reset( rAttrs );
 }
 
 void SvxAreaTabPage::Reset( const SfxItemSet* rAttrs )
@@ -350,16 +325,16 @@ void SvxAreaTabPage::Reset( const SfxItemSet* rAttrs )
     }
 }
 
-VclPtr<SfxTabPage> SvxAreaTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrs)
+std::unique_ptr<SfxTabPage> SvxAreaTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrs)
 {
-    auto xRet = VclPtr<SvxAreaTabPage>::Create(pParent, *rAttrs);
-    xRet->SetOptimalSize(pParent.pController);
+    auto xRet = std::make_unique<SvxAreaTabPage>(pPage, pController, *rAttrs);
+    xRet->SetOptimalSize(pController);
     return xRet;
 }
 
 namespace {
 
-VclPtr<SfxTabPage> lcl_CreateFillStyleTabPage(sal_uInt16 nId, TabPageParent pParent, const SfxItemSet& rSet)
+std::unique_ptr<SfxTabPage> lcl_CreateFillStyleTabPage(sal_uInt16 nId, weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
 {
     CreateTabPage fnCreate = nullptr;
     switch(nId)
@@ -371,8 +346,7 @@ VclPtr<SfxTabPage> lcl_CreateFillStyleTabPage(sal_uInt16 nId, TabPageParent pPar
         case BITMAP: fnCreate = &SvxBitmapTabPage::Create; break;
         case PATTERN: fnCreate = &SvxPatternTabPage::Create; break;
     }
-    VclPtr<SfxTabPage> pRet = fnCreate ? (*fnCreate)( pParent, &rSet ) : nullptr;
-    return pRet;
+    return fnCreate ? (*fnCreate)( pPage, pController, &rSet ) : nullptr;
 }
 
 }
@@ -397,11 +371,10 @@ void SvxAreaTabPage::SelectFillType(weld::ToggleButton& rButton, const SfxItemSe
     {
         maBox.SelectButton(&rButton);
         FillType eFillType = static_cast<FillType>(maBox.GetCurrentButtonPos());
-        TabPageParent aFillTab(m_xFillTab.get(), GetDialogController());
-        m_pFillTabPage.disposeAndReset(lcl_CreateFillStyleTabPage(eFillType, aFillTab, m_rXFSet));
-        if (m_pFillTabPage)
-            m_pFillTabPage->SetDialogController(GetDialogController());
-        CreatePage( eFillType , m_pFillTabPage);
+        m_xFillTabPage = lcl_CreateFillStyleTabPage(eFillType, m_xFillTab.get(), GetDialogController(), m_rXFSet);
+        if (m_xFillTabPage)
+            m_xFillTabPage->SetDialogController(GetDialogController());
+        CreatePage(eFillType, m_xFillTabPage.get());
     }
 }
 
@@ -435,7 +408,7 @@ void SvxAreaTabPage::CreatePage( sal_Int32 nId, SfxTabPage* pTab )
         pColorTab->Construct();
         pColorTab->ActivatePage(m_rXFSet);
         pColorTab->Reset(&m_rXFSet);
-        pColorTab->Show();
+        pColorTab->set_visible(true);
     }
     else if(nId == GRADIENT)
     {
@@ -447,7 +420,7 @@ void SvxAreaTabPage::CreatePage( sal_Int32 nId, SfxTabPage* pTab )
         pGradientTab->Construct();
         pGradientTab->ActivatePage(m_rXFSet);
         pGradientTab->Reset(&m_rXFSet);
-        pGradientTab->Show();
+        pGradientTab->set_visible(true);
     }
     else if(nId == HATCH)
     {
@@ -459,7 +432,7 @@ void SvxAreaTabPage::CreatePage( sal_Int32 nId, SfxTabPage* pTab )
         pHatchTab->Construct();
         pHatchTab->ActivatePage(m_rXFSet);
         pHatchTab->Reset(&m_rXFSet);
-        pHatchTab->Show();
+        pHatchTab->set_visible(true);
     }
     else if(nId == BITMAP)
     {
@@ -469,7 +442,7 @@ void SvxAreaTabPage::CreatePage( sal_Int32 nId, SfxTabPage* pTab )
         pBitmapTab->Construct();
         pBitmapTab->ActivatePage(m_rXFSet);
         pBitmapTab->Reset(&m_rXFSet);
-        pBitmapTab->Show();
+        pBitmapTab->set_visible(true);
     }
     else if(nId == PATTERN)
     {
@@ -481,7 +454,7 @@ void SvxAreaTabPage::CreatePage( sal_Int32 nId, SfxTabPage* pTab )
         pPatternTab->Construct();
         pPatternTab->ActivatePage(m_rXFSet);
         pPatternTab->Reset(&m_rXFSet);
-        pPatternTab->Show();
+        pPatternTab->set_visible(true);
     }
 }
 

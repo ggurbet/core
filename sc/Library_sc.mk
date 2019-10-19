@@ -13,7 +13,7 @@ $(eval $(call gb_Library_add_sdi_headers,sc,sc/sdi/scslots))
 
 $(eval $(call gb_Library_set_componentfile,sc,sc/util/sc))
 
-$(eval $(call gb_Library_set_precompiled_header,sc,$(SRCDIR)/sc/inc/pch/precompiled_sc))
+$(eval $(call gb_Library_set_precompiled_header,sc,sc/inc/pch/precompiled_sc))
 
 $(eval $(call gb_Library_set_include,sc,\
     -I$(SRCDIR)/sc/source/core/inc \
@@ -97,6 +97,17 @@ $(eval $(call gb_Library_use_libraries,sc,\
     vcl \
     xo \
 ))
+
+ifeq ($(OS),WNT)
+$(eval $(call gb_Library_add_exception_objects,sc,\
+    sc/source/core/tool/arraysumSSE2, -arch:SSE2 \
+))
+
+else
+$(eval $(call gb_Library_add_exception_objects,sc,\
+    sc/source/core/tool/arraysumSSE2 \
+))
+endif
 
 $(eval $(call gb_Library_add_exception_objects,sc,\
     sc/source/core/data/attarray \

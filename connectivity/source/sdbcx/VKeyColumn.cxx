@@ -31,19 +31,13 @@ using namespace cppu;
 OUString SAL_CALL OKeyColumn::getImplementationName(  )
 {
     if(isNew())
-        return OUString("com.sun.star.sdbcx.VKeyColumnDescriptor");
-    return OUString("com.sun.star.sdbcx.VKeyColumn");
+        return "com.sun.star.sdbcx.VKeyColumnDescriptor";
+    return "com.sun.star.sdbcx.VKeyColumn";
 }
 
 css::uno::Sequence< OUString > SAL_CALL OKeyColumn::getSupportedServiceNames(  )
 {
-    css::uno::Sequence< OUString > aSupported(1);
-    if(isNew())
-        aSupported[0] = "com.sun.star.sdbcx.KeyColumnDescriptor";
-    else
-        aSupported[0] = "com.sun.star.sdbcx.KeyColumn";
-
-    return aSupported;
+    return { isNew()?OUString("com.sun.star.sdbcx.KeyColumnDescriptor"):OUString("com.sun.star.sdbcx.KeyColumn") };
 }
 
 sal_Bool SAL_CALL OKeyColumn::supportsService( const OUString& _rServiceName )

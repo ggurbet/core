@@ -194,8 +194,7 @@ sal_Int32 SAL_CALL AccessiblePageShape::getBackground()
     }
     catch (const css::beans::UnknownPropertyException&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("sd", "caught exception due to unknown property " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("sd", "caught exception due to unknown property");
         // Ignore exception and return default color.
     }
     return nColor;
@@ -207,7 +206,7 @@ OUString SAL_CALL
     AccessiblePageShape::getImplementationName()
 {
     ThrowIfDisposed ();
-    return OUString("AccessiblePageShape");
+    return "AccessiblePageShape";
 }
 
 css::uno::Sequence< OUString> SAL_CALL
@@ -217,24 +216,10 @@ css::uno::Sequence< OUString> SAL_CALL
     return AccessibleShape::getSupportedServiceNames();
 }
 
-//=====  lang::XEventListener  ================================================
-
-void SAL_CALL
-    AccessiblePageShape::disposing (const css::lang::EventObject& aEvent)
-{
-    ThrowIfDisposed ();
-    AccessibleShape::disposing (aEvent);
-}
-
 //=====  XComponent  ==========================================================
 
 void AccessiblePageShape::dispose()
 {
-    // Unregister listeners.
-    Reference<lang::XComponent> xComponent (mxShape, uno::UNO_QUERY);
-    if (xComponent.is())
-        xComponent->removeEventListener (this);
-
     // Cleanup.
     mxShape = nullptr;
 
@@ -247,7 +232,7 @@ void AccessiblePageShape::dispose()
 OUString
     AccessiblePageShape::CreateAccessibleBaseName()
 {
-    return OUString ("PageShape");
+    return "PageShape";
 }
 
 OUString

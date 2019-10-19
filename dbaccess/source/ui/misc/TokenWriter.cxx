@@ -22,6 +22,7 @@
 #include <tools/diagnose_ex.h>
 #include <tools/stream.hxx>
 #include <osl/diagnose.h>
+#include <rtl/tencinfo.h>
 #include <sal/log.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <RtfReader.hxx>
@@ -320,8 +321,12 @@ bool ORTFImportExport::Write()
 {
     ODatabaseImportExport::Write();
     m_pStream->WriteChar( '{' ).WriteCharPtr( OOO_STRING_SVTOOLS_RTF_RTF );
-    m_pStream->WriteCharPtr( OOO_STRING_SVTOOLS_RTF_ANSI ).WriteCharPtr( SAL_NEWLINE_STRING );
-    rtl_TextEncoding eDestEnc = RTL_TEXTENCODING_MS_1252;
+    m_pStream->WriteCharPtr(OOO_STRING_SVTOOLS_RTF_ANSI);
+    if (sal_uInt32 nCpg = rtl_getWindowsCodePageFromTextEncoding(m_eDestEnc); nCpg && nCpg != 65001)
+    {
+        m_pStream->WriteCharPtr(OOO_STRING_SVTOOLS_RTF_ANSICPG).WriteUInt32AsString(nCpg);
+    }
+    m_pStream->WriteCharPtr(SAL_NEWLINE_STRING);
 
     bool bBold          = ( css::awt::FontWeight::BOLD     == m_aFont.Weight );
     bool bItalic        = ( css::awt::FontSlant_ITALIC     == m_aFont.Slant );
@@ -333,11 +338,11 @@ bool ORTFImportExport::Write()
         m_xObject->getPropertyValue(PROPERTY_TEXTCOLOR) >>= nColor;
     ::Color aColor(nColor);
 
-    OString aFonts(OUStringToOString(m_aFont.Name, eDestEnc));
+    OString aFonts(OUStringToOString(m_aFont.Name, RTL_TEXTENCODING_MS_1252));
     if (aFonts.isEmpty())
     {
         OUString aName = Application::GetSettings().GetStyleSettings().GetAppFont().GetFamilyName();
-        aFonts = OUStringToOString(aName, eDestEnc);
+        aFonts = OUStringToOString(aName, RTL_TEXTENCODING_MS_1252);
     }
 
     m_pStream->WriteCharPtr( "{\\fonttbl" );
@@ -349,7 +354,7 @@ bool ORTFImportExport::Write()
             m_pStream->WriteCharPtr( "\\f" );
             m_pStream->WriteInt32AsString(++nTok);
             m_pStream->WriteCharPtr( "\\fcharset0\\fnil " );
-            m_pStream->WriteCharPtr( aFonts.getToken(0, ';', nIdx).getStr() );
+            m_pStream->WriteOString( aFonts.getToken(0, ';', nIdx) );
             m_pStream->WriteChar( ';' );
         } while (nIdx>=0);
     }
@@ -437,7 +442,7 @@ bool ORTFImportExport::Write()
 
             m_pStream->WriteCharPtr( "\\fs20\\f0\\cf0\\cb2" );
             m_pStream->WriteChar( ' ' );
-            RTFOutFuncs::Out_String(*m_pStream,sColumnName,eDestEnc);
+            RTFOutFuncs::Out_String(*m_pStream, sColumnName, m_eDestEnc);
 
             m_pStream->WriteCharPtr( OOO_STRING_SVTOOLS_RTF_CELL );
             m_pStream->WriteChar( '}' );
@@ -517,7 +522,7 @@ void ORTFImportExport::appendRow(OString const * pHorzChar,sal_Int32 _nColumnCou
     {
         m_pStream->WriteCharPtr( SAL_NEWLINE_STRING );
         m_pStream->WriteChar( '{' );
-        m_pStream->WriteCharPtr( pHorzChar[i-1].getStr() );
+        m_pStream->WriteOString( pHorzChar[i-1] );
 
         if ( bBold )        m_pStream->WriteCharPtr( OOO_STRING_SVTOOLS_RTF_B );
         if ( bItalic )      m_pStream->WriteCharPtr( OOO_STRING_SVTOOLS_RTF_I );
@@ -654,7 +659,7 @@ void OHTMLImportExport::WriteBody()
     m_pStream->WriteCharPtr( "<" ).WriteCharPtr( OOO_STRING_SVTOOLS_HTML_style ).WriteCharPtr( " " ).WriteCharPtr( OOO_STRING_SVTOOLS_HTML_O_type ).WriteCharPtr( "=\"text/css\">" );
 
     m_pStream->WriteCharPtr( "<!-- " ); OUT_LF();
-    m_pStream->WriteCharPtr( OOO_STRING_SVTOOLS_HTML_body ).WriteCharPtr( " { " ).WriteCharPtr( "font-family: " ).WriteChar( '"' ).WriteCharPtr( OUStringToOString(m_aFont.Name, osl_getThreadTextEncoding()).getStr() ).WriteChar( '\"' );
+    m_pStream->WriteCharPtr( OOO_STRING_SVTOOLS_HTML_body ).WriteCharPtr( " { " ).WriteCharPtr( "font-family: " ).WriteChar( '"' ).WriteOString( OUStringToOString(m_aFont.Name, osl_getThreadTextEncoding()) ).WriteChar( '\"' );
         // TODO : think about the encoding of the font name
     m_pStream->WriteCharPtr( "; " ).WriteCharPtr( "font-size: " );
     m_pStream->WriteInt32AsString(m_aFont.Height);
@@ -685,11 +690,11 @@ void OHTMLImportExport::WriteBody()
 
 void OHTMLImportExport::WriteTables()
 {
-    OString aStrOut  = OOO_STRING_SVTOOLS_HTML_table;
-    aStrOut = aStrOut + " ";
-    aStrOut = aStrOut + OOO_STRING_SVTOOLS_HTML_frame;
-    aStrOut = aStrOut + "=";
-    aStrOut = aStrOut + OOO_STRING_SVTOOLS_HTML_TF_void;
+    OString aStrOut  = OOO_STRING_SVTOOLS_HTML_table
+            " "
+            OOO_STRING_SVTOOLS_HTML_frame
+            "="
+            OOO_STRING_SVTOOLS_HTML_TF_void;
 
     Sequence< OUString> aNames;
     Reference<XNameAccess> xColumns;
@@ -709,21 +714,21 @@ void OHTMLImportExport::WriteTables()
         }
     }
 
-    aStrOut = aStrOut + " ";
-    aStrOut = aStrOut + OOO_STRING_SVTOOLS_HTML_O_align;
-    aStrOut = aStrOut + "=";
-    aStrOut = aStrOut + OOO_STRING_SVTOOLS_HTML_AL_left;
-    aStrOut = aStrOut + " ";
-    aStrOut = aStrOut + OOO_STRING_SVTOOLS_HTML_O_cellspacing;
-    aStrOut = aStrOut + "=";
-    aStrOut = aStrOut + OString::number(nCellSpacing);
-    aStrOut = aStrOut + " ";
-    aStrOut = aStrOut + OOO_STRING_SVTOOLS_HTML_O_cols;
-    aStrOut = aStrOut + "=";
-    aStrOut = aStrOut + OString::number(aNames.getLength());
-    aStrOut = aStrOut + " ";
-    aStrOut = aStrOut + OOO_STRING_SVTOOLS_HTML_O_border;
-    aStrOut = aStrOut + "=1";
+    aStrOut += " "
+            OOO_STRING_SVTOOLS_HTML_O_align
+            "="
+            OOO_STRING_SVTOOLS_HTML_AL_left
+            " "
+            OOO_STRING_SVTOOLS_HTML_O_cellspacing
+            "=" +
+            OString::number(nCellSpacing) +
+            " "
+            OOO_STRING_SVTOOLS_HTML_O_cols
+            "=" +
+            OString::number(aNames.getLength()) +
+            " "
+            OOO_STRING_SVTOOLS_HTML_O_border
+            "=1";
 
     IncIndent(1);
     TAG_ON( aStrOut.getStr() );
@@ -733,7 +738,7 @@ void OHTMLImportExport::WriteTables()
     TAG_ON( OOO_STRING_SVTOOLS_HTML_caption );
     TAG_ON( OOO_STRING_SVTOOLS_HTML_bold );
 
-    m_pStream->WriteCharPtr( OUStringToOString(m_sName, osl_getThreadTextEncoding()).getStr() );
+    m_pStream->WriteOString( OUStringToOString(m_sName, osl_getThreadTextEncoding()) );
         // TODO : think about the encoding of the name
     TAG_OFF( OOO_STRING_SVTOOLS_HTML_bold );
     TAG_OFF( OOO_STRING_SVTOOLS_HTML_caption );
@@ -856,20 +861,19 @@ void OHTMLImportExport::WriteCell( sal_Int32 nFormat, sal_Int32 nWidthPixel, sal
     // despite the <TABLE COLS=n> and <COL WIDTH=x> designation necessary,
     // as Netscape is not paying attention to them.
     // column width
-    aStrTD = aStrTD + " ";
-    aStrTD = aStrTD + OOO_STRING_SVTOOLS_HTML_O_width;
-    aStrTD = aStrTD + "=";
-    aStrTD = aStrTD + OString::number(nWidthPixel);
+    aStrTD += " "
+            OOO_STRING_SVTOOLS_HTML_O_width
+            "=" +
+            OString::number(nWidthPixel) +
     // line height
-    aStrTD = aStrTD + " ";
-    aStrTD = aStrTD + OOO_STRING_SVTOOLS_HTML_O_height;
-    aStrTD = aStrTD + "=";
-    aStrTD = aStrTD + OString::number(nHeightPixel);
-
-    aStrTD = aStrTD + " ";
-    aStrTD = aStrTD + OOO_STRING_SVTOOLS_HTML_O_align;
-    aStrTD = aStrTD + "=";
-    aStrTD = aStrTD + pChar;
+            " "
+            OOO_STRING_SVTOOLS_HTML_O_height
+            "=" +
+            OString::number(nHeightPixel) +
+            " "
+            OOO_STRING_SVTOOLS_HTML_O_align
+            "=" +
+            pChar;
 
     SvNumberFormatsSupplierObj* pSupplierImpl = m_xFormatter.is() ? comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>(m_xFormatter->getNumberFormatsSupplier()) : nullptr;
     SvNumberFormatter* pFormatter = pSupplierImpl ? pSupplierImpl->GetNumberFormatter() : nullptr;
@@ -924,19 +928,19 @@ void OHTMLImportExport::FontOn()
 #endif
 
     // <FONT FACE="xxx">
-    OString aStrOut  = "<";
-    aStrOut  = aStrOut + OOO_STRING_SVTOOLS_HTML_font;
-    aStrOut  = aStrOut + " ";
-    aStrOut  = aStrOut + OOO_STRING_SVTOOLS_HTML_O_face;
-    aStrOut  = aStrOut + "=";
-    aStrOut  = aStrOut + "\"";
-    aStrOut  = aStrOut + OUStringToOString(m_aFont.Name,osl_getThreadTextEncoding());
+    OString aStrOut  = "<"
+            OOO_STRING_SVTOOLS_HTML_font
+            " "
+            OOO_STRING_SVTOOLS_HTML_O_face
+            "="
+            "\"" +
+            OUStringToOString(m_aFont.Name,osl_getThreadTextEncoding()) +
         // TODO : think about the encoding of the font name
-    aStrOut  = aStrOut + "\"";
-    aStrOut  = aStrOut + " ";
-    aStrOut  = aStrOut + OOO_STRING_SVTOOLS_HTML_O_color;
-    aStrOut  = aStrOut + "=";
-    m_pStream->WriteCharPtr( aStrOut.getStr() );
+            "\""
+            " "
+            OOO_STRING_SVTOOLS_HTML_O_color
+            "=";
+    m_pStream->WriteOString( aStrOut );
 
     sal_Int32 nColor = 0;
     if(m_xObject.is())

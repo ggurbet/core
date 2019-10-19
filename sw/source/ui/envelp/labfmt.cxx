@@ -20,6 +20,7 @@
 #include <svtools/unitconv.hxx>
 #include <tools/poly.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <sal/log.hxx>
 
@@ -283,8 +284,8 @@ void SwLabPreview::UpdateItem(const SwLabItem& rItem)
     Invalidate();
 }
 
-SwLabFormatPage::SwLabFormatPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/labelformatpage.ui", "LabelFormatPage", &rSet)
+SwLabFormatPage::SwLabFormatPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/labelformatpage.ui", "LabelFormatPage", &rSet)
     , aPreviewIdle("SwLabFormatPage Preview")
     , aItem(static_cast<const SwLabItem&>( rSet.Get(FN_LABEL) ))
     , bModified(false)
@@ -402,9 +403,9 @@ void SwLabFormatPage::ChangeMinMax()
     m_xPHeightField->set_range(long(100) * lMinPHeight, long(100) * lMax, FieldUnit::TWIP);
 }
 
-VclPtr<SfxTabPage> SwLabFormatPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SwLabFormatPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SwLabFormatPage>::Create(pParent, *rSet);
+    return std::make_unique<SwLabFormatPage>(pPage, pController, *rSet);
 }
 
 void SwLabFormatPage::ActivatePage(const SfxItemSet& rSet)

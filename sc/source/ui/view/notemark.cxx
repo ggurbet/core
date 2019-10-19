@@ -21,15 +21,14 @@
 #include <svx/svdmodel.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdocapt.hxx>
-#include <sfx2/printer.hxx>
 #include <svl/itempool.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/window.hxx>
 
 #include <notemark.hxx>
 #include <document.hxx>
 #include <postit.hxx>
-#include <drawview.hxx>
 
 #define SC_NOTEMARK_TIME    800
 #define SC_NOTEMARK_SHORT   70
@@ -103,7 +102,7 @@ IMPL_LINK_NOARG(ScNoteMarker, TimeHdl, Timer *, void)
                 // This is no longer true - SdrObject::RecalcBoundRect() uses the
                 // GetViewContact().getViewIndependentPrimitive2DContainer()) call
                 // that now by default adds the eventually needed GridOffset. Thus
-                // I have removed that adaption stuff.
+                // I have removed that adaptation stuff.
                 m_aRect = m_xObject->GetCurrentBoundRect();
             }
 

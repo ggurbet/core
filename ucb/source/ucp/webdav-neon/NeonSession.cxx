@@ -480,7 +480,7 @@ int NeonSession::CertificationNotify(const ne_ssl_certificate *cert)
         ::comphelper::containerToSequence( vecCerts ) );
 
     if ( isDomainMatch(
-        GetHostnamePart( xEECert.get()->getSubjectName() ) ) )
+        GetHostnamePart( xEECert->getSubjectName() ) ) )
     {
         // if host name matched with certificate then look if the
         // certificate was ok
@@ -1526,8 +1526,7 @@ namespace
             sal_Int32 calltime = aEnd.Seconds - rStart.Seconds;
             if ( calltime <= timeout )
             {
-                lastChanceToSendRefreshRequest
-                    = aEnd.Seconds + timeout - calltime;
+                lastChanceToSendRefreshRequest = rStart.Seconds + timeout;
             }
             else
             {
@@ -1660,7 +1659,8 @@ bool NeonSession::LOCK( NeonLock * pLock,
     TimeValue startCall;
     osl_getSystemTime( &startCall );
 
-    if ( ne_lock_refresh( m_pHttpSession, pLock ) == NE_OK )
+    const int theRetVal = ne_lock_refresh(m_pHttpSession, pLock);
+    if (theRetVal == NE_OK)
     {
         rlastChanceToSendRefreshRequest
             = lastChanceToSendRefreshRequest( startCall, pLock->timeout );
@@ -1675,6 +1675,12 @@ bool NeonSession::LOCK( NeonLock * pLock,
         SAL_WARN( "ucb.ucp.webdav", "LOCK (refresh) - not refreshed! Relative URL: <" << p << "> token: <" << pLock->token << ">"  );
         ne_free( p );
 #endif
+        if (theRetVal == NE_AUTH)
+        {
+            // tdf#126279: see handling of NE_AUTH in HandleError
+            m_bNeedNewSession = true;
+            m_aNeonLockStore.removeLockDeferred(pLock);
+        }
         return false;
     }
 }
@@ -1721,7 +1727,8 @@ bool NeonSession::UNLOCK( NeonLock * pLock )
     }
 #endif
 
-    if ( ne_unlock( m_pHttpSession, pLock ) == NE_OK )
+    const int theRetVal = ne_unlock(m_pHttpSession, pLock);
+    if (theRetVal == NE_OK)
     {
 #if defined SAL_LOG_INFO
         {
@@ -1741,6 +1748,11 @@ bool NeonSession::UNLOCK( NeonLock * pLock )
             ne_free( p );
         }
 #endif
+        if (theRetVal == NE_AUTH)
+        {
+            // tdf#126279: see handling of NE_AUTH in HandleError
+            m_bNeedNewSession = true;
+        }
         return false;
     }
 }
@@ -2360,8 +2372,7 @@ OUString NeonSession::makeAbsoluteURL( OUString const & rURL ) const
         }
         else
         {
-            ne_uri aUri;
-            memset( &aUri, 0, sizeof( aUri ) );
+            ne_uri aUri = {};
 
             ne_fill_server_uri( m_pHttpSession, &aUri );
             aUri.path

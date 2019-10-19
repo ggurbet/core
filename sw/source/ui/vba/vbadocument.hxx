@@ -22,7 +22,6 @@
 #include <ooo/vba/XSink.hpp>
 #include <ooo/vba/XSinkCaller.hpp>
 #include <ooo/vba/word/XDocument.hpp>
-#include <vbahelper/vbahelperinterface.hxx>
 #include <vbahelper/vbadocumentbase.hxx>
 #include <com/sun/star/text/XTextDocument.hpp>
 #include <cppuhelper/implbase.hxx>
@@ -40,7 +39,7 @@ private:
 
     void Initialize();
     css::uno::Any getControlShape( const OUString& sName );
-    css::uno::Reference< css::container::XNameAccess > getFormControls();
+    css::uno::Reference< css::container::XNameAccess > getFormControls() const;
 
 public:
     SwVbaDocument( const css::uno::Reference< ooo::vba::XHelperInterface >& xParent, const css::uno::Reference< css::uno::XComponentContext >& m_xContext, css::uno::Reference< css::frame::XModel > const & xModel );

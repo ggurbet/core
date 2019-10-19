@@ -448,10 +448,11 @@ SwContentFrame::~SwContentFrame()
 void SwTextFrame::RegisterToNode(SwTextNode & rNode, bool const isForceNodeAsFirst)
 {
     if (isForceNodeAsFirst && m_pMergedPara)
-    {   // nothing registered here, in particular no redlines
+    {   // nothing registered here, in particular no delete redlines (insert
+        // redline might end on empty node where delete rl starts, should be ok)
         assert(m_pMergedPara->pFirstNode->GetIndex() + 1 == rNode.GetIndex());
         assert(rNode.GetDoc()->getIDocumentRedlineAccess().GetRedlinePos(
-                *m_pMergedPara->pFirstNode, RedlineType::Any) == SwRedlineTable::npos);
+            *m_pMergedPara->pFirstNode, RedlineType::Delete) == SwRedlineTable::npos);
     }
     assert(&rNode != GetDep());
     assert(!m_pMergedPara
@@ -469,33 +470,6 @@ void SwTextFrame::RegisterToNode(SwTextNode & rNode, bool const isForceNodeAsFir
     }
 }
 
-//Flag pFrame for SwFrameDeleteGuard lifetime that we shouldn't delete
-//it in e.g. SwSectionFrame::MergeNext etc because we will need it
-//again after the SwFrameDeleteGuard dtor
-SwFrameDeleteGuard::SwFrameDeleteGuard(SwFrame* pFrame)
-    : m_pForbidFrame((pFrame && !pFrame->IsDeleteForbidden()) ? pFrame : nullptr)
-{
-    if (m_pForbidFrame)
-    {
-        m_pForbidFrame->ForbidDelete();
-    }
-}
-
-SwFrameDeleteGuard::~SwFrameDeleteGuard()
-{
-    if (m_pForbidFrame)
-    {
-        const bool bLogicErrorThrown = !m_pForbidFrame->IsDeleteForbidden();
-        if (bLogicErrorThrown)
-        {
-            // see testForcepoint80
-            SwFrame::DestroyFrame(m_pForbidFrame);
-            return;
-        }
-        m_pForbidFrame->AllowDelete();
-    }
-}
-
 void SwLayoutFrame::DestroyImpl()
 {
     while (!m_VertPosOrientFramesFor.empty())
@@ -510,7 +484,6 @@ void SwLayoutFrame::DestroyImpl()
 
     if( GetFormat() && !GetFormat()->GetDoc()->IsInDtor() )
     {
-        bool bFatalError = false;
         while ( pFrame )
         {
             //First delete the Objs of the Frame because they can't unregister
@@ -523,7 +496,6 @@ void SwLayoutFrame::DestroyImpl()
                 const size_t nCnt = pFrame->GetDrawObjs()->size();
                 // #i28701#
                 SwAnchoredObject* pAnchoredObj = (*pFrame->GetDrawObjs())[0];
-                pAnchoredObj->ClearTmpConsiderWrapInfluence();
                 if (SwFlyFrame* pFlyFrame = dynamic_cast<SwFlyFrame*>(pAnchoredObj))
                 {
                     SwFrame::DestroyFrame(pFlyFrame);
@@ -531,6 +503,7 @@ void SwLayoutFrame::DestroyImpl()
                 }
                 else
                 {
+                    pAnchoredObj->ClearTmpConsiderWrapInfluence();
                     SdrObject* pSdrObj = pAnchoredObj->DrawObj();
                     SwDrawContact* pContact =
                             static_cast<SwDrawContact*>(pSdrObj->GetUserCall());
@@ -549,20 +522,9 @@ void SwLayoutFrame::DestroyImpl()
                 }
             }
             pFrame->RemoveFromLayout();
-            // see testForcepoint80
-            if (pFrame->IsDeleteForbidden())
-            {
-                pFrame->AllowDelete();
-                bFatalError = true;
-            }
-            else
-                SwFrame::DestroyFrame(pFrame);
+            SwFrame::DestroyFrame(pFrame);
             pFrame = m_pLower;
         }
-
-        if (bFatalError)
-            throw std::logic_error("DeleteForbidden");
-
         //Delete the Flys, the last one also deletes the array.
         while ( GetDrawObjs() && GetDrawObjs()->size() )
         {
@@ -616,7 +578,7 @@ SwLayoutFrame::~SwLayoutFrame()
 |*  to be displayed. This region could be larger than the printarea (getFramePrintArea())
 |*  of the upper, it includes e.g. often the margin of the page.
 |*/
-const SwRect SwFrame::GetPaintArea() const
+SwRect SwFrame::GetPaintArea() const
 {
     // NEW TABLES
     // Cell frames may not leave their upper:
@@ -710,7 +672,7 @@ const SwRect SwFrame::GetPaintArea() const
 |*  The unionframe is the framearea (getFrameArea()) of a frame expanded by the
 |*  printarea, if there's a negative margin at the left or right side.
 |*/
-const SwRect SwFrame::UnionFrame( bool bBorder ) const
+SwRect SwFrame::UnionFrame( bool bBorder ) const
 {
     bool bVert = IsVertical();
     SwRectFn fnRect = bVert ? ( IsVertLR() ? (IsVertLRBT() ? fnRectVertL2RB2T : fnRectVertL2R) : fnRectVert ) : fnRectHori;

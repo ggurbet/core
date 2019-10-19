@@ -22,7 +22,7 @@
 #include <sfx2/tabdlg.hxx>
 #include <fldmgr.hxx>
 
-#define FIELD_COLUMN_WIDTH 76
+#define FIELD_COLUMN_WIDTH 19
 
 const int coLBCount = 3;
 
@@ -51,8 +51,8 @@ protected:
     SwField*            GetCurField()               { return m_pCurField;}
     SwWrtShell*         GetWrtShell() { return m_pWrtShell;}
 
-    DECL_LINK( TreeViewInsertHdl, weld::TreeView&, void );
-    DECL_LINK( NumFormatHdl, weld::TreeView&, void );
+    DECL_LINK( TreeViewInsertHdl, weld::TreeView&, bool );
+    DECL_LINK( NumFormatHdl, weld::TreeView&, bool );
     void                InsertHdl(weld::Widget*);
 
     void                Init();
@@ -62,7 +62,7 @@ protected:
     bool                IsFieldEdit() const   { return m_bFieldEdit; }
 
     // insert field
-    void                InsertField(sal_uInt16 nTypeId,
+    void                InsertField(SwFieldTypesEnum nTypeId,
                                     sal_uInt16 nSubType,
                                     const OUString& rPar1,
                                     const OUString& rPar2,
@@ -70,15 +70,13 @@ protected:
                                     sal_Unicode cDelim = ' ',
                                     bool bIsAutomaticLanguage = true);
 
-    using SfxTabPage::ActivatePage;
-
 public:
-    SwFieldPage(TabPageParent pParent, const OUString& rUIXMLDescription,
+    SwFieldPage(weld::Container* pPage, weld::DialogController* pController, const OUString& rUIXMLDescription,
         const OString& rID, const SfxItemSet *pAttrSet);
 
     virtual ~SwFieldPage() override;
 
-    virtual void        ActivatePage() override;
+    virtual void        Activate() override;
 
     SwFieldMgr&    GetFieldMgr()         { return m_aMgr; }
     void                SetWrtShell( SwWrtShell* m_pWrtShell );

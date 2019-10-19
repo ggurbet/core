@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/linguistic2/XThesaurus.hpp>
 #include <comphelper/string.hxx>
 #include <scitems.hxx>
 #include <editeng/eeitem.hxx>
@@ -27,7 +26,6 @@
 #include <svx/svxdlg.hxx>
 #include <editeng/contouritem.hxx>
 #include <editeng/outliner.hxx>
-#include <editeng/unolingu.hxx>
 #include <editeng/crossedoutitem.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/editview.hxx>
@@ -40,21 +38,20 @@
 #include <editeng/postitem.hxx>
 #include <editeng/scripttypeitem.hxx>
 #include <editeng/shdditem.hxx>
-#include <svl/srchitem.hxx>
 #include <editeng/udlnitem.hxx>
 #include <editeng/wghtitem.hxx>
-#include <sfx2/basedlgs.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/dispatch.hxx>
 #include <sfx2/msg.hxx>
 #include <sfx2/objface.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <sot/exchange.hxx>
 #include <svtools/cliplistener.hxx>
 #include <svl/whiter.hxx>
 #include <sot/formats.hxx>
 #include <vcl/transfer.hxx>
+#include <vcl/unohelp2.hxx>
 #include <svl/stritem.hxx>
 
 #include <editsh.hxx>
@@ -627,6 +624,38 @@ void ScEditShell::Execute( SfxRequest& rReq )
                         ScGlobal::OpenURL( pURLField->GetURL(), pURLField->GetTargetFrame() );
                     return;
                 }
+        case SID_EDIT_HYPERLINK:
+            {
+                // Ensure the field is selected first
+                pEditView->SelectFieldAtCursor();
+                pViewData->GetViewShell()->GetViewFrame()->GetDispatcher()->Execute(
+                    SID_HYPERLINK_DIALOG);
+            }
+        break;
+        case SID_COPY_HYPERLINK_LOCATION:
+            {
+                const SvxFieldData* pField = pEditView->GetFieldAtCursor();
+                if (const SvxURLField* pURLField = dynamic_cast<const SvxURLField*>(pField))
+                {
+                    uno::Reference<datatransfer::clipboard::XClipboard> xClipboard
+                        = pEditView->GetWindow()->GetClipboard();
+                    vcl::unohelper::TextDataObject::CopyStringTo(pURLField->GetURL(), xClipboard);
+                }
+            }
+        break;
+        case SID_REMOVE_HYPERLINK:
+            {
+                // Ensure the field is selected first
+                pEditView->SelectFieldAtCursor();
+                const SvxURLField* pURLField = GetURLField();
+                if (pURLField)
+                {
+                    ESelection aSel = pEditView->GetSelection();
+                    pEditView->GetEditEngine()->QuickInsertText(pURLField->GetRepresentation(), aSel);
+                }
+
+            }
+        break;
 
         case FN_INSERT_SOFT_HYPHEN:
             lclInsertCharacter( pTableView, pTopView, CHAR_SHY );
@@ -752,6 +781,9 @@ void ScEditShell::GetState( SfxItemSet& rSet )
                 break;
 
             case SID_OPEN_HYPERLINK:
+            case SID_EDIT_HYPERLINK:
+            case SID_COPY_HYPERLINK_LOCATION:
+            case SID_REMOVE_HYPERLINK:
                 {
                     if ( !GetURLField() )
                         rSet.DisableItem( nWhich );
@@ -785,6 +817,14 @@ void ScEditShell::GetState( SfxItemSet& rSet )
             case SID_INSERT_FIELD_TITLE:
             case SID_INSERT_FIELD_DATE_VAR:
             break;
+            case SID_COPY:
+            case SID_CUT:
+                if (pViewData->GetViewShell()->isContentExtractionLocked())
+                {
+                    rSet.DisableItem(SID_COPY);
+                    rSet.DisableItem(SID_CUT);
+                }
+                break;
 
         }
         nWhich = aIter.NextWhich();
@@ -795,16 +835,12 @@ const SvxURLField* ScEditShell::GetURLField()
 {
     ScInputHandler* pHdl = GetMyInputHdl();
     EditView* pActiveView = pHdl ? pHdl->GetActiveView() : pEditView;
-    if ( pActiveView )
-    {
-        const SvxFieldItem* pFieldItem = pActiveView->GetFieldAtSelection();
-        if (pFieldItem)
-        {
-            const SvxFieldData* pField = pFieldItem->GetField();
-            if ( auto pURLField = dynamic_cast<const SvxURLField*>( pField) )
-                return pURLField;
-        }
-    }
+    if (!pActiveView)
+        return nullptr;
+
+    const SvxFieldData* pField = pActiveView->GetFieldAtCursor();
+    if (auto pURLField = dynamic_cast<const SvxURLField*>(pField))
+        return pURLField;
 
     return nullptr;
 }

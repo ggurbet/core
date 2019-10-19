@@ -107,7 +107,7 @@ uno::Sequence< OUString > OZipFileAccess::GetPatternsFromString_Impl( const OUSt
         }
         else
         {
-            aPattern[nInd] += OUStringLiteral1( *pString );
+            aPattern[nInd] += OUStringChar( *pString );
             pString++;
         }
     }
@@ -214,10 +214,8 @@ void SAL_CALL OZipFileAccess::initialize( const uno::Sequence< uno::Any >& aArgu
     }
     else if (aArguments[0] >>= aArgs)
     {
-        for (sal_Int32 i = 0; i < aArgs.getLength(); ++i)
+        for (const beans::NamedValue& rArg : std::as_const(aArgs))
         {
-            const beans::NamedValue& rArg = aArgs[i];
-
             if (rArg.Name == "URL")
                 rArg.Value >>= aParamURL;
         }
@@ -461,7 +459,7 @@ uno::Sequence< OUString > OZipFileAccess::impl_staticGetSupportedServiceNames()
 
 OUString OZipFileAccess::impl_staticGetImplementationName()
 {
-    return OUString("com.sun.star.comp.package.zip.ZipFileAccess");
+    return "com.sun.star.comp.package.zip.ZipFileAccess";
 }
 
 uno::Reference< uno::XInterface > OZipFileAccess::impl_staticCreateSelfInstance(

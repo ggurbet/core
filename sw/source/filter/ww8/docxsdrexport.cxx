@@ -10,7 +10,6 @@
 #include "docxsdrexport.hxx"
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/drawing/PointSequenceSequence.hpp>
-#include <editeng/charrotateitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/shaditem.hxx>
@@ -23,12 +22,12 @@
 #include <fmtsrnd.hxx>
 #include <fmtcntnt.hxx>
 #include <fmtornt.hxx>
-#include <ndtxt.hxx>
-#include <txatbase.hxx>
 #include <fmtfsize.hxx>
 #include <frmatr.hxx>
+#include <fmtwrapinfluenceonobjpos.hxx>
 #include "docxattributeoutput.hxx"
 #include "docxexportfilter.hxx"
+#include <comphelper/flagguard.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <sal/log.hxx>
@@ -70,15 +69,11 @@ OUString lclGetAnchorIdFromGrabBag(const SdrObject* pObj)
     else
         aGrabBagName = "InteropGrabBag";
     uno::Sequence<beans::PropertyValue> propList = lclGetProperty(xShape, aGrabBagName);
-    for (sal_Int32 nProp = 0; nProp < propList.getLength(); ++nProp)
-    {
-        OUString aPropName = propList[nProp].Name;
-        if (aPropName == "AnchorId")
-        {
-            propList[nProp].Value >>= aResult;
-            break;
-        }
-    }
+    auto pProp
+        = std::find_if(propList.begin(), propList.end(),
+                       [](const beans::PropertyValue& rProp) { return rProp.Name == "AnchorId"; });
+    if (pProp != propList.end())
+        pProp->Value >>= aResult;
     return aResult;
 }
 
@@ -142,11 +137,9 @@ private:
     rtl::Reference<sax_fastparser::FastAttributeList> m_pFlyAttrList;
     rtl::Reference<sax_fastparser::FastAttributeList> m_pTextboxAttrList;
     OStringBuffer m_aTextFrameStyle;
-    bool m_bFrameBtLr;
     bool m_bDrawingOpen;
     bool m_bParagraphSdtOpen;
     bool m_bParagraphHasDrawing; ///Flag for checking drawing in a paragraph.
-    bool m_bFlyFrameGraphic;
     rtl::Reference<sax_fastparser::FastAttributeList> m_pFlyFillAttrList;
     sax_fastparser::FastAttributeList* m_pFlyWrapAttrList;
     sax_fastparser::FastAttributeList* m_pBodyPrAttrList;
@@ -157,6 +150,8 @@ private:
     sal_Int32 m_nDMLandVMLTextFrameRotation;
 
 public:
+    bool m_bFlyFrameGraphic = false;
+
     Impl(DocxExport& rExport, sax_fastparser::FSHelperPtr pSerializer,
          oox::drawingml::DrawingML* pDrawingML)
         : m_rExport(rExport)
@@ -165,11 +160,9 @@ public:
         , m_pFlyFrameSize(nullptr)
         , m_bTextFrameSyntax(false)
         , m_bDMLTextFrameSyntax(false)
-        , m_bFrameBtLr(false)
         , m_bDrawingOpen(false)
         , m_bParagraphSdtOpen(false)
         , m_bParagraphHasDrawing(false)
-        , m_bFlyFrameGraphic(false)
         , m_pFlyWrapAttrList(nullptr)
         , m_pBodyPrAttrList(nullptr)
         , m_bDMLAndVMLDrawingOpen(false)
@@ -181,15 +174,13 @@ public:
 
     void textFrameShadow(const SwFrameFormat& rFrameFormat);
     static bool isSupportedDMLShape(const uno::Reference<drawing::XShape>& xShape);
-    /// Undo the text direction mangling done by the frame btLr handler in writerfilter::dmapper::DomainMapper::lcl_startCharacterGroup()
-    bool checkFrameBtlr(SwNode* pStartNode, bool bDML);
 
     void setSerializer(const sax_fastparser::FSHelperPtr& pSerializer)
     {
         m_pSerializer = pSerializer;
     }
 
-    const sax_fastparser::FSHelperPtr& getSerializer() { return m_pSerializer; }
+    const sax_fastparser::FSHelperPtr& getSerializer() const { return m_pSerializer; }
 
     void setFlyFrameSize(const Size* pFlyFrameSize) { m_pFlyFrameSize = pFlyFrameSize; }
 
@@ -226,13 +217,9 @@ public:
 
     OStringBuffer& getTextFrameStyle() { return m_aTextFrameStyle; }
 
-    void setFrameBtLr(bool bFrameBtLr) { m_bFrameBtLr = bFrameBtLr; }
-
-    bool getFrameBtLr() { return m_bFrameBtLr; }
-
     void setDrawingOpen(bool bDrawingOpen) { m_bDrawingOpen = bDrawingOpen; }
 
-    bool getDrawingOpen() { return m_bDrawingOpen; }
+    bool getDrawingOpen() const { return m_bDrawingOpen; }
 
     void setParagraphSdtOpen(bool bParagraphSdtOpen) { m_bParagraphSdtOpen = bParagraphSdtOpen; }
 
@@ -276,8 +263,6 @@ public:
         return m_pDashLineStyleAttr;
     }
 
-    void setFlyFrameGraphic(bool bFlyFrameGraphic) { m_bFlyFrameGraphic = bFlyFrameGraphic; }
-
     bool getFlyFrameGraphic() const { return m_bFlyFrameGraphic; }
 
     oox::drawingml::DrawingML* getDrawingML() const { return m_pDrawingML; }
@@ -305,11 +290,11 @@ void DocxSdrExport::setSerializer(const sax_fastparser::FSHelperPtr& pSerializer
     m_pImpl->setSerializer(pSerializer);
 }
 
-const Size* DocxSdrExport::getFlyFrameSize() { return m_pImpl->getFlyFrameSize(); }
+const Size* DocxSdrExport::getFlyFrameSize() const { return m_pImpl->getFlyFrameSize(); }
 
-bool DocxSdrExport::getTextFrameSyntax() { return m_pImpl->getTextFrameSyntax(); }
+bool DocxSdrExport::getTextFrameSyntax() const { return m_pImpl->getTextFrameSyntax(); }
 
-bool DocxSdrExport::getDMLTextFrameSyntax() { return m_pImpl->getDMLTextFrameSyntax(); }
+bool DocxSdrExport::getDMLTextFrameSyntax() const { return m_pImpl->getDMLTextFrameSyntax(); }
 
 rtl::Reference<sax_fastparser::FastAttributeList>& DocxSdrExport::getFlyAttrList()
 {
@@ -323,18 +308,16 @@ rtl::Reference<sax_fastparser::FastAttributeList>& DocxSdrExport::getTextboxAttr
 
 OStringBuffer& DocxSdrExport::getTextFrameStyle() { return m_pImpl->getTextFrameStyle(); }
 
-bool DocxSdrExport::getFrameBtLr() { return m_pImpl->getFrameBtLr(); }
-
-bool DocxSdrExport::IsDrawingOpen() { return m_pImpl->getDrawingOpen(); }
+bool DocxSdrExport::IsDrawingOpen() const { return m_pImpl->getDrawingOpen(); }
 
 void DocxSdrExport::setParagraphSdtOpen(bool bParagraphSdtOpen)
 {
     m_pImpl->setParagraphSdtOpen(bParagraphSdtOpen);
 }
 
-bool DocxSdrExport::IsDMLAndVMLDrawingOpen() { return m_pImpl->getDMLAndVMLDrawingOpen(); }
+bool DocxSdrExport::IsDMLAndVMLDrawingOpen() const { return m_pImpl->getDMLAndVMLDrawingOpen(); }
 
-bool DocxSdrExport::IsParagraphHasDrawing() { return m_pImpl->getParagraphHasDrawing(); }
+bool DocxSdrExport::IsParagraphHasDrawing() const { return m_pImpl->getParagraphHasDrawing(); }
 
 void DocxSdrExport::setParagraphHasDrawing(bool bParagraphHasDrawing)
 {
@@ -424,7 +407,7 @@ void DocxSdrExport::startDMLAnchorInline(const SwFrameFormat* pFrameFormat, cons
         if (it != aGrabBag.end())
         {
             comphelper::SequenceAsHashMap aEffectExtent(it->second);
-            for (std::pair<const OUString, uno::Any>& rDirection : aEffectExtent)
+            for (const std::pair<const OUString, uno::Any>& rDirection : aEffectExtent)
             {
                 if (rDirection.first == "l" && rDirection.second.has<sal_Int32>())
                     nLeftExt = rDirection.second.get<sal_Int32>();
@@ -483,7 +466,8 @@ void DocxSdrExport::startDMLAnchorInline(const SwFrameFormat* pFrameFormat, cons
         attrList->add(XML_simplePos, "0");
         attrList->add(XML_locked, "0");
         attrList->add(XML_layoutInCell, "1");
-        attrList->add(XML_allowOverlap, "1"); // TODO
+        bool bAllowOverlap = pFrameFormat->GetWrapInfluenceOnObjPos().GetAllowOverlap();
+        attrList->add(XML_allowOverlap, bAllowOverlap ? "1" : "0");
         if (pObj != nullptr)
             // It seems 0 and 1 have special meaning: just start counting from 2 to avoid issues with that.
             attrList->add(XML_relativeHeight, OString::number(pObj->GetOrdNum() + 2));
@@ -707,7 +691,7 @@ void DocxSdrExport::startDMLAnchorInline(const SwFrameFormat* pFrameFormat, cons
     * reference : http://www.schemacentral.com/sc/ooxml/e-wp_extent-1.html
     *
     *   Though ECMA mentions the max value as aforementioned. It appears that MSO does not
-    *  handle for the same, infact it actually can handles a max value of int32 i.e
+    *  handle for the same, in fact it actually can handle a max value of int32 i.e
     *   2147483647( MAX_INTEGER_VALUE ).
     *  Therefore changing the following accordingly so that LO sync's up with MSO.
     **/
@@ -846,22 +830,14 @@ void DocxSdrExport::writeVMLDrawing(const SdrObject* sdrObj, const SwFrameFormat
 
 static bool lcl_isLockedCanvas(const uno::Reference<drawing::XShape>& xShape)
 {
-    bool bRet = false;
     uno::Sequence<beans::PropertyValue> propList = lclGetProperty(xShape, "InteropGrabBag");
-    for (sal_Int32 nProp = 0; nProp < propList.getLength(); ++nProp)
-    {
-        OUString propName = propList[nProp].Name;
-        if (propName == "LockedCanvas")
-        {
-            /*
-             * Export as Locked Canvas only if the property
-             * is in the PropertySet
-             */
-            bRet = true;
-            break;
-        }
-    }
-    return bRet;
+    /*
+     * Export as Locked Canvas only if the property
+     * is in the PropertySet
+     */
+    return std::any_of(propList.begin(), propList.end(), [](const beans::PropertyValue& rProp) {
+        return rProp.Name == "LockedCanvas";
+    });
 }
 
 void DocxSdrExport::writeDMLDrawing(const SdrObject* pSdrObject, const SwFrameFormat* pFrameFormat,
@@ -1015,17 +991,13 @@ void DocxSdrExport::writeDMLAndVMLDrawing(const SdrObject* sdrObj,
     uno::Reference<drawing::XShape> xShape(const_cast<SdrObject*>(sdrObj)->getUnoShape(),
                                            uno::UNO_QUERY_THROW);
 
-    // Locked canvas is OK inside DML.
-    if (lcl_isLockedCanvas(xShape))
-        bDMLAndVMLDrawingOpen = false;
-
     MSO_SPT eShapeType
         = EscherPropertyContainer::GetCustomShapeType(xShape, nMirrorFlags, sShapeType);
 
     // In case we are already inside a DML block, then write the shape only as VML, turn out that's allowed to do.
     // A common service created in util to check for VML shapes which are allowed to have textbox in content
     if ((msfilter::util::HasTextBoxContent(eShapeType)) && Impl::isSupportedDMLShape(xShape)
-        && !bDMLAndVMLDrawingOpen)
+        && (!bDMLAndVMLDrawingOpen || lcl_isLockedCanvas(xShape))) // Locked canvas is OK inside DML
     {
         m_pImpl->getSerializer()->startElementNS(XML_mc, XML_AlternateContent);
 
@@ -1044,7 +1016,7 @@ void DocxSdrExport::writeDMLAndVMLDrawing(const SdrObject* sdrObj,
     else
         writeVMLDrawing(sdrObj, rFrameFormat);
 
-    m_pImpl->setDMLAndVMLDrawingOpen(false);
+    m_pImpl->setDMLAndVMLDrawingOpen(bDMLAndVMLDrawingOpen);
 }
 
 // Converts ARGB transparency (0..255) to drawingml alpha (opposite, and 0..100000)
@@ -1137,10 +1109,8 @@ void DocxSdrExport::writeOnlyTextOfFrame(ww8::Frame const* pParentFrame)
     ExportDataSaveRestore aDataGuard(m_pImpl->getExport(), nStt, nEnd, pParentFrame);
 
     m_pImpl->setBodyPrAttrList(sax_fastparser::FastSerializerHelper::createAttrList());
-    m_pImpl->setFlyFrameGraphic(true);
+    ::comphelper::FlagRestorationGuard const g(m_pImpl->m_bFlyFrameGraphic, true);
     m_pImpl->getExport().WriteText();
-    m_pImpl->setFlyFrameGraphic(false);
-    m_pImpl->setFrameBtLr(false);
 }
 
 void DocxSdrExport::writeBoxItemLine(const SvxBoxItem& rBox)
@@ -1249,15 +1219,12 @@ void DocxSdrExport::writeDMLTextFrame(ww8::Frame const* pParentFrame, int nAncho
         {
             uno::Sequence<beans::PropertyValue> propList;
             xPropertySet->getPropertyValue("FrameInteropGrabBag") >>= propList;
-            for (sal_Int32 nProp = 0; nProp < propList.getLength(); ++nProp)
-            {
-                OUString propName = propList[nProp].Name;
-                if (propName == "mso-rotation-angle")
-                {
-                    aRotation = propList[nProp].Value;
-                    break;
-                }
-            }
+            auto pProp = std::find_if(propList.begin(), propList.end(),
+                                      [](const beans::PropertyValue& rProp) {
+                                          return rProp.Name == "mso-rotation-angle";
+                                      });
+            if (pProp != propList.end())
+                aRotation = pProp->Value;
         }
         aRotation >>= m_pImpl->getDMLandVMLTextFrameRotation();
         OString sRotation(OString::number(
@@ -1282,15 +1249,12 @@ void DocxSdrExport::writeDMLTextFrame(ww8::Frame const* pParentFrame, int nAncho
         {
             uno::Sequence<beans::PropertyValue> propList;
             xPropertySet->getPropertyValue("FrameInteropGrabBag") >>= propList;
-            for (sal_Int32 nProp = 0; nProp < propList.getLength(); ++nProp)
-            {
-                OUString propName = propList[nProp].Name;
-                if (propName == "mso-orig-shape-type")
-                {
-                    propList[nProp].Value >>= shapeType;
-                    break;
-                }
-            }
+            auto pProp = std::find_if(propList.begin(), propList.end(),
+                                      [](const beans::PropertyValue& rProp) {
+                                          return rProp.Name == "mso-orig-shape-type";
+                                      });
+            if (pProp != propList.end())
+                pProp->Value >>= shapeType;
         }
         //Empty shapeType will lead to corruption so to avoid that shapeType is set to default i.e. "rect"
         if (shapeType.isEmpty())
@@ -1396,18 +1360,18 @@ void DocxSdrExport::writeDMLTextFrame(ww8::Frame const* pParentFrame, int nAncho
         const SvxFrameDirectionItem& rDirection = rFrameFormat.GetFrameDir();
         if (rDirection.GetValue() == SvxFrameDirection::Vertical_RL_TB)
             m_pImpl->getBodyPrAttrList()->add(XML_vert, "vert");
+        else if (rDirection.GetValue() == SvxFrameDirection::Vertical_LR_BT)
+            m_pImpl->getBodyPrAttrList()->add(XML_vert, "vert270");
 
-        m_pImpl->setFrameBtLr(
-            m_pImpl->checkFrameBtlr(m_pImpl->getExport().m_pDoc->GetNodes()[nStt], /*bDML=*/true));
-        m_pImpl->setFlyFrameGraphic(true);
-        m_pImpl->getExport().WriteText();
-        if (m_pImpl->getParagraphSdtOpen())
         {
-            m_pImpl->getExport().DocxAttrOutput().EndParaSdtBlock();
-            m_pImpl->setParagraphSdtOpen(false);
+            ::comphelper::FlagRestorationGuard const g(m_pImpl->m_bFlyFrameGraphic, true);
+            m_pImpl->getExport().WriteText();
+            if (m_pImpl->getParagraphSdtOpen())
+            {
+                m_pImpl->getExport().DocxAttrOutput().EndParaSdtBlock();
+                m_pImpl->setParagraphSdtOpen(false);
+            }
         }
-        m_pImpl->setFlyFrameGraphic(false);
-        m_pImpl->setFrameBtLr(false);
 
         pFS->endElementNS(XML_w, XML_txbxContent);
         pFS->endElementNS(XML_wps, XML_txbx);
@@ -1416,14 +1380,17 @@ void DocxSdrExport::writeDMLTextFrame(ww8::Frame const* pParentFrame, int nAncho
     // We need to init padding to 0, if it's not set.
     // In LO the default is 0 and so ins attributes are not set when padding is 0
     // but in MSO the default is 254 / 127, so we need to set 0 padding explicitly
-    if (!m_pImpl->getBodyPrAttrList()->hasAttribute(XML_lIns))
-        m_pImpl->getBodyPrAttrList()->add(XML_lIns, OString::number(0));
-    if (!m_pImpl->getBodyPrAttrList()->hasAttribute(XML_tIns))
-        m_pImpl->getBodyPrAttrList()->add(XML_tIns, OString::number(0));
-    if (!m_pImpl->getBodyPrAttrList()->hasAttribute(XML_rIns))
-        m_pImpl->getBodyPrAttrList()->add(XML_rIns, OString::number(0));
-    if (!m_pImpl->getBodyPrAttrList()->hasAttribute(XML_bIns))
-        m_pImpl->getBodyPrAttrList()->add(XML_bIns, OString::number(0));
+    if (m_pImpl->getBodyPrAttrList())
+    {
+        if (!m_pImpl->getBodyPrAttrList()->hasAttribute(XML_lIns))
+            m_pImpl->getBodyPrAttrList()->add(XML_lIns, OString::number(0));
+        if (!m_pImpl->getBodyPrAttrList()->hasAttribute(XML_tIns))
+            m_pImpl->getBodyPrAttrList()->add(XML_tIns, OString::number(0));
+        if (!m_pImpl->getBodyPrAttrList()->hasAttribute(XML_rIns))
+            m_pImpl->getBodyPrAttrList()->add(XML_rIns, OString::number(0));
+        if (!m_pImpl->getBodyPrAttrList()->hasAttribute(XML_bIns))
+            m_pImpl->getBodyPrAttrList()->add(XML_bIns, OString::number(0));
+    }
 
     sax_fastparser::XFastAttributeListRef xBodyPrAttrList(m_pImpl->getBodyPrAttrList());
     m_pImpl->setBodyPrAttrList(nullptr);
@@ -1517,8 +1484,6 @@ void DocxSdrExport::writeVMLTextFrame(ww8::Frame const* pParentFrame, bool bText
     }
     sax_fastparser::XFastAttributeListRef xFlyAttrList(m_pImpl->getFlyAttrList().get());
     m_pImpl->getFlyAttrList().clear();
-    m_pImpl->setFrameBtLr(
-        m_pImpl->checkFrameBtlr(m_pImpl->getExport().m_pDoc->GetNodes()[nStt], /*bDML=*/false));
     sax_fastparser::XFastAttributeListRef xTextboxAttrList(m_pImpl->getTextboxAttrList().get());
     m_pImpl->getTextboxAttrList().clear();
     m_pImpl->setTextFrameSyntax(false);
@@ -1547,14 +1512,15 @@ void DocxSdrExport::writeVMLTextFrame(ww8::Frame const* pParentFrame, bool bText
         pFS->startElementNS(XML_v, XML_textbox, xTextboxAttrList);
     }
     pFS->startElementNS(XML_w, XML_txbxContent);
-    m_pImpl->setFlyFrameGraphic(true);
-    m_pImpl->getExport().WriteText();
-    if (m_pImpl->getParagraphSdtOpen())
     {
-        m_pImpl->getExport().DocxAttrOutput().EndParaSdtBlock();
-        m_pImpl->setParagraphSdtOpen(false);
+        ::comphelper::FlagRestorationGuard const g(m_pImpl->m_bFlyFrameGraphic, true);
+        m_pImpl->getExport().WriteText();
+        if (m_pImpl->getParagraphSdtOpen())
+        {
+            m_pImpl->getExport().DocxAttrOutput().EndParaSdtBlock();
+            m_pImpl->setParagraphSdtOpen(false);
+        }
     }
-    m_pImpl->setFlyFrameGraphic(false);
     pFS->endElementNS(XML_w, XML_txbxContent);
     if (!bTextBoxOnly)
     {
@@ -1570,59 +1536,8 @@ void DocxSdrExport::writeVMLTextFrame(ww8::Frame const* pParentFrame, bool bText
         pFS->endElementNS(XML_v, XML_rect);
         pFS->endElementNS(XML_w, XML_pict);
     }
-    m_pImpl->setFrameBtLr(false);
 
     m_pImpl->setDMLAndVMLDrawingOpen(bDMLAndVMLDrawingOpen);
-}
-
-bool DocxSdrExport::Impl::checkFrameBtlr(SwNode* pStartNode, bool bDML)
-{
-    // The intended usage is to pass either a valid VML or DML attribute list.
-    if (bDML)
-        assert(m_pBodyPrAttrList);
-    else
-        assert(m_pTextboxAttrList.is());
-
-    if (!pStartNode->IsTextNode())
-        return false;
-
-    SwTextNode* pTextNode = pStartNode->GetTextNode();
-
-    const SfxPoolItem* pItem = nullptr; // explicitly init to avoid warnings
-    bool bItemSet = false;
-    if (pTextNode->HasSwAttrSet())
-    {
-        const SwAttrSet& rAttrSet = pTextNode->GetSwAttrSet();
-        bItemSet = rAttrSet.GetItemState(RES_CHRATR_ROTATE, true, &pItem) == SfxItemState::SET;
-    }
-
-    if (!bItemSet)
-    {
-        if (!pTextNode->HasHints())
-            return false;
-
-        SwTextAttr* pTextAttr = pTextNode->GetTextAttrAt(0, RES_TXTATR_AUTOFMT);
-
-        if (!pTextAttr || pTextAttr->Which() != RES_TXTATR_AUTOFMT)
-            return false;
-
-        std::shared_ptr<SfxItemSet> pItemSet = pTextAttr->GetAutoFormat().GetStyleHandle();
-        bItemSet = pItemSet->GetItemState(RES_CHRATR_ROTATE, true, &pItem) == SfxItemState::SET;
-    }
-
-    if (bItemSet)
-    {
-        auto& rCharRotate = static_cast<const SvxCharRotateItem&>(*pItem);
-        if (rCharRotate.GetValue() == 900)
-        {
-            if (bDML)
-                m_pBodyPrAttrList->add(XML_vert, "vert270");
-            else
-                m_pTextboxAttrList->add(XML_style, "mso-layout-flow-alt:bottom-to-top");
-            return true;
-        }
-    }
-    return false;
 }
 
 bool DocxSdrExport::isTextBox(const SwFrameFormat& rFrameFormat)

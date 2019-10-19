@@ -17,17 +17,15 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <osl/file.h>
 #include <sal/log.hxx>
 #include <tools/stream.hxx>
 #include <tools/vcompat.hxx>
-#include <unotools/tempfile.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/gfxlink.hxx>
-#include <vcl/cvtgrf.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <memory>
-#include <o3tl/make_shared.hxx>
+#include <TypeSerializer.hxx>
+
 
 GfxLink::GfxLink()
     : meType(GfxLinkType::NONE)
@@ -79,15 +77,6 @@ bool GfxLink::IsNative() const
 
 const sal_uInt8* GfxLink::GetData() const
 {
-    if( IsSwappedOut() )
-    {
-        auto pData = GetSwapInData();
-        if (pData)
-        {
-            mpSwapInData = pData;
-            mpSwapOutData.reset();
-        }
-    }
     return mpSwapInData.get();
 }
 
@@ -146,34 +135,6 @@ bool GfxLink::LoadNative( Graphic& rGraphic )
     return bRet;
 }
 
-void GfxLink::SwapOut()
-{
-    if( !IsSwappedOut() && mpSwapInData && mnSwapInDataSize )
-    {
-        ::utl::TempFile aTempFile;
-
-        OUString aURL = aTempFile.GetURL();
-
-        if (!aURL.isEmpty())
-        {
-            std::shared_ptr<GfxLink::SwapOutData> pSwapOut = std::make_shared<SwapOutData>(aURL);    // aURL is removed in the destructor
-            SvStream* pOStm = aTempFile.GetStream(StreamMode::STD_WRITE);
-            if (pOStm)
-            {
-                pOStm->WriteBytes(mpSwapInData.get(), mnSwapInDataSize);
-                bool bError = (ERRCODE_NONE != pOStm->GetError());
-                aTempFile.CloseStream();
-
-                if( !bError )
-                {
-                    mpSwapOutData = pSwapOut;
-                    mpSwapInData.reset();
-                }
-            }
-        }
-    }
-}
-
 bool GfxLink::ExportNative( SvStream& rOStream ) const
 {
     if( GetDataSize() )
@@ -189,12 +150,13 @@ bool GfxLink::ExportNative( SvStream& rOStream ) const
 SvStream& WriteGfxLink( SvStream& rOStream, const GfxLink& rGfxLink )
 {
     std::unique_ptr<VersionCompat> pCompat(new VersionCompat( rOStream, StreamMode::WRITE, 2 ));
+    TypeSerializer aSerializer(rOStream);
 
     // Version 1
     rOStream.WriteUInt16( static_cast<sal_uInt16>(rGfxLink.GetType()) ).WriteUInt32( rGfxLink.GetDataSize() ).WriteUInt32( rGfxLink.GetUserId() );
 
     // Version 2
-    WritePair( rOStream, rGfxLink.GetPrefSize() );
+    aSerializer.writeSize(rGfxLink.GetPrefSize());
     WriteMapMode( rOStream, rGfxLink.GetPrefMapMode() );
 
     pCompat.reset(); // destructor writes stuff into the header
@@ -216,6 +178,8 @@ SvStream& ReadGfxLink( SvStream& rIStream, GfxLink& rGfxLink)
     bool            bMapAndSizeValid( false );
     std::unique_ptr<VersionCompat>  pCompat(new VersionCompat( rIStream, StreamMode::READ ));
 
+    TypeSerializer aSerializer(rIStream);
+
     // Version 1
     sal_uInt16 nType(0);
     sal_uInt32 nSize(0), nUserId(0);
@@ -223,7 +187,7 @@ SvStream& ReadGfxLink( SvStream& rIStream, GfxLink& rGfxLink)
 
     if( pCompat->GetVersion() >= 2 )
     {
-        ReadPair( rIStream, aSize );
+        aSerializer.readSize(aSize);
         ReadMapMode( rIStream, aMapMode );
         bMapAndSizeValid = true;
     }
@@ -252,45 +216,9 @@ SvStream& ReadGfxLink( SvStream& rIStream, GfxLink& rGfxLink)
     return rIStream;
 }
 
-GfxLink::SwapOutData::SwapOutData(const OUString &aURL) : maURL(aURL)
-{
-}
-
-GfxLink::SwapOutData::~SwapOutData()
-{
-    if( maURL.getLength() > 0 )
-        osl_removeFile( maURL.pData );
-}
-
 std::shared_ptr<sal_uInt8> GfxLink::GetSwapInData() const
 {
-    if( !IsSwappedOut() )
-        return mpSwapInData;
-
-    std::shared_ptr<sal_uInt8> pData;
-
-    SvFileStream aFileStream(mpSwapOutData->maURL, StreamMode::STD_READ);
-    pData = o3tl::make_shared_array<sal_uInt8>(mnSwapInDataSize);
-    aFileStream.ReadBytes(pData.get(), mnSwapInDataSize);
-    bool bError = false;
-    auto const e = aFileStream.GetError();
-    if (e != ERRCODE_NONE) {
-        SAL_WARN("vcl", "reading <" << mpSwapOutData->maURL << "> failed with " << e);
-        bError = true;
-    }
-    if (!bError) {
-        sal_uInt64 const nActReadSize = aFileStream.Tell();
-        if (nActReadSize != mnSwapInDataSize) {
-            SAL_WARN(
-                "vcl",
-                "reading <" << mpSwapOutData->maURL << "> produced " << nActReadSize
-                    << " instead of " << mnSwapInDataSize << " bytes");
-            bError = true;
-        }
-    }
-    if (bError)
-        pData.reset();
-    return pData;
+    return mpSwapInData;
 }
 
 bool GfxLink::IsEMF() const

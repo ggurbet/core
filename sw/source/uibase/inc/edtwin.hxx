@@ -24,7 +24,6 @@
 #include <svx/svdobj.hxx>
 #include <tools/link.hxx>
 #include <vcl/timer.hxx>
-#include <vcl/idle.hxx>
 #include <vcl/window.hxx>
 #include <vcl/transfer.hxx>
 #include <swevent.hxx>
@@ -175,6 +174,8 @@ class SW_DLLPUBLIC SwEditWin final : public vcl::Window,
     virtual void    GetFocus() override;
     virtual void    LoseFocus() override;
 
+    bool changeMousePointer(Point const & rDocPoint);
+
     virtual void    MouseMove(const MouseEvent& rMEvt) override;
     virtual void    MouseButtonDown(const MouseEvent& rMEvt) override;
     virtual void    MouseButtonUp(const MouseEvent& rMEvt) override;
@@ -188,8 +189,9 @@ class SW_DLLPUBLIC SwEditWin final : public vcl::Window,
     virtual OUString GetSurroundingText() const override;
     virtual Selection GetSurroundingTextSelection() const override;
 
-    void    ShowAutoTextCorrectQuickHelp( const OUString& rWord, SvxAutoCorrCfg const * pACfg,
-                                SvxAutoCorrect* pACorr, bool bFromIME = false );
+    void ShowAutoCorrectQuickHelp(const OUString& rWord, SvxAutoCorrect& rACorr,
+                                  bool bFromIME = false);
+    bool ShowAutoText(const std::vector<OUString>& rChunkCandidates);
 
     /// Returns true if in header/footer area, or in the header/footer control.
     bool    IsInHeaderFooter( const Point &rDocPt, FrameControlType &rControl ) const;
@@ -200,8 +202,8 @@ public:
     virtual void    KeyInput(const KeyEvent &rKEvt) override;
     void            UpdatePointer(const Point &, sal_uInt16 nButtons = 0);
 
-    bool            IsDrawSelMode();
-    bool            IsDrawAction()                  { return m_bInsDraw; }
+    bool            IsDrawSelMode() const;
+    bool            IsDrawAction() const            { return m_bInsDraw; }
     void            SetDrawAction(bool bFlag)       { m_bInsDraw = bFlag; }
 
     void            SetObjectSelect( bool bVal )    { m_bObjectSelect = bVal; }

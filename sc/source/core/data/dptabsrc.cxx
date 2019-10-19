@@ -24,6 +24,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <comphelper/sequence.hxx>
 #include <o3tl/any.hxx>
 #include <osl/diagnose.h>
 #include <rtl/math.hxx>
@@ -131,7 +132,7 @@ sheet::DataPilotFieldOrientation ScDPSource::GetOrientation(long nColumn)
     return sheet::DataPilotFieldOrientation_HIDDEN;
 }
 
-long ScDPSource::GetDataDimensionCount()
+long ScDPSource::GetDataDimensionCount() const
 {
     return maDataDims.size();
 }
@@ -432,10 +433,8 @@ Sequence< Sequence<Any> > SAL_CALL ScDPSource::getDrillDownData(const Sequence<s
     long nColumnCount = GetData()->GetColumnCount();
 
     vector<ScDPFilteredCache::Criterion> aFilterCriteria;
-    sal_Int32 nFilterCount = aFilters.getLength();
-    for (sal_Int32 i = 0; i < nFilterCount; ++i)
+    for (const sheet::DataPilotFieldFilter& rFilter : aFilters)
     {
-        const sheet::DataPilotFieldFilter& rFilter = aFilters[i];
         const OUString& aFieldName = rFilter.FieldName;
         for (long nCol = 0; nCol < nColumnCount; ++nCol)
         {
@@ -587,17 +586,6 @@ static long lcl_CountMinMembers(const vector<ScDPDimension*>& ppDim, const vecto
     nTotal *= nDataCount;
 
     return nTotal;
-}
-
-static long lcl_GetIndexFromName( const OUString& rName, const uno::Sequence<OUString>& rElements )
-{
-    long nCount = rElements.getLength();
-    const OUString* pArray = rElements.getConstArray();
-    for (long nPos=0; nPos<nCount; nPos++)
-        if (pArray[nPos] == rName)
-            return nPos;
-
-    return -1;  // not found
 }
 
 void ScDPSource::FillCalcInfo(bool bIsRow, ScDPTableData::CalcInfo& rInfo, bool &rHasAutoShow)
@@ -796,8 +784,8 @@ void ScDPSource::CreateRes_Impl()
              eRefType == sheet::DataPilotFieldReferenceType::ITEM_PERCENTAGE_DIFFERENCE ||
              eRefType == sheet::DataPilotFieldReferenceType::RUNNING_TOTAL )
         {
-            long nColumn = lcl_GetIndexFromName(
-                aDataRefValues.back().ReferenceField, GetDimensionsObject()->getElementNames());
+            long nColumn = comphelper::findValue(
+                GetDimensionsObject()->getElementNames(), aDataRefValues.back().ReferenceField);
             if ( nColumn >= 0 )
             {
                 nDataRefOrient = GetOrientation(nColumn);
@@ -2101,10 +2089,9 @@ void SAL_CALL ScDPLevel::setPropertyValue( const OUString& aPropertyName, const 
         uno::Sequence<sheet::GeneralFunction> aSeq;
         aValue >>= aSeq;
         aSubTotals.realloc(aSeq.getLength());
-        for (sal_Int32 nIndex = 0; nIndex < aSeq.getLength(); nIndex++)
-        {
-            aSubTotals[nIndex] = static_cast<sal_Int16>(aSeq[nIndex]);
-        }
+        std::transform(aSeq.begin(), aSeq.end(), aSubTotals.begin(),
+            [](const sheet::GeneralFunction& rFunc) -> sal_Int16 {
+                return static_cast<sal_Int16>(rFunc); });
     }
     else if ( aPropertyName == SC_UNO_DP_SUBTOTAL2 )
         aValue >>= aSubTotals;
@@ -2129,16 +2116,15 @@ uno::Any SAL_CALL ScDPLevel::getPropertyValue( const OUString& aPropertyName )
         aRet <<= bRepeatItemLabels;
     else if ( aPropertyName == SC_UNO_DP_SUBTOTAL )
     {
-        uno::Sequence<sal_Int16> aSeq = getSubTotals();
+        const uno::Sequence<sal_Int16> aSeq = getSubTotals();
         uno::Sequence<sheet::GeneralFunction> aNewSeq;
         aNewSeq.realloc(aSeq.getLength());
-        for (sal_Int32 nIndex = 0; nIndex < aSeq.getLength(); nIndex++)
-        {
-            if (aSeq[nIndex] == sheet::GeneralFunction2::MEDIAN)
-                aNewSeq[nIndex] = sheet::GeneralFunction_NONE;
-            else
-                aNewSeq[nIndex] = static_cast<sheet::GeneralFunction>(aSeq[nIndex]);
-        }
+        std::transform(aSeq.begin(), aSeq.end(), aNewSeq.begin(),
+            [](const sal_Int16 nFunc) -> sheet::GeneralFunction {
+                if (nFunc == sheet::GeneralFunction2::MEDIAN)
+                    return sheet::GeneralFunction_NONE;
+                return static_cast<sheet::GeneralFunction>(nFunc);
+            });
 
         aRet <<= aNewSeq;
     }

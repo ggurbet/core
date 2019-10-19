@@ -158,7 +158,7 @@ class PresetHandler
             @return css::embed::XStorage
                     which the current working storage.
          */
-        css::uno::Reference< css::embed::XStorage > getWorkingStorageUser();
+        css::uno::Reference< css::embed::XStorage > getWorkingStorageUser() const;
 
         /** @short  check if there is a parent storage well known for
                     the specified child storage and return it.
@@ -338,7 +338,7 @@ class PresetHandler
 
             @param  sPath
                     the configuration path, which should be opened.
-                    Its further used as out parameter too, so we can return the localized
+                    It's further used as out parameter too, so we can return the localized
                     path!
 
             @param  eMode

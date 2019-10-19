@@ -26,7 +26,6 @@
 #include <xmloff/xmlstyle.hxx>
 
 #include <vector>
-#include <list>
 
 namespace com { namespace sun { namespace star {
     namespace chart2 {
@@ -101,7 +100,7 @@ public:
         , const SvXMLStylesContext* pStylesCtxt
         , const SvXMLStyleContext*& rpStyle
         , OUString& rCurrStyleName
-        , SchXMLImportHelper& rImportHelper
+        , const SchXMLImportHelper& rImportHelper
         , const SvXMLImport& rImport
         , bool bIsStockChart
         , tSchXMLLSequencesPerIndex & rInOutLSequencesPerIndex );
@@ -121,7 +120,7 @@ public:
         , const SvXMLStylesContext* pStylesCtxt
         , const SvXMLStyleContext*& rpStyle
         , OUString& rCurrStyleName
-        , SchXMLImportHelper& rImportHelper
+        , const SchXMLImportHelper& rImportHelper
         , const SvXMLImport& rImport
         , bool bIsStockChart, bool bIsDonutChart, bool bSwitchOffLinesForScatter );
 

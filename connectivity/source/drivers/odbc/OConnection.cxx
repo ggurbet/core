@@ -92,11 +92,9 @@ SQLRETURN OConnection::OpenConnection(const OUString& aConnectStr, sal_Int32 nTi
         return -1;
 
     SQLRETURN nSQLRETURN = 0;
-    SDB_ODBC_CHAR szConnStrOut[4096];
-    SDB_ODBC_CHAR szConnStrIn[2048];
+    SDB_ODBC_CHAR szConnStrOut[4096] = {};
+    SDB_ODBC_CHAR szConnStrIn[2048] = {};
     SQLSMALLINT cbConnStrOut;
-    memset(szConnStrOut,'\0',4096);
-    memset(szConnStrIn,'\0',2048);
     OString aConStr(OUStringToOString(aConnectStr,getTextEncoding()));
     memcpy(szConnStrIn, aConStr.getStr(), std::min<sal_Int32>(sal_Int32(2048),aConStr.getLength()));
 
@@ -224,13 +222,13 @@ SQLRETURN OConnection::Construct(const OUString& url,const Sequence< PropertyVal
         {
             if( ! (pBegin->Value >>= aUID) )
                 SAL_WARN("connectivity.odbc", "Construct: unable to get property user");
-            aDSN = aDSN + ";UID=" + aUID;
+            aDSN += ";UID=" + aUID;
         }
         else if( pBegin->Name == "password")
         {
             if( ! (pBegin->Value >>= aPWD) )
                 SAL_WARN("connectivity.odbc", "Construct: unable to get property password");
-            aDSN = aDSN + ";PWD=" + aPWD;
+            aDSN += ";PWD=" + aPWD;
         }
         else if( pBegin->Name == "UseCatalog")
         {
@@ -241,8 +239,7 @@ SQLRETURN OConnection::Construct(const OUString& url,const Sequence< PropertyVal
         {
             if( ! (pBegin->Value >>= aSysDrvSettings) )
                 SAL_WARN("connectivity.odbc", "Construct: unable to get property SystemDriverSettings");
-            aDSN += ";";
-            aDSN += aSysDrvSettings;
+            aDSN += ";" + aSysDrvSettings;
         }
         else if( pBegin->Name == "CharSet")
         {

@@ -56,14 +56,12 @@ void MysqlCDriver::disposing()
 // static ServiceInfo
 OUString MysqlCDriver::getImplementationName_Static()
 {
-    return OUString("com.sun.star.comp.sdbc.mysqlc.MysqlCDriver");
+    return "com.sun.star.comp.sdbc.mysqlc.MysqlCDriver";
 }
 
 Sequence<OUString> MysqlCDriver::getSupportedServiceNames_Static()
 {
-    Sequence<OUString> aSNS(1);
-    aSNS[0] = "com.sun.star.sdbc.Driver";
-    return aSNS;
+    return { "com.sun.star.sdbc.Driver" };
 }
 
 OUString SAL_CALL MysqlCDriver::getImplementationName() { return getImplementationName_Static(); }

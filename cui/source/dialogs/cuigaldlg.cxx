@@ -40,8 +40,6 @@
 #include <unotools/syslocale.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
-#include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/sdbc/XResultSet.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
@@ -49,10 +47,8 @@
 #include <com/sun/star/ucb/XContentAccess.hpp>
 #include <com/sun/star/ui/dialogs/FolderPicker.hpp>
 #include <com/sun/star/ui/dialogs/XAsynchronousExecutableDialog.hpp>
-#include <sfx2/sfxuno.hxx>
 #include <dialmgr.hxx>
 #include <strings.hrc>
-#include <svx/dialogs.hrc>
 #include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 
@@ -193,7 +189,7 @@ void SearchThread::ImplSearch( const INetURLObject& rStartURL,
 SearchProgress::SearchProgress(weld::Window* pParent, TPGalleryThemeProperties* pTabPage, const INetURLObject& rStartURL)
     : GenericDialogController(pParent, "cui/ui/gallerysearchprogress.ui", "GallerySearchProgress")
     , startUrl_(rStartURL)
-    , m_xTabPage(pTabPage)
+    , m_pTabPage(pTabPage)
     , m_xFtSearchDir(m_xBuilder->weld_label("dir"))
     , m_xFtSearchType(m_xBuilder->weld_label("file"))
     , m_xBtnCancel(m_xBuilder->weld_button("cancel"))
@@ -223,7 +219,7 @@ IMPL_LINK_NOARG(SearchProgress, CleanUpHdl, void*, void)
 void SearchProgress::LaunchThread()
 {
     assert(!m_aSearchThread.is());
-    m_aSearchThread = new SearchThread(this, m_xTabPage, startUrl_);
+    m_aSearchThread = new SearchThread(this, m_pTabPage, startUrl_);
     m_aSearchThread->launch();
 }
 
@@ -295,7 +291,7 @@ TakeProgress::TakeProgress(weld::Window* pParent, TPGalleryThemeProperties* pTab
     : GenericDialogController(pParent, "cui/ui/galleryapplyprogress.ui",
                               "GalleryApplyProgress")
     , m_pParent(pParent)
-    , m_xTabPage(pTabPage)
+    , m_pTabPage(pTabPage)
     , m_xFtTakeFile(m_xBuilder->weld_label("file"))
     , m_xBtnCancel(m_xBuilder->weld_button("cancel"))
 {
@@ -318,14 +314,14 @@ IMPL_LINK_NOARG(TakeProgress, CleanUpHdl, void*, void)
     if (maTakeThread.is())
         maTakeThread->join();
 
-    std::vector<bool, std::allocator<bool> > aRemoveEntries(m_xTabPage->aFoundList.size(), false);
+    std::vector<bool, std::allocator<bool> > aRemoveEntries(m_pTabPage->aFoundList.size(), false);
     std::vector< OUString >   aRemainingVector;
     sal_uInt32                  i, nCount;
 
     std::unique_ptr<weld::WaitObject> xWait(new weld::WaitObject(m_pParent));
 
-    m_xTabPage->m_xLbxFound->select(-1);
-    m_xTabPage->m_xLbxFound->freeze();
+    m_pTabPage->m_xLbxFound->select(-1);
+    m_pTabPage->m_xLbxFound->freeze();
 
     // mark all taken positions in aRemoveEntries
     for( i = 0, nCount = maTakenList.size(); i < nCount; ++i )
@@ -335,29 +331,29 @@ IMPL_LINK_NOARG(TakeProgress, CleanUpHdl, void*, void)
     // refill found list
     for( i = 0, nCount = aRemoveEntries.size(); i < nCount; ++i )
         if( !aRemoveEntries[ i ] )
-            aRemainingVector.push_back( m_xTabPage->aFoundList[i] );
+            aRemainingVector.push_back( m_pTabPage->aFoundList[i] );
 
-    m_xTabPage->aFoundList.clear();
+    m_pTabPage->aFoundList.clear();
 
     for( i = 0, nCount = aRemainingVector.size(); i < nCount; ++i )
-        m_xTabPage->aFoundList.push_back( aRemainingVector[ i ] );
+        m_pTabPage->aFoundList.push_back( aRemainingVector[ i ] );
 
     aRemainingVector.clear();
 
     // refill list box
     for( i = 0, nCount = aRemoveEntries.size(); i < nCount; ++i )
         if( !aRemoveEntries[ i ] )
-            aRemainingVector.push_back(m_xTabPage->m_xLbxFound->get_text(i));
+            aRemainingVector.push_back(m_pTabPage->m_xLbxFound->get_text(i));
 
-    m_xTabPage->m_xLbxFound->clear();
+    m_pTabPage->m_xLbxFound->clear();
 
     for( i = 0, nCount = aRemainingVector.size(); i < nCount; ++i )
-        m_xTabPage->m_xLbxFound->append_text(aRemainingVector[i]);
+        m_pTabPage->m_xLbxFound->append_text(aRemainingVector[i]);
 
     aRemainingVector.clear();
 
-    m_xTabPage->m_xLbxFound->thaw();
-    m_xTabPage->SelectFoundHdl( *m_xTabPage->m_xLbxFound );
+    m_pTabPage->m_xLbxFound->thaw();
+    m_pTabPage->SelectFoundHdl( *m_pTabPage->m_xLbxFound );
 
     xWait.reset();
 
@@ -367,7 +363,7 @@ IMPL_LINK_NOARG(TakeProgress, CleanUpHdl, void*, void)
 void TakeProgress::LaunchThread()
 {
     assert(!maTakeThread.is());
-    maTakeThread = new TakeThread(this, m_xTabPage, maTakenList);
+    maTakeThread = new TakeThread(this, m_pTabPage, maTakenList);
     maTakeThread->launch();
 }
 
@@ -508,8 +504,8 @@ void GalleryThemeProperties::PageCreated(const OString& rId, SfxTabPage &rPage)
         static_cast<TPGalleryThemeProperties&>( rPage ).SetXChgData( pData );
 }
 
-TPGalleryThemeGeneral::TPGalleryThemeGeneral(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "cui/ui/gallerygeneralpage.ui", "GalleryGeneralPage", &rSet)
+TPGalleryThemeGeneral::TPGalleryThemeGeneral(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/gallerygeneralpage.ui", "GalleryGeneralPage", &rSet)
     , pData(nullptr)
     , m_xFiMSImage(m_xBuilder->weld_image("image"))
     , m_xEdtMSName(m_xBuilder->weld_entry("name"))
@@ -578,13 +574,13 @@ bool TPGalleryThemeGeneral::FillItemSet( SfxItemSet* /*rSet*/ )
     return true;
 }
 
-VclPtr<SfxTabPage> TPGalleryThemeGeneral::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> TPGalleryThemeGeneral::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<TPGalleryThemeGeneral>::Create(pParent, *rSet);
+    return std::make_unique<TPGalleryThemeGeneral>(pPage, pController, *rSet);
 }
 
-TPGalleryThemeProperties::TPGalleryThemeProperties(TabPageParent pWindow, const SfxItemSet& rSet)
-    : SfxTabPage(pWindow, "cui/ui/galleryfilespage.ui", "GalleryFilesPage", &rSet)
+TPGalleryThemeProperties::TPGalleryThemeProperties(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "cui/ui/galleryfilespage.ui", "GalleryFilesPage", &rSet)
     , pData(nullptr)
     , bEntriesFound(false)
     , bInputAllowed(true)
@@ -640,20 +636,14 @@ void TPGalleryThemeProperties::StartSearchFiles( const OUString& _rFolderURL, sh
 
 TPGalleryThemeProperties::~TPGalleryThemeProperties()
 {
-    disposeOnce();
-}
-
-void TPGalleryThemeProperties::dispose()
-{
     xMediaPlayer.clear();
     xDialogListener.clear();
     aFilterEntryList.clear();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> TPGalleryThemeProperties::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> TPGalleryThemeProperties::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<TPGalleryThemeProperties>::Create(pParent, *rSet);
+    return std::make_unique<TPGalleryThemeProperties>(pPage, pController, *rSet);
 }
 
 OUString TPGalleryThemeProperties::addExtension( const OUString& _rDisplayText, const OUString& _rExtension )
@@ -721,10 +711,9 @@ void TPGalleryThemeProperties::FillFilterList()
 #if HAVE_FEATURE_AVMEDIA
     // media filters
     static const char aWildcard[] = "*.";
-    ::avmedia::FilterNameVector     aFilters;
-    ::avmedia::MediaWindow::getMediaFilters( aFilters );
+    ::avmedia::FilterNameVector     aFilters= ::avmedia::MediaWindow::getMediaFilters();
 
-    for(std::pair<OUString,OUString> & aFilter : aFilters)
+    for(const std::pair<OUString,OUString> & aFilter : aFilters)
     {
         for( sal_Int32 nIndex = 0; nIndex >= 0; )
         {
@@ -764,7 +753,7 @@ void TPGalleryThemeProperties::FillFilterList()
 
 #if HAVE_FEATURE_AVMEDIA
     // media filters
-    for(std::pair<OUString,OUString> & aFilter : aFilters)
+    for(const std::pair<OUString,OUString> & aFilter : aFilters)
     {
         for( sal_Int32 nIndex = 0; nIndex >= 0; )
         {
@@ -796,7 +785,7 @@ IMPL_LINK_NOARG(TPGalleryThemeProperties, SelectFileTypeHdl, weld::ComboBox&, vo
     {
         aLastFilterName = aText;
 
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryupdategalleryfilelistdialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryupdategalleryfilelistdialog.ui"));
         std::unique_ptr<weld::MessageDialog> xQuery(xBuilder->weld_message_dialog("QueryUpdateFileListDialog"));
         if (xQuery->run() == RET_YES)
             SearchFiles();
@@ -805,7 +794,7 @@ IMPL_LINK_NOARG(TPGalleryThemeProperties, SelectFileTypeHdl, weld::ComboBox&, vo
 
 void TPGalleryThemeProperties::SearchFiles()
 {
-    std::shared_ptr<SearchProgress> xProgress(new SearchProgress(GetDialogFrameWeld(), this, aURL));
+    std::shared_ptr<SearchProgress> xProgress(new SearchProgress(GetFrameWeld(), this, aURL));
 
     aFoundList.clear();
     m_xLbxFound->clear();
@@ -858,7 +847,7 @@ void TPGalleryThemeProperties::TakeFiles()
 {
     if (m_xLbxFound->count_selected_rows() || (bTakeAll && bEntriesFound))
     {
-        std::shared_ptr<TakeProgress> xTakeProgress(new TakeProgress(GetDialogFrameWeld(), this));
+        std::shared_ptr<TakeProgress> xTakeProgress(new TakeProgress(GetFrameWeld(), this));
         xTakeProgress->LaunchThread();
         weld::DialogController::runAsync(xTakeProgress, [=](sal_Int32 /*nResult*/) {
             /* no postprocessing needed, pTakeProgress
@@ -898,9 +887,8 @@ void TPGalleryThemeProperties::DoPreview()
 
         if (!m_aWndPreview.SetGraphic(_aURL))
         {
-            GetParent()->LeaveWait();
-            ErrorHandler::HandleError(ERRCODE_IO_NOTEXISTSPATH, GetDialogFrameWeld());
-            GetParent()->EnterWait();
+            weld::WaitObject aWaitObject(GetFrameWeld());
+            ErrorHandler::HandleError(ERRCODE_IO_NOTEXISTSPATH, GetFrameWeld());
         }
 #if HAVE_FEATURE_AVMEDIA
         else if( ::avmedia::MediaWindow::isMediaURL( _aURL.GetMainURL( INetURLObject::DecodeMechanism::Unambiguous ), "" ) )
@@ -923,7 +911,7 @@ IMPL_LINK_NOARG(TPGalleryThemeProperties, ClickTakeHdl, weld::Button&, void)
 
         if (!m_xLbxFound->count_selected_rows() || !bEntriesFound)
         {
-            SvxOpenGraphicDialog aDlg(CuiResId(RID_SVXSTR_KEY_GALLERY_DIR), GetDialogFrameWeld());
+            SvxOpenGraphicDialog aDlg(CuiResId(RID_SVXSTR_KEY_GALLERY_DIR), GetFrameWeld());
             aDlg.EnableLink(false);
             aDlg.AsLink(false);
 
@@ -977,7 +965,7 @@ IMPL_LINK_NOARG(TPGalleryThemeProperties, SelectFoundHdl, weld::TreeView&, void)
     }
 }
 
-IMPL_LINK_NOARG(TPGalleryThemeProperties, DClickFoundHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(TPGalleryThemeProperties, DClickFoundHdl, weld::TreeView&, bool)
 {
     if( bInputAllowed )
     {
@@ -986,6 +974,7 @@ IMPL_LINK_NOARG(TPGalleryThemeProperties, DClickFoundHdl, weld::TreeView&, void)
         if (m_xLbxFound->count_selected_rows() == 1 && bEntriesFound)
             ClickTakeHdl(*m_xBtnTake);
     }
+    return true;
 }
 
 IMPL_LINK_NOARG(TPGalleryThemeProperties, PreviewTimerHdl, Timer *, void)

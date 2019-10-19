@@ -733,7 +733,7 @@ void writePROJECTMODULE(SvStream& rStrm, const OUString& name, const sal_uInt16 
 // section 2.3.4.2.3
 void writePROJECTMODULES(SvStream& rStrm, const css::uno::Reference<css::container::XNameContainer>& xNameContainer, const std::vector<sal_Int32>& rLibrayMap)
 {
-    css::uno::Sequence<OUString> aElementNames = xNameContainer->getElementNames();
+    const css::uno::Sequence<OUString> aElementNames = xNameContainer->getElementNames();
     sal_Int32 n = aElementNames.getLength();
     css::uno::Reference<css::script::vba::XVBAModuleInfo> xModuleInfo(xNameContainer, css::uno::UNO_QUERY);
     assert(xModuleInfo.is());
@@ -839,7 +839,7 @@ void exportVBAProjectStream(SvStream& rStrm)
 void exportPROJECTStream(SvStream& rStrm, const css::uno::Reference<css::container::XNameContainer>& xNameContainer,
         const OUString& projectName, const std::vector<sal_Int32>& rLibraryMap)
 {
-    css::uno::Sequence<OUString> aElementNames = xNameContainer->getElementNames();
+    const css::uno::Sequence<OUString> aElementNames = xNameContainer->getElementNames();
     sal_Int32 n = aElementNames.getLength();
     css::uno::Reference<css::script::vba::XVBAModuleInfo> xModuleInfo(xNameContainer, css::uno::UNO_QUERY);
     assert(xModuleInfo.is());
@@ -964,7 +964,7 @@ void exportPROJECTwmStream(SvStream& rStrm, const css::uno::Sequence<OUString>& 
 
 void getCorrectExportOrder(const css::uno::Reference<css::container::XNameContainer>& xNameContainer, std::vector<sal_Int32>& rLibraryMap)
 {
-    css::uno::Sequence<OUString> aElementNames = xNameContainer->getElementNames();
+    const css::uno::Sequence<OUString> aElementNames = xNameContainer->getElementNames();
     sal_Int32 n = aElementNames.getLength();
     css::uno::Reference<css::script::vba::XVBAModuleInfo> xModuleInfo(xNameContainer, css::uno::UNO_QUERY);
 
@@ -1027,7 +1027,7 @@ void VbaExport::exportVBA(SotStorage* pRootStorage)
     if (!xNameContainer.is()) {
         return;
     }
-    css::uno::Sequence<OUString> aElementNames = xNameContainer->getElementNames();
+    const css::uno::Sequence<OUString> aElementNames = xNameContainer->getElementNames();
     sal_Int32 n = aElementNames.getLength(); // get the number of modules
     // export the elements in the order MSO expects them
     // we store the index of the
@@ -1118,7 +1118,7 @@ void VbaExport::exportVBA(SotStorage* pRootStorage)
     pRootStorage->Commit();
 }
 
-css::uno::Reference<css::script::XLibraryContainer> VbaExport::getLibraryContainer()
+css::uno::Reference<css::script::XLibraryContainer> VbaExport::getLibraryContainer() const
 {
     oox::PropertySet aDocProp(mxModel);
     css::uno::Reference<css::script::XLibraryContainer> xLibContainer(aDocProp.getAnyProperty(oox::PROP_BasicLibraries), css::uno::UNO_QUERY);
@@ -1126,7 +1126,7 @@ css::uno::Reference<css::script::XLibraryContainer> VbaExport::getLibraryContain
     return xLibContainer;
 }
 
-css::uno::Reference<css::container::XNameContainer> VbaExport::getBasicLibrary()
+css::uno::Reference<css::container::XNameContainer> VbaExport::getBasicLibrary() const
 {
     css::uno::Reference<css::container::XNameContainer> xLibrary;
     try
@@ -1157,7 +1157,7 @@ bool VbaExport::containsVBAProject()
     return bVBACompatibilty;
 }
 
-OUString VbaExport::getProjectName()
+OUString VbaExport::getProjectName() const
 {
     css::uno::Reference<css::script::vba::XVBACompatibility> xVbaCompatibility(getLibraryContainer(), css::uno::UNO_QUERY);
     if (xVbaCompatibility.is())

@@ -576,7 +576,7 @@ bool SwFEShell::MoveAnchor( SwMove nDir )
             // re-created. Thus, delete all fly frames except the <this> before the
             // anchor attribute is change and re-create them afterwards.
             {
-                std::unique_ptr<SwHandleAnchorNodeChg> pHandleAnchorNodeChg;
+                std::unique_ptr<SwHandleAnchorNodeChg, o3tl::default_delete<SwHandleAnchorNodeChg>> pHandleAnchorNodeChg;
                 SwFlyFrameFormat* pFlyFrameFormat( dynamic_cast<SwFlyFrameFormat*>(&rFormat) );
                 if ( pFlyFrameFormat )
                 {
@@ -1239,7 +1239,7 @@ void SwFEShell::EndTextEdit()
     // is deleted. All other objects marked are preserved.
 
     OSL_ENSURE( Imp()->HasDrawView() && Imp()->GetDrawView()->IsTextEdit(),
-            "EndTextEdit an no Object" );
+            "EndTextEdit a no Object" );
 
     StartAllAction();
     SdrView *pView = Imp()->GetDrawView();
@@ -1331,7 +1331,7 @@ SdrObject* SwFEShell::GetObjAt( const Point& rPt )
     return pRet;
 }
 
-// Test if there is a object at that position and if it should be selected.
+// Test if there is an object at that position and if it should be selected.
 bool SwFEShell::ShouldObjectBeSelected(const Point& rPt)
 {
     SET_CURR_SHELL(this);
@@ -2727,7 +2727,6 @@ bool SwFEShell::IsAlignPossible() const
     return Imp()->GetDrawView()->IsAlignPossible();
 }
 
-// temporary fix till  SS of JOE is available
 void SwFEShell::CheckUnboundObjects()
 {
     SET_CURR_SHELL( this );
@@ -3168,7 +3167,7 @@ long SwFEShell::GetSectionWidth( SwFormat const & rFormat ) const
 
     @returns an object of class Color
 */
-const Color SwFEShell::GetShapeBackgrd() const
+Color SwFEShell::GetShapeBackgrd() const
 {
     Color aRetColor;
 

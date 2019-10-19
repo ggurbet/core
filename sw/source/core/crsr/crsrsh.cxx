@@ -21,9 +21,7 @@
 #include <com/sun/star/text/XTextRange.hpp>
 
 #include <hintids.hxx>
-#include <svx/svdmodel.hxx>
 #include <svx/srchdlg.hxx>
-#include <editeng/frmdiritem.hxx>
 #include <sfx2/viewsh.hxx>
 #include <SwSmartTagMgr.hxx>
 #include <doc.hxx>
@@ -38,7 +36,6 @@
 #include <flyfrm.hxx>
 #include <dview.hxx>
 #include <viewopt.hxx>
-#include <frmtool.hxx>
 #include <crsrsh.hxx>
 #include <tabfrm.hxx>
 #include <txtfrm.hxx>
@@ -57,10 +54,8 @@
 #include <unotextrange.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <numrule.hxx>
 #include <IGrammarContact.hxx>
 #include <comphelper/flagguard.hxx>
-#include <globals.hrc>
 #include <strings.hrc>
 #include <IDocumentLayoutAccess.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -68,11 +63,15 @@
 #include <comphelper/sequence.hxx>
 #include <sfx2/lokhelper.hxx>
 #include <editeng/editview.hxx>
+#include <editeng/frmdir.hxx>
 #include <sal/log.hxx>
 #include <PostItMgr.hxx>
 #include <DocumentSettingManager.hxx>
 #include <vcl/uitest/logger.hxx>
 #include <vcl/uitest/eventdescription.hxx>
+#include <tabcol.hxx>
+#include <wrtsh.hxx>
+#include <boost/property_tree/json_parser.hpp>
 
 using namespace com::sun::star;
 using namespace util;
@@ -283,7 +282,7 @@ void SwCursorShell::EndAction( const bool bIdleEnd, const bool DoSetPosX )
     // call ChgCall if there is still one
     if( m_bCallChgLnk && m_bChgCallFlag && m_aChgLnk.IsSet() )
     {
-        m_aChgLnk.Call( this );
+        m_aChgLnk.Call(nullptr);
         m_bChgCallFlag = false;       // reset flag
     }
 }
@@ -472,7 +471,7 @@ bool SwCursorShell::bColumnChange()
         if(pParent!=nullptr)
         {
             pCurrCol=static_cast<SwFrame*>(pParent)->FindColFrame();
-            pCurrFrame = static_cast<SwFrame*>(pParent);
+            pCurrFrame = pParent;
         }
         else
         {
@@ -1344,14 +1343,8 @@ void SwCursorShell::NotifyCursor(SfxViewShell* pOtherShell) const
 /// go to the next SSelection
 bool SwCursorShell::GoNextCursor()
 {
-    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
-
     if( !m_pCurrentCursor->IsMultiSelection() )
-    {
-        if( !m_pCurrentCursor->HasMark() )
-            SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
         return false;
-    }
 
     SET_CURR_SHELL( this );
     SwCallLink aLk( *this ); // watch Cursor-Moves; call Link if needed
@@ -1369,14 +1362,8 @@ bool SwCursorShell::GoNextCursor()
 /// go to the previous SSelection
 bool SwCursorShell::GoPrevCursor()
 {
-    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
-
     if( !m_pCurrentCursor->IsMultiSelection() )
-    {
-        if( !m_pCurrentCursor->HasMark() )
-            SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
         return false;
-    }
 
     SET_CURR_SHELL( this );
     SwCallLink aLk( *this ); // watch Cursor-Moves; call Link if needed
@@ -1389,6 +1376,20 @@ bool SwCursorShell::GoPrevCursor()
         m_pCurrentCursor->Show(nullptr);
     }
     return true;
+}
+
+bool SwCursorShell::GoNextPrevCursorSetSearchLabel(const bool bNext)
+{
+    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
+
+    if( !m_pCurrentCursor->IsMultiSelection() )
+    {
+        if( !m_pCurrentCursor->HasMark() )
+            SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
+        return false;
+    }
+
+    return bNext ? GoNextCursor() : GoPrevCursor();
 }
 
 void SwCursorShell::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle &rRect)
@@ -2023,7 +2024,84 @@ void SwCursorShell::UpdateCursor( sal_uInt16 eFlags, bool bIdleEnd )
     if( m_bSVCursorVis )
         m_pVisibleCursor->Show(); // show again
 
+    if (comphelper::LibreOfficeKit::isActive())
+        sendLOKCursorUpdates();
+
     getIDocumentMarkAccess()->NotifyCursorUpdate(*this);
+}
+
+void SwCursorShell::sendLOKCursorUpdates()
+{
+    SwWrtShell* pShell = GetDoc()->GetDocShell()->GetWrtShell();
+    if (!pShell)
+        return;
+
+    SwFrame* pCurrentFrame = GetCurrFrame();
+    SelectionType eType = pShell->GetSelectionType();
+
+    boost::property_tree::ptree aRootTree;
+
+    if (pCurrentFrame && (eType & SelectionType::Table) && pCurrentFrame->IsInTab())
+    {
+        const SwRect& rPageRect = pShell->GetAnyCurRect(CurRectType::Page, nullptr);
+
+        boost::property_tree::ptree aTableColumns;
+        {
+            SwTabCols aTabCols;
+            pShell->GetTabCols(aTabCols);
+
+            const int nColumnOffset = aTabCols.GetLeftMin() + rPageRect.Left();
+
+            aTableColumns.put("left", aTabCols.GetLeft());
+            aTableColumns.put("right", aTabCols.GetRight());
+            aTableColumns.put("tableOffset", nColumnOffset);
+
+            boost::property_tree::ptree aEntries;
+            for (size_t i = 0; i < aTabCols.Count(); ++i)
+            {
+                auto const & rEntry = aTabCols.GetEntry(i);
+                boost::property_tree::ptree aTableColumnEntry;
+                aTableColumnEntry.put("position", rEntry.nPos);
+                aTableColumnEntry.put("min", rEntry.nMin);
+                aTableColumnEntry.put("max", rEntry.nMax);
+                aTableColumnEntry.put("hidden", rEntry.bHidden);
+                aEntries.push_back(std::make_pair("", aTableColumnEntry));
+            }
+            aTableColumns.push_back(std::make_pair("entries", aEntries));
+        }
+
+        boost::property_tree::ptree aTableRows;
+        {
+            SwTabCols aTabRows;
+            pShell->GetTabRows(aTabRows);
+
+            const int nRowOffset = aTabRows.GetLeftMin() + rPageRect.Top();
+
+            aTableRows.put("left", aTabRows.GetLeft());
+            aTableRows.put("right", aTabRows.GetRight());
+            aTableRows.put("tableOffset", nRowOffset);
+
+            boost::property_tree::ptree aEntries;
+            for (size_t i = 0; i < aTabRows.Count(); ++i)
+            {
+                auto const & rEntry = aTabRows.GetEntry(i);
+                boost::property_tree::ptree aTableRowEntry;
+                aTableRowEntry.put("position", rEntry.nPos);
+                aTableRowEntry.put("min", rEntry.nMin);
+                aTableRowEntry.put("max", rEntry.nMax);
+                aTableRowEntry.put("hidden", rEntry.bHidden);
+                aEntries.push_back(std::make_pair("", aTableRowEntry));
+            }
+            aTableRows.push_back(std::make_pair("entries", aEntries));
+        }
+
+        aRootTree.add_child("columns", aTableColumns);
+        aRootTree.add_child("rows", aTableRows);
+    }
+
+    std::stringstream aStream;
+    boost::property_tree::write_json(aStream, aRootTree);
+    GetSfxViewShell()->libreOfficeKitViewCallback(LOK_CALLBACK_TABLE_SELECTED, aStream.str().c_str());
 }
 
 void SwCursorShell::RefreshBlockCursor()
@@ -2420,7 +2498,7 @@ void SwCursorShell::CallChgLnk()
     else if( m_aChgLnk.IsSet() )
     {
         if( m_bCallChgLnk )
-            m_aChgLnk.Call( this );
+            m_aChgLnk.Call(nullptr);
         m_bChgCallFlag = false; // reset flag
     }
 }
@@ -2599,6 +2677,11 @@ bool SwCursorShell::SetVisibleCursor( const Point &rPt )
         m_pVisibleCursor->Show(); // show again
     }
     return bRet;
+}
+
+SwVisibleCursor* SwCursorShell::GetVisibleCursor() const
+{
+    return m_pVisibleCursor;
 }
 
 bool SwCursorShell::IsOverReadOnlyPos( const Point& rPt ) const
@@ -3533,7 +3616,7 @@ void SwCursorShell::dumpAsXml(xmlTextWriterPtr pWriter) const
     SwViewShell::dumpAsXml(pWriter);
 
     xmlTextWriterStartElement(pWriter, BAD_CAST("m_pCurrentCursor"));
-    for (SwPaM& rPaM : m_pCurrentCursor->GetRingContainer())
+    for (const SwPaM& rPaM : m_pCurrentCursor->GetRingContainer())
         rPaM.dumpAsXml(pWriter);
     xmlTextWriterEndElement(pWriter);
 

@@ -23,7 +23,6 @@
 #include <rtl/ustrbuf.hxx>
 #include <osl/diagnose.h>
 #include <xmloff/xmlement.hxx>
-#include <xmloff/nmspmap.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmluconv.hxx>
@@ -113,7 +112,7 @@ void SvxXMLTabStopExport::Export( const uno::Any& rAny )
         SvXMLElementExport rElem( rExport, XML_NAMESPACE_STYLE, XML_TAB_STOPS,
                                   true, true );
 
-        for( const auto& rTab : aSeq )
+        for( const auto& rTab : std::as_const(aSeq) )
         {
             if( style::TabAlign_DEFAULT != rTab.Alignment )
                 exportTabStop( &rTab );

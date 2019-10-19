@@ -43,13 +43,28 @@ class SvPasteObjectDialog : public weld::GenericDialogController
 
     void            SelectObject();
     DECL_LINK(SelectHdl, weld::TreeView&, void);
-    DECL_LINK(DoubleClickHdl, weld::TreeView&, void);
+    DECL_LINK(DoubleClickHdl, weld::TreeView&, bool);
 
 public:
     SvPasteObjectDialog(weld::Window* pParent);
 
     void        Insert( SotClipboardFormatId nFormat, const OUString & rFormatName );
     void        SetObjName( const SvGlobalName & rClass, const OUString & rObjName );
+    /**
+     * @brief PreGetFormat Prepares the dialog for running to get format of paste as a SotClipboardFormatId value by calling GetFormatOnly()
+     * @param aHelper
+     */
+    void        PreGetFormat( const TransferableDataHelper& aHelper);
+    /**
+     * @brief GetFormatOnly Returns a SotClipboardFormatId value. Should be called after actually running the dialog.
+     * @return
+     */
+    SotClipboardFormatId GetFormatOnly();
+    /**
+     * @brief GetFormat Prepares and runs the dialog, and returns a SotClipboardFormatId depending on the RET_OK result
+     * @param aHelper TransferableDataHelper containing the data to be pasted
+     * @return a SotClipboardFormatId value depending on the result of running the dialog
+     */
     SotClipboardFormatId GetFormat( const TransferableDataHelper& aHelper);
 };
 

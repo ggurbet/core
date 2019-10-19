@@ -18,11 +18,11 @@
  */
 
 #include <svtools/miscopt.hxx>
-#include <unotools/configmgr.hxx>
 #include <unotools/configitem.hxx>
 #include <tools/debug.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
+#include <comphelper/sequence.hxx>
 #include <tools/link.hxx>
 #include <osl/diagnose.h>
 
@@ -153,13 +153,13 @@ public:
         bool IsPluginsEnabled() const
         { return m_bPluginsEnabled; }
 
-        sal_Int16 GetSymbolsSize()
+        sal_Int16 GetSymbolsSize() const
         { return m_nSymbolsSize; }
 
-        ToolBoxButtonSize GetSidebarIconSize()
+        ToolBoxButtonSize GetSidebarIconSize() const
         { return m_nSidebarIconSize; }
 
-        ToolBoxButtonSize GetNotebookbarIconSize()
+        ToolBoxButtonSize GetNotebookbarIconSize() const
         { return m_nNotebookbarIconSize; }
 
         void SetSymbolsSize( sal_Int16 nSet );
@@ -191,7 +191,7 @@ public:
         {return m_bIconThemeWasSetAutomatically;}
 
         // translate to VCL settings ( "0" = 3D, "1" = FLAT )
-        sal_Int16 GetToolboxStyle()
+        sal_Int16 GetToolboxStyle() const
         { return m_nToolboxStyle ? VCL_TOOLBOX_STYLE_FLAT : 0; }
 
         // translate from VCL settings
@@ -409,17 +409,6 @@ SvtMiscOptions_Impl::~SvtMiscOptions_Impl()
     assert(!IsModified()); // should have been committed
 }
 
-static int lcl_MapPropertyName( const OUString& rCompare,
-                const uno::Sequence< OUString>& aInternalPropertyNames)
-{
-    for(int nProp = 0; nProp < aInternalPropertyNames.getLength(); ++nProp)
-    {
-        if( aInternalPropertyNames[nProp] == rCompare )
-            return nProp;
-    }
-    return -1;
-}
-
 void SvtMiscOptions_Impl::Load( const Sequence< OUString >& rPropertyNames )
 {
     const uno::Sequence< OUString> aInternalPropertyNames( GetPropertyNames());
@@ -436,7 +425,7 @@ void SvtMiscOptions_Impl::Load( const Sequence< OUString >& rPropertyNames )
     {
         if (!seqValues[nProperty].hasValue())
             continue;
-        switch( lcl_MapPropertyName(rPropertyNames[nProperty], aInternalPropertyNames) )
+        switch( comphelper::findValue(aInternalPropertyNames, rPropertyNames[nProperty]) )
         {
             case PROPERTYHANDLE_PLUGINSENABLED      :   {
                                                             if( !(seqValues[nProperty] >>= m_bPluginsEnabled) )

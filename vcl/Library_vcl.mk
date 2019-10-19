@@ -35,7 +35,7 @@ else
 $(eval $(call gb_Library_set_componentfile,vcl,vcl/vcl.unx))
 endif
 
-$(eval $(call gb_Library_set_precompiled_header,vcl,$(SRCDIR)/vcl/inc/pch/precompiled_vcl))
+$(eval $(call gb_Library_set_precompiled_header,vcl,vcl/inc/pch/precompiled_vcl))
 
 $(eval $(call gb_Library_set_include,vcl,\
     $$(INCLUDE) \
@@ -158,7 +158,8 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/window/mnemonic \
     vcl/source/window/mnemonicengine \
     vcl/source/window/mouse \
-    vcl/source/window/msgbox \
+    vcl/source/window/NotebookBarAddonsMerger \
+    vcl/source/window/OptionalBox \
     vcl/source/window/popupmenuwindow \
     vcl/source/window/printdlg \
     vcl/source/window/scrwnd \
@@ -188,6 +189,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/control/field \
     vcl/source/control/fixed \
     vcl/source/control/fixedhyper \
+    vcl/source/control/hyperlabel \
     vcl/source/control/fmtfield \
     vcl/source/control/imgctrl \
     vcl/source/control/imivctl1 \
@@ -201,12 +203,15 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/control/notebookbar \
     vcl/source/control/quickselectionengine \
     vcl/source/control/prgsbar \
+    vcl/source/control/roadmap \
+    vcl/source/control/roadmapwizard \
     vcl/source/control/scrbar \
     vcl/source/control/slider \
     vcl/source/control/spinbtn \
     vcl/source/control/spinfld \
     vcl/source/control/tabctrl \
     vcl/source/control/throbber \
+    vcl/source/control/wizardmachine \
     vcl/source/edit/vclmedit \
     vcl/source/edit/textdata \
     vcl/source/edit/textdoc \
@@ -219,7 +224,6 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/toolkit/morebtn \
     vcl/source/outdev/outdev \
     vcl/source/outdev/outdevstate \
-    vcl/source/outdev/outdevstatestack \
     vcl/source/outdev/clipping \
     vcl/source/outdev/polygon \
     vcl/source/outdev/transparent \
@@ -309,6 +313,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/wall \
     vcl/source/gdi/scrptrun \
     vcl/source/gdi/CommonSalLayout \
+    vcl/source/gdi/TypeSerializer \
     vcl/source/graphic/GraphicLoader \
     vcl/source/graphic/GraphicObject \
     vcl/source/graphic/GraphicObject2 \
@@ -389,6 +394,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/app/unohelp2 \
     vcl/source/app/unohelp \
     vcl/source/app/vclevent \
+    vcl/source/app/weldutils \
     vcl/source/app/winscheduler \
     vcl/source/components/dtranscomp \
     vcl/source/components/factory \
@@ -603,7 +609,7 @@ $(eval $(call gb_Library_add_libs,vcl,\
 ))
 
 $(eval $(call gb_Library_add_exception_objects,vcl, \
-    $(if $(or $(ENABLE_QT5),$(ENABLE_KDE5)),vcl/source/app/salplug) \
+    $(if $(or $(ENABLE_QT5),$(ENABLE_KF5)),vcl/source/app/salplug) \
 ))
 
 $(eval $(call gb_Library_use_externals,vcl,\

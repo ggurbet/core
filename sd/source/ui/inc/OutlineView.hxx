@@ -105,7 +105,7 @@ public:
     DECL_LINK( EndDropHdl, EditView*, void );
     DECL_LINK( PaintingFirstLineHdl, PaintFirstLineInfo*, void );
 
-    sal_uLong         GetPaperWidth() { return mnPaperWidth;}
+    sal_uLong         GetPaperWidth() const { return mnPaperWidth;}
 
     void              PrepareClose();
 
@@ -123,8 +123,6 @@ public:
     virtual sal_Int8 AcceptDrop (
         const AcceptDropEvent& rEvt,
         DropTargetHelper& rTargetHelper,
-        ::sd::Window* pTargetWindow,
-        sal_uInt16 nPage,
         SdrLayerID nLayer) override;
     virtual sal_Int8 ExecuteDrop (
         const ExecuteDropEvent& rEvt,

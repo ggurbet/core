@@ -34,6 +34,7 @@
 #include <editeng/editobj.hxx>
 #include <svx/fmglob.hxx>
 #include <svx/svdouno.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <sot/formats.hxx>
 #include <svl/urlbmk.hxx>
 
@@ -54,7 +55,6 @@
 #include <sdpage.hxx>
 #include <drawdoc.hxx>
 #include <stlpool.hxx>
-#include <imapinfo.hxx>
 #include <sdxfer.hxx>
 #include <unomodel.hxx>
 #include <vcl/virdev.hxx>
@@ -228,7 +228,7 @@ void SdTransferable::CreateObjectReplacement( SdrObject* pObj )
             }
         }
 
-        SdIMapInfo* pInfo = SdDrawDocument::GetIMapInfo( pObj );
+        SvxIMapInfo* pInfo = SvxIMapInfo::GetIMapInfo( pObj );
 
         if( pInfo )
             mpImageMap.reset( new ImageMap( pInfo->GetImageMap() ) );
@@ -707,8 +707,7 @@ sal_Int64 SAL_CALL SdTransferable::getSomething( const css::uno::Sequence< sal_I
 {
     sal_Int64 nRet;
 
-    if( ( rId.getLength() == 16 ) &&
-        ( 0 == memcmp( getUnoTunnelId().getConstArray(), rId.getConstArray(), 16 ) ) )
+    if( isUnoTunnelId<SdTransferable>(rId) )
     {
         nRet = sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }

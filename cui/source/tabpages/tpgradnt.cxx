@@ -18,30 +18,21 @@
  */
 
 #include <memory>
-#include <vcl/wrkwin.hxx>
 #include <tools/urlobj.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <unotools/pathoptions.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/dialoghelper.hxx>
-#include <sfx2/filedlghelper.hxx>
-#include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
 #include <strings.hrc>
+#include <svx/xfillit0.hxx>
 #include <svx/xflgrit.hxx>
 #include <svx/colorbox.hxx>
 #include <svx/xtable.hxx>
-#include <svx/xpool.hxx>
-#include <svx/drawitem.hxx>
 #include <svx/xgrscit.hxx>
 #include <cuitabarea.hxx>
-#include <defdlgname.hxx>
-#include <dlgname.hxx>
 #include <svx/svxdlg.hxx>
 #include <dialmgr.hxx>
 #include <svx/dialmgr.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
 #include <sal/log.hxx>
 
@@ -49,8 +40,8 @@
 
 using namespace com::sun::star;
 
-SvxGradientTabPage::SvxGradientTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/gradientpage.ui", "GradientPage", &rInAttrs)
+SvxGradientTabPage::SvxGradientTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/gradientpage.ui", "GradientPage", &rInAttrs)
     , m_rOutAttrs(rInAttrs)
     , m_pnGradientListState(nullptr)
     , m_pnColorListState(nullptr)
@@ -65,9 +56,9 @@ SvxGradientTabPage::SvxGradientTabPage(TabPageParent pParent, const SfxItemSet& 
     , m_xSliderAngle(m_xBuilder->weld_scale("angleslider"))
     , m_xMtrBorder(m_xBuilder->weld_metric_spin_button("bordermtr", FieldUnit::PERCENT))
     , m_xSliderBorder(m_xBuilder->weld_scale("borderslider"))
-    , m_xLbColorFrom(new ColorListBox(m_xBuilder->weld_menu_button("colorfromlb"), pParent.GetFrameWeld()))
+    , m_xLbColorFrom(new ColorListBox(m_xBuilder->weld_menu_button("colorfromlb"), pController->getDialog()))
     , m_xMtrColorFrom(m_xBuilder->weld_metric_spin_button("colorfrommtr", FieldUnit::PERCENT))
-    , m_xLbColorTo(new ColorListBox(m_xBuilder->weld_menu_button("colortolb"), pParent.GetFrameWeld()))
+    , m_xLbColorTo(new ColorListBox(m_xBuilder->weld_menu_button("colortolb"), pController->getDialog()))
     , m_xMtrColorTo(m_xBuilder->weld_metric_spin_button("colortomtr", FieldUnit::PERCENT))
     , m_xGradientLB(new SvxPresetListBox(m_xBuilder->weld_scrolled_window("gradientpresetlistwin")))
     , m_xMtrIncrement(m_xBuilder->weld_spin_button("incrementmtr"))
@@ -77,7 +68,7 @@ SvxGradientTabPage::SvxGradientTabPage(TabPageParent pParent, const SfxItemSet& 
     , m_xCtlPreview(new weld::CustomWeld(*m_xBuilder, "previewctl", m_aCtlPreview))
     , m_xGradientLBWin(new weld::CustomWeld(*m_xBuilder, "gradientpresetlist", *m_xGradientLB))
 {
-    Size aSize = getDrawPreviewOptimalSize(this);
+    Size aSize = getDrawPreviewOptimalSize(m_aCtlPreview.GetDrawingArea()->get_ref_device());
     m_xGradientLB->set_size_request(aSize.Width(), aSize.Height());
     m_xCtlPreview->set_size_request(aSize.Width(), aSize.Height());
     // this page needs ExchangeSupport
@@ -123,17 +114,11 @@ SvxGradientTabPage::SvxGradientTabPage(TabPageParent pParent, const SfxItemSet& 
 
 SvxGradientTabPage::~SvxGradientTabPage()
 {
-    disposeOnce();
-}
-
-void SvxGradientTabPage::dispose()
-{
     m_xCtlPreview.reset();
     m_xGradientLBWin.reset();
     m_xGradientLB.reset();
     m_xLbColorTo.reset();
     m_xLbColorFrom.reset();
-    SfxTabPage::dispose();
 }
 
 void SvxGradientTabPage::Construct()
@@ -150,7 +135,7 @@ void SvxGradientTabPage::ActivatePage( const SfxItemSet& rSet )
             *m_pnColorListState & ChangeType::MODIFIED )
         {
             SvxAreaTabDialog* pArea = (*m_pnColorListState & ChangeType::CHANGED) ?
-                dynamic_cast<SvxAreaTabDialog*>(GetParentDialog()) : nullptr;
+                dynamic_cast<SvxAreaTabDialog*>(GetDialogController()) : nullptr;
             if (pArea)
                 m_pColorList = pArea->GetNewColorList();
 
@@ -159,8 +144,7 @@ void SvxGradientTabPage::ActivatePage( const SfxItemSet& rSet )
 
         // determining (and possibly cutting) the name and
         // displaying it in the GroupBox
-        OUString        aString( CuiResId( RID_SVXSTR_TABLE ) );
-        aString         += ": ";
+        OUString        aString = CuiResId( RID_SVXSTR_TABLE ) + ": ";
         INetURLObject   aURL( m_pGradientList->GetPath() );
 
         aURL.Append( m_pGradientList->GetName() );
@@ -242,10 +226,10 @@ void SvxGradientTabPage::Reset( const SfxItemSet* )
         m_xBtnModify->set_sensitive(false);
 }
 
-VclPtr<SfxTabPage> SvxGradientTabPage::Create( TabPageParent pWindow,
+std::unique_ptr<SfxTabPage> SvxGradientTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                                const SfxItemSet* rOutAttrs )
 {
-    return VclPtr<SvxGradientTabPage>::Create(pWindow, *rOutAttrs);
+    return std::make_unique<SvxGradientTabPage>(pPage, pController, *rOutAttrs);
 }
 
 IMPL_LINK( SvxGradientTabPage, ModifiedListBoxHdl_Impl, weld::ComboBox&, rListBox, void )
@@ -348,7 +332,7 @@ IMPL_LINK_NOARG(SvxGradientTabPage, ClickAddHdl_Impl, weld::Button&, void)
     }
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc));
+    ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
     sal_uInt16 nError   = 1;
 
     while (pDlg->Execute() == RET_OK)
@@ -363,7 +347,7 @@ IMPL_LINK_NOARG(SvxGradientTabPage, ClickAddHdl_Impl, weld::Button&, void)
             break;
         }
 
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
         std::unique_ptr<weld::MessageDialog> xWarnBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
         if (xWarnBox->run() != RET_OK)
             break;
@@ -440,7 +424,7 @@ IMPL_LINK_NOARG(SvxGradientTabPage, ClickDeleteHdl_Impl, SvxPresetListBox*, void
 
     if( nPos != VALUESET_ITEM_NOTFOUND )
     {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/querydeletegradientdialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/querydeletegradientdialog.ui"));
         std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("AskDelGradientDialog"));
         if (xQueryBox->run() == RET_YES)
         {
@@ -473,7 +457,7 @@ IMPL_LINK_NOARG(SvxGradientTabPage, ClickRenameHdl_Impl, SvxPresetListBox*, void
         OUString aName( m_pGradientList->GetGradient( nPos )->GetName() );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aName, aDesc));
+        ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
 
         bool bLoop = true;
         while( bLoop && pDlg->Execute() == RET_OK )
@@ -494,7 +478,7 @@ IMPL_LINK_NOARG(SvxGradientTabPage, ClickRenameHdl_Impl, SvxPresetListBox*, void
             }
             else
             {
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDialogFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetFrameWeld(), "cui/ui/queryduplicatedialog.ui"));
                 std::unique_ptr<weld::MessageDialog> xBox(xBuilder->weld_message_dialog("DuplicateNameDialog"));
                 xBox->run();
             }

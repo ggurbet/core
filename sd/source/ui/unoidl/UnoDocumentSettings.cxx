@@ -21,7 +21,6 @@
 
 #include <memory>
 #include <utility>
-#include <vector>
 #include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
@@ -46,10 +45,8 @@
 #include <optsitem.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/sfxsids.hrc>
-#include <sdattr.hxx>
+#include <sdattr.hrc>
 #include <sdmod.hxx>
-#include <ViewShell.hxx>
-#include <FrameView.hxx>
 #include <Outliner.hxx>
 #include <xmloff/settingsstore.hxx>
 #include <editeng/editstat.hxx>
@@ -310,15 +307,15 @@ uno::Sequence<beans::PropertyValue>
 {
     uno::Sequence<beans::PropertyValue> aRet( aConfigProps.getLength() );
     int nRet = 0;
-    for( sal_Int32 i = 0; i < aConfigProps.getLength(); i++ )
+    for( const auto& rConfigProp : aConfigProps )
     {
-        XPropertyListType t = getTypeOfName( aConfigProps[i].Name );
+        XPropertyListType t = getTypeOfName( rConfigProp.Name );
         if (t == XPropertyListType::Unknown)
-            aRet[nRet++] = aConfigProps[i];
+            aRet[nRet++] = rConfigProp;
         else
         {
             OUString aURL;
-            aConfigProps[i].Value >>= aURL;
+            rConfigProp.Value >>= aURL;
             LoadList( t, aURL, referer, xStorage );
         }
     }
@@ -365,12 +362,11 @@ uno::Sequence<beans::PropertyValue>
                 {
                     // Such specific path construction is grim.
 
-                    OUStringBuffer aName( getNameOfType( t ) );
+                    OUString aName( getNameOfType( t ) );
                     OUString aResult;
-                    if( pList->SaveTo( xSubStorage, aName.makeStringAndClear(), &aResult ) )
+                    if( pList->SaveTo( xSubStorage, aName, &aResult ) )
                     {
-                        OUString aRealPath( "Settings/" );
-                        aRealPath += aResult;
+                        OUString aRealPath = "Settings/" + aResult;
                         aRet[i].Value <<= aRealPath;
                     }
                 }
@@ -381,8 +377,7 @@ uno::Sequence<beans::PropertyValue>
         uno::Reference< embed::XTransactedObject > xTrans( xSubStorage, UNO_QUERY );
         if( xTrans.is() )
             xTrans->commit();
-        uno::Reference< lang::XComponent > xComp( xSubStorage, UNO_QUERY );
-        if( xComp.is() )
+        if( xSubStorage.is() )
             xSubStorage->dispose();
     } catch (const uno::Exception &) {
 //        fprintf (stderr, "saving etc. exception '%s'\n",
@@ -702,7 +697,9 @@ DocumentSettings::_setPropertyValues(const PropertyMapEntry** ppEntries,
                     sal_Int32 nValue = 0;
                     if( *pValues >>= nValue )
                     {
-                        Fraction aFract( pDoc->GetUIScale().GetNumerator(), nValue );
+                        auto nNumerator = pDoc->GetUIScale().GetNumerator();
+                        assert(nNumerator != 0);
+                        Fraction aFract(nNumerator, nValue);
                         pDoc->SetUIScale( aFract );
                         bOk = true;
                         bChanged = true;
@@ -1383,7 +1380,7 @@ void SAL_CALL DocumentSettings::firePropertiesChangeEvent( const Sequence< OUStr
 // XServiceInfo
 OUString SAL_CALL DocumentSettings::getImplementationName(  )
 {
-    return OUString( "com.sun.star.comp.Draw.DocumentSettings" );
+    return "com.sun.star.comp.Draw.DocumentSettings";
 }
 
 sal_Bool SAL_CALL DocumentSettings::supportsService( const OUString& ServiceName )
@@ -1393,18 +1390,8 @@ sal_Bool SAL_CALL DocumentSettings::supportsService( const OUString& ServiceName
 
 Sequence< OUString > SAL_CALL DocumentSettings::getSupportedServiceNames(  )
 {
-    Sequence< OUString > aSeq( 2 );
-    aSeq[0] = "com.sun.star.document.Settings" ;
-    if( mxModel->IsImpressDocument() )
-    {
-        aSeq[1] = "com.sun.star.presentation.DocumentSettings" ;
-    }
-    else
-    {
-        aSeq[1] = "com.sun.star.drawing.DocumentSettings" ;
-    }
-
-    return aSeq;
+    return {  "com.sun.star.document.Settings" ,
+              mxModel->IsImpressDocument()?OUString("com.sun.star.presentation.DocumentSettings"):OUString("com.sun.star.drawing.DocumentSettings") };
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

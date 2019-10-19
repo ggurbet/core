@@ -29,8 +29,7 @@ DECLARE_RTFEXPORT_TEST(testTdf108949, "tdf108949_footnoteCharFormat.odt")
                                  getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
 
     uno::Reference<text::XFootnotesSupplier> xFootnotesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xFootnotes(xFootnotesSupplier->getFootnotes(),
-                                                       uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xFootnotes = xFootnotesSupplier->getFootnotes();
 
     uno::Reference<text::XText> xFootnoteText;
     xFootnotes->getByIndex(0) >>= xFootnoteText;
@@ -47,8 +46,7 @@ DECLARE_RTFEXPORT_TEST(testTdf108949_footnote, "tdf108949_footnote.rtf")
                                  getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
 
     uno::Reference<text::XFootnotesSupplier> xFootnotesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xFootnotes(xFootnotesSupplier->getFootnotes(),
-                                                       uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xFootnotes = xFootnotesSupplier->getFootnotes();
 
     uno::Reference<text::XFootnote> xFootnote;
     xFootnotes->getByIndex(0) >>= xFootnote;
@@ -254,6 +252,17 @@ DECLARE_RTFEXPORT_TEST(testTabs, "tabs.rtf")
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), aTabStops.getLength());
     const style::TabStop& rTabStop = aTabStops[0];
     CPPUNIT_ASSERT_EQUAL(style::TabAlign_DECIMAL, rTabStop.Alignment);
+}
+
+DECLARE_RTFEXPORT_TEST(testTdf123703, "tdf123703.rtf")
+{
+#if !defined(MACOSX)
+    // This was 1, because of normal space character width in consecutive spaces
+    CPPUNIT_ASSERT_EQUAL(2, getPages());
+#else
+    // still 1 here
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
+#endif
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

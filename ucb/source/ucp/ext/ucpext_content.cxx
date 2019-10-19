@@ -163,16 +163,13 @@ namespace ucb { namespace ucp { namespace ext
 
     OUString SAL_CALL Content::getImplementationName()
     {
-        return OUString(  "org.openoffice.comp.ucp.ext.Content"  );
+        return "org.openoffice.comp.ucp.ext.Content";
     }
 
 
     Sequence< OUString > SAL_CALL Content::getSupportedServiceNames()
     {
-        Sequence< OUString > aServiceNames(2);
-        aServiceNames[0] = "com.sun.star.ucb.Content";
-        aServiceNames[1] = "com.sun.star.ucb.ExtensionContent";
-        return aServiceNames;
+        return { "com.sun.star.ucb.Content", "com.sun.star.ucb.ExtensionContent" };
     }
 
 
@@ -360,11 +357,7 @@ namespace ucb { namespace ucp { namespace ext
             const sal_Int32 nLastSep = sRelativeURL.lastIndexOf( '/' );
             sRelativeURL = sRelativeURL.copy( 0, nLastSep != -1 ? nLastSep : 0 );
 
-            OUStringBuffer aComposer;
-            aComposer.append( sRootURL );
-            aComposer.append( sSeparatedExtensionId );
-            aComposer.append( sRelativeURL );
-            return aComposer.makeStringAndClear();
+            return sRootURL + sSeparatedExtensionId + sRelativeURL;
         }
 
         default:
@@ -442,7 +435,7 @@ namespace ucb { namespace ucp { namespace ext
     {
         ENSURE_OR_RETURN( m_eExtContentType != E_ROOT, "illegal call", OUString() );
 
-        // create an ucb::XContent for the physical file within the deployed extension
+        // create a ucb::XContent for the physical file within the deployed extension
         const Reference< XPackageInformationProvider > xPackageInfo = PackageInformationProvider::get(m_xContext);
         const OUString sPackageLocation( xPackageInfo->getPackageLocation( m_sExtensionId ) );
 

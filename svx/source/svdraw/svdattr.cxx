@@ -382,10 +382,7 @@ bool SdrItemPool::GetPresentation(
             rItem.GetPresentation(SfxItemPresentation::Nameless,
                         GetMetric(nWhich),ePresentationMetric,rText,
                         rIntlWrapper);
-            OUString aStr;
-
-            TakeItemName(nWhich, aStr);
-            rText = aStr + " " + rText;
+            rText = GetItemName(nWhich) + " " + rText;
 
             return true;
         }
@@ -393,7 +390,7 @@ bool SdrItemPool::GetPresentation(
     return XOutdevItemPool::GetPresentation(rItem,ePresentationMetric,rText,rIntlWrapper);
 }
 
-void SdrItemPool::TakeItemName(sal_uInt16 nWhich, OUString& rItemName)
+OUString SdrItemPool::GetItemName(sal_uInt16 nWhich)
 {
     const char* pResId = SIP_UNKNOWN_ATTR;
 
@@ -612,7 +609,7 @@ void SdrItemPool::TakeItemName(sal_uInt16 nWhich, OUString& rItemName)
         case EE_FEATURE_FIELD   : pResId = SIP_EE_FEATURE_FIELD;break;
     } // switch
 
-    rItemName = SvxResId(pResId);
+    return SvxResId(pResId);
 }
 
 
@@ -636,7 +633,7 @@ bool SdrFractionItem::GetPresentation(
 
         if(nDiv != 1)
         {
-            rText = rText + "/" + OUString::number(nDiv);
+            rText += "/" + OUString::number(nDiv);
         }
     }
     else
@@ -646,10 +643,7 @@ bool SdrFractionItem::GetPresentation(
 
     if(ePresentation == SfxItemPresentation::Complete)
     {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
         return true;
     }
     else if(ePresentation == SfxItemPresentation::Nameless)
@@ -684,10 +678,7 @@ bool SdrScaleItem::GetPresentation(
 
     if(ePresentation == SfxItemPresentation::Complete)
     {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
 
     return true;
@@ -719,10 +710,7 @@ bool SdrOnOffItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByVal(GetValue());
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -745,10 +733,7 @@ bool SdrYesNoItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByVal(GetValue());
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -771,10 +756,7 @@ bool SdrPercentItem::GetPresentation(
 
     if(ePres == SfxItemPresentation::Complete)
     {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
 
     return true;
@@ -836,13 +818,11 @@ bool SdrAngleItem::GetPresentation(
             aText.insert(0, '-');
     }
 
-    aText.insert(aText.getLength(), sal_Unicode(DEGREE_CHAR));
+    aText.append(sal_Unicode(DEGREE_CHAR));
 
     if(ePres == SfxItemPresentation::Complete)
     {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
+        OUString aStr = SdrItemPool::GetItemName(Which());
         aText.insert(0, ' ');
         aText.insert(0, aStr);
     }
@@ -881,15 +861,10 @@ bool SdrMetricItem::GetPresentation(SfxItemPresentation ePres,
 {
     long nValue=GetValue();
     SdrFormatter aFmt(eCoreMetric,ePresMetric);
-    aFmt.TakeStr(nValue,rText);
-    OUString aStr;
-    SdrFormatter::TakeUnitStr(ePresMetric,aStr);
-    rText += " " + aStr;
+    rText = aFmt.GetStr(nValue);
+    rText += " " + SdrFormatter::GetUnitStr(ePresMetric);
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr2;
-
-        SdrItemPool::TakeItemName(Which(), aStr2);
-        rText = aStr2 + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -920,10 +895,7 @@ bool SdrCaptionTypeItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -950,10 +922,7 @@ bool SdrCaptionEscDirItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -988,10 +957,7 @@ bool SdrTextFitToSizeTypeItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1054,10 +1020,7 @@ bool SdrTextVertAdjustItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1116,10 +1079,7 @@ bool SdrTextHorzAdjustItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1171,10 +1131,7 @@ bool SdrTextAniKindItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1224,10 +1181,7 @@ bool SdrTextAniDirectionItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1266,10 +1220,7 @@ bool SdrTextAniDelayItem::GetPresentation(
 
     if(ePres == SfxItemPresentation::Complete)
     {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
 
     return true;
@@ -1310,19 +1261,13 @@ bool SdrTextAniAmountItem::GetPresentation(
     else
     {
         SdrFormatter aFmt(eCoreMetric, ePresMetric);
-        OUString aStr;
-
-        aFmt.TakeStr(nValue, rText);
-        SdrFormatter::TakeUnitStr(ePresMetric, aStr);
-        rText += aStr;
+        rText = aFmt.GetStr(nValue) +
+            SdrFormatter::GetUnitStr(ePresMetric);
     }
 
     if(ePres == SfxItemPresentation::Complete)
     {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
 
     return true;
@@ -1340,9 +1285,7 @@ bool SdrTextFixedCellHeightItem::GetPresentation( SfxItemPresentation ePres,
     rText = GetValueTextByVal( GetValue() );
     if (ePres==SfxItemPresentation::Complete)
     {
-        OUString aStr;
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1390,10 +1333,7 @@ bool SdrEdgeKindItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1559,10 +1499,7 @@ bool SdrMeasureKindItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1612,10 +1549,7 @@ bool SdrMeasureTextHPosItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1666,10 +1600,7 @@ bool SdrMeasureTextVPosItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1702,14 +1633,10 @@ sal_uInt16 SdrMeasureUnitItem::GetValueCount() const { return 14; }
 
 OUString SdrMeasureUnitItem::GetValueTextByPos(sal_uInt16 nPos)
 {
-    OUString aRetval;
-
     if(static_cast<FieldUnit>(nPos) == FieldUnit::NONE)
-        aRetval = "default";
+        return "default";
     else
-        SdrFormatter::TakeUnitStr(static_cast<FieldUnit>(nPos), aRetval);
-
-    return aRetval;
+        return SdrFormatter::GetUnitStr(static_cast<FieldUnit>(nPos));
 }
 
 bool SdrMeasureUnitItem::GetPresentation(SfxItemPresentation ePres,
@@ -1717,10 +1644,7 @@ bool SdrMeasureUnitItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1764,10 +1688,7 @@ bool SdrCircKindItem::GetPresentation(SfxItemPresentation ePres,
 {
     rText=GetValueTextByPos(sal::static_int_cast< sal_uInt16 >(GetValue()));
     if (ePres==SfxItemPresentation::Complete) {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
     return true;
 }
@@ -1812,10 +1733,7 @@ bool SdrSignedPercentItem::GetPresentation(
 
     if(ePres == SfxItemPresentation::Complete)
     {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName(Which(), aStr);
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName(Which()) + " " + rText;
     }
 
     return true;
@@ -1935,10 +1853,7 @@ bool SdrGrafModeItem::GetPresentation( SfxItemPresentation ePres,
 
     if( ePres == SfxItemPresentation::Complete )
     {
-        OUString aStr;
-
-        SdrItemPool::TakeItemName( Which(), aStr );
-        rText = aStr + " " + rText;
+        rText = SdrItemPool::GetItemName( Which() ) + " " + rText;
     }
 
     return true;

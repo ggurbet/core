@@ -33,10 +33,12 @@
 #include <strings.hrc>
 #include <EventMultiplexer.hxx>
 
+#include <comphelper/lok.hxx>
 #include <sal/log.hxx>
 #include <tools/debug.hxx>
 #include <svx/gallery.hxx>
 #include <vcl/layout.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <tools/urlobj.hxx>
@@ -684,8 +686,17 @@ void SlideTransitionPane::updateControls()
         mpMF_ADVANCE_AUTO_AFTER->SetValue( aEffect.mfTime * 100.0);
     }
 
-    SdOptions* pOptions = SD_MOD()->GetSdOptions(DocumentType::Impress);
-    mpCB_AUTO_PREVIEW->Check( pOptions->IsPreviewTransitions() );
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        mpPB_PLAY->Hide();
+        mpCB_AUTO_PREVIEW->Check(false);
+        mpCB_AUTO_PREVIEW->Hide();
+    }
+    else
+    {
+        SdOptions* pOptions = SD_MOD()->GetSdOptions(DocumentType::Impress);
+        mpCB_AUTO_PREVIEW->Check( pOptions->IsPreviewTransitions() );
+    }
 
     mbUpdatingControls = false;
 
@@ -760,8 +771,8 @@ void SlideTransitionPane::openSoundFileDialog()
                 std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(nullptr,
                                                            VclMessageType::Warning, VclButtonsType::NONE,
                                                            aStrWarning));
-                xWarn->add_button(Button::GetStandardText(StandardButtonType::Retry), RET_RETRY);
-                xWarn->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+                xWarn->add_button(GetStandardText(StandardButtonType::Retry), RET_RETRY);
+                xWarn->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
                 bQuitLoop = (xWarn->run() != RET_RETRY);
 
                 bValidSoundFile = false;

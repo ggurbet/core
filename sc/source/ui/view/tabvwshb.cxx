@@ -17,13 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
 #include <com/sun/star/chart2/data/XDataReceiver.hpp>
 #include <com/sun/star/awt/XRequestCallback.hpp>
 #include <com/sun/star/awt/Rectangle.hpp>
 
 #include <com/sun/star/embed/EmbedMisc.hpp>
-#include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <vcl/errinf.hxx>
 #include <sfx2/app.hxx>
@@ -42,15 +40,12 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <sfx2/filedlghelper.hxx>
 #include <svtools/soerr.hxx>
 #include <svl/rectitem.hxx>
 #include <svl/slstitm.hxx>
 #include <svl/whiter.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <sot/exchange.hxx>
-#include <tools/diagnose_ex.h>
-#include <sal/log.hxx>
 
 #include <tabvwsh.hxx>
 #include <scmod.hxx>
@@ -59,13 +54,10 @@
 #include <client.hxx>
 #include <fuinsert.hxx>
 #include <docsh.hxx>
-#include <chartarr.hxx>
 #include <drawview.hxx>
 #include <ChartRangeSelectionListener.hxx>
 #include <gridwin.hxx>
 
-#include <tools/urlobj.hxx>
-#include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 #include <comphelper/lok.hxx>
 
 using namespace com::sun::star;
@@ -122,7 +114,7 @@ public:
             sal_Int32 dimensionIndex = 0;
             OUString sPivotTableName("DataPilot1");
 
-            for (beans::PropertyValue const & rProperty : aProperties)
+            for (beans::PropertyValue const & rProperty : std::as_const(aProperties))
             {
                 if (rProperty.Name == "Rectangle")
                     rProperty.Value >>= xRectangle;
@@ -370,6 +362,18 @@ void ScTabViewShell::ExecDrawIns(SfxRequest& rReq)
                 break;
             }
 
+        case SID_INSERT_QRCODE:
+        case SID_EDIT_QRCODE:
+            {
+                const uno::Reference<frame::XModel> xModel( GetViewData().GetDocShell()->GetBaseModel() );
+
+                VclAbstractDialogFactory* pFact = VclAbstractDialogFactory::Create();
+                ScopedVclPtr<AbstractQrCodeGenDialog> pDialog(pFact->CreateQrCodeGenDialog(
+                    pWin->GetFrameWeld(), xModel, rReq.GetSlot() == SID_EDIT_QRCODE));
+                pDialog->Execute();
+                break;
+            }
+
         case SID_OBJECTRESIZE:
             {
                 //         the server would like to change the client size
@@ -523,6 +527,15 @@ void ScTabViewShell::GetDrawInsState(SfxItemSet &rSet)
                     rSet.DisableItem(nWhich);
                 break;
 
+            case SID_INSERT_QRCODE:
+                if ( bTabProt || bShared || (pSdrView && pSdrView->GetMarkedObjectCount() != 0))
+                    rSet.DisableItem( nWhich );
+                break;
+            case SID_EDIT_QRCODE:
+                if (!IsQRCodeSelected())
+                    rSet.DisableItem(nWhich);
+                break;
+
             case SID_INSERT_GRAPHIC:
                 if (bTabProt || bShared)
                 {
@@ -575,6 +588,32 @@ bool ScTabViewShell::IsSignatureLineSelected()
         return false;
 
     return pGraphic->isSignatureLine();
+}
+
+bool ScTabViewShell::IsQRCodeSelected()
+{
+    SdrView* pSdrView = GetSdrView();
+    if (!pSdrView)
+        return false;
+
+    if (pSdrView->GetMarkedObjectCount() != 1)
+        return false;
+
+    SdrObject* pPickObj = pSdrView->GetMarkedObjectByIndex(0);
+    if (!pPickObj)
+        return false;
+
+    SdrGrafObj* pGraphic = dynamic_cast<SdrGrafObj*>(pPickObj);
+    if (!pGraphic)
+        return false;
+
+    if(pGraphic->getQrCode())
+    {
+        return true;
+    }
+    else{
+        return false;
+    }
 }
 
 bool ScTabViewShell::IsSignatureLineSigned()

@@ -22,31 +22,23 @@
 #include <cppunit/extensions/HelperMacros.h>
 #include <cppunit/plugin/TestPlugIn.h>
 #include <test/bootstrapfixture.hxx>
-#include <cppuhelper/weak.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <com/sun/star/beans/Pair.hpp>
 #include <com/sun/star/xml/sax/SAXException.hpp>
 #include <com/sun/star/xml/sax/XDocumentHandler.hpp>
-#include <com/sun/star/xml/sax/XFastDocumentHandler.hpp>
-#include <com/sun/star/xml/sax/XFastAttributeList.hpp>
+#include <com/sun/star/xml/sax/XFastTokenHandler.hpp>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/xml/sax/Parser.hpp>
 #include <com/sun/star/xml/sax/XParser.hpp>
-#include <com/sun/star/xml/sax/FastParser.hpp>
-#include <com/sun/star/xml/sax/XFastParser.hpp>
 #include <com/sun/star/xml/sax/XLocator.hpp>
-#include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/xml/sax/FastToken.hpp>
-#include <com/sun/star/xml/Attribute.hpp>
+#include <com/sun/star/lang/XInitialization.hpp>
 #include <osl/file.hxx>
-#include <osl/conditn.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/streamwrap.hxx>
 #include <sax/fastattribs.hxx>
-#include <string>
 #include <stack>
 #include <deque>
-#include <sax/fastparser.hxx>
 #include <rtl/ref.hxx>
 
 
@@ -86,7 +78,7 @@ private:
 
 public:
     TestDocumentHandler() {}
-    const OUString & getString() { return m_aStr; }
+    const OUString & getString() const { return m_aStr; }
 
     // XDocumentHandler
     virtual void SAL_CALL startDocument() override;
@@ -164,15 +156,15 @@ void SAL_CALL TestDocumentHandler::startElement( const OUString& aName, const Re
         OUString sAttrValue = xAttribs->getValueByIndex(i);
         OUString sAttrName = canonicalform(xAttribs->getNameByIndex(i), sAttrValue, false);
         if (!sAttrName.isEmpty())
-            sAttributes = sAttributes + sAttrName + sAttrValue;
+            sAttributes += sAttrName + sAttrValue;
     }
-    m_aStr = m_aStr + canonicalform(aName, "", true) + sAttributes;
+    m_aStr += canonicalform(aName, "", true) + sAttributes;
 }
 
 
 void SAL_CALL TestDocumentHandler::endElement( const OUString& aName )
 {
-    m_aStr = m_aStr + canonicalform(aName, "", true);
+    m_aStr += canonicalform(aName, "", true);
     sal_uInt16 nPopQty = m_aCountStack.top();
     for (sal_uInt16 i=0; i<nPopQty; i++)
         m_aNamespaceStack.pop_back();
@@ -182,19 +174,19 @@ void SAL_CALL TestDocumentHandler::endElement( const OUString& aName )
 
 void SAL_CALL TestDocumentHandler::characters( const OUString& aChars )
 {
-    m_aStr = m_aStr + aChars;
+    m_aStr += aChars;
 }
 
 
 void SAL_CALL TestDocumentHandler::ignorableWhitespace( const OUString& aWhitespaces )
 {
-    m_aStr = m_aStr + aWhitespaces;
+    m_aStr += aWhitespaces;
 }
 
 
 void SAL_CALL TestDocumentHandler::processingInstruction( const OUString& aTarget, const OUString& aData )
 {
-    m_aStr = m_aStr + aTarget + aData;
+    m_aStr += aTarget + aData;
 }
 
 
@@ -237,9 +229,8 @@ OUString resolveNamespace( const OUString& aName )
     {
         if ( aName.getLength() > index + 1 )
         {
-            OUString aAttributeName = getNamespaceValue( aName.copy( 0, index ) );
-            aAttributeName += ":";
-            aAttributeName += aName.copy( index + 1 );
+            OUString aAttributeName = getNamespaceValue( aName.copy( 0, index ) ) +
+                ":" + aName.copy( index + 1 );
             return aAttributeName;
         }
     }

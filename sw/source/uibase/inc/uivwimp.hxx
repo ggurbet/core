@@ -19,8 +19,6 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_UIVWIMP_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_UIVWIMP_HXX
 
-#include <config_features.h>
-
 #include <view.hxx>
 
 #include <sfx2/objsh.hxx>
@@ -125,7 +123,7 @@ public:
     SwXTextView*                    GetUNOObject_Impl();
     void                            Invalidate();
 
-    ShellMode                       GetShellMode() {return eShellMode;}
+    ShellMode                       GetShellMode() const {return eShellMode;}
 
     void                            ExecuteScan(SfxRequest& rReq);
     SwScannerEventListener&         GetScannerEventListener();
@@ -138,7 +136,7 @@ public:
     {
         xConfigItem = rItem;
     }
-    std::shared_ptr<SwMailMergeConfigItem> const & GetMailMergeConfigItem() {return xConfigItem;}
+    std::shared_ptr<SwMailMergeConfigItem> const & GetMailMergeConfigItem() const {return xConfigItem;}
 
     //#i33307# restore editing position
     void                    SetRestorePosition(const Point& rCursorPos, bool bSelectObj)

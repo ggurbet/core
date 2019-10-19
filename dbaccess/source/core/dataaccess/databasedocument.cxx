@@ -571,7 +571,7 @@ namespace
     {
         Reference< css::sdb::application::XDatabaseDocumentUI > xDatabaseUI( i_rController, UNO_QUERY_THROW );
 
-        Sequence< Reference< XComponent > > aComponents( xDatabaseUI->getSubComponents() );
+        const Sequence< Reference< XComponent > > aComponents( xDatabaseUI->getSubComponents() );
 
         bool isAnyModified = false;
         for ( auto const & xComponent : aComponents )
@@ -748,15 +748,24 @@ sal_Bool SAL_CALL ODatabaseDocument::attachResource( const OUString& _rURL, cons
 bool ODatabaseDocument::impl_attachResource( const OUString& i_rLogicalDocumentURL,
             const Sequence< PropertyValue >& i_rMediaDescriptor, DocumentGuard& _rDocGuard )
 {
-    if  (   ( i_rLogicalDocumentURL == getURL() )
-        &&  ( i_rMediaDescriptor.getLength() == 1 )
-        &&  ( i_rMediaDescriptor[0].Name == "BreakMacroSignature" )
-        )
+    if  (i_rLogicalDocumentURL == getURL())
     {
-        // this is a BAD hack of the Basic importer code ... there should be a dedicated API for this,
-        // not this bad mis-using of existing interfaces
-        return false;
-            // (we do not support macro signatures, so we can ignore this call)
+        ::comphelper::NamedValueCollection aArgs(i_rMediaDescriptor);
+
+        // this misuse of attachresource is a hack of the Basic importer code
+        // repurposing existing interfaces for uses it probably wasn't intended
+        // for
+
+        // we do not support macro signatures, so we can ignore that request
+        aArgs.remove("BreakMacroSignature");
+
+        bool bMacroEventRead = false;
+        if ((aArgs.get( "MacroEventRead" ) >>= bMacroEventRead) && bMacroEventRead)
+            m_pImpl->m_bMacroCallsSeenWhileLoading = true;
+        aArgs.remove( "MacroEventRead" );
+
+        if (aArgs.empty())
+            return false;
     }
 
     // if no URL has been provided, the caller was lazy enough to not call our getURL - which is not allowed anymore,
@@ -1598,9 +1607,8 @@ void ODatabaseDocument::WriteThroughComponent( const Reference< XOutputStream >&
     xSaxWriter->setOutputStream( xOutputStream );
 
     // prepare arguments (prepend doc handler to given arguments)
-    Reference< XDocumentHandler > xDocHandler( xSaxWriter,UNO_QUERY);
     Sequence<Any> aArgs( 1 + _rArguments.getLength() );
-    aArgs[0] <<= xDocHandler;
+    aArgs[0] <<= xSaxWriter;
     for ( sal_Int32 i = 0; i < _rArguments.getLength(); ++i )
         aArgs[ i+1 ] = _rArguments[i];
 
@@ -1673,8 +1681,7 @@ void ODatabaseDocument::impl_writeStorage_throw( const Reference< XStorage >& _r
         }
         catch (const uno::Exception&)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("dbaccess", "exception setting Version: " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("dbaccess", "exception setting Version");
         }
     }
 
@@ -1875,7 +1882,7 @@ void SAL_CALL ODatabaseDocument::removeEventListener( const Reference< lang::XEv
 // XServiceInfo
 OUString ODatabaseDocument::getImplementationName()
 {
-    return OUString("com.sun.star.comp.dba.ODatabaseDocument");
+    return "com.sun.star.comp.dba.ODatabaseDocument";
 }
 
 Sequence< OUString > ODatabaseDocument::getSupportedServiceNames()
@@ -2198,7 +2205,7 @@ com_sun_star_comp_dba_ODatabaseDocument(css::uno::XComponentContext* context,
     Reference<XUnoTunnel> xDBContextTunnel(DatabaseContext::create(context), UNO_QUERY_THROW);
     dbaccess::ODatabaseContext* pContext = reinterpret_cast<dbaccess::ODatabaseContext*>(
         xDBContextTunnel->getSomething(
-            dbaccess::ODatabaseContext::getUnoTunnelImplementationId()));
+            dbaccess::ODatabaseContext::getUnoTunnelId()));
 
     rtl::Reference pImpl(
             new dbaccess::ODatabaseModelImpl(context, *pContext));

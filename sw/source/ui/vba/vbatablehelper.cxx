@@ -16,6 +16,8 @@
  *   except in compliance with the License. You may obtain a copy of
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
+
+#include <vbahelper/vbahelper.hxx>
 #include "vbatablehelper.hxx"
 #include <swtable.hxx>
 #include <unotbl.hxx>
@@ -102,9 +104,9 @@ OUString SwVbaTableHelper::getColumnStr( sal_Int32 nCol )
     do{
         nCalc = nCol % coDiff;
         if( nCalc >= 26 )
-            sRet = OUStringLiteral1( 'a' - 26 + nCalc ) + sRet;
+            sRet = OUStringChar( 'a' - 26 + nCalc ) + sRet;
         else
-            sRet = OUStringLiteral1( 'A' + nCalc ) + sRet;
+            sRet = OUStringChar( 'A' + nCalc ) + sRet;
 
         if( 0 == ( nCol = nCol - nCalc ) )
             break;
@@ -114,7 +116,7 @@ OUString SwVbaTableHelper::getColumnStr( sal_Int32 nCol )
     return sRet;
 }
 
-sal_Int32 SwVbaTableHelper::getTableWidth( )
+sal_Int32 SwVbaTableHelper::getTableWidth( ) const
 {
     sal_Int32 nWidth = 0;
     bool isWidthRelatvie = false;
@@ -234,6 +236,8 @@ void SwVbaTableHelper::SetColWidth( sal_Int32 _width, sal_Int32 nCol, sal_Int32 
 {
     double dAbsWidth = Millimeter::getInHundredthsOfOneMillimeter( _width );
     sal_Int32 nTableWidth = getTableWidth( );
+    if (!nTableWidth)
+        throw uno::RuntimeException();
     sal_Int32 nNewWidth = dAbsWidth/nTableWidth * UNO_TABLE_COLUMN_SUM;
 
     SwTableBox* pStart = GetTabBox( nCol, nRow );

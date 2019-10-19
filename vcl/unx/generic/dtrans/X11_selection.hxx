@@ -158,7 +158,7 @@ namespace x11 {
         // INCR protocol is used if the data cannot
         // be transported at once but in parts
         // IncrementalTransfer holds the bytes to be transmitted
-        // as well a the current position
+        // as well as the current position
         // INCR triggers the delivery of the next part by deleting the
         // property used to transfer the data
         struct IncrementalTransfer
@@ -200,7 +200,7 @@ namespace x11 {
             bool                        m_bOwner;
             ::Window                    m_aLastOwner;
             PixmapHolder*               m_pPixmap;
-            // m_nOrigTimestamp contains the Timestamp at which the seclection
+            // m_nOrigTimestamp contains the Timestamp at which the selection
             // was acquired; needed for TimeSTAMP target
             Time                        m_nOrigTimestamp;
 
@@ -450,7 +450,7 @@ namespace x11 {
         void dropComplete( bool success, ::Window aDropXLIB_Window );
 
         // for XDragSourceContext
-        sal_Int32 getCurrentCursor() { return m_aCurrentCursor;}
+        sal_Int32 getCurrentCursor() const { return m_aCurrentCursor;}
         void setCursor( sal_Int32 cursor, ::Window aDropXLIB_Window );
         void transferablesFlavorsChanged();
 

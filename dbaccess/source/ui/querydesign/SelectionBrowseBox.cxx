@@ -1096,7 +1096,7 @@ bool OSelectionBrowseBox::SaveModified()
                                                             xColumn,
                                                             pEntry->GetAlias(),
                                                             getDesignView()->getLocale(),
-                                                            static_cast<sal_Char>(getDesignView()->getDecimalSeparator().toChar()),
+                                                            getDesignView()->getDecimalSeparator(),
                                                             &(static_cast<OQueryController&>(getDesignView()->getController()).getParser().getContext()));
                     }
                     else
@@ -1133,7 +1133,7 @@ bool OSelectionBrowseBox::SaveModified()
                                                                     xColumn,
                                                                     pEntry->GetAlias(),
                                                                     getDesignView()->getLocale(),
-                                                                    static_cast<sal_Char>(getDesignView()->getDecimalSeparator().toChar()),
+                                                                    getDesignView()->getDecimalSeparator(),
                                                                     &(static_cast<OQueryController&>(getDesignView()->getController()).getParser().getContext()));
                             }
                             else
@@ -2067,7 +2067,7 @@ static const long nVisibleRowMask[] =
 sal_Int32 OSelectionBrowseBox::GetNoneVisibleRows() const
 {
     sal_Int32 nErg(0);
-    // only the first 11 row are interesting
+    // only the first 11 rows are interesting
     sal_Int32 const nSize = SAL_N_ELEMENTS(nVisibleRowMask);
     for(sal_Int32 i=0;i<nSize;i++)
     {
@@ -2079,7 +2079,7 @@ sal_Int32 OSelectionBrowseBox::GetNoneVisibleRows() const
 
 void OSelectionBrowseBox::SetNoneVisbleRow(long nRows)
 {
-    // only the first 11 row are interesting
+    // only the first 11 rows are interesting
     sal_Int32 const nSize = SAL_N_ELEMENTS(nVisibleRowMask);
     for(sal_Int32 i=0;i< nSize;i++)
         m_bVisibleRow[i] = !(nRows & nVisibleRowMask[i]);
@@ -2336,7 +2336,7 @@ sal_uInt32 OSelectionBrowseBox::GetTotalCellWidth(long nRowId, sal_uInt16 nColId
     return GetDataWindow().LogicToPixel(Size(GetDataWindow().GetTextWidth(strText),0)).Width();
 }
 
-bool OSelectionBrowseBox::isCutAllowed()
+bool OSelectionBrowseBox::isCutAllowed() const
 {
     bool bCutAllowed = false;
     long nRow = GetRealRow(GetCurRow());
@@ -2393,7 +2393,7 @@ void OSelectionBrowseBox::paste()
     invalidateUndoRedo();
 }
 
-bool OSelectionBrowseBox::isPasteAllowed()
+bool OSelectionBrowseBox::isPasteAllowed() const
 {
     bool bPasteAllowed = true;
     long nRow = GetRealRow(GetCurRow());
@@ -2409,7 +2409,7 @@ bool OSelectionBrowseBox::isPasteAllowed()
     return bPasteAllowed;
 }
 
-bool OSelectionBrowseBox::isCopyAllowed()
+bool OSelectionBrowseBox::isCopyAllowed() const
 {
     return isCutAllowed();
 }

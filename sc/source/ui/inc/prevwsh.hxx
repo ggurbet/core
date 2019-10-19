@@ -25,6 +25,7 @@
 
 #include <sfx2/viewsh.hxx>
 #include <sfx2/zoomitem.hxx>
+#include <vcl/syswin.hxx>
 
 #include <shellids.hxx>
 
@@ -104,12 +105,12 @@ public:
     virtual SfxPrinter*     GetPrinter( bool bCreate = false ) override;
     virtual sal_uInt16      SetPrinter( SfxPrinter* pNewPrinter, SfxPrinterChangeFlags nDiffFlags = SFX_PRINTER_ALL ) override;
     virtual bool            HasPrintOptionsPage() const override;
-    virtual VclPtr<SfxTabPage> CreatePrintOptionsPage(TabPageParent pParent, const SfxItemSet &rOptions) override;
+    virtual std::unique_ptr<SfxTabPage> CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rOptions) override;
 
     void            AddAccessibilityObject( SfxListener& rObject );
     void            RemoveAccessibilityObject( SfxListener& rObject );
     void            BroadcastAccessibility( const SfxHint &rHint );
-    bool            HasAccessibilityObjects();
+    bool            HasAccessibilityObjects() const;
 
     const ScPreviewLocationData& GetLocationData();
     ScDocument&     GetDocument();

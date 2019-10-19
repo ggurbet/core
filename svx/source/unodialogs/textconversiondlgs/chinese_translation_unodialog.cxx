@@ -62,7 +62,7 @@ OUString SAL_CALL ChineseTranslation_UnoDialog::getImplementationName()
 
 OUString ChineseTranslation_UnoDialog::getImplementationName_Static()
 {
-    return OUString("com.sun.star.comp.linguistic2.ChineseTranslationDialog");
+    return "com.sun.star.comp.linguistic2.ChineseTranslationDialog";
 }
 
 sal_Bool SAL_CALL ChineseTranslation_UnoDialog::supportsService( const OUString& ServiceName )
@@ -77,8 +77,7 @@ uno::Sequence< OUString > SAL_CALL ChineseTranslation_UnoDialog::getSupportedSer
 
 uno::Sequence< OUString > ChineseTranslation_UnoDialog::getSupportedServiceNames_Static()
 {
-    uno::Sequence<OUString> aSNS { "com.sun.star.linguistic2.ChineseTranslationDialog" };
-    return aSNS;
+    return { "com.sun.star.linguistic2.ChineseTranslationDialog" };
 }
 
 // ui::dialogs::XExecutableDialog
@@ -94,11 +93,10 @@ void SAL_CALL ChineseTranslation_UnoDialog::initialize( const uno::Sequence< uno
     if( m_bDisposed || m_bInDispose )
         return;
 
-    const uno::Any* pArguments = aArguments.getConstArray();
-    for(sal_Int32 i=0; i<aArguments.getLength(); ++i, ++pArguments)
+    for(const uno::Any& rArgument : aArguments)
     {
         beans::PropertyValue aProperty;
-        if(*pArguments >>= aProperty)
+        if(rArgument >>= aProperty)
         {
             if( aProperty.Name == "ParentWindow" )
             {

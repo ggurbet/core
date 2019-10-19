@@ -255,7 +255,7 @@ uno::Sequence< OUString > SAL_CALL GeometryHandler::getSupportedServiceNames(  )
 
 OUString GeometryHandler::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.report.GeometryHandler");
+    return "com.sun.star.comp.report.GeometryHandler";
 }
 
 uno::Sequence< OUString > GeometryHandler::getSupportedServiceNames_static(  )
@@ -803,11 +803,11 @@ inspection::LineDescriptor SAL_CALL GeometryHandler::describePropertyLine(const 
                 }
                 else
                 {
-                    for (auto const& it : m_aFieldNames)
+                    for (auto const& it : std::as_const(m_aFieldNames))
                     {
                         xListControl->appendListEntry(it);
                     }
-                    for (auto const& it : m_aParamNames)
+                    for (auto const& it : std::as_const(m_aParamNames))
                     {
                         xListControl->appendListEntry(it);
                     }
@@ -1315,6 +1315,7 @@ uno::Sequence< beans::Property > SAL_CALL GeometryHandler::getSupportedPropertie
         ,OUString(PROPERTY_POSITIONY)
         ,OUString(PROPERTY_WIDTH)
         ,OUString(PROPERTY_HEIGHT)
+        ,OUString(PROPERTY_AUTOGROW)
         ,OUString(PROPERTY_PREEVALUATED)
         ,OUString(PROPERTY_DEEPTRAVERSING)
         ,OUString(PROPERTY_FORMULA)
@@ -1598,7 +1599,7 @@ bool GeometryHandler::impl_dialogFilter_nothrow( OUString& _out_rSelectedClause,
         }
 
         // get a composer for the statement which the form is currently based on
-        uno::Reference< sdb::XSingleSelectQueryComposer > xComposer( ::dbtools::getCurrentSettingsComposer( xRowSetProp, m_xContext ) );
+        uno::Reference< sdb::XSingleSelectQueryComposer > xComposer( ::dbtools::getCurrentSettingsComposer( xRowSetProp, m_xContext, nullptr ) );
         OSL_ENSURE( xComposer.is(), "GeometryHandler::impl_dialogFilter_nothrow: could not obtain a composer!" );
         if ( !xComposer.is() )
             return false;
@@ -1711,12 +1712,10 @@ void GeometryHandler::impl_fillMimeTypes_nothrow(::std::vector< OUString >& _out
         const uno::Reference< report::XReportDefinition> xReportDefinition(m_xReportComponent,uno::UNO_QUERY);
         if ( xReportDefinition.is() )
         {
-            uno::Sequence< OUString > aMimeTypes( xReportDefinition->getAvailableMimeTypes() );
-            const OUString* pIter = aMimeTypes.getConstArray();
-            const OUString* pEnd  = pIter + aMimeTypes.getLength();
-            for(;pIter != pEnd; ++pIter)
+            const uno::Sequence< OUString > aMimeTypes( xReportDefinition->getAvailableMimeTypes() );
+            for(const OUString& rMimeType : aMimeTypes)
             {
-                const OUString sDocName( impl_ConvertMimeTypeToUI_nothrow(*pIter) );
+                const OUString sDocName( impl_ConvertMimeTypeToUI_nothrow(rMimeType) );
                 if ( !sDocName.isEmpty() )
                     _out_rList.push_back(sDocName);
             }
@@ -1768,7 +1767,7 @@ uno::Reference< report::XFunctionsSupplier> GeometryHandler::fillScope_throw(OUS
     const uno::Reference< report::XReportDefinition> xReportDefinition = xSection->getReportDefinition();
     if ( m_sScope.isEmpty() )
     {
-        const uno::Reference< report::XGroup> xGroup(xSection->getGroup(),uno::UNO_QUERY);
+        const uno::Reference< report::XGroup> xGroup = xSection->getGroup();
         if ( xGroup.is() )
         {
             OUString sGroupName = RptResId(RID_STR_SCOPE_GROUP);
@@ -2158,8 +2157,7 @@ void GeometryHandler::impl_setCounterFunction_throw()
 {
     OUString sNamePostfix;
     fillScope_throw(sNamePostfix);
-    OUString sFunctionName = m_aCounterFunction.m_sName;
-    sFunctionName += sNamePostfix;
+    OUString sFunctionName = m_aCounterFunction.m_sName + sNamePostfix;
     const OUString sQuotedFunctionName = lcl_getQuotedFunctionName(sFunctionName);
     OUString sScope;
     if ( !(!sFunctionName.isEmpty() && m_aFunctionNames.find(sQuotedFunctionName) != m_aFunctionNames.end() && impl_isCounterFunction_throw(sQuotedFunctionName,sScope)) )

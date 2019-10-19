@@ -90,6 +90,7 @@ IMPL_LINK_NOARG(SdFileDialog_Imp, PlayMusicHdl, void*, void)
         mxPlayer.clear();
     }
 
+#if HAVE_FEATURE_AVMEDIA
     if( mbLabelPlaying )
     {
         try
@@ -110,7 +111,6 @@ IMPL_LINK_NOARG(SdFileDialog_Imp, PlayMusicHdl, void*, void)
         OUString aUrl( GetPath() );
         if ( !aUrl.isEmpty() )
         {
-#if HAVE_FEATURE_AVMEDIA
             try
             {
                 mxPlayer.set( avmedia::MediaWindow::createPlayer( aUrl, "" ), css::uno::UNO_SET_THROW );
@@ -121,7 +121,7 @@ IMPL_LINK_NOARG(SdFileDialog_Imp, PlayMusicHdl, void*, void)
             {
                 mxPlayer.clear();
             }
-#endif
+
             if (mxPlayer.is())
             {
                 try
@@ -139,6 +139,7 @@ IMPL_LINK_NOARG(SdFileDialog_Imp, PlayMusicHdl, void*, void)
             }
         }
     }
+#endif
 }
 
 IMPL_LINK_NOARG(SdFileDialog_Imp, IsMusicStoppedHdl, Timer *, void)
@@ -262,7 +263,7 @@ void SdOpenSoundFileDialog::SetPath( const OUString& rPath )
 }
 
 // WIP, please don't remove, dear Clang plugins
-bool SdOpenSoundFileDialog::IsInsertAsLinkSelected()
+bool SdOpenSoundFileDialog::IsInsertAsLinkSelected() const
 {
     bool bInsertAsLinkSelected = false;
     css::uno::Reference<css::ui::dialogs::XFilePicker3> const xFilePicker(mpImpl->GetFilePicker());

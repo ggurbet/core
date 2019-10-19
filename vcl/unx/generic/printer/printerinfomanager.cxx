@@ -17,30 +17,22 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <unistd.h>
-#include <sys/wait.h>
-#include <signal.h>
-
 #include <unx/cpdmgr.hxx>
 #include <unx/cupsmgr.hxx>
 #include <unx/helper.hxx>
-#include <vcl/strhelper.hxx>
 
 #include <saldatabasic.hxx>
 
 #include <tools/urlobj.hxx>
-#include <tools/stream.hxx>
 #include <tools/config.hxx>
 
 #include <i18nutil/paper.hxx>
 #include <rtl/strbuf.hxx>
-#include <sal/macros.h>
 #include <sal/log.hxx>
 
 #include <osl/file.hxx>
 #include <osl/thread.hxx>
 #include <osl/mutex.hxx>
-#include <osl/process.h>
 
 // filename of configuration files
 #define PRINT_FILENAME  "psprint.conf"
@@ -54,7 +46,7 @@ using namespace osl;
 
 namespace psp
 {
-    class SystemQueueInfo : public Thread
+    class SystemQueueInfo final : public Thread
     {
         mutable Mutex               m_aMutex;
         bool                        m_bChanged;
@@ -519,9 +511,7 @@ void PrinterInfoManager::initialize()
     }
     for (auto const& printQueue : m_aSystemPrintQueues)
     {
-        OUString aPrinterName( "<" );
-        aPrinterName += printQueue.m_aQueue;
-        aPrinterName += ">";
+        OUString aPrinterName = "<" + printQueue.m_aQueue + ">";
 
         if( m_aPrinters.find( aPrinterName ) != m_aPrinters.end() )
             // probably user made this one permanent
@@ -578,8 +568,8 @@ FILE* PrinterInfoManager::startSpool( const OUString& rPrintername, bool bQuickC
     const PrinterInfo&   rPrinterInfo   = getPrinterInfo (rPrintername);
     const OUString& rCommand       = (bQuickCommand && !rPrinterInfo.m_aQuickCommand.isEmpty() ) ?
                                           rPrinterInfo.m_aQuickCommand : rPrinterInfo.m_aCommand;
-    OString aShellCommand  = OUStringToOString (rCommand, RTL_TEXTENCODING_ISO_8859_1);
-    aShellCommand += " 2>/dev/null";
+    OString aShellCommand  = OUStringToOString (rCommand, RTL_TEXTENCODING_ISO_8859_1) +
+        " 2>/dev/null";
 
     return popen (aShellCommand.getStr(), "w");
 }
@@ -856,12 +846,10 @@ void SystemQueueInfo::run()
     for(const auto & rParm : aParms)
     {
         aLines.clear();
-        OStringBuffer aCmdLine( 128 );
-        aCmdLine.append( rParm.pQueueCommand );
         #if OSL_DEBUG_LEVEL > 1
         fprintf( stderr, "trying print queue command \"%s\" ... ", rParm.pQueueCommand );
         #endif
-        aCmdLine.append( " 2>/dev/null" );
+        OString aCmdLine = rParm.pQueueCommand + OStringLiteral(" 2>/dev/null");
         FILE *pPipe;
         if( (pPipe = popen( aCmdLine.getStr(), "r" )) )
         {

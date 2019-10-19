@@ -1137,7 +1137,7 @@ void ScAccessibleDocumentPagePreview::Notify( SfxBroadcaster& rBC, const SfxHint
         // only notify if child exist, otherwise it is not necessary
         if (rHint.GetId() == SfxHintId::ScDataChanged)
         {
-            if (mpTable.is()) // if there is no table there is nothing to notify, because no one recongnizes the change
+            if (mpTable.is()) // if there is no table there is nothing to notify, because no one recognizes the change
             {
                 {
                     uno::Reference<XAccessible> xAcc = mpTable.get();
@@ -1388,7 +1388,7 @@ uno::Reference<XAccessibleStateSet> SAL_CALL ScAccessibleDocumentPagePreview::ge
 
 OUString SAL_CALL ScAccessibleDocumentPagePreview::getImplementationName()
 {
-    return OUString("ScAccessibleDocumentPagePreview");
+    return "ScAccessibleDocumentPagePreview";
 }
 
 uno::Sequence< OUString> SAL_CALL ScAccessibleDocumentPagePreview::getSupportedServiceNames()
@@ -1502,8 +1502,7 @@ OUString ScAccessibleDocumentPagePreview::getAccessibleName()
 
     if (!aFileName.isEmpty())
     {
-        aName = aFileName + " - " + aName;
-        aName += ScResId(STR_ACC_DOC_PREVIEW_SUFFIX);
+        aName = aFileName + " - " + aName + ScResId(STR_ACC_DOC_PREVIEW_SUFFIX);
 
     }
 

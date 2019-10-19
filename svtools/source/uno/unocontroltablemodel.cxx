@@ -22,17 +22,15 @@
 
 #include <table/defaultinputhandler.hxx>
 #include <table/gridtablerenderer.hxx>
-#include <table/tablecontrol.hxx>
 
 #include <com/sun/star/awt/grid/XGridColumn.hpp>
-#include <com/sun/star/view/SelectionType.hpp>
 #include <com/sun/star/awt/grid/XSortableGridData.hpp>
+#include <com/sun/star/util/Color.hpp>
 
 #include <sal/log.hxx>
 #include <cppuhelper/weakref.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
-#include <vcl/svapp.hxx>
 
 
 namespace svt { namespace table
@@ -696,10 +694,8 @@ namespace svt { namespace table
         else
         {
             ::std::vector< ::Color > aColors( aAPIColors.getLength() );
-            for ( sal_Int32 i=0; i<aAPIColors.getLength(); ++i )
-            {
-                aColors[i] = Color(aAPIColors[i]);
-            }
+            std::transform(aAPIColors.begin(), aAPIColors.end(), aColors.begin(),
+                [](const css::util::Color& rAPIColor) -> ::Color { return Color(rAPIColor); });
             m_pImpl->m_aRowColors = aColors;
         }
     }

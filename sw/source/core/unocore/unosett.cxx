@@ -79,6 +79,7 @@
 #include <svl/listener.hxx>
 #include <paratr.hxx>
 #include <sal/log.hxx>
+#include <numeric>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -277,7 +278,7 @@ const unsigned short aUnoToSvxAdjust[] =
 
 OUString SwXFootnoteProperties::getImplementationName()
 {
-    return OUString("SwXFootnoteProperties");
+    return "SwXFootnoteProperties";
 }
 
 sal_Bool SwXFootnoteProperties::supportsService(const OUString& rServiceName)
@@ -557,7 +558,7 @@ void SwXFootnoteProperties::removeVetoableChangeListener(
 
 OUString SwXEndnoteProperties::getImplementationName()
 {
-    return OUString("SwXEndnoteProperties");
+    return "SwXEndnoteProperties";
 }
 
 sal_Bool SwXEndnoteProperties::supportsService(const OUString& rServiceName)
@@ -760,7 +761,7 @@ void SwXEndnoteProperties::removeVetoableChangeListener(const OUString& /*Proper
 
 OUString SwXLineNumberingProperties::getImplementationName()
 {
-    return OUString("SwXLineNumberingProperties");
+    return "SwXLineNumberingProperties";
 }
 
 sal_Bool SwXLineNumberingProperties::supportsService(const OUString& rServiceName)
@@ -1039,9 +1040,7 @@ const uno::Sequence< sal_Int8 > & SwXNumberingRules::getUnoTunnelId()
 // return implementation specific data
 sal_Int64 SwXNumberingRules::getSomething( const uno::Sequence< sal_Int8 > & rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXNumberingRules>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >(this) );
     }
@@ -1050,7 +1049,7 @@ sal_Int64 SwXNumberingRules::getSomething( const uno::Sequence< sal_Int8 > & rId
 
 OUString SwXNumberingRules::getImplementationName()
 {
-    return OUString("SwXNumberingRules");
+    return "SwXNumberingRules";
 }
 
 sal_Bool SwXNumberingRules::supportsService(const OUString& rServiceName)
@@ -1592,12 +1591,10 @@ void SwXNumberingRules::SetPropertiesToNumFormat(
         InChapterLast = 24
     };
 
-    const beans::PropertyValue* pPropArray = rProperties.getConstArray();
     std::vector<PropertyValue const*> aPropertyValues;
     bool bExcept = false;
-    for(sal_Int32 i = 0; i < rProperties.getLength() && !bExcept; i++)
+    for(const beans::PropertyValue& rProp : rProperties)
     {
-        const beans::PropertyValue& rProp = pPropArray[i];
         bExcept = true;
         for(size_t j = 0; j < SAL_N_ELEMENTS( aNumPropertyNames ); j++)
         {
@@ -1617,6 +1614,8 @@ void SwXNumberingRules::SetPropertiesToNumFormat(
         }
         SAL_WARN_IF( bExcept, "sw.uno", "Unknown/incorrect property " << rProp.Name << ", failing" );
         aPropertyValues.push_back(& rProp);
+        if(bExcept)
+            break;
     }
 
     bool bWrongArg = false;
@@ -2140,10 +2139,11 @@ void SwXNumberingRules::setPropertyValue( const OUString& rPropertyName, const A
         throw IllegalArgumentException();
     }
     else
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
 
     if(pDocRule)
     {
+        assert(m_pDocShell);
         m_pDocShell->GetDoc()->SetOutlineNumRule(*pDocRule);
         pDocRule.reset();
     }
@@ -2189,7 +2189,7 @@ Any SwXNumberingRules::getPropertyValue( const OUString& rPropertyName )
         aRet <<= pRule->GetDefaultListId();
     }
     else
-        throw UnknownPropertyException();
+        throw UnknownPropertyException(rPropertyName);
     return aRet;
 }
 
@@ -2252,7 +2252,7 @@ void SwXNumberingRules::Impl::Notify(const SfxHint& rHint)
 
 OUString SwXChapterNumbering::getImplementationName()
 {
-    return OUString("SwXChapterNumbering");
+    return "SwXChapterNumbering";
 }
 
 sal_Bool SwXChapterNumbering::supportsService(const OUString& rServiceName)
@@ -2262,11 +2262,7 @@ sal_Bool SwXChapterNumbering::supportsService(const OUString& rServiceName)
 
 Sequence< OUString > SwXChapterNumbering::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.text.ChapterNumbering";
-    pArray[1] = "com.sun.star.text.NumberingRules";
-    return aRet;
+    return { "com.sun.star.text.ChapterNumbering", "com.sun.star.text.NumberingRules" };
 }
 
 SwXChapterNumbering::SwXChapterNumbering(SwDocShell& rDocSh) :
@@ -2280,7 +2276,7 @@ SwXChapterNumbering::~SwXChapterNumbering()
 
 OUString SwXTextColumns::getImplementationName()
 {
-    return OUString("SwXTextColumns");
+    return "SwXTextColumns";
 }
 
 sal_Bool SwXTextColumns::supportsService(const OUString& rServiceName)
@@ -2402,12 +2398,8 @@ uno::Sequence< TextColumn > SwXTextColumns::getColumns()
 void SwXTextColumns::setColumns(const uno::Sequence< TextColumn >& rColumns)
 {
     SolarMutexGuard aGuard;
-    sal_Int32 nReferenceTemp = 0;
-    const TextColumn* prCols = rColumns.getConstArray();
-    for(long i = 0; i < rColumns.getLength(); i++)
-    {
-        nReferenceTemp += prCols[i].Width;
-    }
+    sal_Int32 nReferenceTemp = std::accumulate(rColumns.begin(), rColumns.end(), sal_Int32(0),
+        [](const sal_Int32 nSum, const TextColumn& rCol) { return nSum + rCol.Width; });
     m_bIsAutomaticWidth = false;
     m_nReference = !nReferenceTemp ? USHRT_MAX : nReferenceTemp;
     m_aTextColumns = rColumns;
@@ -2561,9 +2553,7 @@ const uno::Sequence< sal_Int8 > & SwXTextColumns::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SwXTextColumns::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16
-        && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                        rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SwXTextColumns>(rId) )
     {
         return sal::static_int_cast< sal_Int64 >( reinterpret_cast< sal_IntPtr >(this) );
     }

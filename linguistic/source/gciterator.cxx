@@ -417,10 +417,9 @@ void GrammarCheckingIterator::ProcessResult(
                 text::TextMarkupDescriptor * pDescriptors = aDescriptors.getArray();
 
                 // at pos 0 .. nErrors-1 -> all grammar errors
-                for (sal_Int32 i = 0;  i < nErrors;  ++i)
+                for (const linguistic2::SingleProofreadingError &rError : rRes.aErrors)
                 {
-                    const linguistic2::SingleProofreadingError &rError = rRes.aErrors[i];
-                    text::TextMarkupDescriptor &rDesc = aDescriptors[i];
+                    text::TextMarkupDescriptor &rDesc = *pDescriptors++;
 
                     rDesc.nType   = rError.nErrorType;
                     rDesc.nOffset = rError.nErrorStart;
@@ -455,9 +454,9 @@ void GrammarCheckingIterator::ProcessResult(
                 // at pos nErrors -> sentence markup
                 // nSentenceLength: includes the white-spaces following the sentence end...
                 const sal_Int32 nSentenceLength = rRes.nStartOfNextSentencePosition - rRes.nStartOfSentencePosition;
-                pDescriptors[ nErrors ].nType   = text::TextMarkupType::SENTENCE;
-                pDescriptors[ nErrors ].nOffset = rRes.nStartOfSentencePosition;
-                pDescriptors[ nErrors ].nLength = nSentenceLength;
+                pDescriptors->nType   = text::TextMarkupType::SENTENCE;
+                pDescriptors->nOffset = rRes.nStartOfSentencePosition;
+                pDescriptors->nLength = nSentenceLength;
 
                 xMulti->commitMultiTextMarkup( aDescriptors ) ;
             }
@@ -624,8 +623,8 @@ void GrammarCheckingIterator::DequeueAndCheck()
                                            || nSuggestedEnd > nStartPos,
                                        "nSuggestedEndOfSentencePos calculation failed?");
 
-                            uno::Reference<linguistic2::XProofreader> xGC(
-                                GetGrammarChecker(aCurLocale), uno::UNO_QUERY);
+                            uno::Reference<linguistic2::XProofreader> xGC =
+                                GetGrammarChecker(aCurLocale);
                             if (xGC.is())
                             {
                                 aGuard.clear();
@@ -943,9 +942,8 @@ void SAL_CALL GrammarCheckingIterator::processLinguServiceEvent(
         }
         catch (const ::uno::Exception &)
         {
-            css::uno::Any ex( cppu::getCaughtException() );
             // ignore
-            SAL_WARN("linguistic", "processLinguServiceEvent: exception: " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("linguistic", "processLinguServiceEvent");
         }
     }
 }
@@ -1082,20 +1080,18 @@ void GrammarCheckingIterator::GetConfiguredGCSvcs_Impl()
         uno::Reference< container::XNameAccess > xNA( GetUpdateAccess(), uno::UNO_QUERY_THROW );
         xNA.set( xNA->getByName( "GrammarCheckerList" ), uno::UNO_QUERY_THROW );
         const uno::Sequence< OUString > aElementNames( xNA->getElementNames() );
-        const OUString *pElementNames = aElementNames.getConstArray();
 
-        sal_Int32 nLen = aElementNames.getLength();
-        for (sal_Int32 i = 0;  i < nLen;  ++i)
+        for (const OUString& rElementName : aElementNames)
         {
             uno::Sequence< OUString > aImplNames;
-            uno::Any aTmp( xNA->getByName( pElementNames[i] ) );
+            uno::Any aTmp( xNA->getByName( rElementName ) );
             if (aTmp >>= aImplNames)
             {
                 if (aImplNames.hasElements())
                 {
                     // only the first entry is used, there should be only one grammar checker per language
                     const OUString aImplName( aImplNames[0] );
-                    const LanguageType nLang = LanguageTag::convertToLanguageType( pElementNames[i] );
+                    const LanguageType nLang = LanguageTag::convertToLanguageType( rElementName );
                     aTmpGCImplNamesByLang[ nLang ] = aImplName;
                 }
             }
@@ -1107,8 +1103,7 @@ void GrammarCheckingIterator::GetConfiguredGCSvcs_Impl()
     }
     catch (uno::Exception const &)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "linguistic", "exception caught. Failed to get configured services " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "linguistic", "exception caught. Failed to get configured services" );
     }
 
     {
@@ -1184,14 +1179,13 @@ uno::Sequence< OUString > GrammarCheckingIterator::GetServiceList(
 
 static OUString GrammarCheckingIterator_getImplementationName() throw()
 {
-    return OUString( "com.sun.star.lingu2.ProofreadingIterator" );
+    return "com.sun.star.lingu2.ProofreadingIterator";
 }
 
 
 static uno::Sequence< OUString > GrammarCheckingIterator_getSupportedServiceNames() throw()
 {
-    uno::Sequence<OUString> aSNS { "com.sun.star.linguistic2.ProofreadingIterator" };
-    return aSNS;
+    return { "com.sun.star.linguistic2.ProofreadingIterator" };
 }
 
 /// @throws uno::Exception

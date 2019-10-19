@@ -105,7 +105,7 @@ public:
     sal_Int32 getShapePresetType() const { return mnShapePresetType; }
     css::uno::Sequence< sal_Int8 > const & getShapePresetTypeName() const;
     void setShapePresetType( sal_Int32 nShapePresetType ){ mnShapePresetType = nShapePresetType; };
-    bool                                getShapeTypeOverride(){ return mbShapeTypeOverride; };
+    bool                                getShapeTypeOverride() const { return mbShapeTypeOverride; };
     void                                setShapeTypeOverride( bool bShapeTypeOverride ) { mbShapeTypeOverride = bShapeTypeOverride; };
 
     std::vector< CustomShapeGuide >&    getAdjustmentGuideList(){ return maAdjustmentGuideList; };
@@ -118,6 +118,7 @@ public:
     void                                setMirroredX( bool bMirroredX ) { mbMirroredX = bMirroredX; };
     void                                setMirroredY( bool bMirroredY ) { mbMirroredY = bMirroredY; };
     void                                setTextRotateAngle( sal_Int32 nAngle ) { mnTextRotateAngle = nAngle; };
+    void                                setTextCameraZRotateAngle( sal_Int32 nAngle ) { mnTextCameraZRotateAngle = nAngle; };
 
     static sal_Int32 SetCustomShapeGuideValue( std::vector< CustomShapeGuide >& rGuideList, const CustomShapeGuide& rGuide );
     static sal_Int32 GetCustomShapeGuideValue( const std::vector< CustomShapeGuide >& rGuideList, const OUString& rFormulaName );
@@ -140,6 +141,7 @@ private:
     bool                            mbMirroredX;
     bool                            mbMirroredY;
     sal_Int32                       mnTextRotateAngle;
+    sal_Int32                       mnTextCameraZRotateAngle;
 
     typedef std::unordered_map< sal_Int32, PropertyMap > PresetDataMap;
 

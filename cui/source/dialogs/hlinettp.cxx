@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <unotools/pathoptions.hxx>
 #include <unotools/useroptions.hxx>
 #include <svl/adrparse.hxx>
 
@@ -288,8 +287,8 @@ void SvxHyperlinkInternetTp::RemoveImproperProtocol(const OUString& aProperSchem
 OUString SvxHyperlinkInternetTp::GetSchemeFromButtons() const
 {
     if( m_xRbtLinktypFTP->get_active() )
-        return OUString(INET_FTP_SCHEME);
-    return OUString(INET_HTTP_SCHEME);
+        return INET_FTP_SCHEME;
+    return INET_HTTP_SCHEME;
 }
 
 INetProtocol SvxHyperlinkInternetTp::GetSmartProtocolFromButtons() const
@@ -377,7 +376,7 @@ void SvxHyperlinkInternetTp::SetMarkStr ( const OUString& aStrMark )
     if( nPos != -1 )
         aStrURL = aStrURL.copy(0, nPos);
 
-    aStrURL += OUStringLiteral1(sUHash) + aStrMark;
+    aStrURL += OUStringChar(sUHash) + aStrMark;
 
     m_xCbbTarget->set_entry_text(aStrURL);
 }

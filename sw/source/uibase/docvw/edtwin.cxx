@@ -233,7 +233,7 @@ public:
     const Point& GetLastPos() const { return aLastPos; }
     void SetLastPos( const Point& rNew ) { aLastPos = rNew; }
     void SetPos( const Point& rNew ) { pHdl->SetPos( rNew ); }
-    const Point& GetHdlPos() { return aHdlPos; }
+    const Point& GetHdlPos() const { return aHdlPos; }
     SdrHdl* GetHdl() const { return pHdl; }
     void ChgHdl( SdrHdl* pNew )
     {
@@ -243,7 +243,7 @@ public:
             bTopRightHandle = (pHdl->GetKind() == SdrHdlKind::Anchor_TR);
         }
     }
-    const Point GetPosForHitTest( const OutputDevice& rOut )
+    Point GetPosForHitTest( const OutputDevice& rOut )
     {
         Point aHitTestPos( pHdl->GetPos() );
         aHitTestPos = rOut.LogicToPixel( aHitTestPos );
@@ -264,12 +264,11 @@ public:
 /// Assists with auto-completion of AutoComplete words and AutoText names.
 struct QuickHelpData
 {
-    /// Strings that at least partially match an input word.
-    std::vector<OUString> m_aHelpStrings;
+    /// Strings that at least partially match an input word, and match length.
+    std::vector<std::pair<OUString, sal_uInt16>> m_aHelpStrings;
     /// Index of the current help string.
     sal_uInt16 nCurArrPos;
-    /// Length of the input word associated with the help data.
-    sal_uInt16 nLen;
+    static constexpr sal_uInt16 nNoPos = std::numeric_limits<sal_uInt16>::max();
 
     /// Help data stores AutoText names rather than AutoComplete words.
     bool m_bIsAutoText;
@@ -287,10 +286,12 @@ struct QuickHelpData
 
     void Move( QuickHelpData& rCpy );
     void ClearContent();
-    void Start( SwWrtShell& rSh, sal_uInt16 nWrdLen );
+    void Start(SwWrtShell& rSh, bool bRestart);
     void Stop( SwWrtShell& rSh );
 
-    bool HasContent() const { return !m_aHelpStrings.empty() && 0 != nLen; }
+    bool HasContent() const { return !m_aHelpStrings.empty() && nCurArrPos != nNoPos; }
+    const OUString& CurStr() const { return m_aHelpStrings[nCurArrPos].first; }
+    sal_uInt16 CurLen() const { return m_aHelpStrings[nCurArrPos].second; }
 
     /// Next help string.
     void Next( bool bEndLess )
@@ -324,7 +325,7 @@ static bool IsMinMove(const Point &rStartPos, const Point &rLPt)
 
 /**
  * For MouseButtonDown - determine whether a DrawObject
- * an NO SwgFrame was hit! Shift/Ctrl should only result
+ * a NO SwgFrame was hit! Shift/Ctrl should only result
  * in selecting, with DrawObjects; at SwgFlys to trigger
  * hyperlinks if applicable (Download/NewWindow!)
  */
@@ -934,7 +935,7 @@ void SwEditWin::FlushInBuffer()
                     if (xISC->checkInputSequence( aNewText, nTmpPos - 1, cChar, nCheckMode ))
                     {
                         // character can be inserted:
-                        aNewText += OUStringLiteral1( cChar );
+                        aNewText += OUStringChar( cChar );
                         ++nTmpPos;
                     }
                 }
@@ -2312,7 +2313,7 @@ KEYINPUT_CHECKTABLE_INSDEL:
                         {
                             rSh.UnSelectFrame();
                             rSh.LeaveSelFrameMode();
-                            m_rView.AttrChangedNotify(&rSh);
+                            m_rView.AttrChangedNotify(nullptr);
                             rSh.MoveSection( GoCurrSection, fnSectionEnd );
                         }
                         eKeyState = SwKeyState::InsChar;
@@ -2335,7 +2336,7 @@ KEYINPUT_CHECKTABLE_INSDEL:
         {
             rSh.UnSelectFrame();
             rSh.LeaveSelFrameMode();
-            m_rView.AttrChangedNotify(&rSh);
+            m_rView.AttrChangedNotify(nullptr);
             rSh.MoveSection( GoCurrSection, fnSectionEnd );
             eKeyState = SwKeyState::End;
         }
@@ -2552,7 +2553,7 @@ KEYINPUT_CHECKTABLE_INSDEL:
                         m_rView.GetDrawFuncPtr()->Deactivate();
                         m_rView.SetDrawFuncPtr(nullptr);
                         m_rView.LeaveDrawCreate();
-                        m_rView.AttrChangedNotify( &rSh );
+                        m_rView.AttrChangedNotify(nullptr);
                     }
                     rSh.HideCursor();
                     rSh.EnterSelFrameMode();
@@ -2563,7 +2564,7 @@ KEYINPUT_CHECKTABLE_INSDEL:
                 // replace the word or abbreviation with the auto text
                 rSh.StartUndo( SwUndoId::START );
 
-                OUString sFnd( aTmpQHD.m_aHelpStrings[ aTmpQHD.nCurArrPos ] );
+                OUString sFnd(aTmpQHD.CurStr());
                 if( aTmpQHD.m_bIsAutoText )
                 {
                     SwGlossaryList* pList = ::GetGlossaryList();
@@ -2572,7 +2573,7 @@ KEYINPUT_CHECKTABLE_INSDEL:
                     if(pList->GetShortName( sFnd, sShrtNm, sGroup))
                     {
                         rSh.SttSelect();
-                        rSh.ExtendSelection( false, aTmpQHD.nLen );
+                        rSh.ExtendSelection(false, aTmpQHD.CurLen());
                         SwGlossaryHdl* pGlosHdl = GetView().GetGlosHdl();
                         pGlosHdl->SetCurGroup(sGroup, true);
                         pGlosHdl->InsertGlossary( sShrtNm);
@@ -2581,7 +2582,7 @@ KEYINPUT_CHECKTABLE_INSDEL:
                 }
                 else
                 {
-                    sFnd = sFnd.copy( aTmpQHD.nLen );
+                    sFnd = sFnd.copy(aTmpQHD.CurLen());
                     rSh.Insert( sFnd );
                     m_pQuickHlpData->m_bAppendSpace = !pACorr ||
                             pACorr->GetSwFlags().bAutoCmpltAppendBlanc;
@@ -2592,7 +2593,7 @@ KEYINPUT_CHECKTABLE_INSDEL:
 
             case SwKeyState::NextPrevGlossary:
                 m_pQuickHlpData->Move( aTmpQHD );
-                m_pQuickHlpData->Start( rSh, USHRT_MAX );
+                m_pQuickHlpData->Start(rSh, false);
                 break;
 
             case SwKeyState::EditFormula:
@@ -2657,20 +2658,19 @@ KEYINPUT_CHECKTABLE_INSDEL:
     // in case the buffered characters are inserted
     if( bFlushBuffer && !m_aInBuffer.isEmpty() )
     {
-        // bFlushCharBuffer was not resetted here
+        // bFlushCharBuffer was not reset here
         // why not?
         bool bSave = g_bFlushCharBuffer;
         FlushInBuffer();
         g_bFlushCharBuffer = bSave;
 
         // maybe show Tip-Help
-        OUString sWord;
-        if( bNormalChar && pACfg && pACorr &&
-            ( pACfg->IsAutoTextTip() ||
-              pACorr->GetSwFlags().bAutoCompleteWords ) &&
-            rSh.GetPrevAutoCorrWord( *pACorr, sWord ) )
+        if (bNormalChar)
         {
-            ShowAutoTextCorrectQuickHelp(sWord, pACfg, pACorr);
+            const bool bAutoTextShown
+                = pACfg && pACfg->IsAutoTextTip() && ShowAutoText(rSh.GetChunkForAutoText());
+            if (!bAutoTextShown && pACorr && pACorr->GetSwFlags().bAutoCompleteWords)
+                ShowAutoCorrectQuickHelp(rSh.GetPrevAutoCorrWord(*pACorr), *pACorr);
         }
     }
 
@@ -3168,7 +3168,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                         m_rView.GetDrawFuncPtr()->Deactivate();
                                         m_rView.SetDrawFuncPtr(nullptr);
                                         m_rView.LeaveDrawCreate();
-                                        m_rView.AttrChangedNotify( &rSh );
+                                        m_rView.AttrChangedNotify(nullptr);
                                     }
 
                                     rSh.EnterSelFrameMode( &aDocPos );
@@ -3213,7 +3213,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                             {
                                 rSh.UnSelectFrame();
                                 rSh.LeaveSelFrameMode();
-                                m_rView.AttrChangedNotify(&rSh);
+                                m_rView.AttrChangedNotify(nullptr);
                             }
 
                             bool bSelObj = rSh.SelectObj( aDocPos, nFlag );
@@ -3226,7 +3226,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                 // frame first; ShowCursor() happens in LeaveSelFrameMode()
                                 g_bValidCursorPos = !(CRSR_POSCHG & rSh.CallSetCursor(&aDocPos, false));
                                 rSh.LeaveSelFrameMode();
-                                m_rView.AttrChangedNotify( &rSh );
+                                m_rView.AttrChangedNotify(nullptr);
                                 bCallBase = false;
                             }
                             else
@@ -3242,7 +3242,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                     m_rView.GetDrawFuncPtr()->Deactivate();
                                     m_rView.SetDrawFuncPtr(nullptr);
                                     m_rView.LeaveDrawCreate();
-                                    m_rView.AttrChangedNotify( &rSh );
+                                    m_rView.AttrChangedNotify(nullptr);
                                 }
                                 UpdatePointer( aDocPos, rMEvt.GetModifier() );
                                 return;
@@ -3324,26 +3324,26 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                 GetView().GetViewFrame()->GetBindings().Execute( FN_EDIT_FOOTNOTE );
                             else
                             {
-                                sal_uInt16 nTypeId = pField->GetTypeId();
+                                SwFieldTypesEnum nTypeId = pField->GetTypeId();
                                 SfxViewFrame* pVFrame = GetView().GetViewFrame();
                                 switch( nTypeId )
                                 {
-                                case TYP_POSTITFLD:
-                                case TYP_SCRIPTFLD:
+                                case SwFieldTypesEnum::Postit:
+                                case SwFieldTypesEnum::Script:
                                 {
                                     // if it's a Readonly region, status has to be enabled
-                                    sal_uInt16 nSlot = TYP_POSTITFLD == nTypeId ? FN_POSTIT : FN_JAVAEDIT;
+                                    sal_uInt16 nSlot = SwFieldTypesEnum::Postit == nTypeId ? FN_POSTIT : FN_JAVAEDIT;
                                     SfxBoolItem aItem(nSlot, true);
                                     pVFrame->GetBindings().SetState(aItem);
                                     pVFrame->GetBindings().Execute(nSlot);
                                     break;
                                 }
-                                case TYP_AUTHORITY :
+                                case SwFieldTypesEnum::Authority :
                                     pVFrame->GetBindings().Execute(FN_EDIT_AUTH_ENTRY_DLG);
                                 break;
-                                case TYP_INPUTFLD:
-                                case TYP_DROPDOWN:
-                                case TYP_SETINPFLD:
+                                case SwFieldTypesEnum::Input:
+                                case SwFieldTypesEnum::Dropdown:
+                                case SwFieldTypesEnum::SetInput:
                                     pVFrame->GetBindings().Execute(FN_UPDATE_INPUTFIELDS);
                                     break;
                                 default:
@@ -3378,7 +3378,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                 aContentAtPos.aFnd.pFieldmark != nullptr)
                         {
                             IFieldmark *pFieldBM = const_cast< IFieldmark* > ( aContentAtPos.aFnd.pFieldmark );
-                            if ( pFieldBM->GetFieldname( ) == ODF_FORMDROPDOWN )
+                            if ( pFieldBM->GetFieldname( ) == ODF_FORMDROPDOWN || pFieldBM->GetFieldname( ) == ODF_FORMDATE )
                             {
                                 RstMBDownFlags();
                                 rSh.getIDocumentMarkAccess()->ClearFieldActivation();
@@ -3538,7 +3538,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                 if (rMarkList.GetMark(0) == nullptr)
                                 {
                                     rSh.LeaveSelFrameMode();
-                                    m_rView.AttrChangedNotify(&rSh);
+                                    m_rView.AttrChangedNotify(nullptr);
                                     g_bFrameDrag = false;
                                 }
                             }
@@ -3568,7 +3568,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                             {
                                 rSh.UnSelectFrame();
                                 rSh.LeaveSelFrameMode();
-                                m_rView.AttrChangedNotify(&rSh);
+                                m_rView.AttrChangedNotify(nullptr);
                                 g_bFrameDrag = false;
                             }
                             if ( !rSh.IsExtMode() )
@@ -3642,7 +3642,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                         // position or on position after field depending on which
                         // half of the field was clicked on.
                         SwTextAttr const*const pTextField(aFieldAtPos.pFndTextAttr);
-                        if (rSh.GetCurrentShellCursor().GetPoint()->nContent
+                        if (pTextField && rSh.GetCurrentShellCursor().GetPoint()->nContent
                                 .GetIndex() != pTextField->GetStart())
                         {
                             assert(rSh.GetCurrentShellCursor().GetPoint()->nContent
@@ -3726,6 +3726,76 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
 
     if (bCallBase)
         Window::MouseButtonDown(rMEvt);
+}
+
+bool SwEditWin::changeMousePointer(Point const & rDocPoint)
+{
+    SwWrtShell & rShell = m_rView.GetWrtShell();
+
+    SwTab nMouseTabCol;
+    if ( SwTab::COL_NONE != (nMouseTabCol = rShell.WhichMouseTabCol( rDocPoint ) ) &&
+         !rShell.IsObjSelectable( rDocPoint ) )
+    {
+        PointerStyle nPointer = PointerStyle::Null;
+        bool bChkTableSel = false;
+
+        switch ( nMouseTabCol )
+        {
+            case SwTab::COL_VERT :
+            case SwTab::ROW_HORI :
+                nPointer = PointerStyle::VSizeBar;
+                bChkTableSel = true;
+                break;
+            case SwTab::ROW_VERT :
+            case SwTab::COL_HORI :
+                nPointer = PointerStyle::HSizeBar;
+                bChkTableSel = true;
+                break;
+            // Enhanced table selection
+            case SwTab::SEL_HORI :
+                nPointer = PointerStyle::TabSelectSE;
+                break;
+            case SwTab::SEL_HORI_RTL :
+            case SwTab::SEL_VERT :
+                nPointer = PointerStyle::TabSelectSW;
+                break;
+            case SwTab::COLSEL_HORI :
+            case SwTab::ROWSEL_VERT :
+                nPointer = PointerStyle::TabSelectS;
+                break;
+            case SwTab::ROWSEL_HORI :
+                nPointer = PointerStyle::TabSelectE;
+                break;
+            case SwTab::ROWSEL_HORI_RTL :
+            case SwTab::COLSEL_VERT :
+                nPointer = PointerStyle::TabSelectW;
+                break;
+            default: break; // prevent compiler warning
+        }
+
+        if ( PointerStyle::Null != nPointer &&
+            // i#35543 - Enhanced table selection is explicitly allowed in table mode
+            ( !bChkTableSel || !rShell.IsTableMode() ) &&
+            !comphelper::LibreOfficeKit::isActive() )
+        {
+            SetPointer( nPointer );
+        }
+
+        return true;
+    }
+    else if (rShell.IsNumLabel(rDocPoint, RULER_MOUSE_MARGINWIDTH))
+    {
+        // i#42921 - consider vertical mode
+        SwTextNode* pNodeAtPos = rShell.GetNumRuleNodeAtPos( rDocPoint );
+        const PointerStyle nPointer =
+                SwFEShell::IsVerticalModeAtNdAndPos( *pNodeAtPos, rDocPoint )
+                ? PointerStyle::VSizeBar
+                : PointerStyle::HSizeBar;
+        SetPointer( nPointer );
+
+        return true;
+    }
+    return false;
 }
 
 void SwEditWin::MouseMove(const MouseEvent& _rMEvt)
@@ -3850,70 +3920,10 @@ void SwEditWin::MouseMove(const MouseEvent& _rMEvt)
         }
     }
 
-    SwTab nMouseTabCol;
-    if( !bIsDocReadOnly && bInsWin && !m_pApplyTempl && !rSh.IsInSelect() )
+    // determine if we only change the mouse pointer and return
+    if (!bIsDocReadOnly && bInsWin && !m_pApplyTempl && !rSh.IsInSelect() && changeMousePointer(aDocPt))
     {
-        if ( SwTab::COL_NONE != (nMouseTabCol = rSh.WhichMouseTabCol( aDocPt ) ) &&
-             !rSh.IsObjSelectable( aDocPt ) )
-        {
-            PointerStyle nPointer = PointerStyle::Null;
-            bool bChkTableSel = false;
-
-            switch ( nMouseTabCol )
-            {
-                case SwTab::COL_VERT :
-                case SwTab::ROW_HORI :
-                    nPointer = PointerStyle::VSizeBar;
-                    bChkTableSel = true;
-                    break;
-                case SwTab::ROW_VERT :
-                case SwTab::COL_HORI :
-                    nPointer = PointerStyle::HSizeBar;
-                    bChkTableSel = true;
-                    break;
-                // Enhanced table selection
-                case SwTab::SEL_HORI :
-                    nPointer = PointerStyle::TabSelectSE;
-                    break;
-                case SwTab::SEL_HORI_RTL :
-                case SwTab::SEL_VERT :
-                    nPointer = PointerStyle::TabSelectSW;
-                    break;
-                case SwTab::COLSEL_HORI :
-                case SwTab::ROWSEL_VERT :
-                    nPointer = PointerStyle::TabSelectS;
-                    break;
-                case SwTab::ROWSEL_HORI :
-                    nPointer = PointerStyle::TabSelectE;
-                    break;
-                case SwTab::ROWSEL_HORI_RTL :
-                case SwTab::COLSEL_VERT :
-                    nPointer = PointerStyle::TabSelectW;
-                    break;
-                default: break; // prevent compiler warning
-            }
-
-            if ( PointerStyle::Null != nPointer &&
-                // i#35543 - Enhanced table selection is explicitly allowed in table mode
-                ( !bChkTableSel || !rSh.IsTableMode() ) )
-            {
-                SetPointer( nPointer );
-            }
-
-            return;
-        }
-        else if (rSh.IsNumLabel(aDocPt, RULER_MOUSE_MARGINWIDTH))
-        {
-            // i#42921 - consider vertical mode
-            SwTextNode* pNodeAtPos = rSh.GetNumRuleNodeAtPos( aDocPt );
-            const PointerStyle nPointer =
-                    SwFEShell::IsVerticalModeAtNdAndPos( *pNodeAtPos, aDocPt )
-                    ? PointerStyle::VSizeBar
-                    : PointerStyle::HSizeBar;
-            SetPointer( nPointer );
-
-            return;
-        }
+        return;
     }
 
     bool bDelShadCursor = true;
@@ -4194,7 +4204,7 @@ void SwEditWin::MouseMove(const MouseEvent& _rMEvt)
                             m_aSaveCallEvent.Set( EVENT_OBJECT_URLITEM, pFormat );
                     }
 
-                    // should be over a InternetField with an
+                    // should be over an InternetField with an
                     // embedded macro?
                     if( m_aSaveCallEvent != aLastCallEvent )
                     {
@@ -4398,7 +4408,7 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
                 rSh.Edit();
             }
 
-            m_rView.AttrChangedNotify( &rSh );
+            m_rView.AttrChangedNotify(nullptr);
         }
         else if (rMEvt.GetButtons() == MOUSE_RIGHT && rSh.IsDrawCreate())
             m_rView.GetDrawFuncPtr()->BreakCreate();   // abort drawing
@@ -4417,7 +4427,7 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
                 if ( m_rView.GetDrawFuncPtr() && m_rView.GetDrawFuncPtr()->MouseButtonUp(rMEvt) )
                 {
                     m_rView.GetDrawFuncPtr()->Deactivate();
-                    m_rView.AttrChangedNotify( &rSh );
+                    m_rView.AttrChangedNotify(nullptr);
                     if ( rSh.IsObjSelected() )
                         rSh.EnterSelFrameMode();
                     if ( m_rView.GetDrawFuncPtr() && m_bInsFrame )
@@ -4891,7 +4901,7 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
     }
     ReleaseMouse();
     // Only processed MouseEvents arrive here; only at these this mode can
-    // be resetted.
+    // be reset.
     m_bMBPressed = false;
 
     // Make this call just to be sure. Selecting has finished surely by now.
@@ -5033,7 +5043,7 @@ SwEditWin::SwEditWin(vcl::Window *pParent, SwView &rMyView):
     m_aKeyInputFlushTimer.SetTimeout( 200 );
     m_aKeyInputFlushTimer.SetInvokeHandler(LINK(this, SwEditWin, KeyInputFlushHandler));
 
-    // TemplatePointer for colors should be resetted without
+    // TemplatePointer for colors should be reset without
     // selection after single click, but not after double-click (tdf#122442)
     m_aTemplateTimer.SetTimeout(GetSettings().GetMouseSettings().GetDoubleClickTime());
     m_aTemplateTimer.SetInvokeHandler(LINK(this, SwEditWin, TemplateTimerHdl));
@@ -5090,7 +5100,7 @@ void SwEditWin::EnterDrawTextMode( const Point& aDocPos )
             m_rView.LeaveDrawCreate();
         }
         m_rView.NoRotate();
-        m_rView.AttrChangedNotify( &m_rView.GetWrtShell() );
+        m_rView.AttrChangedNotify(nullptr);
     }
 }
 
@@ -5108,7 +5118,7 @@ bool SwEditWin::EnterDrawMode(const MouseEvent& rMEvt, const Point& aDocPos)
             return true;
 
         bool bRet = m_rView.GetDrawFuncPtr()->MouseButtonDown( rMEvt );
-        m_rView.AttrChangedNotify( &rSh );
+        m_rView.AttrChangedNotify(nullptr);
         return bRet;
     }
 
@@ -5129,13 +5139,13 @@ bool SwEditWin::EnterDrawMode(const MouseEvent& rMEvt, const Point& aDocPos)
         }
         if( bUnLockView )
             rSh.LockView( false );
-        m_rView.AttrChangedNotify( &rSh );
+        m_rView.AttrChangedNotify(nullptr);
         return true;
     }
     return false;
 }
 
-bool SwEditWin::IsDrawSelMode()
+bool SwEditWin::IsDrawSelMode() const
 {
     return IsObjectSelect();
 }
@@ -5383,18 +5393,13 @@ void SwEditWin::Command( const CommandEvent& rCEvt )
                         m_rView.GetViewFrame()->GetBindings().GetRecorder();
             if(!xRecorder.is())
             {
-                    SvxAutoCorrCfg& rACfg = SvxAutoCorrCfg::Get();
+                SvxAutoCorrCfg& rACfg = SvxAutoCorrCfg::Get();
+                if (!rACfg.IsAutoTextTip() || !ShowAutoText(rSh.GetChunkForAutoText()))
+                {
                     SvxAutoCorrect* pACorr = rACfg.GetAutoCorrect();
-                    if( pACorr &&
-                        // If autocompletion required...
-                        ( rACfg.IsAutoTextTip() ||
-                          pACorr->GetSwFlags().bAutoCompleteWords ) &&
-                        // ... and extraction of last word from text input was successful...
-                        rSh.GetPrevAutoCorrWord( *pACorr, sWord ) )
-                    {
-                        // ... request for auto completion help to be shown.
-                        ShowAutoTextCorrectQuickHelp(sWord, &rACfg, pACorr, true);
-                    }
+                    if (pACorr && pACorr->GetSwFlags().bAutoCompleteWords)
+                        ShowAutoCorrectQuickHelp(rSh.GetPrevAutoCorrWord(*pACorr), *pACorr);
+                }
             }
         }
     }
@@ -5686,7 +5691,7 @@ void SwEditWin::SelectMenuPosition(SwWrtShell& rSh, const Point& rMousePos )
                         m_rView.GetDrawFuncPtr()->Deactivate();
                         m_rView.SetDrawFuncPtr(nullptr);
                         m_rView.LeaveDrawCreate();
-                        m_rView.AttrChangedNotify( &rSh );
+                        m_rView.AttrChangedNotify(nullptr);
                     }
 
                     rSh.EnterSelFrameMode( &aDocPos );
@@ -5712,7 +5717,7 @@ void SwEditWin::SelectMenuPosition(SwWrtShell& rSh, const Point& rMousePos )
         {
             rSh.UnSelectFrame();
             rSh.LeaveSelFrameMode();
-            m_rView.AttrChangedNotify(&rSh);
+            m_rView.AttrChangedNotify(nullptr);
         }
 
         bool bSelObj = rSh.SelectObj( aDocPos, 0/*nFlag*/ );
@@ -5726,7 +5731,7 @@ void SwEditWin::SelectMenuPosition(SwWrtShell& rSh, const Point& rMousePos )
             g_bValidCursorPos = !(CRSR_POSCHG & rSh.CallSetCursor(&aDocPos, false));
             rSh.LeaveSelFrameMode();
             m_rView.LeaveDrawCreate();
-            m_rView.AttrChangedNotify( &rSh );
+            m_rView.AttrChangedNotify(nullptr);
         }
         else
         {
@@ -5741,7 +5746,7 @@ void SwEditWin::SelectMenuPosition(SwWrtShell& rSh, const Point& rMousePos )
                 m_rView.GetDrawFuncPtr()->Deactivate();
                 m_rView.SetDrawFuncPtr(nullptr);
                 m_rView.LeaveDrawCreate();
-                m_rView.AttrChangedNotify( &rSh );
+                m_rView.AttrChangedNotify(nullptr);
             }
             UpdatePointer( aDocPos );
         }
@@ -5860,7 +5865,6 @@ void QuickHelpData::Move( QuickHelpData& rCpy )
     m_aHelpStrings.swap( rCpy.m_aHelpStrings );
 
     m_bIsDisplayed = rCpy.m_bIsDisplayed;
-    nLen = rCpy.nLen;
     nCurArrPos = rCpy.nCurArrPos;
     m_bAppendSpace = rCpy.m_bAppendSpace;
     m_bIsTip = rCpy.m_bIsTip;
@@ -5869,7 +5873,7 @@ void QuickHelpData::Move( QuickHelpData& rCpy )
 
 void QuickHelpData::ClearContent()
 {
-    nLen = nCurArrPos = 0;
+    nCurArrPos = nNoPos;
     m_bIsDisplayed = m_bAppendSpace = false;
     nTipId = nullptr;
     m_aHelpStrings.clear();
@@ -5877,11 +5881,10 @@ void QuickHelpData::ClearContent()
     m_bIsAutoText = true;
 }
 
-void QuickHelpData::Start( SwWrtShell& rSh, sal_uInt16 nWrdLen )
+void QuickHelpData::Start(SwWrtShell& rSh, const bool bRestart)
 {
-    if( USHRT_MAX != nWrdLen )
+    if (bRestart)
     {
-        nLen = nWrdLen;
         nCurArrPos = 0;
     }
     m_bIsDisplayed = true;
@@ -5893,13 +5896,13 @@ void QuickHelpData::Start( SwWrtShell& rSh, sal_uInt16 nWrdLen )
                     rSh.GetCharRect().Pos() )));
         aPt.AdjustY( -3 );
         nTipId = Help::ShowPopover(&rWin, tools::Rectangle( aPt, Size( 1, 1 )),
-                        m_aHelpStrings[ nCurArrPos ],
+                        CurStr(),
                         QuickHelpFlags::Left | QuickHelpFlags::Bottom);
     }
     else
     {
-        OUString sStr( m_aHelpStrings[ nCurArrPos ] );
-        sStr = sStr.copy( nLen );
+        OUString sStr(CurStr());
+        sStr = sStr.copy(CurLen());
         sal_uInt16 nL = sStr.getLength();
         const ExtTextInputAttr nVal = ExtTextInputAttr::DottedUnderline |
                                 ExtTextInputAttr::Highlight;
@@ -5967,8 +5970,7 @@ void QuickHelpData::FillStrArr( SwWrtShell const & rSh, const OUString& rWord )
     (*pCalendar)->LoadDefaultCalendar( rSh.GetCurLang() );
 
     // Add matching calendar month and day names
-    uno::Sequence< i18n::CalendarItem2 > aNames( (*pCalendar)->getMonths() );
-    for ( sal_uInt16 i = 0; i < 2; ++i )
+    for ( const auto& aNames : { (*pCalendar)->getMonths(), (*pCalendar)->getDays() } )
     {
         for ( const auto& rName : aNames )
         {
@@ -5977,28 +5979,26 @@ void QuickHelpData::FillStrArr( SwWrtShell const & rSh, const OUString& rWord )
             if( rStr.getLength() > rWord.getLength() &&
                 rCC.lowercase( rStr, 0, rWord.getLength() ) == sWordLower )
             {
+                OUString sStr;
+
                 //fdo#61251 if it's an exact match, ensure unchanged replacement
                 //exists as a candidate
                 if (rStr.startsWith(rWord))
-                    m_aHelpStrings.push_back(rStr);
+                    m_aHelpStrings.emplace_back(rStr, rWord.getLength());
+                else
+                    sStr = rStr; // to be added if no case conversion is performed below
 
                 if ( aWordCase == CASE_LOWER )
-                    m_aHelpStrings.push_back( rCC.lowercase( rStr ) );
+                    sStr = rCC.lowercase(rStr);
                 else if ( aWordCase == CASE_SENTENCE )
-                {
-                    OUString sTmp = rCC.lowercase( rStr );
-                    sTmp = sTmp.replaceAt( 0, 1, OUString(rStr[0]) );
-                    m_aHelpStrings.push_back( sTmp );
-                }
+                    sStr = rCC.lowercase(rStr).replaceAt(0, 1, OUString(rStr[0]));
                 else if ( aWordCase == CASE_UPPER )
-                    m_aHelpStrings.push_back( rCC.uppercase( rStr ) );
-                else // CASE_OTHER - use retrieved capitalization
-                    m_aHelpStrings.push_back( rStr );
+                    sStr = rCC.uppercase(rStr);
+
+                if (!sStr.isEmpty())
+                    m_aHelpStrings.emplace_back(sStr, rWord.getLength());
             }
         }
-        // Data for second loop iteration
-        if ( i == 0 )
-            aNames = (*pCalendar)->getDays();
     }
 
     // Add matching current date in ISO 8601 format, for example 2016-01-30
@@ -6021,7 +6021,7 @@ void QuickHelpData::FillStrArr( SwWrtShell const & rSh, const OUString& rWord )
         // only for "201" or "2016-..." (to avoid unintentional text
         // insertion at line ending, for example typing "30 January 2016")
         if (rWord.getLength() != 4 && rStrToday.startsWith(rWord))
-            m_aHelpStrings.push_back(rStrToday);
+            m_aHelpStrings.emplace_back(rStrToday, rWord.getLength());
     }
 
     // Add matching words from AutoCompleteWord list
@@ -6038,25 +6038,27 @@ void QuickHelpData::FillStrArr( SwWrtShell const & rSh, const OUString& rWord )
             if (!rStrToday.isEmpty() && aCompletedString.startsWith(rWord))
                 continue;
 
+            OUString sStr;
+
             //fdo#61251 if it's an exact match, ensure unchanged replacement
             //exists as a candidate
             if (aCompletedString.startsWith(rWord))
-                m_aHelpStrings.push_back(aCompletedString);
-            if ( aWordCase == CASE_LOWER )
-                m_aHelpStrings.push_back( rCC.lowercase( aCompletedString ) );
-            else if ( aWordCase == CASE_SENTENCE )
-            {
-                OUString sTmp = rCC.lowercase( aCompletedString );
-                sTmp = sTmp.replaceAt( 0, 1, OUString(aCompletedString[0]) );
-                m_aHelpStrings.push_back( sTmp );
-            }
-            else if ( aWordCase == CASE_UPPER )
-                m_aHelpStrings.push_back( rCC.uppercase( aCompletedString ) );
-            else // CASE_OTHER - use retrieved capitalization
-                m_aHelpStrings.push_back( aCompletedString );
+                m_aHelpStrings.emplace_back(aCompletedString, rWord.getLength());
+            else
+                sStr = aCompletedString; // to be added if no case conversion is performed below
+
+            if (aWordCase == CASE_LOWER)
+                sStr = rCC.lowercase(aCompletedString);
+            else if (aWordCase == CASE_SENTENCE)
+                sStr = rCC.lowercase(aCompletedString)
+                           .replaceAt(0, 1, OUString(aCompletedString[0]));
+            else if (aWordCase == CASE_UPPER)
+                sStr = rCC.uppercase(aCompletedString);
+
+            if (!sStr.isEmpty())
+                m_aHelpStrings.emplace_back(aCompletedString, rWord.getLength());
         }
     }
-
 }
 
 namespace {
@@ -6070,15 +6072,16 @@ public:
     {
     }
 
-    bool operator()(const OUString& s1, const OUString& s2) const
+    bool operator()(const std::pair<OUString, sal_uInt16>& s1,
+                    const std::pair<OUString, sal_uInt16>& s2) const
     {
-        int nRet = s1.compareToIgnoreAsciiCase(s2);
+        int nRet = s1.first.compareToIgnoreAsciiCase(s2.first);
         if (nRet == 0)
         {
             //fdo#61251 sort stuff that starts with the exact rOrigWord before
             //another ignore-case candidate
-            int n1StartsWithOrig = s1.startsWith(m_rOrigWord) ? 0 : 1;
-            int n2StartsWithOrig = s2.startsWith(m_rOrigWord) ? 0 : 1;
+            int n1StartsWithOrig = s1.first.startsWith(m_rOrigWord) ? 0 : 1;
+            int n2StartsWithOrig = s2.first.startsWith(m_rOrigWord) ? 0 : 1;
             return n1StartsWithOrig < n2StartsWithOrig;
         }
         return nRet < 0;
@@ -6087,9 +6090,10 @@ public:
 
 struct EqualIgnoreCaseAscii
 {
-    bool operator()(const OUString& s1, const OUString& s2) const
+    bool operator()(const std::pair<OUString, sal_uInt16>& s1,
+                    const std::pair<OUString, sal_uInt16>& s2) const
     {
-        return s1.equalsIgnoreAsciiCase(s2);
+        return s1.first.equalsIgnoreAsciiCase(s2.first);
     }
 };
 
@@ -6102,33 +6106,74 @@ void QuickHelpData::SortAndFilter(const OUString &rOrigWord)
                m_aHelpStrings.end(),
                CompareIgnoreCaseAsciiFavorExact(rOrigWord) );
 
-    std::vector<OUString>::iterator it = std::unique( m_aHelpStrings.begin(),
-                                                    m_aHelpStrings.end(),
-                                                    EqualIgnoreCaseAscii() );
+    const auto& it
+        = std::unique(m_aHelpStrings.begin(), m_aHelpStrings.end(), EqualIgnoreCaseAscii());
     m_aHelpStrings.erase( it, m_aHelpStrings.end() );
 
     nCurArrPos = 0;
 }
 
-void SwEditWin::ShowAutoTextCorrectQuickHelp(
-        const OUString& rWord, SvxAutoCorrCfg const * pACfg, SvxAutoCorrect* pACorr,
-        bool bFromIME )
+// For a given chunk of typed text between 3 and 9 characters long that may start at a word boundary
+// or in a whitespace and may include whitespaces, SwEditShell::GetChunkForAutoTextcreates a list of
+// possible candidates for long AutoText names. Let's say, we have typed text "lorem ipsum  dr f";
+// and the cursor is right after the "f". SwEditShell::GetChunkForAutoText would take "  dr f",
+// since it's the longest chunk to the left of the cursor no longer than 9 characters, not starting
+// in the middle of a word. Then it would create this list from it (in this order, longest first):
+//     "  dr f"
+//      " dr f"
+//       "dr f"
+// It cannot add "r f", because it starts in the middle of the word "dr"; also it cannot give " f",
+// because it's only 2 characters long.
+// Now the result of SwEditShell::GetChunkForAutoText is passed here to SwEditWin::ShowAutoText, and
+// then to SwGlossaryList::HasLongName, where all existing autotext entries' long names are tested
+// if they start with one of the list elements. The matches are sorted according the position of the
+// candidate that matched first, then alphabetically inside the group of suggestions for a given
+// candidate. Say, if we have these AutoText entry long names:
+//    "Dr Frodo"
+//    "Dr Credo"
+//    "Or Bilbo"
+//    "dr foo"
+//    "  Dr Fuzz"
+//    " dr Faust"
+// the resulting list would be:
+//    "  Dr Fuzz" -> matches the first (longest) item in the candidates list
+//    " dr Faust" -> matches the second candidate item
+//    "Dr Foo" -> first item of the two matching the third candidate; alphabetically sorted
+//    "Dr Frodo" -> second item of the two matching the third candidate; alphabetically sorted
+// Each of the resulting suggestions knows the length of the candidate it replaces, so accepting the
+// first suggestion would replace 6 characters before cursor, while tabbing to and accepting the
+// last suggestion would replace only 4 characters to the left of cursor.
+bool SwEditWin::ShowAutoText(const std::vector<OUString>& rChunkCandidates)
 {
-    SwWrtShell& rSh = m_rView.GetWrtShell();
     m_pQuickHlpData->ClearContent();
-    if( pACfg->IsAutoTextTip() )
+    if (!rChunkCandidates.empty())
     {
         SwGlossaryList* pList = ::GetGlossaryList();
-        pList->HasLongName( rWord, &m_pQuickHlpData->m_aHelpStrings );
+        pList->HasLongName(rChunkCandidates, m_pQuickHlpData->m_aHelpStrings);
     }
 
+    if (!m_pQuickHlpData->m_aHelpStrings.empty())
+    {
+        m_pQuickHlpData->Start(m_rView.GetWrtShell(), true);
+    }
+    return !m_pQuickHlpData->m_aHelpStrings.empty();
+}
+
+void SwEditWin::ShowAutoCorrectQuickHelp(
+        const OUString& rWord, SvxAutoCorrect& rACorr,
+        bool bFromIME )
+{
+    if (rWord.isEmpty())
+        return;
+    SwWrtShell& rSh = m_rView.GetWrtShell();
+    m_pQuickHlpData->ClearContent();
+
     if( m_pQuickHlpData->m_aHelpStrings.empty() &&
-        pACorr->GetSwFlags().bAutoCompleteWords )
+        rACorr.GetSwFlags().bAutoCompleteWords )
     {
         m_pQuickHlpData->m_bIsAutoText = false;
         m_pQuickHlpData->m_bIsTip = bFromIME ||
-                    !pACorr ||
-                    pACorr->GetSwFlags().bAutoCmpltShowAsTip;
+                    rACorr.GetSwFlags().bAutoCmpltShowAsTip;
 
         // Get the necessary data to show help text.
         m_pQuickHlpData->FillStrArr( rSh, rWord );
@@ -6137,7 +6182,7 @@ void SwEditWin::ShowAutoTextCorrectQuickHelp(
     if( !m_pQuickHlpData->m_aHelpStrings.empty() )
     {
         m_pQuickHlpData->SortAndFilter(rWord);
-        m_pQuickHlpData->Start( rSh, rWord.getLength() );
+        m_pQuickHlpData->Start(rSh, true);
     }
 }
 

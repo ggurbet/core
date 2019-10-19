@@ -18,14 +18,9 @@
  */
 
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
-#include <vcl/timer.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
-#include <sfx2/childwin.hxx>
 
 #include <attrib.hxx>
 #include <pagedata.hxx>
@@ -35,12 +30,9 @@
 #include <stlpool.hxx>
 #include <docsh.hxx>
 #include <gridwin.hxx>
-#include <olinewin.hxx>
-#include <uiitems.hxx>
 #include <sc.hrc>
 #include <viewutil.hxx>
 #include <colrowba.hxx>
-#include <waitoff.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <scmod.hxx>
@@ -704,7 +696,7 @@ void ScTabView::GetAreaMoveEndPosition(SCCOL nMovX, SCROW nMovY, ScFollowMode eM
         for ( i=0; i<-nMovY; i++ )
             pDoc->FindAreaPos( nVirtualX, nNewY, nTab,  SC_MOVE_UP );
 
-    if (eMode==SC_FOLLOW_JUMP)                  // bottom right do not show to much grey
+    if (eMode==SC_FOLLOW_JUMP)                  // bottom right do not show too much grey
     {
         if (nMovX != 0 && nNewX == MAXCOL)
             eMode = SC_FOLLOW_LINE;
@@ -1009,7 +1001,7 @@ void ScTabView::UpdateAllOverlays()
 }
 
 //!
-//! divide PaintBlock in to two methods: RepaintBlock and RemoveBlock or similar
+//! divide PaintBlock into two methods: RepaintBlock and RemoveBlock or similar
 //!
 
 void ScTabView::PaintBlock( bool bReset )

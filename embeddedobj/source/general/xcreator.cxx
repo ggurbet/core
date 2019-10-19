@@ -22,8 +22,6 @@
 #include <com/sun/star/embed/XEmbedObjectFactory.hpp>
 #include <com/sun/star/embed/OOoEmbeddedObjectFactory.hpp>
 #include <com/sun/star/embed/OLEEmbeddedObjectFactory.hpp>
-#include <com/sun/star/embed/XLinkFactory.hpp>
-#include <com/sun/star/document/XTypeDetection.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -32,6 +30,7 @@
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/documentconstants.hxx>
+#include <officecfg/Office/Common.hxx>
 
 #include <xcreator.hxx>
 #include <dummyobject.hxx>
@@ -51,7 +50,7 @@ uno::Sequence< OUString > UNOEmbeddedObjectCreator::impl_staticGetSupportedServi
 
 OUString UNOEmbeddedObjectCreator::impl_staticGetImplementationName()
 {
-    return OUString("com.sun.star.comp.embed.EmbeddedObjectCreator");
+    return "com.sun.star.comp.embed.EmbeddedObjectCreator";
 }
 
 
@@ -138,9 +137,8 @@ uno::Reference< uno::XInterface > SAL_CALL UNOEmbeddedObjectCreator::createInsta
         }
 
         try {
-            uno::Reference< lang::XComponent > xComp( xSubStorage, uno::UNO_QUERY );
-            if ( xComp.is() )
-                xComp->dispose();
+            if ( xSubStorage.is() )
+                xSubStorage->dispose();
         }
         catch ( const uno::Exception& )
         {
@@ -209,6 +207,56 @@ uno::Reference< uno::XInterface > SAL_CALL UNOEmbeddedObjectCreator::createInsta
     return xResult;
 }
 
+/**
+ * Decides if rFilter should be used to load data into a doc model or real OLE embedding should
+ * happen. Empty return value means the later.
+ */
+static OUString HandleFilter(const uno::Reference<uno::XComponentContext>& xComponentContext,
+                             const OUString& rFilter)
+{
+    OUString aRet = rFilter;
+
+    if (!officecfg::Office::Common::Filter::Microsoft::Import::WinWordToWriter::get(
+            xComponentContext))
+    {
+        if (rFilter == "MS Word 97" || rFilter == "MS Word 2007 XML")
+        {
+            aRet.clear();
+        }
+    }
+
+    if (!officecfg::Office::Common::Filter::Microsoft::Import::ExcelToCalc::get(xComponentContext))
+    {
+        if (rFilter == "MS Excel 97" || rFilter == "Calc MS Excel 2007 XML")
+        {
+            aRet.clear();
+        }
+    }
+    if (!officecfg::Office::Common::Filter::Microsoft::Import::PowerPointToImpress::get(
+            xComponentContext))
+    {
+        if (rFilter == "MS PowerPoint 97" || rFilter == "Impress MS PowerPoint 2007 XML")
+        {
+            aRet.clear();
+        }
+    }
+    if (!officecfg::Office::Common::Filter::Microsoft::Import::VisioToDraw::get(xComponentContext))
+    {
+        if (rFilter == "Visio Document")
+        {
+            aRet.clear();
+        }
+    }
+    if (!officecfg::Office::Common::Filter::Adobe::Import::PDFToDraw::get(xComponentContext))
+    {
+        if (rFilter == "draw_pdf_import")
+        {
+            aRet.clear();
+        }
+    }
+
+    return aRet;
+}
 
 uno::Reference< uno::XInterface > SAL_CALL UNOEmbeddedObjectCreator::createInstanceInitFromMediaDescriptor(
         const uno::Reference< embed::XStorage >& xStorage,
@@ -233,6 +281,8 @@ uno::Reference< uno::XInterface > SAL_CALL UNOEmbeddedObjectCreator::createInsta
 
     // check if there is FilterName
     OUString aFilterName = m_aConfigHelper.UpdateMediaDescriptorWithFilterName( aTempMedDescr, false );
+
+    aFilterName = HandleFilter(m_xContext, aFilterName);
 
     if ( !aFilterName.isEmpty() )
     {

@@ -121,7 +121,7 @@ uno::Reference< uno::XInterface > OShape::create(uno::Reference< uno::XComponent
 
 OUString OShape::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.report.Shape");
+    return "com.sun.star.comp.report.Shape";
 }
 
 
@@ -132,9 +132,7 @@ OUString SAL_CALL OShape::getImplementationName(  )
 
 uno::Sequence< OUString > OShape::getSupportedServiceNames_Static(  )
 {
-    uno::Sequence< OUString > aServices { SERVICE_SHAPE };
-
-    return aServices;
+    return { SERVICE_SHAPE };
 }
 
 uno::Sequence< OUString > SAL_CALL OShape::getSupportedServiceNames(  )
@@ -200,7 +198,7 @@ cppu::IPropertyArrayHelper& OShape::getInfoHelper()
             aAggSeq = m_aProps.aComponent.m_xProperty->getPropertySetInfo()->getProperties();
         m_pAggHelper.reset(new OPropertyArrayAggregationHelper(ShapePropertySet::getPropertySetInfo()->getProperties(),aAggSeq));
     }
-    return *(m_pAggHelper.get());
+    return *m_pAggHelper;
 }
 
 
@@ -421,7 +419,7 @@ OUString SAL_CALL OShape::getShapeType(  )
     ::osl::MutexGuard aGuard(m_aMutex);
     if ( m_aProps.aComponent.m_xShape.is() )
         return m_aProps.aComponent.m_xShape->getShapeType();
-    return OUString("com.sun.star.drawing.CustomShape");
+    return "com.sun.star.drawing.CustomShape";
 }
 
 ::sal_Int32 SAL_CALL OShape::getZOrder()

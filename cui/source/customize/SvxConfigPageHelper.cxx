@@ -19,10 +19,15 @@
 
 #include <SvxConfigPageHelper.hxx>
 
+#include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
+#include <com/sun/star/ui/ImageType.hpp>
+#include <com/sun/star/ui/ItemType.hpp>
 
 #include <comphelper/random.hxx>
 #include <comphelper/processfactory.hxx>
+#include <svtools/imgdef.hxx>
+#include <svtools/miscopt.hxx>
 
 static sal_Int16 theImageType =
     css::ui::ImageType::COLOR_NORMAL |
@@ -191,8 +196,7 @@ sal_uInt32 SvxConfigPageHelper::generateRandomValue()
 
 OUString SvxConfigPageHelper::generateCustomURL( SvxEntries* entries )
 {
-    OUString url = ITEM_TOOLBAR_URL;
-    url += CUSTOM_TOOLBAR_STR;
+    OUString url = OUStringLiteral(ITEM_TOOLBAR_URL) + CUSTOM_TOOLBAR_STR;
 
     // use a random number to minimize possible clash with existing custom toolbars
     url += OUString::number( generateRandomValue(), 16 );
@@ -221,29 +225,29 @@ OUString SvxConfigPageHelper::GetModuleName( const OUString& aModuleId )
 {
     if ( aModuleId == "com.sun.star.text.TextDocument" ||
          aModuleId == "com.sun.star.text.GlobalDocument" )
-        return OUString("Writer");
+        return "Writer";
     else if ( aModuleId == "com.sun.star.text.WebDocument" )
-        return OUString("Writer/Web");
+        return "Writer/Web";
     else if ( aModuleId == "com.sun.star.drawing.DrawingDocument" )
-        return OUString("Draw");
+        return "Draw";
     else if ( aModuleId == "com.sun.star.presentation.PresentationDocument" )
-        return OUString("Impress");
+        return "Impress";
     else if ( aModuleId == "com.sun.star.sheet.SpreadsheetDocument" )
-        return OUString("Calc");
+        return "Calc";
     else if ( aModuleId == "com.sun.star.script.BasicIDE" )
-        return OUString("Basic");
+        return "Basic";
     else if ( aModuleId == "com.sun.star.formula.FormulaProperties" )
-        return OUString("Math");
+        return "Math";
     else if ( aModuleId == "com.sun.star.sdb.RelationDesign" )
-        return OUString("Relation Design");
+        return "Relation Design";
     else if ( aModuleId == "com.sun.star.sdb.QueryDesign" )
-        return OUString("Query Design");
+        return "Query Design";
     else if ( aModuleId == "com.sun.star.sdb.TableDesign" )
-        return OUString("Table Design");
+        return "Table Design";
     else if ( aModuleId == "com.sun.star.sdb.DataSourceBrowser" )
-        return OUString("Data Source Browser" );
+        return "Data Source Browser";
     else if ( aModuleId == "com.sun.star.sdb.DatabaseDocument" )
-        return OUString("Database" );
+        return "Database";
 
     return OUString();
 }

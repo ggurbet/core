@@ -24,7 +24,6 @@
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/text/XAutoTextGroup.hpp>
 #include <com/sun/star/text/XAutoTextEntry.hpp>
 #include <com/sun/star/text/XAutoTextContainer2.hpp>
@@ -234,9 +233,9 @@ public:
     virtual css::uno::Reference< css::container::XNameReplace > SAL_CALL getEvents(  ) override;
 
     void    Invalidate() {pGlossaries = nullptr;}
-    const SwGlossaries* GetGlossaries() { return pGlossaries; }
-    const OUString&   GetGroupName() {return sGroupName;}
-    const OUString&   GetEntryName() {return sEntryName;}
+    const SwGlossaries* GetGlossaries() const { return pGlossaries; }
+    const OUString&   GetGroupName() const {return sGroupName;}
+    const OUString&   GetEntryName() const {return sEntryName;}
 };
 
 /** Implement the XNameAccess for the AutoText events */

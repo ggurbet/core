@@ -21,17 +21,12 @@
 
 #include <ooo/vba/excel/XWindow.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
-#include <com/sun/star/sheet/XViewPane.hpp>
-#include <com/sun/star/sheet/XViewFreezable.hpp>
-#include <com/sun/star/sheet/XViewSplitable.hpp>
 #include <com/sun/star/frame/XModel.hpp>
 #include <ooo/vba/excel/XPane.hpp>
 #include <com/sun/star/awt/XDevice.hpp>
 #include <cppuhelper/implbase.hxx>
 
-#include <vbahelper/vbahelperinterface.hxx>
 #include <vbahelper/vbawindowbase.hxx>
-#include "vbaworkbook.hxx"
 
 typedef cppu::ImplInheritanceHelper< VbaWindowBase, ov::excel::XWindow > WindowImpl_BASE;
 
@@ -42,11 +37,11 @@ private:
 
     void init();
     /// @throws css::uno::RuntimeException
-    css::uno::Reference< css::beans::XPropertySet > getControllerProps();
+    css::uno::Reference< css::beans::XPropertySet > getControllerProps() const;
     /// @throws css::uno::RuntimeException
-    css::uno::Reference< css::beans::XPropertySet > getFrameProps();
+    css::uno::Reference< css::beans::XPropertySet > getFrameProps() const;
     /// @throws css::uno::RuntimeException
-    css::uno::Reference< css::awt::XDevice > getDevice();
+    css::uno::Reference< css::awt::XDevice > getDevice() const;
 
 protected:
     void SplitAtDefinedPosition( sal_Int32 nColumns, sal_Int32 nRows );

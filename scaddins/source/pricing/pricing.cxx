@@ -172,23 +172,19 @@ OUString ScaPricingAddIn::GetFuncDescrStr(const char** pResId, sal_uInt16 nStrIn
 
 OUString ScaPricingAddIn::getImplementationName_Static()
 {
-    return OUString( MY_IMPLNAME );
+    return MY_IMPLNAME;
 }
 
 uno::Sequence< OUString > ScaPricingAddIn::getSupportedServiceNames_Static()
 {
-    uno::Sequence< OUString > aRet( 2 );
-    OUString* pArray = aRet.getArray();
-    pArray[0] = ADDIN_SERVICE;
-    pArray[1] = MY_SERVICE;
-    return aRet;
+    return { ADDIN_SERVICE, MY_SERVICE };
 }
 
 // XServiceName
 OUString SAL_CALL ScaPricingAddIn::getServiceName()
 {
     // name of specific AddIn service
-    return OUString( MY_SERVICE );
+    return MY_SERVICE;
 }
 
 // XServiceInfo
@@ -242,8 +238,7 @@ OUString SAL_CALL ScaPricingAddIn::getDisplayFunctionName( const OUString& aProg
     }
     else
     {
-        aRet = "UNKNOWNFUNC_";
-        aRet += aProgrammaticName;
+        aRet = "UNKNOWNFUNC_" + aProgrammaticName;
     }
 
     return aRet;

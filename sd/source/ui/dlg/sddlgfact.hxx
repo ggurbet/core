@@ -41,38 +41,6 @@
 #include <vectdlg.hxx>
 #include <BulletAndPositionDlg.hxx>
 
-#define DECL_ABSTDLG_BASE(Class,DialogClass)            \
-    ScopedVclPtr<DialogClass> pDlg;                     \
-public:                                                 \
-    explicit Class(DialogClass* p)                      \
-        : pDlg(p)                                       \
-    {                                                   \
-    }                                                   \
-    virtual std::vector<OString> getAllPageUIXMLDescriptions() const override; \
-    virtual bool selectPageByUIXMLDescription(const OString& rUIXMLDescription) override; \
-    virtual BitmapEx createScreenshot() const override;   \
-    virtual OString GetScreenshotId() const override;   \
-    virtual         ~Class() override;                           \
-    virtual short   Execute() override; \
-    virtual bool StartExecuteAsync(AsyncContext &ctx) override;
-
-#define IMPL_ABSTDLG_BASE(Class)                    \
-std::vector<OString> Class::getAllPageUIXMLDescriptions() const { return pDlg->getAllPageUIXMLDescriptions(); } \
-bool Class::selectPageByUIXMLDescription(const OString& rUIXMLDescription) { return pDlg->selectPageByUIXMLDescription(rUIXMLDescription); } \
-BitmapEx Class::createScreenshot() const { return pDlg->createScreenshot();} \
-OString Class::GetScreenshotId() const { return pDlg->GetScreenshotId();} \
-Class::~Class()                                     \
-{                                                   \
-}                                                   \
-short Class::Execute()                              \
-{                                                   \
-    return pDlg->Execute();                         \
-}                                                   \
-bool Class::StartExecuteAsync(AsyncContext &ctx) \
-{                                                   \
-    return pDlg->StartExecuteAsync(ctx);            \
-}
-
 //namespace sd {
 //    class MorphDlg;
 //    class CopyDlg;
@@ -98,12 +66,6 @@ public:
     virtual bool IsSlideScope() override;
 };
 
-
-class SdVclAbstractDialog_Impl : public VclAbstractDialog
-{
-    DECL_ABSTDLG_BASE(SdVclAbstractDialog_Impl,Dialog)
-};
-
 class SdAbstractGenericDialog_Impl : public VclAbstractDialog
 {
     std::unique_ptr<weld::GenericDialogController> m_xDlg;
@@ -113,6 +75,10 @@ public:
     {
     }
     virtual short Execute() override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractMasterLayoutDialog_Impl : public VclAbstractDialog
@@ -122,6 +88,10 @@ private:
 public:
     AbstractMasterLayoutDialog_Impl(std::unique_ptr<::sd::MasterLayoutDialog> pDlg);
     virtual short Execute() override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractBreakDlg_Impl : public VclAbstractDialog
@@ -131,6 +101,10 @@ private:
 public:
     AbstractBreakDlg_Impl(std::unique_ptr<::sd::BreakDlg> pDlg);
     virtual short Execute() override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractCopyDlg_Impl : public AbstractCopyDlg
@@ -144,6 +118,10 @@ public:
     }
     virtual short Execute() override;
     virtual void    GetAttr( SfxItemSet& rOutAttrs ) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractSdCustomShowDlg_Impl : public AbstractSdCustomShowDlg
@@ -158,6 +136,10 @@ public:
     virtual short       Execute() override;
     virtual bool        IsModified() const override ;
     virtual bool        IsCustomShow() const override ;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class SdAbstractTabController_Impl : public SfxAbstractTabDialog
@@ -174,8 +156,11 @@ public:
     virtual const SfxItemSet*   GetOutputItemSet() const override;
     virtual const sal_uInt16*   GetInputRanges( const SfxItemPool& pItem ) override;
     virtual void                SetInputSet( const SfxItemSet* pInSet ) override;
-        //From class Window.
     virtual void        SetText( const OUString& rStr ) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractBulletDialog_Impl : public SfxAbstractTabDialog
@@ -192,8 +177,11 @@ public:
     virtual const SfxItemSet*   GetOutputItemSet() const override;
     virtual const sal_uInt16*       GetInputRanges( const SfxItemPool& pItem ) override;
     virtual void                SetInputSet( const SfxItemSet* pInSet ) override;
-        //From class Window.
     virtual void        SetText( const OUString& rStr ) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class SdPresLayoutTemplateDlg_Impl : public SfxAbstractTabDialog
@@ -210,8 +198,11 @@ public:
     virtual const SfxItemSet*   GetOutputItemSet() const override;
     virtual const sal_uInt16*       GetInputRanges( const SfxItemPool& pItem ) override;
     virtual void                SetInputSet( const SfxItemSet* pInSet ) override;
-        //From class Window.
     virtual void        SetText( const OUString& rStr ) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractSdModifyFieldDlg_Impl : public AbstractSdModifyFieldDlg
@@ -226,6 +217,10 @@ public:
     virtual short Execute() override;
     virtual SvxFieldData*       GetField() override;
     virtual SfxItemSet          GetItemSet() override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractSdSnapLineDlg_Impl : public AbstractSdSnapLineDlg
@@ -242,8 +237,11 @@ public:
     virtual void HideRadioGroup() override;
     virtual void HideDeleteBtn() override;
     virtual void SetInputFields(bool bEnableX, bool bEnableY) override;
-    //from class Window
-    virtual void    SetText( const OUString& rStr ) override;
+    virtual void SetText( const OUString& rStr ) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractSdInsertLayerDlg_Impl : public AbstractSdInsertLayerDlg
@@ -257,8 +255,11 @@ public:
     }
     virtual short   Execute() override;
     virtual void    GetAttr( SfxItemSet& rOutAttrs ) override ;
-    //from class Window
     virtual void    SetHelpId( const OString& rHelpId ) override ;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractSdInsertPagesObjsDlg_Impl : public AbstractSdInsertPagesObjsDlg
@@ -274,6 +275,10 @@ public:
     virtual std::vector<OUString> GetList ( const sal_uInt16 nType ) override;
     virtual bool        IsLink() override;
     virtual bool        IsRemoveUnnessesaryMasterPages() const override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractMorphDlg_Impl : public AbstractMorphDlg
@@ -290,6 +295,10 @@ public:
     virtual sal_uInt16      GetFadeSteps() const override;
     virtual bool            IsAttributeFade() const override ;
     virtual bool            IsOrientationFade() const override ;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractSdStartPresDlg_Impl : public AbstractSdStartPresDlg
@@ -303,6 +312,10 @@ public:
     }
     virtual short   Execute() override;
     virtual void    GetAttr( SfxItemSet& rOutAttrs ) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractSdPresLayoutDlg_Impl : public AbstractSdPresLayoutDlg
@@ -316,6 +329,10 @@ public:
     }
     virtual short   Execute() override;
     virtual void    GetAttr(SfxItemSet& rOutAttrs) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class SdAbstractSfxDialog_Impl : public SfxAbstractDialog
@@ -343,12 +360,27 @@ public:
     }
     virtual short Execute() override;
     virtual const GDIMetaFile&  GetGDIMetaFile() const override ;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractSdPublishingDlg_Impl :public AbstractSdPublishingDlg
 {
-    DECL_ABSTDLG_BASE(AbstractSdPublishingDlg_Impl,SdPublishingDlg)
+private:
+    std::unique_ptr<SdPublishingDlg> m_xDlg;
+public:
+    AbstractSdPublishingDlg_Impl(std::unique_ptr<SdPublishingDlg> pDlg)
+        : m_xDlg(std::move(pDlg))
+    {
+    }
+    virtual short Execute() override;
     virtual void GetParameterSequence( css::uno::Sequence< css::beans::PropertyValue >& rParams ) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 class AbstractHeaderFooterDialog_Impl :public AbstractHeaderFooterDialog
@@ -362,6 +394,10 @@ public:
     }
     virtual short Execute() override;
     virtual bool  StartExecuteAsync(AsyncContext &rCtx) override;
+
+    // screenshotting
+    virtual BitmapEx createScreenshot() const override;
+    virtual OString GetScreenshotId() const override;
 };
 
 //AbstractDialogFactory_Impl implementations
@@ -386,13 +422,13 @@ public:
     virtual VclPtr<SfxAbstractTabDialog>       CreateSdParagraphTabDlg(weld::Window* pParent, const SfxItemSet* pAttr) override;
     virtual VclPtr<AbstractSdStartPresDlg>     CreateSdStartPresentationDlg(weld::Window* pWindow, const SfxItemSet& rInAttrs,
                                                                      const std::vector<OUString> &rPageNames, SdCustomShowList* pCSList ) override;
-    virtual VclPtr<VclAbstractDialog>          CreateRemoteDialog( vcl::Window* pWindow ) override; // add for RemoteDialog
+    virtual VclPtr<VclAbstractDialog>          CreateRemoteDialog(weld::Window* pWindow) override; // add for RemoteDialog
     virtual VclPtr<SfxAbstractTabDialog>       CreateSdPresLayoutTemplateDlg(SfxObjectShell* pDocSh, weld::Window* pParent, bool bBackgroundDlg, SfxStyleSheetBase& rStyleBase, PresentationObjects ePO, SfxStyleSheetBasePool* pSSPool) override;
     virtual VclPtr<AbstractSdPresLayoutDlg>    CreateSdPresLayoutDlg(weld::Window* pParent, ::sd::DrawDocShell* pDocShell, const SfxItemSet& rInAttrs) override;
     virtual VclPtr<SfxAbstractTabDialog>       CreateSdTabTemplateDlg(weld::Window* pParent, const SfxObjectShell* pDocShell, SfxStyleSheetBase& rStyleBase, SdrModel* pModel, SdrView* pView ) override;
     virtual VclPtr<SfxAbstractDialog>          CreatSdActionDialog(weld::Window* pParent, const SfxItemSet* pAttr, ::sd::View* pView) override;
     virtual VclPtr<AbstractSdVectorizeDlg>     CreateSdVectorizeDlg(weld::Window* pParent, const Bitmap& rBmp, ::sd::DrawDocShell* pDocShell) override;
-    virtual VclPtr<AbstractSdPublishingDlg>    CreateSdPublishingDlg(vcl::Window* pWindow, DocumentType eDocType) override;
+    virtual VclPtr<AbstractSdPublishingDlg>    CreateSdPublishingDlg(weld::Window* pWindow, DocumentType eDocType) override;
 
     virtual VclPtr<VclAbstractDialog>          CreateSdPhotoAlbumDialog(weld::Window* pWindow, SdDrawDocument* pDoc) override;
 

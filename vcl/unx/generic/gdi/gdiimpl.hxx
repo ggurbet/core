@@ -21,10 +21,7 @@
 #define INCLUDED_VCL_GENERIC_GDI_GDIIMPL_HXX
 
 #include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/extensions/Xrender.h>
 
-#include <unx/saltype.h>
 #include <unx/x11/x11gdiimpl.h>
 
 #include <salgdiimpl.hxx>
@@ -289,13 +286,6 @@ public:
     // implementation of X11GraphicsImpl
 
     void Init() override;
-    void FillPixmapFromScreen( X11Pixmap* pPixmap, int nX, int nY ) override;
-    bool RenderPixmapToScreen( X11Pixmap* pPixmap, X11Pixmap* pMask, int nX, int nY ) override;
-
-    virtual bool TryRenderCachedNativeControl(ControlCacheKey& rControlCacheKey,
-                                              int nX, int nY) override;
-    virtual bool RenderAndCacheNativeControl(X11Pixmap* pPixmap, X11Pixmap* pMask, int nX, int nY,
-                                             ControlCacheKey& aControlCacheKey) override;
 };
 
 #endif

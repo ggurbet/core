@@ -18,12 +18,7 @@
  */
 
 #include <com/sun/star/embed/EmbedVerbs.hpp>
-#include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/chart2/XChartDocument.hpp>
-#include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/drawing/LineStyle.hpp>
 
 #include <ViewShell.hxx>
 #include <ViewShellHint.hxx>
@@ -35,17 +30,13 @@
 #include <vcl/scrbar.hxx>
 #include <svx/svdpagv.hxx>
 #include <sfx2/dispatch.hxx>
-#include <sfx2/app.hxx>
 #include <svx/ruler.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/outliner.hxx>
 #include <svtools/ehdl.hxx>
 #include <svx/svdoole2.hxx>
 #include <svtools/sfxecode.hxx>
-#include <svx/fmshell.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <unotools/moduleoptions.hxx>
-#include <svx/dialogs.hrc>
 #include <comphelper/classids.hxx>
 
 #include <strings.hrc>
@@ -54,15 +45,12 @@
 
 #include <sdundogr.hxx>
 #include <FrameView.hxx>
-#include <undopage.hxx>
 #include <sdresid.hxx>
 #include <drawdoc.hxx>
 #include <View.hxx>
 #include <fupoor.hxx>
 #include <Client.hxx>
 #include <DrawDocShell.hxx>
-#include <fusearch.hxx>
-#include <slideshow.hxx>
 #include <sdpage.hxx>
 #include <DrawViewShell.hxx>
 #include <ViewShellBase.hxx>
@@ -604,10 +592,7 @@ bool ViewShell::RequestHelp(const HelpEvent& rHEvt)
 
     if (bool(rHEvt.GetMode()))
     {
-        if( GetView() )
-            bReturn = GetView()->getSmartTags().RequestHelp(rHEvt);
-
-        if(!bReturn && HasCurrentFunction())
+        if(HasCurrentFunction())
         {
             bReturn = GetCurrentFunction()->RequestHelp(rHEvt);
         }
@@ -752,8 +737,7 @@ bool ViewShell::ActivateObject(SdrOle2Obj* pObj, long nVerb)
         }
 
         SfxInPlaceClient* pSdClient =
-            static_cast<Client*>(pViewShell->FindIPClient(
-                pObj->GetObjRef(), GetActiveWindow()));
+            pViewShell->FindIPClient(pObj->GetObjRef(), GetActiveWindow());
 
         if ( !pSdClient )
         {
@@ -882,12 +866,12 @@ void ViewShell::SetScrollBarsVisible(bool bVisible)
 sal_Int8 ViewShell::AcceptDrop (
     const AcceptDropEvent& rEvt,
     DropTargetHelper& rTargetHelper,
-    ::sd::Window* pTargetWindow,
-    sal_uInt16 nPage,
+    ::sd::Window* /*pTargetWindow*/,
+    sal_uInt16 /*nPage*/,
     SdrLayerID nLayer)
 {
     ::sd::View* pView = GetView();
-    return( pView ? pView->AcceptDrop( rEvt, rTargetHelper, pTargetWindow, nPage, nLayer ) : DND_ACTION_NONE );
+    return( pView ? pView->AcceptDrop( rEvt, rTargetHelper, nLayer ) : DND_ACTION_NONE );
 }
 
 sal_Int8 ViewShell::ExecuteDrop (

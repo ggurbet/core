@@ -119,13 +119,13 @@ namespace accessibility
         SolarMethodGuard aGuard(getMutex());
         ensureIsAlive();
 
-        if ( !implIsValidIndex( nIndex, implGetText().getLength() ) )
-            throw IndexOutOfBoundsException();
-
         css::awt::Rectangle aRect;
 
         if ( mpBrowseBox )
         {
+            if ( !implIsValidIndex( nIndex, implGetText().getLength() ) )
+                throw IndexOutOfBoundsException();
+
             aRect = AWTRectangle( mpBrowseBox->GetFieldCharacterBounds( getRowPos(), getColumnPos(), nIndex ) );
         }
 
@@ -147,7 +147,7 @@ namespace accessibility
     */
     OUString SAL_CALL AccessibleBrowseBoxTableCell::getImplementationName()
     {
-        return OUString( "com.sun.star.comp.svtools.AccessibleBrowseBoxTableCell" );
+        return "com.sun.star.comp.svtools.AccessibleBrowseBoxTableCell";
     }
 
     /** @return  The count of visible children. */

@@ -45,6 +45,7 @@
 #include "zforscan.hxx"
 #include "zforfind.hxx"
 #include <svl/zformat.hxx>
+#include <i18npool/reservedconstants.hxx>
 
 #include <unotools/syslocaleoptions.hxx>
 #include <unotools/digitgroupingiterator.hxx>
@@ -91,6 +92,12 @@ using namespace ::std;
 #define ZF_STANDARD_TEXT        SV_MAX_COUNT_STANDARD_FORMATS   // 100
 
 static_assert( ZF_STANDARD_TEXT == NF_STANDARD_FORMAT_TEXT, "definition mismatch" );
+
+static_assert( NF_INDEX_TABLE_ENTRIES <= i18npool::nFirstFreeFormatIndex,
+        "NfIndexTableOffset crosses i18npool's locale data reserved format code index bounds.\n"
+        "You will need to adapt all locale data files defining index values "
+        "(formatIndex=\"...\") in that range and increment those and when done "
+        "adjust nFirstFreeFormatIndex in i18npool/reservedconstants.hxx");
 
 /* Locale that is set if an unknown locale (from another system) is loaded of
  * legacy documents. Can not be SYSTEM because else, for example, a German "DM"
@@ -156,7 +163,8 @@ static sal_uInt32 const indexTable[NF_INDEX_TABLE_ENTRIES] = {
     ZF_STANDARD_FRACTION + 6, // NF_FRACTION_16
     ZF_STANDARD_FRACTION + 7, // NF_FRACTION_10
     ZF_STANDARD_FRACTION + 8, // NF_FRACTION_100
-    ZF_STANDARD_DATETIME + 2 // NF_DATETIME_ISO_YYYYMMDD_HHMMSS
+    ZF_STANDARD_DATETIME + 2, // NF_DATETIME_ISO_YYYYMMDD_HHMMSS
+    ZF_STANDARD_DATETIME + 3  // NF_DATETIME_ISO_YYYYMMDDTHHMMSS
 };
 
 /**
@@ -779,12 +787,50 @@ void SvNumberFormatter::FillKeywordTableForExcel( NfKeywordTable& rKeywords )
 
     // Replace upper case "GENERAL" with proper case "General".
     rKeywords[ NF_KEY_GENERAL ] = GetStandardName( LANGUAGE_ENGLISH_US );
+
+    // Excel or OOXML do not specify format code keywords case sensitivity,
+    // but given and writes them lower case. Using upper case even lead to an
+    // odd misrepresentation in iOS viewer and OSX Quicklook viewer that
+    // strangely use "D" and "DD" for "days since beginning of year", which is
+    // nowhere defined. See tdf#126773
+    // Use lower case for all date and time keywords where known. See OOXML
+    // ECMA-376-1:2016 18.8.31 numFmts (Number Formats)
+    rKeywords[ NF_KEY_MI ]    = "m";
+    rKeywords[ NF_KEY_MMI ]   = "mm";
+    rKeywords[ NF_KEY_M ]     = "m";
+    rKeywords[ NF_KEY_MM ]    = "mm";
+    rKeywords[ NF_KEY_MMM ]   = "mmm";
+    rKeywords[ NF_KEY_MMMM ]  = "mmmm";
+    rKeywords[ NF_KEY_MMMMM ] = "mmmmm";
+    rKeywords[ NF_KEY_H ]     = "h";
+    rKeywords[ NF_KEY_HH ]    = "hh";
+    rKeywords[ NF_KEY_S ]     = "s";
+    rKeywords[ NF_KEY_SS ]    = "ss";
+    /* XXX: not defined in OOXML: rKeywords[ NF_KEY_Q ]     = "q"; */
+    /* XXX: not defined in OOXML: rKeywords[ NF_KEY_QQ ]    = "qq"; */
+    rKeywords[ NF_KEY_D ]     = "d";
+    rKeywords[ NF_KEY_DD ]    = "dd";
+    rKeywords[ NF_KEY_DDD ]   = "ddd";
+    rKeywords[ NF_KEY_DDDD ]  = "dddd";
+    rKeywords[ NF_KEY_YY ]    = "yy";
+    rKeywords[ NF_KEY_YYYY ]  = "yyyy";
+    /* XXX: not defined in OOXML: rKeywords[ NF_KEY_AAA ]   = "aaa"; */
+    /* XXX: not defined in OOXML: rKeywords[ NF_KEY_AAAA ]  = "aaaa"; */
+    rKeywords[ NF_KEY_EC ]    = "e";
+    rKeywords[ NF_KEY_EEC ]   = "ee";
+    rKeywords[ NF_KEY_G ]     = "g";
+    rKeywords[ NF_KEY_GG ]    = "gg";
+    rKeywords[ NF_KEY_GGG ]   = "ggg";
+    rKeywords[ NF_KEY_R ]     = "r";
+    rKeywords[ NF_KEY_RR ]    = "rr";
+    /* XXX: not defined in OOXML: rKeywords[ NF_KEY_WW ]    = "ww"; */
+
     // Remap codes unknown to Excel.
-    rKeywords[ NF_KEY_NN ] = "DDD";
-    rKeywords[ NF_KEY_NNN ] = "DDDD";
+    rKeywords[ NF_KEY_NN ] = "ddd";
+    rKeywords[ NF_KEY_NNN ] = "dddd";
     // NNNN gets a separator appended in SvNumberformat::GetMappedFormatString()
-    rKeywords[ NF_KEY_NNNN ] = "DDDD";
-    // Export the Thai T NatNum modifier.
+    rKeywords[ NF_KEY_NNNN ] = "dddd";
+    // Export the Thai T NatNum modifier. This must be uppercase for internal reasons.
     rKeywords[ NF_KEY_THAI_T ] = "T";
 }
 
@@ -1154,6 +1200,21 @@ bool SvNumberFormatter::IsNumberFormat(const OUString& sString,
                 F_Index = GetStandardFormat( RType, ActLnge );
             }
             break;
+        case SvNumFormatType::DATETIME :
+            // Preserve ISO 8601 input.
+            if (pStringScanner->HasIso8601Tsep())
+            {
+                F_Index = GetFormatIndex( NF_DATETIME_ISO_YYYYMMDDTHHMMSS, ActLnge );
+            }
+            else if (pStringScanner->CanForceToIso8601( DateOrder::Invalid))
+            {
+                F_Index = GetFormatIndex( NF_DATETIME_ISO_YYYYMMDD_HHMMSS, ActLnge );
+            }
+            else
+            {
+                F_Index = GetStandardFormat( RType, ActLnge );
+            }
+            break;
         default:
             F_Index = GetStandardFormat( RType, ActLnge );
         }
@@ -1507,7 +1568,9 @@ sal_uInt32 SvNumberFormatter::GetEditFormat( double fNumber, sal_uInt32 nFIndex,
         nKey = GetTimeFormat( fNumber, eLang, true);
         break;
     case SvNumFormatType::DATETIME :
-        if (nFIndex == GetFormatIndex( NF_DATETIME_ISO_YYYYMMDD_HHMMSS, eLang) || (pFormat && pFormat->IsIso8601( 0 )))
+        if (nFIndex == GetFormatIndex( NF_DATETIME_ISO_YYYYMMDDTHHMMSS, eLang))
+            nKey = GetFormatIndex( NF_DATETIME_ISO_YYYYMMDDTHHMMSS, eLang );
+        else if (nFIndex == GetFormatIndex( NF_DATETIME_ISO_YYYYMMDD_HHMMSS, eLang) || (pFormat && pFormat->IsIso8601( 0 )))
             nKey = GetFormatIndex( NF_DATETIME_ISO_YYYYMMDD_HHMMSS, eLang );
         else
             nKey = GetFormatIndex( NF_DATETIME_SYS_DDMMYYYY_HHMMSS, eLang );
@@ -2051,20 +2114,30 @@ OUString SvNumberFormatter::GetFormatDecimalSep( sal_uInt32 nFormat ) const
 {
     ::osl::MutexGuard aGuard( GetInstanceMutex() );
     const SvNumberformat* pFormat = GetFormatEntry(nFormat);
-    if ( !pFormat || pFormat->GetLanguage() == ActLnge )
+    if (!pFormat)
+    {
+        return GetNumDecimalSep();
+    }
+    return GetLangDecimalSep( pFormat->GetLanguage());
+}
+
+OUString SvNumberFormatter::GetLangDecimalSep( LanguageType nLang ) const
+{
+    ::osl::MutexGuard aGuard( GetInstanceMutex() );
+    if (nLang == ActLnge)
     {
         return GetNumDecimalSep();
     }
     OUString aRet;
     LanguageType eSaveLang = xLocaleData.getCurrentLanguage();
-    if ( pFormat->GetLanguage() == eSaveLang )
+    if (nLang == eSaveLang)
     {
         aRet = xLocaleData->getNumDecimalSep();
     }
     else
     {
         LanguageTag aSaveLocale( xLocaleData->getLanguageTag() );
-        const_cast<SvNumberFormatter*>(this)->xLocaleData.changeLocale( LanguageTag( pFormat->GetLanguage()) );
+        const_cast<SvNumberFormatter*>(this)->xLocaleData.changeLocale( LanguageTag( nLang));
         aRet = xLocaleData->getNumDecimalSep();
         const_cast<SvNumberFormatter*>(this)->xLocaleData.changeLocale( aSaveLocale );
     }
@@ -2106,12 +2179,10 @@ sal_Int32 SvNumberFormatter::ImpGetFormatCodeIndex(
             css::uno::Sequence< css::i18n::NumberFormatCode >& rSeq,
             const NfIndexTableOffset nTabOff )
 {
-    const sal_Int32 nLen = rSeq.getLength();
-    for ( sal_Int32 j=0; j<nLen; j++ )
-    {
-        if ( rSeq[j].Index == nTabOff )
-            return j;
-    }
+    auto pSeq = std::find_if(rSeq.begin(), rSeq.end(),
+        [nTabOff](const css::i18n::NumberFormatCode& rCode) { return rCode.Index == nTabOff; });
+    if (pSeq != rSeq.end())
+        return static_cast<sal_Int32>(std::distance(rSeq.begin(), pSeq));
     if (LocaleDataWrapper::areChecksEnabled() && (nTabOff < NF_CURRENCY_START
                 || NF_CURRENCY_END < nTabOff || nTabOff == NF_CURRENCY_1000INT
                 || nTabOff == NF_CURRENCY_1000INT_RED
@@ -2121,31 +2192,27 @@ sal_Int32 SvNumberFormatter::ImpGetFormatCodeIndex(
                       + OUString::number( nTabOff );
         LocaleDataWrapper::outputCheckMessage( xLocaleData->appendLocaleInfo(aMsg));
     }
-    if ( nLen )
+    if ( rSeq.hasElements() )
     {
-        sal_Int32 j;
         // look for a preset default
-        for ( j=0; j<nLen; j++ )
-        {
-            if ( rSeq[j].Default )
-                return j;
-        }
+        pSeq = std::find_if(rSeq.begin(), rSeq.end(),
+            [](const css::i18n::NumberFormatCode& rCode) { return rCode.Default; });
+        if (pSeq != rSeq.end())
+            return static_cast<sal_Int32>(std::distance(rSeq.begin(), pSeq));
         // currencies are special, not all format codes must exist, but all
         // builtin number format key index positions must have a format assigned
         if ( NF_CURRENCY_START <= nTabOff && nTabOff <= NF_CURRENCY_END )
         {
             // look for a format with decimals
-            for ( j=0; j<nLen; j++ )
-            {
-                if ( rSeq[j].Index == NF_CURRENCY_1000DEC2 )
-                    return j;
-            }
+            pSeq = std::find_if(rSeq.begin(), rSeq.end(),
+                [](const css::i18n::NumberFormatCode& rCode) { return rCode.Index == NF_CURRENCY_1000DEC2; });
+            if (pSeq != rSeq.end())
+                return static_cast<sal_Int32>(std::distance(rSeq.begin(), pSeq));
             // last resort: look for a format without decimals
-            for ( j=0; j<nLen; j++ )
-            {
-                if ( rSeq[j].Index == NF_CURRENCY_1000INT )
-                    return j;
-            }
+            pSeq = std::find_if(rSeq.begin(), rSeq.end(),
+                [](const css::i18n::NumberFormatCode& rCode) { return rCode.Index == NF_CURRENCY_1000INT; });
+            if (pSeq != rSeq.end())
+                return static_cast<sal_Int32>(std::distance(rSeq.begin(), pSeq));
         }
     }
     else
@@ -2655,7 +2722,7 @@ void SvNumberFormatter::ImpGenerateFormats( sal_uInt32 CLOffset, bool bNoAdditio
     OUStringBuffer aBuf;
     aSingleFormatCode.Usage = i18n::KNumberFormatUsage::DATE_TIME;
 
-    // YYYY-MM-DD HH:MM:SS   ISO
+    // YYYY-MM-DD HH:MM:SS   ISO (with blank instead of 'T')
     aBuf.append( rKeyword[NF_KEY_YYYY]).append('-').
         append( rKeyword[NF_KEY_MM]).append('-').
         append( rKeyword[NF_KEY_DD]).append(' ').
@@ -2665,6 +2732,19 @@ void SvNumberFormatter::ImpGenerateFormats( sal_uInt32 CLOffset, bool bNoAdditio
     aSingleFormatCode.Code = aBuf.makeStringAndClear();
     ImpInsertFormat( aSingleFormatCode,
                      CLOffset + ZF_STANDARD_DATETIME+2 /* NF_DATETIME_ISO_YYYYMMDD_HHMMSS */ );
+
+    // YYYY-MM-DD"T"HH:MM:SS   ISO
+    aBuf.append( rKeyword[NF_KEY_YYYY]).append('-').
+        append( rKeyword[NF_KEY_MM]).append('-').
+        append( rKeyword[NF_KEY_DD]).append("\"T\"").
+        append( rKeyword[NF_KEY_HH]).append(':').
+        append( rKeyword[NF_KEY_MMI]).append(':').
+        append( rKeyword[NF_KEY_SS]);
+    aSingleFormatCode.Code = aBuf.makeStringAndClear();
+    SvNumberformat* pFormat = ImpInsertFormat( aSingleFormatCode,
+                     CLOffset + ZF_STANDARD_DATETIME+3 /* NF_DATETIME_ISO_YYYYMMDDTHHMMSS */ );
+    assert(pFormat);
+    pFormat->SetComment("ISO 8601");    // not to be localized
 
 
     // Scientific number
@@ -2763,39 +2843,37 @@ void SvNumberFormatter::ImpGenerateAdditionalFormats( sal_uInt32 CLOffset,
     }
     sal_uInt32 nPos = CLOffset + pStdFormat->GetLastInsertKey( SvNumberformat::FormatterPrivateAccess() );
     css::lang::Locale aLocale = GetLanguageTag().getLocale();
-    sal_Int32 j;
 
     // All currencies, this time with [$...] which was stripped in
     // ImpGenerateFormats for old "automatic" currency formats.
     uno::Sequence< i18n::NumberFormatCode > aFormatSeq = rNumberFormatCode->getAllFormatCode( i18n::KNumberFormatUsage::CURRENCY, aLocale );
-    i18n::NumberFormatCode * pFormatArr = aFormatSeq.getArray();
     sal_Int32 nCodes = aFormatSeq.getLength();
     ImpAdjustFormatCodeDefault( aFormatSeq.getArray(), nCodes );
-    for ( j = 0; j < nCodes; j++ )
+    for ( i18n::NumberFormatCode& rFormat : aFormatSeq )
     {
         if ( nPos - CLOffset >= SV_COUNTRY_LANGUAGE_OFFSET )
         {
             SAL_WARN( "svl.numbers", "ImpGenerateAdditionalFormats: too many formats" );
             break;  // for
         }
-        if ( pFormatArr[j].Index < NF_INDEX_TABLE_LOCALE_DATA_DEFAULTS &&
-                pFormatArr[j].Index != NF_CURRENCY_1000DEC2_CCC )
+        if ( rFormat.Index < NF_INDEX_TABLE_LOCALE_DATA_DEFAULTS &&
+                rFormat.Index != NF_CURRENCY_1000DEC2_CCC )
         {   // Insert only if not already inserted, but internal index must be
             // above so ImpInsertFormat can distinguish it.
-            sal_Int16 nOrgIndex = pFormatArr[j].Index;
-            pFormatArr[j].Index = sal::static_int_cast< sal_Int16 >(
-                pFormatArr[j].Index + nCodes + NF_INDEX_TABLE_ENTRIES);
+            sal_Int16 nOrgIndex = rFormat.Index;
+            rFormat.Index = sal::static_int_cast< sal_Int16 >(
+                rFormat.Index + nCodes + NF_INDEX_TABLE_ENTRIES);
             //! no default on currency
-            bool bDefault = aFormatSeq[j].Default;
-            aFormatSeq[j].Default = false;
-            if ( SvNumberformat* pNewFormat = ImpInsertFormat( pFormatArr[j], nPos+1,
+            bool bDefault = rFormat.Default;
+            rFormat.Default = false;
+            if ( SvNumberformat* pNewFormat = ImpInsertFormat( rFormat, nPos+1,
                         bAfterChangingSystemCL, nOrgIndex ) )
             {
                 pNewFormat->SetAdditionalBuiltin();
                 nPos++;
             }
-            pFormatArr[j].Index = nOrgIndex;
-            aFormatSeq[j].Default = bDefault;
+            rFormat.Index = nOrgIndex;
+            rFormat.Default = bDefault;
         }
     }
 
@@ -2806,25 +2884,20 @@ void SvNumberFormatter::ImpGenerateAdditionalFormats( sal_uInt32 CLOffset,
     // There is no harm though, on first invocation ImpGetDefaultFormat() will
     // use the first default encountered.
     aFormatSeq = rNumberFormatCode->getAllFormatCodes( aLocale );
-    nCodes = aFormatSeq.getLength();
-    if ( nCodes )
+    for ( const auto& rFormat : std::as_const(aFormatSeq) )
     {
-        pFormatArr = aFormatSeq.getArray();
-        for ( j = 0; j < nCodes; j++ )
+        if ( nPos - CLOffset >= SV_COUNTRY_LANGUAGE_OFFSET )
         {
-            if ( nPos - CLOffset >= SV_COUNTRY_LANGUAGE_OFFSET )
+            SAL_WARN( "svl.numbers", "ImpGenerateAdditionalFormats: too many formats" );
+            break;  // for
+        }
+        if ( rFormat.Index >= NF_INDEX_TABLE_LOCALE_DATA_DEFAULTS )
+        {
+            if ( SvNumberformat* pNewFormat = ImpInsertFormat( rFormat, nPos+1,
+                        bAfterChangingSystemCL ) )
             {
-                SAL_WARN( "svl.numbers", "ImpGenerateAdditionalFormats: too many formats" );
-                break;  // for
-            }
-            if ( pFormatArr[j].Index >= NF_INDEX_TABLE_LOCALE_DATA_DEFAULTS )
-            {
-                if ( SvNumberformat* pNewFormat = ImpInsertFormat( pFormatArr[j], nPos+1,
-                            bAfterChangingSystemCL ) )
-                {
-                    pNewFormat->SetAdditionalBuiltin();
-                    nPos++;
-                }
+                pNewFormat->SetAdditionalBuiltin();
+                nPos++;
             }
         }
     }
@@ -3754,20 +3827,14 @@ void SvNumberFormatter::GetCompatibilityCurrency( OUString& rSymbol, OUString& r
     css::uno::Sequence< css::i18n::Currency2 >
         xCurrencies( xLocaleData->getAllCurrencies() );
 
-    const css::i18n::Currency2 *pCurrencies = xCurrencies.getConstArray();
-    sal_Int32 nCurrencies = xCurrencies.getLength();
-
-    sal_Int32 j;
-    for ( j=0; j < nCurrencies; ++j )
+    auto pCurrency = std::find_if(xCurrencies.begin(), xCurrencies.end(),
+        [](const css::i18n::Currency2& rCurrency) { return rCurrency.UsedInCompatibleFormatCodes; });
+    if (pCurrency != xCurrencies.end())
     {
-        if ( pCurrencies[j].UsedInCompatibleFormatCodes )
-        {
-            rSymbol = pCurrencies[j].Symbol;
-            rAbbrev = pCurrencies[j].BankSymbol;
-            break;
-        }
+        rSymbol = pCurrency->Symbol;
+        rAbbrev = pCurrency->BankSymbol;
     }
-    if ( j >= nCurrencies )
+    else
     {
         if (LocaleDataWrapper::areChecksEnabled())
         {
@@ -3861,19 +3928,18 @@ void SvNumberFormatter::ImpInitCurrencyTable()
         std::make_unique<NfCurrencyEntry>(*pLocaleData, LANGUAGE_SYSTEM));
     sal_uInt16 nCurrencyPos = 1;
 
-    css::uno::Sequence< css::lang::Locale > xLoc = LocaleDataWrapper::getInstalledLocaleNames();
+    const css::uno::Sequence< css::lang::Locale > xLoc = LocaleDataWrapper::getInstalledLocaleNames();
     sal_Int32 nLocaleCount = xLoc.getLength();
     SAL_INFO( "svl.numbers", "number of locales: \"" << nLocaleCount << "\"" );
-    css::lang::Locale const * const pLocales = xLoc.getConstArray();
     NfCurrencyTable &rCurrencyTable = theCurrencyTable::get();
     NfCurrencyTable &rLegacyOnlyCurrencyTable = theLegacyOnlyCurrencyTable::get();
     NfInstalledLocales &rInstalledLocales = theInstalledLocales::get();
     sal_uInt16 nLegacyOnlyCurrencyPos = 0;
-    for ( sal_Int32 nLocale = 0; nLocale < nLocaleCount; nLocale++ )
+    for ( css::lang::Locale const & rLocale : xLoc )
     {
-        LanguageType eLang = LanguageTag::convertToLanguageType( pLocales[nLocale], false);
+        LanguageType eLang = LanguageTag::convertToLanguageType( rLocale, false);
         rInstalledLocales.insert( eLang);
-        pLocaleData->setLanguageTag( LanguageTag( pLocales[nLocale]) );
+        pLocaleData->setLanguageTag( LanguageTag( rLocale) );
         Sequence< Currency2 > aCurrSeq = pLocaleData->getAllCurrencies();
         sal_Int32 nCurrencyCount = aCurrSeq.getLength();
         Currency2 const * const pCurrencies = aCurrSeq.getConstArray();
@@ -4182,7 +4248,7 @@ OUString NfCurrencyEntry::BuildSymbolString(bool bBank,
         if ( !bWithoutExtension && eLanguage != LANGUAGE_DONTKNOW && eLanguage != LANGUAGE_SYSTEM )
         {
             sal_Int32 nLang = static_cast<sal_uInt16>(eLanguage);
-            aBuf.append('-').append( OUString::number(nLang, 16).toAsciiUpperCase());
+            aBuf.append('-').append(OUString::number(nLang, 16).toAsciiUpperCase());
         }
     }
     aBuf.append(']');

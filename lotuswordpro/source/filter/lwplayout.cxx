@@ -211,7 +211,7 @@ bool LwpVirtualLayout::HasProtection()
 * @descr:   Whether it is a mirror layout
 *
 */
-bool LwpVirtualLayout::IsComplex()
+bool LwpVirtualLayout::IsComplex() const
 {
     return (m_nAttributes & STYLE_COMPLEX) != 0;
 }
@@ -321,7 +321,7 @@ bool LwpVirtualLayout::IsRelativeAnchored()
 /**
  * @descr:  whether it is MinimumHeight layout
 */
-bool LwpVirtualLayout::IsMinimumHeight()
+bool LwpVirtualLayout::IsMinimumHeight() const
 {
     return ((m_nAttributes3& STYLE3_MINHEIGHTVALID) != 0);
 }
@@ -430,7 +430,7 @@ bool LwpVirtualLayout::IsAutoGrowWidth()
 * @descr:   Determine whether the layout width is to margin
 *
 */
-bool LwpVirtualLayout::IsInlineToMargin()
+bool LwpVirtualLayout::IsInlineToMargin() const
 {
     return (m_nAttributes3 & STYLE3_INLINETOMARGIN) != 0;
 }
@@ -631,7 +631,7 @@ void LwpMiddleLayout::Read()
     }
 }
 
-rtl::Reference<LwpObject> LwpMiddleLayout::GetBasedOnStyle()
+rtl::Reference<LwpObject> LwpMiddleLayout::GetBasedOnStyle() const
 {
     rtl::Reference<LwpObject> xRet(m_BasedOnStyle.obj());
     if (xRet.get() == this)
@@ -901,7 +901,7 @@ enumXFTextDir LwpMiddleLayout::GetTextDirection()
     return eTextDir;
 }
 /**
- * @descr: Get back ground color.
+ * @descr: Get background color.
 */
 LwpColor* LwpMiddleLayout::GetBackColor()
 {
@@ -1976,7 +1976,7 @@ void LwpPlacableLayout::Read()
             sal_uInt16 count = pStrm->QuickReaduInt16();
             if(count)
             {
-                // temporily added by  to avoid assertion
+                // temporarily added by  to avoid assertion
                 while (count)
                 {
                     LwpPoint aPoint;

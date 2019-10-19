@@ -141,12 +141,14 @@ IMPL_LINK(ScAutoFormatDlg, CloseHdl, weld::Button&, rBtn, void)
     }
 }
 
-IMPL_LINK_NOARG(ScAutoFormatDlg, DblClkHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(ScAutoFormatDlg, DblClkHdl, weld::TreeView&, bool)
 {
     if ( bCoreDataChanged )
         ScGlobal::GetOrCreateAutoFormat()->Save();
 
     m_xDialog->response( RET_OK );
+
+    return true;
 }
 
 IMPL_LINK(ScAutoFormatDlg, CheckHdl, weld::ToggleButton&, rBtn, void)
@@ -215,7 +217,7 @@ IMPL_LINK_NOARG(ScAutoFormatDlg, AddHdl, weld::Button&, void)
                             bCoreDataChanged = true;
                         }
 
-                        SelFmtHdl( *m_xLbFormat.get() );
+                        SelFmtHdl( *m_xLbFormat );
                         bOk = true;
                     }
                 }
@@ -269,11 +271,11 @@ IMPL_LINK_NOARG(ScAutoFormatDlg, RemoveHdl, weld::Button&, void)
             pFormat->erase(it);
             nIndex--;
 
-            SelFmtHdl( *m_xLbFormat.get() );
+            SelFmtHdl( *m_xLbFormat );
         }
     }
 
-    SelFmtHdl( *m_xLbFormat.get() );
+    SelFmtHdl( *m_xLbFormat );
 }
 
 IMPL_LINK_NOARG(ScAutoFormatDlg, RenameHdl, weld::Button&, void)
@@ -334,7 +336,7 @@ IMPL_LINK_NOARG(ScAutoFormatDlg, RenameHdl, weld::Button&, void)
                         bCoreDataChanged = true;
                     }
 
-                    SelFmtHdl( *m_xLbFormat.get() );
+                    SelFmtHdl( *m_xLbFormat );
                     bOk = true;
                     bFmtRenamed = true;
                 }

@@ -113,7 +113,7 @@ sal_IntPtr CoreTextFontFace::GetFontId() const
     return mnFontId;
 }
 
-const FontCharMapRef CoreTextFontFace::GetFontCharMap() const
+FontCharMapRef CoreTextFontFace::GetFontCharMap() const
 {
     // return the cached charmap
     if( mxCharMap.is() )
@@ -414,7 +414,7 @@ void AquaSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
             }
         }
 
-        aGlyphIds.push_back(pGlyph->m_aGlyphId);
+        aGlyphIds.push_back(pGlyph->glyphId());
         aGlyphPos.push_back(aGCPos);
         aGlyphOrientation.push_back(bUprightGlyph);
     }
@@ -507,12 +507,11 @@ std::unique_ptr<GenericSalLayout> AquaSalGraphics::GetTextLayout(int nFallbackLe
     return std::make_unique<GenericSalLayout>(*mpTextStyle[nFallbackLevel]);
 }
 
-const FontCharMapRef AquaSalGraphics::GetFontCharMap() const
+FontCharMapRef AquaSalGraphics::GetFontCharMap() const
 {
     if (!mpTextStyle[0])
     {
-        FontCharMapRef xFontCharMap( new FontCharMap() );
-        return xFontCharMap;
+        return FontCharMapRef( new FontCharMap() );
     }
 
     return static_cast<const CoreTextFontFace*>(mpTextStyle[0]->GetFontFace())->GetFontCharMap();
@@ -736,7 +735,7 @@ bool AquaSalGraphics::GetRawFontData( const PhysicalFontFace* pFontData,
         nOfs += nPrepSize;
     }
 
-    SAL_WARN_IF( (nOfs!=nTotalSize), "vcl", "AquaSalGraphics::CreateFontSubset (nOfs!=nTotalSize)");
+    SAL_WARN_IF( (nOfs!=nTotalSize), "vcl", "AquaSalGraphics::GetRawFontData (nOfs!=nTotalSize)");
 
     return true;
 }

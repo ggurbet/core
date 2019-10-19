@@ -22,7 +22,6 @@
 #include <com/sun/star/util/SearchFlags.hpp>
 #include <com/sun/star/util/SearchResult.hpp>
 #include <comphelper/lok.hxx>
-#include <vcl/svapp.hxx>
 #include <svx/svdview.hxx>
 #include <svl/srchitem.hxx>
 #include <sfx2/sfxsids.hrc>
@@ -32,7 +31,6 @@
 #include <txatritr.hxx>
 #include <fldbas.hxx>
 #include <fmtfld.hxx>
-#include <txtatr.hxx>
 #include <txtfld.hxx>
 #include <txtfrm.hxx>
 #include <rootfrm.hxx>
@@ -51,7 +49,6 @@
 #include <breakit.hxx>
 #include <docsh.hxx>
 #include <PostItMgr.hxx>
-#include <viewsh.hxx>
 #include <view.hxx>
 
 using namespace ::com::sun::star;
@@ -266,7 +263,7 @@ lcl_CleanStr(const SwTextNode& rNd,
 
         if ( bNewHint )
         {
-            if (pNextHint->HasDummyChar() && (nStart <= nStt))
+            if (pNextHint && pNextHint->HasDummyChar() && (nStart <= nStt))
             {
                 switch (pNextHint->Which())
                 {

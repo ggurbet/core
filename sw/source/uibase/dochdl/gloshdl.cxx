@@ -27,6 +27,7 @@
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
 #include <svl/urihelper.hxx>
+#include <svx/langbox.hxx>
 #include <unotools/transliterationwrapper.hxx>
 #include <poolfmt.hxx>
 #include <fmtcol.hxx>
@@ -103,7 +104,7 @@ void SwGlossaryHdl::SetCurGroup(const OUString &rGrp, bool bApi, bool bAlwaysCre
     OUString sGroup(rGrp);
     if (sGroup.indexOf(GLOS_DELIM)<0 && !FindGroupName(sGroup))
     {
-        sGroup += OUStringLiteral1(GLOS_DELIM) + "0";
+        sGroup += OUStringChar(GLOS_DELIM) + "0";
     }
     if(pCurGrp)
     {
@@ -195,14 +196,14 @@ void SwGlossaryHdl::RenameGroup(const OUString& rOld, OUString& rNew, const OUSt
         OUString sNewGroup(rNew);
         if (sNewGroup.indexOf(GLOS_DELIM)<0)
         {
-            sNewGroup += OUStringLiteral1(GLOS_DELIM) + "0";
+            sNewGroup += OUStringChar(GLOS_DELIM) + "0";
         }
         rStatGlossaries.RenameGroupDoc(sOldGroup, sNewGroup, rNewTitle);
         rNew = sNewGroup;
     }
 }
 
-// delete a autotext-file-group
+// delete an autotext-file-group
 bool SwGlossaryHdl::DelGroup(const OUString &rGrpName)
 {
     OUString sGroup(rGrpName);
@@ -221,7 +222,7 @@ bool SwGlossaryHdl::DelGroup(const OUString &rGrpName)
 }
 
 // ask for number of autotexts
-sal_uInt16 SwGlossaryHdl::GetGlossaryCnt()
+sal_uInt16 SwGlossaryHdl::GetGlossaryCnt() const
 {
     return pCurGrp ? pCurGrp->GetCount() : 0;
 }
@@ -303,7 +304,7 @@ bool SwGlossaryHdl::NewGlossary(const OUString& rName, const OUString& rShortNam
     return nSuccess != sal_uInt16(-1);
 }
 
-// Delete a autotext
+// Delete an autotext
 bool SwGlossaryHdl::DelGlossary(const OUString &rShortName)
 {
     SwTextBlocks *pGlossary = pCurGrp ? pCurGrp.get()
@@ -350,8 +351,9 @@ bool SwGlossaryHdl::ExpandGlossary(weld::Window* pParent)
             pWrtShell->LeaveBlockMode();
         else if(pWrtShell->IsExtMode())
             pWrtShell->LeaveExtMode();
-        // select word
-        pWrtShell->SelNearestWrd();
+        // select word (tdf#126589: part to the left of cursor)
+        if (pWrtShell->IsInWord() || pWrtShell->IsEndWrd())
+            pWrtShell->PrvWrd(true);
             // ask for word
         if(pWrtShell->IsSelection())
             aShortName = pWrtShell->GetSelText();
@@ -410,7 +412,7 @@ bool SwGlossaryHdl::Expand(weld::Window* pParent, const OUString& rShortName,
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
                 ScopedVclPtr<AbstractSwSelGlossaryDlg> pDlg(pFact->CreateSwSelGlossaryDlg(pParent, aShortName));
-                for(TextBlockInfo_Impl & i : aFoundArr)
+                for(const TextBlockInfo_Impl & i : aFoundArr)
                 {
                     pDlg->InsertGlos(i.sTitle, i.sLongName);
                 }
@@ -647,12 +649,9 @@ bool SwGlossaryHdl::IsReadOnly( const OUString* pGrpNm ) const
 
 bool SwGlossaryHdl::IsOld() const
 {
-    SwTextBlocks *pGlossary = pCurGrp ? pCurGrp.get()
-                                      : rStatGlossaries.GetGroupDoc(aCurGrp).release();
-    bool bRet = pGlossary && pGlossary->IsOld();
     if( !pCurGrp )
-        delete pGlossary;
-    return bRet;
+        rStatGlossaries.GetGroupDoc(aCurGrp).reset();
+    return false;
 }
 
 // find group without path index

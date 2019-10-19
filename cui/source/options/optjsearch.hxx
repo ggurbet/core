@@ -20,6 +20,7 @@
 #ifndef INCLUDED_CUI_SOURCE_OPTIONS_OPTJSEARCH_HXX
 #define INCLUDED_CUI_SOURCE_OPTIONS_OPTJSEARCH_HXX
 
+#include <i18nutil/transliteration.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <vcl/weld.hxx>
 
@@ -55,9 +56,9 @@ private:
     TransliterationFlags GetTransliterationFlags_Impl();
 
 public:
-    SvxJSearchOptionsPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SvxJSearchOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SvxJSearchOptionsPage() override;
-    static VclPtr<SfxTabPage>  Create(TabPageParent pParent, const SfxItemSet* rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
 
     virtual void        Reset( const SfxItemSet* rSet ) override;
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;

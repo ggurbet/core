@@ -511,11 +511,24 @@ void XclExpXmlPivotCaches::SavePivotCacheXml( XclExpXmlStream& rStrm, const Entr
     for (size_t i = nCount; pDPObject && i < nCount + nGroupFieldCount; ++i)
     {
         const OUString aName = pDPObject->GetDimName(i, o3tl::temporary(bool()));
+        // tdf#126748: DPObject might not reference all group fields, when there are several
+        // DPObjects referencing this cache. Trying to get a dimension data for a field not used
+        // in a given DPObject will give nullptr, and dereferencing it then will crash. To avoid
+        // the crash, until there's a correct method to find the names of group fields in cache,
+        // just skip the fields, creating bad cache data, which is of course a temporary hack.
+        // TODO: reimplement the whole block to get the names from another source, not from first
+        // cache reference.
+        if (aName.isEmpty())
+            break;
+
         ScDPSaveData* pSaveData = pDPObject->GetSaveData();
         assert(pSaveData);
+
         const ScDPSaveGroupDimension* pDim = pSaveData->GetDimensionData()->GetNamedGroupDim(aName);
         assert(pDim);
-        const size_t nBase = rCache.GetDimensionIndex(pDim->GetSourceDimName());
+
+        const SCCOL nBase = rCache.GetDimensionIndex(pDim->GetSourceDimName());
+        assert(nBase >= 0);
 
         pDefStrm->startElement(XML_cacheField, XML_name, aName.toUtf8(), XML_numFmtId,
                                OString::number(0), XML_databaseField, ToPsz10(false));
@@ -582,7 +595,7 @@ void XclExpXmlPivotTableManager::Initialize()
         // Get the cache ID for this pivot table.
         CacheIdMapType::iterator itCache = maCacheIdMap.find(&rDPObj);
         if (itCache == maCacheIdMap.end())
-            // No cache ID found.  Something is wrong here....
+            // No cache ID found.  Something is wrong here...
             continue;
 
         sal_Int32 nCacheId = itCache->second;
@@ -654,7 +667,7 @@ struct DataField
     DataField( long nPos, const ScDPSaveDimension* pDim ) : mnPos(nPos), mpDim(pDim) {}
 };
 
-/** Returns a OOXML subtotal function name string. See ECMA-376-1:2016 18.18.43 */
+/** Returns an OOXML subtotal function name string. See ECMA-376-1:2016 18.18.43 */
 OString GetSubtotalFuncName(ScGeneralFunction eFunc)
 {
     switch (eFunc)
@@ -705,16 +718,16 @@ void WriteGrabBagItemToStream(XclExpXmlStream& rStrm, sal_Int32 tokenId, const c
 
         css::uno::Sequence<css::xml::FastAttribute> aFastSeq;
         css::uno::Sequence<css::xml::Attribute> aUnkSeq;
-        for (const auto& a : aSeqs)
+        for (const auto& a : std::as_const(aSeqs))
         {
             if (a >>= aFastSeq)
             {
-                for (const auto& rAttr : aFastSeq)
+                for (const auto& rAttr : std::as_const(aFastSeq))
                     rStrm.WriteAttributes(rAttr.Token, rAttr.Value);
             }
             else if (a >>= aUnkSeq)
             {
-                for (const auto& rAttr : aUnkSeq)
+                for (const auto& rAttr : std::as_const(aUnkSeq))
                     pStrm->write(" ")
                         ->write(rAttr.Name)
                         ->write("=\"")
@@ -1155,14 +1168,14 @@ void XclExpXmlPivotTables::SavePivotTableXml( XclExpXmlStream& rStrm, const ScDP
                                   XML_showRowStripes, "0", XML_showColStripes, "0",
                                   XML_showLastColumn, "1");
 
-    OUStringBuffer aBuf("../pivotCache/pivotCacheDefinition");
-    aBuf.append(nCacheId);
-    aBuf.append(".xml");
+    OUString aBuf = "../pivotCache/pivotCacheDefinition" +
+        OUString::number(nCacheId) +
+        ".xml";
 
     rStrm.addRelation(
         pPivotStrm->getOutputStream(),
         CREATE_OFFICEDOC_RELATION_TYPE("pivotCacheDefinition"),
-        aBuf.makeStringAndClear());
+        aBuf);
 
     pPivotStrm->endElement(XML_pivotTableDefinition);
 }

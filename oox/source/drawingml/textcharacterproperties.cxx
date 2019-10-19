@@ -21,7 +21,10 @@
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/awt/FontSlant.hpp>
 #include <com/sun/star/awt/FontWeight.hpp>
+#include <com/sun/star/i18n/ScriptType.hpp>
+#include <comphelper/sequence.hxx>
 #include <i18nlangtag/languagetag.hxx>
+#include <i18nlangtag/mslangid.hxx>
 #include <editeng/escapementitem.hxx>
 #include <oox/helper/helper.hxx>
 #include <oox/helper/propertyset.hxx>
@@ -51,6 +54,7 @@ void TextCharacterProperties::assignUsed( const TextCharacterProperties& rSource
     maSymbolFont.assignIfUsed( rSourceProps.maSymbolFont );
     maHighlightColor.assignIfUsed( rSourceProps.maHighlightColor );
     maUnderlineColor.assignIfUsed( rSourceProps.maUnderlineColor );
+    moLang.assignIfUsed( rSourceProps.moLang );
     moHeight.assignIfUsed( rSourceProps.moHeight );
     moFontScale.assignIfUsed(rSourceProps.moFontScale);
     moSpacing.assignIfUsed( rSourceProps.moSpacing );
@@ -109,10 +113,17 @@ void TextCharacterProperties::pushToPropMap( PropertyMap& rPropMap, const XmlFil
 
     if( moLang.has() && !moLang.get().isEmpty() )
     {
-        lang::Locale aLocale( LanguageTag( moLang.get()).getLocale());
-        rPropMap.setProperty( PROP_CharLocale, aLocale);
-        rPropMap.setProperty( PROP_CharLocaleAsian, aLocale);
-        rPropMap.setProperty( PROP_CharLocaleComplex, aLocale);
+        LanguageTag aTag(moLang.get());
+        lang::Locale aLocale(aTag.getLocale());
+        switch(MsLangId::getScriptType(aTag.getLanguageType()))
+        {
+            case css::i18n::ScriptType::LATIN:
+                rPropMap.setProperty( PROP_CharLocale, aLocale);break;
+            case css::i18n::ScriptType::ASIAN:
+                rPropMap.setProperty( PROP_CharLocaleAsian, aLocale);break;
+            case css::i18n::ScriptType::COMPLEX:
+                rPropMap.setProperty( PROP_CharLocaleComplex, aLocale);break;
+        }
     }
 
     if( moHeight.has() )
@@ -156,6 +167,9 @@ void TextCharacterProperties::pushToPropMap( PropertyMap& rPropMap, const XmlFil
         rPropMap.setProperty( PROP_CharUnderlineColor, maUnderlineColor.getColor( rFilter.getGraphicHelper() ));
     }
     // TODO If bUnderlineFillFollowText uFillTx (CT_TextUnderlineFillFollowText) is set, fill color of the underline should be the same color as the text
+
+    if( maHighlightColor.isUsed() )
+        rPropMap.setProperty( PROP_CharBackColor, maHighlightColor.getColor( rFilter.getGraphicHelper() ));
 }
 
 static void pushToGrabBag( PropertySet& rPropSet, const std::vector<PropertyValue>& aVectorOfProperyValues )
@@ -166,16 +180,7 @@ static void pushToGrabBag( PropertySet& rPropSet, const std::vector<PropertyValu
     Any aAnyGrabBag = rPropSet.getAnyProperty(PROP_CharInteropGrabBag);
     aAnyGrabBag >>= aGrabBag;
 
-    sal_Int32 nLength = aGrabBag.getLength();
-    aGrabBag.realloc(nLength + aVectorOfProperyValues.size());
-
-    for (size_t i = 0; i < aVectorOfProperyValues.size(); i++)
-    {
-        PropertyValue aPropertyValue = aVectorOfProperyValues[i];
-        aGrabBag[nLength + i] = aPropertyValue;
-    }
-
-    rPropSet.setAnyProperty(PROP_CharInteropGrabBag, makeAny(aGrabBag));
+    rPropSet.setAnyProperty(PROP_CharInteropGrabBag, makeAny(comphelper::concatSequences(aGrabBag, aVectorOfProperyValues)));
 }
 
 void TextCharacterProperties::pushToPropSet( PropertySet& rPropSet, const XmlFilterBase& rFilter ) const

@@ -11,10 +11,12 @@
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
+#include <com/sun/star/text/XTextFrame.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <editeng/frmdiritem.hxx>
 #include <IDocumentSettingAccess.hxx>
+#include <xmloff/odffields.hxx>
 
 #include <editsh.hxx>
 #include <frmatr.hxx>
@@ -30,9 +32,27 @@ protected:
      */
     bool mustTestImportOf(const char* filename) const override {
         // If the testcase is stored in some other format, it's pointless to test.
-        return OString(filename).endsWith(".docx");
+        return OString(filename).endsWith(".docx") || OString(filename) == "ooo39250-1-min.rtf";
     }
 };
+
+// TODO: the re-import doesn't work just yet, but that isn't a regression...
+DECLARE_SW_EXPORT_TEST(testFlyInFly, "ooo39250-1-min.rtf", nullptr, Test)
+{
+    // check that anchor of text frame is in other text frame
+    uno::Reference<text::XTextContent> const xAnchored(getShape(3), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xAnchored.is());
+    CPPUNIT_ASSERT_EQUAL(OUString(""), uno::Reference<container::XNamed>(xAnchored, uno::UNO_QUERY_THROW)->getName());
+    uno::Reference<text::XText> const xAnchorText(xAnchored->getAnchor()->getText());
+    uno::Reference<text::XTextFrame> const xAnchorFrame(xAnchorText, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xAnchorFrame.is());
+    CPPUNIT_ASSERT_EQUAL(OUString("Frame2"), uno::Reference<container::XNamed>(xAnchorFrame, uno::UNO_QUERY_THROW)->getName());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf126994_lostPageBreak, "tdf126994_lostPageBreak.docx")
+{
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Pages", 3, getPages() );
+}
 
 DECLARE_OOXMLEXPORT_TEST(testTdf121374_sectionHF, "tdf121374_sectionHF.odt")
 {
@@ -49,6 +69,109 @@ DECLARE_OOXMLEXPORT_TEST(testTdf121374_sectionHF2, "tdf121374_sectionHF2.doc")
     uno::Reference<beans::XPropertySet> xPageStyle(getStyles("PageStyles")->getByName("Standard"), uno::UNO_QUERY);
     uno::Reference<text::XTextRange> xHeaderText = getProperty< uno::Reference<text::XTextRange> >(xPageStyle, "HeaderText");
     CPPUNIT_ASSERT( xHeaderText->getString().startsWith("virkamatka-anomus") );
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf95848, "tdf95848.docx")
+{
+    OUString listId;
+    OUString listStyle;
+    {
+        uno::Reference<beans::XPropertySet> xPara(getParagraph(1), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(2), getProperty<sal_Int16>(xPara, "NumberingLevel"));
+        CPPUNIT_ASSERT(xPara->getPropertyValue("NumberingStyleName") >>= listStyle);
+        CPPUNIT_ASSERT(listStyle.startsWith("WWNum"));
+        CPPUNIT_ASSERT(xPara->getPropertyValue("ListId") >>= listId);
+        CPPUNIT_ASSERT_EQUAL(OUString("1.1.1"), getProperty<OUString>(xPara, "ListLabelString"));
+    }
+    {
+        uno::Reference<beans::XPropertySet> xPara(getParagraph(2), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(2), getProperty<sal_Int16>(xPara, "NumberingLevel"));
+        CPPUNIT_ASSERT_EQUAL(listStyle, getProperty<OUString>(xPara, "NumberingStyleName"));
+        CPPUNIT_ASSERT_EQUAL(listId, getProperty<OUString>(xPara, "ListId"));
+        CPPUNIT_ASSERT_EQUAL(OUString("1.1.2"), getProperty<OUString>(xPara, "ListLabelString"));
+    }
+    {
+        uno::Reference<beans::XPropertySet> xPara(getParagraph(3), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(2), getProperty<sal_Int16>(xPara, "NumberingLevel"));
+        // different numbering style
+        OUString listStyle3;
+        CPPUNIT_ASSERT(xPara->getPropertyValue("NumberingStyleName") >>= listStyle3);
+        CPPUNIT_ASSERT(listStyle3.startsWith("WWNum"));
+        CPPUNIT_ASSERT(listStyle3 != listStyle);
+        // but same list
+        CPPUNIT_ASSERT_EQUAL(OUString("1.1.3"), getProperty<OUString>(xPara, "ListLabelString"));
+        CPPUNIT_ASSERT_EQUAL(listId, getProperty<OUString>(xPara, "ListId"));
+    }
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf95848_2, "tdf95848_2.docx")
+{
+    OUString listId;
+    OUString listStyle;
+    {
+        uno::Reference<beans::XPropertySet> xPara(getParagraph(1), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), getProperty<sal_Int16>(xPara, "NumberingLevel"));
+        CPPUNIT_ASSERT(xPara->getPropertyValue("NumberingStyleName") >>= listStyle);
+        CPPUNIT_ASSERT(listStyle.startsWith("WWNum"));
+        CPPUNIT_ASSERT(xPara->getPropertyValue("ListId") >>= listId);
+        CPPUNIT_ASSERT_EQUAL(OUString("1)"), getProperty<OUString>(xPara, "ListLabelString"));
+        // check indent of list style
+        auto xLevels = getProperty<uno::Reference<container::XIndexAccess>>(xPara, "NumberingRules");
+        uno::Sequence<beans::PropertyValue> aLevel;
+        xLevels->getByIndex(0) >>= aLevel; // top level
+        sal_Int32 nIndent = std::find_if(aLevel.begin(), aLevel.end(), [](const beans::PropertyValue& rValue) { return rValue.Name == "FirstLineIndent"; })->Value.get<sal_Int32>();
+        CPPUNIT_ASSERT_EQUAL(sal_Int32(-635), nIndent);
+    }
+    {
+        uno::Reference<beans::XPropertySet> xPara(getParagraph(2), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), getProperty<sal_Int16>(xPara, "NumberingLevel"));
+        // different numbering style
+        OUString listStyle2;
+        CPPUNIT_ASSERT(xPara->getPropertyValue("NumberingStyleName") >>= listStyle2);
+        CPPUNIT_ASSERT(listStyle2.startsWith("WWNum"));
+        CPPUNIT_ASSERT(listStyle2 != listStyle);
+        // but same list
+        CPPUNIT_ASSERT_EQUAL(OUString("2)"), getProperty<OUString>(xPara, "ListLabelString"));
+        CPPUNIT_ASSERT_EQUAL(listId, getProperty<OUString>(xPara, "ListId"));
+        // check indent of list style - override
+        auto xLevels = getProperty<uno::Reference<container::XIndexAccess>>(xPara, "NumberingRules");
+        uno::Sequence<beans::PropertyValue> aLevel;
+        xLevels->getByIndex(0) >>= aLevel; // top level
+        sal_Int32 nIndent = std::find_if(aLevel.begin(), aLevel.end(), [](const beans::PropertyValue& rValue) { return rValue.Name == "FirstLineIndent"; })->Value.get<sal_Int32>();
+        CPPUNIT_ASSERT_EQUAL(sal_Int32(9366), nIndent);
+    }
+    {
+        uno::Reference<beans::XPropertySet> xPara(getParagraph(3), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), getProperty<sal_Int16>(xPara, "NumberingLevel"));
+        // different numbering style
+        OUString listStyle3;
+        CPPUNIT_ASSERT(xPara->getPropertyValue("NumberingStyleName") >>= listStyle3);
+        CPPUNIT_ASSERT(listStyle3.startsWith("WWNum"));
+        CPPUNIT_ASSERT(listStyle3 != listStyle);
+        // and different list
+        CPPUNIT_ASSERT_EQUAL(OUString("1."), getProperty<OUString>(xPara, "ListLabelString"));
+        CPPUNIT_ASSERT(listId !=  getProperty<OUString>(xPara, "ListId"));
+    }
+    {
+        // continue the first list
+        uno::Reference<beans::XPropertySet> xPara(getParagraph(4), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), getProperty<sal_Int16>(xPara, "NumberingLevel"));
+        CPPUNIT_ASSERT_EQUAL(listStyle, getProperty<OUString>(xPara, "NumberingStyleName"));
+        CPPUNIT_ASSERT_EQUAL(listId, getProperty<OUString>(xPara, "ListId"));
+        CPPUNIT_ASSERT_EQUAL(OUString("3)"), getProperty<OUString>(xPara, "ListLabelString"));
+    }
+    {
+        uno::Reference<beans::XPropertySet> xPara(getParagraph(5), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(0), getProperty<sal_Int16>(xPara, "NumberingLevel"));
+        CPPUNIT_ASSERT_EQUAL(listStyle, getProperty<OUString>(xPara, "NumberingStyleName"));
+        CPPUNIT_ASSERT_EQUAL(listId, getProperty<OUString>(xPara, "ListId"));
+        CPPUNIT_ASSERT_EQUAL(OUString("4)"), getProperty<OUString>(xPara, "ListLabelString"));
+    }
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf126723, "tdf126723.docx")
+{
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraph(2), "ParaLeftMargin"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testendingSectionProps, "endingSectionProps.docx")
@@ -91,6 +214,22 @@ DECLARE_OOXMLEXPORT_TEST(testBtlrShape, "btlr-textbox.docx")
     // value.
     CPPUNIT_ASSERT_EQUAL(SvxFrameDirection::Vertical_LR_BT,
                          rFormats[1]->GetAttrSet().GetFrameDir().GetValue());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127316_autoEscapement, "tdf127316_autoEscapement.odt")
+{
+    uno::Reference<text::XTextRange> xPara = getParagraph(1);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL( 0.f, getProperty<float>(getRun(xPara, 1), "CharEscapement"), 0);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(33.f, getProperty<float>(getRun(xPara, 2), "CharEscapement"), 20);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf99602_subscript_charStyleSize, "tdf99602_subscript_charStyleSize.docx")
+{
+    uno::Reference<text::XTextRange> xPara = getParagraph(1);
+    // The word "Base" should not be subscripted.
+    CPPUNIT_ASSERT_DOUBLES_EQUAL( 0.f, getProperty<float>(getRun(xPara, 1), "CharEscapement"), 0);
+    // The word "Subscript" should be 48pt, subscripted by 25% (12pt).
+    //CPPUNIT_ASSERT_DOUBLES_EQUAL( 25.f, getProperty<float>(getRun(xPara, 2), "CharEscapement"), 1);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf124637_sectionMargin, "tdf124637_sectionMargin.docx")
@@ -156,23 +295,59 @@ DECLARE_OOXMLEXPORT_TEST(tdf123912_protectedForm, "tdf123912_protectedForm.odt")
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Section1 is protected", false, getProperty<bool>(xSect, "IsProtected"));
 }
 
+DECLARE_OOXMLEXPORT_TEST(tdf124600b, "tdf124600b.docx")
+{
+    // <wp:anchor allowOverlap="0"> was lost on roundtrip, we always wrote "1" on export.
+    bool bAllowOverlap1 = getProperty<bool>(getShape(1), "AllowOverlap");
+    CPPUNIT_ASSERT(!bAllowOverlap1);
+    bool bAllowOverlap2 = getProperty<bool>(getShape(2), "AllowOverlap");
+    CPPUNIT_ASSERT(!bAllowOverlap2);
+}
+
 DECLARE_OOXMLEXPORT_TEST(testDateControl, "empty-date-control.odt")
 {
-    // Check that we did not lost the date control
-    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), xDraws->getCount());
-    uno::Reference<drawing::XControlShape> xControl(getShape(1), uno::UNO_QUERY);
-    CPPUNIT_ASSERT(xControl->getControl().is());
+    // Check that we exported the empty date control correctly
+    // Date form field is converted to date content control.
+    if (!mbExported)
+        return ;
 
-    // check XML
-    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-    if (!pXmlDoc)
-        return;
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
 
-    // We need to export date format and a dummy character (" ") for empty date control
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:sdt/w:sdtPr/w:date/w:dateFormat", "val", "dd/MM/yyyy");
-    assertXPathContent(pXmlDoc, "/w:document/w:body/w:p/w:sdt/w:sdtContent/w:r/w:t", u" ");
+
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*pMarkAccess->getAllMarksBegin());
+
+    CPPUNIT_ASSERT(pFieldmark);
+    CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMDATE), pFieldmark->GetFieldname());
+
+    const sw::mark::IFieldmark::parameter_map_t* const pParameters = pFieldmark->GetParameters();
+    OUString sDateFormat;
+    auto pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT);
+    if (pResult != pParameters->end())
+    {
+        pResult->second >>= sDateFormat;
+    }
+
+    OUString sLang;
+    pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT_LANGUAGE);
+    if (pResult != pParameters->end())
+    {
+        pResult->second >>= sLang;
+    }
+
+    OUString sCurrentDate;
+    pResult = pParameters->find(ODF_FORMDATE_CURRENTDATE);
+    if (pResult != pParameters->end())
+    {
+        pResult->second >>= sCurrentDate;
+    }
+
+    CPPUNIT_ASSERT_EQUAL(OUString("dd/MM/yyyy"), sDateFormat);
+    CPPUNIT_ASSERT_EQUAL(OUString("en-US"), sLang);
+    CPPUNIT_ASSERT_EQUAL(OUString(""), sCurrentDate);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf121867, "tdf121867.odt")
@@ -289,17 +464,6 @@ DECLARE_OOXMLIMPORT_TEST(testTdf123460, "tdf123460.docx")
     CPPUNIT_ASSERT_EQUAL(true, bCaught);
 }
 
-//tdf#113483: fix handling of non-ascii characters in bookmark names and instrText xml tags
-DECLARE_OOXMLEXPORT_TEST(testTdf113483, "tdf113483_crossreflink_nonascii_bookmarkname.docx")
-{
-    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-    if (!pXmlDoc)
-        return;
-    // check whether test file keeps non-ascii values or not
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:bookmarkStart[1]", "name", OUString::fromUtf8("Els\u0151"));
-    assertXPathContent(pXmlDoc, "/w:document/w:body/w:p[5]/w:r[2]/w:instrText[1]", OUString::fromUtf8(" REF Els\u0151 \\h "));
-}
-
 //tdf#125298: fix charlimit restrictions in bookmarknames and field references if they contain non-ascii characters
 DECLARE_OOXMLEXPORT_TEST(testTdf125298, "tdf125298_crossreflink_nonascii_charlimit.docx")
 {
@@ -313,14 +477,10 @@ DECLARE_OOXMLEXPORT_TEST(testTdf125298, "tdf125298_crossreflink_nonascii_charlim
     OUString bookmarkName2 = getXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:bookmarkStart[1]", "name");
     CPPUNIT_ASSERT_EQUAL(OUString::fromUtf8("\u00e91\u00e12\u01713\u01514\u00fa5\u00f66\u00fc7\u00f38\u00ed9"), bookmarkName2);
     OUString fieldName1 = getXPathContent(pXmlDoc, "/w:document/w:body/w:p[5]/w:r[2]/w:instrText[1]");
-    OUString expectedFieldName1(" REF ");
-    expectedFieldName1 += bookmarkName1;
-    expectedFieldName1 += " \\h ";
+    OUString expectedFieldName1 = " REF " + bookmarkName1 + " \\h ";
     CPPUNIT_ASSERT_EQUAL(expectedFieldName1, fieldName1);
     OUString fieldName2 = getXPathContent(pXmlDoc, "/w:document/w:body/w:p[7]/w:r[2]/w:instrText[1]");
-    OUString expectedFieldName2(" REF ");
-    expectedFieldName2 += bookmarkName2;
-    expectedFieldName2 += " \\h ";
+    OUString expectedFieldName2 = " REF " + bookmarkName2 + " \\h ";
     CPPUNIT_ASSERT_EQUAL(expectedFieldName2, fieldName2);
 }
 
@@ -409,6 +569,16 @@ DECLARE_OOXMLEXPORT_TEST(testTdf78657, "tdf78657_picture_hyperlink.docx")
     assertXPath(pXmlRels, "/rels:Relationships/rels:Relationship[@Target='http://www.google.com']", "TargetMode", "External");
 }
 
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testBtlrFrame, "btlr-frame.odt")
+{
+    uno::Reference<beans::XPropertySet> xPropertySet(getShape(1), uno::UNO_QUERY);
+    comphelper::SequenceAsHashMap aGeometry(xPropertySet->getPropertyValue("CustomShapeGeometry"));
+    // Without the accompanying fix in place, this test would have failed with 'Expected:
+    // -270; Actual: 0', i.e. the writing direction of the frame was lost.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(-270),
+                         aGeometry["TextPreRotateAngle"].get<sal_Int32>());
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf125518, "tdf125518.odt")
 {
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
@@ -447,6 +617,231 @@ DECLARE_OOXMLEXPORT_TEST(testImageCommentAtChar, "image-comment-at-char.docx")
                          getProperty<OUString>(getRun(xPara, 4), "TextPortionType"));
     CPPUNIT_ASSERT_EQUAL(OUString("Text"),
                          getProperty<OUString>(getRun(xPara, 5), "TextPortionType"));
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf121663, "tdf121663.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // auto distance of line numbering is 0.5 cm
+    assertXPath(pXmlDoc, "//w:lnNumType", "distance", "283");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testInvalidDateFormField, "invalid_date_form_field.docx")
+{
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(6), pMarkAccess->getAllMarksCount());
+
+    int nIndex = 0;
+    for(auto aIter = pMarkAccess->getAllMarksBegin(); aIter != pMarkAccess->getAllMarksEnd(); ++aIter)
+    {
+        ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
+
+        if(!pFieldmark)
+            continue;
+
+        CPPUNIT_ASSERT(pFieldmark);
+        CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMDATE), pFieldmark->GetFieldname());
+
+        // Check date field's parameters.
+        const sw::mark::IFieldmark::parameter_map_t* const pParameters = pFieldmark->GetParameters();
+        OUString sDateFormat;
+        auto pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT);
+        if (pResult != pParameters->end())
+        {
+            pResult->second >>= sDateFormat;
+        }
+
+        OUString sLang;
+        pResult = pParameters->find(ODF_FORMDATE_DATEFORMAT_LANGUAGE);
+        if (pResult != pParameters->end())
+        {
+            pResult->second >>= sLang;
+        }
+
+        OUString sCurrentDate;
+        pResult = pParameters->find(ODF_FORMDATE_CURRENTDATE);
+        if (pResult != pParameters->end())
+        {
+            pResult->second >>= sCurrentDate;
+        }
+
+        // The first one has invalid date format (invalid = LO can't parse it)
+        if(nIndex == 0)
+        {
+
+            CPPUNIT_ASSERT_EQUAL(OUString("YYYY.MM.DDT00:00:00Z"), sDateFormat);
+            CPPUNIT_ASSERT_EQUAL(OUString("en-US"), sLang);
+            CPPUNIT_ASSERT_EQUAL(OUString(""), sCurrentDate);
+
+            CPPUNIT_ASSERT_EQUAL(sal_uLong(9), pFieldmark->GetMarkStart().nNode.GetIndex());
+            CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pFieldmark->GetMarkStart().nContent.GetIndex());
+        }
+        else if (nIndex == 1) // The second has wrong date
+        {
+            CPPUNIT_ASSERT_EQUAL(OUString("MM/DD/YY"), sDateFormat);
+            CPPUNIT_ASSERT_EQUAL(OUString("en-US"), sLang);
+            CPPUNIT_ASSERT_EQUAL(OUString("2019.06.34"), sCurrentDate);
+
+            CPPUNIT_ASSERT_EQUAL(sal_uLong(9), pFieldmark->GetMarkStart().nNode.GetIndex());
+            CPPUNIT_ASSERT_EQUAL(sal_Int32(14), pFieldmark->GetMarkStart().nContent.GetIndex());
+        }
+        else // The third one has wrong local
+        {
+            CPPUNIT_ASSERT_EQUAL(OUString("[NatNum12 MMMM=abbreviation]YYYY\". \"MMMM D."), sDateFormat);
+            CPPUNIT_ASSERT_EQUAL(OUString("xxxx"), sLang);
+            CPPUNIT_ASSERT_EQUAL(OUString("2019.06.11"), sCurrentDate);
+
+            CPPUNIT_ASSERT_EQUAL(sal_uLong(9), pFieldmark->GetMarkStart().nNode.GetIndex());
+            CPPUNIT_ASSERT_EQUAL(sal_Int32(33), pFieldmark->GetMarkStart().nContent.GetIndex());
+        }
+        ++nIndex;
+    }
+    CPPUNIT_ASSERT_EQUAL(int(3), nIndex);
+}
+
+DECLARE_OOXMLEXPORT_TEST(tdf127085, "tdf127085.docx")
+{
+    // Fill transparency was lost during export
+    uno::Reference<beans::XPropertySet> xShape(getShape(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(50), getProperty<sal_Int16>(xShape, "FillTransparence"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(tdf119809, "tdf119809.docx")
+{
+    // Combobox without an item list lost during import
+    uno::Reference<drawing::XControlShape> xControlShape(getShape(1), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xPropertySet(xControlShape->getControl(), uno::UNO_QUERY);
+    uno::Reference<lang::XServiceInfo> xServiceInfo(xPropertySet, uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(true, bool(xServiceInfo->supportsService("com.sun.star.form.component.ComboBox")));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty< uno::Sequence<OUString> >(xPropertySet, "StringItemList").getLength());
+}
+
+DECLARE_OOXMLEXPORT_TEST(tdf118169, "tdf118169.docx")
+{
+    // Unicode characters were converted to question marks.
+    uno::Reference<drawing::XControlShape> xControlShape(getShape(1), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xPropertySet(xControlShape->getControl(), uno::UNO_QUERY);
+    uno::Reference<lang::XServiceInfo> xServiceInfo(xPropertySet, uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(true, bool(xServiceInfo->supportsService("com.sun.star.form.component.CheckBox")));
+    CPPUNIT_ASSERT_EQUAL(OUString(u"őőőőőőőőőőőűűűű"), getProperty<OUString>(xPropertySet, "Label"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127116, "tdf127116.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    OUString bookmarkName = getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:bookmarkStart", "name");
+    OUString anchor = getXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:hyperlink", "anchor");
+    CPPUNIT_ASSERT_EQUAL(anchor, bookmarkName);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127339, "tdf127339.docx")
+{
+    xmlDocPtr pXmlRels = parseExport("word/_rels/document.xml.rels");
+    if (!pXmlRels)
+        return;
+
+    assertXPathNoAttribute(pXmlRels, "/rels:Relationships/rels:Relationship[@Target='#bookmark']", "TargetMode");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127362, "tdf127362.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    xmlDocPtr pXmlRels = parseExport("word/_rels/document.xml.rels");
+    if (!pXmlRels)
+        return;
+
+    OUString bookmarkName = "#" + getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:bookmarkStart", "name");
+    OUString anchor = getXPath(pXmlRels, "/rels:Relationships/rels:Relationship[@Id='rId3']", "Target");
+    CPPUNIT_ASSERT_EQUAL(anchor, bookmarkName);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127605, "tdf127605.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    OUString bookmarkName = getXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:bookmarkStart", "name");
+    OUString anchor = getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:hyperlink", "anchor");
+    CPPUNIT_ASSERT_EQUAL(anchor, bookmarkName);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127732, "internal_hyperlink_frame.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    OUString bookmarkName = getXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:r[2]/mc:AlternateContent/mc:Fallback/w:pict/v:rect/v:textbox/w:txbxContent/w:p/w:bookmarkStart", "name");
+    OUString anchor = getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:hyperlink", "anchor");
+    CPPUNIT_ASSERT_EQUAL(anchor, bookmarkName);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127733, "internal_hyperlink_ole.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    OUString bookmarkName = getXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:bookmarkStart", "name");
+    OUString anchor = getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:hyperlink", "anchor");
+    CPPUNIT_ASSERT_EQUAL(anchor, bookmarkName);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127734, "internal_hyperlink_region.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    OUString bookmarkName = getXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:bookmarkStart", "name");
+    OUString anchor = getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:hyperlink", "anchor");
+    CPPUNIT_ASSERT_EQUAL(anchor, bookmarkName);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127735, "internal_hyperlink_table.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    OUString bookmarkName = getXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tr[1]/w:tc[1]/w:p/w:bookmarkStart", "name");
+    OUString anchor = getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:hyperlink", "anchor");
+    CPPUNIT_ASSERT_EQUAL(anchor, bookmarkName);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf123628, "tdf123628.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    xmlDocPtr pXmlStyles = parseExport("word/styles.xml");
+    if (!pXmlStyles)
+        return;
+
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:hyperlink/w:r/w:rPr/w:rStyle", "val", "InternetLink");
+    assertXPath(pXmlStyles, "/w:styles/w:style[@w:styleId='InternetLink']/w:name", "val", "Hyperlink");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf127741, "tdf127741.docx")
+{
+    uno::Reference<text::XTextRange> xPara = getParagraph(1);
+    uno::Reference<beans::XPropertySet> xRun(getRun(xPara,1), uno::UNO_QUERY);
+    OUString unVisitedStyleName = getProperty<OUString>(xRun, "UnvisitedCharStyleName");
+    CPPUNIT_ASSERT(unVisitedStyleName.equalsIgnoreAsciiCase("Internet Link"));
+    OUString visitedStyleName = getProperty<OUString>(xRun, "VisitedCharStyleName");
+    CPPUNIT_ASSERT(visitedStyleName.equalsIgnoreAsciiCase("Visited Internet Link"));
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

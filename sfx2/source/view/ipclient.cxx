@@ -72,6 +72,7 @@
 #include <cppuhelper/exc_hlp.hxx>
 
 #include <sfx2/lokhelper.hxx>
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 #define SFX_CLIENTACTIVATE_TIMEOUT 100
 
@@ -335,6 +336,13 @@ void SAL_CALL SfxInPlaceClient_Impl::activatingInplace()
 {
     if ( !m_pClient || !m_pClient->GetViewShell() )
         throw uno::RuntimeException();
+
+    if ( comphelper::LibreOfficeKit::isActive() )
+    {
+        if ( SfxViewShell* pViewShell = m_pClient->GetViewShell() )
+            pViewShell->libreOfficeKitViewCallback( LOK_CALLBACK_GRAPHIC_SELECTION, "INPLACE" );
+    }
+
 }
 
 
@@ -353,6 +361,13 @@ void SAL_CALL SfxInPlaceClient_Impl::deactivatedInplace()
 {
     if ( !m_pClient || !m_pClient->GetViewShell() )
         throw uno::RuntimeException();
+
+    if ( comphelper::LibreOfficeKit::isActive() )
+    {
+        if ( SfxViewShell* pViewShell = m_pClient->GetViewShell() ) {
+            pViewShell->libreOfficeKitViewCallback( LOK_CALLBACK_GRAPHIC_SELECTION, "INPLACE EXIT" );
+        }
+    }
 }
 
 
@@ -509,7 +524,7 @@ void SAL_CALL SfxInPlaceClient_Impl::changedPlacement( const awt::Rectangle& aPo
         Size aNewObjSize( long( aNewLogicRect.GetWidth()  / m_aScaleWidth ),
                           long( aNewLogicRect.GetHeight() / m_aScaleHeight ) );
 
-        // now remove scaling from new placement and keep this a the new object area
+        // now remove scaling from new placement and keep this at the new object area
         aNewLogicRect.SetSize( aNewObjSize );
         m_aObjArea = aNewLogicRect;
 
@@ -935,6 +950,17 @@ ErrCode SfxInPlaceClient::DoVerb( long nVerb )
                 {
                     m_xImp->m_xObject->setClientSite( m_xImp->m_xClient );
 
+                    // Disable embedded object editing (e.g. chart) on mobile
+                    if ( comphelper::LibreOfficeKit::isActive() && comphelper::LibreOfficeKit::isMobile(SfxLokHelper::getView())
+                            && m_xImp->m_xObject->getCurrentState() == embed::EmbedStates::RUNNING )
+                    {
+                        // Also check next state
+                        // Needs to be embed::EmbedStates::UI_ACTIVE or embed::EmbedStates::INPLACE_ACTIVE
+                        // Conversion table is in embeddedobj/source/commonembedding/miscobj.cxx
+                        if (nVerb != embed::EmbedVerbs::MS_OLEVERB_OPEN && nVerb != embed::EmbedVerbs::MS_OLEVERB_HIDE)
+                            return nError;
+                    }
+
                     m_xImp->m_xObject->doVerb( nVerb );
                 }
                 catch ( embed::UnreachableStateException& )
@@ -1096,7 +1122,7 @@ void SfxInPlaceClient::ResetObject()
     {}
 }
 
-bool SfxInPlaceClient::IsUIActive()
+bool SfxInPlaceClient::IsUIActive() const
 {
     return m_xImp->m_bUIActive;
 }

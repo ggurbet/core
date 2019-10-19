@@ -81,12 +81,9 @@ Sequence< Reference< css::frame::XDispatch > > SAL_CALL PPPOptimizerDialog::quer
     const Sequence< css::frame::DispatchDescriptor >& aDescripts )
 {
     Sequence< Reference< css::frame::XDispatch> > aReturn( aDescripts.getLength() );
-    Reference< css::frame::XDispatch>* pReturn = aReturn.getArray();
-    const css::frame::DispatchDescriptor* pDescripts = aDescripts.getConstArray();
-    for (sal_Int32 i = 0; i < aDescripts.getLength(); ++i, ++pReturn, ++pDescripts )
-    {
-        *pReturn = queryDispatch( pDescripts->FeatureURL, pDescripts->FrameName, pDescripts->SearchFlags );
-    }
+    std::transform(aDescripts.begin(), aDescripts.end(), aReturn.begin(),
+        [this](const css::frame::DispatchDescriptor& rDescr) -> Reference<css::frame::XDispatch> {
+            return queryDispatch(rDescr.FeatureURL, rDescr.FrameName, rDescr.SearchFlags); });
     return aReturn;
 }
 
@@ -115,12 +112,11 @@ void SAL_CALL PPPOptimizerDialog::dispatch( const URL& rURL,
 
             if ( nFileSizeSource && nFileSizeDest )
             {
-                OUStringBuffer sBuf( "Your Presentation has been minimized from:" );
-                sBuf.append( OUString::number( nFileSizeSource >> 10 ) );
-                sBuf.append( "KB to " );
-                sBuf.append( OUString::number( nFileSizeDest >> 10 ) );
-                sBuf.append( "KB." );
-                OUString sResult( sBuf.makeStringAndClear() );
+                OUString sResult = "Your Presentation has been minimized from:" +
+                    OUString::number( nFileSizeSource >> 10 ) +
+                    "KB to " +
+                    OUString::number( nFileSizeDest >> 10 ) +
+                    "KB.";
                 SAL_INFO("sdext.minimizer", sResult );
             }
         }
@@ -151,7 +147,7 @@ void SAL_CALL PPPOptimizerDialog::removeStatusListener( const Reference< XStatus
 
 OUString PPPOptimizerDialog_getImplementationName()
 {
-    return OUString( "com.sun.star.comp.PresentationMinimizerImp" );
+    return "com.sun.star.comp.PresentationMinimizerImp";
 }
 
 Sequence< OUString > PPPOptimizerDialog_getSupportedServiceNames()

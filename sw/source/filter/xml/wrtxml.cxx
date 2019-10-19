@@ -543,11 +543,9 @@ bool SwXMLWriter::WriteThroughComponent(
     xSaxWriter->setOutputStream( xOutputStream );
 
     // prepare arguments (prepend doc handler to given arguments)
-    uno::Reference<xml::sax::XDocumentHandler> xDocHandler( xSaxWriter,UNO_QUERY);
     Sequence<Any> aArgs( 1 + rArguments.getLength() );
-    aArgs[0] <<= xDocHandler;
-    for(sal_Int32 i = 0; i < rArguments.getLength(); i++)
-        aArgs[i+1] = rArguments[i];
+    aArgs[0] <<= xSaxWriter;
+    std::copy(rArguments.begin(), rArguments.end(), std::next(aArgs.begin()));
 
     // get filter component
     uno::Reference< document::XExporter > xExporter(

@@ -18,17 +18,14 @@
  */
 
 #include <memory>
-#include <limits.h>
 #include <tools/vcompat.hxx>
 #include <tools/stream.hxx>
-#include <tools/helpers.hxx>
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
 #include <vcl/canvastools.hxx>
 #include <vcl/region.hxx>
 #include <regionband.hxx>
 
-#include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/polygon/b2dpolygonclipper.hxx>
@@ -368,7 +365,7 @@ Region::Region(const basegfx::B2DPolyPolygon& rPolyPoly)
 
 Region::Region(const vcl::Region&) = default;
 
-Region::Region(vcl::Region&& rRegion)
+Region::Region(vcl::Region&& rRegion) noexcept
 :   mpB2DPolyPolygon(std::move(rRegion.mpB2DPolyPolygon)),
     mpPolyPolygon(std::move(rRegion.mpPolyPolygon)),
     mpRegionBand(std::move(rRegion.mpRegionBand)),
@@ -1261,7 +1258,7 @@ tools::Rectangle vcl::Region::GetBoundRect() const
     return tools::Rectangle();
 }
 
-const tools::PolyPolygon vcl::Region::GetAsPolyPolygon() const
+tools::PolyPolygon vcl::Region::GetAsPolyPolygon() const
 {
     if(getPolyPolygon())
     {
@@ -1289,7 +1286,7 @@ const tools::PolyPolygon vcl::Region::GetAsPolyPolygon() const
     return tools::PolyPolygon();
 }
 
-const basegfx::B2DPolyPolygon vcl::Region::GetAsB2DPolyPolygon() const
+basegfx::B2DPolyPolygon vcl::Region::GetAsB2DPolyPolygon() const
 {
     if(getB2DPolyPolygon())
     {
@@ -1428,7 +1425,7 @@ void vcl::Region::SetEmpty()
 
 Region& vcl::Region::operator=( const vcl::Region& ) = default;
 
-Region& vcl::Region::operator=( vcl::Region&& rRegion )
+Region& vcl::Region::operator=( vcl::Region&& rRegion ) noexcept
 {
     mpB2DPolyPolygon = std::move(rRegion.mpB2DPolyPolygon);
     mpPolyPolygon = std::move(rRegion.mpPolyPolygon);

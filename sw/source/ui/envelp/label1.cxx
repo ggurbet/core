@@ -18,7 +18,7 @@
  */
 
 #include <memory>
-#include <vcl/waitobj.hxx>
+#include <vcl/svapp.hxx>
 #include <rtl/ustring.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <tools/lineend.hxx>
@@ -27,6 +27,7 @@
 #include <wrtsh.hxx>
 #include <initui.hxx>
 #include <labimp.hxx>
+#include "swuilabimp.hxx"
 #include "labfmt.hxx"
 #include "labprt.hxx"
 #include <unotools.hxx>
@@ -88,14 +89,14 @@ void SwLabDlg::PageCreated(const OString &rId, SfxTabPage &rPage)
             static_cast<SwLabPage*>(&rPage)->SetToBusinessCard();
     }
     else if (rId == "options")
-        pPrtPage = static_cast<SwLabPrtPage*>(&rPage);
+        m_pPrtPage = static_cast<SwLabPrtPage*>(&rPage);
 }
 
 SwLabDlg::SwLabDlg(weld::Window* pParent, const SfxItemSet& rSet,
                                 SwDBManager* pDBManager_, bool bLabel)
     : SfxTabDialogController(pParent, "modules/swriter/ui/labeldialog.ui", "LabelDialog", &rSet)
     , pDBManager(pDBManager_)
-    , pPrtPage(nullptr)
+    , m_pPrtPage(nullptr)
     , aTypeIds(50, 10)
     , m_pRecs(new SwLabRecs)
     , m_bLabel(bLabel)
@@ -110,7 +111,7 @@ SwLabDlg::SwLabDlg(weld::Window* pParent, const SfxItemSet& rSet,
 
     bool bDouble = false;
 
-    for (std::unique_ptr<SwLabRec> & i : *m_pRecs)
+    for (const std::unique_ptr<SwLabRec> & i : *m_pRecs)
     {
         if (pRec->m_aMake == i->m_aMake &&
             pRec->m_aType == i->m_aType)
@@ -212,14 +213,14 @@ SwLabRec* SwLabDlg::GetRecord(const OUString &rRecName, bool bCont)
 
 Printer *SwLabDlg::GetPrt()
 {
-    if (pPrtPage)
-        return pPrtPage->GetPrt();
+    if (m_pPrtPage)
+        return m_pPrtPage->GetPrt();
     else
         return nullptr;
 }
 
-SwLabPage::SwLabPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/cardmediumpage.ui", "CardMediumPage", &rSet)
+SwLabPage::SwLabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/cardmediumpage.ui", "CardMediumPage", &rSet)
     , pDBManager(nullptr)
     , aItem(static_cast<const SwLabItem&>(rSet.Get(FN_LABEL)))
     , m_xAddressFrame(m_xBuilder->weld_widget("addressframe"))
@@ -236,7 +237,7 @@ SwLabPage::SwLabPage(TabPageParent pParent, const SfxItemSet& rSet)
     , m_xHiddenSortTypeBox(m_xBuilder->weld_combo_box("hiddentype"))
     , m_xFormatInfo(m_xBuilder->weld_label("formatinfo"))
 {
-    WaitObject aWait(pParent.pParent);
+    weld::WaitObject aWait(GetFrameWeld());
 
     m_xWritingEdit->set_size_request(m_xWritingEdit->get_approximate_digit_width() * 30,
                                      m_xWritingEdit->get_height_rows(10));
@@ -392,7 +393,7 @@ IMPL_LINK_NOARG(SwLabPage, TypeHdl, weld::ComboBox&, void)
 
 void SwLabPage::DisplayFormat()
 {
-    ScopedVclPtrInstance< MetricField > aField(this, WinBits(0));
+    ScopedVclPtrInstance< MetricField > aField(Application::GetDefDialogParent(), WinBits(0));
     FieldUnit aMetric = ::GetDfltMetric(false);
     SetMetric(*aField, aMetric);
     aField->SetDecimalDigits(2);
@@ -427,7 +428,7 @@ void SwLabPage::InitDatabaseBox()
     if( GetDBManager() )
     {
         m_xDatabaseLB->clear();
-        css::uno::Sequence<OUString> aDataNames = SwDBManager::GetExistingDatabaseNames();
+        const css::uno::Sequence<OUString> aDataNames = SwDBManager::GetExistingDatabaseNames();
         for (const OUString& rDataName : aDataNames)
             m_xDatabaseLB->append_text(rDataName);
         sal_Int32 nIdx{ 0 };
@@ -444,9 +445,9 @@ void SwLabPage::InitDatabaseBox()
     }
 }
 
-VclPtr<SfxTabPage> SwLabPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SwLabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SwLabPage>::Create(pParent, *rSet);
+    return std::make_unique<SwLabPage>(pPage, pController, *rSet);
 }
 
 void SwLabPage::ActivatePage(const SfxItemSet& rSet)
@@ -544,8 +545,8 @@ void SwLabPage::Reset(const SfxItemSet* rSet)
         m_xSheetButton->set_active(true);
 }
 
-SwPrivateDataPage::SwPrivateDataPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/privateuserpage.ui", "PrivateUserPage", &rSet)
+SwPrivateDataPage::SwPrivateDataPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/privateuserpage.ui", "PrivateUserPage", &rSet)
     , m_xFirstNameED(m_xBuilder->weld_entry("firstname"))
     , m_xNameED(m_xBuilder->weld_entry("lastname"))
     , m_xShortCutED(m_xBuilder->weld_entry("shortname"))
@@ -572,9 +573,9 @@ SwPrivateDataPage::~SwPrivateDataPage()
 {
 }
 
-VclPtr<SfxTabPage> SwPrivateDataPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SwPrivateDataPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SwPrivateDataPage>::Create(pParent, *rSet);
+    return std::make_unique<SwPrivateDataPage>(pPage, pController, *rSet);
 }
 
 void SwPrivateDataPage::ActivatePage(const SfxItemSet& rSet)
@@ -641,8 +642,8 @@ void SwPrivateDataPage::Reset(const SfxItemSet* rSet)
     m_xMailED->set_text(aItem.m_aPrivMail);
 }
 
-SwBusinessDataPage::SwBusinessDataPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/businessdatapage.ui", "BusinessDataPage", &rSet)
+SwBusinessDataPage::SwBusinessDataPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/businessdatapage.ui", "BusinessDataPage", &rSet)
     , m_xCompanyED(m_xBuilder->weld_entry("company"))
     , m_xCompanyExtED(m_xBuilder->weld_entry("company2"))
     , m_xSloganED(m_xBuilder->weld_entry("slogan"))
@@ -665,9 +666,9 @@ SwBusinessDataPage::~SwBusinessDataPage()
 {
 }
 
-VclPtr<SfxTabPage> SwBusinessDataPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
+std::unique_ptr<SfxTabPage> SwBusinessDataPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet)
 {
-    return VclPtr<SwBusinessDataPage>::Create(pParent, *rSet);
+    return std::make_unique<SwBusinessDataPage>(pPage, pController, *rSet);
 }
 
 void SwBusinessDataPage::ActivatePage(const SfxItemSet& rSet)

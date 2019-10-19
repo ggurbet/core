@@ -17,21 +17,20 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_feature_opencl.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
 #include <scitems.hxx>
+#include <comphelper/sequence.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/outliner.hxx>
 #include <o3tl/any.hxx>
-#include <svx/fmdpage.hxx>
 #include <svx/fmview.hxx>
 #include <svx/svditer.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svxids.hrc>
 #include <svx/unoshape.hxx>
-#include <tools/diagnose_ex.h>
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/propertysequence.hxx>
@@ -40,24 +39,20 @@
 #include <svl/numuno.hxx>
 #include <svl/hint.hxx>
 #include <unotools/moduleoptions.hxx>
-#include <sfx2/printer.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <vcl/commandevent.hxx>
+#include <svx/unopage.hxx>
 #include <vcl/pdfextoutdevdata.hxx>
+#include <vcl/print.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/waitobj.hxx>
-#include <unotools/charclass.hxx>
 #include <tools/multisel.hxx>
 #include <toolkit/awt/vclxdevice.hxx>
 #include <unotools/saveopt.hxx>
-#include <sal/log.hxx>
 
 #include <float.h>
 
 #include <com/sun/star/beans/PropertyAttribute.hpp>
-#include <com/sun/star/datatransfer/UnsupportedFlavorException.hpp>
 #include <com/sun/star/util/Date.hpp>
 #include <com/sun/star/sheet/XNamedRanges.hpp>
 #include <com/sun/star/sheet/XLabelRanges.hpp>
@@ -88,13 +83,11 @@
 #include <convuno.hxx>
 #include <datauno.hxx>
 #include <docfunc.hxx>
-#include <dociter.hxx>
 #include <docoptio.hxx>
 #include <docsh.hxx>
 #include <docuno.hxx>
 #include <drwlayer.hxx>
 #include <forbiuno.hxx>
-#include <formulacell.hxx>
 #include <formulagroup.hxx>
 #include <gridwin.hxx>
 #include <hints.hxx>
@@ -121,7 +114,6 @@
 #include <targuno.hxx>
 #include <unonames.hxx>
 #include <ViewSettingsSequenceDefines.hxx>
-#include <viewuno.hxx>
 #include <editsh.hxx>
 #include <drawsh.hxx>
 #include <drtxtob.hxx>
@@ -325,7 +317,7 @@ ScPrintUIOptions::ScPrintUIOptions()
                                                     aChoices,
                                                     0 );
 
-    // create a an Edit dependent on "Pages" selected
+    // create an Edit dependent on "Pages" selected
     vcl::PrinterOptionsHelper::UIControlOptions aPageRangeOpt( aPrintRangeName, 1, true );
     m_aUIProperties[nIdx++].Value = setEditControlOpt("pagerange", OUString(),
                                                       ".HelpID:vcl:PrintDialog:PageRange:Edit",
@@ -347,23 +339,23 @@ void ScPrintUIOptions::SetDefaults()
         uno::Sequence<beans::PropertyValue> aUIProp;
         if ( rPropValue.Value >>= aUIProp )
         {
-            for (sal_Int32 nPropPos=0; nPropPos<aUIProp.getLength(); ++nPropPos)
+            for (auto& rProp : aUIProp)
             {
-                OUString aName = aUIProp[nPropPos].Name;
+                OUString aName = rProp.Name;
                 if ( aName == "Property" )
                 {
                     beans::PropertyValue aPropertyValue;
-                    if ( aUIProp[nPropPos].Value >>= aPropertyValue )
+                    if ( rProp.Value >>= aPropertyValue )
                     {
                         if ( aPropertyValue.Name == "PrintContent" )
                         {
                             aPropertyValue.Value <<= nContent;
-                            aUIProp[nPropPos].Value <<= aPropertyValue;
+                            rProp.Value <<= aPropertyValue;
                         }
                         else if ( aPropertyValue.Name == "IsSuppressEmptyPages" )
                         {
                             aPropertyValue.Value <<= bSuppress;
-                            aUIProp[nPropPos].Value <<= aPropertyValue;
+                            rProp.Value <<= aPropertyValue;
                         }
                     }
                 }
@@ -552,13 +544,16 @@ int ScModelObj::getPart()
 
 OUString ScModelObj::getPartInfo( int nPart )
 {
-    OUString aPartInfo;
     ScViewData* pViewData = ScDocShell::GetViewData();
-    bool bIsVisible = pViewData->GetDocument()->IsVisible(nPart);
+    const bool bIsVisible = pViewData->GetDocument()->IsVisible(nPart);
+    //FIXME: Implement IsSelected().
+    const bool bIsSelected = false; //pViewData->GetDocument()->IsSelected(nPart);
 
-    aPartInfo += "{ \"visible\": \"";
-    aPartInfo += OUString::number(static_cast<unsigned int>(bIsVisible));
-    aPartInfo += "\" }";
+    OUString aPartInfo = "{ \"visible\": \"" +
+        OUString::number(static_cast<unsigned int>(bIsVisible)) +
+        "\", \"selected\": \"" +
+        OUString::number(static_cast<unsigned int>(bIsSelected)) +
+        "\" }";
     return aPartInfo;
 }
 
@@ -621,15 +616,7 @@ Size ScModelObj::getDocumentSize()
     };
 
     long nDocWidthPixel = pViewData->GetLOKWidthHelper().computePosition(nEndCol, GetColWidthPx);
-
-
-    auto GetRowHeightPx = [pThisDoc, nTab](SCROW nRow) {
-        const sal_uInt16 nSize = pThisDoc->GetRowHeight(nRow, nTab);
-        return ScViewData::ToPixel(nSize, 1.0 / TWIPS_PER_PIXEL);
-    };
-
-    long nDocHeightPixel = pViewData->GetLOKHeightHelper().computePosition(nEndRow, GetRowHeightPx);
-
+    long nDocHeightPixel = pThisDoc->GetScaledRowHeight( 0, nEndRow, nTab, 1.0 / TWIPS_PER_PIXEL );
 
     if (nDocWidthPixel > 0 && nDocHeightPixel > 0)
     {
@@ -1302,11 +1289,8 @@ uno::Reference<container::XNameAccess> SAL_CALL ScModelObj::getStyleFamilies()
 static OutputDevice* lcl_GetRenderDevice( const uno::Sequence<beans::PropertyValue>& rOptions )
 {
     OutputDevice* pRet = nullptr;
-    const beans::PropertyValue* pPropArray = rOptions.getConstArray();
-    const long nPropCount = rOptions.getLength();
-    for (long i = 0; i < nPropCount; i++)
+    for (const beans::PropertyValue& rProp : rOptions)
     {
-        const beans::PropertyValue& rProp = pPropArray[i];
         const OUString & rPropName = rProp.Name;
 
         if (rPropName == SC_UNONAME_RENDERDEV)
@@ -1429,36 +1413,36 @@ bool ScModelObj::FillRenderMarkData( const uno::Any& aSelection,
     sal_Int32 nPrintRange = 0;          // all pages / pages / even pages / odd pages
     OUString aPageRange;           // "pages" edit value
 
-    for( sal_Int32 i = 0, nLen = rOptions.getLength(); i < nLen; i++ )
+    for( const auto& rOption : rOptions )
     {
-        if ( rOptions[i].Name == "IsOnlySelectedSheets" )
+        if ( rOption.Name == "IsOnlySelectedSheets" )
         {
-            rOptions[i].Value >>= bSelectedSheetsOnly;
+            rOption.Value >>= bSelectedSheetsOnly;
         }
-        else if ( rOptions[i].Name == "IsSuppressEmptyPages" )
+        else if ( rOption.Name == "IsSuppressEmptyPages" )
         {
-            rOptions[i].Value >>= bSuppressEmptyPages;
+            rOption.Value >>= bSuppressEmptyPages;
         }
-        else if ( rOptions[i].Name == "PageRange" )
+        else if ( rOption.Name == "PageRange" )
         {
-            rOptions[i].Value >>= aPageRange;
+            rOption.Value >>= aPageRange;
         }
-        else if ( rOptions[i].Name == "PrintRange" )
+        else if ( rOption.Name == "PrintRange" )
         {
-            rOptions[i].Value >>= nPrintRange;
+            rOption.Value >>= nPrintRange;
         }
-        else if ( rOptions[i].Name == "PrintContent" )
+        else if ( rOption.Name == "PrintContent" )
         {
             bHasPrintContent = true;
-            rOptions[i].Value >>= nPrintContent;
+            rOption.Value >>= nPrintContent;
         }
-        else if ( rOptions[i].Name == "View" )
+        else if ( rOption.Name == "View" )
         {
-            rOptions[i].Value >>= xView;
+            rOption.Value >>= xView;
         }
-        else if ( rOptions[i].Name == "RenderToGraphic" )
+        else if ( rOption.Name == "RenderToGraphic" )
         {
-            rOptions[i].Value >>= rbRenderToGraphic;
+            rOption.Value >>= rbRenderToGraphic;
         }
     }
 
@@ -1510,30 +1494,26 @@ bool ScModelObj::FillRenderMarkData( const uno::Any& aSelection,
         else if( xShapes.is() )
         {
             //print a selected ole object
-            uno::Reference< container::XIndexAccess > xIndexAccess( xShapes, uno::UNO_QUERY );
-            if( xIndexAccess.is() )
+            // multi selection isn't supported yet
+            uno::Reference< drawing::XShape > xShape( xShapes->getByIndex(0), uno::UNO_QUERY );
+            SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
+            if( pShape )
             {
-                // multi selection isn't supported yet
-                uno::Reference< drawing::XShape > xShape( xIndexAccess->getByIndex(0), uno::UNO_QUERY );
-                SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
-                if( pShape )
+                SdrObject *pSdrObj = pShape->GetSdrObject();
+                if( pDocShell )
                 {
-                    SdrObject *pSdrObj = pShape->GetSdrObject();
-                    if( pDocShell )
+                    ScDocument& rDoc = pDocShell->GetDocument();
+                    if( pSdrObj )
                     {
-                        ScDocument& rDoc = pDocShell->GetDocument();
-                        if( pSdrObj )
-                        {
-                            tools::Rectangle aObjRect = pSdrObj->GetCurrentBoundRect();
-                            SCTAB nCurrentTab = ScDocShell::GetCurTab();
-                            ScRange aRange = rDoc.GetRange( nCurrentTab, aObjRect );
-                            rMark.SetMarkArea( aRange );
+                        tools::Rectangle aObjRect = pSdrObj->GetCurrentBoundRect();
+                        SCTAB nCurrentTab = ScDocShell::GetCurTab();
+                        ScRange aRange = rDoc.GetRange( nCurrentTab, aObjRect );
+                        rMark.SetMarkArea( aRange );
 
-                            if( rMark.IsMarked() && !rMark.IsMultiMarked() )
-                            {
-                                rStatus.SetMode( SC_PRINTSEL_RANGE_EXCLUSIVELY_OLE_AND_DRAW_OBJECTS );
-                                bDone = true;
-                            }
+                        if( rMark.IsMarked() && !rMark.IsMultiMarked() )
+                        {
+                            rStatus.SetMode( SC_PRINTSEL_RANGE_EXCLUSIVELY_OLE_AND_DRAW_OBJECTS );
+                            bDone = true;
                         }
                     }
                 }
@@ -1557,14 +1537,14 @@ bool ScModelObj::FillRenderMarkData( const uno::Any& aSelection,
     uno::Reference<sheet::XSelectedSheetsSupplier> xSelectedSheets(xView, uno::UNO_QUERY);
     if (bSelectedSheetsOnly && xSelectedSheets.is())
     {
-        uno::Sequence<sal_Int32> aSelected = xSelectedSheets->getSelectedSheets();
+        const uno::Sequence<sal_Int32> aSelected = xSelectedSheets->getSelectedSheets();
         ScMarkData::MarkedTabsType aSelectedTabs;
         SCTAB nMaxTab = pDocShell->GetDocument().GetTableCount() -1;
-        for (sal_Int32 i = 0, n = aSelected.getLength(); i < n; ++i)
+        for (const auto& rSelected : aSelected)
         {
-            SCTAB nSelected = static_cast<SCTAB>(aSelected[i]);
+            SCTAB nSelected = static_cast<SCTAB>(rSelected);
             if (ValidTab(nSelected, nMaxTab))
-                aSelectedTabs.insert(static_cast<SCTAB>(aSelected[i]));
+                aSelectedTabs.insert(nSelected);
         }
         rMark.SetSelectedTabs(aSelectedTabs);
     }
@@ -1614,13 +1594,22 @@ sal_Int32 SAL_CALL ScModelObj::getRendererCount(const uno::Any& aSelection,
     maValidPages.clear();
 
     sal_Int32 nContent = 0;
+    bool bSinglePageSheets = false;
     for ( const auto& rValue : rOptions)
     {
         if ( rValue.Name == "PrintRange" )
         {
             rValue.Value >>= nContent;
-            break;
         }
+        else if ( rValue.Name == "SinglePageSheets" )
+        {
+            rValue.Value >>= bSinglePageSheets;
+        }
+    }
+
+    if (bSinglePageSheets)
+    {
+        return pDocShell->GetDocument().GetTableCount();
     }
 
     bool bIsPrintEvenPages = nContent != 3;
@@ -1680,6 +1669,7 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
     // #i115266# if FillRenderMarkData fails, keep nTotalPages at 0, but still handle getRenderer(0) below
     long nTotalPages = 0;
     bool bRenderToGraphic = false;
+    bool bSinglePageSheets = false;
     if ( FillRenderMarkData( aSelection, rOptions, aMark, aStatus, aPagesStr, bRenderToGraphic ) )
     {
         if ( !pPrintFuncCache || !pPrintFuncCache->IsSameSelection( aStatus ) )
@@ -1688,7 +1678,21 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
         }
         nTotalPages = pPrintFuncCache->GetPageCount();
     }
+
+    for ( const auto& rValue : rOptions)
+    {
+        if ( rValue.Name == "SinglePageSheets" )
+        {
+            rValue.Value >>= bSinglePageSheets;
+            break;
+        }
+    }
+
+    if (bSinglePageSheets)
+        nTotalPages = pDocShell->GetDocument().GetTableCount();
+
     sal_Int32 nRenderer = lcl_GetRendererNum( nSelRenderer, aPagesStr, nTotalPages );
+
     if ( nRenderer < 0 )
     {
         if ( nSelRenderer != 0 )
@@ -1733,7 +1737,9 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
     //  printer is used as device (just for page layout), draw view is not needed
 
     SCTAB nTab;
-    if ( !maValidPages.empty() )
+    if (bSinglePageSheets)
+        nTab = nSelRenderer;
+    else if ( !maValidPages.empty() )
         nTab = pPrintFuncCache->GetTabForPage( maValidPages.at( nRenderer )-1 );
     else
         nTab = pPrintFuncCache->GetTabForPage( nRenderer );
@@ -1741,7 +1747,56 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
 
     ScRange aRange;
     const ScRange* pSelRange = nullptr;
-    if ( aMark.IsMarked() )
+    if ( bSinglePageSheets )
+    {
+        awt::Size aPageSize;
+        SCCOL nStartCol;
+        SCROW nStartRow;
+        const ScDocument* pDocument = &pDocShell->GetDocument();
+        pDocument->GetDataStart( nTab, nStartCol, nStartRow );
+        SCCOL nEndCol;
+        SCROW nEndRow;
+        pDocument->GetPrintArea( nTab, nEndCol, nEndRow );
+
+        aRange.aStart = ScAddress(nStartCol, nStartRow, nTab);
+        aRange.aEnd = ScAddress(nEndCol, nEndRow, nTab);
+        pSelRange = &aRange;
+
+        table::CellRangeAddress aRangeAddress( nTab,
+                        aRange.aStart.Col(), aRange.aStart.Row(),
+                        aRange.aEnd.Col(), aRange.aEnd.Row() );
+        tools::Rectangle aMMRect( pDocShell->GetDocument().GetMMRect(
+                    aRange.aStart.Col(), aRange.aStart.Row(),
+                    aRange.aEnd.Col(), aRange.aEnd.Row(), aRange.aStart.Tab()));
+
+        aPageSize.Width = aMMRect.GetWidth();
+        aPageSize.Height = aMMRect.GetHeight();
+
+        awt::Size aCalcPageSize ( aMMRect.GetSize().Width(),  aMMRect.GetSize().Height() );
+        awt::Point aCalcPagePos( aMMRect.getX(), aMMRect.getY() );
+
+        uno::Sequence<beans::PropertyValue> aSequence(5);
+        beans::PropertyValue* pArray = aSequence.getArray();
+        pArray[0].Name = SC_UNONAME_PAGESIZE;
+        pArray[0].Value <<= aPageSize;
+        // #i111158# all positions are relative to the whole page, including non-printable area
+        pArray[1].Name = SC_UNONAME_INC_NP_AREA;
+        pArray[1].Value <<= true;
+        pArray[2].Name = SC_UNONAME_SOURCERANGE;
+        pArray[2].Value <<= aRangeAddress;
+        pArray[3].Name = SC_UNONAME_CALCPAGESIZE;
+        pArray[3].Value <<= aCalcPageSize;
+        pArray[4].Name = SC_UNONAME_CALCPAGEPOS;
+        pArray[4].Value <<= aCalcPagePos;
+
+        if( ! pPrinterOptions )
+            pPrinterOptions.reset(new ScPrintUIOptions);
+        else
+            pPrinterOptions->SetDefaults();
+        pPrinterOptions->appendPrintUIOptions( aSequence );
+        return aSequence;
+    }
+    else if ( aMark.IsMarked() )
     {
         aMark.GetMarkArea( aRange );
         pSelRange = &aRange;
@@ -1781,16 +1836,16 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
         }
 
         MultiSelection aPage;
-        if ( nContent == 2 || nContent == 3 ) // even pages or odd pages
-        {
-            aPage.SetTotalRange( Range(0,RANGE_MAX) );
-            aPage.Select( maValidPages.at( nRenderer ) );
-        }
+        aPage.SetTotalRange( Range(0,RANGE_MAX) );
+
+        bool bOddOrEven = nContent == 2 || nContent == 3; // even pages or odd pages
+        // tdf#127682 when odd/even allow nRenderer of 0 even when maValidPages is empty
+        // to allow PrinterController::abortJob to spool an empty page as part of
+        // its abort procedure
+        if (bOddOrEven && !maValidPages.empty())
+            aPage.Select( maValidPages.at(nRenderer) );
         else
-        {
-            aPage.SetTotalRange( Range(0,RANGE_MAX) );
             aPage.Select( nRenderer+1 );
-        }
 
         long nDisplayStart = pPrintFuncCache->GetDisplayStart( nTab );
         long nTabStart = pPrintFuncCache->GetTabStart( nTab );
@@ -1860,6 +1915,7 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
     ScPrintSelectionStatus aStatus;
     OUString aPagesStr;
     bool bRenderToGraphic = false;
+    bool bSinglePageSheets = false;
     if ( !FillRenderMarkData( aSelection, rOptions, aMark, aStatus, aPagesStr, bRenderToGraphic ) )
         throw lang::IllegalArgumentException();
 
@@ -1868,6 +1924,19 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
         pPrintFuncCache.reset(new ScPrintFuncCache( pDocShell, aMark, aStatus ));
     }
     long nTotalPages = pPrintFuncCache->GetPageCount();
+
+    for ( const auto& rValue : rOptions)
+    {
+        if ( rValue.Name == "SinglePageSheets" )
+        {
+            rValue.Value >>= bSinglePageSheets;
+            break;
+        }
+    }
+
+    if (bSinglePageSheets)
+        nTotalPages = pDocShell->GetDocument().GetTableCount();
+
     sal_Int32 nRenderer = lcl_GetRendererNum( nSelRenderer, aPagesStr, nTotalPages );
     if ( nRenderer < 0 )
         throw lang::IllegalArgumentException();
@@ -1880,7 +1949,39 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
 
     ScRange aRange;
     const ScRange* pSelRange = nullptr;
-    if ( aMark.IsMarked() )
+    if ( bSinglePageSheets )
+    {
+        awt::Size aPageSize;
+        SCCOL nStartCol;
+        SCROW nStartRow;
+        rDoc.GetDataStart( nSelRenderer, nStartCol, nStartRow );
+        SCCOL nEndCol;
+        SCROW nEndRow;
+        rDoc.GetPrintArea( nSelRenderer, nEndCol, nEndRow );
+
+        aRange.aStart = ScAddress(nStartCol, nStartRow, nSelRenderer);
+        aRange.aEnd = ScAddress(nEndCol, nEndRow, nSelRenderer);
+
+        tools::Rectangle aMMRect( pDocShell->GetDocument().GetMMRect(
+                    aRange.aStart.Col(), aRange.aStart.Row(),
+                    aRange.aEnd.Col(), aRange.aEnd.Row(), aRange.aStart.Tab()));
+
+        aPageSize.Width = aMMRect.GetWidth();
+        aPageSize.Height = aMMRect.GetHeight();
+
+        //Set visible tab
+        SCTAB nVisTab = rDoc.GetVisibleTab();
+        if (nVisTab != nSelRenderer)
+        {
+            nVisTab = nSelRenderer;
+            rDoc.SetVisibleTab(nVisTab);
+        }
+
+        pDocShell->DoDraw(pDev, Point(0,0), Size(aPageSize.Width, aPageSize.Height), JobSetup());
+
+        return;
+    }
+    else if ( aMark.IsMarked() )
     {
         aMark.GetMarkArea( aRange );
         pSelRange = &aRange;
@@ -1965,16 +2066,16 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
     }
 
     MultiSelection aPage;
-    if ( nContent == 2 || nContent == 3 ) // even pages or odd pages
-    {
-        aPage.SetTotalRange( Range(0,RANGE_MAX) );
+    aPage.SetTotalRange( Range(0,RANGE_MAX) );
+
+    bool bOddOrEven = nContent == 2 || nContent == 3; // even pages or odd pages
+    // tdf#127682 when odd/even allow nRenderer of 0 even when maValidPages is empty
+    // to allow PrinterController::abortJob to spool an empty page as part of
+    // its abort procedure
+    if (bOddOrEven && !maValidPages.empty())
         aPage.Select( maValidPages.at( nRenderer ) );
-    }
     else
-    {
-        aPage.SetTotalRange( Range(0,RANGE_MAX) );
         aPage.Select( nRenderer+1 );
-    }
 
     long nDisplayStart = pPrintFuncCache->GetDisplayStart( nTab );
     long nTabStart = pPrintFuncCache->GetTabStart( nTab );
@@ -2064,6 +2165,7 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
 
                             // Scale and move the target rectangle from aLocationMM to aLocationPixel,
                             // to get the target rectangle in pixels.
+                            assert(aLocationPixel.GetWidth() != 0 && aLocationPixel.GetHeight() != 0);
 
                             Fraction aScaleX( aLocationPixel.GetWidth(), aLocationMM.GetWidth() );
                             Fraction aScaleY( aLocationPixel.GetHeight(), aLocationMM.GetHeight() );
@@ -2081,7 +2183,6 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
                             // The link target area is interpreted using the device's MapMode at
                             // the time of the CreateDest call, so PixelToLogic can be used here,
                             // regardless of the MapMode that is actually selected.
-
                             aArea = pDev->PixelToLogic( tools::Rectangle( nX1, nY1, nX2, nY2 ) );
                         }
                     }
@@ -2846,20 +2947,14 @@ uno::Sequence<OUString> SAL_CALL ScModelObj::getAvailableServiceNames()
 {
     SolarMutexGuard aGuard;
 
-    //! why are the parameters of concatServiceNames not const ???
-    //! return concatServiceNames( ScServiceProvider::GetAllServiceNames(),
-    //!                            SvxFmMSFactory::getAvailableServiceNames() );
-
-    uno::Sequence<OUString> aMyServices(ScServiceProvider::GetAllServiceNames());
-    uno::Sequence<OUString> aDrawServices(SvxFmMSFactory::getAvailableServiceNames());
-
-    return concatServiceNames( aMyServices, aDrawServices );
+    return comphelper::concatSequences( ScServiceProvider::GetAllServiceNames(),
+                                        SvxFmMSFactory::getAvailableServiceNames() );
 }
 
 // XServiceInfo
 OUString SAL_CALL ScModelObj::getImplementationName()
 {
-    return OUString( "ScModelObj" );
+    return "ScModelObj";
     /* // Matching the .component information:
        return OUString( "com.sun.star.comp.Calc.SpreadsheetDocument" );
     */
@@ -2880,16 +2975,12 @@ uno::Sequence<OUString> SAL_CALL ScModelObj::getSupportedServiceNames()
 sal_Int64 SAL_CALL ScModelObj::getSomething(
                 const uno::Sequence<sal_Int8 >& rId )
 {
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
+    if ( isUnoTunnelId<ScModelObj>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }
 
-    if ( rId.getLength() == 16 &&
-        0 == memcmp( SfxObjectShell::getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
+    if ( isUnoTunnelId<SfxObjectShell>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(pDocShell ));
     }
@@ -4485,18 +4576,13 @@ void SAL_CALL ScScenariosObj::addNewByName( const OUString& aName,
         ScMarkData aMarkData;
         aMarkData.SelectTable( nTab, true );
 
-        sal_uInt16 nRangeCount = static_cast<sal_uInt16>(aRanges.getLength());
-        if (nRangeCount)
+        for (const table::CellRangeAddress& rRange : aRanges)
         {
-            const table::CellRangeAddress* pAry = aRanges.getConstArray();
-            for (sal_uInt16 i=0; i<nRangeCount; i++)
-            {
-                OSL_ENSURE( pAry[i].Sheet == nTab, "addScenario with a wrong Tab" );
-                ScRange aRange( static_cast<SCCOL>(pAry[i].StartColumn), static_cast<SCROW>(pAry[i].StartRow), nTab,
-                                static_cast<SCCOL>(pAry[i].EndColumn),   static_cast<SCROW>(pAry[i].EndRow),   nTab );
+            OSL_ENSURE( rRange.Sheet == nTab, "addScenario with a wrong Tab" );
+            ScRange aRange( static_cast<SCCOL>(rRange.StartColumn), static_cast<SCROW>(rRange.StartRow), nTab,
+                            static_cast<SCCOL>(rRange.EndColumn),   static_cast<SCROW>(rRange.EndRow),   nTab );
 
-                aMarkData.SetMultiMarkArea( aRange );
-            }
+            aMarkData.SetMultiMarkArea( aRange );
         }
 
         ScScenarioFlags const nFlags = ScScenarioFlags::ShowFrame | ScScenarioFlags::PrintFrame

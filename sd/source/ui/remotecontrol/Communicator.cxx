@@ -58,15 +58,14 @@ void Communicator::execute()
     pTransmitter->addMessage( "LO_SERVER_SERVER_PAIRED\n\n",
                               Transmitter::PRIORITY_HIGH );
 
-    OStringBuffer aServerInformationBuffer;
-    aServerInformationBuffer.append( "LO_SERVER_INFO\n" LIBO_VERSION_DOTTED "\n\n" );
+    OString aServerInformation = "LO_SERVER_INFO\n" LIBO_VERSION_DOTTED "\n\n";
 
-    pTransmitter->addMessage( aServerInformationBuffer.makeStringAndClear(), Transmitter::PRIORITY_HIGH );
+    pTransmitter->addMessage( aServerInformation, Transmitter::PRIORITY_HIGH );
 
     Receiver aReceiver( pTransmitter.get() );
     try {
         uno::Reference< frame::XDesktop2 > xFramesSupplier = frame::Desktop::create( ::comphelper::getProcessComponentContext() );
-        uno::Reference< frame::XFrame > xFrame ( xFramesSupplier->getActiveFrame(), uno::UNO_QUERY );
+        uno::Reference< frame::XFrame > xFrame = xFramesSupplier->getActiveFrame();
 
         uno::Reference<presentation::XPresentationSupplier> xPS;
         if( xFrame.is() )

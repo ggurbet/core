@@ -158,11 +158,7 @@ static void lcl_PrintHeader( vcl::RenderContext &rOutDev, sal_Int32 nPages, sal_
     {
         aFont.SetWeight( WEIGHT_NORMAL );
         rOutDev.SetFont( aFont );
-        OUString aPageStr( " [" );
-        aPageStr += SwResId( STR_PAGE );
-        aPageStr += " ";
-        aPageStr += OUString::number( nCurPage );
-        aPageStr += "]";
+        OUString aPageStr = " [" + SwResId( STR_PAGE ) + " " + OUString::number( nCurPage ) + "]";
         aPos.AdjustX(rOutDev.GetTextWidth( rTitle ) );
         rOutDev.DrawText( aPos, aPageStr );
     }
@@ -295,7 +291,6 @@ void SwSrcView::Execute(SfxRequest& rReq)
                 TemplateDescription::FILESAVE_AUTOEXTENSION,
                 FileDialogFlags::NONE, aEditWin->GetFrameWeld());
             uno::Reference < XFilePicker3 > xFP = aDlgHelper.GetFilePicker();
-            uno::Reference<XFilterManager> xFltMgr(xFP, UNO_QUERY);
 
             // search for an html filter for export
             SfxFilterContainer* pFilterCont = GetObjectShell()->GetFactory().GetFilterContainer();
@@ -306,15 +301,15 @@ void SwSrcView::Execute(SfxRequest& rReq)
                 // filter found -> use its uiname and wildcard
                 const OUString& rUIName = pFilter->GetUIName();
                 const WildCard& rCard = pFilter->GetWildcard();
-                xFltMgr->appendFilter( rUIName, rCard.getGlob() );
-                xFltMgr->setCurrentFilter( rUIName ) ;
+                xFP->appendFilter( rUIName, rCard.getGlob() );
+                xFP->setCurrentFilter( rUIName ) ;
             }
             else
             {
                 // filter not found
                 OUString sHtml("HTML");
-                xFltMgr->appendFilter( sHtml, "*.html;*.htm" );
-                xFltMgr->setCurrentFilter( sHtml ) ;
+                xFP->appendFilter( sHtml, "*.html;*.htm" );
+                xFP->setCurrentFilter( sHtml ) ;
             }
 
             xFP->setDisplayDirectory( aPathOpt.GetWorkPath() );
@@ -451,8 +446,8 @@ void SwSrcView::GetState(SfxItemSet& rSet)
                 OUString aPos( SwResId(STR_SRCVIEW_ROW) );
                 TextSelection aSel = pTextView->GetSelection();
                 aPos += OUString::number( aSel.GetEnd().GetPara()+1 );
-                aPos += " : ";
-                aPos += SwResId(STR_SRCVIEW_COL);
+                aPos += " : " +
+                    SwResId(STR_SRCVIEW_COL);
                 aPos += OUString::number( aSel.GetEnd().GetIndex()+1 );
                 SfxStringItem aItem( nWhich, aPos );
                 rSet.Put( aItem );

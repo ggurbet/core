@@ -22,7 +22,7 @@
 #include <sfx2/newstyle.hxx>
 #include <sfx2/strings.hrc>
 #include <sfx2/sfxresid.hxx>
-#include <vcl/layout.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 
 // Private methods ------------------------------------------------------
@@ -49,9 +49,10 @@ IMPL_LINK_NOARG(SfxNewStyleDlg, OKClickHdl, weld::Button&, void)
         m_xDialog->response(RET_OK);
 }
 
-IMPL_LINK_NOARG(SfxNewStyleDlg, OKHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SfxNewStyleDlg, OKHdl, weld::TreeView&, bool)
 {
     OKClickHdl(*m_xOKBtn);
+    return true;
 }
 
 IMPL_LINK(SfxNewStyleDlg, ModifyHdl, weld::ComboBox&, rBox, void)

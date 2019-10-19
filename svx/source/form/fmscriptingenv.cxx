@@ -817,7 +817,7 @@ namespace svxform
             // XServiceInfo
             virtual OUString SAL_CALL getImplementationName() override
             {
-                return OUString("com.sun.star.comp.svx.StarBasicQuitGuard");
+                return "com.sun.star.comp.svx.StarBasicQuitGuard";
             }
 
             virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override
@@ -1035,14 +1035,11 @@ namespace svxform
                     sMacroLocation = "document";
             }
 
-            OUStringBuffer aScriptURI;
-            aScriptURI.append( "vnd.sun.star.script:" );
-            aScriptURI.append( sScriptCode );
-            aScriptURI.append( "?language=Basic" );
-            aScriptURI.append( "&location=" );
-            aScriptURI.append( sMacroLocation );
+            OUString sScriptURI = "vnd.sun.star.script:" +
+                sScriptCode +
+                "?language=Basic&location=" +
+                sMacroLocation;
 
-            const OUString sScriptURI( aScriptURI.makeStringAndClear() );
             pScript.reset( new NewStyleUNOScript( *xObjectShell, sScriptURI ) );
         }
 
@@ -1069,6 +1066,7 @@ namespace svxform
         ::osl::MutexGuard aGuard( m_aMutex );
         m_bDisposed = true;
         m_pScriptListener->dispose();
+        m_pScriptListener.clear();
     }
 
 

@@ -81,8 +81,11 @@ protected:
     Stmt* getParentStmt( Stmt* stmt );
     const FunctionDecl* getParentFunctionDecl( const Stmt* stmt );
 
-    /// to check file names against whitelists, so that it works with preprocessed input too
-    StringRef getFileNameOfSpellingLoc(SourceLocation spellingLocation) const;
+    /**
+     Get filename of the given location. Use this instead of SourceManager::getFilename(), as that one
+     does not handle source with expanded #inline directives (used by Icecream for remote compilation).
+    */
+    StringRef getFilenameOfLocation(SourceLocation spellingLocation) const;
     /**
      Checks if the location is inside a UNO file, more specifically, if it forms part of the URE stable interface,
      which is not allowed to be changed.
@@ -270,6 +273,24 @@ bool hasPathnamePrefix(StringRef pathname, StringRef prefix);
 // Same as pathname == other, except on Windows, where pathname and other may
 // also contain backslashes:
 bool isSamePathname(StringRef pathname, StringRef other);
+
+// It appears that, given a function declaration, there is no way to determine
+// the language linkage of the function's type, only of the function's name
+// (via FunctionDecl::isExternC); however, in a case like
+//
+//   extern "C" { static void f(); }
+//
+// the function's name does not have C language linkage while the function's
+// type does (as clarified in C++11 [decl.link]); cf. <http://clang-developers.
+// 42468.n3.nabble.com/Language-linkage-of-function-type-tt4037248.html>
+// "Language linkage of function type":
+bool hasCLanguageLinkageType(FunctionDecl const * decl);
+
+// Count the number of times the base class is present in the subclass hierarchy
+//
+int derivedFromCount(clang::QualType subclassType, clang::QualType baseclassType);
+int derivedFromCount(const CXXRecordDecl* subtypeRecord, const CXXRecordDecl* baseRecord);
+
 
 } // namespace
 

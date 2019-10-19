@@ -51,13 +51,12 @@ namespace
 
 OUString proxyfac_getImplementationName()
 {
-    return OUString(IMPL_NAME);
+    return IMPL_NAME;
 }
 
 Sequence< OUString > proxyfac_getSupportedServiceNames()
 {
-    OUString str_name = SERVICE_NAME;
-    return Sequence< OUString >( &str_name, 1 );
+    return { SERVICE_NAME };
 }
 
 

@@ -226,23 +226,87 @@ SfxPoolItem* SvxLineSpacingItem::Clone( SfxItemPool * ) const
     return new SvxLineSpacingItem( *this );
 }
 
-
 bool SvxLineSpacingItem::GetPresentation
 (
-    SfxItemPresentation /*ePres*/,
-    MapUnit             /*eCoreUnit*/,
-    MapUnit             /*ePresUnit*/,
-    OUString&           rText, const IntlWrapper&
+    SfxItemPresentation ePres,
+    MapUnit             eCoreUnit,
+    MapUnit             ePresUnit,
+    OUString&           rText, const IntlWrapper& rIntl
 )   const
 {
-#ifdef DBG_UTIL
-    rText = "SvxLineSpacingItem";
-#else
-    rText.clear();
-#endif
-    return false;
-}
+    switch ( ePres )
+    {
+        case SfxItemPresentation::Nameless:
+        case SfxItemPresentation::Complete:
+        {
+            switch( GetLineSpaceRule() )
+            {
+                case SvxLineSpaceRule::Auto:
+                {
+                    SvxInterLineSpaceRule eInter = GetInterLineSpaceRule();
 
+                    switch( eInter )
+                    {
+                        // Default single line spacing
+                        case SvxInterLineSpaceRule::Off:
+                            rText = EditResId(RID_SVXITEMS_LINESPACING_SINGLE);
+                            break;
+
+                        // Default single line spacing
+                        case SvxInterLineSpaceRule::Prop:
+                            if ( 100 == GetPropLineSpace() )
+                            {
+                                rText = EditResId(RID_SVXITEMS_LINESPACING_SINGLE);
+                                break;
+                            }
+                            // 1.15 line spacing
+                            if ( 115 == GetPropLineSpace() )
+                            {
+                                rText = EditResId(RID_SVXITEMS_LINESPACING_115);
+                                break;
+                            }
+                            // 1.5 line spacing
+                            if ( 150 == GetPropLineSpace() )
+                            {
+                                rText = EditResId(RID_SVXITEMS_LINESPACING_15);
+                                break;
+                            }
+                            // double line spacing
+                            if ( 200 == GetPropLineSpace() )
+                            {
+                                rText = EditResId(RID_SVXITEMS_LINESPACING_DOUBLE);
+                                break;
+                            }
+                            // the set per cent value
+                            rText = EditResId(RID_SVXITEMS_LINESPACING_PROPORTIONAL) + " " + OUString::number(GetPropLineSpace()) + "%";
+                            break;
+
+                        case SvxInterLineSpaceRule::Fix:
+                            rText = EditResId(RID_SVXITEMS_LINESPACING_LEADING)  +
+                                    " " + GetMetricText(GetInterLineSpace(), eCoreUnit, ePresUnit, &rIntl) +
+                                    " " + EditResId(GetMetricId(ePresUnit));
+                            break;
+                        default: ;//prevent warning
+                    }
+                }
+                break;
+                case SvxLineSpaceRule::Fix:
+                    rText = EditResId(RID_SVXITEMS_LINESPACING_FIXED)  +
+                            " " + GetMetricText(GetLineHeight(), eCoreUnit, ePresUnit, &rIntl) +
+                            " " + EditResId(GetMetricId(ePresUnit));
+                    break;
+
+                case SvxLineSpaceRule::Min:
+                    rText = EditResId(RID_SVXITEMS_LINESPACING_MIN) +
+                            " " + GetMetricText(GetLineHeight(), eCoreUnit, ePresUnit, &rIntl) +
+                            " " + EditResId(GetMetricId(ePresUnit));
+                    break;
+                default: ;//prevent warning
+            }
+        }
+    }
+    return true;
+}
 
 sal_uInt16 SvxLineSpacingItem::GetValueCount() const
 {
@@ -596,7 +660,7 @@ bool SvxHyphenZoneItem::GetPresentation
 
             if ( bPageEnd )
                 pId = RID_SVXITEMS_PAGE_END_TRUE;
-            rText = rText + EditResId(pId) + cpDelimTmp +
+            rText += EditResId(pId) + cpDelimTmp +
                     OUString::number( nMinLead ) + cpDelimTmp +
                     OUString::number( nMinTrail ) + cpDelimTmp +
                     OUString::number( nMaxHyphens );
@@ -613,8 +677,7 @@ bool SvxHyphenZoneItem::GetPresentation
 
             if ( bPageEnd )
                 pId = RID_SVXITEMS_PAGE_END_TRUE;
-            rText = rText +
-                    EditResId(pId) +
+            rText += EditResId(pId) +
                     cpDelimTmp +
                     EditResId(RID_SVXITEMS_HYPHEN_MINLEAD).replaceAll("%1", OUString::number(nMinLead)) +
                     cpDelimTmp +
@@ -997,8 +1060,6 @@ bool SvxPageModelItem::PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId 
 
 bool SvxPageModelItem::operator==( const SfxPoolItem& rAttr ) const
 {
-    assert(SfxPoolItem::operator==(rAttr));
-
     return SfxStringItem::operator==(rAttr) &&
            bAuto == static_cast<const SvxPageModelItem&>( rAttr ).bAuto;
 }
@@ -1153,11 +1214,6 @@ bool SvxParaVertAlignItem::PutValue( const css::uno::Any& rVal,
         return false;
 }
 
-bool SvxParaVertAlignItem::operator==( const SfxPoolItem& rItem ) const
-{
-    assert(SfxPoolItem::operator==(rItem));
-    return SfxUInt16Item::operator==( rItem );
-}
 
 
 SvxParaGridItem::SvxParaGridItem( bool bOn, const sal_uInt16 nId )

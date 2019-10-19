@@ -17,7 +17,6 @@
 #include <miscuno.hxx>
 #include <document.hxx>
 #include <unonames.hxx>
-#include <docsh.hxx>
 #include <scresid.hxx>
 #include <globstr.hrc>
 #include <strings.hrc>
@@ -32,6 +31,7 @@
 
 #include <com/sun/star/chart2/data/LabeledDataSequence.hpp>
 #include <com/sun/star/chart/ChartDataRowSource.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 
 #include <com/sun/star/sheet/XDataPilotResults.hpp>
 #include <com/sun/star/sheet/DataResultFlags.hpp>
@@ -107,7 +107,8 @@ std::vector<OUString> lcl_getVisiblePageMembers(const uno::Reference<uno::XInter
     if (!xMembersAccess.is())
         return aResult;
 
-    for (OUString const & rMemberNames : xMembersAccess->getElementNames())
+    const css::uno::Sequence<OUString> aMembersNames = xMembersAccess->getElementNames();
+    for (OUString const & rMemberNames : aMembersNames)
     {
         uno::Reference<beans::XPropertySet> xProperties(xMembersAccess->getByName(rMemberNames), uno::UNO_QUERY);
         if (!xProperties.is())
@@ -284,7 +285,7 @@ void PivotTableDataProvider::collectPivotTableData()
     m_aFieldOutputDescriptionMap.clear();
 
     uno::Reference<sheet::XDataPilotResults> xDPResults(pDPObject->GetSource(), uno::UNO_QUERY);
-    uno::Sequence<uno::Sequence<sheet::DataResult>> xDataResultsSequence = xDPResults->getResults();
+    const uno::Sequence<uno::Sequence<sheet::DataResult>> xDataResultsSequence = xDPResults->getResults();
 
     double fNan;
     rtl::math::setNan(&fNan);
@@ -385,7 +386,7 @@ void PivotTableDataProvider::collectPivotTableData()
                     {
                         m_aColumnFields.emplace_back(xLevelName->getName(), nDim, nDimPos, bHasHiddenMember);
 
-                        uno::Sequence<sheet::MemberResult> aSequence = xLevelResult->getResults();
+                        const uno::Sequence<sheet::MemberResult> aSequence = xLevelResult->getResults();
                         size_t i = 0;
                         OUString sCaption;
                         OUString sName;
@@ -429,7 +430,7 @@ void PivotTableDataProvider::collectPivotTableData()
                     {
                         m_aRowFields.emplace_back(xLevelName->getName(), nDim, nDimPos, bHasHiddenMember);
 
-                        uno::Sequence<sheet::MemberResult> aSequence = xLevelResult->getResults();
+                        const uno::Sequence<sheet::MemberResult> aSequence = xLevelResult->getResults();
 
                         size_t i = 0;
                         size_t nEachIndex = 0;
@@ -852,7 +853,7 @@ uno::Reference< beans::XPropertySetInfo> SAL_CALL
 void SAL_CALL PivotTableDataProvider::setPropertyValue(const OUString& rPropertyName, const uno::Any& rValue)
 {
     if (rPropertyName != SC_UNONAME_INCLUDEHIDDENCELLS)
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
 
     if (!(rValue >>= m_bIncludeHiddenCells))
         throw lang::IllegalArgumentException();
@@ -869,7 +870,7 @@ uno::Any SAL_CALL PivotTableDataProvider::getPropertyValue(const OUString& rProp
         aRet <<= m_pDocument->PastingDrawFromOtherDoc();
     }
     else
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
     return aRet;
 }
 

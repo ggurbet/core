@@ -18,7 +18,6 @@
  */
 
 #include <toolkit/controls/geometrycontrolmodel.hxx>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/resource/XStringResourceResolver.hpp>
 #include <osl/diagnose.h>
@@ -87,7 +86,7 @@
         {
             m_xAggregate = _pAggregateInstance;
 
-            {   // check if the aggregate is cloneable
+            {   // check if the aggregate is clonable
                 Reference< XCloneable > xCloneAccess(m_xAggregate, UNO_QUERY);
                 m_bCloneable = xCloneAccess.is();
             }
@@ -400,7 +399,7 @@
             Reference< XNameContainer > xEventCont = xEventsSupplier->getEvents();
             Reference< XNameContainer > xCloneEventCont = xCloneEventsSupplier->getEvents();
 
-            css::uno::Sequence< OUString > aNames =
+            const css::uno::Sequence< OUString > aNames =
                 xEventCont->getElementNames();
 
             for( const OUString& aName : aNames )
@@ -533,7 +532,7 @@
         );
 
         // now loop through our own props
-        for ( const Property& rProp : aProps )
+        for ( const Property& rProp : std::as_const(aProps) )
         {
             // look for the current property in the properties of our aggregate
             const Property* pAggPropPos = ::std::find_if( aAggregateProps.begin(), aAggregateProps.end(), PropertyNameEqual( rProp.Name ) );

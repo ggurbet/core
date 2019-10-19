@@ -11,6 +11,7 @@
 #define RTL_STRING_UNITTEST_CONCAT
 
 #include <sal/types.h>
+#include <cppunit/TestAssert.h>
 #include <cppunit/TestFixture.h>
 #include <cppunit/extensions/HelperMacros.h>
 
@@ -19,20 +20,21 @@
 #include <rtl/ustring.hxx>
 #include <rtl/ustrbuf.hxx>
 
+#include <string>
 #include <typeinfo>
 
 bool rtl_string_unittest_invalid_concat = false;
 
 using namespace rtl;
 
-namespace std
+namespace CppUnit
 {
-template< typename charT, typename traits > static std::basic_ostream<charT, traits> &
-operator <<(
-    std::basic_ostream<charT, traits> & stream, const std::type_info& info )
+template<> struct assertion_traits<std::type_info>
 {
-    return stream << info.name();
-}
+    static bool equal(std::type_info const & x, std::type_info const & y) { return x == y; }
+
+    static std::string toString(std::type_info const & x) { return x.name(); }
+};
 } // namespace
 
 namespace test { namespace ostring {
@@ -79,6 +81,21 @@ void test::ostring::StringConcat::checkConcat()
     CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< OString, const char* > )), typeid( OString( "foo" ) + d3 ));
     CPPUNIT_ASSERT_EQUAL( OString( "fooabc" ), OString( OString( "foo" ) + d4 ));
     CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< OString, char* > )), typeid( OString( "foo" ) + d4 ));
+    CPPUNIT_ASSERT_EQUAL( OString( "fooabc" ), OString( OString( "foo" ) + d4 ));
+    CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< OString, char* > )), typeid( OString( "foo" ) + d4 ));
+    CPPUNIT_ASSERT_EQUAL( OString( "fooabc" ), OString( rtl::OStringView( "foo" ) + d4 ));
+    CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< rtl::OStringView, char* > )), typeid( rtl::OStringView( "foo" ) + d4 ));
+
+    CPPUNIT_ASSERT_EQUAL( OString( "num10" ), OString( OString( "num" ) + OString::number( 10 )));
+    CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< OString, OStringNumber< int > > )), typeid( OString( "num" ) + OString::number( 10 )));
+    CPPUNIT_ASSERT_EQUAL( OString( "num10" ), OString( OString( "num" ) + OString::number( 10L )));
+    CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< OString, OStringNumber< long long > > )), typeid( OString( "num" ) + OString::number( 10L )));
+    CPPUNIT_ASSERT_EQUAL( OString( "num10" ), OString( OString( "num" ) + OString::number( 10ULL )));
+    CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< OString, OStringNumber< unsigned long long > > )), typeid( OString( "num" ) + OString::number( 10ULL )));
+    CPPUNIT_ASSERT_EQUAL( OString( "num10.5" ), OString( OString( "num" ) + OString::number( 10.5f )));
+    CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< OString, OStringNumber< float > > )), typeid( OString( "num" ) + OString::number( 10.5f )));
+    CPPUNIT_ASSERT_EQUAL( OString( "num10.5" ), OString( OString( "num" ) + OString::number( 10.5 )));
+    CPPUNIT_ASSERT_EQUAL(( typeid( OStringConcat< OString, OStringNumber< double > > )), typeid( OString( "num" ) + OString::number( 10.5 )));
 }
 
 void test::ostring::StringConcat::checkEnsureCapacity()
@@ -142,11 +159,14 @@ void test::ostring::StringConcat::checkInvalid()
     CPPUNIT_ASSERT( INVALID_CONCAT( OString( "a" ) + OUString( "b" )));
     CPPUNIT_ASSERT( INVALID_CONCAT( OString( "a" ) + OUStringBuffer( "b" )));
     CPPUNIT_ASSERT( INVALID_CONCAT( OString( "a" ) + OUStringLiteral( "b" )));
+    CPPUNIT_ASSERT( INVALID_CONCAT( OString( "a" ) + rtl::OUStringView( u"b" )));
     CPPUNIT_ASSERT( INVALID_CONCAT( OString( "a" ) + 1 ));
     rtl_String* rs = nullptr;
     rtl_uString* rus = nullptr;
     CPPUNIT_ASSERT( INVALID_CONCAT( OUString( "b" ) + rs ));
     CPPUNIT_ASSERT( INVALID_CONCAT( OUString( "b" ) + rus ));
+    CPPUNIT_ASSERT( INVALID_CONCAT( OString( "a" ) + OUString::number( 10 )));
+    CPPUNIT_ASSERT( INVALID_CONCAT( OString::number( 0 ) + OUString::number( 10 )));
 
 #if 0
     // Should fail to compile, to avoid use of OStringConcat lvalues that

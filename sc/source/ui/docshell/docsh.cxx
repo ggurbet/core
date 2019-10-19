@@ -19,6 +19,7 @@
 
 #include <docsh.hxx>
 
+#include <config_features.h>
 #include <scitems.hxx>
 #include <sc.hrc>
 #include <vcl/errinf.hxx>
@@ -26,6 +27,7 @@
 #include <comphelper/fileformat.h>
 #include <comphelper/classids.hxx>
 #include <formula/errorcodes.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/waitobj.hxx>
@@ -432,6 +434,7 @@ public:
     {
     }
     bool get_active() const { return m_xWarningOnBox->get_active(); }
+    void hide_ask() const { m_xWarningOnBox->set_visible(false); };
 };
 
 
@@ -510,6 +513,9 @@ bool ScDocShell::LoadXML( SfxMedium* pLoadMedium, const css::uno::Reference< css
             aQueryBox.set_primary_text(ScResId(STR_QUERY_FORMULA_RECALC_ONLOAD_ODS));
             aQueryBox.set_default_response(RET_YES);
 
+            if ( officecfg::Office::Calc::Formula::Load::OOXMLRecalcMode::isReadOnly() )
+                aQueryBox.hide_ask();
+
             bHardRecalc = aQueryBox.run() == RET_YES;
 
             if (aQueryBox.get_active())
@@ -582,13 +588,20 @@ bool ScDocShell::Load( SfxMedium& rMedium )
     bool bRet = SfxObjectShell::Load(rMedium);
     if (bRet)
     {
-        comphelper::EmbeddedObjectContainer& rEmbeddedObjectContainer = getEmbeddedObjectContainer();
-        rEmbeddedObjectContainer.setUserAllowsLinkUpdate(false);
-
         if (GetMedium())
         {
             const SfxUInt16Item* pUpdateDocItem = SfxItemSet::GetItem<SfxUInt16Item>(rMedium.GetItemSet(), SID_UPDATEDOCMODE, false);
             m_nCanUpdate = pUpdateDocItem ? pUpdateDocItem->GetValue() : css::document::UpdateDocMode::NO_UPDATE;
+        }
+
+        // GetLinkUpdateModeState() evaluates m_nCanUpdate so that must have
+        // been set first. Do not override an already forbidden LinkUpdate (the
+        // default is allow).
+        comphelper::EmbeddedObjectContainer& rEmbeddedObjectContainer = getEmbeddedObjectContainer();
+        if (rEmbeddedObjectContainer.getUserAllowsLinkUpdate())
+        {
+            // For anything else than LM_ALWAYS we need user confirmation.
+            rEmbeddedObjectContainer.setUserAllowsLinkUpdate( GetLinkUpdateModeState() == LM_ALWAYS);
         }
 
         {
@@ -602,7 +615,7 @@ bool ScDocShell::Load( SfxMedium& rMedium )
             {
                 /* Create styles that are imported through Orcus */
 
-                OUString aURL("$BRAND_BASE_DIR" LIBO_SHARE_FOLDER "/calc/styles.xml");
+                OUString aURL("$BRAND_BASE_DIR/" LIBO_SHARE_FOLDER "/calc/styles.xml");
                 rtl::Bootstrap::expandMacros(aURL);
 
                 OUString aPath;
@@ -857,8 +870,8 @@ void ScDocShell::Notify( SfxBroadcaster&, const SfxHint& rHint )
                                             std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(GetActiveDialogParent(),
                                                                                        VclMessageType::Warning, VclButtonsType::NONE,
                                                                                        aMessage));
-                                            xWarn->add_button(Button::GetStandardText(StandardButtonType::Retry), RET_RETRY);
-                                            xWarn->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+                                            xWarn->add_button(GetStandardText(StandardButtonType::Retry), RET_RETRY);
+                                            xWarn->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
                                             xWarn->set_default_response(RET_RETRY);
                                             if (xWarn->run() == RET_RETRY)
                                             {
@@ -1469,7 +1482,7 @@ bool ScDocShell::ConvertFrom( SfxMedium& rMedium )
             // TODO: Filter should set column widths. Not doing it here, it may
             // result in very narrow or wide columns, depending on content.
             // Setting row heights makes cells with font size attribution or
-            // wrapping enabled look nicer..
+            // wrapping enabled look nicer...
             bSetRowHeights = true;
         }
         else if (aFltName == pFilterRtf)
@@ -2660,37 +2673,37 @@ bool ScDocShell::PrepareClose( bool bUI )
 
 OUString ScDocShell::GetOwnFilterName()
 {
-    return OUString(pFilterSc50);
+    return pFilterSc50;
 }
 
 OUString ScDocShell::GetHtmlFilterName()
 {
-    return OUString(pFilterHtml);
+    return pFilterHtml;
 }
 
 OUString ScDocShell::GetWebQueryFilterName()
 {
-    return OUString(pFilterHtmlWebQ);
+    return pFilterHtmlWebQ;
 }
 
 OUString ScDocShell::GetAsciiFilterName()
 {
-    return OUString(pFilterAscii);
+    return pFilterAscii;
 }
 
 OUString ScDocShell::GetLotusFilterName()
 {
-    return OUString(pFilterLotus);
+    return pFilterLotus;
 }
 
 OUString ScDocShell::GetDBaseFilterName()
 {
-    return OUString(pFilterDBase);
+    return pFilterDBase;
 }
 
 OUString ScDocShell::GetDifFilterName()
 {
-    return OUString(pFilterDif);
+    return pFilterDif;
 }
 
 bool ScDocShell::HasAutomaticTableName( const OUString& rFilter )

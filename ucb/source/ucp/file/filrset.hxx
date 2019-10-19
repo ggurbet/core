@@ -30,18 +30,14 @@
 #include <com/sun/star/ucb/XDynamicResultSetListener.hpp>
 #include <com/sun/star/sdbc/XResultSetMetaDataSupplier.hpp>
 #include <com/sun/star/ucb/NumberedSortingInfo.hpp>
-#include <com/sun/star/ucb/XContentProvider.hpp>
 #include <com/sun/star/ucb/XContentIdentifier.hpp>
 #include <com/sun/star/beans/Property.hpp>
 #include "filrow.hxx"
-#include "filnot.hxx"
 #include <cppuhelper/implbase.hxx>
 
 namespace fileaccess {
 
-class Notifier;
-
-class XResultSet_impl : public Notifier,
+class XResultSet_impl :
         public cppu::WeakImplHelper<  css::lang::XEventListener,
                                       css::sdbc::XRow,
                                       css::sdbc::XResultSet,
@@ -61,33 +57,8 @@ class XResultSet_impl : public Notifier,
 
         virtual ~XResultSet_impl() override;
 
-        virtual std::unique_ptr<ContentEventNotifier> cDEL() override
-        {
-            return nullptr;
-        }
-
-        virtual std::unique_ptr<ContentEventNotifier> cEXC( const OUString& ) override
-        {
-            return nullptr;
-        }
-
-        virtual std::unique_ptr<ContentEventNotifier> cCEL() override
-        {
-            return nullptr;
-        }
-
-        virtual std::unique_ptr<PropertySetInfoChangeNotifier> cPSL() override
-        {
-            return nullptr;
-        }
-
-        virtual std::unique_ptr<PropertyChangeNotifier> cPCL() override
-        {
-            return nullptr;
-        }
-
         sal_Int32 CtorSuccess() { return m_nErrorCode;}
-        sal_Int32 getMinorError() { return m_nMinorErrorCode;}
+        sal_Int32 getMinorError() const { return m_nMinorErrorCode;}
 
         // XEventListener
         virtual void SAL_CALL

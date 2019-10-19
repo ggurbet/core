@@ -165,18 +165,14 @@ public:
 
     void testCustomXml();
 
-#if !defined _WIN32
     void testRelativePathsODS();
-#endif
     void testSheetProtectionODS();
 
     void testSwappedOutImageExport();
     void testLinkedGraphicRT();
     void testImageWithSpecialID();
 
-#if !defined _WIN32
     void testSupBookVirtualPathXLS();
-#endif
     void testAbsNamedRangeHTML();
     void testSheetLocalRangeNameXLS();
     void testRelativeNamedExpressionsXLS();
@@ -226,6 +222,8 @@ public:
     void testTdf79972XLSX();
     void testTdf126024XLSX();
     void testTdf126177XLSX();
+    void testCommentTextVAlignment();
+    void testCommentTextHAlignment();
 
     void testXltxExport();
 
@@ -298,13 +296,9 @@ public:
     CPPUNIT_TEST(testCeilingFloorXLS);
     CPPUNIT_TEST(testCeilingFloorODS);
     CPPUNIT_TEST(testCustomXml);
-#if !defined(_WIN32)
     CPPUNIT_TEST(testRelativePathsODS);
-#endif
     CPPUNIT_TEST(testSheetProtectionODS);
-#if !defined(_WIN32)
     CPPUNIT_TEST(testSupBookVirtualPathXLS);
-#endif
     CPPUNIT_TEST(testSwappedOutImageExport);
     CPPUNIT_TEST(testLinkedGraphicRT);
     CPPUNIT_TEST(testImageWithSpecialID);
@@ -357,6 +351,8 @@ public:
     CPPUNIT_TEST(testTdf79972XLSX);
     CPPUNIT_TEST(testTdf126024XLSX);
     CPPUNIT_TEST(testTdf126177XLSX);
+    CPPUNIT_TEST(testCommentTextVAlignment);
+    CPPUNIT_TEST(testCommentTextHAlignment);
 
     CPPUNIT_TEST(testXltxExport);
 
@@ -389,7 +385,7 @@ void ScExportTest::registerNamespaces(xmlXPathContextPtr& pXmlXPathCtx)
         { BAD_CAST("draw"), BAD_CAST("urn:oasis:names:tc:opendocument:xmlns:drawing:1.0") },
         { BAD_CAST("xlink"), BAD_CAST("http://www.w3c.org/1999/xlink") },
         { BAD_CAST("xdr"), BAD_CAST("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing") },
-        { BAD_CAST("x"), BAD_CAST("http://schemas.openxmlformats.org/spreadsheetml/2006/main") },
+        { BAD_CAST("xx"), BAD_CAST("urn:schemas-microsoft-com:office:excel") },
         { BAD_CAST("r"), BAD_CAST("http://schemas.openxmlformats.org/package/2006/relationships") },
         { BAD_CAST("number"), BAD_CAST("urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0") },
         { BAD_CAST("loext"), BAD_CAST("urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0") },
@@ -461,7 +457,7 @@ void ScExportTest::test()
 
 void ScExportTest::testTdf111876()
  {
-    // DOcument with relative path hyperlink
+    // Document with relative path hyperlink
 
     ScDocShellRef xShell = loadDoc("tdf111876.", FORMAT_XLSX);
     CPPUNIT_ASSERT(xShell.is());
@@ -795,6 +791,10 @@ void ScExportTest::testCommentExportXLSX()
     assertXPath(pVmlDrawing, "/xml/v:shape", "type", sShapeTypeId);
     assertXPath(pVmlDrawing, "/xml/v:shape/v:shadow", "color", "black");
     assertXPath(pVmlDrawing, "/xml/v:shape/v:shadow", "obscured", "t");
+
+    //tdf#117274 fix MSO interoperability with the secret VML shape type id
+    assertXPath(pVmlDrawing, "/xml/v:shapetype", "id", "_x0000_t202");
+    assertXPath(pVmlDrawing, "/xml/v:shape", "type", "#_x0000_t202");
 }
 
 void ScExportTest::testCommentExportXLSX_2_XLSX()
@@ -1155,7 +1155,7 @@ void ScExportTest::testOutlineExportXLSX()
     assertXPath(pSheet, "/x:worksheet/x:sheetData/x:row[8]", "hidden", "true");
     assertXPath(pSheet, "/x:worksheet/x:sheetData/x:row[8]", "outlineLevel", "4");
     assertXPath(pSheet, "/x:worksheet/x:sheetData/x:row[8]", "collapsed", "false");
-    // Next rows are the same as the previous one but it needs to bre preserved,
+    // Next rows are the same as the previous one but it needs to be preserved,
     // as they contain information about outlineLevel
     assertXPath(pSheet, "/x:worksheet/x:sheetData/x:row[20]", "r", "21");
     assertXPath(pSheet, "/x:worksheet/x:sheetData/x:row[20]", "hidden", "true");
@@ -2867,7 +2867,7 @@ void ScExportTest::testSharedFormulaExportXLSX()
                 }
             }
 
-            // C2:C7 should show 10,20,....,60.
+            // C2:C7 should show 10,20,...,60.
             fExpected = 10.0;
             for (SCROW i = 1; i <= 6; ++i, fExpected+=10.0)
             {
@@ -2932,7 +2932,7 @@ void ScExportTest::testSharedFormulaStringResultExportXLSX()
         bool checkContent( const ScDocument& rDoc )
         {
             {
-                // B2:B7 should show A,B,....,F.
+                // B2:B7 should show A,B,...,F.
                 const char* const expected[] = { "A", "B", "C", "D", "E", "F" };
                 for (SCROW i = 0; i <= 5; ++i)
                 {
@@ -2948,7 +2948,7 @@ void ScExportTest::testSharedFormulaStringResultExportXLSX()
             }
 
             {
-                // C2:C7 should show AA,BB,....,FF.
+                // C2:C7 should show AA,BB,...,FF.
                 const char* const expected[] = { "AA", "BB", "CC", "DD", "EE", "FF" };
                 for (SCROW i = 0; i <= 5; ++i)
                 {
@@ -3081,20 +3081,42 @@ void ScExportTest::testCustomXml()
     CPPUNIT_ASSERT(pStream);
 }
 
-#if !defined _WIN32
+#ifdef _WIN32
+static sal_Unicode lcl_getWindowsDrive(const OUString& aURL)
+{
+    static const sal_Int32 nMinLen = strlen("file:///X:/");
+    if (aURL.getLength() <= nMinLen)
+        return 0;
+    const OUString aUrlStart = aURL.copy(0, nMinLen);
+    return (aUrlStart.startsWith("file:///") && aUrlStart.endsWith(":/")) ? aUrlStart[8] : 0;
+}
+#endif
+
 void ScExportTest::testRelativePathsODS()
 {
     ScDocShellRef xDocSh = loadDoc("fdo79305.", FORMAT_ODS);
     CPPUNIT_ASSERT(xDocSh.is());
 
-    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "content.xml", FORMAT_ODS);
+    std::shared_ptr<utl::TempFile> pTempFile = exportTo(xDocSh.get(), FORMAT_ODS);
+    xmlDocPtr pDoc = XPathHelper::parseExport(pTempFile, m_xSFactory, "content.xml");
     CPPUNIT_ASSERT(pDoc);
     OUString aURL = getXPath(pDoc,
             "/office:document-content/office:body/office:spreadsheet/table:table/table:table-row[2]/table:table-cell[2]/text:p/text:a", "href");
+#ifdef _WIN32
+    // if the exported document is not on the same drive then the linked document,
+    // there is no way to get a relative URL for the link, because ../X:/ is undefined.
+    if (!aURL.startsWith(".."))
+    {
+        sal_Unicode aDocDrive = lcl_getWindowsDrive(pTempFile->GetURL());
+        sal_Unicode aLinkDrive = lcl_getWindowsDrive(aURL);
+        CPPUNIT_ASSERT_MESSAGE("document on the same drive but no relative link!",
+                               aDocDrive != 0 && aLinkDrive != 0 && aDocDrive != aLinkDrive);
+        return;
+    }
+#endif
     // make sure that the URL is relative
     CPPUNIT_ASSERT(aURL.startsWith(".."));
 }
-#endif
 
 namespace {
 
@@ -3152,7 +3174,7 @@ void ScExportTest::testSwappedOutImageExport()
         // Check whether the export code swaps in the image which was swapped out before.
         ScDocShellRef xDocSh = loadDoc("document_with_two_images.", FORMAT_ODS);
 
-        const OString sFailedMessage = OString("Failed on filter: ") + aFilterNames[nFilter];
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + aFilterNames[nFilter];
         CPPUNIT_ASSERT_MESSAGE(sFailedMessage.getStr(), xDocSh.is());
 
         // Export the document and import again for a check
@@ -3222,7 +3244,6 @@ void ScExportTest::tearDown()
     test::BootstrapFixture::tearDown();
 }
 
-#if !defined _WIN32
 void ScExportTest::testSupBookVirtualPathXLS()
 {
     ScDocShellRef xShell = loadDoc("external-ref.", FORMAT_XLS);
@@ -3234,11 +3255,24 @@ void ScExportTest::testSupBookVirtualPathXLS()
 
     ScDocument& rDoc = xDocSh->GetDocument();
 
-    ASSERT_FORMULA_EQUAL(rDoc, ScAddress(0,0,0), "'file:///home/timar/Documents/external.xls'#$Sheet1.A1", "Wrong SupBook VirtualPath URL");
+    ScAddress aPos(0,0,0);
+    ScTokenArray* pCode = getTokens(rDoc, aPos);
+    if (!pCode)
+        CppUnit::Asserter::fail("empty token array", CPPUNIT_SOURCELINE());
+
+    OUString aFormula = toString(rDoc, aPos, *pCode, rDoc.GetGrammar());
+#ifdef _WIN32
+    aFormula = aFormula.copy(0, 9) + aFormula.copy(12); // strip drive letter, e.g. 'C:/'
+#endif
+    OUString aExpectedFormula = OUStringLiteral("'file:///home/timar/Documents/external.xls'#$Sheet1.A1");
+    if (aFormula != aExpectedFormula)
+    {
+        CppUnit::Asserter::failNotEqual(to_std_string(aExpectedFormula),
+            to_std_string(aFormula), CPPUNIT_SOURCELINE(), CppUnit::AdditionalMessage("Wrong SupBook VirtualPath URL"));
+    }
 
     xDocSh->DoClose();
 }
-#endif
 
 void ScExportTest::testLinkedGraphicRT()
 {
@@ -3254,7 +3288,7 @@ void ScExportTest::testLinkedGraphicRT()
     {
         // Load the original file with one image
         ScDocShellRef xDocSh = loadDoc("document_with_linked_graphic.", FORMAT_ODS);
-        const OString sFailedMessage = OString("Failed on filter: ") + aFilterNames[nFilter];
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + aFilterNames[nFilter];
 
         // Export the document and import again for a check
         ScDocShellRef xDocSh2 = saveAndReload(xDocSh.get(), nFilter);
@@ -3296,7 +3330,7 @@ void ScExportTest::testImageWithSpecialID()
     {
         ScDocShellRef xDocSh = loadDoc("images_with_special_IDs.", FORMAT_ODS);
 
-        const OString sFailedMessage = OString("Failed on filter: ") + aFilterNames[nFilter];
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + aFilterNames[nFilter];
         CPPUNIT_ASSERT_MESSAGE(sFailedMessage.getStr(), xDocSh.is());
 
         // Export the document and import again for a check
@@ -4015,12 +4049,12 @@ void ScExportTest::testEscapeCharInNumberFormatXLSX()
     assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[2]", "formatCode", "00\\ 00\\ 00\\ 00\\ 00");
     assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[3]", "formatCode", "00\\.00\\.00\\.000\\.0");   // tdf#81939
     // "_-* #,##0\ _€_-;\-* #,##0\ _€_-;_-* "- "_€_-;_-@_-" // tdf#81222
-    OUString rFormatStrExpected ( "_-* #,##0\\ _" + OUStringLiteral1(cEuro) + "_-;\\-* #,##0\\ _" +
-            OUStringLiteral1(cEuro) + "_-;_-* \"- \"_" + OUStringLiteral1(cEuro) + "_-;_-@_-" );
+    OUString rFormatStrExpected ( "_-* #,##0\\ _" + OUStringChar(cEuro) + "_-;\\-* #,##0\\ _" +
+            OUStringChar(cEuro) + "_-;_-* \"- \"_" + OUStringChar(cEuro) + "_-;_-@_-" );
     assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[4]", "formatCode", rFormatStrExpected );
     // "_-* #,##0" €"_-;\-* #,##0" €"_-;_-* "- €"_-;_-@_-");
-    rFormatStrExpected = "_-* #,##0\" " + OUStringLiteral1(cEuro) + "\"_-;\\-* #,##0\" " +
-            OUStringLiteral1(cEuro) + "\"_-;_-* \"- " + OUStringLiteral1(cEuro) + "\"_-;_-@_-";
+    rFormatStrExpected = "_-* #,##0\" " + OUStringChar(cEuro) + "\"_-;\\-* #,##0\" " +
+            OUStringChar(cEuro) + "\"_-;_-* \"- " + OUStringChar(cEuro) + "\"_-;_-@_-";
     assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[5]", "formatCode", rFormatStrExpected );
     // remove escape char in fraction
     assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[6]", "formatCode", "# ?/?;[RED]\\-# #/#####");
@@ -4075,14 +4109,14 @@ void ScExportTest::testExtendedLCIDXLSX()
     xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/styles.xml", FORMAT_XLSX);
     CPPUNIT_ASSERT(pDoc);
     // Check export
-    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[2]", "formatCode", "[$-107041E]DD\\-MM\\-YYYY");
-    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[3]", "formatCode", "[$-D07041E]DD\\-MM\\-YYYY");
-    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[4]", "formatCode", "[$-1030411]DD\\-MM\\-EE");
-    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[5]", "formatCode", "[$-1B030411]DD\\-MM\\-EE");
-    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[6]", "formatCode", "[$-108040D]DD\\-MM\\-YYYY");
-    //assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[7]", "formatCode", "[$-108040D]DD\\-MM\\-YYYY");
-    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[7]", "formatCode", "[$-1060401]DD\\-MM\\-YYYY");
-    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[8]", "formatCode", "[$-2060401]DD\\-MM\\-YYYY");
+    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[2]", "formatCode", "[$-107041E]dd\\-mm\\-yyyy");
+    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[3]", "formatCode", "[$-D07041E]dd\\-mm\\-yyyy");
+    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[4]", "formatCode", "[$-1030411]dd\\-mm\\-ee");
+    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[5]", "formatCode", "[$-1B030411]dd\\-mm\\-ee");
+    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[6]", "formatCode", "[$-108040D]dd\\-mm\\-yyyy");
+    //assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[7]", "formatCode", "[$-108040D]dd\\-mm\\-yyyy");
+    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[7]", "formatCode", "[$-1060401]dd\\-mm\\-yyyy");
+    assertXPath(pDoc, "/x:styleSheet/x:numFmts/x:numFmt[8]", "formatCode", "[$-2060401]dd\\-mm\\-yyyy");
 
     // Check import
     ScDocument& rDoc = xDocSh->GetDocument();
@@ -4455,6 +4489,39 @@ void ScExportTest::testTdf126177XLSX()
     CPPUNIT_ASSERT(aTarget.endsWith("test.xlsx"));
     assertXPath(pXmlRels, "/r:Relationships/r:Relationship", "TargetMode", "External");
 }
+
+void ScExportTest::testCommentTextVAlignment()
+{
+    // Testing comment text alignments.
+    ScDocShellRef xShell = loadDoc("CommentTextVAlign.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xShell.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+
+    const xmlDocPtr pVmlDrawing
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/vmlDrawing1.vml");
+    CPPUNIT_ASSERT(pVmlDrawing);
+
+    assertXPathContent(pVmlDrawing, "/xml/v:shape/xx:ClientData/xx:TextVAlign", "Center");
+}
+
+void ScExportTest::testCommentTextHAlignment()
+{
+    // Testing comment text alignments.
+    ScDocShellRef xShell = loadDoc("CommentTextHAlign.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xShell.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+
+    const xmlDocPtr pVmlDrawing
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/vmlDrawing1.vml");
+    CPPUNIT_ASSERT(pVmlDrawing);
+
+    assertXPathContent(pVmlDrawing, "/xml/v:shape/xx:ClientData/xx:TextHAlign", "Center");
+}
+
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScExportTest);
 

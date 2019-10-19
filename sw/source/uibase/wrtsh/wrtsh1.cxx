@@ -100,6 +100,8 @@
 
 #include <toolkit/helper/vclunohelper.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
 
 #include <PostItMgr.hxx>
 #include <FrameControlsManager.hxx>
@@ -117,6 +119,20 @@
 
 using namespace sw::mark;
 using namespace com::sun::star;
+namespace {
+
+void collectUIInformation(const OUString& rAction, const OUString& aParameters)
+{
+    EventDescription aDescription;
+    aDescription.aAction = rAction;
+    aDescription.aParameters = {{"parameters", aParameters}};
+    aDescription.aID = "writer_edit";
+    aDescription.aKeyWord = "SwEditWinUIObject";
+    aDescription.aParent = "MainWindow";
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
+}
 
 #define BITFLD_INI_LIST \
         m_bClearMark = \
@@ -196,10 +212,10 @@ void SwWrtShell::Insert( const OUString &rStr )
          bCallIns = m_bIns /*|| bHasSel*/;
     bool bDeleted = false;
 
-    SfxItemSet aCharAttrSet(
-        GetAttrPool(),
-        svl::Items<RES_CHRATR_BEGIN, RES_CHRATR_END - 1,
-                   RES_TXTATR_CHARFMT, RES_TXTATR_CHARFMT>{});
+    typedef svl::Items<RES_CHRATR_BEGIN, RES_CHRATR_RSID - 1,
+                       RES_CHRATR_RSID + 1, RES_CHRATR_END - 1,
+                       RES_TXTATR_CHARFMT, RES_TXTATR_CHARFMT> CharItems;
+    SfxItemSet aCharAttrSet(GetAttrPool(), CharItems{});
 
     if( bHasSel || ( !m_bIns && SelectHiddenRange() ) )
     {
@@ -212,10 +228,8 @@ void SwWrtShell::Insert( const OUString &rStr )
         aRewriter.AddRule(UndoArg1, GetCursorDescr());
         aRewriter.AddRule(UndoArg2, SwResId(STR_YIELDS));
         {
-            OUString aTmpStr;
-            aTmpStr += SwResId(STR_START_QUOTE);
-            aTmpStr += rStr;
-            aTmpStr += SwResId(STR_END_QUOTE);
+            OUString aTmpStr = SwResId(STR_START_QUOTE) +
+                rStr + SwResId(STR_END_QUOTE);
 
             aRewriter.AddRule(UndoArg3, aTmpStr);
         }
@@ -224,7 +238,6 @@ void SwWrtShell::Insert( const OUString &rStr )
         const SwPosition *pStart = GetCursor()->Start();
         SwPaM aPaM(pStart->nNode.GetNode(), pStart->nContent.GetIndex(),
                    pStart->nNode.GetNode(), pStart->nContent.GetIndex() + 1);
-        aCharAttrSet.ClearItem(RES_CHRATR_RSID);
         GetPaMAttr(&aPaM, aCharAttrSet);
 
         StartUndo(SwUndoId::REPLACE, &aRewriter);
@@ -254,8 +267,8 @@ void SwWrtShell::Insert( const OUString &rStr )
 
     if( bStarted )
     {
-        EndAllAction();
         EndUndo();
+        EndAllAction();
     }
 }
 
@@ -399,8 +412,7 @@ void SwWrtShell::InsertObject( const svt::EmbeddedObjectRef& xRef, SvGlobalName 
                 {
                     SfxSlotPool* pSlotPool = SW_MOD()->GetSlotPool();
                     const SfxSlot* pSlot = pSlotPool->GetSlot(nSlotId);
-                    OString aCmd(".uno:");
-                    aCmd += pSlot->GetUnoName();
+                    OString aCmd = OStringLiteral(".uno:") + pSlot->GetUnoName();
                     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
                     vcl::Window* pWin = GetWin();
                     ScopedVclPtr<SfxAbstractInsertObjectDialog> pDlg(pFact->CreateInsertObjectDialog(pWin ? pWin->GetFrameWeld() : nullptr,
@@ -470,6 +482,11 @@ void SwWrtShell::InsertObject( const svt::EmbeddedObjectRef& xRef, SvGlobalName 
 
 bool SwWrtShell::InsertOleObject( const svt::EmbeddedObjectRef& xRef, SwFlyFrameFormat **pFlyFrameFormat )
 {
+    //tdf#125100 Ensure that ole object is initially shown as pictogram
+    comphelper::EmbeddedObjectContainer& rEmbeddedObjectContainer = mxDoc->GetDocShell()->getEmbeddedObjectContainer();
+    bool bSaveUserAllowsLinkUpdate = rEmbeddedObjectContainer.getUserAllowsLinkUpdate();
+    rEmbeddedObjectContainer.setUserAllowsLinkUpdate(true);
+
     ResetCursorStack();
     StartAllAction();
 
@@ -478,7 +495,7 @@ bool SwWrtShell::InsertOleObject( const svt::EmbeddedObjectRef& xRef, SwFlyFrame
     //Some differences between StarMath and any other objects:
     //1. Selections should be deleted. For StarMath the Text should be
     //   passed to the Object
-    //2. If the cursor is at the end of an non empty paragraph a paragraph
+    //2. If the cursor is at the end of a non empty paragraph a paragraph
     //   break should be inserted. StarMath objects are character bound and
     //   no break should be inserted.
     //3. If an selection is passed to a StarMath object, this object should
@@ -553,7 +570,7 @@ bool SwWrtShell::InsertOleObject( const svt::EmbeddedObjectRef& xRef, SwFlyFrame
 
     if ( SotExchange::IsChart( aCLSID ) )
     {
-        uno::Reference< embed::XEmbeddedObject > xEmbeddedObj( xRef.GetObject(), uno::UNO_QUERY );
+        uno::Reference< embed::XEmbeddedObject > xEmbeddedObj = xRef.GetObject();
         if ( xEmbeddedObj.is() )
         {
             bool bDisableDataTableDialog = false;
@@ -590,6 +607,8 @@ bool SwWrtShell::InsertOleObject( const svt::EmbeddedObjectRef& xRef, SwFlyFrame
 
     EndUndo(SwUndoId::INSERT, &aRewriter);
 
+    rEmbeddedObjectContainer.setUserAllowsLinkUpdate(bSaveUserAllowsLinkUpdate);
+
     return bActivate;
 }
 
@@ -603,6 +622,12 @@ void SwWrtShell::LaunchOLEObj( long nVerb )
     {
         svt::EmbeddedObjectRef& xRef = GetOLEObject();
         OSL_ENSURE( xRef.is(), "OLE not found" );
+
+        // LOK: we don't want to handle any other embedded objects than
+        // charts, there are too many problems with eg. embedded spreadsheets
+        // (like it creates a separate view for the calc sheet)
+        if (comphelper::LibreOfficeKit::isActive() && !SotExchange::IsChart(xRef->getClassID()))
+            return;
 
         SfxInPlaceClient* pCli = GetView().FindIPClient( xRef.GetObject(), &GetView().GetEditWin() );
         if ( !pCli )
@@ -889,6 +914,7 @@ void SwWrtShell::InsertPageBreak(const OUString *pPageDesc, const ::boost::optio
             SetAttrItem( SvxFormatBreakItem(SvxBreak::PageBefore, RES_BREAK) );
         EndUndo(SwUndoId::UI_INSERT_PAGE_BREAK);
     }
+    collectUIInformation("BREAK_PAGE", "parameter");
 }
 
 // Insert hard page break;
@@ -1571,8 +1597,7 @@ void SwWrtShell::AutoUpdatePara(SwTextFormatColl* pColl, const SfxItemSet& rStyl
     GetPaMAttr( pCursor, aCoreSet );
     bool bReset = false;
     SfxItemIter aParaIter( aCoreSet );
-    const SfxPoolItem* pParaItem = aParaIter.FirstItem();
-    while( pParaItem )
+    for (auto pParaItem = aParaIter.GetCurItem(); pParaItem; pParaItem = aParaIter.NextItem())
     {
         if(!IsInvalidItem(pParaItem))
         {
@@ -1584,7 +1609,6 @@ void SwWrtShell::AutoUpdatePara(SwTextFormatColl* pColl, const SfxItemSet& rStyl
                 bReset = true;
             }
         }
-        pParaItem = aParaIter.NextItem();
     }
     StartAction();
     if(bReset)
@@ -1620,13 +1644,11 @@ void SwWrtShell::AutoCorrect( SvxAutoCorrect& rACorr, sal_Unicode cChar )
                 // is already clipped to the editshell
             StartAllAction();
 
-            OUString aTmpStr1;
-            aTmpStr1 += SwResId(STR_START_QUOTE);
+            OUString aTmpStr1 = SwResId(STR_START_QUOTE);
             aTmpStr1 += GetSelText();
             aTmpStr1 += SwResId(STR_END_QUOTE);
-            OUString aTmpStr3;
-            aTmpStr3 += SwResId(STR_START_QUOTE);
-            aTmpStr3 += OUStringLiteral1(cChar);
+            OUString aTmpStr3 = SwResId(STR_START_QUOTE);
+            aTmpStr3 += OUStringChar(cChar);
             aTmpStr3 += SwResId(STR_END_QUOTE);
             aRewriter.AddRule( UndoArg1, aTmpStr1 );
             aRewriter.AddRule( UndoArg2, SwResId(STR_YIELDS) );
@@ -1815,7 +1837,7 @@ void SwWrtShell::ChangeHeaderOrFooter(
                 //Actions have to be closed while the dialog is showing
                 EndAllAction();
 
-                weld::Window* pParent = GetView().GetViewFrame()->GetWindow().GetFrameWeld();
+                weld::Window* pParent = GetView().GetFrameWeld();
                 short nResult;
                 if (bHeader) {
                     nResult = DeleteHeaderDialog(pParent).run();
@@ -1825,6 +1847,8 @@ void SwWrtShell::ChangeHeaderOrFooter(
 
                 bExecute = nResult == RET_YES;
                 StartAllAction();
+                if (nResult == RET_YES)
+                    ToggleHeaderFooterEdit();
             }
             if( bExecute )
             {
@@ -1869,7 +1893,7 @@ void SwWrtShell::SetShowHeaderFooterSeparator( FrameControlType eControl, bool b
         GetView().GetEditWin().GetFrameControlsManager().HideControls( eControl );
 }
 
-void SwWrtShell::InsertPostIt(SwFieldMgr& rFieldMgr, SfxRequest& rReq)
+void SwWrtShell::InsertPostIt(SwFieldMgr& rFieldMgr, const SfxRequest& rReq)
 {
     SwPostItField* pPostIt = dynamic_cast<SwPostItField*>(rFieldMgr.GetCurField());
     bool bNew = !(pPostIt && pPostIt->GetTyp()->Which() == SwFieldIds::Postit);
@@ -1906,20 +1930,36 @@ void SwWrtShell::InsertPostIt(SwFieldMgr& rFieldMgr, SfxRequest& rReq)
         // --> suggestion has to be removed before
         GetView().GetEditWin().StopQuickHelp();
 
-        SwInsertField_Data aData(TYP_POSTITFLD, 0, sAuthor, sText, 0);
+        SwInsertField_Data aData(SwFieldTypesEnum::Postit, 0, sAuthor, sText, 0);
 
         if (IsSelFrameMode())
         {
             SwFlyFrame* pFly = GetSelectedFlyFrame();
 
+            // Remember the anchor of the selected object before deletion.
+            std::unique_ptr<SwPosition> pAnchor;
+            if (pFly)
+            {
+                SwFrameFormat* pFormat = pFly->GetFormat();
+                if (pFormat)
+                {
+                    RndStdIds eAnchorId = pFormat->GetAnchor().GetAnchorId();
+                    if ((eAnchorId == RndStdIds::FLY_AS_CHAR || eAnchorId == RndStdIds::FLY_AT_CHAR) && pFormat->GetAnchor().GetContentAnchor())
+                    {
+                        pAnchor.reset(new SwPosition(*pFormat->GetAnchor().GetContentAnchor()));
+                    }
+                }
+            }
+
             // A frame is selected, end frame selection.
             EnterStdMode();
-            GetView().AttrChangedNotify(this);
+            GetView().AttrChangedNotify(nullptr);
 
             // Set up text selection, so the anchor of the frame will be the anchor of the
             // comment.
             if (pFly)
             {
+                *GetCurrentShellCursor().GetPoint() = *pAnchor;
                 SwFrameFormat* pFormat = pFly->GetFormat();
                 if (pFormat && pFormat->GetAnchor().GetAnchorId() == RndStdIds::FLY_AS_CHAR)
                 {
@@ -1927,21 +1967,8 @@ void SwWrtShell::InsertPostIt(SwFieldMgr& rFieldMgr, SfxRequest& rReq)
                 }
                 else if (pFormat && pFormat->GetAnchor().GetAnchorId() == RndStdIds::FLY_AT_CHAR)
                 {
-                    // Ending the frame selection positions the cursor at the end of the paragraph,
-                    // move it to the anchor position.
-                    sal_Int32 nCursor = GetCurrentShellCursor().GetPoint()->nContent.GetIndex();
-                    const SwPosition* pAnchor = pFormat->GetAnchor().GetContentAnchor();
-                    if (pAnchor)
-                    {
-                        sal_Int32 nDiff = nCursor - pAnchor->nContent.GetIndex();
-                        if (nDiff > 0)
-                        {
-                            Left(CRSR_SKIP_CELLS, /*bSelect=*/false, nDiff, /*bBasicCall=*/false,
-                                 /*bVisual=*/true);
-                            aData.m_pAnnotationRange.reset(new SwPaM(
-                                *GetCurrentShellCursor().Start(), *GetCurrentShellCursor().End()));
-                        }
-                    }
+                    aData.m_pAnnotationRange.reset(new SwPaM(*GetCurrentShellCursor().Start(),
+                                                             *GetCurrentShellCursor().End()));
                 }
             }
         }

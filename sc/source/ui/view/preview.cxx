@@ -52,14 +52,10 @@
 #include <sc.hrc>
 #include <helpids.h>
 #include <AccessibleDocumentPagePreview.hxx>
-#include <vcl/lineinfo.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/fhgtitem.hxx>
-#include <attrib.hxx>
-#include <pagepar.hxx>
 #include <com/sun/star/accessibility/XAccessible.hpp>
 #include <AccessibilityHints.hxx>
 #include <vcl/svapp.hxx>
@@ -765,7 +761,7 @@ long ScPreview::GetFirstPage(SCTAB nTabP)
     {
         CalcPages();
         if (nTabP >= static_cast<SCTAB>(nPages.size()) )
-            OSL_FAIL("nPages out ouf bounds, FIX IT");
+            OSL_FAIL("nPages out of bounds, FIX IT");
         UpdateDrawView();       // The table eventually changes
 
         for (SCTAB i=0; i<nTabP; i++)
@@ -1307,8 +1303,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
     {
         ScPrintOptions aOptions = SC_MOD()->GetPrintOptions();
 
-        std::unique_ptr<ScPrintFunc> pPrintFunc;
-
+        std::unique_ptr<ScPrintFunc, o3tl::default_delete<ScPrintFunc>> pPrintFunc;
         if (bStateValid)
             pPrintFunc.reset(new ScPrintFunc( this, pDocShell, aState, &aOptions ));
         else

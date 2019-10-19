@@ -720,7 +720,7 @@ sal_Bool SAL_CALL SmGraphicAccessible::copyText(
 
 OUString SAL_CALL SmGraphicAccessible::getImplementationName()
 {
-    return OUString("SmGraphicAccessible");
+    return "SmGraphicAccessible";
 }
 
 sal_Bool SAL_CALL SmGraphicAccessible::supportsService(
@@ -1034,7 +1034,7 @@ static SfxItemState GetSvxEditEngineItemState( EditEngine const & rEditEngine, c
         rEditEngine.GetCharAttribs( nPara, aAttribs );
 
         bool bEmpty = true;     // we found no item inside the selection of this paragraph
-        bool bGaps  = false;    // we found items but theire gaps between them
+        bool bGaps  = false;    // we found items but there are gaps between them
         sal_Int32 nLastEnd = nPos;
 
         const SfxPoolItem* pParaItem = nullptr;
@@ -1648,7 +1648,7 @@ sal_Int32 SAL_CALL SmEditAccessible::getAccessibleChildCount(  )
 {
     SolarMutexGuard aGuard;
     if (!pTextHelper)
-        throw RuntimeException();
+        return 0;
     return pTextHelper->GetChildCount();
 }
 
@@ -1688,7 +1688,7 @@ sal_Int32 SAL_CALL SmEditAccessible::getAccessibleIndexInParent(  )
 
 sal_Int16 SAL_CALL SmEditAccessible::getAccessibleRole(  )
 {
-    return AccessibleRole::PANEL /*TEXT ?*/;
+    return AccessibleRole::TEXT_FRAME;
 }
 
 OUString SAL_CALL SmEditAccessible::getAccessibleDescription(  )
@@ -1723,6 +1723,7 @@ uno::Reference< XAccessibleStateSet > SAL_CALL SmEditAccessible::getAccessibleSt
     {
         pStateSet->AddState( AccessibleStateType::MULTI_LINE );
         pStateSet->AddState( AccessibleStateType::ENABLED );
+        pStateSet->AddState( AccessibleStateType::EDITABLE );
         pStateSet->AddState( AccessibleStateType::FOCUSABLE );
         if (pWin->HasFocus())
             pStateSet->AddState( AccessibleStateType::FOCUSED );
@@ -1763,7 +1764,7 @@ void SAL_CALL SmEditAccessible::removeAccessibleEventListener( const uno::Refere
 
 OUString SAL_CALL SmEditAccessible::getImplementationName()
 {
-    return OUString("SmEditAccessible");
+    return "SmEditAccessible";
 }
 
 sal_Bool SAL_CALL SmEditAccessible::supportsService(

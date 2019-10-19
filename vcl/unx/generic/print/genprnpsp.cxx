@@ -55,7 +55,6 @@
 #include <jobset.h>
 #include <print.h>
 #include "prtsetup.hxx"
-#include <salframe.hxx>
 #include <salptype.hxx>
 
 #include <com/sun/star/beans/PropertyValue.hpp>
@@ -479,7 +478,7 @@ SalGraphics* PspSalInfoPrinter::AcquireGraphics()
     SalGraphics* pRet = nullptr;
     if( ! m_pGraphics )
     {
-        m_pGraphics.reset( GetGenericInstance()->CreatePrintGraphics() );
+        m_pGraphics = GetGenericInstance()->CreatePrintGraphics();
         m_pGraphics->Init(&m_aJobData, &m_aPrinterGfx);
         pRet = m_pGraphics.get();
     }
@@ -792,7 +791,6 @@ sal_uInt32 PspSalInfoPrinter::GetCapabilities( const ImplJobSetup* pJobSetup, Pr
  */
 PspSalPrinter::PspSalPrinter( SalInfoPrinter* pInfoPrinter )
     : m_pInfoPrinter( pInfoPrinter )
-    , m_pGraphics( nullptr )
     , m_nCopies( 1 )
     , m_bCollate( false )
     , m_bPdf( false )
@@ -885,8 +883,8 @@ SalGraphics* PspSalPrinter::StartPage( ImplJobSetup* pJobSetup, bool )
     SAL_INFO( "vcl.unx.print", "PspSalPrinter::StartPage");
 
     JobData::constructFromStreamBuffer( pJobSetup->GetDriverData(), pJobSetup->GetDriverDataLen(), m_aJobData );
-    m_pGraphics = GetGenericInstance()->CreatePrintGraphics();
-    m_pGraphics->Init(&m_aJobData, &m_aPrinterGfx);
+    m_xGraphics = GetGenericInstance()->CreatePrintGraphics();
+    m_xGraphics->Init(&m_aJobData, &m_aPrinterGfx);
 
     if( m_nCopies > 1 )
     {
@@ -899,7 +897,7 @@ SalGraphics* PspSalPrinter::StartPage( ImplJobSetup* pJobSetup, bool )
     m_aPrintJob.StartPage( m_aJobData );
     m_aPrinterGfx.Init( m_aPrintJob );
 
-    return m_pGraphics;
+    return m_xGraphics.get();
 }
 
 void PspSalPrinter::EndPage()
@@ -1050,7 +1048,7 @@ bool PspSalPrinter::StartJob( const OUString* i_pFileName, const OUString& i_rJo
                 if( !comphelper::isFileUrl(aPDFUrl) )
                 {
                     // this is not a file URL, but it should
-                    // form it into a osl friendly file URL
+                    // form it into an osl friendly file URL
                     OUString aTmp;
                     osl_getFileURLFromSystemPath( aPDFUrl.pData, &aTmp.pData );
                     aPDFUrl = aTmp;

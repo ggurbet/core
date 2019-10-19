@@ -169,7 +169,7 @@ SwXReferenceMark::getSomething(const uno::Sequence< sal_Int8 >& rId)
 
 OUString SAL_CALL SwXReferenceMark::getImplementationName()
 {
-    return OUString("SwXReferenceMark");
+    return "SwXReferenceMark";
 }
 
 sal_Bool SAL_CALL
@@ -459,7 +459,7 @@ SwXReferenceMark::getPropertyValue(const OUString& rPropertyName)
     uno::Any aRet;
     if (! ::sw::GetDefaultTextContentValue(aRet, rPropertyName))
     {
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
     }
     return aRet;
 }
@@ -710,9 +710,8 @@ SwXMeta::CreateXMeta(::sw::Meta & rMeta,
     {
         if (pPortions) // set cache in the XMeta to the given portions
         {
-            const uno::Reference<lang::XUnoTunnel> xUT(xMeta, uno::UNO_QUERY);
             SwXMeta *const pXMeta(
-                ::sw::UnoTunnelGetImplementation<SwXMeta>(xUT));
+                comphelper::getUnoTunnelImplementation<SwXMeta>(xMeta));
             assert(pXMeta);
             // NB: the meta must always be created with the complete content
             // if SwXTextPortionEnumeration is created for a selection,
@@ -860,7 +859,7 @@ SwXMeta::getSomething( const uno::Sequence< sal_Int8 > & i_rId )
 OUString SAL_CALL
 SwXMeta::getImplementationName()
 {
-    return OUString("SwXMeta");
+    return "SwXMeta";
 }
 
 sal_Bool SAL_CALL
@@ -1266,7 +1265,7 @@ SwXMetaField::~SwXMetaField()
 OUString SAL_CALL
 SwXMetaField::getImplementationName()
 {
-    return OUString("SwXMetaField");
+    return "SwXMetaField";
 }
 
 sal_Bool SAL_CALL
@@ -1360,7 +1359,7 @@ SwXMetaField::setPropertyValue(
     }
     else
     {
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
     }
 }
 
@@ -1386,7 +1385,7 @@ SwXMetaField::getPropertyValue(const OUString& rPropertyName)
     }
     else
     {
-        throw beans::UnknownPropertyException();
+        throw beans::UnknownPropertyException(rPropertyName);
     }
 
     return any;

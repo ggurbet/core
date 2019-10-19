@@ -31,7 +31,7 @@
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/document/XEventBroadcaster.hpp>
+#include <com/sun/star/document/XShapeEventBroadcaster.hpp>
 #include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/view/XSelectionSupplier.hpp>
@@ -305,10 +305,9 @@ void ChildrenManagerImpl::CreateListOfVisibleShapes (
     }
 
     // Add the visible shapes for which only the XShapes exist.
-    uno::Reference<container::XIndexAccess> xShapeAccess (mxShapeList, uno::UNO_QUERY);
-    if (xShapeAccess.is())
+    if (mxShapeList.is())
     {
-        sal_Int32 nShapeCount = xShapeAccess->getCount();
+        sal_Int32 nShapeCount = mxShapeList->getCount();
         raDescriptorList.reserve( nShapeCount );
         awt::Point aPos;
         awt::Size aSize;
@@ -316,7 +315,7 @@ void ChildrenManagerImpl::CreateListOfVisibleShapes (
         uno::Reference<drawing::XShape> xShape;
         for (sal_Int32 i=0; i<nShapeCount; ++i)
         {
-            xShapeAccess->getByIndex(i) >>= xShape;
+            mxShapeList->getByIndex(i) >>= xShape;
             aPos = xShape->getPosition();
             aSize = xShape->getSize();
 
@@ -724,15 +723,6 @@ bool ChildrenManagerImpl::ReplaceChild (
     const long /*_nIndex*/,
     const AccessibleShapeTreeInfo& _rShapeTreeInfo)
 {
-    AccessibleShapeInfo aShapeInfo( _rxShape, pCurrentChild->getAccessibleParent(), this );
-    // create the new child
-    rtl::Reference<AccessibleShape> pNewChild(ShapeTypeHandler::Instance().CreateAccessibleObject (
-        aShapeInfo,
-        _rShapeTreeInfo
-    ));
-    if ( pNewChild.is() )
-        pNewChild->Init();
-
     // Iterate over the visible children.  If one of them has an already
     // created accessible object that matches pCurrentChild then replace
     // it.  Otherwise the child to replace is either not in the list or has
@@ -752,6 +742,15 @@ bool ChildrenManagerImpl::ReplaceChild (
 
         // Replace with replacement and send an event about existence
         // of the new child.
+        AccessibleShapeInfo aShapeInfo( _rxShape, pCurrentChild->getAccessibleParent(), this );
+        // create the new child
+        rtl::Reference<AccessibleShape> pNewChild(ShapeTypeHandler::Instance().CreateAccessibleObject (
+            aShapeInfo,
+            _rShapeTreeInfo
+        ));
+        if ( pNewChild.is() )
+            pNewChild->Init();
+
         I->mxAccessibleShape = pNewChild.get();
         mrContext.CommitChange (
             AccessibleEventId::CHILD,
@@ -959,7 +958,7 @@ void ChildrenManagerImpl::UpdateSelection()
 }
 
 
-bool ChildrenManagerImpl::HasFocus()
+bool ChildrenManagerImpl::HasFocus() const
 {
     return mpFocusedShape != nullptr;
 }

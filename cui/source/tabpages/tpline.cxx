@@ -21,8 +21,6 @@
 #include <editeng/sizeitem.hxx>
 #include <osl/file.hxx>
 #include <tools/urlobj.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
 
 #include <strings.hrc>
 #include <svx/colorbox.hxx>
@@ -41,32 +39,25 @@
 #include <svx/xlnedcit.hxx>
 
 
-#include <svx/xpool.hxx>
+#include <svx/tabline.hxx>
 #include <svx/xtable.hxx>
 #include <svx/drawitem.hxx>
 #include <cuitabline.hxx>
-#include <dlgname.hxx>
 #include <dialmgr.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/svxgrahicitem.hxx>
-#include <sfx2/request.hxx>
-#include <sfx2/dialoghelper.hxx>
 #include <svx/ofaitem.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdmodel.hxx>
-#include <svx/numvset.hxx>
 #include <svx/xlntrit.hxx>
 #include <svx/xfltrit.hxx>
 #include <editeng/numitem.hxx>
-#include <editeng/svxenum.hxx>
-#include <sfx2/objsh.hxx>
 #include <editeng/brushitem.hxx>
 #include <svx/gallery.hxx>
 #include <sfx2/opengrf.hxx>
 #include <svx/dialmgr.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svx/strings.hrc>
 #include <vcl/settings.hxx>
@@ -89,8 +80,8 @@ const sal_uInt16 SvxLineTabPage::pLineRanges[] =
     0
 };
 
-SvxLineTabPage::SvxLineTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/linetabpage.ui", "LineTabPage", &rInAttrs)
+SvxLineTabPage::SvxLineTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/linetabpage.ui", "LineTabPage", &rInAttrs)
     , m_pSymbolList(nullptr)
     , m_bNewSize(false)
     , m_nSymbolType(SVX_SYMBOLTYPE_UNKNOWN) // unknown respectively unchanged
@@ -111,7 +102,7 @@ SvxLineTabPage::SvxLineTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs
     , m_pPosLineEndLb(nullptr)
     , m_xBoxColor(m_xBuilder->weld_widget("boxCOLOR"))
     , m_xLbLineStyle(new SvxLineLB(m_xBuilder->weld_combo_box("LB_LINE_STYLE")))
-    , m_xLbColor(new ColorListBox(m_xBuilder->weld_menu_button("LB_COLOR"), pParent.GetFrameWeld()))
+    , m_xLbColor(new ColorListBox(m_xBuilder->weld_menu_button("LB_COLOR"), pController->getDialog()))
     , m_xBoxWidth(m_xBuilder->weld_widget("boxWIDTH"))
     , m_xMtrLineWidth(m_xBuilder->weld_metric_spin_button("MTR_FLD_LINE_WIDTH", FieldUnit::CM))
     , m_xBoxTransparency(m_xBuilder->weld_widget("boxTRANSPARENCY"))
@@ -216,11 +207,6 @@ void SvxLineTabPage::ShowSymbolControls(bool bOn)
 
 SvxLineTabPage::~SvxLineTabPage()
 {
-    disposeOnce();
-}
-
-void SvxLineTabPage::dispose()
-{
     m_xCtlPreview.reset();
     m_xLbEndStyle.reset();
     m_xLbStartStyle.reset();
@@ -228,8 +214,6 @@ void SvxLineTabPage::dispose()
     m_xLbLineStyle.reset();
     m_aGalleryBrushItems.clear();
     m_aSymbolBrushItems.clear();
-
-    SfxTabPage::dispose();
 }
 
 void SvxLineTabPage::Construct()
@@ -1192,10 +1176,10 @@ void SvxLineTabPage::Reset( const SfxItemSet* rAttrs )
     ChangePreviewHdl_Impl( nullptr );
 }
 
-VclPtr<SfxTabPage> SvxLineTabPage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SvxLineTabPage::Create(weld::Container* pPage, weld::DialogController* pController,
                                           const SfxItemSet* rAttrs)
 {
-    return VclPtr<SvxLineTabPage>::Create(pParent, *rAttrs);
+    return std::make_unique<SvxLineTabPage>(pPage, pController, *rAttrs);
 }
 
 IMPL_LINK_NOARG(SvxLineTabPage, ChangePreviewListBoxHdl_Impl, ColorListBox&, void)
@@ -1389,7 +1373,7 @@ IMPL_LINK_NOARG(SvxLineTabPage, MenuCreateHdl_Impl, weld::ToggleButton&, void)
     if (!m_xGalleryMenu)
     {
         m_xGalleryMenu = m_xBuilder->weld_menu("gallerysubmenu");
-        weld::WaitObject aWait(GetDialogFrameWeld());
+        weld::WaitObject aWait(GetFrameWeld());
         // Get gallery entries
         GalleryExplorer::FillObjList(GALLERY_THEME_BULLETS, m_aGrfNames);
 
@@ -1559,7 +1543,7 @@ IMPL_LINK(SvxLineTabPage, GraphicHdl_Impl, const OString&, rIdent, void)
     }
     else if (rIdent == "file")
     {
-        SvxOpenGraphicDialog aGrfDlg(CuiResId(RID_SVXSTR_EDIT_GRAPHIC), GetDialogFrameWeld());
+        SvxOpenGraphicDialog aGrfDlg(CuiResId(RID_SVXSTR_EDIT_GRAPHIC), GetFrameWeld());
         aGrfDlg.EnableLink(false);
         aGrfDlg.AsLink(false);
         if( !aGrfDlg.Execute() )
@@ -1665,16 +1649,6 @@ IMPL_LINK(SvxLineTabPage, RatioHdl_Impl, weld::ToggleButton&, rBox, void)
             SizeHdl_Impl(*m_xSymbolWidthMF);
         else
             SizeHdl_Impl(*m_xSymbolHeightMF);
-    }
-}
-
-void SvxLineTabPage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    SfxTabPage::DataChanged( rDCEvt );
-
-    if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
-    {
-        FillListboxes();
     }
 }
 

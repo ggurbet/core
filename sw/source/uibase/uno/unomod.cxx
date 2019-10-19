@@ -17,29 +17,32 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <swtypes.hxx>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/view/DocumentZoomType.hpp>
+#include <comphelper/ChainablePropertySetInfo.hxx>
+#include <cppuhelper/supportsservice.hxx>
 #include <o3tl/any.hxx>
 #include <osl/diagnose.h>
+#include <rtl/ustrbuf.hxx>
+#include <svl/itemprop.hxx>
+#include <tools/urlobj.hxx>
+#include <vcl/svapp.hxx>
+
+#include <swtypes.hxx>
 #include <unomod.hxx>
 #include <unomid.h>
 #include <unoprnms.hxx>
 #include <unomap.hxx>
+#include <usrpref.hxx>
 #include <prtopt.hxx>
 #include <swmodule.hxx>
 #include <view.hxx>
 #include <docsh.hxx>
 #include <wrtsh.hxx>
 #include <viewopt.hxx>
-#include <vcl/svapp.hxx>
 #include <doc.hxx>
 #include <IDocumentDeviceAccess.hxx>
-#include <com/sun/star/beans/PropertyAttribute.hpp>
-#include <com/sun/star/view/DocumentZoomType.hpp>
-#include <comphelper/ChainablePropertySetInfo.hxx>
-#include <cppuhelper/supportsservice.hxx>
 #include <edtwin.hxx>
-#include <rtl/ustrbuf.hxx>
-#include <tools/urlobj.hxx>
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::beans;
@@ -230,7 +233,7 @@ Reference< XPropertySet >  SwXModule::getPrintSettings()
 
 OUString SwXModule::getImplementationName()
 {
-    return OUString( "SwXModule"  );
+    return "SwXModule";
 }
 
 sal_Bool SwXModule::supportsService(const OUString& rServiceName)
@@ -240,9 +243,7 @@ sal_Bool SwXModule::supportsService(const OUString& rServiceName)
 
 Sequence< OUString > SwXModule::getSupportedServiceNames()
 {
-    OUString sService( "com.sun.star.text.GlobalSettings");
-    const Sequence< OUString > aSeq( &sService, 1 );
-    return aSeq;
+    return { "com.sun.star.text.GlobalSettings" };
 }
 
 SwXPrintSettings::SwXPrintSettings(SwXPrintSettingsType eType, SwDoc* pDoc)
@@ -391,7 +392,7 @@ void SwXPrintSettings::_setSingleValue( const comphelper::PropertyInfo & rInfo, 
         }
         break;
         default:
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(OUString::number(rInfo.mnHandle));
     }
 }
 
@@ -486,7 +487,7 @@ void SwXPrintSettings::_getSingleValue( const comphelper::PropertyInfo & rInfo, 
         }
         break;
         default:
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(OUString::number(rInfo.mnHandle));
     }
 }
 
@@ -497,7 +498,7 @@ void SwXPrintSettings::_postGetValues ()
 
 OUString SwXPrintSettings::getImplementationName()
 {
-    return OUString("SwXPrintSettings");
+    return "SwXPrintSettings";
 }
 
 sal_Bool SwXPrintSettings::supportsService(const OUString& rServiceName)
@@ -749,7 +750,7 @@ void SwXViewSettings::_setSingleValue( const comphelper::PropertyInfo & rInfo, c
         }
         break;
         default:
-            throw UnknownPropertyException();
+            throw UnknownPropertyException(OUString::number(rInfo.mnHandle));
     }
 }
 
@@ -941,7 +942,7 @@ void SwXViewSettings::_postGetValues ()
 
 OUString SwXViewSettings::getImplementationName()
 {
-    return OUString("SwXViewSettings");
+    return "SwXViewSettings";
 }
 
 sal_Bool SwXViewSettings::supportsService(const OUString& rServiceName)

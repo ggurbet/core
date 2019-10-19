@@ -28,14 +28,23 @@
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <svx/pageitem.hxx>
+#include <editeng/colritem.hxx>
+#include <editeng/contouritem.hxx>
+#include <editeng/crossedoutitem.hxx>
+#include <editeng/fontitem.hxx>
 #include <editeng/sizeitem.hxx>
+#include <editeng/udlnitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/boxitem.hxx>
+#include <editeng/postitem.hxx>
 #include <editeng/shaditem.hxx>
+#include <editeng/shdditem.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/flstitem.hxx>
+#include <editeng/fhgtitem.hxx>
 #include <editeng/paperinf.hxx>
+#include <editeng/wghtitem.hxx>
 #include <pagedesc.hxx>
 #include <doc.hxx>
 #include <IDocumentUndoRedo.hxx>
@@ -1016,13 +1025,9 @@ void XStyleFamily::replaceByName(const OUString& rName, const uno::Any& rElement
         uno::Reference<style::XStyle> xStyle = FindStyle(pBase->GetName());
         if(xStyle.is())
         {
-            uno::Reference<lang::XUnoTunnel> xTunnel( xStyle, uno::UNO_QUERY);
-            if(xTunnel.is())
-            {
-                SwXStyle* pStyle = reinterpret_cast< SwXStyle * >(
-                        sal::static_int_cast< sal_IntPtr >( xTunnel->getSomething( SwXStyle::getUnoTunnelId()) ));
+            SwXStyle* pStyle = comphelper::getUnoTunnelImplementation<SwXStyle>(xStyle);
+            if(pStyle)
                 pStyle->Invalidate();
-            }
         }
         m_pBasePool->Remove(pBase);
         insertByName(rName, rElement);
@@ -1186,9 +1191,7 @@ const uno::Sequence<sal_Int8>& SwXStyle::getUnoTunnelId()
 
 sal_Int64 SAL_CALL SwXStyle::getSomething(const uno::Sequence<sal_Int8>& rId)
 {
-    if(rId.getLength() != 16)
-        return 0;
-    if(0 == memcmp(getUnoTunnelId().getConstArray(), rId.getConstArray(), 16))
+    if(isUnoTunnelId<SwXStyle>(rId))
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
     }
@@ -1847,7 +1850,8 @@ void SwXStyle::SetPropertyValue<FN_UNO_PARA_STYLE_CONDITIONS>(const SfxItemPrope
     if(!rValue.has<expectedarg_t>() || !m_pBasePool)
         throw lang::IllegalArgumentException();
     SwCondCollItem aCondItem;
-    for(auto& rNamedValue : rValue.get<expectedarg_t>())
+    const auto aNamedValues = rValue.get<expectedarg_t>();
+    for(const auto& rNamedValue : aNamedValues)
     {
         if(!rNamedValue.Value.has<OUString>())
             throw lang::IllegalArgumentException();
@@ -2824,7 +2828,7 @@ void SwXStyle::PutItemToSet(const SvxSetItem* pSetItem, const SfxItemPropertySet
         SetStyleProperty(rEntry, rPropSet, rVal, rBaseImpl);
     }
 
-    // reset paret at ItemSet from SetItem
+    // reset parent at ItemSet from SetItem
     rSetSet.SetParent(nullptr);
 
     // set the new SvxSetItem at the real target and delete it
@@ -3523,17 +3527,15 @@ uno::Reference< style::XAutoStyle > SwXAutoStyleFamily::insertStyle(
         throw uno::RuntimeException();
 
     SwAttrSet aSet( m_pDocShell->GetDoc()->GetAttrPool(), pRange );
-    const beans::PropertyValue* pSeq = Values.getConstArray();
-    sal_Int32 nLen = Values.getLength();
     const bool bTakeCareOfDrawingLayerFillStyle(IStyleAccess::AUTO_STYLE_PARA == m_eFamily);
 
     if(!bTakeCareOfDrawingLayerFillStyle)
     {
-        for( sal_Int32 i = 0; i < nLen; ++i )
+        for( const beans::PropertyValue& rValue : Values )
         {
             try
             {
-                pPropSet->setPropertyValue( pSeq[i].Name, pSeq[i].Value, aSet );
+                pPropSet->setPropertyValue( rValue.Name, rValue.Value, aSet );
             }
             catch (const beans::UnknownPropertyException &)
             {
@@ -3557,10 +3559,10 @@ uno::Reference< style::XAutoStyle > SwXAutoStyleFamily::insertStyle(
         // used slots functionality here to do this correctly
         const SfxItemPropertyMap& rMap = pPropSet->getPropertyMap();
 
-        for( sal_Int32 i = 0; i < nLen; ++i )
+        for( const beans::PropertyValue& rValue : Values )
         {
-            const OUString& rPropName = pSeq[i].Name;
-            uno::Any aValue(pSeq[i].Value);
+            const OUString& rPropName = rValue.Name;
+            uno::Any aValue(rValue.Value);
             const SfxItemPropertySimpleEntry* pEntry = rMap.getByName(rPropName);
 
             if (!pEntry)
@@ -4238,9 +4240,8 @@ uno::Sequence< beans::PropertyValue > SwXAutoStyle::getProperties()
 
     SfxItemSet& rSet = *mpSet;
     SfxItemIter aIter(rSet);
-    const SfxPoolItem* pItem = aIter.FirstItem();
 
-    while ( pItem )
+    for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
     {
         const sal_uInt16 nWID = pItem->Which();
 
@@ -4256,7 +4257,6 @@ uno::Sequence< beans::PropertyValue > SwXAutoStyle::getProperties()
                 aPropertyVector.push_back( aPropertyValue );
             }
         }
-        pItem = aIter.NextItem();
     }
 
     const sal_Int32 nCount = aPropertyVector.size();
@@ -4495,7 +4495,7 @@ css::uno::Any SAL_CALL SwXTextTableStyle::getPropertyValue(const OUString& rProp
     else if (rPropertyName == UNO_NAME_DISPLAY_NAME)
         return uno::makeAny(m_pTableAutoFormat->GetName());
     else
-        throw css::beans::UnknownPropertyException();
+        throw css::beans::UnknownPropertyException(rPropertyName);
 
     return uno::makeAny(bIsRow ? OUString("row") : OUString("column"));
 }
@@ -4668,7 +4668,7 @@ void SwXTextCellStyle::SetPhysical()
         SAL_WARN("sw.uno", "calling SetPhysical on a physical SwXTextCellStyle");
 }
 
-bool SwXTextCellStyle::IsPhysical()
+bool SwXTextCellStyle::IsPhysical() const
 {
     return m_bPhysical;
 }
@@ -4759,7 +4759,7 @@ sal_Bool SAL_CALL SwXTextCellStyle::isInUse()
     if (!xFamiliesSupplier.is())
         return false;
 
-    uno::Reference<container::XNameAccess> xFamilies(xFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xFamilies = xFamiliesSupplier->getStyleFamilies();
     if (!xFamilies.is())
         return false;
 
@@ -5018,7 +5018,7 @@ void SAL_CALL SwXTextCellStyle::setPropertyValue(const OUString& rPropertyName, 
         }
     }
 
-    throw css::beans::UnknownPropertyException();
+    throw css::beans::UnknownPropertyException(rPropertyName);
 }
 
 css::uno::Any SAL_CALL SwXTextCellStyle::getPropertyValue(const OUString& rPropertyName)
@@ -5182,7 +5182,7 @@ css::uno::Any SAL_CALL SwXTextCellStyle::getPropertyValue(const OUString& rPrope
         }
     }
 
-    throw css::beans::UnknownPropertyException();
+    throw css::beans::UnknownPropertyException(rPropertyName);
 }
 
 void SAL_CALL SwXTextCellStyle::addPropertyChangeListener( const OUString& /*aPropertyName*/, const css::uno::Reference< css::beans::XPropertyChangeListener >& /*xListener*/ )
@@ -5358,7 +5358,7 @@ css::uno::Sequence<css::beans::PropertyState> SAL_CALL SwXTextCellStyle::getProp
         else
         {
             SAL_WARN("sw.uno", "SwXTextCellStyle unknown property:" + sPropName);
-            throw css::beans::UnknownPropertyException();
+            throw css::beans::UnknownPropertyException(sPropName);
         }
     }
     return aRet;

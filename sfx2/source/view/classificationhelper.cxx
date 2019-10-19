@@ -441,8 +441,7 @@ void SfxClassificationHelper::Impl::setStartValidity(SfxClassificationPolicyType
         {
             // The policy left the start date unchanged, replace it with the system time.
             util::DateTime aDateTime = DateTime(DateTime::SYSTEM).GetUNODateTime();
-            OUStringBuffer aBuffer = utl::toISO8601(aDateTime);
-            it->second = aBuffer.toString();
+            it->second = utl::toISO8601(aDateTime);
         }
     }
 }
@@ -482,7 +481,7 @@ bool SfxClassificationHelper::IsClassified(const uno::Reference<document::XDocum
         return false;
 
     uno::Reference<beans::XPropertySet> xPropertySet(xPropertyContainer, uno::UNO_QUERY);
-    uno::Sequence<beans::Property> aProperties = xPropertySet->getPropertySetInfo()->getProperties();
+    const uno::Sequence<beans::Property> aProperties = xPropertySet->getPropertySetInfo()->getProperties();
     for (const beans::Property& rProperty : aProperties)
     {
         if (rProperty.Name.startsWith("urn:bails:"))
@@ -569,7 +568,7 @@ SfxClassificationHelper::SfxClassificationHelper(const uno::Reference<document::
         return;
 
     uno::Reference<beans::XPropertySet> xPropertySet(xPropertyContainer, uno::UNO_QUERY);
-    uno::Sequence<beans::Property> aProperties = xPropertySet->getPropertySetInfo()->getProperties();
+    const uno::Sequence<beans::Property> aProperties = xPropertySet->getPropertySetInfo()->getProperties();
     for (const beans::Property& rProperty : aProperties)
     {
         if (!rProperty.Name.startsWith("urn:bails:"))
@@ -596,22 +595,22 @@ SfxClassificationHelper::SfxClassificationHelper(const uno::Reference<document::
 
 SfxClassificationHelper::~SfxClassificationHelper() = default;
 
-std::vector<OUString> const & SfxClassificationHelper::GetMarkings()
+std::vector<OUString> const & SfxClassificationHelper::GetMarkings() const
 {
     return m_pImpl->m_aMarkings;
 }
 
-std::vector<OUString> const & SfxClassificationHelper::GetIntellectualPropertyParts()
+std::vector<OUString> const & SfxClassificationHelper::GetIntellectualPropertyParts() const
 {
     return m_pImpl->m_aIPParts;
 }
 
-std::vector<OUString> const & SfxClassificationHelper::GetIntellectualPropertyPartNumbers()
+std::vector<OUString> const & SfxClassificationHelper::GetIntellectualPropertyPartNumbers() const
 {
     return m_pImpl->m_aIPPartNumbers;
 }
 
-const OUString& SfxClassificationHelper::GetBACName(SfxClassificationPolicyType eType)
+const OUString& SfxClassificationHelper::GetBACName(SfxClassificationPolicyType eType) const
 {
     return m_pImpl->m_aCategory[eType].m_aName;
 }

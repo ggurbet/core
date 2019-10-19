@@ -1222,7 +1222,7 @@ Size ListBox::CalcSubEditSize() const
     else
     {
         aSz.setHeight( mpImplLB->GetEntryHeight() );
-        // Size to maxmimum entry width
+        // Size to maximum entry width
         aSz.setWidth( mpImplLB->GetMaxEntryWidth() );
 
         if (m_nMaxWidthChars != -1)
@@ -1435,6 +1435,35 @@ bool ListBox::set_property(const OString &rKey, const OUString &rValue)
 FactoryFunction ListBox::GetUITestFactory() const
 {
     return ListBoxUIObject::create;
+}
+
+boost::property_tree::ptree ListBox::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(Control::DumpAsPropertyTree());
+    boost::property_tree::ptree aEntries;
+
+    for (int i = 0; i < GetEntryCount(); ++i)
+    {
+        boost::property_tree::ptree aEntry;
+        aEntry.put("", GetEntry(i));
+        aEntries.push_back(std::make_pair("", aEntry));
+    }
+
+    aTree.add_child("entries", aEntries);
+
+    boost::property_tree::ptree aSelected;
+
+    for (int i = 0; i < GetSelectedEntryCount(); ++i)
+    {
+        boost::property_tree::ptree aEntry;
+        aEntry.put("", GetSelectedEntryPos(i));
+        aSelected.push_back(std::make_pair("", aEntry));
+    }
+
+    aTree.put("selectedCount", GetSelectedEntryCount());
+    aTree.add_child("selectedEntries", aSelected);
+
+    return aTree;
 }
 
 MultiListBox::MultiListBox( vcl::Window* pParent, WinBits nStyle ) :

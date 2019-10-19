@@ -293,7 +293,7 @@ void CertificateViewerCertPathTP::ActivatePage()
             if (!xParent)
             {
                 xParent = mxCertPathLB->make_iterator();
-                mxCertPathLB->get_iter_first(*xParent);
+                (void)mxCertPathLB->get_iter_first(*xParent);
             }
             else
             {
@@ -353,7 +353,7 @@ IMPL_LINK_NOARG(CertificateViewerCertPathTP, CertSelectHdl, weld::TreeView&, voi
     mxViewCertPB->set_sensitive(bSensitive);
 }
 
-void CertificateViewerCertPathTP::InsertCert(weld::TreeIter* pParent, const OUString& rName,
+void CertificateViewerCertPathTP::InsertCert(const weld::TreeIter* pParent, const OUString& rName,
                                              const css::uno::Reference< css::security::XCertificate >& rxCert,
                                              bool bValid)
 {

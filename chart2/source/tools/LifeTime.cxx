@@ -35,11 +35,6 @@ LifeTimeManager::LifeTimeManager( lang::XComponent* pComponent )
     : m_aListenerContainer( m_aAccessMutex )
     , m_pComponent(pComponent)
 {
-    impl_init();
-}
-
-void LifeTimeManager::impl_init()
-{
     m_bDisposed = false;
     m_bInDispose = false;
     m_nAccessCount = 0;
@@ -91,7 +86,7 @@ void LifeTimeManager::impl_registerApiCall(bool bLongLastingCall)
 
 void LifeTimeManager::impl_unregisterApiCall(bool bLongLastingCall)
 {
-    //Mutex needs to be acquired exactly ones
+    //Mutex needs to be acquired exactly once
     //mutex may be released inbetween in special case of impl_apiCallCountReachedNull()
 
     OSL_ENSURE( m_nAccessCount>0, "access count mismatch" );
@@ -114,7 +109,7 @@ bool LifeTimeManager::dispose()
 {
     //hold no mutex
     {
-        osl::Guard< osl::Mutex > aGuard( m_aAccessMutex );
+        osl::MutexGuard aGuard( m_aAccessMutex );
 
         if( m_bDisposed || m_bInDispose )
         {
@@ -142,10 +137,9 @@ bool LifeTimeManager::dispose()
 
     //no mutex is acquired
     {
-        osl::ClearableGuard< osl::Mutex > aGuard( m_aAccessMutex );
+        osl::MutexGuard aGuard( m_aAccessMutex );
         OSL_ENSURE( !m_bDisposed, "dispose was called already" );
         m_bDisposed = true;
-        aGuard.clear();
     }
     //no mutex is acquired
 
@@ -164,7 +158,10 @@ CloseableLifeTimeManager::CloseableLifeTimeManager( css::util::XCloseable* pClos
         : LifeTimeManager( pComponent )
         , m_pCloseable(pCloseable)
 {
-    impl_init();
+    m_bClosed = false;
+    m_bInTryClose = false;
+    m_bOwnership = false;
+    m_aEndTryClosingCondition.set();
 }
 
 CloseableLifeTimeManager::~CloseableLifeTimeManager()
@@ -191,11 +188,11 @@ bool CloseableLifeTimeManager::g_close_startTryClose(bool bDeliverOwnership)
 {
     //no mutex is allowed to be acquired
     {
-        osl::ResettableGuard< osl::Mutex > aGuard( m_aAccessMutex );
+        osl::MutexGuard aGuard( m_aAccessMutex );
         if( impl_isDisposedOrClosed(false) )
             return false;
 
-        //Mutex needs to be acquired exactly ones; will be released inbetween
+        //Mutex needs to be acquired exactly once; will be released inbetween
         if( !impl_canStartApiCall() )
             return false;
         //mutex is acquired
@@ -247,13 +244,13 @@ bool CloseableLifeTimeManager::g_close_startTryClose(bool bDeliverOwnership)
 void CloseableLifeTimeManager::g_close_endTryClose(bool bDeliverOwnership )
 {
     //this method is called, if the try to close was not successful
-    osl::Guard< osl::Mutex > aGuard( m_aAccessMutex );
+    osl::MutexGuard aGuard( m_aAccessMutex );
     impl_setOwnership( bDeliverOwnership, false );
 
     m_bInTryClose = false;
     m_aEndTryClosingCondition.set();
 
-    //Mutex needs to be acquired exactly ones
+    //Mutex needs to be acquired exactly once
     //mutex may be released inbetween in special case of impl_apiCallCountReachedNull()
     impl_unregisterApiCall(false);
 }
@@ -265,7 +262,7 @@ void CloseableLifeTimeManager::g_close_isNeedToCancelLongLastingCalls( bool bDel
     //it returns true, if some longlasting calls are running, which might be cancelled
     //it throws the given exception, if long calls are running but not cancelable
 
-    osl::Guard< osl::Mutex > aGuard( m_aAccessMutex );
+    osl::MutexGuard aGuard( m_aAccessMutex );
     //this count cannot grow after try of close has started, because we wait in all those methods for end of try closing
     if( !m_nLongLastingCallCount )
         return;
@@ -275,7 +272,7 @@ void CloseableLifeTimeManager::g_close_isNeedToCancelLongLastingCalls( bool bDel
     m_bInTryClose = false;
     m_aEndTryClosingCondition.set();
 
-    //Mutex needs to be acquired exactly ones
+    //Mutex needs to be acquired exactly once
     //mutex may be released inbetween in special case of impl_apiCallCountReachedNull()
     impl_unregisterApiCall(false);
 
@@ -285,12 +282,12 @@ void CloseableLifeTimeManager::g_close_isNeedToCancelLongLastingCalls( bool bDel
 void CloseableLifeTimeManager::g_close_endTryClose_doClose()
 {
     //this method is called, if the try to close was successful
-    osl::ResettableGuard< osl::Mutex > aGuard( m_aAccessMutex );
+    osl::MutexGuard aGuard( m_aAccessMutex );
 
     m_bInTryClose       = false;
     m_aEndTryClosingCondition.set();
 
-    //Mutex needs to be acquired exactly ones
+    //Mutex needs to be acquired exactly once
     //mutex may be released inbetween in special case of impl_apiCallCountReachedNull()
     impl_unregisterApiCall(false);
     impl_doClose();
@@ -303,7 +300,7 @@ void CloseableLifeTimeManager::impl_setOwnership( bool bDeliverOwnership, bool b
 
 void CloseableLifeTimeManager::impl_apiCallCountReachedNull()
 {
-    //Mutex needs to be acquired exactly ones
+    //Mutex needs to be acquired exactly once
     //mutex will be released inbetween in impl_doClose()
     if( m_pCloseable && m_bOwnership )
         impl_doClose();
@@ -311,7 +308,7 @@ void CloseableLifeTimeManager::impl_apiCallCountReachedNull()
 
 void CloseableLifeTimeManager::impl_doClose()
 {
-    //Mutex needs to be acquired exactly ones before calling impl_doClose()
+    //Mutex needs to be acquired exactly once before calling impl_doClose()
 
     if(m_bClosed)
         return; //behave as passive as possible, if disposed or closed already
@@ -364,8 +361,8 @@ void CloseableLifeTimeManager::impl_doClose()
 
 void CloseableLifeTimeManager::g_addCloseListener( const uno::Reference< util::XCloseListener > & xListener )
 {
-    osl::Guard< osl::Mutex > aGuard( m_aAccessMutex );
-    //Mutex needs to be acquired exactly ones; will be released inbetween
+    osl::MutexGuard aGuard( m_aAccessMutex );
+    //Mutex needs to be acquired exactly once; will be released inbetween
     if( !impl_canStartApiCall() )
         return;
     //mutex is acquired
@@ -376,7 +373,7 @@ void CloseableLifeTimeManager::g_addCloseListener( const uno::Reference< util::X
 
 bool CloseableLifeTimeManager::impl_canStartApiCall()
 {
-    //Mutex needs to be acquired exactly ones before calling this method
+    //Mutex needs to be acquired exactly once before calling this method
     //the mutex will be released inbetween and reacquired
 
     if( impl_isDisposed() )
@@ -403,14 +400,14 @@ bool CloseableLifeTimeManager::impl_canStartApiCall()
 
 bool LifeTimeGuard::startApiCall(bool bLongLastingCall)
 {
-    //Mutex needs to be acquired exactly ones; will be released inbetween
+    //Mutex needs to be acquired exactly once; will be released inbetween
     //mutex is required due to constructor of LifeTimeGuard
 
     OSL_ENSURE( !m_bCallRegistered, "this method is only allowed ones" );
     if(m_bCallRegistered)
         return false;
 
-    //Mutex needs to be acquired exactly ones; will be released inbetween
+    //Mutex needs to be acquired exactly once; will be released inbetween
     if( !m_rManager.impl_canStartApiCall() )
         return false;
     //mutex is acquired
@@ -429,7 +426,7 @@ LifeTimeGuard::~LifeTimeGuard()
         osl::MutexGuard g(m_rManager.m_aAccessMutex);
         if(m_bCallRegistered)
         {
-            //Mutex needs to be acquired exactly ones
+            //Mutex needs to be acquired exactly once
             //mutex may be released inbetween in special case of impl_apiCallCountReachedNull()
             m_rManager.impl_unregisterApiCall(m_bLongLastingCallRegistered);
         }

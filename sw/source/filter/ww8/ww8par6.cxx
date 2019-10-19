@@ -2265,7 +2265,7 @@ void WW8DupProperties::Insert(const SwPosition &rPos)
             do
             {
                 pCtrlStck->NewAttr(rPos, *pItem);
-            }while( !aIter.IsAtEnd() && nullptr != ( pItem = aIter.NextItem() ) );
+            } while ((pItem = aIter.NextItem()));
         }
     }
 }
@@ -2384,7 +2384,7 @@ std::unique_ptr<WW8FlyPara> SwWW8ImplReader::ConstructApo(const ApoTestResults &
     return pRet;
 }
 
-bool SwWW8ImplReader::IsDropCap()
+bool SwWW8ImplReader::IsDropCap() const
 {
     // Find the DCS (Drop Cap Specifier) for the paragraph
     // if does not exist or if the first three bits are 0

@@ -26,7 +26,6 @@
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
-#include <vcl/combobox.hxx>
 #include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
@@ -160,8 +159,8 @@ IMPL_LINK_NOARG(SmPrintOptionsTabPage, SizeButtonClickHdl, weld::ToggleButton&, 
     m_xZoom->set_sensitive(m_xSizeZoomed->get_active());
 }
 
-SmPrintOptionsTabPage::SmPrintOptionsTabPage(TabPageParent pPage, const SfxItemSet& rOptions)
-    : SfxTabPage(pPage, "modules/smath/ui/smathsettings.ui", "SmathSettings", &rOptions)
+SmPrintOptionsTabPage::SmPrintOptionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rOptions)
+    : SfxTabPage(pPage, pController, "modules/smath/ui/smathsettings.ui", "SmathSettings", &rOptions)
     , m_xTitle(m_xBuilder->weld_check_button("title"))
     , m_xText(m_xBuilder->weld_check_button("text"))
     , m_xFrame(m_xBuilder->weld_check_button("frame"))
@@ -224,9 +223,9 @@ void SmPrintOptionsTabPage::Reset(const SfxItemSet* rSet)
     m_xAutoCloseBrackets->set_active(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_AUTO_CLOSE_BRACKETS))).GetValue());
 }
 
-VclPtr<SfxTabPage> SmPrintOptionsTabPage::Create(TabPageParent pParent, const SfxItemSet& rSet)
+std::unique_ptr<SfxTabPage> SmPrintOptionsTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
 {
-    return VclPtr<SmPrintOptionsTabPage>::Create(pParent, rSet).get();
+    return std::make_unique<SmPrintOptionsTabPage>(pPage, pController, rSet);
 }
 
 void SmShowFont::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& /*rRect*/)
@@ -1198,8 +1197,8 @@ void SmSymbolDialog::FillSymbolSets()
     m_xSymbolSets->clear();
     m_xSymbolSets->set_active(-1);
 
-    std::set< OUString >  aSybolSetNames( rSymbolMgr.GetSymbolSetNames() );
-    for (const auto& rSymbolSetName : aSybolSetNames)
+    std::set< OUString >  aSymbolSetNames( rSymbolMgr.GetSymbolSetNames() );
+    for (const auto& rSymbolSetName : aSymbolSetNames)
         m_xSymbolSets->append_text(rSymbolSetName);
 }
 
@@ -1584,10 +1583,10 @@ IMPL_LINK_NOARG(SmSymDefineDialog, CharHighlightHdl, SvxShowCharSet*, void)
     UpdateButtons();
 
     // display Unicode position as symbol name while iterating over characters
-    const OUString aHex(OUString::number(cChar, 16 ).toAsciiUpperCase());
+    const OUString aHex(OUString::number(cChar, 16).toAsciiUpperCase());
     const OUString aPattern( (aHex.getLength() > 4) ? OUString("Ux000000") : OUString("Ux0000") );
-    OUString aUnicodePos( aPattern.copy( 0, aPattern.getLength() - aHex.getLength() ) );
-    aUnicodePos += aHex;
+    OUString aUnicodePos = aPattern.copy( 0, aPattern.getLength() - aHex.getLength() ) +
+        aHex;
     m_xSymbols->set_entry_text(aUnicodePos);
     m_xSymbolName->set_label(aUnicodePos);
 }
@@ -1624,7 +1623,7 @@ IMPL_LINK( SmSymDefineDialog, ChangeClickHdl, weld::Button&, rButton, void )
     assert(&rButton == m_xChangeBtn.get() && "Sm : wrong argument");
     assert(m_xChangeBtn->get_sensitive() && "Sm : requirements met ??");
 
-    // get new Sybol to use
+    // get new Symbol to use
     //! get font from symbol-disp lay since charset-display does not keep
     //! the bold attribute.
     const SmSym aNewSymbol(m_xSymbols->get_active_text(), m_xCharsetDisplay->GetFont(),
@@ -1930,7 +1929,7 @@ bool SmSymDefineDialog::SelectSymbol(weld::ComboBox& rComboBox,
         // if there's a change of the old symbol, show only the available ones, otherwise show none
         const SmSym *pOldSymbol = nullptr;
         OUString     aTmpOldSymbolSetName;
-        if (nPos != COMBOBOX_ENTRY_NOTFOUND)
+        if (nPos != -1)
         {
             pOldSymbol        = m_aSymbolMgrCopy.GetSymbolByName(aNormName);
             aTmpOldSymbolSetName = m_xOldSymbolSets->get_active_text();

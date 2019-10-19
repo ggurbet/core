@@ -22,13 +22,11 @@
 
 #include <sal/config.h>
 
-#include <algorithm>
 #include <cstring>
 #include <limits>
 
 #include <osl/endian.h>
 #include <rtl/math.hxx>
-#include <rtl/string.hxx>
 #include <rtl/textenc.h>
 #include <sal/macros.h>
 #include <sal/types.h>
@@ -42,10 +40,6 @@ namespace oox {
     'index' is out of the array limits. */
 #define STATIC_ARRAY_SELECT( array, index, def ) \
     ((static_cast<size_t>(index) < SAL_N_ELEMENTS(array)) ? ((array)[static_cast<size_t>(index)]) : (def))
-
-/** Convert an OUString to an ASCII C string. Use for debug purposes only. */
-#define OUSTRING_TO_CSTR( str ) \
-    OUStringToOString( str, RTL_TEXTENCODING_ASCII_US ).getStr()
 
 // Common constants ===========================================================
 

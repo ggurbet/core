@@ -24,7 +24,6 @@
 #include <svx/pagenumberlistbox.hxx>
 #include <svx/papersizelistbox.hxx>
 #include <svx/frmdirlbox.hxx>
-#include <editeng/svxenum.hxx>
 #include <i18nutil/paper.hxx>
 #include <svx/flagsdef.hxx>
 
@@ -65,10 +64,6 @@ typedef sal_uInt16 MarginPosition;
 
 class SvxPageDescPage : public SfxTabPage
 {
-    friend class VclPtr<SvxPageDescPage>;
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
     static const sal_uInt16 pRanges[];
 private:
     OUString            sStandardRegister;
@@ -159,25 +154,23 @@ private:
     bool                IsPrinterRangeOverflow(weld::MetricSpinButton& rField, long nFirstMargin,
                                                long nLastMargin, MarginPosition nPos);
     void                CheckMarginEdits( bool _bClear );
-    bool                IsMarginOutOfRange();
-
-    SvxPageDescPage(TabPageParent pParent, const SfxItemSet& rSet);
+    bool                IsMarginOutOfRange() const;
 
 protected:
     virtual void        ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC   DeactivatePage( SfxItemSet* pSet ) override;
 
 public:
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
+    SvxPageDescPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
+    virtual ~SvxPageDescPage() override;
+
     // returns the range of the Which values
     static const sal_uInt16* GetRanges() { return pRanges; }
 
     virtual bool        FillItemSet( SfxItemSet* rOutSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
     virtual void        FillUserData() override;
-
-    virtual ~SvxPageDescPage() override;
-    virtual void        dispose() override;
 
     void                SetPaperFormatRanges( Paper eStart )
                             { ePaperStart = eStart; }

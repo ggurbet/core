@@ -328,9 +328,7 @@ namespace sw
                 OSL_ENSURE( !mrPers.GetEmbeddedObjectContainer().HasEmbeddedObject( mxIPRef ), "Object in adaptor is inserted?!" );
                 try
                 {
-                    uno::Reference < css::util::XCloseable > xClose( mxIPRef, uno::UNO_QUERY );
-                    if ( xClose.is() )
-                        xClose->close(true);
+                    mxIPRef->close(true);
                 }
                 catch ( const css::util::CloseVetoException& )
                 {
@@ -412,7 +410,7 @@ namespace sw
                 {
                     do
                         rItems[pItem->Which()] = pItem;
-                    while (!aIter.IsAtEnd() && nullptr != (pItem = aIter.NextItem()));
+                    while ((pItem = aIter.NextItem()));
                 }
             }
         }
@@ -436,7 +434,7 @@ namespace sw
                     const SfxPoolItem *pItem = aIter.GetCurItem();
                     do
                         rSet.ClearItem(pItem->Which());
-                    while (!aIter.IsAtEnd() && nullptr != (pItem = aIter.NextItem()));
+                    while ((pItem = aIter.NextItem()));
                 }
             }
         }
@@ -619,7 +617,7 @@ namespace sw
             {
                 // This method will now just concatenate the polygons contained
                 // in the given PolyPolygon. Anything else which might be thought of
-                // for reducing to a single polygon will just need nore power and
+                // for reducing to a single polygon will just need more power and
                 // cannot create more correct results.
                 sal_uInt32 nPointCount(0);
                 sal_uInt16 a;
@@ -720,7 +718,7 @@ namespace sw
                     SwPosition const end(*rPos.nNode.GetNode().GetTextNode(),
                                          nIndex - 1);
                     sw::mark::IFieldmark *const pFieldMark(
-                        rPos.GetDoc()->getIDocumentMarkAccess()->getFieldmarkFor(end));
+                        rPos.GetDoc()->getIDocumentMarkAccess()->getFieldmarkAt(end));
                     SAL_WARN_IF(!pFieldMark, "sw.ww8", "expected a field mark");
                     if (pFieldMark && pFieldMark->GetMarkPos().nNode.GetIndex() == (*aResult)->m_aMkPos.m_nNode.GetIndex()+1
                         && pFieldMark->GetMarkPos().nContent.GetIndex() < (*aResult)->m_aMkPos.m_nContent)
@@ -787,15 +785,6 @@ namespace sw
                 const SwFltRedline *pFltRedline = static_cast<const SwFltRedline*>
                     (pEntry->pAttr.get());
 
-                if (SwFltRedline::NoPrevAuthor != pFltRedline->nAutorNoPrev)
-                {
-                    SwRedlineData aData(pFltRedline->eTypePrev,
-                        pFltRedline->nAutorNoPrev, pFltRedline->aStampPrev, OUString(),
-                        nullptr);
-
-                    mrDoc.getIDocumentRedlineAccess().AppendRedline(new SwRangeRedline(aData, aRegion), true);
-                }
-
                 SwRedlineData aData(pFltRedline->eType, pFltRedline->nAutorNo,
                         pFltRedline->aStamp, OUString(), nullptr);
 
@@ -850,20 +839,24 @@ namespace sw
 
     namespace util
     {
-        InsertedTableClient::InsertedTableClient(SwTableNode & rNode)
+        InsertedTableListener::InsertedTableListener(SwTableNode& rNode)
+            : m_pTableNode(&rNode)
         {
-            rNode.Add(this);
+            StartListening(rNode.GetNotifier());
         }
 
-        SwTableNode * InsertedTableClient::GetTableNode()
+        SwTableNode* InsertedTableListener::GetTableNode()
+            { return m_pTableNode; }
+
+        void  InsertedTableListener::Notify(const SfxHint& rHint)
         {
-            return dynamic_cast<SwTableNode *> (GetRegisteredInNonConst());
+            if(rHint.GetId() == SfxHintId::Dying)
+                m_pTableNode = nullptr;
         }
 
         InsertedTablesManager::InsertedTablesManager(const SwDoc &rDoc)
             : mbHasRoot(rDoc.getIDocumentLayoutAccess().GetCurrentLayout())
-        {
-        }
+        { }
 
         void InsertedTablesManager::DelAndMakeTableFrames()
         {
@@ -888,16 +881,15 @@ namespace sw
             }
         }
 
-        void InsertedTablesManager::InsertTable(SwTableNode &rTableNode, SwPaM &rPaM)
+        void InsertedTablesManager::InsertTable(SwTableNode& rTableNode, SwPaM& rPaM)
         {
             if (!mbHasRoot)
                 return;
             //Associate this tablenode with this after position, replace an //old
             //node association if necessary
-
-            InsertedTableClient * pClient = new InsertedTableClient(rTableNode);
-
-            maTables.emplace(pClient, &(rPaM.GetPoint()->nNode));
+            maTables.emplace(
+                    std::unique_ptr<InsertedTableListener>(new InsertedTableListener(rTableNode)),
+                    &(rPaM.GetPoint()->nNode));
         }
     }
 

@@ -55,7 +55,7 @@ public:
 
     SwAutoCompleteClient& operator=(const SwAutoCompleteClient& rClient);
 
-    const SwDoc& GetDoc(){return *pDoc;}
+    const SwDoc& GetDoc() const {return *pDoc;}
 #if OSL_DEBUG_LEVEL > 0
     static sal_uLong GetElementCount() {return nSwAutoCompleteClientCount;}
 #endif
@@ -235,8 +235,8 @@ bool SwAutoCompleteWord::InsertWord( const OUString& rWord, SwDoc& rDoc )
             return false;
     }
 
-    OUString aNewWord = rWord.replaceAll(OUStringLiteral1(CH_TXTATR_INWORD), "")
-                             .replaceAll(OUStringLiteral1(CH_TXTATR_BREAKWORD), "");
+    OUString aNewWord = rWord.replaceAll(OUStringChar(CH_TXTATR_INWORD), "")
+                             .replaceAll(OUStringChar(CH_TXTATR_BREAKWORD), "");
 
     m_pImpl->AddDocument(rDoc);
     bool bRet = false;

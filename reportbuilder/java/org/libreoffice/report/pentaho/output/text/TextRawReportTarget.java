@@ -546,7 +546,7 @@ public class TextRawReportTarget extends OfficeDocumentReportTarget
 
         if (isTableMergeActive() && detailBandProcessingState == DETAIL_SECTION_OTHER_PRINTED && ObjectUtilities.equal(OfficeNamespaces.TABLE_NS, namespace) && ObjectUtilities.equal(OfficeToken.TABLE_COLUMNS, elementType))
         {
-            // Skip the columns section if the tables get merged..
+            // Skip the columns section if the tables get merged...
             startBuffering(getStylesCollection(), true);
         }
         else
@@ -642,7 +642,7 @@ public class TextRawReportTarget extends OfficeDocumentReportTarget
                         if (style == null)
                         {
                             style = deriveStyle(OfficeToken.PARAGRAPH, styleName);
-                            // Lets set the 'keep-together' flag..
+                            // Lets set the 'keep-together' flag...
 
                             Element paragraphProps = style.getParagraphProperties();
                             if (paragraphProps == null)
@@ -767,7 +767,7 @@ public class TextRawReportTarget extends OfficeDocumentReportTarget
                     masterPageName = currentMasterPage.getStyleName();
                 }
                 // But we skip this (and therefore the resulting pagebreak) if there is no manual break
-                // and no other condition that would force an break.
+                // and no other condition that would force a break.
             }
             else if (currentRole == OfficeDocumentReportTarget.ROLE_REPEATING_GROUP_HEADER || currentRole == OfficeDocumentReportTarget.ROLE_REPEATING_GROUP_FOOTER)
             {
@@ -1040,7 +1040,7 @@ public class TextRawReportTarget extends OfficeDocumentReportTarget
         sectionHeight = new LengthCalculator();
         if (role == OfficeDocumentReportTarget.ROLE_TEMPLATE || role == OfficeDocumentReportTarget.ROLE_SPREADSHEET_PAGE_HEADER || role == OfficeDocumentReportTarget.ROLE_SPREADSHEET_PAGE_FOOTER)
         {
-            // Start buffering with an dummy styles-collection, so that the global styles don't get polluted ..
+            // Start buffering with a dummy styles-collection, so that the global styles don't get polluted...
             startBuffering(new OfficeStylesCollection(), true);
         }
         else if (role == OfficeDocumentReportTarget.ROLE_PAGE_HEADER)
@@ -1070,7 +1070,7 @@ public class TextRawReportTarget extends OfficeDocumentReportTarget
             {
                 // if we have a repeating header, then skip the first one ..
                 // if this is a repeating footer, skip the last one. This means,
-                // we have to buffer all group footers and wait for the next section..
+                // we have to buffer all group footers and wait for the next section...
                 startBuffering(getContentStylesCollection(), true);
             }
 

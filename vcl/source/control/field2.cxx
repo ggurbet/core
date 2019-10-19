@@ -256,7 +256,7 @@ static OUString ImplPatternReformat( const OUString& rStr,
                 nStrIndex++;
             else
             {
-                // Otherwise we check if it is a invalid character. This is the case if it does not
+                // Otherwise we check if it is an invalid character. This is the case if it does not
                 // fit in the pattern of the next non-literal character.
                 n = i+1;
                 while ( n < rEditMask.getLength() )
@@ -985,7 +985,7 @@ static sal_uInt16 ImplCutMonthFromString( OUString& rStr, const CalendarWrapper&
 static OUString ImplGetDateSep( const LocaleDataWrapper& rLocaleDataWrapper, ExtDateFieldFormat eFormat )
 {
     if ( ( eFormat == ExtDateFieldFormat::ShortYYMMDD_DIN5008 ) || ( eFormat == ExtDateFieldFormat::ShortYYYYMMDD_DIN5008 ) )
-        return OUString("-");
+        return "-";
     else
         return rLocaleDataWrapper.getDateSep();
 }
@@ -2029,7 +2029,7 @@ bool TimeFormatter::TextToTime(const OUString& rStr, tools::Time& rTime, TimeFie
     }
     else
     {
-        nSecond = static_cast<short>(aStr.copy( 0, nSepPos ).toString().toInt32());
+        nSecond = static_cast<short>(aStr.copy( 0, nSepPos ).makeStringAndClear().toInt32());
         aStr.remove( 0, nSepPos+1 );
 
         nSepPos = aStr.indexOf( rLocaleDataWrapper.getTimeSep() );
@@ -2038,7 +2038,7 @@ bool TimeFormatter::TextToTime(const OUString& rStr, tools::Time& rTime, TimeFie
         if ( nSepPos >= 0 )
         {
             nMinute = nSecond;
-            nSecond = static_cast<short>(aStr.copy( 0, nSepPos ).toString().toInt32());
+            nSecond = static_cast<short>(aStr.copy( 0, nSepPos ).makeStringAndClear().toInt32());
             aStr.remove( 0, nSepPos+1 );
 
             nSepPos = aStr.indexOf( rLocaleDataWrapper.getTimeSep() );
@@ -2048,7 +2048,7 @@ bool TimeFormatter::TextToTime(const OUString& rStr, tools::Time& rTime, TimeFie
             {
                 nHour   = nMinute;
                 nMinute = nSecond;
-                nSecond = static_cast<short>(aStr.copy( 0, nSepPos ).toString().toInt32());
+                nSecond = static_cast<short>(aStr.copy( 0, nSepPos ).makeStringAndClear().toInt32());
                 aStr.remove( 0, nSepPos+1 );
             }
             else
@@ -2297,7 +2297,7 @@ void TimeFormatter::ImplInit()
 {
     meFormat        = TimeFieldFormat::F_NONE;
     mbDuration      = false;
-    mnTimeFormat    = TimeFormat::Hour24;  // Should become a ExtTimeFieldFormat in next implementation, merge with mbDuration and meFormat
+    mnTimeFormat    = TimeFormat::Hour24;  // Should become an ExtTimeFieldFormat in next implementation, merge with mbDuration and meFormat
 }
 
 TimeFormatter::TimeFormatter(Edit* pEdit) :

@@ -75,15 +75,11 @@ XResultSet_impl::XResultSet_impl( TaskManager* pMyShell,
     }
     else
         m_nIsOpen = true;
-
-    m_pMyShell->registerNotifier( m_aBaseDirectory,this );
 }
 
 
 XResultSet_impl::~XResultSet_impl()
 {
-    m_pMyShell->deregisterNotifier( m_aBaseDirectory,this );
-
     if( m_nIsOpen )
         m_aFolder.close();
 }
@@ -220,8 +216,7 @@ XResultSet_impl::OneMore()
         }
         else if( err == osl::FileBase::E_None )
         {
-            if (!m_pMyShell->getv(
-                    this, m_sProperty, aDirIte, aUnqPath, IsRegular, aRow ))
+            if (!m_pMyShell->getv( m_sProperty, aDirIte, aUnqPath, IsRegular, aRow ))
             {
                 SAL_WARN(
                     "ucb.ucp.file",
@@ -646,7 +641,7 @@ void SAL_CALL XResultSet_impl::setPropertyValue(
     if( aPropertyName == "IsRowCountFinal" ||
         aPropertyName == "RowCount" )
         return;
-    throw beans::UnknownPropertyException( THROW_WHERE );
+    throw beans::UnknownPropertyException( aPropertyName );
 }
 
 
@@ -663,7 +658,7 @@ uno::Any SAL_CALL XResultSet_impl::getPropertyValue(
         return uno::Any(count);
     }
     else
-        throw beans::UnknownPropertyException( THROW_WHERE );
+        throw beans::UnknownPropertyException( PropertyName );
 }
 
 
@@ -689,7 +684,7 @@ void SAL_CALL XResultSet_impl::addPropertyChangeListener(
         m_pRowCountListeners->addInterface( xListener );
     }
     else
-        throw beans::UnknownPropertyException( THROW_WHERE );
+        throw beans::UnknownPropertyException( aPropertyName );
 }
 
 
@@ -711,7 +706,7 @@ void SAL_CALL XResultSet_impl::removePropertyChangeListener(
         m_pRowCountListeners->removeInterface( aListener );
     }
     else
-        throw beans::UnknownPropertyException( THROW_WHERE );
+        throw beans::UnknownPropertyException( aPropertyName );
 }
 
 void SAL_CALL XResultSet_impl::addVetoableChangeListener(

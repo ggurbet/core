@@ -18,11 +18,11 @@
  */
 
 #include <com/sun/star/i18n/ScriptType.hpp>
-#include <editeng/scripttypeitem.hxx>
 #include <hintids.hxx>
 #include <hints.hxx>
 #include <ndtxt.hxx>
 #include <swtypes.hxx>
+#include <svl/languageoptions.hxx>
 #include <vcl/outdev.hxx>
 #include <osl/diagnose.h>
 
@@ -139,7 +139,7 @@ SwMsgPoolItem::SwMsgPoolItem( sal_uInt16 nWhch )
 
 bool SwMsgPoolItem::operator==( const SfxPoolItem& ) const
 {
-    OSL_FAIL( "SwMsgPoolItem knows no ==" );
+    assert( false && "SwMsgPoolItem knows no ==" );
     return false;
 }
 

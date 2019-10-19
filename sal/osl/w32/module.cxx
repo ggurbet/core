@@ -61,19 +61,19 @@ oslModule SAL_CALL osl_loadModule(rtl_uString *strModuleName, sal_Int32 /*nRtldM
 
     // In case of long path names (\\?\c:\...) try to shorten the filename.
     // LoadLibrary cannot handle file names which exceed 260 letters.
-    // In case the path is to long, the function will fail. However, the error
+    // In case the path is too long, the function will fail. However, the error
     // code can be different. For example, it returned  ERROR_FILENAME_EXCED_RANGE
     // on Windows XP and ERROR_INSUFFICIENT_BUFFER on Windows 7 (64bit)
     if (h == nullptr && Module->length > 260)
     {
         std::vector<WCHAR> vec(Module->length + 1);
-        DWORD len = GetShortPathNameW(o3tl::toW(Module->buffer), &vec[0], Module->length + 1);
+        DWORD len = GetShortPathNameW(o3tl::toW(Module->buffer), vec.data(), Module->length + 1);
         if (len )
         {
-            h = LoadLibraryW(&vec[0]);
+            h = LoadLibraryW(vec.data());
 
             if (h == nullptr)
-                h = LoadLibraryExW(&vec[0], nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+                h = LoadLibraryExW(vec.data(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
         }
     }
 

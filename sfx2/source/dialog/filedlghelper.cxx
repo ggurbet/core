@@ -325,9 +325,7 @@ void FileDialogHelper_Impl::dispose()
     if ( mxFileDlg.is() )
     {
         // remove the event listener
-        uno::Reference< XFilePickerNotifier > xNotifier( mxFileDlg, UNO_QUERY );
-        if ( xNotifier.is() )
-            xNotifier->removeFilePickerListener( this );
+        mxFileDlg->removeFilePickerListener( this );
 
         ::comphelper::disposeComponent( mxFileDlg );
         mxFileDlg.clear();
@@ -337,11 +335,10 @@ void FileDialogHelper_Impl::dispose()
 OUString FileDialogHelper_Impl::getCurrentFilterUIName() const
 {
     OUString aFilterName;
-    uno::Reference< XFilterManager > xFltMgr( mxFileDlg, UNO_QUERY );
 
-    if( xFltMgr.is() )
+    if( mxFileDlg.is() )
     {
-        aFilterName = xFltMgr->getCurrentFilter();
+        aFilterName = mxFileDlg->getCurrentFilter();
 
         if ( !aFilterName.isEmpty() && isShowFilterExtensionEnabled() )
             aFilterName = getFilterName( aFilterName );
@@ -413,12 +410,11 @@ bool FileDialogHelper_Impl::CheckFilterOptionsCapability( const std::shared_ptr<
             if ( aAny >>= aProps )
             {
                 OUString aServiceName;
-                sal_Int32 nPropertyCount = aProps.getLength();
-                for( sal_Int32 nProperty=0; nProperty < nPropertyCount; ++nProperty )
+                for( const auto& rProp : std::as_const(aProps) )
                 {
-                    if( aProps[nProperty].Name == "UIComponent" )
+                    if( rProp.Name == "UIComponent" )
                     {
-                        aProps[nProperty].Value >>= aServiceName;
+                        rProp.Value >>= aServiceName;
                         if( !aServiceName.isEmpty() )
                             bResult = true;
                     }
@@ -494,8 +490,7 @@ void FileDialogHelper_Impl::updateExportButton()
         }
         catch( const IllegalArgumentException& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::updateExportButton: caught an exception " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "sfx.dialog", "FileDialogHelper_Impl::updateExportButton" );
         }
     }
 }
@@ -511,13 +506,7 @@ void FileDialogHelper_Impl::updateSelectionBox()
     if ( xCtrlInfo.is() )
     {
         Sequence< OUString > aCtrlList = xCtrlInfo->getSupportedControls();
-        sal_uInt32 nCount = aCtrlList.getLength();
-        for ( sal_uInt32 nCtrl = 0; nCtrl < nCount; ++nCtrl )
-            if ( aCtrlList[ nCtrl ] == "SelectionBox" )
-            {
-                bSelectionBoxFound = true;
-                break;
-            }
+        bSelectionBoxFound = comphelper::findValue(aCtrlList, "SelectionBox") != -1;
     }
 
     if ( bSelectionBoxFound )
@@ -603,8 +592,7 @@ void FileDialogHelper_Impl::updatePreviewState( bool _bUpdatePreviewWindow )
     }
     catch( const Exception& )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::updatePreviewState: caught an exception " << exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "sfx.dialog", "FileDialogHelper_Impl::updatePreviewState" );
     }
 }
 
@@ -635,8 +623,8 @@ void FileDialogHelper_Impl::updateVersions()
                 aEntries.realloc( xVersions.getLength() + 1 );
                 aEntries[0] = SfxResId( STR_SFX_FILEDLG_ACTUALVERSION );
 
-                for ( sal_Int32 i=0; i<xVersions.getLength(); i++ )
-                    aEntries[ i + 1 ] = xVersions[i].Identifier;
+                std::transform(xVersions.begin(), xVersions.end(), std::next(aEntries.begin()),
+                    [](const util::RevisionTag& rVersion) -> OUString { return rVersion.Identifier; });
             }
             catch( const uno::Exception& )
             {
@@ -654,9 +642,7 @@ void FileDialogHelper_Impl::updateVersions()
     }
     catch( const IllegalArgumentException& ){}
 
-    sal_Int32 nCount = aEntries.getLength();
-
-    if ( !nCount )
+    if ( !aEntries.hasElements() )
         return;
 
     try
@@ -796,7 +782,7 @@ ErrCode FileDialogHelper_Impl::getGraphic( Graphic& rGraphic ) const
 {
     ErrCode nRet = ERRCODE_NONE;
 
-    // rhbz#1079672 do not return maGraphic, it need not be the selected file
+    // rhbz#1079672 do not return maGraphic, it needs not to be the selected file
 
     OUString aPath;
     Sequence<OUString> aPathSeq = mxFileDlg->getFiles();
@@ -936,10 +922,9 @@ FileDialogHelper_Impl::FileDialogHelper_Impl(
     mxFileDlg.set(xFactory->createInstance( aService ), css::uno::UNO_QUERY);
     mbSystemPicker = lcl_isSystemFilePicker( mxFileDlg );
 
-    uno::Reference< XFilePickerNotifier > xNotifier( mxFileDlg, UNO_QUERY );
     uno::Reference< XInitialization > xInit( mxFileDlg, UNO_QUERY );
 
-    if ( ! mxFileDlg.is() || ! xNotifier.is() )
+    if ( ! mxFileDlg.is() )
     {
         return;
     }
@@ -1154,7 +1139,7 @@ FileDialogHelper_Impl::FileDialogHelper_Impl(
     }
 
     // add the event listener
-    xNotifier->addFilePickerListener( this );
+    mxFileDlg->addFilePickerListener( this );
 }
 
 FileDialogHelper_Impl::~FileDialogHelper_Impl()
@@ -1191,8 +1176,8 @@ void FileDialogHelper_Impl::setControlHelpIds( const sal_Int16* _pControlId, con
             while ( *_pControlId )
             {
                 DBG_ASSERT( INetURLObject( OStringToOUString( *_pHelpId, RTL_TEXTENCODING_UTF8 ) ).GetProtocol() == INetProtocol::NotValid, "Wrong HelpId!" );
-                OUString sId( sHelpIdPrefix );
-                sId += OUString( *_pHelpId, strlen( *_pHelpId ), RTL_TEXTENCODING_UTF8 );
+                OUString sId = sHelpIdPrefix +
+                    OUString( *_pHelpId, strlen( *_pHelpId ), RTL_TEXTENCODING_UTF8 );
                 xControlAccess->setValue( *_pControlId, ControlActions::SET_HELP_URL, makeAny( sId ) );
 
                 ++_pControlId; ++_pHelpId;
@@ -1306,8 +1291,7 @@ sal_Int16 FileDialogHelper_Impl::implDoExecute()
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::implDoExecute: caught an exception " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "sfx.dialog", "FileDialogHelper_Impl::implDoExecute" );
         }
     }
 
@@ -1335,8 +1319,7 @@ void FileDialogHelper_Impl::implStartExecute()
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::implDoExecute: caught an exception " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "sfx.dialog", "FileDialogHelper_Impl::implDoExecute" );
         }
     }
 }
@@ -1365,9 +1348,7 @@ void FileDialogHelper_Impl::implGetAndCacheFiles(const uno::Reference< XInterfac
     if (xPickNew.is())
     {
         Sequence< OUString > lFiles    = xPickNew->getSelectedFiles();
-        ::sal_Int32          nFiles    = lFiles.getLength();
-        for(sal_Int32 i = 0; i < nFiles; ++i)
-            rpURLList.push_back(lFiles[i]);
+        comphelper::sequenceToContainer(rpURLList, lFiles);
     }
 
     // b) the olde way ... non optional.
@@ -1746,13 +1727,11 @@ void FileDialogHelper_Impl::setFilter( const OUString& rFilter )
             maCurFilter = pFilter->GetUIName();
     }
 
-    uno::Reference< XFilterManager > xFltMgr( mxFileDlg, UNO_QUERY );
-
-    if ( !maCurFilter.isEmpty() && xFltMgr.is() )
+    if ( !maCurFilter.isEmpty() && mxFileDlg.is() )
     {
         try
         {
-            xFltMgr->setCurrentFilter( maCurFilter );
+            mxFileDlg->setCurrentFilter( maCurFilter );
         }
         catch( const IllegalArgumentException& ){}
     }
@@ -1771,9 +1750,7 @@ void FileDialogHelper_Impl::addFilters( const OUString& rFactory,
                                         SfxFilterFlags nMust,
                                         SfxFilterFlags nDont )
 {
-    uno::Reference< XFilterManager > xFltMgr( mxFileDlg, UNO_QUERY );
-
-    if ( ! xFltMgr.is() )
+    if ( ! mxFileDlg.is() )
         return;
 
     if (mbDeleteMatcher)
@@ -1803,19 +1780,19 @@ void FileDialogHelper_Impl::addFilters( const OUString& rFactory,
     m_nDontFlags |= nDont;
 
     // create the list of filters
-    OUStringBuffer sQuery(256);
-    sQuery.append("getSortedFilterList()");
-    sQuery.append(":module=");
-    sQuery.append(rFactory); // use long name here !
-    sQuery.append(":iflags=");
-    sQuery.append(OUString::number(static_cast<sal_Int32>(m_nMustFlags)));
-    sQuery.append(":eflags=");
-    sQuery.append(OUString::number(static_cast<sal_Int32>(m_nDontFlags)));
+    OUString sQuery =
+        "getSortedFilterList()"
+        ":module=" +
+        rFactory + // use long name here !
+        ":iflags=" +
+        OUString::number(static_cast<sal_Int32>(m_nMustFlags)) +
+        ":eflags=" +
+        OUString::number(static_cast<sal_Int32>(m_nDontFlags));
 
     uno::Reference< XEnumeration > xResult;
     try
     {
-        xResult = xFilterCont->createSubSetEnumerationByQuery(sQuery.makeStringAndClear());
+        xResult = xFilterCont->createSubSetEnumerationByQuery(sQuery);
     }
     catch( const uno::Exception& )
     {
@@ -1827,11 +1804,11 @@ void FileDialogHelper_Impl::addFilters( const OUString& rFactory,
     // append the filters
     OUString sFirstFilter;
     if (OPEN == lcl_OpenOrSave(m_nDialogType))
-        ::sfx2::appendFiltersForOpen( aIter, xFltMgr, sFirstFilter, *this );
+        ::sfx2::appendFiltersForOpen( aIter, mxFileDlg, sFirstFilter, *this );
     else if ( mbExport )
-        ::sfx2::appendExportFilters( aIter, xFltMgr, sFirstFilter, *this );
+        ::sfx2::appendExportFilters( aIter, mxFileDlg, sFirstFilter, *this );
     else
-        ::sfx2::appendFiltersForSave( aIter, xFltMgr, sFirstFilter, *this, rFactory );
+        ::sfx2::appendFiltersForSave( aIter, mxFileDlg, sFirstFilter, *this, rFactory );
 
     // set our initial selected filter (if we do not already have one)
     if ( maSelectFilter.isEmpty() )
@@ -1841,14 +1818,12 @@ void FileDialogHelper_Impl::addFilters( const OUString& rFactory,
 void FileDialogHelper_Impl::addFilter( const OUString& rFilterName,
                                        const OUString& rExtension )
 {
-    uno::Reference< XFilterManager > xFltMgr( mxFileDlg, UNO_QUERY );
-
-    if ( ! xFltMgr.is() )
+    if ( ! mxFileDlg.is() )
         return;
 
     try
     {
-        xFltMgr->appendFilter( rFilterName, rExtension );
+        mxFileDlg->appendFilter( rFilterName, rExtension );
 
         if ( maSelectFilter.isEmpty() )
             maSelectFilter = rFilterName;
@@ -1861,9 +1836,7 @@ void FileDialogHelper_Impl::addFilter( const OUString& rFilterName,
 
 void FileDialogHelper_Impl::addGraphicFilter()
 {
-    uno::Reference< XFilterManager > xFltMgr( mxFileDlg, UNO_QUERY );
-
-    if ( ! xFltMgr.is() )
+    if ( ! mxFileDlg.is() )
         return;
 
     // create the list of filters
@@ -1903,14 +1876,14 @@ void FileDialogHelper_Impl::addGraphicFilter()
         {
             OUString aAllFilterName = SfxResId(STR_SFX_IMPORT_ALL_IMAGES);
             aAllFilterName = ::sfx2::addExtension( aAllFilterName, aExtensions, bIsInOpenMode, *this );
-            xFltMgr->appendFilter( aAllFilterName, aExtensions );
+            mxFileDlg->appendFilter( aAllFilterName, aExtensions );
             maSelectFilter = aAllFilterName; // and make it the default
         }
 
         // rhbz#1715109 always include All files *.* or *
         OUString aAllFilesName = SfxResId( STR_SFX_FILTERNAME_ALL );
         aAllFilesName = ::sfx2::addExtension( aAllFilesName, FILEDIALOG_FILTER_ALL, bIsInOpenMode, *this );
-        xFltMgr->appendFilter( aAllFilesName, FILEDIALOG_FILTER_ALL );
+        mxFileDlg->appendFilter( aAllFilesName, FILEDIALOG_FILTER_ALL );
 
         // if the extension is "All files", make that the default
         if (aExtensions == FILEDIALOG_FILTER_ALL)
@@ -1942,7 +1915,7 @@ void FileDialogHelper_Impl::addGraphicFilter()
         aName = ::sfx2::addExtension( aName, aExt, bIsInOpenMode, *this );
         try
         {
-            xFltMgr->appendFilter( aName, aExt );
+            mxFileDlg->appendFilter( aName, aExt );
         }
         catch( const IllegalArgumentException& )
         {
@@ -2222,10 +2195,9 @@ void FileDialogHelper_Impl::setDefaultValues()
     // when no filter is set, we set the currentFilter to <all>
     if ( maCurFilter.isEmpty() && !maSelectFilter.isEmpty() )
     {
-        uno::Reference< XFilterManager > xFltMgr( mxFileDlg, UNO_QUERY );
         try
         {
-            xFltMgr->setCurrentFilter( maSelectFilter );
+            mxFileDlg->setCurrentFilter( maSelectFilter );
         }
         catch( const IllegalArgumentException& )
         {}
@@ -2485,10 +2457,9 @@ Sequence< OUString > FileDialogHelper::GetSelectedFiles() const
 {
     // a) the new way (optional!)
     uno::Sequence< OUString > aResultSeq;
-    uno::Reference< XFilePicker3 > xPickNew(mpImpl->mxFileDlg, UNO_QUERY);
-    if (xPickNew.is())
+    if (mpImpl->mxFileDlg.is())
     {
-        aResultSeq = xPickNew->getSelectedFiles();
+        aResultSeq = mpImpl->mxFileDlg->getSelectedFiles();
     }
     // b) the olde way ... non optional.
     else
@@ -2738,7 +2709,7 @@ ErrCode RequestPassword(const std::shared_ptr<const SfxFilter>& pCurrentFilter, 
                     uno::Sequence< sal_Int8 > aUniqueID = ::comphelper::DocPasswordHelper::GenerateRandomByteSequence( 16 );
                     uno::Sequence< sal_Int8 > aEncryptionKey = ::comphelper::DocPasswordHelper::GenerateStd97Key( pPasswordRequest->getPassword(), aUniqueID );
 
-                    if ( aEncryptionKey.getLength() )
+                    if ( aEncryptionKey.hasElements() )
                     {
                         ::comphelper::SequenceAsHashMap aHashData;
                         aHashData[ OUString( "STD97EncryptionKey"  ) ] <<= aEncryptionKey;
@@ -2772,7 +2743,7 @@ ErrCode RequestPassword(const std::shared_ptr<const SfxFilter>& pCurrentFilter, 
         else
         {
             uno::Sequence< beans::PropertyValue > aModifyPasswordInfo = ::comphelper::DocPasswordHelper::GenerateNewModifyPasswordInfo( pPasswordRequest->getPasswordToModify() );
-            if ( aModifyPasswordInfo.getLength() )
+            if ( aModifyPasswordInfo.hasElements() )
                 pSet->Put( SfxUnoAnyItem( SID_MODIFYPASSWORDINFO, uno::makeAny( aModifyPasswordInfo ) ) );
         }
     }

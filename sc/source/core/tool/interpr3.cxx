@@ -159,7 +159,7 @@ static double lcl_IterateInverse( const ScDistFunc& rFunction, double fAx, doubl
         {
             fAx = fRx; fAy = fRy;
         }
-        // if last iteration brought to small advance, then do bisection next
+        // if last iteration brought too small advance, then do bisection next
         // time, for safety
         bHasToInterpolate = bHasToInterpolate && (fabs(fRy) * 2.0 <= fabs(fQy));
         ++nCount;
@@ -5207,7 +5207,7 @@ void ScComplexBluesteinFFT::Compute()
 
 // Computes DFT of an even length(N) real-valued input by using a
 // ScComplexFFT2 if N == 2^k for some k or else by using a ScComplexBluesteinFFT
-// with an complex valued input of length = N/2.
+// with a complex valued input of length = N/2.
 class ScRealFFT
 {
 public:
@@ -5343,7 +5343,7 @@ public:
         mbPolar(bPolar)
     {}
 
-    ScMatrixRef Compute(std::function<ScMatrixGenerator>& rMatGenFunc);
+    ScMatrixRef Compute(const std::function<ScMatrixGenerator>& rMatGenFunc);
 
 private:
     ScMatrixRef& mpInputMat;
@@ -5353,7 +5353,7 @@ private:
     bool mbPolar:1;
 };
 
-ScMatrixRef ScFFT::Compute(std::function<ScMatrixGenerator>& rMatGenFunc)
+ScMatrixRef ScFFT::Compute(const std::function<ScMatrixGenerator>& rMatGenFunc)
 {
     std::vector<double> aArray;
     mpInputMat->GetDoubleArray(aArray);

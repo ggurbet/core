@@ -17,19 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/app.hxx>
 #include <sfx2/objsh.hxx>
-#include <sfx2/module.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
-#include <svx/dialmgr.hxx>
-#include <svx/strings.hrc>
 
 #include <strings.hrc>
 #include <bitmaps.hlst>
 
-#include <svx/xtable.hxx>
-#include <svx/drawitem.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/lineitem.hxx>
 #include <border.hxx>
@@ -38,8 +31,8 @@
 #include <sfx2/htmlmode.hxx>
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <svx/flagsdef.hxx>
-#include <sfx2/request.hxx>
 #include <svl/grabbagitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/ilstitem.hxx>
@@ -234,8 +227,8 @@ void MarginControlsWrapper::SetControlDontKnow()
     mrBottomWrp.set_text(sEmpty);
 }
 
-SvxBorderTabPage::SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs)
-    : SfxTabPage(pParent, "cui/ui/borderpage.ui", "BorderPage", &rCoreAttrs)
+SvxBorderTabPage::SvxBorderTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/borderpage.ui", "BorderPage", &rCoreAttrs)
     , nMinValue(0)
     , nSWMode(SwBorderModes::NONE)
     , mnBoxSlot(SID_ATTR_BORDER_OUTER)
@@ -252,12 +245,12 @@ SvxBorderTabPage::SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCor
     , mbSync(true)
     , mbRemoveAdjacentCellBorders(false)
     , bIsCalcDoc(false)
-    , m_xWndPresets(new SvtValueSet(m_xBuilder->weld_scrolled_window("presetswin")))
+    , m_xWndPresets(new SvtValueSet(nullptr))
     , m_xWndPresetsWin(new weld::CustomWeld(*m_xBuilder, "presets", *m_xWndPresets))
     , m_xUserDefFT(m_xBuilder->weld_label("userdefft"))
     , m_xFrameSelWin(new weld::CustomWeld(*m_xBuilder, "framesel", m_aFrameSel))
     , m_xLbLineStyle(new SvtLineListBox(m_xBuilder->weld_menu_button("linestylelb")))
-    , m_xLbLineColor(new ColorListBox(m_xBuilder->weld_menu_button("linecolorlb"), pParent.GetFrameWeld()))
+    , m_xLbLineColor(new ColorListBox(m_xBuilder->weld_menu_button("linecolorlb"), pController->getDialog()))
     , m_xLineWidthMF(m_xBuilder->weld_metric_spin_button("linewidthmf", FieldUnit::POINT))
     , m_xSpacingFrame(m_xBuilder->weld_container("spacing"))
     , m_xLeftFT(m_xBuilder->weld_label("leftft"))
@@ -270,12 +263,12 @@ SvxBorderTabPage::SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCor
     , m_xBottomMF(m_xBuilder->weld_metric_spin_button("bottommf", FieldUnit::MM))
     , m_xSynchronizeCB(m_xBuilder->weld_check_button("sync"))
     , m_xShadowFrame(m_xBuilder->weld_container("shadow"))
-    , m_xWndShadows(new SvtValueSet(m_xBuilder->weld_scrolled_window("shadowswin")))
+    , m_xWndShadows(new SvtValueSet(nullptr))
     , m_xWndShadowsWin(new weld::CustomWeld(*m_xBuilder, "shadows", *m_xWndShadows))
     , m_xFtShadowSize(m_xBuilder->weld_label("distanceft"))
     , m_xEdShadowSize(m_xBuilder->weld_metric_spin_button("distancemf", FieldUnit::MM))
     , m_xFtShadowColor(m_xBuilder->weld_label("shadowcolorft"))
-    , m_xLbShadowColor(new ColorListBox(m_xBuilder->weld_menu_button("shadowcolorlb"), pParent.GetFrameWeld()))
+    , m_xLbShadowColor(new ColorListBox(m_xBuilder->weld_menu_button("shadowcolorlb"), pController->getDialog()))
     , m_xPropertiesFrame(m_xBuilder->weld_container("properties"))
     , m_xMergeWithNextCB(m_xBuilder->weld_check_button("mergewithnext"))
     , m_xMergeAdjacentBordersCB(m_xBuilder->weld_check_button("mergeadjacent"))
@@ -489,7 +482,7 @@ SvxBorderTabPage::SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCor
     FillLineListBox_Impl();
 
     // connections
-    if (rCoreAttrs.HasItem(GetWhich(SID_ATTR_CHAR_GRABBAG), &pItem))
+    if (rCoreAttrs.HasItem(GetWhich(SID_ATTR_PARA_GRABBAG), &pItem))
     {
         const SfxGrabBagItem* pGrabBag = static_cast<const SfxGrabBagItem*>(pItem);
         auto it = pGrabBag->GetGrabBag().find("DialogUseCharAttr");
@@ -541,11 +534,6 @@ SvxBorderTabPage::SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCor
 
 SvxBorderTabPage::~SvxBorderTabPage()
 {
-    disposeOnce();
-}
-
-void SvxBorderTabPage::dispose()
-{
     m_xLbShadowColor.reset();
     m_xWndShadowsWin.reset();
     m_xWndShadows.reset();
@@ -554,13 +542,12 @@ void SvxBorderTabPage::dispose()
     m_xFrameSelWin.reset();
     m_xWndPresetsWin.reset();
     m_xWndPresets.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxBorderTabPage::Create( TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SvxBorderTabPage::Create( weld::Container* pPage, weld::DialogController* pController,
                                              const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxBorderTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SvxBorderTabPage>(pPage, pController, *rAttrSet);
 }
 
 void SvxBorderTabPage::ResetFrameLine_Impl( svx::FrameBorderType eBorder, const SvxBorderLine* pCoreLine, bool bValid )
@@ -766,7 +753,8 @@ void SvxBorderTabPage::Reset( const SfxItemSet* rSet )
             aColor = COL_BLACK;
 
         m_xLbLineColor->SelectEntry(aColor);
-        m_xLbLineStyle->SetColor(GetTextColor());
+        auto nTextColor = Application::GetSettings().GetStyleSettings().GetWindowTextColor();
+        m_xLbLineStyle->SetColor(nTextColor);
 
         // Select all visible lines, if they are all equal.
         if( bWidthEq && bColorEq )
@@ -1496,14 +1484,6 @@ void SvxBorderTabPage::UpdateRemoveAdjCellBorderCB( sal_uInt16 nPreset )
         mbRemoveAdjacentCellBorders = false;
         m_xRemoveAdjcentCellBordersCB->set_active(false);
     }
-}
-
-void SvxBorderTabPage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    if( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
-        FillValueSets();
-
-    SfxTabPage::DataChanged( rDCEvt );
 }
 
 void SvxBorderTabPage::PageCreated(const SfxAllItemSet& aSet)

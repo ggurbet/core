@@ -28,12 +28,8 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
-#include <com/sun/star/xml/sax/XParser.hpp>
-#include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <com/sun/star/xml/sax/SAXInvalidCharacterException.hpp>
 #include <com/sun/star/xml/sax/XWriter.hpp>
-
-#include <com/sun/star/io/XActiveDataSource.hpp>
 
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/weak.hxx>
@@ -42,8 +38,6 @@
 
 #include <osl/diagnose.h>
 #include <rtl/character.hxx>
-#include <rtl/ref.hxx>
-#include <rtl/ustrbuf.hxx>
 
 using namespace ::std;
 using namespace ::osl;
@@ -54,7 +48,6 @@ using namespace ::com::sun::star::xml::sax;
 using namespace ::com::sun::star::util;
 using namespace ::com::sun::star::io;
 
-#include <xml2utf.hxx>
 #include <memory>
 
 #define LINEFEED 10
@@ -121,7 +114,7 @@ public:
         , nCurrentPos(0)
         , m_bStartElementFinished(true)
     {
-        OSL_ENSURE(SEQUENCESIZE > 50, "Sequence cache size to small");
+        OSL_ENSURE(SEQUENCESIZE > 50, "Sequence cache size too small");
         mp_Sequence = m_Sequence.getArray();
     }
     ~SaxWriterHelper()
@@ -245,7 +238,7 @@ void SaxWriterHelper::AddBytes(sal_Int8* pTarget, sal_uInt32& rPos,
         AddBytes(pTarget, rPos, &pBytes[nCount], nRestCount);
 }
 
-/** Converts an UTF16 string to UTF8 and does XML normalization
+/** Converts a UTF-16 string to UTF-8 and does XML normalization
 
     @param pTarget
            Pointer to a piece of memory, to where the output should be written. The caller
@@ -1043,7 +1036,7 @@ bool isFirstCharWhitespace( const sal_Unicode *p ) throw()
 // XServiceInfo
 OUString SAXWriter::getImplementationName()
 {
-    return OUString("com.sun.star.extensions.xml.sax.Writer");
+    return "com.sun.star.extensions.xml.sax.Writer";
 }
 
 // XServiceInfo
@@ -1154,7 +1147,7 @@ void SAXWriter::startElement(const OUString& aName, const Reference< XAttributeL
     if (eRet == SAX_WARNING)
     {
         SAXInvalidCharacterException except;
-        except.Message = "Invalid character during XML-Export in a attribute value";
+        except.Message = "Invalid character during XML-Export in an attribute value";
         throw except;
     }
     else if (eRet == SAX_ERROR)

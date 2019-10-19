@@ -78,7 +78,7 @@ namespace dbaccess
 // XServiceInfo
 OUString OConnection::getImplementationName(  )
 {
-    return OUString("com.sun.star.comp.dbaccess.Connection");
+    return "com.sun.star.comp.dbaccess.Connection";
 }
 
 sal_Bool OConnection::supportsService( const OUString& _rServiceName )
@@ -310,7 +310,7 @@ OConnection::OConnection(ODatabaseSource& _rDB
         Reference< XNameContainer > xTableDefinitions(_rDB.getTables(),UNO_QUERY);
         m_pTables.reset( new OTableContainer( *this, m_aMutex, this, bCase, xTableDefinitions, this, m_nInAppend ) );
 
-        // check if we supports types
+        // check if we support types
         if ( xMeta.is() )
         {
             Reference<XResultSet> xRes = xMeta->getTableTypes();
@@ -762,7 +762,7 @@ void OConnection::impl_checkTableQueryNames_nothrow()
         std::set< OUString > aSortedTableNames( aTableNames.begin(), aTableNames.end() );
 
         Reference< XNameAccess > xQueries( getQueries() );
-        Sequence< OUString > aQueryNames( xQueries->getElementNames() );
+        const Sequence< OUString > aQueryNames( xQueries->getElementNames() );
 
         for ( auto const & queryName : aQueryNames )
         {

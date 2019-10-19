@@ -16,7 +16,7 @@ namespace sc {
 void UpdatedRangeNames::setUpdatedName(SCTAB nTab, sal_uInt16 nIndex)
 {
     // Map anything <-1 to global names. Unless we really want to come up with
-    // some classification there..
+    // some classification there...
     if (nTab < -1)
         nTab = -1;
 
@@ -100,7 +100,7 @@ RefUpdateMoveTabContext::RefUpdateMoveTabContext(ScDocument& rDoc, SCTAB nOldPos
 
 SCTAB RefUpdateMoveTabContext::getNewTab(SCTAB nOldTab) const
 {
-    // Sheets below the lower bound or above the uppper bound will not change.
+    // Sheets below the lower bound or above the upper bound will not change.
     SCTAB nLowerBound = std::min(mnOldPos, mnNewPos);
     SCTAB nUpperBound = std::max(mnOldPos, mnNewPos);
 

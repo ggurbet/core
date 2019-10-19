@@ -119,8 +119,7 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                 }
 
                 // ooo/script:libraries element
-                OUString aLibContElementName( aPrefix );
-                aLibContElementName += ":libraries";
+                OUString aLibContElementName = aPrefix + ":libraries";
                 XMLElement* pLibContElement = new XMLElement( aLibContElementName );
                 Reference< xml::sax::XAttributeList > xLibContAttribs( pLibContElement );
 
@@ -153,7 +152,7 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
 
                 if ( xLibContainer.is() )
                 {
-                    Sequence< OUString > aLibNames = xLibContainer->getElementNames();
+                    const Sequence< OUString > aLibNames = xLibContainer->getElementNames();
                     for ( const OUString& rLibName : aLibNames )
                     {
                         if ( xLibContainer->hasByName( rLibName ) )
@@ -163,11 +162,9 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                             if ( xLibContainer->isLibraryLink( rLibName ) )
                             {
                                 // ooo/script:library-linked element
-                                OUString aLibElementName( aPrefix );
-                                aLibElementName +=  ":library-linked";
+                                OUString aLibElementName = aPrefix + ":library-linked";
                                 XMLElement* pLibElement = new XMLElement( aLibElementName );
-                                Reference< xml::sax::XAttributeList > xLibAttribs;
-                                xLibAttribs = static_cast< xml::sax::XAttributeList* >( pLibElement );
+                                Reference< xml::sax::XAttributeList > xLibAttribs = static_cast< xml::sax::XAttributeList* >( pLibElement );
 
                                 // ooo/script:name attribute
                                 pLibElement->addAttribute( aPrefix + ":name", rLibName );
@@ -199,11 +196,9 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                             else
                             {
                                 // ooo/script:library-embedded element
-                                OUString aLibElementName( aPrefix );
-                                aLibElementName += ":library-embedded";
+                                OUString aLibElementName = aPrefix + ":library-embedded";
                                 XMLElement* pLibElement = new XMLElement( aLibElementName );
-                                Reference< xml::sax::XAttributeList > xLibAttribs;
-                                xLibAttribs = static_cast< xml::sax::XAttributeList* >( pLibElement );
+                                Reference< xml::sax::XAttributeList > xLibAttribs = static_cast< xml::sax::XAttributeList* >( pLibElement );
 
                                 // ooo/script:name attribute
                                 pLibElement->addAttribute( aPrefix + ":name", rLibName );
@@ -231,17 +226,15 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
 
                                 if ( xLib.is() )
                                 {
-                                    Sequence< OUString > aModNames = xLib->getElementNames();
+                                    const Sequence< OUString > aModNames = xLib->getElementNames();
                                     for ( const OUString& rModName : aModNames )
                                     {
                                         if ( xLib->hasByName( rModName ) )
                                         {
                                             // ooo/script:module element
-                                            OUString aModElementName( aPrefix );
-                                            aModElementName += ":module";
+                                            OUString aModElementName = aPrefix + ":module";
                                             XMLElement* pModElement = new XMLElement( aModElementName );
-                                            Reference< xml::sax::XAttributeList > xModAttribs;
-                                            xModAttribs = static_cast< xml::sax::XAttributeList* >( pModElement );
+                                            Reference< xml::sax::XAttributeList > xModAttribs = static_cast< xml::sax::XAttributeList* >( pModElement );
 
                                             // ooo/script:name attribute
                                             pModElement->addAttribute( aPrefix + ":name", rModName );
@@ -251,11 +244,9 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                                             m_xHandler->startElement( aModElementName, xModAttribs );
 
                                             // ooo/script:source-code element
-                                            OUString aSourceElementName( aPrefix );
-                                            aSourceElementName += ":source-code";
+                                            OUString aSourceElementName = aPrefix + ":source-code";
                                             XMLElement* pSourceElement = new XMLElement( aSourceElementName );
-                                            Reference< xml::sax::XAttributeList > xSourceAttribs;
-                                            xSourceAttribs = static_cast< xml::sax::XAttributeList* >( pSourceElement );
+                                            Reference< xml::sax::XAttributeList > xSourceAttribs = static_cast< xml::sax::XAttributeList* >( pSourceElement );
 
                                             // <ooo/script:source-code...
                                             m_xHandler->ignorableWhitespace( OUString() );
@@ -341,7 +332,7 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
 
     OUString XMLBasicExporter::getImplementationName(  )
     {
-        return OUString( "com.sun.star.comp.xmlscript.XMLBasicExporter" );
+        return "com.sun.star.comp.xmlscript.XMLBasicExporter";
     }
 
     Sequence< OUString > XMLBasicExporter::getSupportedServiceNames(  )
@@ -365,7 +356,7 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
 
     OUString XMLOasisBasicExporter::getImplementationName(  )
     {
-        return OUString( "com.sun.star.comp.xmlscript.XMLOasisBasicExporter" );
+        return "com.sun.star.comp.xmlscript.XMLOasisBasicExporter";
     }
 
     Sequence< OUString > XMLOasisBasicExporter::getSupportedServiceNames(  )

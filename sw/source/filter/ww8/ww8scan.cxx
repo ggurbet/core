@@ -542,7 +542,7 @@ const wwSprmSearcher *wwSprmParser::GetWW8SprmSearcher()
                             // chp.ftcSym
         {0x080A, { 1, L_FIX} }, // "sprmCFOle2" chp.fOle2;1 or 0;bit;
         {NS_sprm::LN_CIdCharType, { 0, L_FIX} }, // "sprmCIdCharType" obsolete: not applicable in
-                            // Word97 and later versions;;;
+                            // Word97 and later versions;
         {0x2A0C, { 1, L_FIX} }, // "sprmCHighlight" chp.fHighlight,
                             // chp.icoHighlight;ico (fHighlight is set to 1 iff
                             // ico is not 0)
@@ -1656,7 +1656,7 @@ WW8_FC WW8ScannerBase::WW8Cp2Fc(WW8_CP nCpPos, bool* pIsUnicode,
     }
 
     // the text and the fib share the same stream, if the text is inside the fib
-    // then its definitely a bad offset. The smallest FIB supported is that of
+    // then it's definitely a bad offset. The smallest FIB supported is that of
     // WW2 which is 326 bytes in size
     if (nRet < nSmallestPossibleFib)
     {
@@ -2859,13 +2859,14 @@ WW8PLCFx_Fc_FKP::WW8Fkp::Entry&
     mnIStd = rEntry.mnIStd;
     mbMustDelete = rEntry.mbMustDelete;
 
-    if (mbMustDelete)
+    if (rEntry.mbMustDelete)
     {
         mpData = new sal_uInt8[mnLen];
         memcpy(mpData, rEntry.mpData, mnLen);
     }
     else
         mpData = rEntry.mpData;
+
     return *this;
 }
 
@@ -4762,7 +4763,7 @@ bool WW8PLCFx_FactoidBook::getIsEnd() const
     return m_bIsEnd;
 }
 
-// In the end of an paragraph in WW6 the attribute extends after the <CR>.
+// In the end of a paragraph in WW6 the attribute extends after the <CR>.
 // This will be reset by one character to be used with SW,
 // if we don't expect trouble thereby.
 void WW8PLCFMan::AdjustEnds( WW8PLCFxDesc& rDesc )
@@ -4895,7 +4896,6 @@ WW8PLCFMan::WW8PLCFMan(const WW8ScannerBase* pBase, ManTypes nType, long nStartC
 {
     m_pWwFib = pBase->m_pWw8Fib;
 
-    memset( m_aD, 0, sizeof( m_aD ) );
     m_nLineEnd = WW8_CP_MAX;
     m_nManType = nType;
 
@@ -5073,7 +5073,7 @@ WW8PLCFMan::~WW8PLCFMan()
 }
 
 // 0. which attr class,
-// 1. if it's a attr start,
+// 1. if it's an attr start,
 // 2. CP, where is next attr change
 sal_uInt16 WW8PLCFMan::WhereIdx(bool *const pbStart, WW8_CP *const pPos) const
 {
@@ -5778,6 +5778,7 @@ WW8Fib::WW8Fib(SvStream& rSt, sal_uInt8 nWantedVersion, sal_uInt32 nOffset):
         // in C++20 with P06831R1 "Default member initializers for bit-fields (revision 1)", the
         // above bit-field member initializations can be moved to the class definition
 {
+    // See [MS-DOC] 2.5.15 "How to read the FIB".
     sal_uInt8 aBits1;
     sal_uInt8 aBits2;
     sal_uInt8 aVer8Bits1;    // only used starting with WinWord 8
@@ -5928,6 +5929,15 @@ WW8Fib::WW8Fib(SvStream& rSt, sal_uInt8 nWantedVersion, sal_uInt32 nOffset):
         rSt.ReadInt32( m_fcIslandFirst );
         rSt.ReadInt32( m_fcIslandLim );
         rSt.ReadUInt16( m_cfclcb );
+
+        // Read cswNew to find out if nFib should be ignored.
+        sal_uInt32 nPos = rSt.Tell();
+        rSt.SeekRel(m_cfclcb * 8);
+        if (rSt.good())
+        {
+            rSt.ReadUInt16(m_cswNew);
+        }
+        rSt.Seek(nPos);
     }
 
 // end of the insertion for WW8
@@ -7057,7 +7067,7 @@ static void lcl_checkFontname( OUString& sString )
     // for efficiency, we'd like to use String methods as far as possible.
     // Hence, we will:
     // 1) convert all invalid chars to \u0001
-    // 2) then erase all \u0001 chars (if any were found), and
+    // 2) then erase all \u0001 chars (if anywhere found), and
     // 3) erase leading/trailing ';', in case a font name was
     //    completely removed
 
@@ -7392,7 +7402,7 @@ WW8Fonts::WW8Fonts( SvStream& rSt, WW8Fib const & rFib )
 #ifdef OSL_BIGENDIAN
                     swapEndian(pSecondary);
 #endif
-                    p->sFontname += ";" + OUString(pSecondary);
+                    p->sFontname += OUStringLiteral(";") + pSecondary;
                 }
 
                 // #i43762# check font name for illegal characters
@@ -7419,7 +7429,7 @@ const WW8_FFN* WW8Fonts::GetFont( sal_uInt16 nNum ) const
     return &m_aFontA[nNum];
 }
 
-// Search after a header/footer for a index in the ww list from header/footer
+// Search after a header/footer for an index in the ww list from header/footer
 
 // specials for WinWord6 and -7:
 //
@@ -8053,8 +8063,7 @@ void WW8Dop::Write(SvStream& rStrm, WW8Fib& rFib) const
     rFib.m_fcDop =  rStrm.Tell();
     rFib.m_lcbDop = nLen;
 
-    sal_uInt8 aData[ nMaxDopLen ];
-    memset( aData, 0, nMaxDopLen );
+    sal_uInt8 aData[ nMaxDopLen ] = {};
     sal_uInt8* pData = aData;
 
     // analyse the data
@@ -8331,7 +8340,7 @@ LanguageType WW8DopTypography::GetConvertedLang() const
             nLang = LANGUAGE_CHINESE_SIMPLIFIED_LEGACY;
             break;
         case 0:
-            //And here we have the possibility that it says 2, but its really
+            //And here we have the possibility that it says 2, but it's really
             //a bug and only japanese level 2 has been selected after a custom
             //version was chosen on last save!
             nLang = LANGUAGE_JAPANESE;
@@ -8497,7 +8506,6 @@ SEPr::SEPr() :
     dxaColumns(720), dxaColumnWidth(0), dmOrientFirst(0), fLayout(0),
     reserved4(0)
 {
-    memset(rgdxaColumnWidthSpacing, 0, sizeof(rgdxaColumnWidthSpacing));
 }
 
 bool checkRead(SvStream &rSt, void *pDest, sal_uInt32 nLength)

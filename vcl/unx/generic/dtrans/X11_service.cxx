@@ -21,12 +21,6 @@
 
 #include "X11_clipboard.hxx"
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/lang/XSingleServiceFactory.hpp>
-#include <com/sun/star/registry/XRegistryKey.hpp>
-#include <uno/dispatcher.h>
-#include <uno/mapping.hxx>
-#include <cppuhelper/factory.hxx>
 
 using namespace cppu;
 using namespace com::sun::star::uno;
@@ -37,20 +31,17 @@ using namespace x11;
 
 Sequence< OUString > x11::X11Clipboard_getSupportedServiceNames()
 {
-    Sequence< OUString > aRet { "com.sun.star.datatransfer.clipboard.SystemClipboard" };
-    return aRet;
+    return { "com.sun.star.datatransfer.clipboard.SystemClipboard" };
 }
 
 Sequence< OUString > x11::Xdnd_getSupportedServiceNames()
 {
-    Sequence< OUString > aRet { "com.sun.star.datatransfer.dnd.X11DragSource" };
-    return aRet;
+    return { "com.sun.star.datatransfer.dnd.X11DragSource" };
 }
 
 Sequence< OUString > x11::Xdnd_dropTarget_getSupportedServiceNames()
 {
-    Sequence< OUString > aRet { "com.sun.star.datatransfer.dnd.X11DropTarget" };
-    return aRet;
+    return { "com.sun.star.datatransfer.dnd.X11DropTarget" };
 }
 
 css::uno::Reference< XInterface > X11SalInstance::CreateClipboard( const Sequence< Any >& arguments )

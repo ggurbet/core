@@ -62,7 +62,6 @@
 #include <typelib/typedescription.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/stdtext.hxx>
-#include <vcl/waitobj.hxx>
 #include <vcl/weld.hxx>
 
 #include <algorithm>
@@ -125,7 +124,7 @@ namespace
 
         if ( _pPortNumber )
         {
-            sNewUrl = sNewUrl + ":" + OUString::number(_pPortNumber->GetValue());
+            sNewUrl += ":" + OUString::number(_pPortNumber->GetValue());
         }
 
         return sNewUrl;
@@ -183,15 +182,15 @@ ODbDataSourceAdministrationHelper::ODbDataSourceAdministrationHelper(const Refer
     m_aIndirectPropTranslator.emplace( DSID_RESPECTRESULTSETTYPE, OUString("RespectDriverResultSetType") );
     m_aIndirectPropTranslator.emplace( DSID_MAX_ROW_SCAN, OUString("MaxRowScan") );
 
-    // extra settings for odbc
+    // extra settings for ODBC
     m_aIndirectPropTranslator.emplace( DSID_USECATALOG, INFO_USECATALOG );
-    // extra settings for a ldap address book
+    // extra settings for an LDAP address book
     m_aIndirectPropTranslator.emplace( DSID_CONN_LDAP_BASEDN, INFO_CONN_LDAP_BASEDN );
     m_aIndirectPropTranslator.emplace( DSID_CONN_LDAP_ROWCOUNT, INFO_CONN_LDAP_ROWCOUNT );
     m_aIndirectPropTranslator.emplace( DSID_CONN_LDAP_USESSL, OUString("UseSSL") );
     m_aIndirectPropTranslator.emplace( DSID_DOCUMENT_URL, PROPERTY_URL );
 
-    // oracle
+    // Oracle
     m_aIndirectPropTranslator.emplace( DSID_IGNORECURRENCY, OUString("IgnoreCurrency") );
 
     try
@@ -238,7 +237,7 @@ bool ODbDataSourceAdministrationHelper::getCurrentSettings(Sequence< PropertyVal
             if ( !xHandler.is() )
             {
                 // instantiate the default SDB interaction handler
-                xHandler.set( task::InteractionHandler::createWithParent(m_xContext, nullptr), UNO_QUERY );
+                xHandler = task::InteractionHandler::createWithParent(m_xContext, nullptr);
             }
 
             OUString sName = pName ? pName->GetValue() : OUString();
@@ -583,7 +582,7 @@ void ODbDataSourceAdministrationHelper::translateProperties(const Reference< XPr
 
         // collect the names of the additional settings
         PropertyValueSet aInfos;
-        for (const PropertyValue& rAdditionalInfo : aAdditionalInfo)
+        for (const PropertyValue& rAdditionalInfo : std::as_const(aAdditionalInfo))
         {
             if( rAdditionalInfo.Name == "JDBCDRV" )
             {   // compatibility
@@ -1065,8 +1064,8 @@ DbuTypeCollectionItem::DbuTypeCollectionItem(const DbuTypeCollectionItem& _rSour
 
 bool DbuTypeCollectionItem::operator==(const SfxPoolItem& _rItem) const
 {
-    const DbuTypeCollectionItem* pCompare = dynamic_cast<const DbuTypeCollectionItem*>( &_rItem );
-    return pCompare && (pCompare->getCollection() == getCollection());
+    return SfxPoolItem::operator==(_rItem) &&
+        static_cast<const DbuTypeCollectionItem&>( _rItem ).getCollection() == getCollection();
 }
 
 SfxPoolItem* DbuTypeCollectionItem::Clone(SfxItemPool* /*_pPool*/) const

@@ -24,7 +24,6 @@
 #include <vcl/svapp.hxx>
 #include <vcl/syswin.hxx>
 #include <vcl/taskpanelist.hxx>
-#include <vcl/gradient.hxx>
 #include <vcl/lineinfo.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/ptrstyle.hxx>
@@ -49,7 +48,7 @@ namespace
     };
 }
 
-// Should only be called from a ImplInit method for initialization or
+// Should only be called from an ImplInit method for initialization or
 // after checking bNew is different from the current mbHorzSplit value.
 // The public method that does that check is Splitter::SetHorizontal().
 void Splitter::ImplInitHorVer(bool bNew)

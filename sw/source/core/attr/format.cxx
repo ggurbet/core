@@ -25,9 +25,7 @@
 #include <format.hxx>
 #include <hintids.hxx>
 #include <hints.hxx>
-#include <paratr.hxx>
 #include <swcache.hxx>
-#include <swtblfmt.hxx>
 #include <frmatr.hxx>
 #include <svl/grabbagitem.hxx>
 #include <svx/sdr/attribute/sdrallfillattributeshelper.hxx>
@@ -215,7 +213,7 @@ void SwFormat::CopyAttrs( const SwFormat& rFormat )
 
 SwFormat::~SwFormat()
 {
-    // This happens at a ObjectDying message. Thus put all dependent
+    // This happens at an ObjectDying message. Thus put all dependent
     // ones on DerivedFrom.
     if( HasWriterListeners() )
     {

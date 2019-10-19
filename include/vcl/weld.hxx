@@ -10,6 +10,7 @@
 #ifndef INCLUDED_VCL_WELD_HXX
 #define INCLUDED_VCL_WELD_HXX
 
+#include <basegfx/range/b2irange.hxx>
 #include <rtl/ustring.hxx>
 #include <tools/color.hxx>
 #include <tools/date.hxx>
@@ -106,6 +107,7 @@ public:
     virtual void set_can_focus(bool bCanFocus) = 0;
     virtual void grab_focus() = 0;
     virtual bool has_focus() const = 0;
+    virtual bool is_active() const = 0; //if this widget has the focus within the active window
     virtual void set_has_default(bool has_default) = 0;
     virtual bool get_has_default() const = 0;
     virtual void set_size_request(int nWidth, int nHeight) = 0;
@@ -133,6 +135,13 @@ public:
 
     virtual void set_margin_top(int nMargin) = 0;
     virtual void set_margin_bottom(int nMargin) = 0;
+    virtual void set_margin_left(int nMargin) = 0;
+    virtual void set_margin_right(int nMargin) = 0;
+
+    virtual int get_margin_top() const = 0;
+    virtual int get_margin_bottom() const = 0;
+    virtual int get_margin_left() const = 0;
+    virtual int get_margin_right() const = 0;
 
     virtual bool get_extents_relative_to(Widget& rRelative, int& x, int& y, int& width, int& height)
         = 0;
@@ -237,6 +246,8 @@ public:
 
     //make this widget look like a page in a notebook
     virtual void set_stack_background() = 0;
+    //make this widget look like it has a highlighted background
+    virtual void set_highlight_background() = 0;
 
     virtual css::uno::Reference<css::datatransfer::dnd::XDropTarget> get_drop_target() = 0;
 
@@ -246,8 +257,20 @@ public:
 class VCL_DLLPUBLIC Container : virtual public Widget
 {
 public:
-    //remove and add in one go
+    // remove and add in one go
     virtual void move(weld::Widget* pWidget, weld::Container* pNewParent) = 0;
+    // recursively unset has-default on any buttons in the widget hierarchy
+    virtual void recursively_unset_default_buttons() = 0;
+    // create an XWindow as a child of this container. The XWindow is
+    // suitable to contain css::awt::XControl items
+    virtual css::uno::Reference<css::awt::XWindow> CreateChildFrame() = 0;
+};
+
+class VCL_DLLPUBLIC Box : virtual public Container
+{
+public:
+    // Moves child to a new position in the list of children
+    virtual void reorder_child(weld::Widget* pWidget, int position) = 0;
 };
 
 class VCL_DLLPUBLIC ScrolledWindow : virtual public Container
@@ -319,11 +342,13 @@ protected:
 
 public:
     virtual int get_current_page() const = 0;
+    virtual OString get_page_ident(int nPage) const = 0;
     virtual OString get_current_page_ident() const = 0;
     virtual void set_current_page(int nPage) = 0;
     virtual void set_current_page(const OString& rIdent) = 0;
     virtual void remove_page(const OString& rIdent) = 0;
     virtual void append_page(const OString& rIdent, const OUString& rLabel) = 0;
+    virtual void set_tab_label_text(const OString& rIdent, const OUString& rLabel) = 0;
     virtual OUString get_tab_label_text(const OString& rIdent) const = 0;
     virtual int get_n_pages() const = 0;
     virtual weld::Container* get_page(const OString& rIdent) const = 0;
@@ -332,6 +357,26 @@ public:
 
     void connect_enter_page(const Link<const OString&, void>& rLink) { m_aEnterPageHdl = rLink; }
 };
+
+class VCL_DLLPUBLIC ScreenShotEntry
+{
+public:
+    ScreenShotEntry(const OString& rHelpId, const basegfx::B2IRange& rB2IRange)
+        : msHelpId(rHelpId)
+        , maB2IRange(rB2IRange)
+    {
+    }
+
+    const basegfx::B2IRange& getB2IRange() const { return maB2IRange; }
+
+    const OString& GetHelpId() const { return msHelpId; }
+
+private:
+    OString msHelpId;
+    basegfx::B2IRange maB2IRange;
+};
+
+typedef std::vector<ScreenShotEntry> ScreenShotCollection;
 
 class VCL_DLLPUBLIC Window : virtual public Container
 {
@@ -379,6 +424,11 @@ public:
     virtual SystemEnvData get_system_data() const = 0;
 
     virtual void resize_to_request() = 0;
+
+    // render the dialog for a screenshot
+    virtual void draw(VirtualDevice& rOutput) = 0;
+    // collect positions of widgets and their help ids for screenshot purposes
+    virtual ScreenShotCollection collect_screenshot_data() = 0;
 };
 
 class VCL_DLLPUBLIC WaitObject
@@ -421,7 +471,7 @@ public:
     virtual void add_button(const OUString& rText, int response, const OString& rHelpId = OString())
         = 0;
     virtual void set_default_response(int response) = 0;
-    virtual Button* get_widget_for_response(int response) = 0;
+    virtual Button* weld_widget_for_response(int response) = 0;
     virtual Container* weld_content_area() = 0;
 
     // shrink the dialog down to shown just these widgets
@@ -451,8 +501,34 @@ public:
     virtual void set_website(const OUString& rURL) = 0;
     virtual void set_website_label(const OUString& rLabel) = 0;
     virtual OUString get_website_label() const = 0;
-    virtual void set_logo(VirtualDevice* pDevice) = 0;
-    virtual void set_background(VirtualDevice* pDevice) = 0;
+    virtual void set_logo(const css::uno::Reference<css::graphic::XGraphic>& rImage) = 0;
+    virtual void set_background(const css::uno::Reference<css::graphic::XGraphic>& rImage) = 0;
+};
+
+class VCL_DLLPUBLIC Assistant : virtual public Dialog
+{
+protected:
+    Link<const OString&, bool> m_aJumpPageHdl;
+
+    bool signal_jump_page(const OString& rIdent) { return m_aJumpPageHdl.Call(rIdent); }
+
+public:
+    virtual int get_current_page() const = 0;
+    virtual int get_n_pages() const = 0;
+    virtual OString get_page_ident(int nPage) const = 0;
+    virtual OString get_current_page_ident() const = 0;
+    virtual void set_current_page(int nPage) = 0;
+    virtual void set_current_page(const OString& rIdent) = 0;
+    // move the page rIdent to position nIndex
+    virtual void set_page_index(const OString& rIdent, int nIndex) = 0;
+    virtual void set_page_title(const OString& rIdent, const OUString& rTitle) = 0;
+    virtual OUString get_page_title(const OString& rIdent) const = 0;
+    virtual void set_page_sensitive(const OString& rIdent, bool bSensitive) = 0;
+    virtual weld::Container* append_page(const OString& rIdent) = 0;
+
+    virtual void set_page_side_help_id(const OString& rHelpId) = 0;
+
+    void connect_jump_page(const Link<const OString&, bool>& rLink) { m_aJumpPageHdl = rLink; }
 };
 
 struct VCL_DLLPUBLIC ComboBoxEntry
@@ -484,6 +560,7 @@ enum class EntryMessageType
     Error,
 };
 
+/// A widget used to choose from a list of items.
 class VCL_DLLPUBLIC ComboBox : virtual public Container
 {
 private:
@@ -598,7 +675,7 @@ private:
 
 protected:
     Link<TreeView&, void> m_aChangeHdl;
-    Link<TreeView&, void> m_aRowActivatedHdl;
+    Link<TreeView&, bool> m_aRowActivatedHdl;
     Link<int, void> m_aColumnClickedHdl;
     Link<const std::pair<int, int>&, void> m_aRadioToggleHdl;
     Link<const TreeIter&, bool> m_aEditingStartedHdl;
@@ -613,7 +690,7 @@ protected:
     std::vector<int> m_aRadioIndexes;
 
     void signal_changed() { m_aChangeHdl.Call(*this); }
-    void signal_row_activated() { m_aRowActivatedHdl.Call(*this); }
+    bool signal_row_activated() { return m_aRowActivatedHdl.Call(*this); }
     void signal_column_clicked(int nColumn) { m_aColumnClickedHdl.Call(nColumn); }
     bool signal_expanding(const TreeIter& rIter)
     {
@@ -681,7 +758,14 @@ public:
     }
 
     void connect_changed(const Link<TreeView&, void>& rLink) { m_aChangeHdl = rLink; }
-    void connect_row_activated(const Link<TreeView&, void>& rLink) { m_aRowActivatedHdl = rLink; }
+
+    /* A row is "activated" when the user double clicks a treeview row. It may
+       also be emitted when a row is selected and Space or Enter is pressed.
+
+       a return of "true" means the activation has been handled, a "false" propagates
+       the activation to the default handler which expands/collapses the row, if possible.
+    */
+    void connect_row_activated(const Link<TreeView&, bool>& rLink) { m_aRowActivatedHdl = rLink; }
 
     // Argument is a pair of row, col describing the node in non-tree mode.
     // If in tree mode, then retrieve the toggled node with get_cursor
@@ -719,6 +803,7 @@ public:
     virtual std::vector<int> get_selected_rows() const = 0;
     virtual void set_font_color(int pos, const Color& rColor) const = 0;
     virtual void scroll_to_row(int pos) = 0;
+    virtual bool is_selected(int pos) const = 0;
     virtual int get_cursor_index() const = 0;
     virtual void set_cursor(int pos) = 0;
 
@@ -783,6 +868,7 @@ public:
     virtual void expand_row(const TreeIter& rIter) = 0;
     virtual void collapse_row(const TreeIter& rIter) = 0;
     virtual void set_text(const TreeIter& rIter, const OUString& rStr, int col = -1) = 0;
+    virtual void set_sensitive(const TreeIter& rIter, bool bSensitive, int col = -1) = 0;
     virtual void set_image(const TreeIter& rIter, const OUString& rImage, int col = -1) = 0;
     virtual void set_text_emphasis(const TreeIter& rIter, bool bOn, int col) = 0;
     virtual bool get_text_emphasis(const TreeIter& rIter, int col) const = 0;
@@ -836,6 +922,9 @@ public:
         m_aEditingDoneHdl = rLink;
     }
 
+    virtual void start_editing(const weld::TreeIter& rEntry) = 0;
+    virtual void end_editing() = 0;
+
     virtual void connect_visible_range_changed(const Link<TreeView&, void>& rLink)
     {
         assert(!m_aVisibleRangeChangedHdl.IsSet() || !rLink.IsSet());
@@ -878,6 +967,7 @@ public:
     virtual void columns_autosize() = 0;
     virtual void set_column_fixed_widths(const std::vector<int>& rWidths) = 0;
     virtual int get_column_width(int nCol) const = 0;
+    virtual void set_centered_column(int nCol) = 0;
     virtual OUString get_column_title(int nColumn) const = 0;
     virtual void set_column_title(int nColumn, const OUString& rTitle) = 0;
 
@@ -1103,6 +1193,7 @@ public:
     virtual OUString get_text() const = 0;
     virtual void set_width_chars(int nChars) = 0;
     virtual int get_width_chars() const = 0;
+    // The maximum length of the entry. Use 0 for no maximum
     virtual void set_max_length(int nChars) = 0;
     // nEndPos can be -1 in order to select all text
     virtual void select_region(int nStartPos, int nEndPos) = 0;
@@ -1127,6 +1218,10 @@ public:
     {
         m_aCursorPositionHdl = rLink;
     }
+
+    virtual void cut_clipboard() = 0;
+    virtual void copy_clipboard() = 0;
+    virtual void paste_clipboard() = 0;
 
     void save_value() { m_sSavedValue = get_text(); }
     OUString const& get_saved_value() const { return m_sSavedValue; }
@@ -1345,7 +1440,7 @@ public:
     {
         return m_xEntry->get_selection_bounds(rStartPos, rEndPos);
     }
-    void connect_row_activated(const Link<TreeView&, void>& rLink)
+    void connect_row_activated(const Link<TreeView&, bool>& rLink)
     {
         m_xTreeView->connect_row_activated(rLink);
     }
@@ -1656,7 +1751,7 @@ public:
 protected:
     Link<draw_args, void> m_aDrawHdl;
     Link<Widget&, void> m_aStyleUpdatedHdl;
-    Link<const CommandEvent&, bool> m_aPopupMenuHdl;
+    Link<const CommandEvent&, bool> m_aCommandHdl;
     Link<Widget&, tools::Rectangle> m_aGetFocusRectHdl;
     Link<tools::Rectangle&, OUString> m_aQueryTooltipHdl;
 
@@ -1668,10 +1763,7 @@ protected:
 public:
     void connect_draw(const Link<draw_args, void>& rLink) { m_aDrawHdl = rLink; }
     void connect_style_updated(const Link<Widget&, void>& rLink) { m_aStyleUpdatedHdl = rLink; }
-    void connect_popup_menu(const Link<const CommandEvent&, bool>& rLink)
-    {
-        m_aPopupMenuHdl = rLink;
-    }
+    void connect_command(const Link<const CommandEvent&, bool>& rLink) { m_aCommandHdl = rLink; }
     void connect_focus_rect(const Link<Widget&, tools::Rectangle>& rLink)
     {
         m_aGetFocusRectHdl = rLink;
@@ -1745,6 +1837,7 @@ public:
     virtual bool get_item_sensitive(const OString& rIdent) const = 0;
     virtual void set_item_active(const OString& rIdent, bool bActive) = 0;
     virtual bool get_item_active(const OString& rIdent) const = 0;
+    virtual void set_item_popover(const OString& rIdent, weld::Widget* pPopover) = 0;
 
     virtual void insert_separator(int pos, const OUString& rId) = 0;
     void append_separator(const OUString& rId) { insert_separator(-1, rId); }
@@ -1772,7 +1865,7 @@ public:
         sal_Int32 nIdx = m_sHelpRoot.lastIndexOf('.');
         if (nIdx != -1)
             m_sHelpRoot = m_sHelpRoot.copy(0, nIdx);
-        m_sHelpRoot = m_sHelpRoot + OString('/');
+        m_sHelpRoot += OString('/');
     }
     virtual std::unique_ptr<MessageDialog> weld_message_dialog(const OString& id,
                                                                bool bTakeOwnership = true)
@@ -1781,11 +1874,14 @@ public:
     virtual std::unique_ptr<AboutDialog> weld_about_dialog(const OString& id,
                                                            bool bTakeOwnership = true)
         = 0;
+    virtual std::unique_ptr<Assistant> weld_assistant(const OString& id, bool bTakeOwnership = true)
+        = 0;
     virtual std::unique_ptr<Window> weld_window(const OString& id, bool bTakeOwnership = true) = 0;
     virtual std::unique_ptr<Widget> weld_widget(const OString& id, bool bTakeOwnership = false) = 0;
     virtual std::unique_ptr<Container> weld_container(const OString& id,
                                                       bool bTakeOwnership = false)
         = 0;
+    virtual std::unique_ptr<Box> weld_box(const OString& id, bool bTakeOwnership = false) = 0;
     virtual std::unique_ptr<Button> weld_button(const OString& id, bool bTakeOwnership = false) = 0;
     virtual std::unique_ptr<MenuButton> weld_menu_button(const OString& id,
                                                          bool bTakeOwnership = false)
@@ -1850,6 +1946,13 @@ public:
     virtual std::unique_ptr<Toolbar> weld_toolbar(const OString& id, bool bTakeOwnership = true)
         = 0;
     virtual std::unique_ptr<SizeGroup> create_size_group() = 0;
+    /* return a Dialog suitable to take a screenshot of containing the contents of the .ui file.
+
+       If the toplevel element is a dialog, that will be returned
+       If the toplevel is not a dialog, a dialog will be created and the contents of the .ui
+       inserted into it
+    */
+    virtual std::unique_ptr<Window> create_screenshot_window() = 0;
     virtual ~Builder() {}
 };
 
@@ -1895,6 +1998,16 @@ protected:
     std::unique_ptr<weld::Container> m_xOrigParent;
 
 public:
+    /* @param rRelocateId - optional argument of the name of a widget in the .ui file
+                            which should be relocated into the content area of the dialog.
+
+                            e.g. a checkbox for a "Never show this again" option.
+
+                            This results in the named widget relocating to the same container
+                            as the messages.  This enables aligning the extra widget with the
+                            message labels in the content area container which doesn't
+                            explicitly exist in the ui description, but is only implied.
+    */
     MessageDialogController(weld::Widget* pParent, const OUString& rUIFile,
                             const OString& rDialogId, const OString& rRelocateId = OString());
     virtual Dialog* getDialog() override;
@@ -1902,6 +2015,18 @@ public:
     void set_primary_text(const OUString& rText) { m_xDialog->set_primary_text(rText); }
     OUString get_primary_text() const { return m_xDialog->get_primary_text(); }
     void set_default_response(int nResponse) { m_xDialog->set_default_response(nResponse); }
+};
+
+class VCL_DLLPUBLIC AssistantController : public DialogController
+{
+protected:
+    std::unique_ptr<weld::Builder> m_xBuilder;
+    std::unique_ptr<weld::Assistant> m_xAssistant;
+
+public:
+    AssistantController(weld::Widget* pParent, const OUString& rUIFile, const OString& rDialogId);
+    virtual Dialog* getDialog() override;
+    virtual ~AssistantController() override;
 };
 }
 #endif

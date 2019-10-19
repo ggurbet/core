@@ -303,7 +303,7 @@ GenericPopupToolbarController::GenericPopupToolbarController(
 
 OUString GenericPopupToolbarController::getImplementationName()
 {
-    return OUString("com.sun.star.comp.framework.GenericPopupToolbarController");
+    return "com.sun.star.comp.framework.GenericPopupToolbarController";
 }
 
 sal_Bool GenericPopupToolbarController::supportsService(OUString const & rServiceName)
@@ -442,7 +442,7 @@ void SaveToolbarController::initialize( const css::uno::Sequence< css::uno::Any 
     if ( !getToolboxId( nId, &pToolBox ) )
         return;
 
-    css::uno::Reference< css::frame::XController > xController( m_xFrame->getController(), css::uno::UNO_QUERY );
+    css::uno::Reference< css::frame::XController > xController = m_xFrame->getController();
     if ( xController.is() )
         m_xModifiable.set( xController->getModel(), css::uno::UNO_QUERY );
 
@@ -564,7 +564,7 @@ void SaveToolbarController::dispose()
 
 OUString SaveToolbarController::getImplementationName()
 {
-    return OUString("com.sun.star.comp.framework.SaveToolbarController");
+    return "com.sun.star.comp.framework.SaveToolbarController";
 }
 
 sal_Bool SaveToolbarController::supportsService( OUString const & rServiceName )
@@ -608,7 +608,7 @@ NewToolbarController::NewToolbarController(
 
 OUString NewToolbarController::getImplementationName()
 {
-    return OUString("org.apache.openoffice.comp.framework.NewToolbarController");
+    return "org.apache.openoffice.comp.framework.NewToolbarController";
 }
 
 sal_Bool NewToolbarController::supportsService(OUString const & rServiceName)

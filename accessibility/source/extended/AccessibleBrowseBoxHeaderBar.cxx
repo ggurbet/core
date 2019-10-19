@@ -289,7 +289,7 @@ void SAL_CALL AccessibleBrowseBoxHeaderBar::release() throw ()
 
 OUString SAL_CALL AccessibleBrowseBoxHeaderBar::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.svtools.AccessibleBrowseBoxHeaderBar" );
+    return "com.sun.star.comp.svtools.AccessibleBrowseBoxHeaderBar";
 }
 
 Sequence< sal_Int8 > SAL_CALL AccessibleBrowseBoxHeaderBar::getImplementationId()
@@ -343,7 +343,7 @@ sal_Int32 AccessibleBrowseBoxHeaderBar::implGetChildIndexFromSelectedIndex(
     if( (nSelectedChildIndex < 0) || (nSelectedChildIndex >= aSelSeq.getLength()) )
         throw lang::IndexOutOfBoundsException();
 
-    return aSelSeq[ nSelectedChildIndex ];
+    return aSelSeq.getConstArray()[ nSelectedChildIndex ];
 }
 
 void AccessibleBrowseBoxHeaderBar::ensureIsValidHeaderIndex( sal_Int32 nIndex )

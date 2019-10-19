@@ -18,6 +18,7 @@
  */
 
 #include <hintids.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svl/stritem.hxx>
 #include <svl/intitem.hxx>
@@ -51,6 +52,7 @@
 #include <pagedesc.hxx>
 #include <uiitems.hxx>
 #include <poolfmt.hxx>
+#include <swtablerep.hxx>
 #include <SwStyleNameMapper.hxx>
 
 #include <app.hrc>
@@ -62,8 +64,8 @@
 
 using namespace ::com::sun::star;
 
-SwFormatTablePage::SwFormatTablePage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/formattablepage.ui", "FormatTablePage", &rSet)
+SwFormatTablePage::SwFormatTablePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/formattablepage.ui", "FormatTablePage", &rSet)
     , pTableData(nullptr)
     , nSaveWidth(0)
     , nMinTableWidth(MINLAY)
@@ -364,9 +366,9 @@ void  SwFormatTablePage::ModifyHdl(const weld::MetricSpinButton& rEdit)
     bModified = true;
 }
 
-VclPtr<SfxTabPage> SwFormatTablePage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> SwFormatTablePage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwFormatTablePage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwFormatTablePage>(pPage, pController, *rAttrSet);
 }
 
 bool  SwFormatTablePage::FillItemSet( SfxItemSet* rCoreSet )
@@ -697,9 +699,10 @@ DeactivateRC SwFormatTablePage::DeactivatePage( SfxItemSet* _pSet )
 }
 
 //Description: Page column configuration
-SwTableColumnPage::SwTableColumnPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/tablecolumnpage.ui", "TableColumnPage", &rSet)
+SwTableColumnPage::SwTableColumnPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/tablecolumnpage.ui", "TableColumnPage", &rSet)
     , pTableData(nullptr)
+    , m_pSizeHdlEvent(nullptr)
     , nTableWidth(0)
     , nMinWidth(MINLAY)
     , nMetFields(MET_FIELDS)
@@ -729,9 +732,19 @@ SwTableColumnPage::SwTableColumnPage(TabPageParent pParent, const SfxItemSet& rS
 {
     SetExchangeSupport();
 
+    // fire off this handler to happen on next event loop when all the rest of
+    // the pages are instantiated and the dialog preferred size is that of the
+    // all the pages that currently exist and the rest to come after this one
+    m_pSizeHdlEvent = Application::PostUserEvent(LINK(this, SwTableColumnPage, SizeHdl));
+}
+
+IMPL_LINK_NOARG(SwTableColumnPage, SizeHdl, void*, void)
+{
+    m_pSizeHdlEvent = nullptr;
+
     //tdf#120420 keeping showing column width fields unless
     //the dialog begins to grow, then stop adding them
-    weld::Window* pTopLevel = pParent.GetFrameWeld();
+    weld::Window* pTopLevel = GetFrameWeld();
     Size aOrigSize = pTopLevel->get_preferred_size();
     for (sal_uInt16 i = 0; i < MET_FIELDS; ++i)
     {
@@ -748,17 +761,22 @@ SwTableColumnPage::SwTableColumnPage(TabPageParent pParent, const SfxItemSet& rS
     }
 
     const SfxPoolItem* pItem;
-    Init(SfxItemState::SET == rSet.GetItemState( SID_HTML_MODE, false,&pItem )
+    Init(SfxItemState::SET == GetItemSet().GetItemState(SID_HTML_MODE, false, &pItem)
          && static_cast<const SfxUInt16Item*>(pItem)->GetValue() & HTMLMODE_ON);
 }
 
 SwTableColumnPage::~SwTableColumnPage()
 {
+    if (m_pSizeHdlEvent)
+    {
+        Application::RemoveUserEvent(m_pSizeHdlEvent);
+        m_pSizeHdlEvent = nullptr;
+    }
 }
 
-VclPtr<SfxTabPage> SwTableColumnPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> SwTableColumnPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwTableColumnPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwTableColumnPage>(pPage, pController, *rAttrSet);
 }
 
 void  SwTableColumnPage::Reset( const SfxItemSet* )
@@ -1206,8 +1224,8 @@ void  SwTableTabDlg::PageCreated(const OString& rId, SfxTabPage& rPage)
     }
 }
 
-SwTextFlowPage::SwTextFlowPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/tabletextflowpage.ui", "TableTextFlowPage", &rSet)
+SwTextFlowPage::SwTextFlowPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/tabletextflowpage.ui", "TableTextFlowPage", &rSet)
     , pShell(nullptr)
     , bPageBreak(true)
     , bHtmlMode(false)
@@ -1262,10 +1280,10 @@ SwTextFlowPage::~SwTextFlowPage()
 {
 }
 
-VclPtr<SfxTabPage> SwTextFlowPage::Create( TabPageParent pParent,
-                                           const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> SwTextFlowPage::Create(weld::Container* pPage, weld::DialogController* pController,
+                                                   const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwTextFlowPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwTextFlowPage>(pPage, pController, *rAttrSet);
 }
 
 bool  SwTextFlowPage::FillItemSet( SfxItemSet* rSet )

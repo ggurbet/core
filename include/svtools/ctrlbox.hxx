@@ -91,8 +91,8 @@ public:
     }
 
     /** Returns the minimum width in twips */
-    long   GetMinWidth( ) { return m_nMinWidth;}
-    SvxBorderLineStyle GetStyle( ) { return m_nStyle;}
+    long   GetMinWidth( ) const { return m_nMinWidth;}
+    SvxBorderLineStyle GetStyle( ) const { return m_nStyle;}
 };
 
 enum class SvxBorderLineStyle : sal_Int16;
@@ -175,12 +175,12 @@ All sizes are in 1/10 typographic point (pt).
 
 The passed FontList must be retained until the next fill call.
 
-Additionally it supports an relative mod, which allows entering
+Additionally it supports a relative mod, which allows entering
 percentage values. This, eg., can be useful for template dialogs.
 This mode can only be enabled, but not disabled again.
 
 For DontKnow the FontSizeBox should be filled FontMetric(), so it will
-contain an list with the standard sizes. Th currently shown size
+contain a list with the standard sizes. Th currently shown size
 probably needs to be reset by the application.
 
 See also
@@ -478,6 +478,7 @@ public:
     void set_value(int nValue);
     void save_value() { nSavedValue = get_value(); }
     int get_saved_value() const { return nSavedValue; }
+    bool get_value_changed_from_saved() const { return get_value() != get_saved_value(); }
 
 private:
     SvtFontSizeBox(const SvtFontSizeBox&) = delete;

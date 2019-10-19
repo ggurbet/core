@@ -18,21 +18,20 @@
  */
 
 #include <DrawViewShell.hxx>
-#include <PresentationViewShell.hxx>
 #include <editeng/outliner.hxx>
 #include <svx/svxids.hrc>
 #include <sfx2/request.hxx>
 #include <sfx2/dispatch.hxx>
 #include <svx/svdpagv.hxx>
-#include <vcl/scrbar.hxx>
+#include <svx/svdoutl.hxx>
+
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <sdcommands.h>
 #include <sal/log.hxx>
 
-#include <tools/poly.hxx>
 #include <svx/fmshell.hxx>
 #include <editeng/eeitem.hxx>
-#include <svtools/colorcfg.hxx>
 #include <AccessibleDrawDocumentView.hxx>
 
 #include <sfx2/viewfrm.hxx>
@@ -43,16 +42,10 @@
 #include <optsitem.hxx>
 #include <sdmod.hxx>
 #include <FrameView.hxx>
-#include <sdattr.hxx>
-#include <futext.hxx>
-#include <sdpage.hxx>
-#include <stlpool.hxx>
-#include <prntopts.hxx>
 #include <Window.hxx>
 #include <drawview.hxx>
 #include <drawdoc.hxx>
 #include <DrawDocShell.hxx>
-#include <Outliner.hxx>
 #include <Client.hxx>
 #include <slideshow.hxx>
 #include <unokywds.hxx>
@@ -280,7 +273,7 @@ void DrawViewShell::ReadFrameViewData(FrameView* pView)
         // #i57936# Force mbIsLayerModeActive to false so that ChangeEditMode
         // below does something regarding LayerTabBar content refresh. That refresh
         // is only done when IsLayerModeActive changes. It needs to be done
-        // since e.g. Layer vsisibility was changed above and this may need
+        // since e.g. Layer visibility was changed above and this may need
         // a refresh to show the correct graphical representation
         mbIsLayerModeActive = false;
     }
@@ -458,20 +451,18 @@ void DrawViewShell::ReadUserDataSequence ( const css::uno::Sequence < css::beans
 
     ViewShell::ReadUserDataSequence( rSequence );
 
-    const sal_Int32 nLength = rSequence.getLength();
-    const css::beans::PropertyValue *pValue = rSequence.getConstArray();
-    for (sal_Int32 i = 0 ; i < nLength; i++, pValue++ )
+    for (const css::beans::PropertyValue& rValue : rSequence)
     {
-        if ( pValue->Name == sUNO_View_ZoomOnPage )
+        if ( rValue.Name == sUNO_View_ZoomOnPage )
         {
             bool bZoomPage = false;
-            if( pValue->Value >>= bZoomPage )
+            if( rValue.Value >>= bZoomPage )
             {
                 mbZoomOnPage = bZoomPage;
             }
         }
         // Fallback to common SdrModel processing
-        else GetDocSh()->GetDoc()->ReadUserDataSequenceValue(pValue);
+        else GetDocSh()->GetDoc()->ReadUserDataSequenceValue(&rValue);
     }
 
     // The parameter rSequence contains the config-items from

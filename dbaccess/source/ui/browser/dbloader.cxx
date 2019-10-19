@@ -79,7 +79,7 @@ public:
     // static methods
     static OUString          getImplementationName_Static() throw(  )
     {
-        return OUString("org.openoffice.comp.dbu.DBContentLoader");
+        return "org.openoffice.comp.dbu.DBContentLoader";
     }
     static Sequence< OUString> getSupportedServiceNames_Static() throw(  );
     static css::uno::Reference< css::uno::XInterface >
@@ -130,10 +130,7 @@ Sequence< OUString > SAL_CALL DBContentLoader::getSupportedServiceNames()
 // ORegistryServiceManager_Static
 Sequence< OUString > DBContentLoader::getSupportedServiceNames_Static() throw(  )
 {
-    Sequence< OUString > aSNS( 2 );
-    aSNS[0] = "com.sun.star.frame.FrameLoader";
-    aSNS[1] = "com.sun.star.sdb.ContentLoader";
-    return aSNS;
+    return { "com.sun.star.frame.FrameLoader", "com.sun.star.sdb.ContentLoader" };
 }
 
 void SAL_CALL DBContentLoader::load(const Reference< XFrame > & rFrame, const OUString& rURL,

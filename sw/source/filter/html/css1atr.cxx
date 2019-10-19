@@ -287,7 +287,7 @@ void SwHTMLWriter::OutCSS1_Property( const sal_Char *pProp,
                     "p." sCSS2_P_CLASS_leaders " span+span{float:right;padding-left:0.33em;"
                     "background:white;position:relative;z-index:1}");
         }
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
 
         IncIndentLevel();
     }
@@ -328,11 +328,11 @@ void SwHTMLWriter::OutCSS1_Property( const sal_Char *pProp,
         sOut.append("; ");
     }
 
-    sOut.append(OString(pProp) + ": ");
+    sOut.append(pProp + OStringLiteral(": "));
     if( m_nCSS1OutMode & CSS1_OUTMODE_ENCODE )
     {
         // for STYLE-Option encode string
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
         if( pVal )
             HTMLOutFuncs::Out_String( Strm(), OUString::createFromAscii(pVal),
                                       m_eDestEnc, &m_aNonConvertableCharacters );
@@ -349,7 +349,7 @@ void SwHTMLWriter::OutCSS1_Property( const sal_Char *pProp,
     }
 
     if (!sOut.isEmpty())
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
 }
 
 static void AddUnitPropertyValue(OStringBuffer &rOut, long nVal,
@@ -1135,10 +1135,10 @@ void SwHTMLWriter::PrepareFontList( const SvxFontItem& rFontItem,
             if( !rNames.isEmpty() )
                 rNames += ", ";
             if( cQuote && !bIsKeyword )
-                rNames += OUStringLiteral1( cQuote );
+                rNames += OUStringChar( cQuote );
             rNames += aName;
             if( cQuote && !bIsKeyword )
-                rNames += OUStringLiteral1( cQuote );
+                rNames += OUStringChar( cQuote );
         }
     }
 
@@ -1297,8 +1297,7 @@ static bool OutCSS1Rule( SwHTMLWriter& rHTMLWrt, const OUString& rSelector,
                                        RES_CHRATR_CJK_FONT, RES_CHRATR_CTL_WEIGHT>{} );
             aScriptItemSet.Put( rItemSet );
 
-            OUString aNewSelector( aSelector );
-            aNewSelector += ".western" + aPseudo;
+            OUString aNewSelector = aSelector + ".western" + aPseudo;
             {
                 SwCSS1OutMode aMode( rHTMLWrt, CSS1_OUTMODE_WESTERN|CSS1_OUTMODE_RULE|CSS1_OUTMODE_TEMPLATE,
                                      &aNewSelector );
@@ -1324,8 +1323,7 @@ static bool OutCSS1Rule( SwHTMLWriter& rHTMLWrt, const OUString& rSelector,
             // If there are script dependencies and we are derived from a tag,
             // when we have to export a style dependent class for all
             // scripts
-            OUString aNewSelector( aSelector );
-            aNewSelector += "-western" + aPseudo;
+            OUString aNewSelector = aSelector + "-western" + aPseudo;
             {
                 SwCSS1OutMode aMode( rHTMLWrt, CSS1_OUTMODE_WESTERN|CSS1_OUTMODE_RULE|CSS1_OUTMODE_TEMPLATE,
                                      &aNewSelector );
@@ -1400,8 +1398,7 @@ static void OutCSS1DropCapRule(
             if( pDCCharFormat )
                 aScriptItemSet.Set( pDCCharFormat->GetAttrSet() );
 
-            OUString aNewSelector( aSelector );
-            aNewSelector += ".western" + aPseudo;
+            OUString aNewSelector = aSelector + ".western" + aPseudo;
             {
                 SwCSS1OutMode aMode( rHTMLWrt, CSS1_OUTMODE_WESTERN|CSS1_OUTMODE_RULE|CSS1_OUTMODE_DROPCAP,
                                      &aNewSelector );
@@ -1427,8 +1424,7 @@ static void OutCSS1DropCapRule(
             // If there are script dependencies and we are derived from a tag,
             // when we have to export a style dependent class for all
             // scripts
-            OUString aNewSelector( aSelector );
-            aNewSelector += "-western" + aPseudo;
+            OUString aNewSelector = aSelector + "-western" + aPseudo;
             {
                 SwCSS1OutMode aMode( rHTMLWrt, CSS1_OUTMODE_WESTERN|CSS1_OUTMODE_RULE|CSS1_OUTMODE_DROPCAP,
                                      &aNewSelector );
@@ -1511,7 +1507,7 @@ static Writer& OutCSS1_SwFormat( Writer& rWrt, const SwFormat& rFormat,
     const SfxItemSet& rFormatItemSet = rFormat.GetAttrSet();
     SfxItemSet aItemSet( *rFormatItemSet.GetPool(), rFormatItemSet.GetRanges() );
     aItemSet.Set( rFormatItemSet ); // Was nDeep!=1 that is not working
-                                    // for script dependent items buts should
+                                    // for script dependent items but should
                                     // not make a difference for any other
 
     bool bSetDefaults = true, bClearSame = true;
@@ -1624,8 +1620,8 @@ static Writer& OutCSS1_SwFormat( Writer& rWrt, const SwFormat& rFormat,
     const SfxPoolItem *pItem;
     if( SfxItemState::SET==aItemSet.GetItemState( RES_PARATR_DROP, false, &pItem ))
     {
-        OUString sOut( aSelector );
-        sOut += ":" + OStringToOUString( sCSS1_first_letter, RTL_TEXTENCODING_ASCII_US );
+        OUString sOut = aSelector +
+            ":" + OStringToOUString( sCSS1_first_letter, RTL_TEXTENCODING_ASCII_US );
         const SwFormatDrop *pDrop = static_cast<const SwFormatDrop *>(pItem);
         OutCSS1DropCapRule( rHTMLWrt, sOut, *pDrop, CSS1_FMT_ISTAG != nDeep, bHasScriptDependencies );
     }
@@ -1727,7 +1723,7 @@ static Writer& OutCSS1_SwPageDesc( Writer& rWrt, const SwPageDesc& rPageDesc,
     {
         rHTMLWrt.OutNewLine();
         OString sTmp(OUStringToOString(aSelector, rHTMLWrt.m_eDestEnc));
-        rWrt.Strm().WriteCharPtr( sTmp.getStr() ).WriteCharPtr( " {" );
+        rWrt.Strm().WriteOString( sTmp ).WriteCharPtr( " {" );
         rHTMLWrt.m_bFirstCSS1Property = false;
     }
 
@@ -2476,7 +2472,7 @@ static Writer& OutCSS1_SvxFontHeight( Writer& rWrt, const SfxPoolItem& rHt )
         return rWrt;
 
     sal_uInt32 nHeight = static_cast<const SvxFontHeightItem&>(rHt).GetHeight();
-    OString sHeight(OString::number(nHeight/20) + OString(sCSS1_UNIT_pt));
+    OString sHeight(OString::number(nHeight/20) + sCSS1_UNIT_pt);
     rHTMLWrt.OutCSS1_PropertyAscii(sCSS1_P_font_size, sHeight);
 
     return rWrt;
@@ -2537,7 +2533,7 @@ static Writer& OutCSS1_SvxKerning( Writer& rWrt, const SfxPoolItem& rHt )
         // Width as n.n pt
         nValue = (nValue + 1) / 2;  // 1/10pt
         sOut.append(OString::number(nValue  / 10) + "." + OString::number(nValue % 10) +
-                    OString(sCSS1_UNIT_pt));
+                    sCSS1_UNIT_pt);
 
         rHTMLWrt.OutCSS1_PropertyAscii(sCSS1_P_letter_spacing,
             sOut.makeStringAndClear());
@@ -3336,7 +3332,7 @@ static void OutCSS1_SvxBorderLine( SwHTMLWriter& rHTMLWrt,
 
         // width in n.nn pt
         sOut.append(OString::number(nWidth / 100) + "." + OString::number((nWidth/10) % 10) +
-                    OString::number(nWidth % 10) + OString(sCSS1_UNIT_pt));
+                    OString::number(nWidth % 10) + sCSS1_UNIT_pt);
     }
 
     // Line-Style: solid or double
@@ -3587,6 +3583,7 @@ static SwAttrFnTab const aCSS1AttrFnTab = {
 /* RES_PARATR_LIST_ISRESTART */     nullptr, // new
 /* RES_PARATR_LIST_RESTARTVALUE */  nullptr, // new
 /* RES_PARATR_LIST_ISCOUNTED */     nullptr, // new
+/* RES_PARATR_LIST_AUTOFMT */       nullptr, // new
 
 /* RES_FILL_ORDER   */              nullptr,
 /* RES_FRM_SIZE */                  nullptr,
@@ -3655,6 +3652,8 @@ static SwAttrFnTab const aCSS1AttrFnTab = {
 /* RES_BOXATR_VALUE */              nullptr
 };
 
+static_assert(SAL_N_ELEMENTS(aCSS1AttrFnTab) == RES_BOXATR_END);
+
 void SwHTMLWriter::OutCSS1_SfxItemSet( const SfxItemSet& rItemSet,
                                        bool bDeep )
 {
@@ -3713,7 +3712,7 @@ void SwHTMLWriter::OutCSS1_SfxItemSet( const SfxItemSet& rItemSet,
             break;
         }
         if (!sOut.isEmpty())
-            Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+            Strm().WriteOString( sOut.makeStringAndClear() );
     }
 }
 

@@ -18,7 +18,6 @@
  */
 
 #include <linkdlg.hxx>
-#include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 
 #include <tools/diagnose_ex.h>
@@ -32,7 +31,6 @@
 #include <strings.hrc>
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/linksrc.hxx>
-#include <svtools/soerr.hxx>
 #include <sfx2/lnkbase.hxx>
 #include <sfx2/objsh.hxx>
 
@@ -216,9 +214,10 @@ void SvBaseLinksDlg::LinksSelectHdl(weld::TreeView* pSvTabListBox)
     }
 }
 
-IMPL_LINK_NOARG( SvBaseLinksDlg, LinksDoubleClickHdl, weld::TreeView&, void )
+IMPL_LINK_NOARG( SvBaseLinksDlg, LinksDoubleClickHdl, weld::TreeView&, bool )
 {
     ChangeSourceClickHdl(*m_xPbChangeSource);
+    return true;
 }
 
 IMPL_LINK_NOARG( SvBaseLinksDlg, AutomaticClickHdl, weld::Button&, void )
@@ -561,8 +560,8 @@ void SvBaseLinksDlg::InsertEntry(const SvBaseLink& rLink, int nPos, bool bSelect
     auto nWidthPixel = m_xTbLinks->get_column_width(0);
     OUString aTxt = m_xVirDev->GetEllipsisString(sFileNm, nWidthPixel, DrawTextFlags::PathEllipsis);
     INetURLObject aPath( sFileNm, INetProtocol::File );
-    OUString aFileName = aPath.getName();
-    aFileName = INetURLObject::decode(aFileName, INetURLObject::DecodeMechanism::Unambiguous);
+    OUString aFileName = aPath.getName(
+        INetURLObject::LAST_SEGMENT, true, INetURLObject::DecodeMechanism::Unambiguous);
 
     if( aFileName.getLength() > aTxt.getLength() )
         aTxt = aFileName;

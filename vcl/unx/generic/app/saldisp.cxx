@@ -21,8 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <sys/time.h>
-#include <pthread.h>
 #include <unistd.h>
 
 #if defined(__sun) || defined(AIX)
@@ -48,11 +46,11 @@
 
 #include <opengl/zone.hxx>
 
+#include <i18nlangtag/languagetag.hxx>
 #include <tools/debug.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 
-#include <unx/salunx.h>
 #include <sal/log.hxx>
 #include <sal/types.h>
 #include <unx/i18n_im.hxx>
@@ -60,12 +58,10 @@
 #include <unx/saldisp.hxx>
 #include <unx/saldata.hxx>
 #include <salinst.hxx>
-#include <unx/salgdi.h>
 #include <unx/salframe.h>
 #include <vcl/keycodes.hxx>
 #include <unx/salbmp.h>
 #include <osl/diagnose.h>
-#include <osl/mutex.h>
 #include <unx/salobj.h>
 #include <unx/sm.hxx>
 #include <unx/wmadaptor.hxx>
@@ -74,12 +70,9 @@
 
 #include <vcl/opengl/OpenGLHelper.hxx>
 
-#include <osl/socket.h>
 #include <poll.h>
 #include <memory>
 #include <vector>
-
-#include <officecfg/Office/Common.hxx>
 
 /* From <X11/Intrinsic.h> */
 typedef unsigned long Pixel;
@@ -285,7 +278,6 @@ SalDisplay::SalDisplay( Display *display ) :
         nCtrlKeySym_( 0 ),
         nMod1KeySym_( 0 ),
         m_bXinerama( false ),
-        m_bUseRandRWrapper( true ),
         m_nLastUserEventTime( CurrentTime )
 {
 #if OSL_DEBUG_LEVEL > 1
@@ -371,7 +363,7 @@ void SalDisplay::doDestruct()
             }
         }
 
-        for( Cursor & aCsr : aPointerCache_ )
+        for( const Cursor & aCsr : aPointerCache_ )
         {
             if( aCsr )
                 XFreeCursor( pDisp_, aCsr );
@@ -1986,7 +1978,7 @@ bool SalX11Display::Dispatch( XEvent *pEvent )
         case PropertyNotify:
             if( pEvent->xproperty.atom == getWMAdaptor()->getAtom( WMAdaptor::VCL_SYSTEM_SETTINGS ) )
             {
-                for(ScreenData & rScreen : m_aScreens)
+                for(const ScreenData & rScreen : m_aScreens)
                 {
                     if( pEvent->xproperty.window == rScreen.m_aRefWindow )
                     {
@@ -2636,24 +2628,6 @@ SalColormap::SalColormap( sal_uInt16 nDepth )
                 aVI.red_mask        = 0xFF0000;
                 aVI.green_mask      = 0x00FF00;
                 aVI.blue_mask       = 0x0000FF;
-            }
-            else if( 16 == nDepth ) // 565
-            {
-                aVI.red_mask        = 0x00F800;
-                aVI.green_mask      = 0x0007E0;
-                aVI.blue_mask       = 0x00001F;
-            }
-            else if( 15 == nDepth ) // 555
-            {
-                aVI.red_mask        = 0x007C00;
-                aVI.green_mask      = 0x0003E0;
-                aVI.blue_mask       = 0x00001F;
-            }
-            else if( 12 == nDepth ) // 444
-            {
-                aVI.red_mask        = 0x000F00;
-                aVI.green_mask      = 0x0000F0;
-                aVI.blue_mask       = 0x00000F;
             }
             else if( 8 == nDepth ) // 332
             {

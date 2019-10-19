@@ -1790,9 +1790,9 @@ void sw_GetTableBoxColStr( sal_uInt16 nCol, OUString& rNm )
     do {
         const sal_uInt16 nCalc = nCol % coDiff;
         if( nCalc >= 26 )
-            rNm = OUStringLiteral1( 'a' - 26 + nCalc ) + rNm;
+            rNm = OUStringChar( 'a' - 26 + nCalc ) + rNm;
         else
-            rNm = OUStringLiteral1( 'A' + nCalc ) + rNm;
+            rNm = OUStringChar( 'A' + nCalc ) + rNm;
 
         if( 0 == (nCol = nCol - nCalc) )
             break;
@@ -2518,7 +2518,7 @@ sal_uLong SwTableBox::IsValidNumTextNd( bool bCheckAttr ) const
                                 // should not turn cell into text cell
                                 const SwField* pField = pAttr->GetFormatField().GetField();
                                 if (pField &&
-                                    (pField->GetTypeId() == TYP_SETFLD) &&
+                                    (pField->GetTypeId() == SwFieldTypesEnum::Set) &&
                                     (0 != (static_cast<SwSetExpField const*>
                                            (pField)->GetSubType() &
                                         nsSwExtendedSubType::SUB_INVISIBLE)))

@@ -23,7 +23,6 @@
 #include <comphelper/sequence.hxx>
 
 #include <xmloff/xmlscripti.hxx>
-#include <facreg.hxx>
 #include "sdxmlimp_impl.hxx"
 #include "ximpbody.hxx"
 
@@ -31,20 +30,15 @@
 #include "ximpstyl.hxx"
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
-#include <xmloff/xmluconv.hxx>
 #include <xmloff/DocumentSettingsContext.hxx>
+#include <com/sun/star/awt/Rectangle.hpp>
 #include <com/sun/star/form/XFormsSupplier.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/task/XStatusIndicatorSupplier.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/drawing/XMasterPagesSupplier.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
-#include "sdpropls.hxx"
-#include <xmloff/xmlexppr.hxx>
-#include <xmloff/xmlerror.hxx>
 #include <xmloff/settingsstore.hxx>
 #include <xmloff/ProgressBarHelper.hxx>
-#include <com/sun/star/style/XStyle.hpp>
 
 #include <xmloff/XMLFontStylesContext.hxx>
 
@@ -260,20 +254,6 @@ uno::Reference< xml::sax::XFastContextHandler > SAL_CALL SdXMLFlatDocContext_Imp
     }
 }
 
-#define SERVICE(classname,servicename,implementationname,draw,flags)\
-uno::Sequence< OUString > classname##_getSupportedServiceNames() throw()\
-{\
-    return uno::Sequence< OUString > { servicename };\
-}\
-OUString classname##_getImplementationName() throw()\
-{\
-    return OUString( implementationname );\
-}\
-uno::Reference< uno::XInterface > classname##_createInstance(const uno::Reference< lang::XMultiServiceFactory > & rSMgr)\
-{\
-    return static_cast<cppu::OWeakObject*>(new SdXMLImport( comphelper::getComponentContext(rSMgr), implementationname, draw, flags )); \
-}
-
 extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
 com_sun_star_comp_Impress_XMLOasisImporter_get_implementation(
     uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
@@ -324,11 +304,32 @@ com_sun_star_comp_Draw_XMLOasisSettingsImporter_get_implementation(
         new SdXMLImport(pCtx, "XMLDrawSettingsImportOasis", true, SvXMLImportFlags::SETTINGS));
 }
 
-SERVICE( XMLImpressStylesImportOasis, "com.sun.star.comp.Impress.XMLOasisStylesImporter", "XMLImpressStylesImportOasis", false, SvXMLImportFlags::STYLES|SvXMLImportFlags::AUTOSTYLES|SvXMLImportFlags::MASTERSTYLES )
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisStylesImporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLImport(pCtx, "XMLImpressStylesImportOasis", false,
+                                         SvXMLImportFlags::STYLES | SvXMLImportFlags::AUTOSTYLES
+                                             | SvXMLImportFlags::MASTERSTYLES));
+}
 
-SERVICE( XMLImpressContentImportOasis, "com.sun.star.comp.Impress.XMLOasisContentImporter", "XMLImpressContentImportOasis", false, SvXMLImportFlags::AUTOSTYLES|SvXMLImportFlags::CONTENT|SvXMLImportFlags::SCRIPTS|SvXMLImportFlags::FONTDECLS )
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisContentImporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLImport(pCtx, "XMLImpressContentImportOasis", false,
+                                         SvXMLImportFlags::AUTOSTYLES | SvXMLImportFlags::CONTENT
+                                             | SvXMLImportFlags::SCRIPTS
+                                             | SvXMLImportFlags::FONTDECLS));
+}
 
-SERVICE( XMLImpressMetaImportOasis, "com.sun.star.comp.Impress.XMLOasisMetaImporter", "XMLImpressMetaImportOasis", false, SvXMLImportFlags::META )
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisMetaImporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(
+        new SdXMLImport(pCtx, "XMLImpressMetaImportOasis", false, SvXMLImportFlags::META));
+}
 
 extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
 com_sun_star_comp_Impress_XMLOasisSettingsImporter_get_implementation(
@@ -385,14 +386,14 @@ void SAL_CALL SdXMLImport::setTargetDocument( const uno::Reference< lang::XCompo
     // prepare access to master pages
     uno::Reference < drawing::XMasterPagesSupplier > xMasterPagesSupplier(GetModel(), uno::UNO_QUERY);
     if(xMasterPagesSupplier.is())
-        mxDocMasterPages.set(xMasterPagesSupplier->getMasterPages(), css::uno::UNO_QUERY);
+        mxDocMasterPages = xMasterPagesSupplier->getMasterPages();
 
     // prepare access to draw pages
     uno::Reference <drawing::XDrawPagesSupplier> xDrawPagesSupplier(GetModel(), uno::UNO_QUERY);
     if(!xDrawPagesSupplier.is())
         throw lang::IllegalArgumentException();
 
-    mxDocDrawPages.set(xDrawPagesSupplier->getDrawPages(), css::uno::UNO_QUERY);
+    mxDocDrawPages = xDrawPagesSupplier->getDrawPages();
     if(!mxDocDrawPages.is())
         throw lang::IllegalArgumentException();
 

@@ -28,7 +28,6 @@
 #include <editeng/outlobj.hxx>
 #include "outleeng.hxx"
 #include <editeng/editobj.hxx>
-#include <vcl/bitmap.hxx>
 #include <tools/stream.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
@@ -234,8 +233,8 @@ void OutlinerParaObject::dumpAsXml(xmlTextWriterPtr pWriter) const
     xmlTextWriterStartElement(pWriter, BAD_CAST("OutlinerParaObject"));
     xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("ptr"), "%p", this);
     mpImpl->mpEditTextObject->dumpAsXml(pWriter);
-    for (Paragraph const & p : mpImpl->maParagraphDataVector)
-        p.dumpAsXml(pWriter);
+    for (ParagraphData const & p : mpImpl->maParagraphDataVector)
+        Paragraph(p).dumpAsXml(pWriter);
     xmlTextWriterEndElement(pWriter);
 }
 

@@ -18,7 +18,6 @@
  */
 
 #include <cfgutil.hxx>
-#include <cfg.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
@@ -36,28 +35,19 @@
 #include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/ui/theUICategoryDescription.hpp>
 
-#include <basic/sbx.hxx>
-#include <basic/basicmanagerrepository.hxx>
-#include <basic/sbstar.hxx>
-#include <basic/sbxmeth.hxx>
-#include <basic/sbmod.hxx>
 #include <basic/basmgr.hxx>
 #include <tools/urlobj.hxx>
 #include <strings.hrc>
 #include <bitmaps.hlst>
-#include <sfx2/app.hxx>
 #include <sfx2/minfitem.hxx>
 #include <comphelper/DisableInteractionHelper.hxx>
 #include <comphelper/documentinfo.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <svtools/imagemgr.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-#include <unotools/configmgr.hxx>
 #include <dialmgr.hxx>
-#include <svl/stritem.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/help.hxx>
@@ -159,7 +149,7 @@ void SfxStylesInfo_Impl::getLabel4Style(SfxStyleInfo_Impl& aStyle)
     }
 }
 
-std::vector< SfxStyleInfo_Impl > SfxStylesInfo_Impl::getStyleFamilies()
+std::vector< SfxStyleInfo_Impl > SfxStylesInfo_Impl::getStyleFamilies() const
 {
     // It's an optional interface!
     css::uno::Reference< css::style::XStyleFamiliesSupplier > xModel(m_xDoc, css::uno::UNO_QUERY);
@@ -167,7 +157,7 @@ std::vector< SfxStyleInfo_Impl > SfxStylesInfo_Impl::getStyleFamilies()
         return std::vector< SfxStyleInfo_Impl >();
 
     css::uno::Reference< css::container::XNameAccess > xCont = xModel->getStyleFamilies();
-    css::uno::Sequence< OUString > lFamilyNames = xCont->getElementNames();
+    const css::uno::Sequence< OUString > lFamilyNames = xCont->getElementNames();
     std::vector< SfxStyleInfo_Impl > lFamilies;
     for (const auto& aFamily : lFamilyNames)
     {
@@ -265,7 +255,7 @@ OUString CuiConfigFunctionListBox::GetHelpText( bool bConsiderParent )
     return OUString();
 }
 
-OUString CuiConfigFunctionListBox::GetCurCommand()
+OUString CuiConfigFunctionListBox::GetCurCommand() const
 {
     SfxGroupInfo_Impl *pData = reinterpret_cast<SfxGroupInfo_Impl*>(get_selected_id().toInt64());
     if (!pData)
@@ -273,7 +263,7 @@ OUString CuiConfigFunctionListBox::GetCurCommand()
     return pData->sCommand;
 }
 
-OUString CuiConfigFunctionListBox::GetCurLabel()
+OUString CuiConfigFunctionListBox::GetCurLabel() const
 {
     SfxGroupInfo_Impl *pData = reinterpret_cast<SfxGroupInfo_Impl*>(get_selected_id().toInt64());
     if (!pData)
@@ -327,7 +317,7 @@ void CuiConfigFunctionListBox::ClearAll()
     m_xTreeView->clear();
 }
 
-OUString CuiConfigFunctionListBox::GetSelectedScriptURI()
+OUString CuiConfigFunctionListBox::GetSelectedScriptURI() const
 {
     SfxGroupInfo_Impl *pData = reinterpret_cast<SfxGroupInfo_Impl*>(get_selected_id().toInt64());
     if (pData && pData->nKind == SfxCfgKind::FUNCTION_SCRIPT)
@@ -376,7 +366,7 @@ namespace
         {
             Reference< XScriptInvocationContext > xContext( _rxComponent, UNO_QUERY );
             if ( xContext.is() )
-                xScripts.set( xContext->getScriptContainer(), UNO_QUERY );
+                xScripts = xContext->getScriptContainer();
         }
 
         return Reference< XModel >( xScripts, UNO_QUERY );
@@ -418,21 +408,8 @@ CuiConfigGroupListBox::CuiConfigGroupListBox(std::unique_ptr<weld::TreeView> xTr
     , m_pStylesInfo(nullptr)
     , m_xTreeView(std::move(xTreeView))
 {
-    m_xTreeView->connect_row_activated(LINK(this, CuiConfigGroupListBox, OpenCurrentHdl));
     m_xTreeView->connect_expanding(LINK(this, CuiConfigGroupListBox, ExpandingHdl));
     m_xTreeView->set_size_request(m_xTreeView->get_approximate_digit_width() * 35, m_xTreeView->get_height_rows(9));
-}
-
-IMPL_LINK_NOARG(CuiConfigGroupListBox, OpenCurrentHdl, weld::TreeView&, void)
-{
-    std::unique_ptr<weld::TreeIter> xIter(m_xTreeView->make_iterator());
-    bool bValidIter = m_xTreeView->get_cursor(xIter.get());
-    if (!bValidIter)
-        return;
-    if (!m_xTreeView->get_row_expanded(*xIter))
-        m_xTreeView->expand_row(*xIter);
-    else
-        m_xTreeView->collapse_row(*xIter);
 }
 
 CuiConfigGroupListBox::~CuiConfigGroupListBox()
@@ -1143,10 +1120,11 @@ IMPL_LINK(SvxScriptSelectorDialog, SelectHdl, weld::TreeView&, rCtrl, void)
     UpdateUI();
 }
 
-IMPL_LINK_NOARG(SvxScriptSelectorDialog, FunctionDoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(SvxScriptSelectorDialog, FunctionDoubleClickHdl, weld::TreeView&, bool)
 {
     if (m_xOKButton->get_sensitive())
         ClickHdl(*m_xOKButton);
+    return true;
 }
 
 // Check if command is selected and enable the OK button accordingly

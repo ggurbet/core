@@ -18,39 +18,28 @@
  */
 
 #include <OutlineView.hxx>
-#include <editeng/forbiddencharacterstable.hxx>
 #include <sfx2/progress.hxx>
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/wrkwin.hxx>
 #include <svx/svxids.hrc>
 #include <editeng/outliner.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/editstat.hxx>
 #include <editeng/lrspitem.hxx>
 #include <svx/svdotext.hxx>
-#include <sfx2/printer.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <svl/itempool.hxx>
 #include <svl/style.hxx>
-#include <svx/svdorect.hxx>
 #include <svx/svdundo.hxx>
-#include <editeng/adjustitem.hxx>
-#include <editeng/tstpitem.hxx>
-#include <editeng/lspcitem.hxx>
 #include <editeng/numitem.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/editeng.hxx>
 #include <xmloff/autolayout.hxx>
+#include <tools/debug.hxx>
 
 #include <editeng/editobj.hxx>
 #include <editeng/editund2.hxx>
 
 #include <editeng/editview.hxx>
-#include <editeng/svxfont.hxx>
-#include <editeng/fhgtitem.hxx>
 
 #include <com/sun/star/frame/XFrame.hpp>
 
@@ -68,7 +57,6 @@
 #include <EventMultiplexer.hxx>
 #include <ViewShellBase.hxx>
 #include <ViewShellManager.hxx>
-#include <undo/undoobjects.hxx>
 #include <undo/undomanager.hxx>
 #include <stlsheet.hxx>
 
@@ -125,7 +113,7 @@ OutlineView::OutlineView( DrawDocShell& rDocSh, vcl::Window* pWindow, OutlineVie
     Link<tools::EventMultiplexerEvent&,void> aLink( LINK(this,OutlineView,EventMultiplexerListener) );
     mrOutlineViewShell.GetViewShellBase().GetEventMultiplexer()->AddEventListener(aLink);
 
-    Reference<XFrame> xFrame (mrOutlineViewShell.GetViewShellBase().GetFrame()->GetFrame().GetFrameInterface(), UNO_QUERY);
+    Reference<XFrame> xFrame = mrOutlineViewShell.GetViewShellBase().GetFrame()->GetFrame().GetFrameInterface();
     maSlideImage = vcl::CommandInfoProvider::GetImageForCommand(".uno:ShowSlide", xFrame, vcl::ImageType::Size26);
 
     // Tell undo manager of the document about the undo manager of the
@@ -1189,14 +1177,14 @@ SdPage* OutlineView::GetPageForParagraph( Paragraph* pPara )
 Paragraph* OutlineView::GetParagraphForPage( ::Outliner const & rOutl, SdPage const * pPage )
 {
     // get the number of paragraphs with ident 0 we need to skip before
-    // we finde the actual page
+    // we find the actual page
     sal_uInt32 nPagesToSkip = (pPage->GetPageNum() - 1) >> 1;
 
     sal_Int32 nParaPos = 0;
     Paragraph* pPara = rOutl.GetParagraph( 0 );
     while( pPara )
     {
-        // if this paragraph is a page ...
+        // if this paragraph is a page...
         if( ::Outliner::HasParaFlag(pPara,ParaFlag::ISPAGE) )
         {
             // see if we already skipped enough pages
@@ -1316,7 +1304,7 @@ void OutlineView::ResetLinks() const
     mrOutliner.SetEndPasteOrDropHdl(Link<PasteOrDropInfos*,void>());
 }
 
-sal_Int8 OutlineView::AcceptDrop( const AcceptDropEvent&, DropTargetHelper&, ::sd::Window*, sal_uInt16, SdrLayerID)
+sal_Int8 OutlineView::AcceptDrop( const AcceptDropEvent&, DropTargetHelper&, SdrLayerID)
 {
     return DND_ACTION_NONE;
 }

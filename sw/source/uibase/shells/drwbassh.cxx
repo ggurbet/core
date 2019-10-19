@@ -129,6 +129,7 @@ void SwDrawBaseShell::Execute(SfxRequest const &rReq)
                                 RES_LR_SPACE, RES_UL_SPACE,
                                 RES_SURROUND, RES_SURROUND,
                                 RES_ANCHOR, RES_ANCHOR,
+                                RES_WRAP_INFLUENCE_ON_OBJPOS, RES_WRAP_INFLUENCE_ON_OBJPOS,
                                 SID_HTML_MODE, SID_HTML_MODE,
                                 FN_DRAW_WRAP_DLG, FN_DRAW_WRAP_DLG>{});
 
@@ -239,7 +240,9 @@ void SwDrawBaseShell::Execute(SfxRequest const &rReq)
 
                         pDlg->SetInputSet( &aSet );
 
-                        pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+                        pDlg->StartExecuteAsync([bCaption, bChanged, pDlg, pFrameFormat, pSdrView,
+                                                 pSh, &rMarkList, this](
+                                                    sal_Int32 nResult){
                             if (nResult == RET_OK)
                             {
                                 SwFormatVertOrient aVOrientFinal(pFrameFormat->GetFormatAttr(RES_VERT_ORIENT));
@@ -348,7 +351,22 @@ void SwDrawBaseShell::Execute(SfxRequest const &rReq)
                 }
                 else
                 {
+                    pSh->StartAllAction();
                     pSdrView->SetGeoAttrToMarked( *pArgs );
+                    const SdrMarkList& rMarkList = pSdrView->GetMarkedObjectList();
+                    SdrObject* pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
+                    if (pObj)
+                    {
+                        SwFrameFormat* pFrameFormat = FindFrameFormat(pObj);
+                        if (pFrameFormat)
+                        {
+                            const SwFormatAnchor& rAnchor = pFrameFormat->GetAnchor();
+                            // Don't change shape position / size, just update the anchor doc model
+                            // position.
+                            pSh->ChgAnchor(rAnchor.GetAnchorId(), /*bSameOnly=*/true);
+                        }
+                    }
+                    pSh->EndAllAction();
                 }
             }
         }

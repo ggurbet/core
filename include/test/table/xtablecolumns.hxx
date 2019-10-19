@@ -10,8 +10,6 @@
 #ifndef INCLUDED_TEST_TABLE_XTABLECOLUMNS_HXX
 #define INCLUDED_TEST_TABLE_XTABLECOLUMNS_HXX
 
-#include <rtl/string.hxx>
-
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
 #include <com/sun/star/table/XCell.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
@@ -27,7 +25,7 @@ class OOO_DLLPUBLIC_TEST XTableColumns
 public:
     virtual css::uno::Reference<css::uno::XInterface> init() = 0;
 
-    void setXSpreadsheet(css::uno::Reference<css::sheet::XSpreadsheet>& r_xSheet)
+    void setXSpreadsheet(const css::uno::Reference<css::sheet::XSpreadsheet>& r_xSheet)
     {
         m_xSheet = r_xSheet;
     }
@@ -49,7 +47,7 @@ protected:
 private:
     css::uno::Reference<css::sheet::XSpreadsheet> m_xSheet;
 
-    static const OUString getCellText(const css::uno::Reference<css::table::XCell>& r_xCell);
+    static OUString getCellText(const css::uno::Reference<css::table::XCell>& r_xCell);
 };
 
 } // namespace apitest

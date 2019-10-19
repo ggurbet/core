@@ -23,18 +23,12 @@
 #include <com/sun/star/container/NoSuchElementException.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 
-#include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/implbase.hxx>
-#include <rtl/uuid.h>
 
 #include <toolkit/controls/unocontrolcontainer.hxx>
-#include <toolkit/helper/property.hxx>
-#include <toolkit/helper/servicenames.hxx>
 #include <comphelper/sequence.hxx>
 
 #include <tools/debug.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/window.hxx>
 
 #include <limits>
 #include <map>
@@ -295,7 +289,7 @@ static void implUpdateVisibility
     const uno::Reference< awt::XControlContainer >& xControlContainer
 )
 {
-    uno::Sequence< uno::Reference< awt::XControl > >
+    const uno::Sequence< uno::Reference< awt::XControl > >
         aCtrls = xControlContainer->getControls();
     bool bCompleteVisible = (nDialogStep == 0);
     for( const uno::Reference< awt::XControl >& xControl : aCtrls )
@@ -406,7 +400,7 @@ void UnoControlContainer::dispose(  )
     maCListeners.disposeAndClear( aDisposeEvent );
 
 
-    uno::Sequence< uno::Reference< awt::XControl > > aCtrls = getControls();
+    const uno::Sequence< uno::Reference< awt::XControl > > aCtrls = getControls();
 
     for( uno::Reference< awt::XControl > const & control : aCtrls )
     {
@@ -780,7 +774,7 @@ void UnoControlContainer::setVisible( sal_Bool bVisible )
 
 OUString UnoControlContainer::getImplementationName()
 {
-    return OUString("stardiv.Toolkit.UnoControlContainer");
+    return "stardiv.Toolkit.UnoControlContainer";
 }
 
 css::uno::Sequence<OUString> UnoControlContainer::getSupportedServiceNames()

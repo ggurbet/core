@@ -26,7 +26,6 @@
 #include <com/sun/star/text/XTextTable.hpp>
 #include <ooo/vba/word/XParagraphFormat.hpp>
 #include <ooo/vba/word/XFind.hpp>
-#include <ooo/vba/word/XStyle.hpp>
 #include <ooo/vba/word/XFont.hpp>
 #include <ooo/vba/word/XHeaderFooter.hpp>
 #include "wordvbahelper.hxx"
@@ -51,9 +50,9 @@ private:
     /// @throws css::uno::RuntimeException
     void GetSelectedCellRange( OUString& sTLName, OUString& sBRName );
     /// @throws css::uno::RuntimeException
-    css::uno::Reference< css::text::XTextTable > GetXTextTable();
+    css::uno::Reference< css::text::XTextTable > GetXTextTable() const;
     /// @throws css::uno::RuntimeException
-    bool IsInTable();
+    bool IsInTable() const;
     /// @throws css::uno::RuntimeException
     bool HasSelection();
 

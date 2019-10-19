@@ -70,11 +70,8 @@ namespace
 {
 uno::Sequence<OUString> FilePicker_getSupportedServiceNames()
 {
-    uno::Sequence<OUString> aRet(3);
-    aRet[0] = "com.sun.star.ui.dialogs.FilePicker";
-    aRet[1] = "com.sun.star.ui.dialogs.SystemFilePicker";
-    aRet[2] = "com.sun.star.ui.dialogs.Qt5FilePicker";
-    return aRet;
+    return { "com.sun.star.ui.dialogs.FilePicker", "com.sun.star.ui.dialogs.SystemFilePicker",
+             "com.sun.star.ui.dialogs.Qt5FilePicker" };
 }
 }
 
@@ -366,7 +363,7 @@ void SAL_CALL Qt5FilePicker::appendFilterGroup(const OUString& rGroupTitle,
     }
 }
 
-uno::Any Qt5FilePicker::handleGetListValue(QComboBox* pWidget, sal_Int16 nControlAction)
+uno::Any Qt5FilePicker::handleGetListValue(const QComboBox* pWidget, sal_Int16 nControlAction)
 {
     uno::Any aAny;
     switch (nControlAction)
@@ -415,7 +412,7 @@ void Qt5FilePicker::handleSetListValue(QComboBox* pWidget, sal_Int16 nControlAct
         {
             Sequence<OUString> aStringList;
             rValue >>= aStringList;
-            for (auto const& sItem : aStringList)
+            for (auto const& sItem : std::as_const(aStringList))
                 pWidget->addItem(toQString(sItem));
             break;
         }
@@ -826,7 +823,7 @@ void Qt5FilePicker::disposing(const lang::EventObject& rEvent)
 
 OUString SAL_CALL Qt5FilePicker::getImplementationName()
 {
-    return OUString("com.sun.star.ui.dialogs.Qt5FilePicker");
+    return "com.sun.star.ui.dialogs.Qt5FilePicker";
 }
 
 sal_Bool SAL_CALL Qt5FilePicker::supportsService(const OUString& ServiceName)

@@ -17,11 +17,6 @@
 
 #include "MWAWCalcImportFilter.hxx"
 
-using com::sun::star::uno::RuntimeException;
-using com::sun::star::uno::Sequence;
-using com::sun::star::uno::XComponentContext;
-using com::sun::star::uno::XInterface;
-
 static bool handleEmbeddedMWAWGraphicObject(const librevenge::RVNGBinaryData& data,
                                             OdfDocumentHandler* pHandler,
                                             const OdfStreamType streamType)
@@ -108,7 +103,7 @@ void MWAWCalcImportFilter::doRegisterHandlers(OdsGenerator& rGenerator)
 // XServiceInfo
 OUString SAL_CALL MWAWCalcImportFilter::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Calc.MWAWCalcImportFilter");
+    return "com.sun.star.comp.Calc.MWAWCalcImportFilter";
 }
 
 sal_Bool SAL_CALL MWAWCalcImportFilter::supportsService(const OUString& rServiceName)
@@ -116,13 +111,9 @@ sal_Bool SAL_CALL MWAWCalcImportFilter::supportsService(const OUString& rService
     return cppu::supportsService(this, rServiceName);
 }
 
-Sequence<OUString> SAL_CALL MWAWCalcImportFilter::getSupportedServiceNames()
+css::uno::Sequence<OUString> SAL_CALL MWAWCalcImportFilter::getSupportedServiceNames()
 {
-    Sequence<OUString> aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.document.ImportFilter";
-    pArray[1] = "com.sun.star.document.ExtendedTypeDetection";
-    return aRet;
+    return { "com.sun.star.document.ImportFilter", "com.sun.star.document.ExtendedTypeDetection" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*

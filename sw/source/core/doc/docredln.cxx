@@ -383,7 +383,7 @@ void SwRedlineTable::LOKRedlineNotification(RedlineNotification nType, SwRangeRe
 
         SwRects* pRects(&aCursor);
         std::vector<OString> aRects;
-        for(SwRect& rNextRect : *pRects)
+        for(const SwRect& rNextRect : *pRects)
             aRects.push_back(rNextRect.SVRect().toString());
 
         const OString sRects = comphelper::string::join("; ", aRects);
@@ -753,8 +753,9 @@ bool SwRedlineExtraData::operator == ( const SwRedlineExtraData& ) const
 
 SwRedlineExtraData_FormatColl::SwRedlineExtraData_FormatColl( const OUString& rColl,
                                                 sal_uInt16 nPoolFormatId,
-                                                const SfxItemSet* pItemSet )
-    : m_sFormatNm(rColl), m_nPoolId(nPoolFormatId)
+                                                const SfxItemSet* pItemSet,
+                                                bool bFormatAll )
+    : m_sFormatNm(rColl), m_nPoolId(nPoolFormatId), m_bFormatAll(bFormatAll)
 {
     if( pItemSet && pItemSet->Count() )
         m_pSet.reset( new SfxItemSet( *pItemSet ) );
@@ -766,7 +767,7 @@ SwRedlineExtraData_FormatColl::~SwRedlineExtraData_FormatColl()
 
 SwRedlineExtraData* SwRedlineExtraData_FormatColl::CreateNew() const
 {
-    return new SwRedlineExtraData_FormatColl( m_sFormatNm, m_nPoolId, m_pSet.get() );
+    return new SwRedlineExtraData_FormatColl( m_sFormatNm, m_nPoolId, m_pSet.get(), m_bFormatAll );
 }
 
 void SwRedlineExtraData_FormatColl::Reject( SwPaM& rPam ) const
@@ -777,39 +778,47 @@ void SwRedlineExtraData_FormatColl::Reject( SwPaM& rPam ) const
     SwTextFormatColl* pColl = USHRT_MAX == m_nPoolId
                             ? pDoc->FindTextFormatCollByName( m_sFormatNm )
                             : pDoc->getIDocumentStylePoolAccess().GetTextCollFromPool( m_nPoolId );
+
+    RedlineFlags eOld = pDoc->getIDocumentRedlineAccess().GetRedlineFlags();
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern(eOld & ~RedlineFlags(RedlineFlags::On | RedlineFlags::Ignore));
+
+    SwPaM aPam( *rPam.GetMark(), *rPam.GetPoint() );
+
+    const SwPosition* pStt = rPam.Start(),
+                    * pEnd = pStt == rPam.GetPoint() ? rPam.GetMark()
+                                                     : rPam.GetPoint();
+
+    if ( !m_bFormatAll || pEnd->nContent == 0 )
+    {
+        // don't reject the format of the next paragraph (that is handled by the next redline)
+        if (aPam.GetPoint()->nNode > aPam.GetMark()->nNode)
+        {
+            aPam.GetPoint()->nNode--;
+            SwContentNode* pNode = aPam.GetPoint()->nNode.GetNode().GetContentNode();
+            aPam.GetPoint()->nContent.Assign( pNode, pNode->Len() );
+        }
+        else if (aPam.GetPoint()->nNode < aPam.GetMark()->nNode)
+        {
+            aPam.GetMark()->nNode--;
+            SwContentNode* pNode = aPam.GetMark()->nNode.GetNode().GetContentNode();
+            aPam.GetMark()->nContent.Assign( pNode, pNode->Len() );
+        }
+    }
+
     if( pColl )
-        pDoc->SetTextFormatColl( rPam, pColl, false );
+        pDoc->SetTextFormatColl( aPam, pColl, false );
 
     if( m_pSet )
-    {
-        rPam.SetMark();
-        SwPosition& rMark = *rPam.GetMark();
-        SwTextNode* pTNd = rMark.nNode.GetNode().GetTextNode();
-        if( pTNd )
-        {
-            rMark.nContent.Assign(pTNd, pTNd->GetText().getLength());
+        pDoc->getIDocumentContentOperations().InsertItemSet( aPam, *m_pSet );
 
-            if( pTNd->HasSwAttrSet() )
-            {
-                // Only set those that are not there anymore. Others
-                // could have changed, but we don't touch these.
-                SfxItemSet aTmp( *m_pSet );
-                aTmp.Differentiate( *pTNd->GetpSwAttrSet() );
-                pDoc->getIDocumentContentOperations().InsertItemSet( rPam, aTmp );
-            }
-            else
-            {
-                pDoc->getIDocumentContentOperations().InsertItemSet( rPam, *m_pSet );
-            }
-        }
-        rPam.DeleteMark();
-    }
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );
 }
 
 bool SwRedlineExtraData_FormatColl::operator == ( const SwRedlineExtraData& r) const
 {
     const SwRedlineExtraData_FormatColl& rCmp = static_cast<const SwRedlineExtraData_FormatColl&>(r);
     return m_sFormatNm == rCmp.m_sFormatNm && m_nPoolId == rCmp.m_nPoolId &&
+            m_bFormatAll == rCmp.m_bFormatAll &&
             ( ( !m_pSet && !rCmp.m_pSet ) ||
                ( m_pSet && rCmp.m_pSet && *m_pSet == *rCmp.m_pSet ) );
 }
@@ -825,13 +834,9 @@ void SwRedlineExtraData_FormatColl::SetItemSet( const SfxItemSet& rSet )
 SwRedlineExtraData_Format::SwRedlineExtraData_Format( const SfxItemSet& rSet )
 {
     SfxItemIter aIter( rSet );
-    const SfxPoolItem* pItem = aIter.FirstItem();
-    while(pItem)
+    for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
     {
         m_aWhichIds.push_back( pItem->Which() );
-        if( aIter.IsAtEnd() )
-            break;
-        pItem = aIter.NextItem();
     }
 }
 
@@ -882,67 +887,6 @@ bool SwRedlineExtraData_Format::operator == ( const SwRedlineExtraData& rCmp ) c
         }
     }
     return true;
-}
-
-SwRedlineExtraData_FormattingChanges::SwRedlineExtraData_FormattingChanges( const SfxItemSet* pItemSet )
-{
-    if( pItemSet && pItemSet->Count() )
-        m_pSet.reset( new SfxItemSet( *pItemSet ) );
-}
-
-SwRedlineExtraData_FormattingChanges::SwRedlineExtraData_FormattingChanges( const SwRedlineExtraData_FormattingChanges& rCpy )
-    : SwRedlineExtraData()
-{
-    // Checking pointer pSet before accessing it for Count
-    if( rCpy.m_pSet && rCpy.m_pSet->Count() )
-    {
-        m_pSet.reset( new SfxItemSet( *(rCpy.m_pSet) ) );
-    }
-    else
-    {
-        m_pSet.reset();
-    }
-}
-
-SwRedlineExtraData_FormattingChanges::~SwRedlineExtraData_FormattingChanges()
-{
-}
-
-SwRedlineExtraData* SwRedlineExtraData_FormattingChanges::CreateNew() const
-{
-    return new SwRedlineExtraData_FormattingChanges( *this );
-}
-
-void SwRedlineExtraData_FormattingChanges::Reject(SwPaM& rPam) const
-{
-    SwDoc* pDoc = rPam.GetDoc();
-
-    if( m_pSet )
-    {
-        RedlineFlags eOld = pDoc->getIDocumentRedlineAccess().GetRedlineFlags();
-        pDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern(eOld & ~RedlineFlags(RedlineFlags::On | RedlineFlags::Ignore));
-
-        pDoc->getIDocumentContentOperations().InsertItemSet(rPam, *GetItemSet());
-
-        pDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );
-    }
-}
-
-bool SwRedlineExtraData_FormattingChanges::operator == ( const SwRedlineExtraData& rExtraData ) const
-{
-    const SwRedlineExtraData_FormattingChanges& rCmp = static_cast<const SwRedlineExtraData_FormattingChanges&>(rExtraData);
-
-    if ( !m_pSet && !rCmp.m_pSet )
-    {
-        // Both SfxItemSet are null
-        return true;
-    }
-    else if ( m_pSet && rCmp.m_pSet && *m_pSet == *rCmp.m_pSet )
-    {
-        // Both SfxItemSet exist and are equal
-        return true;
-    }
-    return false;
 }
 
 SwRedlineData::SwRedlineData( RedlineType eT, std::size_t nAut )
@@ -1496,7 +1440,7 @@ void SwRangeRedline::CopyToSection()
         {
             SwNodeIndex aInsPos( *pSttNd->EndOfSectionNode() );
             SwNodeRange aRg( pStt->nNode, 0, pEnd->nNode, 1 );
-            pDoc->GetDocumentContentOperationsManager().CopyWithFlyInFly( aRg, 0, aInsPos );
+            pDoc->GetDocumentContentOperationsManager().CopyWithFlyInFly(aRg, aInsPos);
         }
     }
     m_pContentSect = new SwNodeIndex( *pSttNd );
@@ -1535,7 +1479,8 @@ void SwRangeRedline::DelCopyOfSection(size_t nMyPos)
         if( pCSttNd && pCEndNd )
         {
             // #i100466# - force a <join next> on <delete and join> operation
-            pDoc->getIDocumentContentOperations().DeleteAndJoin( aPam, true );
+            // tdf#125319 - rather not?
+            pDoc->getIDocumentContentOperations().DeleteAndJoin(aPam/*, true*/);
         }
         else if( pCSttNd || pCEndNd )
         {

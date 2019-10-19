@@ -54,17 +54,17 @@ namespace dbaccess
 
     static OUString getConfigurationRootPath()
     {
-        return OUString("org.openoffice.Office.DataAccess/RegisteredNames");
+        return "org.openoffice.Office.DataAccess/RegisteredNames";
     }
 
     static OUString getLocationNodeName()
     {
-        return OUString("Location");
+        return "Location";
     }
 
     static OUString getNameNodeName()
     {
-        return OUString("Name");
+        return "Name";
     }
 
     // DatabaseRegistrations - declaration
@@ -153,7 +153,7 @@ namespace dbaccess
 
     ::utl::OConfigurationNode DatabaseRegistrations::impl_getNodeForName_nothrow( const OUString& _rName )
     {
-        Sequence< OUString > aNames( m_aConfigurationRoot.getNodeNames() );
+        const Sequence< OUString > aNames( m_aConfigurationRoot.getNodeNames() );
         for ( auto const & nodeName : aNames )
         {
             ::utl::OConfigurationNode aNodeForName = m_aConfigurationRoot.openNode( nodeName );
@@ -241,7 +241,7 @@ namespace dbaccess
         if ( !m_aConfigurationRoot.isValid() )
             throw RuntimeException( OUString(), *this );
 
-        Sequence< OUString > aProgrammaticNames( m_aConfigurationRoot.getNodeNames() );
+        const Sequence< OUString > aProgrammaticNames( m_aConfigurationRoot.getNodeNames() );
         Sequence< OUString > aDisplayNames( aProgrammaticNames.getLength() );
         OUString* pDisplayName = aDisplayNames.getArray();
 

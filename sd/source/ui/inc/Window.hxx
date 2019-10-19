@@ -58,7 +58,7 @@ public:
     */
     void    SetZoomIntegral(long nZoom);
 
-    /** This internally used method performs the actual adaption of the
+    /** This internally used method performs the actual adaptation of the
         window's map mode to the specified zoom factor.
         @param nZoom
             The zoom factor is given as integral percent value.
@@ -126,16 +126,16 @@ public:
 
     void UpdateMapMode();
 
-    double  GetVisibleX();          // interface for ScrollBars
-    double  GetVisibleY();
+    double  GetVisibleX() const;          // interface for ScrollBars
+    double  GetVisibleY() const;
     void    SetVisibleXY(double fX, double fY);
-    double  GetVisibleWidth();
-    double  GetVisibleHeight();
+    double  GetVisibleWidth() const;
+    double  GetVisibleHeight() const;
     Point   GetVisibleCenter();
-    double  GetScrlLineWidth();
-    double  GetScrlLineHeight();
-    double  GetScrlPageWidth();
-    double  GetScrlPageHeight();
+    double  GetScrlLineWidth() const;
+    double  GetScrlLineHeight() const;
+    double  GetScrlPageWidth() const;
+    double  GetScrlPageHeight() const;
     void GrabFocus();
     virtual void DataChanged( const DataChangedEvent& rDCEvt ) override;
 

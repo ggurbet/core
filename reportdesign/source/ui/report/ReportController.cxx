@@ -255,7 +255,7 @@ OUString SAL_CALL OReportController::getImplementationName()
 
 OUString OReportController::getImplementationName_Static()
 {
-    return OUString("com.sun.star.report.comp.ReportDesign");
+    return "com.sun.star.report.comp.ReportDesign";
 }
 
 Sequence< OUString> OReportController::getSupportedServiceNames_Static()
@@ -1548,8 +1548,8 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
                 uno::Reference< report::XFormattedField> xFormattedField(getDesignView()->getCurrentControlModel(),uno::UNO_QUERY);
                 if ( xFormattedField.is() )
                 {
-                    ScopedVclPtrInstance< ConditionalFormattingDialog > aDlg( getView(), xFormattedField.get(), *this );
-                    aDlg->Execute();
+                    ConditionalFormattingDialog aDlg(getFrameWeld(), xFormattedField.get(), *this);
+                    aDlg.run();
                 }
             }
             break;
@@ -2363,9 +2363,9 @@ void OReportController::openPageDialog(const uno::Reference<report::XSection>& _
         new SvxULSpaceItem(RPTUI_ID_ULSPACE),
         new SvxPageItem(RPTUI_ID_PAGE),
         new SvxSizeItem(RPTUI_ID_SIZE),
-        new SfxAllEnumItem(RPTUI_ID_PAGE_MODE,SVX_PAGE_MODE_STANDARD),
-        new SfxAllEnumItem(RPTUI_ID_START,PAPER_A4),
-        new SfxAllEnumItem(RPTUI_ID_END,PAPER_E),
+        new SfxUInt16Item(RPTUI_ID_PAGE_MODE,SVX_PAGE_MODE_STANDARD),
+        new SfxUInt16Item(RPTUI_ID_START,PAPER_A4),
+        new SfxUInt16Item(RPTUI_ID_END,PAPER_E),
         new SvxBrushItem(RPTUI_ID_BRUSH),
         new XFillStyleItem,
         new XFillColorItem("", aNullFillCol),
@@ -3306,12 +3306,12 @@ void OReportController::addPairControls(const Sequence< PropertyValue >& aArgs)
     try
     {
         bool bHandleOnlyOne = false;
-        const PropertyValue* pIter = aArgs.getConstArray();
-        const PropertyValue* pEnd  = pIter + aArgs.getLength();
-        for(;pIter != pEnd && !bHandleOnlyOne;++pIter)
+        for(const PropertyValue& rArg : aArgs)
         {
+            if (bHandleOnlyOne)
+                break;
             Sequence< PropertyValue > aValue;
-            if ( !(pIter->Value >>= aValue) )
+            if ( !(rArg.Value >>= aValue) )
             {   // the sequence has only one element which already contains the descriptor
                 bHandleOnlyOne = true;
                 aValue = aArgs;
@@ -3666,15 +3666,13 @@ void OReportController::listen(const bool _bAdd)
 
     OXUndoEnvironment& rUndoEnv = m_aReportModel->GetUndoEnv();
     uno::Reference< XPropertyChangeListener > xUndo = &rUndoEnv;
-    uno::Sequence< beans::Property> aSeq = m_xReportDefinition->getPropertySetInfo()->getProperties();
-    const beans::Property* pIter = aSeq.getConstArray();
-    const beans::Property* pEnd   = pIter + aSeq.getLength();
+    const uno::Sequence< beans::Property> aSeq = m_xReportDefinition->getPropertySetInfo()->getProperties();
     const OUString* pPropsBegin = &aProps[0];
     const OUString* pPropsEnd   = pPropsBegin + SAL_N_ELEMENTS(aProps) - 3;
-    for(;pIter != pEnd;++pIter)
+    for(const beans::Property& rProp : aSeq)
     {
-        if ( ::std::find(pPropsBegin,pPropsEnd,pIter->Name) == pPropsEnd )
-            (m_xReportDefinition.get()->*pPropertyListenerAction)( pIter->Name, xUndo );
+        if ( ::std::find(pPropsBegin,pPropsEnd,rProp.Name) == pPropsEnd )
+            (m_xReportDefinition.get()->*pPropertyListenerAction)( rProp.Name, xUndo );
     }
 
     // Add Listeners to UndoEnvironment
@@ -4060,14 +4058,7 @@ css::uno::Sequence< OUString > SAL_CALL OReportController::getSupportedModes(  )
 sal_Bool SAL_CALL OReportController::supportsMode( const OUString& aMode )
 {
     uno::Sequence< OUString> aModes = getSupportedModes();
-    const OUString* pIter = aModes.getConstArray();
-    const OUString* pEnd  = pIter + aModes.getLength();
-    for(;pIter != pEnd;++pIter)
-    {
-        if ( *pIter == aMode )
-            break;
-    }
-    return pIter != pEnd;
+    return comphelper::findValue(aModes, aMode) != -1;
 }
 
 bool OReportController::isUiVisible() const

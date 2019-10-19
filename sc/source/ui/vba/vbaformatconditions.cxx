@@ -18,7 +18,6 @@
  */
 
 #include <ooo/vba/excel/XRange.hpp>
-#include <com/sun/star/sheet/XCellRangeAddressable.hpp>
 #include <com/sun/star/sheet/XSheetConditionalEntry.hpp>
 #include <basic/sberrors.hxx>
 #include <comphelper/sequence.hxx>
@@ -27,9 +26,7 @@
 #include <unonames.hxx>
 #include "vbaformatconditions.hxx"
 #include "vbaformatcondition.hxx"
-#include "vbaworkbook.hxx"
 #include "vbastyles.hxx"
-#include "vbaglobals.hxx"
 
 using namespace ::ooo::vba;
 using namespace ::com::sun::star;
@@ -276,7 +273,7 @@ ScVbaFormatConditions::removeFormatCondition( const OUString& _sStyleName, bool 
 OUString
 ScVbaFormatConditions::getServiceImplName()
 {
-    return OUString("ScVbaFormatConditions");
+    return "ScVbaFormatConditions";
 }
 
 uno::Sequence< OUString >

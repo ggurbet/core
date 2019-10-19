@@ -10,9 +10,10 @@
 
 #include <font/OpenTypeFeatureDefinitonList.hxx>
 #include <font/OpenTypeFeatureStrings.hrc>
-#include <svdata.hxx>
 
 #include <rtl/character.hxx>
+
+#include <algorithm>
 
 namespace vcl
 {
@@ -144,7 +145,7 @@ OUString getNumericLowerPart(sal_uInt32 nFeatureCode)
     if (rtl::isAsciiDigit(static_cast<unsigned char>(cChar1))
         && rtl::isAsciiDigit(static_cast<unsigned char>(cChar2)))
     {
-        return OUString(cChar1) + OUString(cChar2);
+        return OUStringChar(cChar1) + OUStringChar(cChar2);
     }
     return OUString();
 }

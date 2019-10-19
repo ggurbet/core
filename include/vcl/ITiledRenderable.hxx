@@ -267,12 +267,27 @@ public:
     }
 
     /*
-     * Used for sheets in spreadsheet documents.
+     * Used for sheets in spreadsheet documents,
+     * and slides in presentation documents.
      */
     virtual OUString getPartInfo(int /*nPart*/)
     {
         return OUString();
     }
+
+    /**
+     * Select/Unselect a document "part", i.e. slide for a slideshow, and
+     * tab for a spreadsheet(?).
+     * nSelect: 0 to deselect, 1 to select, and 2 to toggle.
+     */
+    virtual void selectPart(int /*nPart*/, int /*nSelect*/) {}
+
+    /**
+     * Move selected pages/slides to a new position.
+     * nPosition: the new position to move to.
+     * bDuplicate: to copy (true), or to move (false).
+     */
+    virtual void moveSelectedParts(int /*nPosition*/, bool /*bDuplicate*/) {}
 };
 } // namespace vcl
 

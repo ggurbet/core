@@ -21,36 +21,22 @@
 #include <com/sun/star/embed/EmbedMisc.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/presentation/ClickAction.hpp>
-#include <svl/aeitem.hxx>
 #include <svx/svxids.hrc>
-#include <svx/globl3d.hxx>
-#include <editeng/eeitem.hxx>
+#include <svx/sdmetitm.hxx>
 #include <editeng/flditem.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdoole2.hxx>
-#include <svx/sxelditm.hxx>
 #include <svx/sdtfsitm.hxx>
-#include <sfx2/dispatch.hxx>
-#include <sfx2/request.hxx>
 #include <svx/svdopath.hxx>
 #include <svx/obj3d.hxx>
 #include <svx/scene3d.hxx>
-#include <sfx2/event.hxx>
-#include <sfx2/docfile.hxx>
-#include <rtl/ustrbuf.hxx>
 
 #include <app.hrc>
 
 #include <anminfo.hxx>
-#include <Outliner.hxx>
-#include <sdpage.hxx>
-#include <fupoor.hxx>
-#include <fusel.hxx>
 #include <drawdoc.hxx>
-#include <DrawDocShell.hxx>
 #include <drawview.hxx>
-#include <optsitem.hxx>
 
 using namespace com::sun::star;
 
@@ -97,7 +83,9 @@ void DrawViewShell::GetMenuStateSel( SfxItemSet &rSet )
             SfxItemState::DEFAULT == rSet.GetItemState( SID_OBJECT_ALIGN_DOWN ) ||
             SfxItemState::DEFAULT == rSet.GetItemState( SID_FRAME_TO_TOP ) ||
             SfxItemState::DEFAULT == rSet.GetItemState( SID_MOREFRONT ) ||
+            SfxItemState::DEFAULT == rSet.GetItemState( SID_FRAME_UP ) ||
             SfxItemState::DEFAULT == rSet.GetItemState( SID_MOREBACK ) ||
+            SfxItemState::DEFAULT == rSet.GetItemState( SID_FRAME_DOWN ) ||
             SfxItemState::DEFAULT == rSet.GetItemState( SID_FRAME_TO_BOTTOM ) ||
             SfxItemState::DEFAULT == rSet.GetItemState( SID_BEFORE_OBJ ) ||
             SfxItemState::DEFAULT == rSet.GetItemState( SID_BEHIND_OBJ ) ||
@@ -234,7 +222,9 @@ void DrawViewShell::GetMenuStateSel( SfxItemSet &rSet )
                 rSet.DisableItem( SID_OBJECT_ALIGN_DOWN );
                 rSet.DisableItem( SID_FRAME_TO_TOP );
                 rSet.DisableItem( SID_MOREFRONT );
+                rSet.DisableItem( SID_FRAME_UP );
                 rSet.DisableItem( SID_MOREBACK );
+                rSet.DisableItem( SID_FRAME_DOWN );
                 rSet.DisableItem( SID_FRAME_TO_BOTTOM );
                 rSet.DisableItem( SID_BEFORE_OBJ );
                 rSet.DisableItem( SID_BEHIND_OBJ );
@@ -285,6 +275,7 @@ void DrawViewShell::GetMenuStateSel( SfxItemSet &rSet )
         }
 
         rSet.DisableItem(SID_GROUP);
+        rSet.DisableItem(SID_TEXT_COMBINE);
         rSet.DisableItem(SID_COMBINE);
         rSet.DisableItem(SID_DISTRIBUTE_DLG);
         rSet.DisableItem(SID_POLY_MERGE);
@@ -411,7 +402,9 @@ void DrawViewShell::GetMenuStateSel( SfxItemSet &rSet )
                 rSet.DisableItem( SID_OBJECT_ALIGN_DOWN );
                 rSet.DisableItem( SID_FRAME_TO_TOP );
                 rSet.DisableItem( SID_MOREFRONT );
+                rSet.DisableItem( SID_FRAME_UP );
                 rSet.DisableItem( SID_MOREBACK );
+                rSet.DisableItem( SID_FRAME_DOWN );
                 rSet.DisableItem( SID_FRAME_TO_BOTTOM );
                 rSet.DisableItem( SID_BEFORE_OBJ );
                 rSet.DisableItem( SID_BEHIND_OBJ );
@@ -471,7 +464,9 @@ void DrawViewShell::GetMenuStateSel( SfxItemSet &rSet )
 
         rSet.DisableItem( SID_FRAME_TO_TOP );
         rSet.DisableItem( SID_MOREFRONT );
+        rSet.DisableItem( SID_FRAME_UP );
         rSet.DisableItem( SID_MOREBACK );
+        rSet.DisableItem( SID_FRAME_DOWN );
         rSet.DisableItem( SID_FRAME_TO_BOTTOM );
         rSet.DisableItem( SID_BEFORE_OBJ );
         rSet.DisableItem( SID_BEHIND_OBJ );
@@ -493,6 +488,7 @@ void DrawViewShell::GetMenuStateSel( SfxItemSet &rSet )
 
         rSet.DisableItem( SID_DISMANTLE );
         rSet.DisableItem( SID_BREAK );
+        rSet.DisableItem( SID_TEXT_COMBINE );
         rSet.DisableItem( SID_COMBINE );
         rSet.DisableItem(SID_DISTRIBUTE_DLG);
         rSet.DisableItem(SID_POLY_MERGE);
@@ -507,6 +503,11 @@ void DrawViewShell::GetMenuStateSel( SfxItemSet &rSet )
         rSet.DisableItem (SID_OBJECT_SHEAR);
     }
 
+    if (GetViewShell()->isContentExtractionLocked())
+    {
+        rSet.DisableItem(SID_COPY);
+        rSet.DisableItem(SID_CUT);
+    }
 }
 
 } // end of namespace sd

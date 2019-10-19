@@ -52,7 +52,7 @@
 #include <ucbhelper/commandenvironment.hxx>
 #include "finteraction.hxx"
 #include <unotools/pathoptions.hxx>
-#include <svtools/roadmapwizard.hxx>
+#include <vcl/roadmapwizard.hxx>
 #include "TextConnectionHelper.hxx"
 #include <osl/diagnose.h>
 
@@ -60,14 +60,14 @@ namespace dbaui
 {
 using namespace ::com::sun::star;
 
-    VclPtr<OGenericAdministrationPage> OTextConnectionPageSetup::CreateTextTabPage(TabPageParent pParent, const SfxItemSet& _rAttrSet)
+    std::unique_ptr<OGenericAdministrationPage> OTextConnectionPageSetup::CreateTextTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet)
     {
-        return VclPtr<OTextConnectionPageSetup>::Create(pParent, _rAttrSet);
+        return std::make_unique<OTextConnectionPageSetup>(pPage, pController, _rAttrSet);
     }
 
     // OTextConnectionPageSetup
-    OTextConnectionPageSetup::OTextConnectionPageSetup(TabPageParent pParent, const SfxItemSet& rCoreAttrs)
-        : OConnectionTabPageSetup(pParent, "dbaccess/ui/dbwiztextpage.ui", "DBWizTextPage",
+    OTextConnectionPageSetup::OTextConnectionPageSetup(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs)
+        : OConnectionTabPageSetup(pPage, pController, "dbaccess/ui/dbwiztextpage.ui", "DBWizTextPage",
                                   rCoreAttrs, STR_TEXT_HELPTEXT, STR_TEXT_HEADERTEXT, STR_TEXT_PATH_OR_FILE)
         , m_xSubContainer(m_xBuilder->weld_widget("TextPageContainer"))
         , m_xTextConnectionHelper(new OTextConnectionHelper(m_xSubContainer.get(), TC_EXTENSION | TC_SEPARATORS))
@@ -75,15 +75,9 @@ using namespace ::com::sun::star;
         m_xTextConnectionHelper->SetClickHandler(LINK( this, OTextConnectionPageSetup, ImplGetExtensionHdl ) );
     }
 
-    void OTextConnectionPageSetup::dispose()
-    {
-        m_xTextConnectionHelper.reset();
-        OConnectionTabPageSetup::dispose();
-    }
-
     OTextConnectionPageSetup::~OTextConnectionPageSetup()
     {
-        disposeOnce();
+        m_xTextConnectionHelper.reset();
     }
 
     IMPL_LINK_NOARG(OTextConnectionPageSetup, ImplGetExtensionHdl, OTextConnectionHelper*, void)
@@ -132,59 +126,42 @@ using namespace ::com::sun::star;
         return m_xTextConnectionHelper->prepareLeave();
     }
 
-    VclPtr<OGenericAdministrationPage> OLDAPConnectionPageSetup::CreateLDAPTabPage( vcl::Window* pParent, const SfxItemSet& _rAttrSet )
+    std::unique_ptr<OGenericAdministrationPage> OLDAPConnectionPageSetup::CreateLDAPTabPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet )
     {
-        return VclPtr<OLDAPConnectionPageSetup>::Create( pParent, _rAttrSet );
+        return std::make_unique<OLDAPConnectionPageSetup>(pPage, pController, _rAttrSet);
     }
 
     // OLDAPPageSetup
-    OLDAPConnectionPageSetup::OLDAPConnectionPageSetup( vcl::Window* pParent, const SfxItemSet& _rCoreAttrs )
-        :OGenericAdministrationPage(pParent, "LDAPConnectionPage", "dbaccess/ui/ldapconnectionpage.ui",_rCoreAttrs)
+    OLDAPConnectionPageSetup::OLDAPConnectionPageSetup( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs )
+        : OGenericAdministrationPage(pPage, pController, "dbaccess/ui/ldapconnectionpage.ui", "LDAPConnectionPage", _rCoreAttrs)
+        , m_xFTHelpText(m_xBuilder->weld_label("helpLabel"))
+        , m_xFTHostServer(m_xBuilder->weld_label("hostNameLabel"))
+        , m_xETHostServer(m_xBuilder->weld_entry("hostNameEntry"))
+        , m_xFTBaseDN(m_xBuilder->weld_label("baseDNLabel"))
+        , m_xETBaseDN(m_xBuilder->weld_entry("baseDNEntry"))
+        , m_xFTPortNumber(m_xBuilder->weld_label("portNumLabel"))
+        , m_xNFPortNumber(m_xBuilder->weld_spin_button("portNumEntry"))
+        , m_xFTDefaultPortNumber(m_xBuilder->weld_label("portNumDefLabel"))
+        , m_xCBUseSSL(m_xBuilder->weld_check_button("useSSLCheckbutton"))
     {
-        get(m_pFTHelpText, "helpLabel");
-        get(m_pFTHostServer, "hostNameLabel");
-        get(m_pETHostServer, "hostNameEntry");
-        get(m_pFTBaseDN, "baseDNLabel");
-        get(m_pETBaseDN, "baseDNEntry");
-        get(m_pFTPortNumber, "portNumLabel");
-        get(m_pNFPortNumber, "portNumEntry");
-        m_pNFPortNumber->SetUseThousandSep(false);
-        get(m_pFTDefaultPortNumber, "portNumDefLabel");
-        get(m_pCBUseSSL, "useSSLCheckbutton");
-
-        m_pETHostServer->SetModifyHdl(LINK(this, OGenericAdministrationPage, OnControlEditModifyHdl));
-        m_pETBaseDN->SetModifyHdl(LINK(this, OGenericAdministrationPage, OnControlEditModifyHdl));
-        m_pNFPortNumber->SetModifyHdl(LINK(this, OGenericAdministrationPage, OnControlEditModifyHdl));
-        m_pCBUseSSL->SetToggleHdl( LINK(this, OGenericAdministrationPage, ControlModifiedCheckBoxHdl) );
+        m_xETHostServer->connect_changed(LINK(this, OGenericAdministrationPage, OnControlEntryModifyHdl));
+        m_xETBaseDN->connect_changed(LINK(this, OGenericAdministrationPage, OnControlEntryModifyHdl));
+        m_xNFPortNumber->connect_value_changed(LINK(this, OGenericAdministrationPage, OnControlSpinButtonModifyHdl));
+        m_xCBUseSSL->connect_toggled( LINK(this, OGenericAdministrationPage, OnControlModifiedButtonClick) );
         SetRoadmapStateValue(false);
     }
 
     OLDAPConnectionPageSetup::~OLDAPConnectionPageSetup()
     {
-        disposeOnce();
-    }
-
-    void OLDAPConnectionPageSetup::dispose()
-    {
-        m_pFTHelpText.clear();
-        m_pFTHostServer.clear();
-        m_pETHostServer.clear();
-        m_pFTBaseDN.clear();
-        m_pETBaseDN.clear();
-        m_pFTPortNumber.clear();
-        m_pNFPortNumber.clear();
-        m_pFTDefaultPortNumber.clear();
-        m_pCBUseSSL.clear();
-        OGenericAdministrationPage::dispose();
     }
 
     bool OLDAPConnectionPageSetup::FillItemSet( SfxItemSet* _rSet )
     {
         bool bChangedSomething = false;
-        fillString(*_rSet,m_pETBaseDN,DSID_CONN_LDAP_BASEDN, bChangedSomething);
-        fillInt32(*_rSet,m_pNFPortNumber,DSID_CONN_LDAP_PORTNUMBER,bChangedSomething);
+        fillString(*_rSet,m_xETBaseDN.get(),DSID_CONN_LDAP_BASEDN, bChangedSomething);
+        fillInt32(*_rSet,m_xNFPortNumber.get(),DSID_CONN_LDAP_PORTNUMBER,bChangedSomething);
 
-        if ( m_pETHostServer->IsValueChangedFromSaved() )
+        if ( m_xETHostServer->get_value_changed_from_saved() )
         {
             const DbuTypeCollectionItem* pCollectionItem = dynamic_cast<const DbuTypeCollectionItem*>( _rSet->GetItem(DSID_TYPECOLLECTION) );
             ::dbaccess::ODsnTypeCollection* pCollection = nullptr;
@@ -193,29 +170,29 @@ using namespace ::com::sun::star;
             OSL_ENSURE(pCollection, "OLDAPConnectionPageSetup::FillItemSet : really need a DSN type collection !");
             if (pCollection)
             {
-                OUString sUrl = pCollection->getPrefix( "sdbc:address:ldap:") + m_pETHostServer->GetText();
+                OUString sUrl = pCollection->getPrefix( "sdbc:address:ldap:") + m_xETHostServer->get_text();
                 _rSet->Put(SfxStringItem(DSID_CONNECTURL, sUrl));
                 bChangedSomething = true;
             }
         }
 
-        fillBool(*_rSet,m_pCBUseSSL,DSID_CONN_LDAP_USESSL,bChangedSomething);
+        fillBool(*_rSet,m_xCBUseSSL.get(),DSID_CONN_LDAP_USESSL,false,bChangedSomething);
         return bChangedSomething;
     }
     void OLDAPConnectionPageSetup::fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.emplace_back(new OSaveValueWrapper<Edit>(m_pETHostServer));
-        _rControlList.emplace_back(new OSaveValueWrapper<Edit>(m_pETBaseDN));
-        _rControlList.emplace_back(new OSaveValueWrapper<NumericField>(m_pNFPortNumber));
-        _rControlList.emplace_back(new OSaveValueWrapper<CheckBox>(m_pCBUseSSL));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xETHostServer.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xETBaseDN.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::SpinButton>(m_xNFPortNumber.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(m_xCBUseSSL.get()));
     }
     void OLDAPConnectionPageSetup::fillWindows(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTHelpText));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTHostServer));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTBaseDN));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTPortNumber));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTDefaultPortNumber));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTHelpText.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTHostServer.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTBaseDN.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTPortNumber.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTDefaultPortNumber.get()));
     }
     void OLDAPConnectionPageSetup::implInitControls(const SfxItemSet& _rSet, bool _bSaveValue)
     {
@@ -228,52 +205,41 @@ using namespace ::com::sun::star;
 
         if ( bValid )
         {
-            m_pETBaseDN->SetText(pBaseDN->GetValue());
-            m_pNFPortNumber->SetValue(pPortNumber->GetValue());
+            m_xETBaseDN->set_text(pBaseDN->GetValue());
+            m_xNFPortNumber->set_value(pPortNumber->GetValue());
         }
         OGenericAdministrationPage::implInitControls(_rSet, _bSaveValue);
         callModifiedHdl();
     }
 
-    void OLDAPConnectionPageSetup::callModifiedHdl(void *)
+    void OLDAPConnectionPageSetup::callModifiedHdl(weld::Widget*)
     {
-        bool bRoadmapState = ((!m_pETHostServer->GetText().isEmpty() ) && ( !m_pETBaseDN->GetText().isEmpty() ) && (!m_pFTPortNumber->GetText().isEmpty() ));
+        bool bRoadmapState = ((!m_xETHostServer->get_text().isEmpty() ) && ( !m_xETBaseDN->get_text().isEmpty() ) && (!m_xFTPortNumber->get_label().isEmpty() ));
         SetRoadmapStateValue(bRoadmapState);
         OGenericAdministrationPage::callModifiedHdl();
     }
 
-    VclPtr<OMySQLIntroPageSetup> OMySQLIntroPageSetup::CreateMySQLIntroTabPage( vcl::Window* _pParent, const SfxItemSet& _rAttrSet )
+    std::unique_ptr<OMySQLIntroPageSetup> OMySQLIntroPageSetup::CreateMySQLIntroTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttrSet)
     {
-        return VclPtr<OMySQLIntroPageSetup>::Create( _pParent, _rAttrSet);
+        return std::make_unique<OMySQLIntroPageSetup>(pPage, pController, rAttrSet);
     }
 
-
-    OMySQLIntroPageSetup::OMySQLIntroPageSetup( vcl::Window* pParent, const SfxItemSet& _rCoreAttrs )
-            :OGenericAdministrationPage(pParent, "DBWizMysqlIntroPage", "dbaccess/ui/dbwizmysqlintropage.ui", _rCoreAttrs)
+    OMySQLIntroPageSetup::OMySQLIntroPageSetup(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs)
+        : OGenericAdministrationPage(pPage, pController, "dbaccess/ui/dbwizmysqlintropage.ui", "DBWizMysqlIntroPage", _rCoreAttrs)
+        , m_xODBCDatabase(m_xBuilder->weld_radio_button("odbc"))
+        , m_xJDBCDatabase(m_xBuilder->weld_radio_button("jdbc"))
+        , m_xNATIVEDatabase(m_xBuilder->weld_radio_button("directly"))
     {
-        get(m_pODBCDatabase, "odbc");
-        get(m_pJDBCDatabase, "jdbc");
-        get(m_pNATIVEDatabase, "directly");
-
-        m_pODBCDatabase->SetToggleHdl(LINK(this, OMySQLIntroPageSetup, OnSetupModeSelected));
-        m_pJDBCDatabase->SetToggleHdl(LINK(this, OMySQLIntroPageSetup, OnSetupModeSelected));
-        m_pNATIVEDatabase->SetToggleHdl(LINK(this, OMySQLIntroPageSetup, OnSetupModeSelected));
+        m_xODBCDatabase->connect_toggled(LINK(this, OMySQLIntroPageSetup, OnSetupModeSelected));
+        m_xJDBCDatabase->connect_toggled(LINK(this, OMySQLIntroPageSetup, OnSetupModeSelected));
+        m_xNATIVEDatabase->connect_toggled(LINK(this, OMySQLIntroPageSetup, OnSetupModeSelected));
     }
 
     OMySQLIntroPageSetup::~OMySQLIntroPageSetup()
     {
-        disposeOnce();
     }
 
-    void OMySQLIntroPageSetup::dispose()
-    {
-        m_pODBCDatabase.clear();
-        m_pJDBCDatabase.clear();
-        m_pNATIVEDatabase.clear();
-        OGenericAdministrationPage::dispose();
-    }
-
-    IMPL_LINK_NOARG(OMySQLIntroPageSetup, OnSetupModeSelected, RadioButton&, void)
+    IMPL_LINK_NOARG(OMySQLIntroPageSetup, OnSetupModeSelected, weld::ToggleButton&, void)
     {
         maClickHdl.Call( this );
     }
@@ -284,17 +250,17 @@ using namespace ::com::sun::star;
         const DbuTypeCollectionItem* pCollectionItem = dynamic_cast<const DbuTypeCollectionItem*>( _rSet.GetItem(DSID_TYPECOLLECTION) );
         bool bHasMySQLNative = ( pCollectionItem != nullptr ) && pCollectionItem->getCollection()->hasDriver( "sdbc:mysql:mysqlc:" );
         if ( bHasMySQLNative )
-            m_pNATIVEDatabase->Show();
+            m_xNATIVEDatabase->show();
 
         // if any of the options is checked, then there's nothing to do
-        if ( m_pODBCDatabase->IsChecked() || m_pJDBCDatabase->IsChecked() || m_pNATIVEDatabase->IsChecked() )
+        if ( m_xODBCDatabase->get_active() || m_xJDBCDatabase->get_active() || m_xNATIVEDatabase->get_active() )
             return;
 
         // prefer "native" or "JDBC"
         if ( bHasMySQLNative )
-            m_pNATIVEDatabase->Check();
+            m_xNATIVEDatabase->set_active(true);
         else
-            m_pJDBCDatabase->Check();
+            m_xJDBCDatabase->set_active(true);
     }
 
     void OMySQLIntroPageSetup::fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& /*_rControlList*/)
@@ -311,109 +277,99 @@ using namespace ::com::sun::star;
         return true;
     }
 
-    OMySQLIntroPageSetup::ConnectionType OMySQLIntroPageSetup::getMySQLMode()
+    OMySQLIntroPageSetup::ConnectionType OMySQLIntroPageSetup::getMySQLMode() const
     {
-        if (m_pJDBCDatabase->IsChecked())
+        if (m_xJDBCDatabase->get_active())
             return VIA_JDBC;
-        else if (m_pNATIVEDatabase->IsChecked())
+        else if (m_xNATIVEDatabase->get_active())
             return VIA_NATIVE;
         else
             return VIA_ODBC;
     }
 
     // MySQLNativeSetupPage
-    MySQLNativeSetupPage::MySQLNativeSetupPage( vcl::Window* _pParent, const SfxItemSet& _rCoreAttrs )
-        :OGenericAdministrationPage( _pParent, "DBWizMysqlNativePage", "dbaccess/ui/dbwizmysqlnativepage.ui", _rCoreAttrs )
-        ,m_aMySQLSettings       ( VclPtr<MySQLNativeSettings>::Create(*get<VclVBox>("MySQLSettingsContainer"), LINK(this, OGenericAdministrationPage, OnControlModified)) )
+    MySQLNativeSetupPage::MySQLNativeSetupPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs )
+        : OGenericAdministrationPage(pPage, pController, "dbaccess/ui/dbwizmysqlnativepage.ui", "DBWizMysqlNativePage", rCoreAttrs)
+        , m_xHelpText(m_xBuilder->weld_label("helptext"))
+        , m_xSettingsContainer(m_xBuilder->weld_container("MySQLSettingsContainer"))
+        , m_xMySQLSettings(new MySQLNativeSettings(m_xSettingsContainer.get(), LINK(this, OGenericAdministrationPage, OnControlModified)))
     {
-        get(m_pHelpText, "helptext");
-        m_aMySQLSettings->Show();
-
         SetRoadmapStateValue(false);
     }
 
     MySQLNativeSetupPage::~MySQLNativeSetupPage()
     {
-        disposeOnce();
+        m_xMySQLSettings.reset();
     }
 
-    void MySQLNativeSetupPage::dispose()
+    std::unique_ptr<OGenericAdministrationPage> MySQLNativeSetupPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttrSet)
     {
-        m_aMySQLSettings.disposeAndClear();
-        m_pHelpText.clear();
-        OGenericAdministrationPage::dispose();
-    }
-
-    VclPtr<OGenericAdministrationPage> MySQLNativeSetupPage::Create( vcl::Window* pParent, const SfxItemSet& _rAttrSet )
-    {
-        return VclPtr<MySQLNativeSetupPage>::Create( pParent, _rAttrSet );
+        return std::make_unique<MySQLNativeSetupPage>(pPage, pController, rAttrSet);
     }
 
     void MySQLNativeSetupPage::fillControls( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
     {
-        m_aMySQLSettings->fillControls( _rControlList );
+        m_xMySQLSettings->fillControls( _rControlList );
     }
 
-    void MySQLNativeSetupPage::fillWindows( std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList )
+    void MySQLNativeSetupPage::fillWindows(std::vector<std::unique_ptr<ISaveValueWrapper>>& rControlList)
     {
-        _rControlList.emplace_back( new ODisableWrapper< FixedText >( m_pHelpText ) );
-        m_aMySQLSettings->fillWindows( _rControlList );
+        rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xHelpText.get()));
+        m_xMySQLSettings->fillWindows(rControlList);
     }
 
     bool MySQLNativeSetupPage::FillItemSet( SfxItemSet* _rSet )
     {
-        return m_aMySQLSettings->FillItemSet( _rSet );
+        return m_xMySQLSettings->FillItemSet( _rSet );
     }
 
     void MySQLNativeSetupPage::implInitControls( const SfxItemSet& _rSet, bool _bSaveValue )
     {
-        m_aMySQLSettings->implInitControls( _rSet );
+        m_xMySQLSettings->implInitControls( _rSet );
 
         OGenericAdministrationPage::implInitControls( _rSet, _bSaveValue );
 
         callModifiedHdl();
     }
 
-    void MySQLNativeSetupPage::callModifiedHdl(void*)
+    void MySQLNativeSetupPage::callModifiedHdl(weld::Widget*)
     {
-        SetRoadmapStateValue( m_aMySQLSettings->canAdvance() );
+        SetRoadmapStateValue( m_xMySQLSettings->canAdvance() );
 
         OGenericAdministrationPage::callModifiedHdl();
     }
 
     // OMySQLJDBCConnectionPageSetup
-    OGeneralSpecialJDBCConnectionPageSetup::OGeneralSpecialJDBCConnectionPageSetup( vcl::Window* pParent, const SfxItemSet& _rCoreAttrs ,sal_uInt16 _nPortId, const char* pDefaultPortResId, const char* pHelpTextResId, const char* pHeaderTextResId, const char* pDriverClassId)
-        :OGenericAdministrationPage(pParent, "SpecialJDBCConnectionPage", "dbaccess/ui/specialjdbcconnectionpage.ui", _rCoreAttrs)
-        ,m_nPortId(_nPortId)
+    OGeneralSpecialJDBCConnectionPageSetup::OGeneralSpecialJDBCConnectionPageSetup( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs ,sal_uInt16 _nPortId, const char* pDefaultPortResId, const char* pHelpTextResId, const char* pHeaderTextResId, const char* pDriverClassId)
+        : OGenericAdministrationPage(pPage, pController, "dbaccess/ui/specialjdbcconnectionpage.ui", "SpecialJDBCConnectionPage", _rCoreAttrs)
+        , m_nPortId(_nPortId)
+        , m_xHeaderText(m_xBuilder->weld_label("header"))
+        , m_xFTHelpText(m_xBuilder->weld_label("helpLabel"))
+        , m_xFTDatabasename(m_xBuilder->weld_label("dbNameLabel"))
+        , m_xETDatabasename(m_xBuilder->weld_entry("dbNameEntry"))
+        , m_xFTHostname(m_xBuilder->weld_label("hostNameLabel"))
+        , m_xETHostname(m_xBuilder->weld_entry("hostNameEntry"))
+        , m_xFTPortNumber(m_xBuilder->weld_label("portNumLabel"))
+        , m_xFTDefaultPortNumber(m_xBuilder->weld_label("portNumDefLabel"))
+        , m_xNFPortNumber(m_xBuilder->weld_spin_button("portNumEntry"))
+        , m_xFTDriverClass(m_xBuilder->weld_label("jdbcDriverLabel"))
+        , m_xETDriverClass(m_xBuilder->weld_entry("jdbcDriverEntry"))
+        , m_xPBTestJavaDriver(m_xBuilder->weld_button("testDriverButton"))
     {
-        get(m_pHeaderText, "header");
-        get(m_pFTHelpText, "helpLabel");
-        get(m_pFTDatabasename, "dbNameLabel");
-        get(m_pETDatabasename, "dbNameEntry");
-        get(m_pFTHostname, "hostNameLabel");
-        get(m_pETHostname, "hostNameEntry");
-        get(m_pFTPortNumber, "portNumLabel");
-        get(m_pFTDefaultPortNumber, "portNumDefLabel");
-        get(m_pNFPortNumber, "portNumEntry");
-        m_pNFPortNumber->SetUseThousandSep(false);
-        get(m_pFTDriverClass, "jdbcDriverLabel");
-        get(m_pETDriverClass, "jdbcDriverEntry");
-        get(m_pPBTestJavaDriver, "testDriverButton");
+        m_xFTDriverClass->set_label(DBA_RES(pDriverClassId));
 
-        m_pFTDriverClass->SetText(DBA_RES(pDriverClassId));
-
-        m_pFTDefaultPortNumber->SetText(DBA_RES(pDefaultPortResId));
+        m_xFTDefaultPortNumber->set_label(DBA_RES(pDefaultPortResId));
         OUString sHelpText = DBA_RES(pHelpTextResId);
-        m_pFTHelpText->SetText(sHelpText);
+        m_xFTHelpText->set_label(sHelpText);
         //TODO this code snippet is redundant
-        m_pHeaderText->SetText(DBA_RES(pHeaderTextResId));
+        m_xHeaderText->set_label(DBA_RES(pHeaderTextResId));
 
-        m_pETDatabasename->SetModifyHdl(LINK(this, OGenericAdministrationPage, OnControlEditModifyHdl));
-        m_pETHostname->SetModifyHdl(LINK(this, OGenericAdministrationPage, OnControlEditModifyHdl));
-        m_pNFPortNumber->SetModifyHdl(LINK(this, OGenericAdministrationPage, OnControlEditModifyHdl));
+        m_xETDatabasename->connect_changed(LINK(this, OGenericAdministrationPage, OnControlEntryModifyHdl));
+        m_xETHostname->connect_changed(LINK(this, OGenericAdministrationPage, OnControlEntryModifyHdl));
+        m_xNFPortNumber->connect_value_changed(LINK(this, OGenericAdministrationPage, OnControlSpinButtonModifyHdl));
 
-        m_pETDriverClass->SetModifyHdl(LINK(this, OGenericAdministrationPage, OnControlEditModifyHdl));
-        m_pPBTestJavaDriver->SetClickHdl(LINK(this,OGeneralSpecialJDBCConnectionPageSetup,OnTestJavaClickHdl));
+        m_xETDriverClass->connect_changed(LINK(this, OGenericAdministrationPage, OnControlEntryModifyHdl));
+        m_xPBTestJavaDriver->connect_clicked(LINK(this,OGeneralSpecialJDBCConnectionPageSetup,OnTestJavaClickHdl));
 
         const SfxStringItem* pUrlItem = _rCoreAttrs.GetItem<SfxStringItem>(DSID_CONNECTURL);
         const DbuTypeCollectionItem* pTypesItem = _rCoreAttrs.GetItem<DbuTypeCollectionItem>(DSID_TYPECOLLECTION);
@@ -428,29 +384,11 @@ using namespace ::com::sun::star;
 
     OGeneralSpecialJDBCConnectionPageSetup::~OGeneralSpecialJDBCConnectionPageSetup()
     {
-        disposeOnce();
     }
 
-    void OGeneralSpecialJDBCConnectionPageSetup::dispose()
+    std::unique_ptr<OGenericAdministrationPage> OGeneralSpecialJDBCConnectionPageSetup::CreateMySQLJDBCTabPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet )
     {
-        m_pHeaderText.clear();
-        m_pFTHelpText.clear();
-        m_pFTDatabasename.clear();
-        m_pETDatabasename.clear();
-        m_pFTHostname.clear();
-        m_pETHostname.clear();
-        m_pFTPortNumber.clear();
-        m_pFTDefaultPortNumber.clear();
-        m_pNFPortNumber.clear();
-        m_pFTDriverClass.clear();
-        m_pETDriverClass.clear();
-        m_pPBTestJavaDriver.clear();
-        OGenericAdministrationPage::dispose();
-    }
-
-    VclPtr<OGenericAdministrationPage> OGeneralSpecialJDBCConnectionPageSetup::CreateMySQLJDBCTabPage( vcl::Window* pParent, const SfxItemSet& _rAttrSet )
-    {
-        return VclPtr<OGeneralSpecialJDBCConnectionPageSetup>::Create( pParent,
+        return std::make_unique<OGeneralSpecialJDBCConnectionPageSetup>(pPage, pController,
                                                          _rAttrSet,
                                                          DSID_MYSQL_PORTNUMBER ,
                                                          STR_MYSQL_DEFAULT,
@@ -459,9 +397,9 @@ using namespace ::com::sun::star;
                                                          STR_MYSQL_DRIVERCLASSTEXT);
     }
 
-    VclPtr<OGenericAdministrationPage> OGeneralSpecialJDBCConnectionPageSetup::CreateOracleJDBCTabPage( vcl::Window* pParent, const SfxItemSet& _rAttrSet )
+    std::unique_ptr<OGenericAdministrationPage> OGeneralSpecialJDBCConnectionPageSetup::CreateOracleJDBCTabPage( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet )
     {
-        return VclPtr<OGeneralSpecialJDBCConnectionPageSetup>::Create( pParent,
+        return std::make_unique<OGeneralSpecialJDBCConnectionPageSetup>(pPage, pController,
                                                           _rAttrSet,
                                                           DSID_ORACLE_PORTNUMBER,
                                                           STR_ORACLE_DEFAULT,
@@ -472,28 +410,29 @@ using namespace ::com::sun::star;
 
     void OGeneralSpecialJDBCConnectionPageSetup::fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.emplace_back(new OSaveValueWrapper<Edit>(m_pETDatabasename));
-        _rControlList.emplace_back(new OSaveValueWrapper<Edit>(m_pETDriverClass));
-        _rControlList.emplace_back(new OSaveValueWrapper<Edit>(m_pETHostname));
-        _rControlList.emplace_back(new OSaveValueWrapper<NumericField>(m_pNFPortNumber));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xETDatabasename.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xETDriverClass.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xETHostname.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::SpinButton>(m_xNFPortNumber.get()));
     }
+
     void OGeneralSpecialJDBCConnectionPageSetup::fillWindows(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTHelpText));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTDatabasename));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTHostname));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTPortNumber));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTDefaultPortNumber));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTDriverClass));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTHelpText.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTDatabasename.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTHostname.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTPortNumber.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTDefaultPortNumber.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTDriverClass.get()));
     }
 
     bool OGeneralSpecialJDBCConnectionPageSetup::FillItemSet( SfxItemSet* _rSet )
     {
         bool bChangedSomething = false;
-        fillString(*_rSet,m_pETDriverClass,DSID_JDBCDRIVERCLASS,bChangedSomething);
-        fillString(*_rSet,m_pETHostname,DSID_CONN_HOSTNAME,bChangedSomething);
-        fillString(*_rSet,m_pETDatabasename,DSID_DATABASENAME,bChangedSomething);
-        fillInt32(*_rSet,m_pNFPortNumber,m_nPortId,bChangedSomething );
+        fillString(*_rSet,m_xETDriverClass.get(),DSID_JDBCDRIVERCLASS,bChangedSomething);
+        fillString(*_rSet,m_xETHostname.get(),DSID_CONN_HOSTNAME,bChangedSomething);
+        fillString(*_rSet,m_xETDatabasename.get(),DSID_DATABASENAME,bChangedSomething);
+        fillInt32(*_rSet,m_xNFPortNumber.get(),m_nPortId,bChangedSomething );
         return bChangedSomething;
     }
 
@@ -510,33 +449,33 @@ using namespace ::com::sun::star;
 
         if ( bValid )
         {
-            m_pETDatabasename->SetText(pDatabaseName->GetValue());
-            m_pETDatabasename->ClearModifyFlag();
+            m_xETDatabasename->set_text(pDatabaseName->GetValue());
+            m_xETDatabasename->save_value();
 
-            m_pETDriverClass->SetText(pDrvItem->GetValue());
-            m_pETDriverClass->ClearModifyFlag();
+            m_xETDriverClass->set_text(pDrvItem->GetValue());
+            m_xETDriverClass->save_value();
 
-            m_pETHostname->SetText(pHostName->GetValue());
-            m_pETHostname->ClearModifyFlag();
+            m_xETHostname->set_text(pHostName->GetValue());
+            m_xETHostname->save_value();
 
-            m_pNFPortNumber->SetValue(pPortNumber->GetValue());
-            m_pNFPortNumber->ClearModifyFlag();
+            m_xNFPortNumber->set_value(pPortNumber->GetValue());
+            m_xNFPortNumber->save_value();
         }
         OGenericAdministrationPage::implInitControls(_rSet, _bSaveValue);
 
         // to get the correct value when saveValue was called by base class
-        if ( m_pETDriverClass->GetText().trim().isEmpty() )
+        if ( m_xETDriverClass->get_text().trim().isEmpty() )
         {
-            m_pETDriverClass->SetText(m_sDefaultJdbcDriverName);
-            m_pETDriverClass->SetModifyFlag();
+            m_xETDriverClass->set_text(m_sDefaultJdbcDriverName);
+            m_xETDriverClass->save_value();
         }
         callModifiedHdl();
 
-        bool bRoadmapState = ((!m_pETDatabasename->GetText().isEmpty() ) && (!m_pETHostname->GetText().isEmpty()) && (!m_pNFPortNumber->GetText().isEmpty() ) && ( !m_pETDriverClass->GetText().isEmpty() ));
+        bool bRoadmapState = ((!m_xETDatabasename->get_text().isEmpty() ) && (!m_xETHostname->get_text().isEmpty()) && (!m_xNFPortNumber->get_text().isEmpty() ) && ( !m_xETDriverClass->get_text().isEmpty() ));
         SetRoadmapStateValue(bRoadmapState);
     }
 
-    IMPL_LINK_NOARG(OGeneralSpecialJDBCConnectionPageSetup, OnTestJavaClickHdl, Button*, void)
+    IMPL_LINK_NOARG(OGeneralSpecialJDBCConnectionPageSetup, OnTestJavaClickHdl, weld::Button&, void)
     {
         OSL_ENSURE(m_pAdminDialog,"No Admin dialog set! ->GPF");
 
@@ -544,12 +483,12 @@ using namespace ::com::sun::star;
 #if HAVE_FEATURE_JAVA
         try
         {
-            if ( !m_pETDriverClass->GetText().trim().isEmpty() )
+            if ( !m_xETDriverClass->get_text().trim().isEmpty() )
             {
 // TODO change jvmaccess
                 ::rtl::Reference< jvmaccess::VirtualMachine > xJVM = ::connectivity::getJavaVM( m_pAdminDialog->getORB() );
-                m_pETDriverClass->SetText(m_pETDriverClass->GetText().trim()); // fdo#68341
-                bSuccess = ::connectivity::existsJavaClassByName(xJVM,m_pETDriverClass->GetText());
+                m_xETDriverClass->set_text(m_xETDriverClass->get_text().trim()); // fdo#68341
+                bSuccess = ::connectivity::existsJavaClassByName(xJVM,m_xETDriverClass->get_text());
             }
         }
         catch(css::uno::Exception&)
@@ -562,23 +501,23 @@ using namespace ::com::sun::star;
         aMsg.run();
     }
 
-    void OGeneralSpecialJDBCConnectionPageSetup::callModifiedHdl(void* pControl)
+    void OGeneralSpecialJDBCConnectionPageSetup::callModifiedHdl(weld::Widget* pControl)
     {
-        if ( pControl == m_pETDriverClass )
-            m_pPBTestJavaDriver->Enable( !m_pETDriverClass->GetText().trim().isEmpty() );
-        bool bRoadmapState = ((!m_pETDatabasename->GetText().isEmpty() ) && ( !m_pETHostname->GetText().isEmpty() ) && (!m_pNFPortNumber->GetText().isEmpty() ) && ( !m_pETDriverClass->GetText().trim().isEmpty() ));
+        if (pControl == m_xETDriverClass.get())
+            m_xPBTestJavaDriver->set_sensitive( !m_xETDriverClass->get_text().trim().isEmpty() );
+        bool bRoadmapState = ((!m_xETDatabasename->get_text().isEmpty() ) && ( !m_xETHostname->get_text().isEmpty() ) && (!m_xNFPortNumber->get_text().isEmpty() ) && ( !m_xETDriverClass->get_text().trim().isEmpty() ));
         SetRoadmapStateValue(bRoadmapState);
         OGenericAdministrationPage::callModifiedHdl();
     }
 
-    VclPtr<OGenericAdministrationPage> OJDBCConnectionPageSetup::CreateJDBCTabPage(TabPageParent pParent, const SfxItemSet& _rAttrSet)
+    std::unique_ptr<OGenericAdministrationPage> OJDBCConnectionPageSetup::CreateJDBCTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet)
     {
-        return VclPtr<OJDBCConnectionPageSetup>::Create(pParent, _rAttrSet);
+        return std::make_unique<OJDBCConnectionPageSetup>(pPage, pController, _rAttrSet);
     }
 
     // OMySQLJDBCConnectionPageSetup
-    OJDBCConnectionPageSetup::OJDBCConnectionPageSetup(TabPageParent pParent, const SfxItemSet& rCoreAttrs)
-        : OConnectionTabPageSetup(pParent, "dbaccess/ui/jdbcconnectionpage.ui", "JDBCConnectionPage", rCoreAttrs,
+    OJDBCConnectionPageSetup::OJDBCConnectionPageSetup(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs)
+        : OConnectionTabPageSetup(pPage, pController, "dbaccess/ui/jdbcconnectionpage.ui", "JDBCConnectionPage", rCoreAttrs,
                                 STR_JDBC_HELPTEXT, STR_JDBC_HEADERTEXT, STR_COMMONURL)
         , m_xFTDriverClass(m_xBuilder->weld_label("jdbcLabel"))
         , m_xETDriverClass(m_xBuilder->weld_entry("jdbcEntry"))
@@ -590,7 +529,6 @@ using namespace ::com::sun::star;
 
     OJDBCConnectionPageSetup::~OJDBCConnectionPageSetup()
     {
-        disposeOnce();
     }
 
     void OJDBCConnectionPageSetup::fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
@@ -684,14 +622,13 @@ using namespace ::com::sun::star;
         callModifiedHdl();
     }
 
-    VclPtr<OGenericAdministrationPage> OSpreadSheetConnectionPageSetup::CreateDocumentOrSpreadSheetTabPage( vcl::Window* pParent, const SfxItemSet& _rAttrSet )
+    std::unique_ptr<OGenericAdministrationPage> OSpreadSheetConnectionPageSetup::CreateDocumentOrSpreadSheetTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet)
     {
-        return VclPtr<OSpreadSheetConnectionPageSetup>::Create( pParent, _rAttrSet );
+        return std::make_unique<OSpreadSheetConnectionPageSetup>(pPage, pController, _rAttrSet);
     }
 
-
-    OSpreadSheetConnectionPageSetup::OSpreadSheetConnectionPageSetup(TabPageParent pParent, const SfxItemSet& rCoreAttrs)
-        : OConnectionTabPageSetup(pParent, "dbaccess/ui/dbwizspreadsheetpage.ui", "DBWizSpreadsheetPage",
+    OSpreadSheetConnectionPageSetup::OSpreadSheetConnectionPageSetup(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs)
+        : OConnectionTabPageSetup(pPage, pController, "dbaccess/ui/dbwizspreadsheetpage.ui", "DBWizSpreadsheetPage",
                                  rCoreAttrs, STR_SPREADSHEET_HELPTEXT, STR_SPREADSHEET_HEADERTEXT, STR_SPREADSHEETPATH)
         , m_xPasswordrequired(m_xBuilder->weld_check_button("passwordrequired"))
     {
@@ -700,7 +637,6 @@ using namespace ::com::sun::star;
 
     OSpreadSheetConnectionPageSetup::~OSpreadSheetConnectionPageSetup()
     {
-        disposeOnce();
     }
 
     void OSpreadSheetConnectionPageSetup::fillWindows(std::vector< std::unique_ptr<ISaveValueWrapper> >& /*_rControlList*/)
@@ -710,7 +646,7 @@ using namespace ::com::sun::star;
     void OSpreadSheetConnectionPageSetup::fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
         OConnectionTabPageSetup::fillControls(_rControlList);
-        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::CheckButton>(m_xPasswordrequired.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(m_xPasswordrequired.get()));
 
     }
 
@@ -721,53 +657,39 @@ using namespace ::com::sun::star;
         return bChangedSomething;
     }
 
-    VclPtr<OGenericAdministrationPage> OAuthentificationPageSetup::CreateAuthentificationTabPage( vcl::Window* pParent, const SfxItemSet& _rAttrSet )
+    std::unique_ptr<OGenericAdministrationPage> OAuthentificationPageSetup::CreateAuthentificationTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet)
     {
-        return VclPtr<OAuthentificationPageSetup>::Create( pParent, _rAttrSet);
+        return std::make_unique<OAuthentificationPageSetup>(pPage, pController, _rAttrSet);
     }
 
-
-    OAuthentificationPageSetup::OAuthentificationPageSetup( vcl::Window* pParent, const SfxItemSet& _rCoreAttrs )
-        :OGenericAdministrationPage(pParent, "AuthentificationPage", "dbaccess/ui/authentificationpage.ui", _rCoreAttrs )
+    OAuthentificationPageSetup::OAuthentificationPageSetup(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs)
+        : OGenericAdministrationPage(pPage, pController, "dbaccess/ui/authentificationpage.ui", "AuthentificationPage", _rCoreAttrs)
+        , m_xFTHelpText(m_xBuilder->weld_label("helptext"))
+        , m_xFTUserName(m_xBuilder->weld_label("generalUserNameLabel"))
+        , m_xETUserName(m_xBuilder->weld_entry("generalUserNameEntry"))
+        , m_xCBPasswordRequired(m_xBuilder->weld_check_button("passRequiredCheckbutton"))
+        , m_xPBTestConnection(m_xBuilder->weld_button("testConnectionButton"))
     {
-        get(m_pFTHelpText, "helptext");
-        get(m_pFTUserName, "generalUserNameLabel");
-        get(m_pETUserName, "generalUserNameEntry");
-        get(m_pCBPasswordRequired, "passRequiredCheckbutton");
-        get(m_pPBTestConnection, "testConnectionButton");
-        m_pETUserName->SetModifyHdl(LINK(this,OGenericAdministrationPage,OnControlEditModifyHdl));
-        m_pCBPasswordRequired->SetClickHdl(LINK(this,OGenericAdministrationPage,OnControlModifiedClick));
-        m_pPBTestConnection->SetClickHdl(LINK(this,OGenericAdministrationPage,OnTestConnectionClickHdl));
-
-        LayoutHelper::fitSizeRightAligned( *m_pPBTestConnection );
+        m_xETUserName->connect_changed(LINK(this,OGenericAdministrationPage,OnControlEntryModifyHdl));
+        m_xCBPasswordRequired->connect_toggled(LINK(this,OGenericAdministrationPage,OnControlModifiedButtonClick));
+        m_xPBTestConnection->connect_clicked(LINK(this,OGenericAdministrationPage,OnTestConnectionButtonClickHdl));
     }
 
     OAuthentificationPageSetup::~OAuthentificationPageSetup()
     {
-        disposeOnce();
-    }
-
-    void OAuthentificationPageSetup::dispose()
-    {
-        m_pFTHelpText.clear();
-        m_pFTUserName.clear();
-        m_pETUserName.clear();
-        m_pCBPasswordRequired.clear();
-        m_pPBTestConnection.clear();
-        OGenericAdministrationPage::dispose();
     }
 
     void OAuthentificationPageSetup::fillWindows(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTHelpText));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTUserName));
-        _rControlList.emplace_back(new ODisableWrapper<PushButton>(m_pPBTestConnection));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTHelpText.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTUserName.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Button>(m_xPBTestConnection.get()));
     }
 
     void OAuthentificationPageSetup::fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.emplace_back(new OSaveValueWrapper<Edit>(m_pETUserName));
-        _rControlList.emplace_back(new OSaveValueWrapper<CheckBox>(m_pCBPasswordRequired));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::Entry>(m_xETUserName.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(m_xCBPasswordRequired.get()));
     }
 
     void OAuthentificationPageSetup::implInitControls(const SfxItemSet& _rSet, bool /*_bSaveValue*/)
@@ -778,107 +700,90 @@ using namespace ::com::sun::star;
         const SfxStringItem* pUidItem = _rSet.GetItem<SfxStringItem>(DSID_USER);
         const SfxBoolItem* pAllowEmptyPwd = _rSet.GetItem<SfxBoolItem>(DSID_PASSWORDREQUIRED);
 
-        m_pETUserName->SetText(pUidItem->GetValue());
-        m_pCBPasswordRequired->Check(pAllowEmptyPwd->GetValue());
+        m_xETUserName->set_text(pUidItem->GetValue());
+        m_xCBPasswordRequired->set_active(pAllowEmptyPwd->GetValue());
 
-        m_pETUserName->ClearModifyFlag();
+        m_xETUserName->save_value();
     }
 
     bool OAuthentificationPageSetup::FillItemSet( SfxItemSet* _rSet )
     {
         bool bChangedSomething = false;
 
-        if (m_pETUserName->IsValueChangedFromSaved())
+        if (m_xETUserName->get_value_changed_from_saved())
         {
-            _rSet->Put(SfxStringItem(DSID_USER, m_pETUserName->GetText()));
+            _rSet->Put(SfxStringItem(DSID_USER, m_xETUserName->get_text()));
             _rSet->Put(SfxStringItem(DSID_PASSWORD, OUString()));
             bChangedSomething = true;
         }
-        fillBool(*_rSet,m_pCBPasswordRequired,DSID_PASSWORDREQUIRED,bChangedSomething);
+        fillBool(*_rSet, m_xCBPasswordRequired.get(), DSID_PASSWORDREQUIRED, false, bChangedSomething);
         return bChangedSomething;
     }
 
-    VclPtr<OGenericAdministrationPage> OFinalDBPageSetup::CreateFinalDBTabPageSetup( vcl::Window* pParent, const SfxItemSet& _rAttrSet)
+    std::unique_ptr<OGenericAdministrationPage> OFinalDBPageSetup::CreateFinalDBTabPageSetup(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet)
     {
-        return VclPtr<OFinalDBPageSetup>::Create( pParent, _rAttrSet);
+        return std::make_unique<OFinalDBPageSetup>(pPage, pController, _rAttrSet);
     }
 
-
-    OFinalDBPageSetup::OFinalDBPageSetup(vcl::Window* pParent, const SfxItemSet& _rCoreAttrs)
-        : OGenericAdministrationPage(pParent, "PageFinal",
-            "dbaccess/ui/finalpagewizard.ui", _rCoreAttrs)
+    OFinalDBPageSetup::OFinalDBPageSetup(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rCoreAttrs)
+        : OGenericAdministrationPage(pPage, pController, "dbaccess/ui/finalpagewizard.ui", "PageFinal", _rCoreAttrs)
+        , m_xFTFinalHeader(m_xBuilder->weld_label("headerText"))
+        , m_xFTFinalHelpText(m_xBuilder->weld_label("helpText"))
+        , m_xRBRegisterDataSource(m_xBuilder->weld_radio_button("yesregister"))
+        , m_xRBDontregisterDataSource(m_xBuilder->weld_radio_button("noregister"))
+        , m_xFTAdditionalSettings(m_xBuilder->weld_label("additionalText"))
+        , m_xCBOpenAfterwards(m_xBuilder->weld_check_button("openediting"))
+        , m_xCBStartTableWizard(m_xBuilder->weld_check_button("usewizard"))
+        , m_xFTFinalText(m_xBuilder->weld_label("finishText"))
     {
-        get(m_pFTFinalHeader, "headerText");
-        get(m_pFTFinalHelpText, "helpText");
-        get(m_pRBRegisterDataSource, "yesregister");
-        get(m_pRBDontregisterDataSource, "noregister");
-        get(m_pFTAdditionalSettings, "additionalText");
-        get(m_pCBOpenAfterwards, "openediting");
-        get(m_pCBStartTableWizard, "usewizard");
-        get(m_pFTFinalText, "finishText");
-
-        m_pCBOpenAfterwards->SetClickHdl(LINK(this, OFinalDBPageSetup, OnOpenSelected));
-        m_pCBStartTableWizard->SetClickHdl(LINK(this,OGenericAdministrationPage,OnControlModifiedClick));
-        m_pRBRegisterDataSource->SetState(true);
+        m_xCBOpenAfterwards->connect_toggled(LINK(this, OFinalDBPageSetup, OnOpenSelected));
+        m_xCBStartTableWizard->connect_toggled(LINK(this,OGenericAdministrationPage,OnControlModifiedButtonClick));
+        m_xRBRegisterDataSource->set_active(true);
     }
 
     OFinalDBPageSetup::~OFinalDBPageSetup()
     {
-        disposeOnce();
     }
 
-    void OFinalDBPageSetup::dispose()
+    bool OFinalDBPageSetup::IsDatabaseDocumentToBeRegistered() const
     {
-        m_pFTFinalHeader.clear();
-        m_pFTFinalHelpText.clear();
-        m_pRBRegisterDataSource.clear();
-        m_pRBDontregisterDataSource.clear();
-        m_pFTAdditionalSettings.clear();
-        m_pCBOpenAfterwards.clear();
-        m_pCBStartTableWizard.clear();
-        m_pFTFinalText.clear();
-        OGenericAdministrationPage::dispose();
+        return m_xRBRegisterDataSource->get_active() && m_xRBRegisterDataSource->get_sensitive();
     }
 
-    bool OFinalDBPageSetup::IsDatabaseDocumentToBeRegistered()
+    bool OFinalDBPageSetup::IsDatabaseDocumentToBeOpened() const
     {
-        return m_pRBRegisterDataSource->IsChecked() && m_pRBRegisterDataSource->IsEnabled();
+        return m_xCBOpenAfterwards->get_active() && m_xCBOpenAfterwards->get_sensitive();
     }
 
-    bool OFinalDBPageSetup::IsDatabaseDocumentToBeOpened()
+    bool OFinalDBPageSetup::IsTableWizardToBeStarted() const
     {
-        return m_pCBOpenAfterwards->IsChecked() && m_pCBOpenAfterwards->IsEnabled();
-    }
-
-    bool OFinalDBPageSetup::IsTableWizardToBeStarted()
-    {
-        return m_pCBStartTableWizard->IsChecked() && m_pCBStartTableWizard->IsEnabled();
+        return m_xCBStartTableWizard->get_active() && m_xCBStartTableWizard->get_sensitive();
     }
 
     void OFinalDBPageSetup::fillWindows(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTFinalHeader));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTFinalHelpText));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTAdditionalSettings));
-        _rControlList.emplace_back(new ODisableWrapper<FixedText>(m_pFTFinalText));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTFinalHeader.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTFinalHelpText.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTAdditionalSettings.get()));
+        _rControlList.emplace_back(new ODisableWidgetWrapper<weld::Label>(m_xFTFinalText.get()));
     }
 
     void OFinalDBPageSetup::fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.emplace_back(new OSaveValueWrapper<CheckBox>(m_pCBOpenAfterwards));
-        _rControlList.emplace_back(new OSaveValueWrapper<CheckBox>(m_pCBStartTableWizard));
-        _rControlList.emplace_back(new OSaveValueWrapper<RadioButton>(m_pRBRegisterDataSource));
-        _rControlList.emplace_back(new OSaveValueWrapper<RadioButton>(m_pRBDontregisterDataSource));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(m_xCBOpenAfterwards.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(m_xCBStartTableWizard.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(m_xRBRegisterDataSource.get()));
+        _rControlList.emplace_back(new OSaveValueWidgetWrapper<weld::ToggleButton>(m_xRBDontregisterDataSource.get()));
     }
 
     void OFinalDBPageSetup::implInitControls(const SfxItemSet& /*_rSet*/, bool /*_bSaveValue*/)
     {
-        m_pCBOpenAfterwards->Check();
+        m_xCBOpenAfterwards->set_active(true);
     }
 
     void OFinalDBPageSetup::enableTableWizardCheckBox( bool _bSupportsTableCreation)
     {
-        m_pCBStartTableWizard->Enable(_bSupportsTableCreation);
+        m_xCBStartTableWizard->set_sensitive(_bSupportsTableCreation);
     }
 
     bool OFinalDBPageSetup::FillItemSet( SfxItemSet* /*_rSet*/ )
@@ -886,9 +791,9 @@ using namespace ::com::sun::star;
         return true;
     }
 
-    IMPL_LINK(OFinalDBPageSetup, OnOpenSelected, Button*, _pBox, void)
+    IMPL_LINK(OFinalDBPageSetup, OnOpenSelected, weld::ToggleButton&, rBox, void)
     {
-        m_pCBStartTableWizard->Enable( _pBox->IsEnabled() && static_cast<CheckBox*>(_pBox)->IsChecked() );
+        m_xCBStartTableWizard->set_sensitive(rBox.get_sensitive() && rBox.get_active());
         callModifiedHdl();
     }
 }

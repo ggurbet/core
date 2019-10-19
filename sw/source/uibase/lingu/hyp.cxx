@@ -22,6 +22,7 @@
 #include <edtwin.hxx>
 #include <wrtsh.hxx>
 #include <globals.hrc>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/wrkwin.hxx>
 #include <linguistic/lngprops.hxx>
@@ -54,7 +55,6 @@ SwHyphWrapper::SwHyphWrapper( SwView* pVw,
 {
     uno::Reference< linguistic2::XLinguProperties >  xProp( GetLinguPropertySet() );
     bAutomatic = xProp.is() && xProp->getIsHyphAuto();
-    SetHyphen();
 }
 
 void SwHyphWrapper::SpellStart( SvxSpellArea eSpell )

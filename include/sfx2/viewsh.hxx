@@ -31,7 +31,6 @@
 #include <vcl/errcode.hxx>
 #include <o3tl/typed_flags_set.hxx>
 #include <vcl/vclptr.hxx>
-#include <vcl/tabpage.hxx>
 #include <LibreOfficeKit/LibreOfficeKitTypes.h>
 #include <editeng/outliner.hxx>
 #include <functional>
@@ -41,7 +40,11 @@ class SfxBaseController;
 class Size;
 class Point;
 class Fraction;
-namespace weld { class Window; }
+namespace weld {
+    class Container;
+    class DialogController;
+    class Window;
+}
 class KeyEvent;
 class SvBorder;
 class SdrView;
@@ -163,7 +166,6 @@ protected:
 
 public:
     // Iteration
-    static size_t               GetActiveShells( bool bOnlyVisible = true );
     static SfxViewShell*        GetFirst( bool bOnlyVisible = true, const std::function<bool ( const SfxViewShell* )>& isViewShell = nullptr );
     static SfxViewShell*        GetNext( const SfxViewShell& rPrev,
                                          bool bOnlyVisible = true,
@@ -237,7 +239,7 @@ public:
     virtual SfxPrinter*         GetPrinter( bool bCreate = false );
     virtual sal_uInt16          SetPrinter( SfxPrinter *pNewPrinter, SfxPrinterChangeFlags nDiffFlags = SFX_PRINTER_ALL );
     virtual bool                HasPrintOptionsPage() const;
-    virtual VclPtr<SfxTabPage>  CreatePrintOptionsPage(TabPageParent pParent, const SfxItemSet &rOptions);
+    virtual std::unique_ptr<SfxTabPage>  CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rOptions);
     Printer*                    GetActivePrinter() const;
 
     // Working set
@@ -285,7 +287,8 @@ public:
     const std::shared_ptr< vcl::PrinterController >& GetPrinterController() const;
 
     void                        AddRemoveClipboardListener( const css::uno::Reference < css::datatransfer::clipboard::XClipboardListener>&, bool );
-    css::uno::Reference< css::datatransfer::clipboard::XClipboardNotifier > GetClipboardNotifier();
+    css::uno::Reference< css::datatransfer::clipboard::XClipboardNotifier > GetClipboardNotifier() const;
+    bool isContentExtractionLocked();
 
     SAL_DLLPRIVATE SfxInPlaceClient* GetUIActiveIPClient_Impl() const;
     SAL_DLLPRIVATE void AddContextMenuInterceptor_Impl( const css::uno::Reference < css::ui::XContextMenuInterceptor >& xInterceptor );
@@ -299,8 +302,8 @@ public:
     SAL_DLLPRIVATE void SetPrinter_Impl( VclPtr<SfxPrinter>& pNewPrinter );
 
     SAL_DLLPRIVATE bool HandleNotifyEvent_Impl( NotifyEvent const & rEvent );
-    SAL_DLLPRIVATE bool HasKeyListeners_Impl();
-    SAL_DLLPRIVATE bool HasMouseClickListeners_Impl();
+    SAL_DLLPRIVATE bool HasKeyListeners_Impl() const;
+    SAL_DLLPRIVATE bool HasMouseClickListeners_Impl() const;
 
     SAL_DLLPRIVATE SfxBaseController*   GetBaseController_Impl() const;
 

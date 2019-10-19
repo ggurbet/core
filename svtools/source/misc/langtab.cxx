@@ -27,7 +27,6 @@
 #include <i18nlangtag/languagetag.hxx>
 
 #include <sal/log.hxx>
-#include <svtools/strings.hrc>
 #include <svtools/svtresid.hxx>
 #include <svtools/langtab.hxx>
 #include <unotools/syslocale.hxx>
@@ -47,7 +46,7 @@ public:
     SvtLanguageTableImpl();
 
     bool            HasType( const LanguageType eType ) const;
-    const OUString  GetString( const LanguageType eType ) const;
+    OUString        GetString( const LanguageType eType ) const;
     LanguageType    GetType( const OUString& rStr ) const;
     sal_uInt32      GetEntryCount() const;
     LanguageType    GetTypeAtIndex( sal_uInt32 nIndex ) const;
@@ -76,7 +75,7 @@ namespace {
 struct theLanguageTable : public rtl::Static< SvtLanguageTableImpl, theLanguageTable > {};
 }
 
-const OUString ApplyLreOrRleEmbedding( const OUString &rText )
+OUString ApplyLreOrRleEmbedding( const OUString &rText )
 {
     const sal_Int32 nLen = rText.getLength();
     if (nLen == 0)
@@ -145,8 +144,8 @@ const OUString ApplyLreOrRleEmbedding( const OUString &rText )
     OUString aRes( rText );
     if (bFound)
     {
-        aRes = OUStringLiteral1(cStart) + aRes
-            + OUStringLiteral1(cPopDirectionalFormat);
+        aRes = OUStringChar(cStart) + aRes
+            + OUStringChar(cPopDirectionalFormat);
     }
 
     return aRes;
@@ -172,11 +171,9 @@ SvtLanguageTableImpl::SvtLanguageTableImpl()
     }
 
     auto xNA = officecfg::VCL::ExtraLanguages::get();
-    uno::Sequence <OUString> rElementNames = xNA->getElementNames();
-    sal_Int32 nLen = rElementNames.getLength();
-    for (sal_Int32 i = 0; i < nLen; ++i)
+    const uno::Sequence <OUString> rElementNames = xNA->getElementNames();
+    for (const OUString& rBcp47 : rElementNames)
     {
-        const OUString& rBcp47 = rElementNames[i];
         OUString aName;
         sal_Int32 nType = 0;
         uno::Reference <container::XNameAccess> xNB;
@@ -209,7 +206,7 @@ bool SvtLanguageTable::HasLanguageType( const LanguageType eType )
     return theLanguageTable::get().HasType( eType );
 }
 
-const OUString SvtLanguageTableImpl::GetString( const LanguageType eType ) const
+OUString SvtLanguageTableImpl::GetString( const LanguageType eType ) const
 {
     LanguageType eLang = MsLangId::getReplacementForObsoleteLanguage( eType );
     sal_uInt32 nPos = FindIndex(eLang);

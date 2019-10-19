@@ -89,7 +89,7 @@ void TreeListBox::RequestingChildren( SvTreeListEntry* pEntry )
 
             // load dialog library
             bool bDlgLibLoaded = false;
-            Reference< script::XLibraryContainer > xDlgLibContainer( aDocument.getLibraryContainer( E_DIALOGS ), UNO_QUERY );
+            Reference< script::XLibraryContainer > xDlgLibContainer = aDocument.getLibraryContainer( E_DIALOGS );
             if ( xDlgLibContainer.is() && xDlgLibContainer->hasByName( aOULibName ) )
             {
                 if ( !xDlgLibContainer->isLibraryLoaded( aOULibName ) )
@@ -107,8 +107,7 @@ void TreeListBox::RequestingChildren( SvTreeListEntry* pEntry )
                 ImpCreateLibSubEntries( pEntry, aDocument, aOULibName );
 
                 // exchange image
-                const bool bDlgMode = (nMode & BrowseMode::Dialogs) && !(nMode & BrowseMode::Modules);
-                Image aImage(StockImage::Yes, bDlgMode ? OUStringLiteral(RID_BMP_DLGLIB) : OUStringLiteral(RID_BMP_MODLIB));
+                Image aImage(StockImage::Yes, OUStringLiteral(RID_BMP_MODLIB));
                 SetEntryBitmaps( pEntry, aImage );
             }
             else
@@ -178,7 +177,7 @@ IMPL_LINK(SbTreeListBox, RequestingChildrenHdl, const weld::TreeIter&, rEntry, b
 
             // load dialog library
             bool bDlgLibLoaded = false;
-            Reference< script::XLibraryContainer > xDlgLibContainer( aDocument.getLibraryContainer( E_DIALOGS ), UNO_QUERY );
+            Reference< script::XLibraryContainer > xDlgLibContainer = aDocument.getLibraryContainer( E_DIALOGS );
             if ( xDlgLibContainer.is() && xDlgLibContainer->hasByName( aOULibName ) )
             {
                 if ( !xDlgLibContainer->isLibraryLoaded( aOULibName ) )
@@ -295,7 +294,7 @@ SbxVariable* SbTreeListBox::FindVariable(const weld::TreeIter* pEntry)
     {
         std::reverse(aEntries.begin(), aEntries.end());
         bool bDocumentObjects = false;
-        for (auto& pair : aEntries)
+        for (const auto& pair : aEntries)
         {
             Entry* pBE = pair.first;
             assert(pBE && "No data found in entry!");
@@ -497,7 +496,7 @@ EntryDescriptor SbTreeListBox::GetEntryDescriptor(const weld::TreeIter* pEntry)
     if ( !aEntries.empty() )
     {
         std::reverse(aEntries.begin(), aEntries.end());
-        for (auto& pair : aEntries)
+        for (const auto& pair : aEntries)
         {
             Entry* pBE = pair.first;
             assert(pBE && "No data found in entry!");

@@ -21,7 +21,6 @@
 #include <sax/tools/converter.hxx>
 
 #include <xmloff/SettingsExportHelper.hxx>
-#include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <sal/log.hxx>
 #include <tools/debug.hxx>
@@ -37,7 +36,6 @@
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/util/PathSubstitution.hpp>
 #include <com/sun/star/util/DateTime.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/formula/SymbolDescriptor.hpp>
 #include <com/sun/star/document/PrinterIndependentLayout.hpp>
 #include <com/sun/star/document/IndexedPropertyValues.hpp>
@@ -331,8 +329,7 @@ void XMLSettingsExportHelper::exportSymbolDescriptors(
         xBox->insertByIndex(nIndex, uno::makeAny( aSequence ));
     }
 
-    uno::Reference< container::XIndexAccess > xIA( xBox, uno::UNO_QUERY );
-    exportIndexAccess( xIA, rName );
+    exportIndexAccess( xBox, rName );
 }
 void XMLSettingsExportHelper::exportbase64Binary(
                     const uno::Sequence<sal_Int8>& aProps,
@@ -363,7 +360,7 @@ void XMLSettingsExportHelper::exportMapEntry(const uno::Any& rAny,
         if (bNameAccess)
             m_rContext.AddAttribute( XML_NAME, rName );
         m_rContext.StartElement( XML_CONFIG_ITEM_MAP_ENTRY );
-        for (const auto& rProp : aProps)
+        for (const auto& rProp : std::as_const(aProps))
             CallTypeFunction(rProp.Value, rProp.Name);
         m_rContext.EndElement( true );
     }
@@ -380,7 +377,7 @@ void XMLSettingsExportHelper::exportNameAccess(
     {
         m_rContext.AddAttribute( XML_NAME, rName );
         m_rContext.StartElement( XML_CONFIG_ITEM_MAP_NAMED );
-        uno::Sequence< OUString > aNames(aNamed->getElementNames());
+        const uno::Sequence< OUString > aNames(aNamed->getElementNames());
         for (const auto& rElementName : aNames)
             exportMapEntry(aNamed->getByName(rElementName), rElementName, true);
         m_rContext.EndElement( true );
@@ -460,8 +457,7 @@ void XMLSettingsExportHelper::exportForbiddenCharacters(
         }
     }
 
-    uno::Reference< container::XIndexAccess > xIA( xBox, uno::UNO_QUERY );
-    exportIndexAccess( xIA, rName );
+    exportIndexAccess( xBox, rName );
 }
 
 void XMLSettingsExportHelper::exportAllSettings(

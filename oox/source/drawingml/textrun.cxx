@@ -59,7 +59,7 @@ sal_Int32 TextRun::insertAt(
 {
     sal_Int32 nCharHeight = 0;
     try {
-        Reference< XTextRange > xStart( xAt, UNO_QUERY );
+        Reference< XTextRange > xStart = xAt;
         PropertySet aPropSet( xStart );
 
         TextCharacterProperties aTextCharacterProps( rTextCharacterStyle );
@@ -176,8 +176,7 @@ sal_Int32 TextRun::insertAt(
     }
     catch( const Exception&  )
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("oox", "OOX: TextRun::insertAt() exception " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("oox", "OOX: TextRun::insertAt()");
     }
 
     return nCharHeight;

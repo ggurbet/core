@@ -1250,7 +1250,7 @@ public:
                     }
                     else if (bNumeric || bDateTime || bString)
                     {
-                        // Always just copy the original row to the Undo Documen;
+                        // Always just copy the original row to the Undo Document;
                         // do not create Value/string cells from formulas
 
                         FormulaError nErr = rSrcCell.GetErrCode();
@@ -2722,8 +2722,8 @@ class FormulaToValueHandler
 {
     struct Entry
     {
-        SCROW const mnRow;
-        ScCellValue const maValue;
+        SCROW mnRow;
+        ScCellValue maValue;
 
         Entry(SCROW nRow, double f) : mnRow(nRow), maValue(f) {}
         Entry(SCROW nRow, const svl::SharedString& rStr) : mnRow(nRow), maValue(rStr) {}
@@ -3128,7 +3128,7 @@ class MaxStringLenHandler
     rtl_TextEncoding const meCharSet;
     bool const mbOctetEncoding;
 
-    void processCell(size_t nRow, ScRefCellValue& rCell)
+    void processCell(size_t nRow, const ScRefCellValue& rCell)
     {
         Color* pColor;
         OUString aString;

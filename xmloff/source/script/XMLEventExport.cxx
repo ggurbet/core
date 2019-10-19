@@ -24,7 +24,6 @@
 #include <com/sun/star/document/XEventsSupplier.hpp>
 
 #include <com/sun/star/container/XNameReplace.hpp>
-#include <tools/debug.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <xmloff/xmlexp.hxx>
@@ -85,8 +84,7 @@ void XMLEventExport::Export( Reference<XEventsSupplier> const & rSupplier,
 {
     if (rSupplier.is())
     {
-        Reference<XNameAccess> xAccess(rSupplier->getEvents(), UNO_QUERY);
-        Export(xAccess, bWhitespace);
+        Export(rSupplier->getEvents(), bWhitespace);
     }
     // else: no supplier, no export -> ignore!
 }
@@ -94,7 +92,7 @@ void XMLEventExport::Export( Reference<XEventsSupplier> const & rSupplier,
 void XMLEventExport::Export( Reference<XNameReplace> const & rReplace,
                              bool bWhitespace)
 {
-    Reference<XNameAccess> xAccess(rReplace, UNO_QUERY);
+    Reference<XNameAccess> xAccess(rReplace);
     Export(xAccess, bWhitespace);
 }
 
@@ -111,7 +109,7 @@ void XMLEventExport::Export( Reference<XNameAccess> const & rAccess,
     bool bStarted = false;
 
     // iterate over all event types
-    Sequence<OUString> aNames = rAccess->getElementNames();
+    const Sequence<OUString> aNames = rAccess->getElementNames();
     for(const auto& rName : aNames)
     {
         // translate name

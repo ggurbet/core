@@ -113,7 +113,7 @@ bool BadVectorInit::TraverseFunctionDecl(FunctionDecl* decl)
 StringRef BadVectorInit::getFilename(SourceLocation loc)
 {
     SourceLocation spellingLocation = compiler.getSourceManager().getSpellingLoc(loc);
-    StringRef name { compiler.getSourceManager().getFilename(spellingLocation) };
+    StringRef name { getFilenameOfLocation(spellingLocation) };
     return name;
 }
 

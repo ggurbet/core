@@ -18,13 +18,11 @@
  */
 
 #include <stdio.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include "psputil.hxx"
-#include "glyphset.hxx"
 
 #include <unx/printerjob.hxx>
 #include <unx/printergfx.hxx>
@@ -38,7 +36,6 @@
 
 #include <osl/thread.h>
 #include <osl/security.hxx>
-#include <sal/macros.h>
 
 #include <algorithm>
 #include <deque>
@@ -190,7 +187,7 @@ removeSpoolDir (const OUString& rSpoolDir)
     if( osl::File::E_None != osl::File::getSystemPathFromFileURL( rSpoolDir, aSysPath ) )
     {
         // Conversion did not work, as this is quite a dangerous action,
-        // we should abort here ....
+        // we should abort here...
         OSL_FAIL( "psprint: couldn't remove spool directory" );
         return;
     }
@@ -214,18 +211,14 @@ createSpoolDir ()
 
     do
     {
-        OUStringBuffer aDir( aTmpDir.getLength() + 16 );
-        aDir.append( aTmpDir );
-        aDir.append( "/psp" );
-        aDir.append(nRand);
-        OUString aResult = aDir.makeStringAndClear();
-        if( osl::Directory::create( aResult ) == osl::FileBase::E_None )
+        OUString aDir = aTmpDir + "/psp" + OUString::number(nRand);
+        if( osl::Directory::create( aDir ) == osl::FileBase::E_None )
         {
-            osl::File::setAttributes( aResult,
+            osl::File::setAttributes( aDir,
                                         osl_File_Attribute_OwnWrite
                                       | osl_File_Attribute_OwnRead
                                       | osl_File_Attribute_OwnExe );
-            return aResult;
+            return aDir;
         }
         nRand++;
     } while( nRand );
@@ -954,9 +947,9 @@ bool PrinterJob::writeSetup( osl::File* pFile, const JobData& rJob )
     if( ! bExternalDialog && rJob.m_nCopies > 1 )
     {
         // setup code
-        OStringBuffer aLine("/#copies ");
-        aLine.append(static_cast<sal_Int32>(rJob.m_nCopies));
-        aLine.append(" def\n");
+        OString aLine = "/#copies " +
+                OString::number(static_cast<sal_Int32>(rJob.m_nCopies)) +
+                " def\n";
         sal_uInt64 nWritten = 0;
         bSuccess = !(pFile->write(aLine.getStr(), aLine.getLength(), nWritten)
             || nWritten != static_cast<sal_uInt64>(aLine.getLength()));

@@ -228,7 +228,7 @@ public class ScriptEditorForBeanShell implements ScriptEditor, ActionListener {
         this.context   = context;
         this.scriptURL = url;
         this.model     = new ScriptSourceModel(url);
-        this.filename  = url.getFile();
+        this.filename  = ScriptMetaData.getFileName(url);
         this.cl = cl;
 
         try {
@@ -267,7 +267,7 @@ public class ScriptEditorForBeanShell implements ScriptEditor, ActionListener {
     }
 
     // Wraps long error messages
-    class NarrowOptionPane extends JOptionPane {
+    private static class NarrowOptionPane extends JOptionPane {
         private static final long serialVersionUID = 1L;
         public int getMaxCharactersPerLineCount() {
             return 100;

@@ -51,10 +51,10 @@
 #include <svx/svxids.hrc>
 #include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
-#include <vcl/button.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/svapp.hxx>
 #include <xmlscript/xmldlg_imexp.hxx>
 
@@ -694,8 +694,7 @@ void DialogWindow::SaveDialog()
                 {
                     Sequence< OUString > aContentSeq = xSFI->getFolderContents( aURL, false );
 
-                    OUString aDialogName_( aDialogName );
-                    aDialogName_ += "_" ;
+                    OUString aDialogName_ = aDialogName + "_" ;
                     sal_Int32 nCount = aContentSeq.getLength();
                     const OUString* pFiles = aContentSeq.getConstArray();
                     for( int i = 0 ; i < nCount ; i++ )
@@ -803,7 +802,7 @@ public:
             m_xQueryBox->set_title(rTitle);
         m_xQueryBox->add_button(IDEResId(RID_STR_DLGIMP_CLASH_RENAME), RET_YES);
         m_xQueryBox->add_button(IDEResId(RID_STR_DLGIMP_CLASH_REPLACE), RET_NO);
-        m_xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+        m_xQueryBox->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
         m_xQueryBox->set_default_response(RET_YES);
     }
     short run() { return m_xQueryBox->run(); }
@@ -821,8 +820,8 @@ public:
             m_xQueryBox->set_title(rTitle);
         m_xQueryBox->add_button(IDEResId(RID_STR_DLGIMP_MISMATCH_ADD), RET_YES);
         m_xQueryBox->add_button(IDEResId(RID_STR_DLGIMP_MISMATCH_OMIT), RET_NO);
-        m_xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
-        m_xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Help), RET_HELP);
+        m_xQueryBox->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+        m_xQueryBox->add_button(GetStandardText(StandardButtonType::Help), RET_HELP);
         m_xQueryBox->set_default_response(RET_YES);
     }
     short run() { return m_xQueryBox->run(); }
@@ -1034,16 +1033,14 @@ bool implImportDialog(weld::Window* pWin, const OUString& rCurPath, const Script
                 }
                 else if( !bLibLocalized )
                 {
-                    Reference< resource::XStringResourceManager > xImportStringResourceManager( xImportStringResource, UNO_QUERY );
-                    LocalizationMgr::resetResourceForDialog( xDialogModel, xImportStringResourceManager );
+                    LocalizationMgr::resetResourceForDialog( xDialogModel, xImportStringResource );
                     bCopyResourcesForDialog = false;
                 }
 
                 if( bCopyResourcesForDialog )
                 {
-                    Reference< resource::XStringResourceResolver > xImportStringResourceResolver( xImportStringResource, UNO_QUERY );
                     LocalizationMgr::copyResourceForDroppedDialog( xDialogModel, aXmlDlgName,
-                        xLibStringResourceManager, xImportStringResourceResolver );
+                        xLibStringResourceManager, xImportStringResource );
                 }
             }
             else if( bLibLocalized )

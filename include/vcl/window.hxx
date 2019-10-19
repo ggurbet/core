@@ -34,6 +34,8 @@
 #include <com/sun/star/uno/Reference.hxx>
 #include <memory>
 
+#include <boost/property_tree/ptree.hpp>
+
 class VirtualDevice;
 struct ImplSVEvent;
 struct ImplWinData;
@@ -742,6 +744,7 @@ protected:
     virtual void                        InitClipRegion() override;
 
     void ImplClearFontData(bool bNewFontLists) override;
+    void ImplRefreshFontData(bool bNewFontLists) override;
 
     // FIXME: this is a hack to workaround missing layout functionality
     SAL_DLLPRIVATE void                 ImplAdjustNWFSizes();
@@ -762,6 +765,8 @@ public:
 
     ::OutputDevice const*               GetOutDev() const;
     ::OutputDevice*                     GetOutDev();
+
+    Color                               GetBackgroundColor() const override;
 
     virtual void                        EnableRTL ( bool bEnable = true ) override;
     virtual void                        MouseMove( const MouseEvent& rMEvt );
@@ -862,7 +867,7 @@ public:
         Point   maPos;      // mouse position in output coordinates
     };
     PointerState                        GetPointerState();
-    bool                                IsMouseOver();
+    bool                                IsMouseOver() const;
 
     void                                SetInputContext( const InputContext& rInputContext );
     const InputContext&                 GetInputContext() const;
@@ -1063,7 +1068,7 @@ public:
     void                                Validate();
     bool                                HasPaintEvent() const;
     void                                Update();
-    void                                Flush();
+    void                                Flush() override;
 
     // toggles new docking support, enabled via toolkit
     void                                EnableDocking( bool bEnable = true );
@@ -1080,9 +1085,10 @@ public:
     bool                                HasFocus() const;
     bool                                HasChildPathFocus( bool bSystemWindow = false ) const;
     bool                                IsActive() const;
-    bool                                HasActiveChildFrame();
+    bool                                HasActiveChildFrame() const;
     GetFocusFlags                       GetGetFocusFlags() const;
     void                                GrabFocusToDocument();
+    VclPtr<vcl::Window>                 GetFocusedWindow() const;
 
     /**
      * Set this when you need to act as if the window has focus even if it
@@ -1184,11 +1190,10 @@ public:
                                                              ScrollBar* pHScrl,
                                                              ScrollBar* pVScrl );
 
-    void                                SaveBackground( const Point& rPos, const Size& rSize,
-                                                        VirtualDevice& rSaveDevice ) const;
+    void                                SaveBackground(VirtualDevice& rSaveDevice,
+                                                       const Point& rPos, const Size& rSize, const Size&) const override;
 
     virtual const SystemEnvData*        GetSystemData() const;
-    css::uno::Any                       GetSystemDataAny() const;
 
     // API to set/query the component interfaces
     virtual css::uno::Reference< css::awt::XWindowPeer >
@@ -1209,6 +1214,9 @@ public:
 
     /// Find an existing Window based on the LOKWindowId.
     static VclPtr<vcl::Window>          FindLOKWindow(vcl::LOKWindowId nWindowId);
+
+    /// Dumps itself and potentially its children to a property tree, to be written easily to JSON.
+    virtual boost::property_tree::ptree DumpAsPropertyTree();
 
     /// Dialog / window tunneling related methods.
     Size PaintActiveFloatingWindow(VirtualDevice& rDevice) const;
@@ -1264,9 +1272,6 @@ public:
     bool                                IsAccessibilityEventsSuppressed( bool bTraverseParentPath = true );
     void                                SetAccessibilityEventsSuppressed(bool bSuppressed);
 
-    // Deprecated - can use SetAccessibleRelationLabelFor/By nowadays
-    virtual vcl::Window*                GetParentLabelFor( const vcl::Window* pLabel ) const;
-    virtual vcl::Window*                GetParentLabeledBy( const vcl::Window* pLabeled ) const;
     KeyEvent                            GetActivationKey() const;
 
 protected:
@@ -1489,7 +1494,7 @@ public:
     void set_secondary(bool bSecondary);
 
     /*
-     * If true this child is exempted from homogenous sizing
+     * If true this child is exempted from homogeneous sizing
      * e.g. special button in a buttonbox
      */
     bool get_non_homogeneous() const;

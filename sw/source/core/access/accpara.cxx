@@ -18,6 +18,7 @@
  */
 
 #include <memory>
+#include <numeric>
 #include <txtfrm.hxx>
 #include <flyfrm.hxx>
 #include <ndtxt.hxx>
@@ -31,7 +32,6 @@
 #include <osl/mutex.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
@@ -50,18 +50,14 @@
 #include <sfx2/viewsh.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
-#include <unotools/charclass.hxx>
 #include <unocrsr.hxx>
 #include <unoport.hxx>
 #include <doc.hxx>
 #include <IDocumentRedlineAccess.hxx>
-#include <txtatr.hxx>
 #include "acchyperlink.hxx"
 #include "acchypertextdata.hxx"
 #include <unotools/accessiblerelationsethelper.hxx>
 #include <com/sun/star/accessibility/AccessibleRelationType.hpp>
-#include <section.hxx>
-#include <doctxm.hxx>
 #include <comphelper/accessibletexthelper.hxx>
 #include <algorithm>
 #include <docufld.hxx>
@@ -77,9 +73,7 @@
 #include <wrong.hxx>
 #include <editeng/brushitem.hxx>
 #include <swatrset.hxx>
-#include <frmatr.hxx>
 #include <unosett.hxx>
-#include <paratr.hxx>
 #include <unomap.hxx>
 #include <unoprnms.hxx>
 #include <com/sun/star/text/WritingMode2.hpp>
@@ -93,7 +87,6 @@
 #include <editeng/editids.hrc>
 
 #include <reffld.hxx>
-#include <expfld.hxx>
 #include <flddat.hxx>
 #include "../../uibase/inc/fldmgr.hxx"
 #include <fldbas.hxx>      // SwField
@@ -111,11 +104,9 @@ using std::max;
 using std::min;
 using std::sort;
 
-namespace com { namespace sun { namespace star {
-    namespace text {
-        class XText;
-    }
-} } }
+namespace com::sun::star::text {
+    class XText;
+}
 
 const sal_Char sServiceName[] = "com.sun.star.text.AccessibleParagraphView";
 const sal_Char sImplementationName[] = "com.sun.star.comp.Writer.SwAccessibleParagraphView";
@@ -878,7 +869,7 @@ sal_Int32 SAL_CALL SwAccessibleParagraph::getBackground()
 
 OUString SAL_CALL SwAccessibleParagraph::getImplementationName()
 {
-    return OUString(sImplementationName);
+    return sImplementationName;
 }
 
 sal_Bool SAL_CALL SwAccessibleParagraph::supportsService(
@@ -889,11 +880,7 @@ sal_Bool SAL_CALL SwAccessibleParagraph::supportsService(
 
 uno::Sequence< OUString > SAL_CALL SwAccessibleParagraph::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = sServiceName;
-    pArray[1] = sAccessibleServiceName;
-    return aRet;
+    return { sServiceName, sAccessibleServiceName };
 }
 
 static uno::Sequence< OUString > const & getAttributeNames()
@@ -1248,8 +1235,7 @@ OUString SwAccessibleParagraph::GetFieldTypeNameAtIndex(sal_Int32 nIndex)
                         sEntry = aMgr.GetFormatStr( pField->GetTypeId(), pField->GetFormat() );
                         if (sEntry.getLength() > 0)
                         {
-                            strTypeName += "-";
-                            strTypeName += sEntry;
+                            strTypeName += "-" + sEntry;
                         }
                     }
                 }
@@ -1266,8 +1252,7 @@ OUString SwAccessibleParagraph::GetFieldTypeNameAtIndex(sal_Int32 nIndex)
                         sEntry = aMgr.GetFormatStr(pField->GetTypeId(), nFormat);
                         if (sEntry.getLength() > 0)
                         {
-                            strTypeName += "-";
-                            strTypeName += sEntry;
+                            strTypeName += "-" + sEntry;
                         }
                     }
                 }
@@ -1281,8 +1266,7 @@ OUString SwAccessibleParagraph::GetFieldTypeNameAtIndex(sal_Int32 nIndex)
                     sEntry = pField->GetTyp()->GetName();
                     if (sEntry.getLength() > 0)
                     {
-                        strTypeName += "-";
-                        strTypeName += sEntry;
+                        strTypeName += "-" + sEntry;
                     }
                 }
                 break;
@@ -1332,8 +1316,7 @@ OUString SwAccessibleParagraph::GetFieldTypeNameAtIndex(sal_Int32 nIndex)
                     }
                     else
                     {
-                        strTypeName += "-";
-                        strTypeName += sEntry;
+                        strTypeName += "-" + sEntry;
                     }
                 }
             }
@@ -1593,11 +1576,9 @@ void SwAccessibleParagraph::_getDefaultAttributesImpl(
     }
     else
     {
-        const OUString* pReqAttrs = aRequestedAttributes.getConstArray();
-        const sal_Int32 nLength = aRequestedAttributes.getLength();
-        for( sal_Int32 i = 0; i < nLength; ++i )
+        for( const OUString& rReqAttr : aRequestedAttributes )
         {
-            tAccParaPropValMap::const_iterator const aIter = aDefAttrSeq.find( pReqAttrs[i] );
+            tAccParaPropValMap::const_iterator const aIter = aDefAttrSeq.find( rReqAttr );
             if ( aIter != aDefAttrSeq.end() )
             {
                 rDefAttrSeq[ aIter->first ] = aIter->second;
@@ -1618,30 +1599,13 @@ uno::Sequence< PropertyValue > SwAccessibleParagraph::getDefaultAttributes(
 
     // #i92233#
     static const char sMMToPixelRatio[] = "MMToPixelRatio";
-    bool bProvideMMToPixelRatio( false );
-    {
-        if ( !aRequestedAttributes.hasElements() )
-        {
-            bProvideMMToPixelRatio = true;
-        }
-        else
-        {
-            const OUString* aRequestedAttrIter =
-                  std::find( aRequestedAttributes.begin(), aRequestedAttributes.end(), sMMToPixelRatio );
-            if ( aRequestedAttrIter != aRequestedAttributes.end() )
-                bProvideMMToPixelRatio = true;
-        }
-    }
+    bool bProvideMMToPixelRatio( !aRequestedAttributes.hasElements() ||
+                                 (comphelper::findValue(aRequestedAttributes, sMMToPixelRatio) != -1) );
 
     uno::Sequence< PropertyValue > aValues( aDefAttrSeq.size() +
                                             ( bProvideMMToPixelRatio ? 1 : 0 ) );
-    PropertyValue* pValues = aValues.getArray();
-    sal_Int32 i = 0;
-    for ( const auto& rEntry : aDefAttrSeq )
-    {
-        pValues[i] = rEntry.second;
-        ++i;
-    }
+    std::transform(aDefAttrSeq.begin(), aDefAttrSeq.end(), aValues.begin(),
+        [](const auto& rEntry) -> PropertyValue { return rEntry.second; });
 
     // #i92233#
     if ( bProvideMMToPixelRatio )
@@ -1654,7 +1618,7 @@ uno::Sequence< PropertyValue > SwAccessibleParagraph::getDefaultAttributes(
         rPropVal.Value <<= fRatio;
         rPropVal.Handle = -1;
         rPropVal.State = beans::PropertyState_DEFAULT_VALUE;
-        pValues[ aValues.getLength() - 1 ] = rPropVal;
+        aValues[ aValues.getLength() - 1 ] = rPropVal;
     }
 
     return aValues;
@@ -1749,11 +1713,9 @@ void SwAccessibleParagraph::_getRunAttributesImpl(
         }
         else
         {
-            const OUString* pReqAttrs = aRequestedAttributes.getConstArray();
-            const sal_Int32 nLength = aRequestedAttributes.getLength();
-            for( sal_Int32 i = 0; i < nLength; ++i )
+            for( const OUString& rReqAttr : aRequestedAttributes )
             {
-                tAccParaPropValMap::iterator aIter = aRunAttrSeq.find( pReqAttrs[i] );
+                tAccParaPropValMap::iterator aIter = aRunAttrSeq.find( rReqAttr );
                 if ( aIter != aRunAttrSeq.end() )
                 {
                     rRunAttrSeq[ (*aIter).first ] = (*aIter).second;
@@ -1835,12 +1797,9 @@ void SwAccessibleParagraph::_getSupplementalAttributesImpl(
         }
     }
 
-    const OUString* pSupplementalAttrs = aRequestedAttributes.getConstArray();
-    const sal_Int32 nSupplementalLength = aRequestedAttributes.getLength();
-
-    for( sal_Int32 index = 0; index < nSupplementalLength; ++index )
+    for( const OUString& rSupplementalAttr : aRequestedAttributes )
     {
-        tAccParaPropValMap::const_iterator const aIter = aSupplementalAttrSeq.find( pSupplementalAttrs[index] );
+        tAccParaPropValMap::const_iterator const aIter = aSupplementalAttrSeq.find( rSupplementalAttr );
         if ( aIter != aSupplementalAttrSeq.end() )
         {
             rSupplementalAttrSeq[ aIter->first ] = aIter->second;
@@ -2643,10 +2602,8 @@ sal_Bool SwAccessibleParagraph::setAttributes(
     // build sorted index array
     sal_Int32 nLength = rAttributeSet.getLength();
     const PropertyValue* pPairs = rAttributeSet.getConstArray();
-    std::vector<sal_Int32> aIndices;
-    aIndices.reserve(nLength);
-    for (sal_Int32 i = 0; i < nLength; ++i)
-        aIndices.push_back(i);
+    std::vector<sal_Int32> aIndices(nLength);
+    std::iota(aIndices.begin(), aIndices.end(), 0);
     std::sort(aIndices.begin(), aIndices.end(), IndexCompare(pPairs));
 
     // create sorted sequences according to index array
@@ -3513,9 +3470,11 @@ uno::Any SAL_CALL SwAccessibleParagraph::getExtendedAttributes()
     OUString strHeading("heading-level:");
     if( m_nHeadingLevel >= 0 )
         strHeading += OUString::number(m_nHeadingLevel);
+    // tdf#84102: expose the same attribute with the name "level"
+    strHeading += ";level:";
+    if( m_nHeadingLevel >= 0 )
+        strHeading += OUString::number(m_nHeadingLevel);
     strHeading += ";";
-
-    strHeading += strHeading.copy(8); // tdf#84102: expose the same attribute with the name "level"
 
     Ret <<= strHeading;
 

@@ -145,7 +145,7 @@ sal_uInt16 discretizeBitcount( sal_uInt16 nInputCount )
 
 bool isBitfieldCompression( ScanlineFormat nScanlineFormat )
 {
-    return (ScanlineFormat::N16BitTcLsbMask == nScanlineFormat) || (ScanlineFormat::N32BitTcMask == nScanlineFormat);
+    return ScanlineFormat::N32BitTcMask == nScanlineFormat;
 }
 
 bool ImplReadDIBInfoHeader(SvStream& rIStm, DIBV5Header& rHeader, bool& bTopDown, bool bMSOFormat)
@@ -466,11 +466,9 @@ bool ImplDecodeRLE(sal_uInt8* pBuffer, DIBV5Header const & rHeader, BitmapWriteA
             {
                 nRunByte = nCountByte >> 1;
 
-                for( sal_uLong i = 0; i < nRunByte; i++ )
+                for (sal_uLong i = 0; i < nRunByte && nX < nWidth; ++i)
                 {
-                    if( nX < nWidth )
-                        rAcc.SetPixelOnData(pScanline, nX++, SanitizePaletteIndex(cTmp >> 4, rPalette, bForceToMonoWhileReading));
-
+                    rAcc.SetPixelOnData(pScanline, nX++, SanitizePaletteIndex(cTmp >> 4, rPalette, bForceToMonoWhileReading));
                     if( nX < nWidth )
                         rAcc.SetPixelOnData(pScanline, nX++, SanitizePaletteIndex(cTmp & 0x0f, rPalette, bForceToMonoWhileReading));
                 }
@@ -480,7 +478,7 @@ bool ImplDecodeRLE(sal_uInt8* pBuffer, DIBV5Header const & rHeader, BitmapWriteA
             }
             else
             {
-                for( sal_uLong i = 0; ( i < nCountByte ) && ( nX < nWidth ); i++ )
+                for (sal_uLong i = 0; i < nCountByte && nX < nWidth; ++i)
                     rAcc.SetPixelOnData(pScanline, nX++, SanitizePaletteIndex(cTmp, rPalette, bForceToMonoWhileReading));
             }
         }
@@ -1457,7 +1455,7 @@ bool ImplWriteDIBBody(const Bitmap& rBitmap, SvStream& rOStm, BitmapReadAccess c
 
     if(!pAccAlpha && isBitfieldCompression(rAcc.GetScanlineFormat()))
     {
-        aHeader.nBitCount = (ScanlineFormat::N16BitTcLsbMask == rAcc.GetScanlineFormat()) ? 16 : 32;
+        aHeader.nBitCount = 32;
         aHeader.nSizeImage = rAcc.Height() * rAcc.GetScanlineSize();
         nCompression = BITFIELDS;
     }
@@ -1839,13 +1837,13 @@ bool ReadDIBV5(
 }
 
 bool ReadRawDIB(
-    Bitmap& rTarget,
+    BitmapEx& rTarget,
     const unsigned char* pBuf,
     const ScanlineFormat nFormat,
     const int nHeight,
     const int nStride)
 {
-    BitmapScopedWriteAccess pWriteAccess(rTarget.AcquireWriteAccess(), rTarget);
+    BitmapScopedWriteAccess pWriteAccess(rTarget.maBitmap.AcquireWriteAccess(), rTarget.maBitmap);
     for (int nRow = 0; nRow < nHeight; ++nRow)
     {
         pWriteAccess->CopyScanline(nRow, pBuf + (nStride * nRow), nFormat, nStride);

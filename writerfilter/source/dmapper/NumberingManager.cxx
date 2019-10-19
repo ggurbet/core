@@ -72,7 +72,7 @@ static sal_Int32 lcl_findProperty( const uno::Sequence< beans::PropertyValue >& 
     return nPos;
 }
 
-static void lcl_mergeProperties( uno::Sequence< beans::PropertyValue >& aSrc,
+static void lcl_mergeProperties( const uno::Sequence< beans::PropertyValue >& aSrc,
         uno::Sequence< beans::PropertyValue >& aDst )
 {
     for ( const auto& rProp : aSrc )
@@ -329,7 +329,7 @@ void ListLevel::AddParaProperties( uno::Sequence< beans::PropertyValue >* props 
     if( hasFirstLineIndent && hasIndentAt )
         return; // has them all, nothing to add
 
-    uno::Sequence< beans::PropertyValue > aParaProps = m_pParaStyle->pProperties->GetPropertyValues( );
+    const uno::Sequence< beans::PropertyValue > aParaProps = m_pParaStyle->pProperties->GetPropertyValues( );
 
     // ParaFirstLineIndent -> FirstLineIndent
     // ParaLeftMargin -> IndentAt
@@ -428,6 +428,15 @@ uno::Sequence<uno::Sequence<beans::PropertyValue>> AbstractListDef::GetPropertyV
     return result;
 }
 
+const OUString& AbstractListDef::MapListId(OUString const& rId)
+{
+    if (!m_oListId)
+    {
+        m_oListId = rId;
+    }
+    return *m_oListId;
+}
+
 //----------------------------------------------  ListDef implementation
 
 ListDef::ListDef( ) : AbstractListDef( )
@@ -438,12 +447,26 @@ ListDef::~ListDef( )
 {
 }
 
-OUString ListDef::GetStyleName( sal_Int32 nId )
+OUString ListDef::GetStyleName(sal_Int32 const nId,
+    uno::Reference<container::XNameContainer> const& xStyles)
 {
-    OUString sStyleName( "WWNum" );
-    sStyleName += OUString::number( nId );
+    if (xStyles.is())
+    {
+        OUString sStyleName = "WWNum" + OUString::number( nId );
 
-    return sStyleName;
+        while (xStyles.is() && xStyles->hasByName(sStyleName)) // unique
+        {
+            sStyleName += "a";
+        }
+
+        m_StyleName = sStyleName;
+    }
+    else
+    {
+// fails in rtftok test        assert(!m_StyleName.isEmpty()); // must be inited first
+    }
+
+    return m_StyleName;
 }
 
 uno::Sequence<uno::Sequence<beans::PropertyValue>> ListDef::GetMergedPropertyValues()
@@ -510,7 +533,7 @@ void ListDef::CreateNumberingRules( DomainMapper& rDMapper,
                 xFactory->createInstance("com.sun.star.style.NumberingStyle"),
                 uno::UNO_QUERY_THROW );
 
-            OUString sStyleName = GetStyleName( GetId( ) );
+            OUString sStyleName = GetStyleName(GetId(), xStyles);
 
             xStyles->insertByName( sStyleName, makeAny( xStyle ) );
 
@@ -1084,8 +1107,7 @@ void ListsManager::lcl_sprm( Sprm& rSprm )
     }
 }
 
-void ListsManager::lcl_entry( int /* pos */,
-                          writerfilter::Reference<Properties>::Pointer_t ref )
+void ListsManager::lcl_entry(writerfilter::Reference<Properties>::Pointer_t ref )
 {
     if( m_rDMapper.IsOOXMLImport() || m_rDMapper.IsRTFImport() )
     {

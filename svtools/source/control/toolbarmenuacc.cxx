@@ -29,8 +29,8 @@
 #include <vcl/settings.hxx>
 #include <tools/debug.hxx>
 
-#include <svtools/framestatuslistener.hxx>
 #include <svtools/toolbarmenu.hxx>
+#include <svtools/framestatuslistener.hxx>
 
 #include "toolbarmenuimp.hxx"
 
@@ -200,7 +200,7 @@ sal_Int16 SAL_CALL ToolbarMenuAcc::getAccessibleRole()
 OUString SAL_CALL ToolbarMenuAcc::getAccessibleDescription()
 {
     ThrowIfDisposed();
-    return OUString( "ToolbarMenu" );
+    return "ToolbarMenu";
 }
 
 
@@ -651,8 +651,8 @@ OUString SAL_CALL ToolbarMenuEntryAcc::getAccessibleName()
 
         if( aRet.isEmpty() )
         {
-            aRet = "Item ";
-            aRet += OUString::number( mpParent->mnEntryId );
+            aRet = "Item " +
+                OUString::number( mpParent->mnEntryId );
         }
     }
 

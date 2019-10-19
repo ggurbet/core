@@ -285,7 +285,8 @@ sal_uInt16 lclGetXclZoom( long nScZoom, sal_uInt16 nDefXclZoom )
 
 XclExpTabViewSettings::XclExpTabViewSettings( const XclExpRoot& rRoot, SCTAB nScTab ) :
     XclExpRoot( rRoot ),
-    mnGridColorId( XclExpPalette::GetColorIdFromIndex( EXC_COLOR_WINDOWTEXT ) )
+    mnGridColorId( XclExpPalette::GetColorIdFromIndex( EXC_COLOR_WINDOWTEXT ) ),
+    mbHasTabSettings(false)
 {
     // *** sheet flags ***
 
@@ -304,6 +305,7 @@ XclExpTabViewSettings::XclExpTabViewSettings( const XclExpRoot& rRoot, SCTAB nSc
 
     if( const ScExtTabSettings* pTabSett = GetExtDocOptions().GetTabSettings( nScTab ) )
     {
+        mbHasTabSettings = true;
         const ScExtTabSettings& rTabSett = *pTabSett;
         XclExpAddressConverter& rAddrConv = GetAddressConverter();
 
@@ -410,7 +412,7 @@ static OString lcl_GetZoom( sal_uInt16 nZoom )
 {
     if( nZoom )
         return OString::number( nZoom );
-    return OString( "100" );
+    return "100";
 }
 
 void XclExpTabViewSettings::SaveXml( XclExpXmlStream& rStrm )
@@ -419,7 +421,7 @@ void XclExpTabViewSettings::SaveXml( XclExpXmlStream& rStrm )
     rWorksheet->startElement(XML_sheetViews);
 
     // handle missing viewdata at embedded XLSX OLE objects
-    if (maData.mbSelected)
+    if( !mbHasTabSettings && maData.mbSelected )
     {
         SCCOL nPosLeft = rStrm.GetRoot().GetDoc().GetPosLeft();
         SCROW nPosTop = rStrm.GetRoot().GetDoc().GetPosTop();

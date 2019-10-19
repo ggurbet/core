@@ -965,18 +965,14 @@ OUString SdrTextObj::TakeObjNameSingul() const
         if(!aStr2.isEmpty() && aStr2.indexOf(u'\x00FF') == -1)
         {
             // space between ResStr and content text
-            aStr += " ";
-
-            aStr += "\'";
+            aStr += " \'";
 
             if(aStr2.getLength() > 10)
             {
-                aStr2 = aStr2.copy(0, 8);
-                aStr2 += "...";
+                aStr2 = aStr2.copy(0, 8) + "...";
             }
 
-            aStr += aStr2;
-            aStr += "\'";
+            aStr += aStr2 + "\'";
         }
     }
 
@@ -1516,7 +1512,7 @@ void SdrTextObj::SetVerticalWriting(bool bVertical)
 
     if( !pOutlinerParaObject && bVertical )
     {
-        // we only need to force a outliner para object if the default of
+        // we only need to force an outliner para object if the default of
         // horizontal text is changed
         ForceOutlinerParaObject();
         pOutlinerParaObject = GetOutlinerParaObject();
@@ -2034,10 +2030,10 @@ bool SdrTextObj::GetPreventChainable() const
     return mbIsUnchainableClone || (GetNextLinkInChain() && GetNextLinkInChain()->IsInEditMode());
 }
 
- SdrObject* SdrTextObj::getFullDragClone() const
- {
-    SdrObject *pClone = SdrAttrObj::getFullDragClone();
-    SdrTextObj *pTextObjClone = dynamic_cast<SdrTextObj *>(pClone);
+SdrObjectUniquePtr SdrTextObj::getFullDragClone() const
+{
+    SdrObjectUniquePtr pClone = SdrAttrObj::getFullDragClone();
+    SdrTextObj *pTextObjClone = dynamic_cast<SdrTextObj *>(pClone.get());
     if (pTextObjClone != nullptr) {
         // Avoid transferring of text for chainable object during dragging
         pTextObjClone->mbIsUnchainableClone = true;

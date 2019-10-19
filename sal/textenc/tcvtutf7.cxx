@@ -43,7 +43,7 @@ static unsigned char const aImplBase64Tab[64] =
     0x38, 0x39, 0x2B, 0x2F
 };
 
-/* Index in Base64Tab or 0xFF, when is a invalid character */
+/* Index in Base64Tab or 0xFF, when is an invalid character */
 static unsigned char const aImplBase64IndexTab[128] =
 {
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,     /* 0x00-0x07 */
@@ -246,7 +246,7 @@ sal_Size ImplUTF7ToUnicode( SAL_UNUSED_PARAMETER const void*, void* pContext,
                 if ( !bWroteOne )
                 {
                     /* When no more bytes in the source buffer, then */
-                    /* this buffer may be to small */
+                    /* this buffer may be too small */
                     if ( bEnd )
                         *pInfo |= RTL_TEXTTOUNICODE_INFO_ERROR | RTL_TEXTTOUNICODE_INFO_SRCBUFFERTOOSMALL;
                     else
@@ -254,6 +254,13 @@ sal_Size ImplUTF7ToUnicode( SAL_UNUSED_PARAMETER const void*, void* pContext,
                         *pInfo |= RTL_TEXTTOUNICODE_INFO_INVALID;
                         if ( (nFlags & RTL_TEXTTOUNICODE_FLAGS_INVALID_MASK) == RTL_TEXTTOUNICODE_FLAGS_INVALID_ERROR )
                         {
+                            if ((nFlags & RTL_TEXTTOUNICODE_FLAGS_FLUSH) == 0) {
+                                if (!bEnd) {
+                                    ++pSrcBuf;
+                                }
+                            } else {
+                                //TODO: move pSrcBuf back to a reasonable starting place
+                            }
                             *pInfo |= RTL_TEXTTOUNICODE_INFO_ERROR;
                             break;
                         }
@@ -295,7 +302,7 @@ sal_Size ImplUTF7ToUnicode( SAL_UNUSED_PARAMETER const void*, void* pContext,
                 if ( nBufferBits && nBitBuffer )
                 {
                     /* When no more bytes in the source buffer, then */
-                    /* this buffer may be to small */
+                    /* this buffer may be too small */
                     if ( bEnd )
                         *pInfo |= RTL_TEXTTOUNICODE_INFO_ERROR | RTL_TEXTTOUNICODE_INFO_SRCBUFFERTOOSMALL;
                     else
@@ -303,6 +310,13 @@ sal_Size ImplUTF7ToUnicode( SAL_UNUSED_PARAMETER const void*, void* pContext,
                         *pInfo |= RTL_TEXTTOUNICODE_INFO_INVALID;
                         if ( (nFlags & RTL_TEXTTOUNICODE_FLAGS_INVALID_MASK) == RTL_TEXTTOUNICODE_FLAGS_INVALID_ERROR )
                         {
+                            if ((nFlags & RTL_TEXTTOUNICODE_FLAGS_FLUSH) == 0) {
+                                if (!bEnd) {
+                                    ++pSrcBuf;
+                                }
+                            } else {
+                                //TODO: move pSrcBuf back to a reasonable starting place
+                            }
                             *pInfo |= RTL_TEXTTOUNICODE_INFO_ERROR;
                             break;
                         }
@@ -344,6 +358,9 @@ sal_Size ImplUTF7ToUnicode( SAL_UNUSED_PARAMETER const void*, void* pContext,
                         *pInfo |= RTL_TEXTTOUNICODE_INFO_INVALID;
                         if ( (nFlags & RTL_TEXTTOUNICODE_FLAGS_INVALID_MASK) == RTL_TEXTTOUNICODE_FLAGS_INVALID_ERROR )
                         {
+                            if ((nFlags & RTL_TEXTTOUNICODE_FLAGS_FLUSH) == 0) {
+                                ++pSrcBuf;
+                            }
                             *pInfo |= RTL_TEXTTOUNICODE_INFO_ERROR;
                             break;
                         }
@@ -358,15 +375,18 @@ sal_Size ImplUTF7ToUnicode( SAL_UNUSED_PARAMETER const void*, void* pContext,
                                 = RTL_TEXTENC_UNICODE_REPLACEMENT_CHARACTER;
                         }
                     }
-
-                    /* Write char to unicode buffer */
-                    if ( pDestBuf >= pEndDestBuf )
+                    else
                     {
-                        *pInfo |= RTL_TEXTTOUNICODE_INFO_ERROR | RTL_TEXTTOUNICODE_INFO_DESTBUFFERTOOSMALL;
-                        break;
+                        /* Write char to unicode buffer */
+                        if ( pDestBuf >= pEndDestBuf )
+                        {
+                            *pInfo |= RTL_TEXTTOUNICODE_INFO_ERROR | RTL_TEXTTOUNICODE_INFO_DESTBUFFERTOOSMALL;
+                            break;
+                        }
+                        *pDestBuf = c;
+                        pDestBuf++;
+
                     }
-                    *pDestBuf = c;
-                    pDestBuf++;
                 }
             }
 

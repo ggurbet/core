@@ -47,7 +47,7 @@ class SwTestAccountSettingsDialog : public SfxDialogController
     OUString            m_sErrorServer;
     bool                m_bStop;
 
-    VclPtr<SwMailConfigPage>   m_pParent;
+    SwMailConfigPage*   m_pParent;
 
     std::unique_ptr<weld::Button> m_xStopPB;
     std::unique_ptr<weld::TextView> m_xErrorsED;
@@ -103,8 +103,8 @@ public:
     SwAuthenticationSettingsDialog(weld::Window* pParent, SwMailMergeConfigItem& rItem);
 };
 
-SwMailConfigPage::SwMailConfigPage(TabPageParent pParent, const SfxItemSet& rSet)
-    : SfxTabPage(pParent, "modules/swriter/ui/mailconfigpage.ui", "MailConfigPage", &rSet)
+SwMailConfigPage::SwMailConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet)
+    : SfxTabPage(pPage, pController, "modules/swriter/ui/mailconfigpage.ui", "MailConfigPage", &rSet)
     , m_pConfigItem(new SwMailMergeConfigItem)
     , m_xDisplayNameED(m_xBuilder->weld_entry("displayname"))
     , m_xAddressED(m_xBuilder->weld_entry("address"))
@@ -125,18 +125,12 @@ SwMailConfigPage::SwMailConfigPage(TabPageParent pParent, const SfxItemSet& rSet
 
 SwMailConfigPage::~SwMailConfigPage()
 {
-    disposeOnce();
-}
-
-void SwMailConfigPage::dispose()
-{
     m_pConfigItem.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SwMailConfigPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> SwMailConfigPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwMailConfigPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<SwMailConfigPage>(pPage, pController, *rAttrSet);
 }
 
 bool SwMailConfigPage::FillItemSet( SfxItemSet* /*rSet*/ )
@@ -193,7 +187,7 @@ IMPL_LINK_NOARG(SwMailConfigPage, AuthenticationHdl, weld::Button&, void)
 {
     m_pConfigItem->SetMailAddress(m_xAddressED->get_text());
 
-    SwAuthenticationSettingsDialog aDlg(GetDialogFrameWeld(), *m_pConfigItem);
+    SwAuthenticationSettingsDialog aDlg(GetFrameWeld(), *m_pConfigItem);
     aDlg.run();
 }
 
@@ -212,7 +206,7 @@ IMPL_LINK(SwMailConfigPage, SecureHdl, weld::ToggleButton&, rBox, void)
 }
 
 SwTestAccountSettingsDialog::SwTestAccountSettingsDialog(SwMailConfigPage* pParent)
-    : SfxDialogController(pParent->GetDialogFrameWeld(), "modules/swriter/ui/testmailsettings.ui", "TestMailSettings")
+    : SfxDialogController(pParent->GetFrameWeld(), "modules/swriter/ui/testmailsettings.ui", "TestMailSettings")
     , m_bStop(false)
     , m_pParent(pParent)
     , m_xStopPB(m_xBuilder->weld_button("stop"))
@@ -362,9 +356,8 @@ void SwTestAccountSettingsDialog::Test()
 SwMailConfigDlg::SwMailConfigDlg(weld::Window* pParent, SfxItemSet& rSet)
     : SfxSingleTabDialogController(pParent, &rSet)
 {
-    TabPageParent pPageParent(get_content_area(), this);
     // create TabPage
-    SetTabPage(SwMailConfigPage::Create(pPageParent, &rSet));
+    SetTabPage(SwMailConfigPage::Create(get_content_area(), this, &rSet));
     m_xDialog->set_title(SwResId(STR_MAILCONFIG_DLG_TITLE));
 }
 

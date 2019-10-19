@@ -18,7 +18,6 @@
  */
 
 #include <memory>
-#include <string.h>
 
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
@@ -51,7 +50,6 @@
 #include <com/sun/star/document/XStorageBasedDocument.hpp>
 #include <com/sun/star/document/XGraphicStorageHandler.hpp>
 #include <com/sun/star/document/XEmbeddedObjectResolver.hpp>
-#include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/xml/sax/XLocator.hpp>
 #include <com/sun/star/xml/sax/FastParser.hpp>
 #include <com/sun/star/xml/sax/SAXException.hpp>
@@ -63,6 +61,7 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/extract.hxx>
 #include <comphelper/documentconstants.hxx>
+#include <comphelper/documentinfo.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/attributelist.hxx>
 #include <unotools/fontcvt.hxx>
@@ -400,7 +399,8 @@ SvXMLImport::SvXMLImport(
     isFastContext( false ),
     maNamespaceHandler( new SvXMLImportFastNamespaceHandler() ),
     mbIsFormsSupported( true ),
-    mbIsTableShapeSupported( false )
+    mbIsTableShapeSupported( false ),
+    mbNotifyMacroEventRead( false )
 {
     SAL_WARN_IF( !xContext.is(), "xmloff.core", "got no service manager" );
     InitCtor_();
@@ -447,12 +447,15 @@ namespace
     class theSvXMLImportUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theSvXMLImportUnoTunnelId> {};
 }
 
+const css::uno::Sequence<sal_Int8>& SvXMLImport::getUnoTunnelId() throw()
+{
+    return theSvXMLImportUnoTunnelId::get().getSeq();
+}
+
 // XUnoTunnel
 sal_Int64 SAL_CALL SvXMLImport::getSomething( const uno::Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16 &&
-        0 == memcmp( theSvXMLImportUnoTunnelId::get().getSeq().getConstArray(),
-                     rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<SvXMLImport>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
     }
@@ -687,7 +690,7 @@ std::unique_ptr<SvXMLNamespaceMap> SvXMLImport::processNSAttributes(
             // Add namespace, but only if it is known.
             sal_uInt16 nKey = mpNamespaceMap->AddIfKnown( aPrefix, rAttrValue );
             // If namespace is unknown, try to match a name with similar
-            // TC Id an version
+            // TC Id and version
             if( XML_NAMESPACE_UNKNOWN == nKey  )
             {
                 OUString aTestName( rAttrValue );
@@ -839,7 +842,7 @@ void SAL_CALL SvXMLImport::startFastElement (sal_Int32 Element,
     {
         sax_fastparser::FastAttributeList *pAttribList =
             sax_fastparser::FastAttributeList::castToFastAttributeList( Attribs );
-        auto &aIter( pAttribList->find( XML_ELEMENT( OFFICE, XML_VERSION ) ) );
+        auto aIter( pAttribList->find( XML_ELEMENT( OFFICE, XML_VERSION ) ) );
         if( aIter != pAttribList->end() )
         {
             mpImpl->aODFVersion = aIter.toString();
@@ -1142,10 +1145,7 @@ sal_Bool SAL_CALL SvXMLImport::supportsService( const OUString& rServiceName )
 
 uno::Sequence< OUString > SAL_CALL SvXMLImport::getSupportedServiceNames(  )
 {
-    uno::Sequence<OUString> aSeq(2);
-    aSeq[0] = "com.sun.star.document.ImportFilter";
-    aSeq[1] = "com.sun.star.xml.XMLImportFilter";
-    return aSeq;
+    return { "com.sun.star.document.ImportFilter", "com.sun.star.xml.XMLImportFilter" };
 }
 
 XMLTextImportHelper* SvXMLImport::CreateTextImport()
@@ -1327,7 +1327,7 @@ bool SvXMLImport::IsPackageURL( const OUString& rURL ) const
             // it's not an external URI
             return false;
         else if( '/' == rURL[1] )
-            // we are remaining on a level, so it's an package URI
+            // we are remaining on a level, so it's a package URI
             return true;
     }
 
@@ -1387,7 +1387,7 @@ uno::Reference<graphic::XGraphic> SvXMLImport::loadGraphicFromBase64(uno::Refere
     return xGraphic;
 }
 
-Reference< XOutputStream > SvXMLImport::GetStreamForGraphicObjectURLFromBase64()
+Reference< XOutputStream > SvXMLImport::GetStreamForGraphicObjectURLFromBase64() const
 {
     Reference< XOutputStream > xOStm;
     Reference< document::XBinaryStreamResolver > xStmResolver(mxGraphicStorageHandler, UNO_QUERY);
@@ -1422,13 +1422,13 @@ OUString SvXMLImport::ResolveEmbeddedObjectURL(
     return sRet;
 }
 
-Reference< embed::XStorage > const & SvXMLImport::GetSourceStorage()
+Reference< embed::XStorage > const & SvXMLImport::GetSourceStorage() const
 {
     return mpImpl->mxSourceStorage;
 }
 
 Reference < XOutputStream >
-        SvXMLImport::GetStreamForEmbeddedObjectURLFromBase64()
+        SvXMLImport::GetStreamForEmbeddedObjectURLFromBase64() const
 {
     Reference < XOutputStream > xOLEStream;
 
@@ -1624,7 +1624,8 @@ void SvXMLImport::SetAutoStyles( SvXMLStylesContext *pAutoStyles )
     if (pAutoStyles && mxNumberStyles.is() && (mnImportFlags & SvXMLImportFlags::CONTENT) )
     {
         uno::Reference<xml::sax::XAttributeList> xAttrList;
-        for (const auto& name : mxNumberStyles->getElementNames())
+        const uno::Sequence<OUString> aStyleNames = mxNumberStyles->getElementNames();
+        for (const auto& name : aStyleNames)
         {
             uno::Any aAny(mxNumberStyles->getByName(name));
             sal_Int32 nKey(0);
@@ -1975,8 +1976,7 @@ void SvXMLImport::SetXmlId(uno::Reference<uno::XInterface> const & i_xIfc,
                 }
             }
         } catch (uno::Exception &) {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN("xmloff.core","SvXMLImport::SetXmlId: exception " << exceptionToString(ex));
+            TOOLS_WARN_EXCEPTION("xmloff.core","SvXMLImport::SetXmlId");
         }
     }
 }
@@ -2013,14 +2013,14 @@ bool SvXMLImport::embeddedFontAlreadyProcessed( const OUString& url )
     return false;
 }
 
-const OUString SvXMLImport::getNameFromToken( sal_Int32 nToken )
+OUString SvXMLImport::getNameFromToken( sal_Int32 nToken )
 {
     uno::Sequence< sal_Int8 > aSeq = xTokenHandler->getUTF8Identifier( nToken & TOKEN_MASK );
     return OUString( reinterpret_cast< const char* >(
                     aSeq.getConstArray() ), aSeq.getLength(), RTL_TEXTENCODING_UTF8 );
 }
 
-const OUString SvXMLImport::getNamespacePrefixFromToken(sal_Int32 nToken, const SvXMLNamespaceMap* pMap)
+OUString SvXMLImport::getNamespacePrefixFromToken(sal_Int32 nToken, const SvXMLNamespaceMap* pMap)
 {
     sal_Int32 nNamespaceToken = ( nToken & NMSP_MASK ) >> NMSP_SHIFT;
     auto aIter( aNamespaceMap.find( nNamespaceToken ) );
@@ -2038,7 +2038,7 @@ const OUString SvXMLImport::getNamespacePrefixFromToken(sal_Int32 nToken, const 
         return OUString();
 }
 
-const OUString SvXMLImport::getNamespaceURIFromToken( sal_Int32 nToken )
+OUString SvXMLImport::getNamespaceURIFromToken( sal_Int32 nToken )
 {
     sal_Int32 nNamespaceToken = ( nToken & NMSP_MASK ) >> NMSP_SHIFT;
     auto aIter( aNamespaceMap.find( nNamespaceToken ) );
@@ -2048,7 +2048,7 @@ const OUString SvXMLImport::getNamespaceURIFromToken( sal_Int32 nToken )
         return OUString();
 }
 
-const OUString SvXMLImport::getNamespacePrefixFromURI( const OUString& rURI )
+OUString SvXMLImport::getNamespacePrefixFromURI( const OUString& rURI )
 {
     auto aIter( aNamespaceURIPrefixMap.find(rURI) );
     if( aIter != aNamespaceURIPrefixMap.end() )
@@ -2153,6 +2153,16 @@ void SvXMLImport::registerNamespaces()
         // aNamespaceMap = { Token : ( NamespacePrefix, NamespaceURI ) }
         registerNamespace( aNamespaceEntry.second.second, aNamespaceEntry.first << NMSP_SHIFT );
     }
+}
+
+void SvXMLImport::NotifyMacroEventRead()
+{
+    if (mbNotifyMacroEventRead)
+        return;
+
+    comphelper::DocumentInfo::notifyMacroEventRead(mxModel);
+
+    mbNotifyMacroEventRead = true;
 }
 
 SvXMLImportFastNamespaceHandler::SvXMLImportFastNamespaceHandler()

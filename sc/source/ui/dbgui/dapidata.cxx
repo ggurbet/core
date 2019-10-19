@@ -54,12 +54,9 @@ ScDataPilotDatabaseDlg::ScDataPilotDatabaseDlg(weld::Window* pParent)
 
         uno::Reference<sdb::XDatabaseContext> xContext = sdb::DatabaseContext::create(
                 comphelper::getProcessComponentContext() );
-        uno::Sequence<OUString> aNames = xContext->getElementNames();
-        long nCount = aNames.getLength();
-        const OUString* pArray = aNames.getConstArray();
-        for (long nPos = 0; nPos < nCount; nPos++)
+        const uno::Sequence<OUString> aNames = xContext->getElementNames();
+        for( const OUString& aName : aNames )
         {
-            OUString aName = pArray[nPos];
             m_xLbDatabase->append_text(aName);
         }
     }
@@ -134,7 +131,7 @@ void ScDataPilotDatabaseDlg::FillObjects()
 
         uno::Reference<sdbc::XConnection> xConnection = xSource->connectWithCompletion( xHandler );
 
-        uno::Sequence<OUString> aNames;
+        uno::Reference<container::XNameAccess> xItems;
         if ( nSelect == DP_TYPELIST_TABLE )
         {
             //  get all tables
@@ -142,10 +139,7 @@ void ScDataPilotDatabaseDlg::FillObjects()
             uno::Reference<sdbcx::XTablesSupplier> xTablesSupp( xConnection, uno::UNO_QUERY );
             if ( !xTablesSupp.is() ) return;
 
-            uno::Reference<container::XNameAccess> xTables = xTablesSupp->getTables();
-            if ( !xTables.is() ) return;
-
-            aNames = xTables->getElementNames();
+            xItems = xTablesSupp->getTables();
         }
         else
         {
@@ -154,19 +148,15 @@ void ScDataPilotDatabaseDlg::FillObjects()
             uno::Reference<sdb::XQueriesSupplier> xQueriesSupp( xConnection, uno::UNO_QUERY );
             if ( !xQueriesSupp.is() ) return;
 
-            uno::Reference<container::XNameAccess> xQueries = xQueriesSupp->getQueries();
-            if ( !xQueries.is() ) return;
-
-            aNames = xQueries->getElementNames();
+            xItems = xQueriesSupp->getQueries();
         }
 
-        //  fill list
+        if ( !xItems.is() ) return;
 
-        long nCount = aNames.getLength();
-        const OUString* pArray = aNames.getConstArray();
-        for( long nPos=0; nPos<nCount; nPos++ )
+        //  fill list
+        const uno::Sequence<OUString> aNames = xItems->getElementNames();
+        for( const OUString& aName : aNames )
         {
-            OUString aName = pArray[nPos];
             m_xCbObject->append_text(aName);
         }
     }

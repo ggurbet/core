@@ -19,6 +19,7 @@
 
 
 #include <config_features.h>
+#include <config_feature_desktop.h>
 
 #include <tools/time.hxx>
 
@@ -26,9 +27,7 @@
 
 #include <vcl/ITiledRenderable.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/salgtype.hxx>
 #include <vcl/window.hxx>
-#include <vcl/floatwin.hxx>
 #include <vcl/cursor.hxx>
 #include <vcl/sysdata.hxx>
 #include <vcl/event.hxx>
@@ -36,7 +35,6 @@
 #include <sal/types.h>
 
 #include <window.h>
-#include <outdev.h>
 #include <svdata.hxx>
 #include <salobj.hxx>
 #include <salgdi.hxx>
@@ -604,7 +602,7 @@ Window::PointerState Window::GetPointerState()
     return aState;
 }
 
-bool Window::IsMouseOver()
+bool Window::IsMouseOver() const
 {
     return ImplGetWinData()->mbMouseOver;
 }

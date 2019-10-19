@@ -442,6 +442,8 @@ IMPL_LINK(ThreeD_SceneIllumination_TabPage, ClickLightSourceButtonHdl, weld::But
         }
     }
 
+    assert(pInfo);
+
     bool bIsChecked = pInfo->bButtonActive;
 
     ControllerLockGuardUNO aGuard( m_xChartModel );
@@ -471,10 +473,7 @@ IMPL_LINK(ThreeD_SceneIllumination_TabPage, ClickLightSourceButtonHdl, weld::But
     }
 
     //update color list box
-    if(pInfo)
-    {
-        lcl_selectColor( *m_xLB_LightSource, pInfo->aLightSource.nDiffuseColor );
-    }
+    lcl_selectColor( *m_xLB_LightSource, pInfo->aLightSource.nDiffuseColor );
     updatePreview();
 }
 

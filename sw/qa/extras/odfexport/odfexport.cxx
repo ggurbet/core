@@ -11,7 +11,6 @@
 #include <swmodeltestbase.hxx>
 #include <config_features.h>
 
-#if !defined(MACOSX)
 #include <com/sun/star/awt/FontSlant.hpp>
 #include <com/sun/star/awt/Gradient.hpp>
 #include <com/sun/star/container/XIndexReplace.hpp>
@@ -19,6 +18,8 @@
 #include <com/sun/star/drawing/PointSequenceSequence.hpp>
 #include <com/sun/star/drawing/GraphicExportFilter.hpp>
 #include <com/sun/star/drawing/XGraphicExportFilter.hpp>
+#include <com/sun/star/drawing/QRCode.hpp>
+#include <com/sun/star/drawing/QRCodeErrorCorrection.hpp>
 #include <com/sun/star/table/ShadowFormat.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
@@ -492,6 +493,20 @@ DECLARE_ODFEXPORT_TEST(testSenderInitials, "sender-initials.fodt")
     }
 }
 
+#ifndef WNT
+DECLARE_ODFEXPORT_TEST(testResolvedComment, "resolved-comment.odt")
+{
+    // TODO find out why does this break testFdo58949 on Windows.
+    uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XEnumerationAccess> xFieldsAccess(xTextFieldsSupplier->getTextFields());
+    uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());
+    uno::Reference<beans::XPropertySet> xPropertySet(xFields->nextElement(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xPropertySet, "Resolved"));
+    xPropertySet.set(xFields->nextElement(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(false, getProperty<bool>(xPropertySet, "Resolved"));
+}
+#endif
+
 DECLARE_ODFEXPORT_TEST(testTdf92379, "tdf92379.fodt")
 {
     // frame style fo:background-color was not imported
@@ -576,7 +591,7 @@ DECLARE_ODFEXPORT_TEST(testFdo79358, "fdo79358.odt")
 {
     // the boolean properties of the index were not exported properly
     uno::Reference<text::XDocumentIndexesSupplier> xIndexSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xIndexes(xIndexSupplier->getDocumentIndexes(), uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xIndexes = xIndexSupplier->getDocumentIndexes();
     uno::Reference<text::XDocumentIndex> xTOCIndex(xIndexes->getByIndex(0), uno::UNO_QUERY);
     uno::Reference<beans::XPropertySet> xTOCProps(xTOCIndex, uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(false, getProperty<bool>(xTOCProps, "CreateFromOutline"));
@@ -638,8 +653,8 @@ DECLARE_ODFEXPORT_TEST(testDuplicateCrossRefHeadingBookmark, "CrossRefHeadingBoo
 
     uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent,
         uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xBookmarks(
-        xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xBookmarks =
+        xBookmarksSupplier->getBookmarks();
     uno::Reference<text::XTextContent> xBookmark1(
         xBookmarks->getByName("__RefHeading__8284_1826734303"), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xBookmark1.is());
@@ -722,7 +737,7 @@ DECLARE_ODFEXPORT_TEST(testStylePageNumber, "ooo321_stylepagenumber.odt")
     CPPUNIT_ASSERT_EQUAL(OUString("Right Page"), getProperty<OUString>(xPara0, "PageDescName"));
     CPPUNIT_ASSERT_EQUAL(uno::Any(), xPara0->getPropertyValue("PageNumberOffset"));
 
-    uno::Reference<container::XNameAccess> xParaStyles(getStyles("ParagraphStyles"), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xParaStyles = getStyles("ParagraphStyles");
     uno::Reference<beans::XPropertySet> xStyle1(xParaStyles->getByName("stylewithbreak1"), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("Right Page"), getProperty<OUString>(xStyle1, "PageDescName"));
     CPPUNIT_ASSERT_EQUAL(sal_Int16(1), getProperty<sal_Int16>(xStyle1, "PageNumberOffset"));
@@ -865,7 +880,7 @@ DECLARE_ODFEXPORT_TEST(testCharacterBorder, "charborder.odt")
 
         // Check character style
         {
-            uno::Reference< container::XNameAccess > xStyleFamily(getStyles("CharacterStyles"), uno::UNO_QUERY);
+            uno::Reference< container::XNameAccess > xStyleFamily = getStyles("CharacterStyles");
             uno::Reference < beans::XPropertySet > xStyleSet(xStyleFamily->getByName("CharDiffBor"), uno::UNO_QUERY);
 
             // Top border
@@ -1150,8 +1165,8 @@ DECLARE_ODFEXPORT_TEST(testWhitespace, "whitespace.odt")
         // what a stupid idea to require recursively enumerating this
         uno::Reference<container::XEnumerationAccess> xMeta(
             getProperty<uno::Reference<text::XTextContent>>(xPortion, "InContentMetadata"), uno::UNO_QUERY);
-        uno::Reference<container::XEnumeration> xMetaPortions(
-            xMeta->createEnumeration(), uno::UNO_QUERY);
+        uno::Reference<container::XEnumeration> xMetaPortions =
+            xMeta->createEnumeration();
         uno::Reference<text::XTextRange> xMP(xMetaPortions->nextElement(), uno::UNO_QUERY);
         CPPUNIT_ASSERT_EQUAL(OUString("Text"), getProperty<OUString>(xMP, "TextPortionType"));
         CPPUNIT_ASSERT_EQUAL(OUString(" "), xMP->getString());
@@ -1173,8 +1188,8 @@ DECLARE_ODFEXPORT_TEST(testWhitespace, "whitespace.odt")
         // what a stupid idea to require recursively enumerating this
         uno::Reference<container::XEnumerationAccess> xMeta(
             getProperty<uno::Reference<text::XTextContent>>(xPortion, "TextField"), uno::UNO_QUERY);
-        uno::Reference<container::XEnumeration> xMetaPortions(
-            xMeta->createEnumeration(), uno::UNO_QUERY);
+        uno::Reference<container::XEnumeration> xMetaPortions =
+            xMeta->createEnumeration();
         uno::Reference<text::XTextRange> xMP(xMetaPortions->nextElement(), uno::UNO_QUERY);
         CPPUNIT_ASSERT_EQUAL(OUString("Text"), getProperty<OUString>(xMP, "TextPortionType"));
         CPPUNIT_ASSERT_EQUAL(OUString(" "), xMP->getString());
@@ -1605,7 +1620,8 @@ DECLARE_ODFEXPORT_TEST(testEmbeddedPdf, "embedded-pdf.odt")
         aArgs[0] <<= maTempFile.GetURL();
         uno::Reference<container::XNameAccess> xNameAccess(m_xSFactory->createInstanceWithArguments("com.sun.star.packages.zip.ZipFileAccess", aArgs), uno::UNO_QUERY);
         bool bHasBitmap = false;
-        for (const auto& rElementName : xNameAccess->getElementNames())
+        const uno::Sequence<OUString> aNames = xNameAccess->getElementNames();
+        for (const auto& rElementName : aNames)
         {
             if (rElementName.startsWith("Pictures") && rElementName.endsWith("png"))
             {
@@ -1978,7 +1994,7 @@ DECLARE_ODFEXPORT_TEST(testImageMimetype, "image-mimetype.odt")
 
 DECLARE_ODFEXPORT_TEST(testEmbeddedFontProps, "embedded-font-props.odt")
 {
-#if !defined(WNT)
+#if !defined(MACOSX)
     // Test that font style/weight of embedded fonts is exposed.
     // Test file is a normal ODT, except EmbedFonts is set to true in settings.xml.
     if (xmlDocPtr pXmlDoc = parseExport("content.xml"))
@@ -2077,6 +2093,17 @@ DECLARE_ODFEXPORT_TEST(testRubyPosition, "ruby-position.odt")
     }
 }
 
+DECLARE_ODFEXPORT_TEST(testAllowOverlap, "allow-overlap.odt")
+{
+    uno::Reference<drawing::XShape> xShape = getShape(1);
+    // Without the accompanying fix in place, this test would have failed with:
+    // - Expression: !getProperty<bool>(xShape, "AllowOverlap")
+    // i.e. the custom AllowOverlap=false shape property was lost on import/export.
+    CPPUNIT_ASSERT(!getProperty<bool>(xShape, "AllowOverlap"));
+    xShape = getShape(2);
+    CPPUNIT_ASSERT(!getProperty<bool>(xShape, "AllowOverlap"));
+}
+
 DECLARE_ODFEXPORT_TEST(testSignatureLineProperties, "signatureline-properties.fodt")
 {
     uno::Reference<drawing::XShape> xShape = getShape(1);
@@ -2095,6 +2122,21 @@ DECLARE_ODFEXPORT_TEST(testSignatureLineProperties, "signatureline-properties.fo
                          getProperty<OUString>(xShape, "SignatureLineSigningInstructions"));
     CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xShape, "SignatureLineCanAddComment"));
     CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xShape, "SignatureLineShowSignDate"));
+}
+
+DECLARE_ODFEXPORT_TEST(testQrCodeGenProperties, "qrcode-properties.odt")
+{
+    uno::Reference<drawing::XShape> xShape = getShape(1);
+    CPPUNIT_ASSERT(xShape.is());
+
+    css::drawing::QRCode aQRCode = getProperty<css::drawing::QRCode>(xShape, "QRCodeProperties");
+
+    CPPUNIT_ASSERT_EQUAL(OUString("www.libreoffice.org"),
+                         aQRCode.Payload);
+    CPPUNIT_ASSERT_EQUAL(css::drawing::QRCodeErrorCorrection::LOW,
+                         aQRCode.ErrorCorrection);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(5),
+                         aQRCode.Border);
 }
 
 DECLARE_ODFEXPORT_TEST(testChapterNumberingNewLine, "chapter-number-new-line.odt")
@@ -2140,7 +2182,7 @@ DECLARE_ODFEXPORT_TEST(tdf101856_overlapped, "tdf101856_overlapped.odt")
     // get bookmark interface
     uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xBookmarksByIdx(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xBookmarksByName(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xBookmarksByName = xBookmarksSupplier->getBookmarks();
 
     // check: we have 2 bookmarks
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), xBookmarksByIdx->getCount());
@@ -2164,7 +2206,7 @@ DECLARE_ODFEXPORT_TEST(tdf101856, "tdf101856.odt")
     // get bookmark interface
     uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xBookmarksByIdx(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xBookmarksByName(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xBookmarksByName = xBookmarksSupplier->getBookmarks();
 
     // check: we have 2 bookmarks
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(5), xBookmarksByIdx->getCount());
@@ -2229,7 +2271,6 @@ DECLARE_ODFEXPORT_TEST(tdf99631, "tdf99631.docx")
     assertXPathContent(pXmlDoc2, "//config:config-item[@config:name='VisibleAreaWidth']", "4515");
     assertXPathContent(pXmlDoc2, "//config:config-item[@config:name='VisibleAreaHeight']", "1354");
 }
-#endif
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

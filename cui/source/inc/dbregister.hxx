@@ -22,15 +22,7 @@
 
 #include <rtl/ustring.hxx>
 #include <sfx2/basedlgs.hxx>
-#include <svl/poolitem.hxx>
-#include <svtools/simptabl.hxx>
-#include "optpath.hxx"
-
-class SvTreeListEntry;
-namespace svx
-{
-    class OptHeaderTabListBox;
-}
+#include <sfx2/tabdlg.hxx>
 
 namespace svx
 {
@@ -50,7 +42,7 @@ namespace svx
         DECL_LINK( NewHdl, weld::Button&, void );
         DECL_LINK( EditHdl, weld::Button&, void );
         DECL_LINK( DeleteHdl, weld::Button&, void );
-        DECL_LINK( PathBoxDoubleClickHdl, weld::TreeView&, void);
+        DECL_LINK( PathBoxDoubleClickHdl, weld::TreeView&, bool);
 
         DECL_LINK( PathSelect_Impl, weld::TreeView&, void);
 
@@ -76,11 +68,10 @@ namespace svx
         void openLinkDialog(const OUString& sOldName, const OUString& sOldLocation, int nEntry = -1);
 
     public:
-        DbRegistrationOptionsPage(TabPageParent pParent, const SfxItemSet& rSet);
+        DbRegistrationOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
         virtual ~DbRegistrationOptionsPage() override;
-        virtual void dispose() override;
 
-        static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
+        static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
 
         virtual bool        FillItemSet( SfxItemSet* rSet ) override;
         virtual void        Reset( const SfxItemSet* rSet ) override;

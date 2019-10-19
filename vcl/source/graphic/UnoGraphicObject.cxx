@@ -21,11 +21,9 @@
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <com/sun/star/graphic/XGraphicObject.hpp>
-#include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <vcl/GraphicObject.hxx>
-#include <rtl/ref.hxx>
 
 using namespace css;
 
@@ -51,7 +49,7 @@ public:
 
     virtual OUString SAL_CALL getImplementationName() override
     {
-        return OUString("com.sun.star.graphic.GraphicObject");
+        return "com.sun.star.graphic.GraphicObject";
     }
 
     virtual sal_Bool SAL_CALL supportsService(OUString const & ServiceName) override

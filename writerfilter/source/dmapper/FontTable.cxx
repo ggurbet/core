@@ -150,7 +150,7 @@ void FontTable::resolveSprm(Sprm & r_Sprm)
         pProperties->resolve(*this);
 }
 
-void FontTable::lcl_entry(int /*pos*/, writerfilter::Reference<Properties>::Pointer_t ref)
+void FontTable::lcl_entry(writerfilter::Reference<Properties>::Pointer_t ref)
 {
     //create a new font entry
     SAL_WARN_IF( m_pImpl->pCurrentEntry, "writerfilter.dmapper", "current entry has to be NULL here" );
@@ -205,10 +205,6 @@ void FontTable::lcl_substream(Id, ::writerfilter::Reference<Stream>::Pointer_t)
 {
 }
 
-void FontTable::lcl_info(const std::string& )
-{
-}
-
 void FontTable::lcl_startShape(uno::Reference<drawing::XShape> const&)
 {
 }
@@ -217,7 +213,7 @@ void FontTable::lcl_endShape( )
 {
 }
 
-const FontEntry::Pointer_t FontTable::getFontEntry(sal_uInt32 nIndex)
+FontEntry::Pointer_t FontTable::getFontEntry(sal_uInt32 nIndex)
 {
     return (m_pImpl->aFontEntries.size() > nIndex)
         ?   m_pImpl->aFontEntries[nIndex]

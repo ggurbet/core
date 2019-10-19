@@ -326,7 +326,7 @@ bool XclExpHyperlinkHelper::HasLinkRecord() const
     return !mbMultipleUrls && mxLinkRec;
 }
 
-XclExpHyperlinkHelper::XclExpHyperlinkRef XclExpHyperlinkHelper::GetLinkRecord()
+XclExpHyperlinkHelper::XclExpHyperlinkRef XclExpHyperlinkHelper::GetLinkRecord() const
 {
     if( HasLinkRecord() )
         return mxLinkRec;
@@ -871,7 +871,7 @@ void XclExpHFConverter::AppendPortion( const EditTextObject* pTextObj, sal_Unico
 
     if( !aText.isEmpty() )
     {
-        maHFString += "&" + OUStringLiteral1(cPortionCode) + aText;
+        maHFString += "&" + OUStringChar(cPortionCode) + aText;
         mnTotalHeight = ::std::max( mnTotalHeight, nHeight );
     }
 }
@@ -975,9 +975,7 @@ OUString XclExpUrlHelper::EncodeUrl( const XclExpRoot& rRoot, const OUString& rA
 
 OUString XclExpUrlHelper::EncodeDde( const OUString& rApplic, const OUString& rTopic )
 {
-    OUStringBuffer aBuf;
-    aBuf.append(rApplic).append(EXC_DDE_DELIM).append(rTopic);
-    return aBuf.makeStringAndClear();
+    return rApplic + OUStringChar(EXC_DDE_DELIM) + rTopic;
 }
 
 // Cached Value Lists =========================================================

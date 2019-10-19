@@ -207,8 +207,8 @@ $(eval $(call gb_Rdb_add_components,services,\
 	$(if $(ENABLE_VLC), \
 		avmedia/source/vlc/avmediavlc \
 	) \
-	$(if $(ENABLE_KDE5), \
-		shell/source/backends/kde5be/kde5be1 \
+	$(if $(ENABLE_KF5), \
+		shell/source/backends/kf5be/kf5be1 \
 	) \
 	$(if $(ENABLE_ONLINE_UPDATE), \
 		extensions/source/update/check/updchk.uno \
@@ -262,7 +262,6 @@ $(eval $(call gb_Rdb_add_components,services,\
 	connectivity/source/drivers/mysql_jdbc/mysql_jdbc \
 	connectivity/source/manager/sdbc2 \
 	connectivity/source/drivers/writer/writer \
-	dbaccess/source/ext/macromigration/dbmm \
 	dbaccess/source/filter/xml/dbaxml \
 	dbaccess/util/dba \
 	dbaccess/util/dbu \

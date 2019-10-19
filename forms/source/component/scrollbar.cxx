@@ -109,7 +109,7 @@ namespace frm
 
     OUString SAL_CALL OScrollBarModel::getImplementationName()
     {
-        return OUString( "com.sun.star.comp.forms.OScrollBarModel" );
+        return "com.sun.star.comp.forms.OScrollBarModel";
     }
 
         // note that we're passing OControlModel as "base class". This is because
@@ -118,9 +118,7 @@ namespace frm
         // to benefit from the functionality for binding to spreadsheet cells
     Sequence< OUString > SAL_CALL OScrollBarModel::getSupportedServiceNames()
     {
-        Sequence< OUString > aOwnNames( 2 );
-        aOwnNames[ 0 ] = FRM_SUN_COMPONENT_SCROLLBAR;
-        aOwnNames[ 1 ] = BINDABLE_INTEGER_VALUE_RANGE;
+        Sequence< OUString > aOwnNames { FRM_SUN_COMPONENT_SCROLLBAR, BINDABLE_INTEGER_VALUE_RANGE };
 
         return ::comphelper::combineSequences(
             getAggregateServiceNames(),
@@ -231,7 +229,7 @@ namespace frm
 
     OUString SAL_CALL OScrollBarModel::getServiceName()
     {
-        return OUString(FRM_SUN_COMPONENT_SCROLLBAR);
+        return FRM_SUN_COMPONENT_SCROLLBAR;
     }
 
 

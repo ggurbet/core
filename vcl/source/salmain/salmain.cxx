@@ -18,8 +18,7 @@
  */
 
 #include <sal/config.h>
-
-#include <cstdlib>
+#include <config_features.h>
 
 #include <sal/main.h>
 #include <tools/extendapplicationenvironment.hxx>
@@ -27,10 +26,8 @@
 #include <vcl/vclmain.hxx>
 #include <vcl/svmain.hxx>
 
-#include <salinst.hxx>
-
 SAL_IMPLEMENT_MAIN() {
-#if defined( UNX ) && !defined MACOSX && !defined IOS && !defined ANDROID && !defined LIBO_HEADLESS && !defined HAIKU
+#if defined( UNX ) && !defined MACOSX && !defined IOS && !defined ANDROID && HAVE_FEATURE_UI && !defined HAIKU
     fire_glxtest_process();
 #endif
     tools::extendApplicationEnvironment();

@@ -162,10 +162,10 @@ static void initMapiMessage(
     pMapiMessage->lpszSubject = const_cast<wchar_t*>(gSubject.c_str());
     pMapiMessage->lpszNoteText = (gBody.length() ? const_cast<wchar_t*>(gBody.c_str()) : nullptr);
     pMapiMessage->lpOriginator = aMapiOriginator;
-    pMapiMessage->lpRecips = aMapiRecipientList.size() ? &aMapiRecipientList[0] : nullptr;
+    pMapiMessage->lpRecips = aMapiRecipientList.size() ? aMapiRecipientList.data() : nullptr;
     pMapiMessage->nRecipCount = aMapiRecipientList.size();
     if (!aMapiAttachmentList.empty())
-        pMapiMessage->lpFiles = &aMapiAttachmentList[0];
+        pMapiMessage->lpFiles = aMapiAttachmentList.data();
     pMapiMessage->nFileCount = aMapiAttachmentList.size();
 }
 
@@ -207,8 +207,9 @@ static void initParameter(int argc, wchar_t* argv[])
 
         if (_wcsicmp(argv[i], L"--mapi-dialog") == 0)
         {
-            // Outlook 2013+; for earlier versions this equals to MAPI_DIALOG
-            gMapiFlags |= MAPI_DIALOG_MODELESS;
+            // MAPI_DIALOG_MODELESS has many problems and crashes Outlook 2016.
+            // see the commit message for a lengthy description.
+            gMapiFlags |= MAPI_DIALOG;
         }
         else if (_wcsicmp(argv[i], L"--mapi-logon-ui") == 0)
         {

@@ -19,7 +19,6 @@
 
 #include <tools/ConfigurationAccess.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -108,8 +107,7 @@ Any ConfigurationAccess::GetConfigurationNode (
     }
     catch (const Exception&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("sd", "caught exception while getting configuration node" << sPathToNode << ": " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("sd", "caught exception while getting configuration node" << sPathToNode);
     }
 
     return Any();
@@ -131,10 +129,9 @@ void ConfigurationAccess::ForAll (
         return;
 
     ::std::vector<Any> aValues(rArguments.size());
-    Sequence<OUString> aKeys (rxContainer->getElementNames());
-    for (sal_Int32 nItemIndex=0; nItemIndex < aKeys.getLength(); ++nItemIndex)
+    const Sequence<OUString> aKeys (rxContainer->getElementNames());
+    for (const OUString& rsKey : aKeys)
     {
-        const OUString& rsKey (aKeys[nItemIndex]);
         Reference<container::XNameAccess> xSetItem (rxContainer->getByName(rsKey), UNO_QUERY);
         if (xSetItem.is())
         {

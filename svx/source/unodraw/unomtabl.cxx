@@ -131,7 +131,7 @@ sal_Bool SAL_CALL SvxUnoMarkerTable::supportsService( const  OUString& ServiceNa
 
 OUString SAL_CALL SvxUnoMarkerTable::getImplementationName()
 {
-    return OUString("SvxUnoMarkerTable");
+    return "SvxUnoMarkerTable";
 }
 
 uno::Sequence< OUString > SAL_CALL SvxUnoMarkerTable::getSupportedServiceNames(  )
@@ -188,7 +188,7 @@ void SAL_CALL SvxUnoMarkerTable::removeByName( const OUString& aApiName )
 
     auto aIter = std::find_if(maItemSetVector.begin(), maItemSetVector.end(),
         [&aName](const std::unique_ptr<SfxItemSet>& rpItem) {
-            const NameOrIndex *pItem = static_cast<const NameOrIndex *>(&(rpItem->Get( XATTR_LINEEND ) ));
+            const NameOrIndex *pItem = &(rpItem->Get( XATTR_LINEEND ) );
             return pItem->GetName() == aName;
         });
     if (aIter != maItemSetVector.end())
@@ -210,7 +210,7 @@ void SAL_CALL SvxUnoMarkerTable::replaceByName( const OUString& aApiName, const 
 
     auto aIter = std::find_if(maItemSetVector.begin(), maItemSetVector.end(),
         [&aName](const std::unique_ptr<SfxItemSet>& rpItem) {
-            const NameOrIndex *pItem = static_cast<const NameOrIndex *>(&(rpItem->Get( XATTR_LINEEND ) ));
+            const NameOrIndex *pItem = &(rpItem->Get( XATTR_LINEEND ) );
             return pItem->GetName() == aName;
         });
     if (aIter != maItemSetVector.end())

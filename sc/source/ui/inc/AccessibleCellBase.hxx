@@ -103,7 +103,7 @@ public:
     virtual css::uno::Sequence< css::uno::Type > SAL_CALL
         getTypes() override;
 
-    /** Returns a implementation id.
+    /** Returns an implementation id.
     */
     virtual css::uno::Sequence<sal_Int8> SAL_CALL
         getImplementationId() override;
@@ -120,12 +120,12 @@ private:
         const css::uno::Reference<css::accessibility::XAccessibleStateSet>& rxParentStates);
 protected:
     /// @throw css::uno::RuntimeException
-    OUString GetNote();
+    OUString GetNote() const;
 
     /// @throw css::uno::RuntimeException
-    OUString GetAllDisplayNote();
+    OUString GetAllDisplayNote() const;
     /// @throw css::uno::RuntimeException
-    OUString getShadowAttrs();
+    OUString getShadowAttrs() const;
     /// @throw css::uno::RuntimeException
     OUString getBorderAttrs();
 public:

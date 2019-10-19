@@ -17,16 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
 #include <swpossizetabpage.hxx>
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <svtools/unitconv.hxx>
 
-#include <svx/dialogs.hrc>
 #include <svx/svddef.hxx>
-#include <svx/sxcaitm.hxx>
 #include <svx/sxcecitm.hxx>
 #include <svx/sxcgitm.hxx>
 #include <svx/sxcllitm.hxx>
@@ -70,8 +66,8 @@ const sal_uInt16 SvxCaptionTabPage::pCaptionRanges[] =
     0
 };
 
-SvxCaptionTabPage::SvxCaptionTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs)
-    : SfxTabPage(pParent, "cui/ui/calloutpage.ui", "CalloutPage", &rInAttrs)
+SvxCaptionTabPage::SvxCaptionTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/calloutpage.ui", "CalloutPage", &rInAttrs)
     , nCaptionType(SdrCaptionType::Type1)
     , nGap(0)
     , nEscDir(SdrCaptionEscDir::Horizontal)
@@ -138,14 +134,8 @@ SvxCaptionTabPage::SvxCaptionTabPage(TabPageParent pParent, const SfxItemSet& rI
 
 SvxCaptionTabPage::~SvxCaptionTabPage()
 {
-    disposeOnce();
-}
-
-void SvxCaptionTabPage::dispose()
-{
     m_xCT_CAPTTYPEWin.reset();
     m_xCT_CAPTTYPE.reset();
-    SfxTabPage::dispose();
 }
 
 void SvxCaptionTabPage::Construct()
@@ -342,10 +332,10 @@ void SvxCaptionTabPage::Reset( const SfxItemSet*  )
     SetupType_Impl( nCaptionType );
 }
 
-VclPtr<SfxTabPage> SvxCaptionTabPage::Create(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SvxCaptionTabPage::Create(weld::Container* pPage, weld::DialogController* pController,
                                              const SfxItemSet* rOutAttrs)
 {
-    return VclPtr<SvxCaptionTabPage>::Create(pParent, *rOutAttrs);
+    return std::make_unique<SvxCaptionTabPage>(pPage, pController, *rOutAttrs);
 }
 
 void SvxCaptionTabPage::SetupExtension_Impl( sal_uInt16 nType )
@@ -461,13 +451,6 @@ void SvxCaptionTabPage::SetupType_Impl( SdrCaptionType nType )
     }
 }
 
-void SvxCaptionTabPage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    SfxTabPage::DataChanged( rDCEvt );
-
-    if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
-            FillValueSet();
-}
 void SvxCaptionTabPage::FillValueSet()
 {
     m_xCT_CAPTTYPE->SetItemImage(BMP_CAPTTYPE_1, m_aBmpCapTypes[0] );

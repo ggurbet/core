@@ -577,7 +577,7 @@ FormulaTokenArray::FormulaTokenArray( const FormulaTokenArray& rArr )
 
 FormulaTokenArray::~FormulaTokenArray()
 {
-    Clear();
+    FormulaTokenArray::Clear();
 }
 
 void FormulaTokenArray::Finalize()
@@ -888,7 +888,7 @@ void FormulaTokenArray::AddRecalcMode( ScRecalcMode nBits )
 }
 
 
-bool FormulaTokenArray::HasMatrixDoubleRefOps()
+bool FormulaTokenArray::HasMatrixDoubleRefOps() const
 {
     if ( pRPN && nRPN )
     {
@@ -1632,6 +1632,12 @@ void FormulaTokenIterator::Jump( short nStart, short nNext, short nStop )
         maStack.back().nPC = nStart;
         maStack.back().nStop = nStop;
     }
+}
+
+void FormulaTokenIterator::ReInit( const FormulaTokenArray& rArr )
+{
+    maStack.clear();
+    Push( &rArr );
 }
 
 const FormulaToken* FormulaTokenIterator::GetNonEndOfPathToken( short nIdx ) const

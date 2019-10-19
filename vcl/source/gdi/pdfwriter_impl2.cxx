@@ -26,8 +26,6 @@
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/graph.hxx>
 
-#include <svdata.hxx>
-
 #include <unotools/streamwrap.hxx>
 
 #include <tools/helpers.hxx>
@@ -46,7 +44,6 @@
 
 #include <cppuhelper/implbase.hxx>
 
-#include <rtl/digest.h>
 #include <sal/log.hxx>
 #include <memory>
 
@@ -2030,9 +2027,19 @@ void PDFWriterImpl::ImplClearFontData(bool bNewFontLists)
     }
 }
 
+void PDFWriterImpl::ImplRefreshFontData(bool bNewFontLists)
+{
+    if (bNewFontLists && AcquireGraphics())
+    {
+        SetFontCollectionFromSVData();
+        ResetNewFontCache();
+    }
+}
+
 vcl::Region PDFWriterImpl::ClipToDeviceBounds(vcl::Region aRegion) const
 {
     return aRegion;
 }
+
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

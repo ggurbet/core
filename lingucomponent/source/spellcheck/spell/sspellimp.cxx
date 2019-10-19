@@ -50,6 +50,7 @@
 #include <rtl/textenc.h>
 #include <sal/log.hxx>
 
+#include <numeric>
 #include <utility>
 #include <vector>
 #include <set>
@@ -99,7 +100,7 @@ PropertyHelper_Spelling & SpellChecker::GetPropHelper_Impl()
 {
     if (!m_pPropHelper)
     {
-        Reference< XLinguProperties >   xPropSet( GetLinguProperties(), UNO_QUERY );
+        Reference< XLinguProperties >   xPropSet = GetLinguProperties();
 
         m_pPropHelper.reset( new PropertyHelper_Spelling( static_cast<XSpellChecker *>(this), xPropSet ) );
         m_pPropHelper->AddAsPropListener();   //! after a reference is established
@@ -124,7 +125,7 @@ Sequence< Locale > SAL_CALL SpellChecker::getLocales()
         uno::Sequence< OUString > aFormatList;
         aLinguCfg.GetSupportedDictionaryFormatsFor( "SpellCheckers",
                 "org.openoffice.lingu.MySpellSpellChecker", aFormatList );
-        for (auto const& format : aFormatList)
+        for (auto const& format : std::as_const(aFormatList))
         {
             std::vector< SvtLinguConfigDictionaryEntry > aTmpDic(
                     aLinguCfg.GetActiveDictionariesByFormat(format) );
@@ -139,7 +140,7 @@ Sequence< Locale > SAL_CALL SpellChecker::getLocales()
 
         // to prefer dictionaries with configuration entries we will only
         // use those old style dictionaries that add a language that
-        // is not yet supported by the list od new style dictionaries
+        // is not yet supported by the list of new style dictionaries
         MergeNewStyleDicsAndOldStyleDics( aDics, aOldStyleDics );
 
         if (!aDics.empty())
@@ -150,7 +151,7 @@ Sequence< Locale > SAL_CALL SpellChecker::getLocales()
             std::set<OUString> aLocaleNamesSet;
             for (auto const& dict : aDics)
             {
-                uno::Sequence< OUString > aLocaleNames( dict.aLocaleNames );
+                const uno::Sequence< OUString > aLocaleNames( dict.aLocaleNames );
                 uno::Sequence< OUString > aLocations( dict.aLocations );
                 SAL_WARN_IF(
                     aLocaleNames.hasElements() && !aLocations.hasElements(),
@@ -189,9 +190,9 @@ Sequence< Locale > SAL_CALL SpellChecker::getLocales()
             //! it is undefined which dictionary gets used.
             //! In the future the implementation should support using several dictionaries
             //! for one locale.
-            sal_uInt32 nDictSize = 0;
-            for (auto const& dict : aDics)
-                nDictSize += dict.aLocaleNames.getLength();
+            sal_uInt32 nDictSize = std::accumulate(aDics.begin(), aDics.end(), sal_uInt32(0),
+                [](const sal_uInt32 nSum, const SvtLinguConfigDictionaryEntry& dict) {
+                    return nSum + dict.aLocaleNames.getLength(); });
 
             // add dictionary information
             m_DictItems.reserve(nDictSize);
@@ -200,7 +201,7 @@ Sequence< Locale > SAL_CALL SpellChecker::getLocales()
                 if (dict.aLocaleNames.hasElements() &&
                     dict.aLocations.hasElements())
                 {
-                    uno::Sequence< OUString > aLocaleNames( dict.aLocaleNames );
+                    const uno::Sequence< OUString > aLocaleNames( dict.aLocaleNames );
 
                     // currently only one language per dictionary is supported in the actual implementation...
                     // Thus here we work-around this by adding the same dictionary several times.
@@ -238,7 +239,7 @@ sal_Bool SAL_CALL SpellChecker::hasLocale(const Locale& rLocale)
     if (!m_aSuppLocales.hasElements())
         getLocales();
 
-    for (auto const& suppLocale : m_aSuppLocales)
+    for (auto const& suppLocale : std::as_const(m_aSuppLocales))
     {
         if (rLocale == suppLocale)
         {

@@ -82,20 +82,18 @@ DataSourceDialog::DataSourceDialog(weld::Window * pParent,
                               "DataRangeDialog")
     , m_apDocTemplateProvider(new DocumentChartTypeTemplateProvider(xChartDocument))
     , m_apDialogModel(new DialogModel(xChartDocument, xContext))
-    , m_pRangeChooserTabPage(nullptr)
-    , m_pDataSourceTabPage(nullptr)
     , m_bRangeChooserTabIsValid(true)
     , m_bDataSourceTabIsValid(true)
     , m_bTogglingEnabled(true)
-    , m_xTabControl(m_xBuilder->weld_notebook("notebook"))
+    , m_xTabControl(m_xBuilder->weld_notebook("tabcontrol"))
     , m_xBtnOK(m_xBuilder->weld_button("ok"))
 {
-    TabPageParent aRangeParent(m_xTabControl->get_page("range"), this);
-    m_pRangeChooserTabPage = VclPtr<RangeChooserTabPage>::Create(aRangeParent, *(m_apDialogModel.get()),
-                                     m_apDocTemplateProvider.get(), nullptr, true /* bHideDescription */ );
-    TabPageParent aSeriesParent(m_xTabControl->get_page("series"), this);
-    m_pDataSourceTabPage = VclPtr<DataSourceTabPage>::Create(aSeriesParent, *(m_apDialogModel.get()),
-                                    m_apDocTemplateProvider.get(), nullptr, true /* bHideDescription */ );
+    m_xRangeChooserTabPage = std::make_unique<RangeChooserTabPage>(m_xTabControl->get_page("range"), this,
+                                     *m_apDialogModel,
+                                     m_apDocTemplateProvider.get(), true /* bHideDescription */ );
+    m_xDataSourceTabPage = std::make_unique<DataSourceTabPage>(m_xTabControl->get_page("series"), this,
+                                    *m_apDialogModel,
+                                    m_apDocTemplateProvider.get(), true /* bHideDescription */ );
     m_xTabControl->connect_enter_page(LINK(this, DataSourceDialog, ActivatePageHdl));
     m_xTabControl->connect_leave_page(LINK(this, DataSourceDialog, DeactivatePageHdl));
     ActivatePageHdl(m_xTabControl->get_current_page_ident());
@@ -108,8 +106,8 @@ DataSourceDialog::DataSourceDialog(weld::Window * pParent,
 
 DataSourceDialog::~DataSourceDialog()
 {
-    m_pRangeChooserTabPage.disposeAndClear();
-    m_pDataSourceTabPage.disposeAndClear();
+    m_xRangeChooserTabPage.reset();
+    m_xDataSourceTabPage.reset();
     m_nLastPageId = m_xTabControl->get_current_page();
 }
 
@@ -118,10 +116,10 @@ short DataSourceDialog::run()
     short nResult = GenericDialogController::run();
     if( nResult == RET_OK )
     {
-        if( m_pRangeChooserTabPage )
-            m_pRangeChooserTabPage->commitPage();
-        if( m_pDataSourceTabPage )
-            m_pDataSourceTabPage->commitPage();
+        if( m_xRangeChooserTabPage )
+            m_xRangeChooserTabPage->commitPage();
+        if( m_xDataSourceTabPage )
+            m_xDataSourceTabPage->commitPage();
     }
     return nResult;
 }
@@ -129,9 +127,9 @@ short DataSourceDialog::run()
 IMPL_LINK(DataSourceDialog, ActivatePageHdl, const OString&, rPage, void)
 {
     if (rPage == "range")
-        m_pRangeChooserTabPage->ActivatePage();
+        m_xRangeChooserTabPage->Activate();
     else if (rPage == "series")
-        m_pDataSourceTabPage->ActivatePage();
+        m_xDataSourceTabPage->Activate();
 }
 
 // allow/disallow user to leave page
@@ -150,11 +148,11 @@ void DataSourceDialog::EnableTabToggling()
     m_bTogglingEnabled = true;
 }
 
-void DataSourceDialog::setInvalidPage( TabPage * pTabPage )
+void DataSourceDialog::setInvalidPage(BuilderPage* pTabPage)
 {
-    if (pTabPage == m_pRangeChooserTabPage)
+    if (pTabPage == m_xRangeChooserTabPage.get())
         m_bRangeChooserTabIsValid = false;
-    else if (pTabPage == m_pDataSourceTabPage)
+    else if (pTabPage == m_xDataSourceTabPage.get())
         m_bDataSourceTabIsValid = false;
 
     if (!(m_bRangeChooserTabIsValid && m_bDataSourceTabIsValid))
@@ -171,11 +169,11 @@ void DataSourceDialog::setInvalidPage( TabPage * pTabPage )
     }
 }
 
-void DataSourceDialog::setValidPage( TabPage * pTabPage )
+void DataSourceDialog::setValidPage(BuilderPage* pTabPage)
 {
-    if( pTabPage == m_pRangeChooserTabPage )
+    if( pTabPage == m_xRangeChooserTabPage.get() )
         m_bRangeChooserTabIsValid = true;
-    else if( pTabPage == m_pDataSourceTabPage )
+    else if( pTabPage == m_xDataSourceTabPage.get() )
         m_bDataSourceTabIsValid = true;
 
     if (m_bRangeChooserTabIsValid && m_bDataSourceTabIsValid)

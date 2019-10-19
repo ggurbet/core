@@ -89,7 +89,7 @@ public:
 
     // FullDrag support
     virtual bool supportsFullDrag() const override;
-    virtual SdrObject* getFullDragClone() const override;
+    virtual SdrObjectUniquePtr getFullDragClone() const override;
 
     virtual bool BegCreate(SdrDragStat& rStat) override;
     virtual bool MovCreate(SdrDragStat& rStat) override;
@@ -142,7 +142,7 @@ public:
     virtual bool DoMacro (const SdrObjMacroHitRec& rRec) override;
 
     // #i73248# for default SdrVirtObj, offset is aAnchor, not (0,0)
-    virtual const Point GetOffset() const;
+    virtual Point GetOffset() const;
 };
 
 #endif // INCLUDED_SVX_SVDOVIRT_HXX

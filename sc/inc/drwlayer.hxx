@@ -27,9 +27,7 @@
 class ScDocument;
 class SfxObjectShell;
 class ScDrawObjData;
-class ScIMapInfo;
 class ScMacroInfo;
-class IMapObject;
 class ScMarkData;
 
 class ScTabDeletedHint : public SfxHint
@@ -193,7 +191,7 @@ public:
     bool HasObjectsAnchoredInRange(const ScRange& rRange);
     void MoveObject(SdrObject* pObj, const ScAddress& rNewPosition);
 
-    // positions for detektive lines
+    // positions for detective lines
     static ScDrawObjData* GetObjData( SdrObject* pObj, bool bCreate=false );
     static ScDrawObjData* GetNonRotatedObjData( SdrObject* pObj, bool bCreate=false );
 
@@ -208,15 +206,7 @@ public:
     /** Returns the object data, if the passed object is a cell note caption. */
     static ScDrawObjData* GetNoteCaptionData( SdrObject* pObj, SCTAB nTab );
 
-    // Image-Map
-    static ScIMapInfo* GetIMapInfo( const SdrObject* pObj );
-
-    static IMapObject* GetHitIMapObject( const SdrObject* pObject,
-                            const Point& rWinPoint, const vcl::Window& rCmpWnd );
-
     static ScMacroInfo* GetMacroInfo( SdrObject* pObj, bool bCreate = false );
-
-    virtual ImageMap* GetImageMapForObject(SdrObject* pObj) override;
 
 private:
     static SfxObjectShell* pGlobalDrawPersist;          // for AllocModel

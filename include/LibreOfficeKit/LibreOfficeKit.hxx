@@ -303,6 +303,17 @@ public:
     }
 
     /**
+     * Posts a dialog event for the window with given id
+     *
+     * @param nWindowId id of the window to notify
+     * @param pArguments arguments of the event.
+     */
+    void sendDialogEvent(unsigned nWindowId, const char* pArguments = NULL)
+    {
+        mpDoc->pClass->sendDialogEvent(mpDoc, nWindowId, pArguments);
+    }
+
+    /**
      * Posts a UNO command to the document.
      *
      * Example argument string:
@@ -349,6 +360,56 @@ public:
     char* getTextSelection(const char* pMimeType, char** pUsedMimeType = NULL)
     {
         return mpDoc->pClass->getTextSelection(mpDoc, pMimeType, pUsedMimeType);
+    }
+
+    /**
+     * Gets the type of the selected content.
+     *
+     * @return an element of the LibreOfficeKitSelectionType enum.
+     */
+    int getSelectionType()
+    {
+        return mpDoc->pClass->getSelectionType(mpDoc);
+    }
+
+    /**
+     * Gets the content on the clipboard for the current view as a series of binary streams.
+     *
+     * NB. returns a complete set of possible selection types if nullptr is passed for pMimeTypes.
+     *
+     * @param pMimeTypes passes in a nullptr terminated list of mime types to fetch
+     * @param pOutCount     returns the size of the other @pOut arrays
+     * @param pOutMimeTypes returns an array of mime types
+     * @param pOutSizes     returns the size of each pOutStream
+     * @param pOutStreams   the content of each mime-type, of length in @pOutSizes
+     *
+     * @returns: true on success, false on error.
+     */
+    bool getClipboard(const char **pMimeTypes,
+                      size_t      *pOutCount,
+                      char      ***pOutMimeTypes,
+                      size_t     **pOutSizes,
+                      char      ***pOutStreams)
+    {
+        return mpDoc->pClass->getClipboard(mpDoc, pMimeTypes, pOutCount, pOutMimeTypes, pOutSizes, pOutStreams);
+    }
+
+    /**
+     * Populates the clipboard for this view with multiple types of content.
+     *
+     * @param nInCount the number of types to paste
+     * @param pInMimeTypes array of mime type strings
+     * @param pInSizes array of sizes of the data to paste
+     * @param pInStreams array containing the data of the various types
+     *
+     * @return if the supplied data was populated successfully.
+     */
+    bool setClipboard(const size_t  nInCount,
+                      const char  **pInMimeTypes,
+                      const size_t *pInSizes,
+                      const char  **pInStreams)
+    {
+        return mpDoc->pClass->setClipboard(mpDoc, nInCount, pInMimeTypes, pInSizes, pInStreams);
     }
 
     /**
@@ -648,6 +709,49 @@ public:
     {
         return mpDoc->pClass->postWindowGestureEvent(mpDoc, nWindowId, pType, nX, nY, nOffset);
     }
+
+    /// Set a part's selection mode.
+    /// nSelect is 0 to deselect, 1 to select, and 2 to toggle.
+    void selectPart(int nPart, int nSelect)
+    {
+        mpDoc->pClass->selectPart(mpDoc, nPart, nSelect);
+    }
+
+    /// Moves the selected pages/slides to a new position.
+    /// nPosition is the new position where the selection
+    /// should go. bDuplicate when true will copy instead of move.
+    void moveSelectedParts(int nPosition, bool bDuplicate)
+    {
+        mpDoc->pClass->moveSelectedParts(mpDoc, nPosition, bDuplicate);
+    }
+
+    /**
+     * Resize a window (dialog, popup, etc.) with give id.
+     *
+     * @param nWindowId
+     * @param width The width of the window.
+     * @param height The height of the window.
+     */
+    void resizeWindow(unsigned nWindowId,
+                      const int width,
+                      const int height)
+    {
+        return mpDoc->pClass->resizeWindow(mpDoc, nWindowId, width, height);
+    }
+
+    /**
+     * For deleting many characters all at once
+     *
+     * @param nWindowId Specify the window id to post the input event to. If
+     * nWindow is 0, the event is posted into the document
+     * @param nBefore The characters to be deleted before the cursor position
+     * @param nAfter The characters to be deleted after the cursor position
+     */
+    void removeTextContext(unsigned nWindowId, int nBefore, int nAfter)
+    {
+        mpDoc->pClass->removeTextContext(mpDoc, nWindowId, nBefore, nAfter);
+    }
+
 #endif // defined LOK_USE_UNSTABLE_API || defined LIBO_INTERNAL_ONLY
 };
 

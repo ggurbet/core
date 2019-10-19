@@ -20,18 +20,12 @@
 #include <OutlinerIterator.hxx>
 #include <OutlinerIteratorImpl.hxx>
 #include <svx/svditer.hxx>
-#include <sfx2/dispatch.hxx>
-#include <sfx2/viewfrm.hxx>
 #include <tools/debug.hxx>
 #include <Outliner.hxx>
 
 #include <drawdoc.hxx>
 #include <DrawViewShell.hxx>
-#include <drawview.hxx>
 #include <sdpage.hxx>
-#include <FrameView.hxx>
-#include <DrawDocShell.hxx>
-#include <Window.hxx>
 
 namespace sd { namespace outliner {
 
@@ -65,7 +59,7 @@ Iterator::Iterator (const Iterator& rIterator)
 {
 }
 
-Iterator::Iterator (Iterator&& rIterator)
+Iterator::Iterator(Iterator&& rIterator) noexcept
     : mxIterator(std::move(rIterator.mxIterator))
 {
 }
@@ -91,7 +85,7 @@ Iterator& Iterator::operator= (const Iterator& rIterator)
     return *this;
 }
 
-Iterator& Iterator::operator= (Iterator&& rIterator)
+Iterator& Iterator::operator=(Iterator&& rIterator) noexcept
 {
     mxIterator = std::move(rIterator.mxIterator);
     return *this;

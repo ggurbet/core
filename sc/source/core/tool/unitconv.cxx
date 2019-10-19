@@ -37,10 +37,7 @@ ScUnitConverterData::ScUnitConverterData(
 OUString ScUnitConverterData::BuildIndexString(
     const OUString& rFromUnit, const OUString& rToUnit )
 {
-    OUStringBuffer aBuf(rFromUnit);
-    aBuf.append(cDelim);
-    aBuf.append(rToUnit);
-    return aBuf.makeStringAndClear();
+    return rFromUnit + OUStringChar(cDelim) + rToUnit;
 }
 
 // ScUnitConverter
@@ -57,21 +54,19 @@ ScUnitConverter::ScUnitConverter()
     ScLinkConfigItem aConfigItem( CFGPATH_UNIT );
 
     // empty node name -> use the config item's path itself
-    Sequence<OUString> aNodeNames = aConfigItem.GetNodeNames( "" );
+    const Sequence<OUString> aNodeNames = aConfigItem.GetNodeNames( "" );
 
     long nNodeCount = aNodeNames.getLength();
     if ( nNodeCount )
     {
-        const OUString* pNodeArray = aNodeNames.getConstArray();
         Sequence<OUString> aValNames( nNodeCount * 3 );
         OUString* pValNameArray = aValNames.getArray();
         const OUString sSlash('/');
 
         long nIndex = 0;
-        for (long i=0; i<nNodeCount; i++)
+        for (const OUString& rNode : aNodeNames)
         {
-            OUString sPrefix = pNodeArray[i];
-            sPrefix += sSlash;
+            OUString sPrefix = rNode + sSlash;
 
             pValNameArray[nIndex++] = sPrefix + CFGSTR_UNIT_FROM;
             pValNameArray[nIndex++] = sPrefix + CFGSTR_UNIT_TO;

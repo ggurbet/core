@@ -98,8 +98,7 @@ public:
     void Abort();
 
 protected:
-    virtual sal_uInt16 DetermineInsertPosition (
-        const SdTransferable& rTransferable) override;
+    virtual sal_uInt16 DetermineInsertPosition () override;
 
 private:
     SlideSorter& mrSlideSorter;
@@ -169,7 +168,7 @@ private:
     /** This method contains the code for AcceptDrop() and ExecuteDrop() shapes.
         There are only minor differences for the two cases at this level.
         @param eCommand
-            This parameter specifies whether to do a AcceptDrop() or
+            This parameter specifies whether to do an AcceptDrop() or
             ExecuteDrop().
         @param rPosition
             Since the event is given as void pointer we can not take the

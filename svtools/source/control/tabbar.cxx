@@ -20,7 +20,6 @@
 
 #include <svtools/tabbar.hxx>
 #include <tools/time.hxx>
-#include <tools/debug.hxx>
 #include <tools/poly.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/help.hxx>
@@ -28,7 +27,6 @@
 #include <vcl/button.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/event.hxx>
-#include <vcl/image.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/svtaccessiblefactory.hxx>
@@ -250,7 +248,7 @@ public:
         return static_cast<TabBar*>(Window::GetParent());
     }
 
-    bool isModKeyPressed()
+    bool isModKeyPressed() const
     {
         return mbModKey;
     }
@@ -483,7 +481,7 @@ struct TabBar_Impl
 
     vcl::AccessibleFactoryAccess  maAccessibleFactory;
 
-    sal_uInt16 getItemSize()
+    sal_uInt16 getItemSize() const
     {
         return static_cast<sal_uInt16>(mpItemList.size());
     }
@@ -1796,7 +1794,7 @@ sal_uInt16 TabBar::GetPagePos(sal_uInt16 nPageId) const
 
 sal_uInt16 TabBar::GetPageId(const Point& rPos) const
 {
-    for (auto& pItem : mpImpl->mpItemList)
+    for (const auto& pItem : mpImpl->mpItemList)
     {
         if (pItem->maRect.IsInside(rPos))
             return pItem->mnId;
@@ -1997,7 +1995,7 @@ void TabBar::SelectPage(sal_uInt16 nPageId, bool bSelect)
 sal_uInt16 TabBar::GetSelectPageCount() const
 {
     sal_uInt16 nSelected = 0;
-    for (auto& pItem : mpImpl->mpItemList)
+    for (const auto& pItem : mpImpl->mpItemList)
     {
         if (pItem->mbSelect)
             nSelected++;
@@ -2130,7 +2128,7 @@ void TabBar::EndEditMode(bool bCancel)
             mbEditCanceled = true;
     }
 
-    // renaming not allowed, than reset edit data
+    // renaming not allowed, then reset edit data
     if (!bEnd)
     {
         mpImpl->mpEdit->ResetPostEvent();
@@ -2500,7 +2498,7 @@ Size TabBar::CalcWindowSizePixel() const
     if (!mpImpl->mpItemList.empty())
     {
         const_cast<TabBar*>(this)->ImplCalcWidth();
-        for (auto& pItem : mpImpl->mpItemList)
+        for (const auto& pItem : mpImpl->mpItemList)
         {
             nWidth += pItem->mnWidth;
         }

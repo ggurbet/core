@@ -61,8 +61,7 @@ formula::FormulaGrammar::Grammar getCalcGrammarFromOrcus( os::formula_grammar_t 
         case orcus::spreadsheet::formula_grammar_t::ods:
             eGrammar = formula::FormulaGrammar::GRAM_ODFF;
             break;
-        case orcus::spreadsheet::formula_grammar_t::xlsx_2007:
-        case orcus::spreadsheet::formula_grammar_t::xlsx_2010:
+        case orcus::spreadsheet::formula_grammar_t::xlsx:
             eGrammar = formula::FormulaGrammar::GRAM_OOXML;
             break;
         case orcus::spreadsheet::formula_grammar_t::gnumeric:
@@ -471,6 +470,14 @@ void ScOrcusFactory::finalize()
                 maDoc.setMatrixCells(aRange, *pArray, rToken.meGrammar);
                 break;
             }
+            case CellStoreToken::Type::FillDownCells:
+            {
+                if (!rToken.mnIndex1)
+                    break;
+
+                maDoc.fillDownCells(rToken.maPos, rToken.mnIndex1);
+                break;
+            }
             default:
                 ;
         }
@@ -537,6 +544,12 @@ void ScOrcusFactory::pushCellStoreToken(
     const ScAddress& rPos, const OUString& rFormula, formula::FormulaGrammar::Grammar eGrammar )
 {
     maCellStoreTokens.emplace_back(rPos, rFormula, eGrammar);
+}
+
+void ScOrcusFactory::pushFillDownCellsToken( const ScAddress& rPos, uint32_t nFillSize )
+{
+    maCellStoreTokens.emplace_back(rPos, CellStoreToken::Type::FillDownCells);
+    maCellStoreTokens.back().mnIndex1 = nFillSize;
 }
 
 void ScOrcusFactory::pushSharedFormulaToken( const ScAddress& rPos, uint32_t nIndex )
@@ -1188,6 +1201,12 @@ orcus::spreadsheet::range_size_t ScOrcusSheet::get_sheet_size() const
     return ret;
 }
 
+void ScOrcusSheet::fill_down_cells(os::row_t row, os::col_t col, os::row_t range_size)
+{
+    mrFactory.pushFillDownCellsToken(ScAddress(col, row, mnTab), range_size);
+    cellInserted();
+}
+
 const sc::SharedFormulaGroups& ScOrcusSheet::getSharedFormulaGroups() const
 {
     return maFormulaGroups;
@@ -1438,15 +1457,9 @@ void ScOrcusStyles::number_format::applyToItemSet(SfxItemSet& rSet, const ScDocu
     OUString Code = maCode; /* <-- Done because the SvNumberFormatter::PutEntry demands a non const NumFormat Code*/
     SvNumFormatType type = SvNumFormatType::ALL;
 
-    if (pFormatter->PutEntry(Code, nCheckPos, type, nKey, LANGUAGE_ENGLISH_US))
-    {
-        if (nCheckPos == 0)
-        {
-            rSet.Put(SfxUInt32Item(ATTR_VALUE_FORMAT, nKey));
-        }
-    }
-    else
-        SAL_WARN("sc.orcus.style", "Cannot set Number Format");
+    pFormatter->PutEntry(Code, nCheckPos, type, nKey, LANGUAGE_ENGLISH_US);
+    if (!nCheckPos)
+        rSet.Put(SfxUInt32Item(ATTR_VALUE_FORMAT, nKey));
 }
 
 ScOrcusStyles::xf::xf():

@@ -55,7 +55,7 @@
 #include <comphelper/propertyvalue.hxx>
 #include <tools/diagnose_ex.h>
 #include "PropertyMapHelper.hxx"
-#include <set>
+#include <o3tl/sorted_vector.hxx>
 
 using namespace com::sun::star;
 
@@ -382,8 +382,8 @@ SectionPropertyMap::SectionPropertyMap( bool bIsFirstSection )
     , m_nPageNumber( -1 )
     , m_nPageNumberType( -1 )
     , m_nBreakType( -1 )
-    , m_nLeftMargin( 3175 )  // page left margin,  default 0x708 (1800) twip -> 3175 1/100 mm
-    , m_nRightMargin( 3175 ) // page right margin,  default 0x708 (1800) twip -> 3175 1/100 mm
+    , m_nLeftMargin( 2540 )  // page left margin,  default 1 inch = 1440 twip -> 2540 1/100 mm
+    , m_nRightMargin( 2540 ) // page right margin,  default 1 inch = 1440 twip -> 2540 1/100 mm
     , m_nTopMargin( 2540 )
     , m_nBottomMargin( 2540 )
     , m_nHeaderTop( 1270 )    // 720 twip
@@ -420,10 +420,10 @@ SectionPropertyMap::SectionPropertyMap( bool bIsFirstSection )
     Insert( PROP_HEIGHT, uno::makeAny( static_cast<sal_Int32>(aLetter.getHeight()) ) );
     // page width, 1/100mm
     Insert( PROP_WIDTH, uno::makeAny( static_cast<sal_Int32>(aLetter.getWidth()) ) );
-    // page left margin, default 0x708 (1800) twip -> 3175 1/100 mm
-    Insert( PROP_LEFT_MARGIN, uno::makeAny( sal_Int32(3175) ) );
-    // page right margin, default 0x708 (1800) twip -> 3175 1/100 mm
-    Insert( PROP_RIGHT_MARGIN, uno::makeAny( sal_Int32(3175) ) );
+    // page left margin, default 0x5a0 (1440) twip -> 2540 1/100 mm
+    Insert( PROP_LEFT_MARGIN, uno::makeAny( sal_Int32(2540) ) );
+    // page right margin, default 0x5a0 (1440) twip -> 2540 1/100 mm
+    Insert( PROP_RIGHT_MARGIN, uno::makeAny( sal_Int32(2540) ) );
     // page top margin, default 0x5a0 (1440) twip -> 2540 1/100 mm
     Insert( PROP_TOP_MARGIN, uno::makeAny( sal_Int32(2540) ) );
     // page bottom margin, default 0x5a0 (1440) twip -> 2540 1/100 mm
@@ -442,30 +442,11 @@ SectionPropertyMap::SectionPropertyMap( bool bIsFirstSection )
     }
 }
 
-static OUString lcl_FindUnusedPageStyleName( const uno::Sequence< OUString >& rPageStyleNames )
-{
-    static const char DEFAULT_STYLE[] = "Converted";
-    sal_Int32         nMaxIndex       = 0;
-    // find the highest number x in each style with the name "DEFAULT_STYLE+x" and
-    // return an incremented name
-
-    for ( const auto& rStyleName : rPageStyleNames )
-    {
-        if ( rStyleName.startsWith( DEFAULT_STYLE ) )
-        {
-            sal_Int32 nIndex = rStyleName.copy( strlen( DEFAULT_STYLE ) ).toInt32();
-            if ( nIndex > nMaxIndex )
-                nMaxIndex = nIndex;
-        }
-    }
-
-    return DEFAULT_STYLE + OUString::number( nMaxIndex + 1 );
-}
-
-uno::Reference< beans::XPropertySet > SectionPropertyMap::GetPageStyle( const uno::Reference< container::XNameContainer >& xPageStyles,
-                                                                        const uno::Reference < lang::XMultiServiceFactory >& xTextFactory,
+uno::Reference< beans::XPropertySet > SectionPropertyMap::GetPageStyle( DomainMapper_Impl& rDM_Impl,
                                                                         bool bFirst )
 {
+    const uno::Reference< container::XNameContainer >& xPageStyles = rDM_Impl.GetPageStyles();
+    const uno::Reference < lang::XMultiServiceFactory >& xTextFactory = rDM_Impl.GetTextFactory();
     uno::Reference< beans::XPropertySet > xRet;
     try
     {
@@ -473,8 +454,7 @@ uno::Reference< beans::XPropertySet > SectionPropertyMap::GetPageStyle( const un
         {
             if ( m_sFirstPageStyleName.isEmpty() && xPageStyles.is() )
             {
-                uno::Sequence< OUString > aPageStyleNames = xPageStyles->getElementNames();
-                m_sFirstPageStyleName = lcl_FindUnusedPageStyleName( aPageStyleNames );
+                m_sFirstPageStyleName = rDM_Impl.GetUnusedPageStyleName();
                 m_aFirstPageStyle.set( xTextFactory->createInstance( "com.sun.star.style.PageStyle" ),
                     uno::UNO_QUERY );
 
@@ -485,7 +465,7 @@ uno::Reference< beans::XPropertySet > SectionPropertyMap::GetPageStyle( const un
                     xPageStyles->insertByName( m_sFirstPageStyleName, uno::makeAny( m_aFirstPageStyle ) );
 
                 // Ensure that m_aFollowPageStyle has been created
-                GetPageStyle( xPageStyles, xTextFactory, false );
+                GetPageStyle( rDM_Impl, false );
                 // Chain m_aFollowPageStyle to be after m_aFirstPageStyle
                 m_aFirstPageStyle->setPropertyValue( "FollowStyle",
                     uno::makeAny( m_sFollowPageStyleName ) );
@@ -500,8 +480,7 @@ uno::Reference< beans::XPropertySet > SectionPropertyMap::GetPageStyle( const un
         {
             if ( m_sFollowPageStyleName.isEmpty() && xPageStyles.is() )
             {
-                uno::Sequence< OUString > aPageStyleNames = xPageStyles->getElementNames();
-                m_sFollowPageStyleName = lcl_FindUnusedPageStyleName( aPageStyleNames );
+                m_sFollowPageStyleName = rDM_Impl.GetUnusedPageStyleName();
                 m_aFollowPageStyle.set( xTextFactory->createInstance( "com.sun.star.style.PageStyle" ),
                     uno::UNO_QUERY );
                 xPageStyles->insertByName( m_sFollowPageStyleName, uno::makeAny( m_aFollowPageStyle ) );
@@ -529,8 +508,7 @@ void SectionPropertyMap::SetBorder( BorderPosition ePos, sal_Int32 nLineDistance
     m_bBorderShadows[ePos]   = bShadow;
 }
 
-void SectionPropertyMap::ApplyBorderToPageStyles( const uno::Reference< container::XNameContainer >& xPageStyles,
-                                                  const uno::Reference < lang::XMultiServiceFactory >& xTextFactory,
+void SectionPropertyMap::ApplyBorderToPageStyles( DomainMapper_Impl& rDM_Impl,
                                                   BorderApply eBorderApply, BorderOffsetFrom eOffsetFrom )
 {
     /*
@@ -553,17 +531,17 @@ void SectionPropertyMap::ApplyBorderToPageStyles( const uno::Reference< containe
     {
         case BorderApply::ToAllInSection: // all styles
             if ( !m_sFollowPageStyleName.isEmpty() )
-                xFirst = GetPageStyle( xPageStyles, xTextFactory, false );
+                xFirst = GetPageStyle( rDM_Impl, false );
             if ( !m_sFirstPageStyleName.isEmpty() )
-                xSecond = GetPageStyle( xPageStyles, xTextFactory, true );
+                xSecond = GetPageStyle( rDM_Impl, true );
             break;
         case BorderApply::ToFirstPageInSection: // first page
             if ( !m_sFirstPageStyleName.isEmpty() )
-                xFirst = GetPageStyle( xPageStyles, xTextFactory, true );
+                xFirst = GetPageStyle( rDM_Impl, true );
             break;
         case BorderApply::ToAllButFirstInSection: // left and right
             if ( !m_sFollowPageStyleName.isEmpty() )
-                xFirst = GetPageStyle( xPageStyles, xTextFactory, false );
+                xFirst = GetPageStyle( rDM_Impl, false );
             break;
         default:
             return;
@@ -924,11 +902,9 @@ void SectionPropertyMap::CopyLastHeaderFooter( bool bFirstPage, DomainMapper_Imp
     SectionPropertyMap* pLastContext = rDM_Impl.GetLastSectionContext();
     if ( pLastContext )
     {
-        uno::Reference< beans::XPropertySet > xPrevStyle = pLastContext->GetPageStyle( rDM_Impl.GetPageStyles(),
-            rDM_Impl.GetTextFactory(),
+        uno::Reference< beans::XPropertySet > xPrevStyle = pLastContext->GetPageStyle( rDM_Impl,
             bFirstPage );
-        uno::Reference< beans::XPropertySet > xStyle = GetPageStyle( rDM_Impl.GetPageStyles(),
-            rDM_Impl.GetTextFactory(),
+        uno::Reference< beans::XPropertySet > xStyle = GetPageStyle( rDM_Impl,
             bFirstPage );
 
         if ( bFirstPage )
@@ -1125,7 +1101,7 @@ void SectionPropertyMap::HandleMarginsHeaderFooter( bool bFirstPage, DomainMappe
     PrepareHeaderFooterProperties( bFirstPage );
 }
 
-bool SectionPropertyMap::FloatingTableConversion( DomainMapper_Impl& rDM_Impl, FloatingTableInfo& rInfo )
+bool SectionPropertyMap::FloatingTableConversion( const DomainMapper_Impl& rDM_Impl, FloatingTableInfo& rInfo )
 {
     // This is OOXML version of the code deciding if the table needs to be
     // in a floating frame.
@@ -1210,9 +1186,6 @@ bool SectionPropertyMap::FloatingTableConversion( DomainMapper_Impl& rDM_Impl, F
 
 void SectionPropertyMap::InheritOrFinalizePageStyles( DomainMapper_Impl& rDM_Impl )
 {
-    const uno::Reference< container::XNameContainer >& xPageStyles = rDM_Impl.GetPageStyles();
-    const uno::Reference < lang::XMultiServiceFactory >& xTextFactory = rDM_Impl.GetTextFactory();
-
     // if no new styles have been created for this section, inherit from the previous section,
     // otherwise apply this section's settings to the new style.
     // Ensure that FollowPage is inherited first - otherwise GetPageStyle may auto-create a follow when checking FirstPage.
@@ -1223,7 +1196,7 @@ void SectionPropertyMap::InheritOrFinalizePageStyles( DomainMapper_Impl& rDM_Imp
     else
     {
         HandleMarginsHeaderFooter( /*bFirst=*/false, rDM_Impl );
-        GetPageStyle( xPageStyles, xTextFactory, /*bFirst=*/false );
+        GetPageStyle( rDM_Impl, /*bFirst=*/false );
         if ( rDM_Impl.IsNewDoc() && m_aFollowPageStyle.is() )
             ApplyProperties_( m_aFollowPageStyle );
     }
@@ -1234,7 +1207,7 @@ void SectionPropertyMap::InheritOrFinalizePageStyles( DomainMapper_Impl& rDM_Imp
     else
     {
         HandleMarginsHeaderFooter( /*bFirst=*/true, rDM_Impl );
-        GetPageStyle( xPageStyles, xTextFactory, /*bFirst=*/true );
+        GetPageStyle( rDM_Impl, /*bFirst=*/true );
         if ( rDM_Impl.IsNewDoc() && m_aFirstPageStyle.is() )
             ApplyProperties_( m_aFirstPageStyle );
 
@@ -1253,7 +1226,7 @@ void SectionPropertyMap::HandleIncreasedAnchoredObjectSpacing(DomainMapper_Impl&
     sal_Int32 nTextAreaWidth = nPageWidth - GetLeftMargin() - GetRightMargin();
 
     std::vector<AnchoredObjectInfo>& rAnchoredObjectAnchors = rDM_Impl.m_aAnchoredObjectAnchors;
-    for (auto& rAnchor : rAnchoredObjectAnchors)
+    for (const auto& rAnchor : rAnchoredObjectAnchors)
     {
         // Ignore this paragraph when there are not enough shapes to trigger the Word bug we
         // emulate.
@@ -1446,7 +1419,7 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
         ApplyProtectionProperties( xSection, rDM_Impl );
 
         //get the properties and create appropriate page styles
-        uno::Reference< beans::XPropertySet > xFollowPageStyle = GetPageStyle( rDM_Impl.GetPageStyles(), rDM_Impl.GetTextFactory(), false );
+        uno::Reference< beans::XPropertySet > xFollowPageStyle = GetPageStyle( rDM_Impl, false );
 
         HandleMarginsHeaderFooter(/*bFirstPage=*/false, rDM_Impl );
 
@@ -1567,7 +1540,7 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
             CopyLastHeaderFooter( true, rDM_Impl );
             PrepareHeaderFooterProperties( true );
             uno::Reference< beans::XPropertySet > xFirstPageStyle = GetPageStyle(
-                rDM_Impl.GetPageStyles(), rDM_Impl.GetTextFactory(), true );
+                rDM_Impl, true );
             if ( rDM_Impl.IsNewDoc() )
                 ApplyProperties_( xFirstPageStyle );
 
@@ -1576,7 +1549,7 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
                     getPropertyName( PROP_TEXT_COLUMNS ), uno::makeAny( xColumns ) );
         }
 
-        ApplyBorderToPageStyles( rDM_Impl.GetPageStyles(), rDM_Impl.GetTextFactory(), m_eBorderApply, m_eBorderOffsetFrom );
+        ApplyBorderToPageStyles( rDM_Impl, m_eBorderApply, m_eBorderOffsetFrom );
 
         try
         {
@@ -1589,16 +1562,16 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
             if ( m_nBreakType == static_cast<sal_Int32>(NS_ooxml::LN_Value_ST_SectionMark_evenPage) || m_nBreakType == static_cast<sal_Int32>(NS_ooxml::LN_Value_ST_SectionMark_oddPage) )
             {
                 OUString* pageStyle = m_bTitlePage ? &m_sFirstPageStyleName : &m_sFollowPageStyleName;
-                OUString evenOddStyleName = lcl_FindUnusedPageStyleName( rDM_Impl.GetPageStyles()->getElementNames() );
+                OUString evenOddStyleName = rDM_Impl.GetUnusedPageStyleName();
                 uno::Reference< beans::XPropertySet > evenOddStyle(
                     rDM_Impl.GetTextFactory()->createInstance( "com.sun.star.style.PageStyle" ),
                     uno::UNO_QUERY );
                 // Unfortunately using setParent() does not work for page styles, so make a deep copy of the page style.
                 uno::Reference< beans::XPropertySet > pageProperties( m_bTitlePage ? m_aFirstPageStyle : m_aFollowPageStyle );
                 uno::Reference< beans::XPropertySetInfo > pagePropertiesInfo( pageProperties->getPropertySetInfo() );
-                uno::Sequence< beans::Property > propertyList( pagePropertiesInfo->getProperties() );
+                const uno::Sequence< beans::Property > propertyList( pagePropertiesInfo->getProperties() );
                 // Ignore write-only properties.
-                static const std::set<OUString> aBlacklist
+                static const o3tl::sorted_vector<OUString> aBlacklist
                     = { "FooterBackGraphicURL", "BackGraphicURL", "HeaderBackGraphicURL" };
                 for ( const auto& rProperty : propertyList )
                 {
@@ -1759,12 +1732,12 @@ void SectionPropertyMap::ApplyProperties_( const uno::Reference< beans::XPropert
                 vValues.push_back( pIter->Value );
             }
         }
-        for ( beans::PropertyValue & v : vCharVals )
+        for ( const beans::PropertyValue & v : std::as_const(vCharVals) )
         {
             vNames.push_back( v.Name );
             vValues.push_back( v.Value );
         }
-        for ( beans::PropertyValue & v : vParaVals )
+        for ( const beans::PropertyValue & v : std::as_const(vParaVals) )
         {
             vNames.push_back( v.Name );
             vValues.push_back( v.Value );
@@ -1796,14 +1769,13 @@ void SectionPropertyMap::ApplyProperties_( const uno::Reference< beans::XPropert
     }
 }
 
-sal_Int32 SectionPropertyMap::GetPageWidth()
+sal_Int32 SectionPropertyMap::GetPageWidth() const
 {
     return getProperty( PROP_WIDTH )->second.get<sal_Int32>();
 }
 
 StyleSheetPropertyMap::StyleSheetPropertyMap()
-    : mnListId( -1 )
-    , mnListLevel( -1 )
+    : mnListLevel( -1 )
     , mnOutlineLevel( -1 )
     , mnNumId( -1 )
 {

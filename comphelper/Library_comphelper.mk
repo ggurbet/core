@@ -30,7 +30,7 @@ $(eval $(call gb_Library_set_include,comphelper,\
     $$(INCLUDE) \
 ))
 
-$(eval $(call gb_Library_set_precompiled_header,comphelper,$(SRCDIR)/comphelper/inc/pch/precompiled_comphelper))
+$(eval $(call gb_Library_set_precompiled_header,comphelper,comphelper/inc/pch/precompiled_comphelper))
 
 $(eval $(call gb_Library_add_defs,comphelper,\
        -DCOMPHELPER_DLLIMPLEMENTATION \
@@ -92,6 +92,7 @@ $(eval $(call gb_Library_add_exception_objects,comphelper,\
     comphelper/source/misc/AccessibleImplementationHelper \
     comphelper/source/misc/anytostring \
     comphelper/source/misc/asyncnotification \
+    comphelper/source/misc/asyncquithandler \
     comphelper/source/misc/automationinvokedzone \
     comphelper/source/misc/backupfilehelper \
     comphelper/source/misc/base64 \
@@ -126,7 +127,6 @@ $(eval $(call gb_Library_add_exception_objects,comphelper,\
     comphelper/source/misc/random \
     comphelper/source/misc/SelectionMultiplex \
     comphelper/source/misc/sequenceashashmap \
-    comphelper/source/misc/sequence \
     comphelper/source/misc/servicedecl \
     comphelper/source/misc/serviceinfohelper \
     comphelper/source/misc/sharedmutex \

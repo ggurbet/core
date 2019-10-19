@@ -46,6 +46,74 @@ using namespace ::comphelper;
 namespace
 {
 
+std::string FieldUnitToString(FieldUnit unit)
+{
+    switch(unit)
+    {
+        case FieldUnit::NONE:
+            return "";
+
+        case FieldUnit::MM:
+            return "mm";
+
+        case FieldUnit::CM:
+            return "cm";
+
+        case FieldUnit::M:
+            return "m";
+
+        case FieldUnit::KM:
+            return "km";
+
+        case FieldUnit::TWIP:
+            return "twip";
+
+        case FieldUnit::POINT:
+            return "point";
+
+        case FieldUnit::PICA:
+            return "pica";
+
+        case FieldUnit::INCH:
+            return "inch";
+
+        case FieldUnit::FOOT:
+            return "foot";
+
+        case FieldUnit::MILE:
+            return "mile";
+
+        case FieldUnit::CHAR:
+            return "char";
+
+        case FieldUnit::LINE:
+            return "line";
+
+        case FieldUnit::CUSTOM:
+            return "custom";
+
+        case FieldUnit::PERCENT:
+            return "percent";
+
+        case FieldUnit::MM_100TH:
+            return "mm100th";
+
+        case FieldUnit::PIXEL:
+            return "pixel";
+
+        case FieldUnit::DEGREE:
+            return "degree";
+
+        case FieldUnit::SECOND:
+            return "second";
+
+        case FieldUnit::MILLISECOND:
+            return "millisecond";
+    }
+
+    return "";
+}
+
 sal_Int64 ImplPower10( sal_uInt16 n )
 {
     sal_uInt16  i;
@@ -807,6 +875,14 @@ void NumericField::Last()
     SpinField::Last();
 }
 
+boost::property_tree::ptree NumericField::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(SpinField::DumpAsPropertyTree());
+    aTree.put("min", GetMin());
+    aTree.put("max", GetMax());
+    return aTree;
+}
+
 namespace
 {
     Size calcMinimumSize(const Edit &rSpinField, const NumericFormatter &rFormatter)
@@ -814,12 +890,12 @@ namespace
         OUStringBuffer aBuf;
         sal_Int32 nTextLen;
 
-        nTextLen = OUString::number(rFormatter.GetMin()).getLength();
+        nTextLen = OUString(OUString::number(rFormatter.GetMin())).getLength();
         string::padToLength(aBuf, nTextLen, '9');
         Size aMinTextSize = rSpinField.CalcMinimumSizeForText(
             rFormatter.CreateFieldText(aBuf.makeStringAndClear().toInt64()));
 
-        nTextLen = OUString::number(rFormatter.GetMax()).getLength();
+        nTextLen = OUString(OUString::number(rFormatter.GetMax())).getLength();
         string::padToLength(aBuf, nTextLen, '9');
         Size aMaxTextSize = rSpinField.CalcMinimumSizeForText(
             rFormatter.CreateFieldText(aBuf.makeStringAndClear().toInt64()));
@@ -979,7 +1055,7 @@ static OUString ImplMetricGetUnitText(const OUString& rStr)
 
 // #104355# support localized measurements
 
-static const OUString ImplMetricToString( FieldUnit rUnit )
+static OUString ImplMetricToString( FieldUnit rUnit )
 {
     // return unit's default string (ie, the first one )
     for (auto const& elem : ImplGetFieldUnits())
@@ -1103,12 +1179,77 @@ sal_Int64 MetricField::ConvertValue( sal_Int64 nValue, sal_Int64 mnBaseValue, sa
     return nLong;
 }
 
+namespace {
+
+bool checkConversionUnits(MapUnit eInUnit, FieldUnit eOutUnit)
+{
+    return eOutUnit != FieldUnit::PERCENT
+        && eOutUnit != FieldUnit::CUSTOM
+        && eOutUnit != FieldUnit::NONE
+        && eInUnit != MapUnit::MapPixel
+        && eInUnit != MapUnit::MapSysFont
+        && eInUnit != MapUnit::MapAppFont
+        && eInUnit != MapUnit::MapRelative;
+}
+
+double convertValue( double nValue, long nDigits, FieldUnit eInUnit, FieldUnit eOutUnit )
+{
+    if ( nDigits < 0 )
+    {
+        while ( nDigits )
+        {
+            nValue += 5;
+            nValue /= 10;
+            nDigits++;
+        }
+    }
+    else
+    {
+        nValue *= ImplPower10(nDigits);
+    }
+
+    if ( eInUnit != eOutUnit )
+    {
+        sal_Int64 nDiv  = aImplFactor[sal_uInt16(eInUnit)][sal_uInt16(eOutUnit)];
+        sal_Int64 nMult = aImplFactor[sal_uInt16(eOutUnit)][sal_uInt16(eInUnit)];
+
+        SAL_WARN_IF( nMult <= 0, "vcl", "illegal *" );
+        SAL_WARN_IF( nDiv  <= 0, "vcl", "illegal /" );
+
+        if ( nMult != 1 && nMult > 0)
+            nValue *= nMult;
+        if ( nDiv != 1 && nDiv > 0 )
+        {
+            nValue += (nValue < 0) ? (-nDiv/2) : (nDiv/2);
+            nValue /= nDiv;
+        }
+    }
+    return nValue;
+}
+
+}
+
 sal_Int64 MetricField::ConvertValue( sal_Int64 nValue, sal_uInt16 nDigits,
                                      MapUnit eInUnit, FieldUnit eOutUnit )
 {
+    if ( !checkConversionUnits(eInUnit, eOutUnit) )
+    {
+        OSL_FAIL( "invalid parameters" );
+        return nValue;
+    }
+
+    long nDecDigits = nDigits;
+    FieldUnit eFieldUnit = ImplMap2FieldUnit( eInUnit, nDecDigits );
+
+    // Avoid sal_Int64 <-> double conversion issues if possible:
+    if (eFieldUnit == eOutUnit && nDigits == 0)
+    {
+        return nValue;
+    }
+
     return static_cast<sal_Int64>(
         nonValueDoubleToValueDouble(
-            ConvertDoubleValue( nValue, nDigits, eInUnit, eOutUnit ) ) );
+            convertValue( nValue, nDecDigits, eFieldUnit, eOutUnit ) ) );
 }
 
 double MetricField::ConvertDoubleValue( double nValue, sal_Int64 mnBaseValue, sal_uInt16 nDecDigits,
@@ -1168,13 +1309,7 @@ double MetricField::ConvertDoubleValue( double nValue, sal_Int64 mnBaseValue, sa
 double MetricField::ConvertDoubleValue( double nValue, sal_uInt16 nDigits,
                                         MapUnit eInUnit, FieldUnit eOutUnit )
 {
-    if ( eOutUnit == FieldUnit::PERCENT ||
-         eOutUnit == FieldUnit::CUSTOM ||
-         eOutUnit == FieldUnit::NONE ||
-         eInUnit == MapUnit::MapPixel ||
-         eInUnit == MapUnit::MapSysFont ||
-         eInUnit == MapUnit::MapAppFont ||
-         eInUnit == MapUnit::MapRelative )
+    if ( !checkConversionUnits(eInUnit, eOutUnit) )
     {
         OSL_FAIL( "invalid parameters" );
         return nValue;
@@ -1183,37 +1318,7 @@ double MetricField::ConvertDoubleValue( double nValue, sal_uInt16 nDigits,
     long nDecDigits = nDigits;
     FieldUnit eFieldUnit = ImplMap2FieldUnit( eInUnit, nDecDigits );
 
-    if ( nDecDigits < 0 )
-    {
-        while ( nDecDigits )
-        {
-            nValue += 5;
-            nValue /= 10;
-            nDecDigits++;
-        }
-    }
-    else
-    {
-        nValue *= ImplPower10(nDecDigits);
-    }
-
-    if ( eFieldUnit != eOutUnit )
-    {
-        sal_Int64 nDiv  = aImplFactor[sal_uInt16(eFieldUnit)][sal_uInt16(eOutUnit)];
-        sal_Int64 nMult = aImplFactor[sal_uInt16(eOutUnit)][sal_uInt16(eFieldUnit)];
-
-        SAL_WARN_IF( nMult <= 0, "vcl", "illegal *" );
-        SAL_WARN_IF( nDiv  <= 0, "vcl", "illegal /" );
-
-        if ( nMult != 1 && nMult > 0)
-            nValue *= nMult;
-        if ( nDiv != 1 && nDiv > 0 )
-        {
-            nValue += (nValue < 0) ? (-nDiv/2) : (nDiv/2);
-            nValue /= nDiv;
-        }
-    }
-    return nValue;
+    return convertValue(nValue, nDecDigits, eFieldUnit, eOutUnit);
 }
 
 double MetricField::ConvertDoubleValue( double nValue, sal_uInt16 nDigits,
@@ -1355,10 +1460,19 @@ OUString MetricFormatter::CreateFieldText( sal_Int64 nValue ) const
         aStr += maCustomUnitText;
     else
     {
-        if (meUnit != FieldUnit::NONE && meUnit != FieldUnit::DEGREE)
+        OUString aSuffix = ImplMetricToString( meUnit );
+        if (meUnit != FieldUnit::NONE && meUnit != FieldUnit::DEGREE && meUnit != FieldUnit::INCH)
             aStr += " ";
+        if (meUnit == FieldUnit::INCH)
+        {
+            OUString sDoublePrime = u"\u2033";
+            if (aSuffix != "\"" && aSuffix != sDoublePrime)
+                aStr += " ";
+            else
+                aSuffix = sDoublePrime;
+        }
         assert(meUnit != FieldUnit::PERCENT);
-        aStr += ImplMetricToString( meUnit );
+        aStr += aSuffix;
     }
     return aStr;
 }
@@ -1547,7 +1661,7 @@ void MetricField::SetLast( sal_Int64 nNewLast, FieldUnit eInUnit )
 
 sal_Int64 MetricField::GetLast( FieldUnit eOutUnit ) const
 {
-    // conver
+    // convert
     return MetricField::ConvertValue( mnLast, mnBaseValue, GetDecimalDigits(),
                                       meUnit, eOutUnit );
 }
@@ -1625,6 +1739,15 @@ void MetricField::Last()
 void MetricField::CustomConvert()
 {
     maCustomConvertLink.Call( *this );
+}
+
+boost::property_tree::ptree MetricField::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(SpinField::DumpAsPropertyTree());
+    aTree.put("min", GetMin());
+    aTree.put("max", GetMax());
+    aTree.put("unit", FieldUnitToString(GetUnit()));
+    return aTree;
 }
 
 MetricBox::MetricBox(vcl::Window* pParent, WinBits nWinStyle)

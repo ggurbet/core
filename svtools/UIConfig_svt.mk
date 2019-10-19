@@ -12,6 +12,7 @@ $(eval $(call gb_UIConfig_UIConfig,svt))
 $(eval $(call gb_UIConfig_add_uifiles,svt,\
 	svtools/uiconfig/ui/addresstemplatedialog \
 	svtools/uiconfig/ui/datewindow \
+	svtools/uiconfig/ui/emptypage \
 	svtools/uiconfig/ui/fileviewmenu \
 	svtools/uiconfig/ui/graphicexport \
 	svtools/uiconfig/ui/inputbox \
@@ -21,7 +22,6 @@ $(eval $(call gb_UIConfig_add_uifiles,svt,\
 	svtools/uiconfig/ui/printersetupdialog \
 	svtools/uiconfig/ui/querydeletedialog \
 	svtools/uiconfig/ui/restartdialog \
-	svtools/uiconfig/ui/wizarddialog \
 ))
 
 # vim: set noet sw=4 ts=4:

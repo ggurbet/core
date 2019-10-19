@@ -18,6 +18,7 @@
  */
 #include "vbafield.hxx"
 #include "vbarange.hxx"
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/text/XTextViewCursorSupplier.hpp>
 #include <com/sun/star/view/XSelectionSupplier.hpp>
@@ -54,7 +55,7 @@ sal_Bool SAL_CALL SwVbaField::Update()
 OUString
 SwVbaField::getServiceImplName()
 {
-    return OUString("SwVbaField");
+    return "SwVbaField";
 }
 
 uno::Sequence<OUString>
@@ -503,7 +504,7 @@ sal_Int32 SAL_CALL SwVbaFields::Update()
 OUString
 SwVbaFields::getServiceImplName()
 {
-    return OUString("SwVbaFields");
+    return "SwVbaFields";
 }
 
 // XEnumerationAccess

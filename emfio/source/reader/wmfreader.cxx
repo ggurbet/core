@@ -711,7 +711,13 @@ namespace emfio
                 bool bOk = nWidth && nHeight && nPlanes == 1 && nBitCount == 1 && nBytesPerScan != 0;
                 if (bOk)
                 {
+                    // must be enough data to fulfil the request
                     bOk = nBytesPerScan <= mpInputStream->remainingSize() / nHeight;
+                }
+                if (bOk)
+                {
+                    // scanline must be large enough to provide all pixels
+                    bOk = nBytesPerScan >= nWidth / 8;
                 }
                 if (bOk)
                 {
@@ -773,7 +779,7 @@ namespace emfio
                 if( nFunc == W_META_STRETCHDIB || nFunc == W_META_DIBBITBLT || nFunc == W_META_DIBSTRETCHBLT )
                 {
                     if ( nWinROP == PATCOPY )
-                        mpInputStream->ReadUInt16( nUsage );    // i don't know anything of this parameter, so its called nUsage
+                        mpInputStream->ReadUInt16( nUsage );    // i don't know anything of this parameter, so it's called nUsage
                                             // DrawRect( Rectangle( ReadYX(), aDestSize ), false );
 
                     Size aDestSize( ReadYXExt() );
@@ -1761,7 +1767,7 @@ namespace emfio
                         if( nFunction == W_META_STRETCHDIB || nFunction == W_META_DIBBITBLT || nFunction == W_META_DIBSTRETCHBLT )
                         {
                             if ( nWinROP == PATCOPY )
-                                pStm->ReadUInt16( nUsage );    // i don't know anything of this parameter, so its called nUsage
+                                pStm->ReadUInt16( nUsage );    // i don't know anything of this parameter, so it's called nUsage
                                                     // DrawRect( Rectangle( ReadYX(), aDestSize ), false );
 
                             Size aDestSize( ReadYXExt() );

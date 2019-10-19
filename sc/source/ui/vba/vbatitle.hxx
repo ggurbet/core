@@ -24,6 +24,7 @@
 #include "vbafont.hxx"
 #include "vbapalette.hxx"
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/script/BasicErrorException.hpp>
 #include <basic/sberrors.hxx>
 #include <memory>
 
@@ -130,7 +131,7 @@ public:
 // XHelperInterface
     OUString getServiceImplName() override
     {
-        return OUString("TitleImpl");
+        return "TitleImpl";
     }
     css::uno::Sequence< OUString > getServiceNames() override
     {

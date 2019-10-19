@@ -32,9 +32,9 @@ namespace com { namespace sun { namespace star { namespace uno { template <class
 
 namespace com { namespace sun { namespace star { namespace frame { class XModel; } } } }
 
-namespace vcl { class Window; }
 class Dialog;
 class BitmapEx;
+class DiagramDataInterface;
 namespace weld
 {
     class Dialog;
@@ -119,10 +119,23 @@ protected:
     virtual ~AbstractSignSignatureLineDialog() override = default;
 };
 
+class VCL_DLLPUBLIC AbstractQrCodeGenDialog : public VclAbstractDialog
+{
+protected:
+    virtual ~AbstractQrCodeGenDialog() override = default;
+};
+
 class VCL_DLLPUBLIC AbstractTipOfTheDayDialog : public VclAbstractDialog
 {
 protected:
     virtual ~AbstractTipOfTheDayDialog() override = default;
+};
+
+/** Edit Diagram dialog */
+class VCL_DLLPUBLIC AbstractDiagramDialog : public VclAbstractDialog
+{
+protected:
+    virtual ~AbstractDiagramDialog() override = default;
 };
 
 class VCL_DLLPUBLIC VclAbstractDialogFactory
@@ -131,7 +144,7 @@ public:
     virtual             ~VclAbstractDialogFactory();    // needed for export of vtable
     static VclAbstractDialogFactory* Create();
     // The Id is an implementation detail of the factory
-    virtual VclPtr<VclAbstractDialog> CreateVclDialog(vcl::Window* pParent, sal_uInt32 nId) = 0;
+    virtual VclPtr<VclAbstractDialog> CreateVclDialog(weld::Window* pParent, sal_uInt32 nId) = 0;
 
     // creates instance of PasswordToOpenModifyDialog from cui
     virtual VclPtr<AbstractPasswordToOpenModifyDialog> CreatePasswordToOpenModifyDialog(weld::Window * pParent, sal_uInt16 nMaxPasswdLen, bool bIsPasswordToModify) = 0;
@@ -149,14 +162,24 @@ public:
                                   const css::uno::Reference<css::frame::XModel> xModel)
         = 0;
 
+    // creates instance of QrCodeDialog from cui
+    virtual VclPtr<AbstractQrCodeGenDialog>
+    CreateQrCodeGenDialog(weld::Window* pParent,
+                              const css::uno::Reference<css::frame::XModel> xModel,
+                              bool bEditExisting)
+        = 0;
+
     // creates instance of ScreenshotAnnotationDlg from cui
     virtual VclPtr<AbstractScreenshotAnnotationDlg> CreateScreenshotAnnotationDlg(
-        vcl::Window* pParent,
-        Dialog& rParentDialog) = 0;
+        weld::Dialog& rParentDialog) = 0;
 
     // create info dialog to show tip-of-the-day
     virtual VclPtr<AbstractTipOfTheDayDialog>
     CreateTipOfTheDayDialog(weld::Window* pParent) = 0;
+
+    virtual VclPtr<AbstractDiagramDialog> CreateDiagramDialog(
+        weld::Window* pParent,
+        std::shared_ptr<DiagramDataInterface> pDiagramData) = 0;
 };
 
 #endif

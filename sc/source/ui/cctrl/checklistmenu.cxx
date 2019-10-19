@@ -452,8 +452,9 @@ void ScMenuFloatingWindow::executeMenuItem(size_t nPos)
         // no action is defined.
         return;
 
-    maMenuItems[nPos].mpAction->execute();
     terminateAllPopupMenus();
+
+    maMenuItems[nPos].mpAction->execute();
 }
 
 void ScMenuFloatingWindow::setSelectedMenuItem(size_t nPos, bool bSubMenuTimer, bool bEnsureSubMenu)
@@ -1210,6 +1211,7 @@ IMPL_LINK_NOARG(ScCheckListMenuWindow, TriStateHdl, Button*, void)
     }
 
     mePrevToggleAllState = maChkToggleAll->GetState();
+    maTabStops.SetTabStop(maChkToggleAll); // Needed for when accelerator is used
 }
 
 IMPL_LINK_NOARG(ScCheckListMenuWindow, EdModifyHdl, Edit&, void)
@@ -1285,7 +1287,14 @@ IMPL_LINK_NOARG(ScCheckListMenuWindow, EdModifyHdl, Edit&, void)
         maChkToggleAll->SetState( TRISTATE_INDET );
 
     if ( !maConfig.mbAllowEmptySet )
-        maBtnOk->Enable( nSelCount != 0);
+    {
+        const bool bEmptySet( nSelCount == 0 );
+        maChecks->Enable( !bEmptySet );
+        maChkToggleAll->Enable( !bEmptySet );
+        maBtnSelectSingle->Enable( !bEmptySet );
+        maBtnUnselectSingle->Enable( !bEmptySet );
+        maBtnOk->Enable( !bEmptySet );
+    }
 }
 
 IMPL_LINK( ScCheckListMenuWindow, CheckHdl, SvTreeListBox*, pChecks, void )
@@ -1323,14 +1332,22 @@ void ScCheckListMenuWindow::MouseMove(const MouseEvent& rMEvt)
 
 bool ScCheckListMenuWindow::EventNotify(NotifyEvent& rNEvt)
 {
-    if (rNEvt.GetType() == MouseNotifyEvent::KEYUP)
+    MouseNotifyEvent nType = rNEvt.GetType();
+    if (HasFocus() && nType == MouseNotifyEvent::GETFOCUS)
+    {
+        setSelectedMenuItem( 0 , false, false );
+        return true;
+    }
+    if (nType == MouseNotifyEvent::KEYINPUT)
     {
         const KeyEvent* pKeyEvent = rNEvt.GetKeyEvent();
         const vcl::KeyCode& rCode = pKeyEvent->GetKeyCode();
-        bool bShift = rCode.IsShift();
-        if (rCode.GetCode() == KEY_TAB)
+        const sal_uInt16 nCode = rCode.GetCode();
+        if (nCode != KEY_RETURN)
         {
-            maTabStops.CycleFocus(bShift);
+            bool bShift = rCode.IsShift();
+            if (nCode == KEY_TAB)
+                maTabStops.CycleFocus(bShift);
             return true;
         }
     }

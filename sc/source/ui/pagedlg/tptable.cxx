@@ -94,8 +94,8 @@ bool WAS_DEFAULT(sal_uInt16 w, SfxItemSet const & s)
 #define SC_TPTABLE_SCALE_TO         1
 #define SC_TPTABLE_SCALE_TO_PAGES   2
 
-ScTablePage::ScTablePage(TabPageParent pParent, const SfxItemSet& rCoreAttrs)
-    : SfxTabPage(pParent, "modules/scalc/ui/sheetprintpage.ui", "SheetPrintPage", &rCoreAttrs)
+ScTablePage::ScTablePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs)
+    : SfxTabPage(pPage, pController, "modules/scalc/ui/sheetprintpage.ui", "SheetPrintPage", &rCoreAttrs)
     , m_nOrigScalePageWidth(0)
     , m_nOrigScalePageHeight(0)
     , m_xBtnTopDown(m_xBuilder->weld_radio_button("radioBTN_TOPDOWN"))
@@ -140,12 +140,11 @@ void ScTablePage::ShowImage()
 
 ScTablePage::~ScTablePage()
 {
-    disposeOnce();
 }
 
-VclPtr<SfxTabPage> ScTablePage::Create(TabPageParent pParent, const SfxItemSet* rCoreSet)
+std::unique_ptr<SfxTabPage> ScTablePage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rCoreSet)
 {
-    return VclPtr<ScTablePage>::Create(pParent, *rCoreSet);
+    return std::make_unique<ScTablePage>(pPage, pController, *rCoreSet);
 }
 
 void ScTablePage::Reset( const SfxItemSet* rCoreSet )
@@ -353,13 +352,6 @@ DeactivateRC ScTablePage::DeactivatePage( SfxItemSet* pSetP )
         FillItemSet( pSetP );
 
     return DeactivateRC::LeavePage;
-}
-
-void ScTablePage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    if( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
-        ShowImage();
-    SfxTabPage::DataChanged( rDCEvt );
 }
 
 // Handler:

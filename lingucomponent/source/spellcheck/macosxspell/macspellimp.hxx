@@ -70,8 +70,7 @@ class MacSpellChecker :
     UITextChecker *         pChecker;
 #endif
     ::comphelper::OInterfaceContainerHelper2       aEvtListeners;
-    Reference< XPropertyChangeListener >    xPropHelper;
-    linguistic::PropertyHelper_Spell *      pPropHelper;
+    rtl::Reference< linguistic::PropertyHelper_Spell >    xPropHelper;
     bool                                    bDisposing;
 
     MacSpellChecker(const MacSpellChecker &) = delete;
@@ -80,7 +79,7 @@ class MacSpellChecker :
     linguistic::PropertyHelper_Spell &  GetPropHelper_Impl();
     linguistic::PropertyHelper_Spell &  GetPropHelper()
     {
-        return pPropHelper ? *pPropHelper : GetPropHelper_Impl();
+        return xPropHelper.is() ? *xPropHelper : GetPropHelper_Impl();
     }
 
     sal_Int16   GetSpellFailure( const OUString &rWord, const Locale &rLocale );
@@ -124,7 +123,7 @@ public:
 
 inline OUString MacSpellChecker::getImplementationName_Static() throw()
 {
-    return OUString( "org.openoffice.lingu.MacOSXSpellChecker" );
+    return "org.openoffice.lingu.MacOSXSpellChecker";
 }
 
 #endif

@@ -115,6 +115,7 @@ bool PDFFilter::implExport( const Sequence< PropertyValue >& rDescriptor )
 
         aCfgItem.ReadBool(  "ExportBookmarks", true );
         aCfgItem.ReadBool(  "ExportHiddenSlides", false );
+        aCfgItem.ReadBool(  "SinglePageSheets", false );
         aCfgItem.ReadInt32( "OpenBookmarkLevels", -1 );
 
         aCfgItem.ReadBool( "IsRedactMode", false);
@@ -237,7 +238,7 @@ void SAL_CALL PDFFilter::initialize( const css::uno::Sequence< css::uno::Any >& 
 
 OUString PDFFilter_getImplementationName ()
 {
-    return OUString ( "com.sun.star.comp.PDF.PDFFilter" );
+    return "com.sun.star.comp.PDF.PDFFilter";
 }
 
 

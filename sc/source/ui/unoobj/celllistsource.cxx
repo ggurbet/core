@@ -117,7 +117,7 @@ namespace calc
     void SAL_CALL OCellListSource::getFastPropertyValue( Any& _rValue, sal_Int32 _nHandle ) const
     {
         OSL_ENSURE( _nHandle == PROP_HANDLE_RANGE_ADDRESS, "OCellListSource::getFastPropertyValue: invalid handle!" );
-            // we only have this one property ....
+            // we only have this one property...
 
         _rValue <<= getRangeAddress( );
     }
@@ -137,7 +137,7 @@ namespace calc
 
     OUString SAL_CALL OCellListSource::getImplementationName(  )
     {
-        return OUString( "com.sun.star.comp.sheet.OCellListSource" );
+        return "com.sun.star.comp.sheet.OCellListSource";
     }
 
     sal_Bool SAL_CALL OCellListSource::supportsService( const OUString& _rServiceName )
@@ -352,17 +352,18 @@ namespace calc
         CellRangeAddress aRangeAddress;
         bool bFoundAddress = false;
 
-        const Any* pLoop = _rArguments.getConstArray();
-        const Any* pLoopEnd = _rArguments.getConstArray() + _rArguments.getLength();
-        for ( ; ( pLoop != pLoopEnd ) && !bFoundAddress; ++pLoop )
+        for ( const Any& rArg : _rArguments )
         {
             NamedValue aValue;
-            if ( *pLoop >>= aValue )
+            if ( rArg >>= aValue )
             {
                 if ( aValue.Name == "CellRange" )
                 {
                     if ( aValue.Value >>= aRangeAddress )
+                    {
                         bFoundAddress = true;
+                        break;
+                    }
                 }
             }
         }

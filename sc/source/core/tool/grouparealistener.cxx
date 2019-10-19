@@ -228,7 +228,7 @@ void FormulaGroupAreaListener::collectFormulaCells(
      * newly created, so mpColumn still points to the old column that then has
      * the content of a shifted column. Effectively this workaround has the
      * consequence that the group area listener is fouled up and not all
-     * formula cells are notified.. */
+     * formula cells are notified... */
     if (nBlockSize < static_cast<size_t>(mnGroupLen))
     {
         SAL_WARN("sc.core","FormulaGroupAreaListener::collectFormulaCells() nBlockSize " <<
@@ -239,7 +239,7 @@ void FormulaGroupAreaListener::collectFormulaCells(
         // least not in the original bug scenario (insert a column before H on
         // sheet w) of tdf#89957 with
         // http://bugs.documentfoundation.org/attachment.cgi?id=114042
-        // Apparently this was fixed in the mean time, let's assume and get the
+        // Apparently this was fixed in the meantime, let's assume and get the
         // assert bat out to hit us if it wasn't.
         assert(!"something is still messing up the formula goup and block size length");
     }

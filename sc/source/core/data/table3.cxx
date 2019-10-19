@@ -696,7 +696,7 @@ void fillSortedColumnArray(
 
             ScSortInfoArray::Cell& rCell = rRow.maCells[j];
 
-            sc::CellStoreType& rCellStore = aSortedCols.at(j).get()->maCells;
+            sc::CellStoreType& rCellStore = aSortedCols.at(j)->maCells;
             switch (rCell.maCell.meType)
             {
                 case CELLTYPE_STRING:
@@ -750,7 +750,7 @@ void fillSortedColumnArray(
                     rCellStore.push_back_empty();
             }
 
-            sc::CellTextAttrStoreType& rAttrStore = aSortedCols.at(j).get()->maCellTextAttrs;
+            sc::CellTextAttrStoreType& rAttrStore = aSortedCols.at(j)->maCellTextAttrs;
             if (rCell.mpAttr)
                 rAttrStore.push_back(*rCell.mpAttr);
             else
@@ -762,7 +762,7 @@ void fillSortedColumnArray(
                 // containers. We will release those in the original storage
                 // below before transferring them to the document.
                 const SvtBroadcaster* pBroadcaster = pTable->GetBroadcaster( nCol1 + j, aOrderIndices[i]);
-                sc::BroadcasterStoreType& rBCStore = aSortedCols.at(j).get()->maBroadcasters;
+                sc::BroadcasterStoreType& rBCStore = aSortedCols.at(j)->maBroadcasters;
                 if (pBroadcaster)
                     // A const pointer would be implicitly converted to a bool type.
                     rBCStore.push_back(const_cast<SvtBroadcaster*>(pBroadcaster));
@@ -771,17 +771,17 @@ void fillSortedColumnArray(
             }
 
             // The same with cell note instances ...
-            sc::CellNoteStoreType& rNoteStore = aSortedCols.at(j).get()->maCellNotes;
+            sc::CellNoteStoreType& rNoteStore = aSortedCols.at(j)->maCellNotes;
             if (rCell.mpNote)
                 rNoteStore.push_back(const_cast<ScPostIt*>(rCell.mpNote));
             else
                 rNoteStore.push_back_empty();
 
             // Add cell anchored images
-            aSortedCols.at(j).get()->maCellDrawObjects.push_back(rCell.maDrawObjects);
+            aSortedCols.at(j)->maCellDrawObjects.push_back(rCell.maDrawObjects);
 
             if (rCell.mpPattern)
-                aSortedCols.at(j).get()->setPattern(aCellPos.Row(), rCell.mpPattern);
+                aSortedCols.at(j)->setPattern(aCellPos.Row(), rCell.mpPattern);
         }
 
         if (pArray->IsKeepQuery())
@@ -954,7 +954,7 @@ void ScTable::SortReorderByColumn(
         // and end their listening.
         ScRange aMoveRange( nStart, nRow1, nTab, nLast, nRow2, nTab);
         std::vector<sc::AreaListener> aAreaListeners = pDocument->GetBASM()->GetAllListeners(
-                aMoveRange, sc::OneColumnInsideArea);
+                aMoveRange, sc::AreaOverlapType::OneColumnInside);
         {
             for (auto& rAreaListener : aAreaListeners)
             {
@@ -1070,18 +1070,18 @@ void ScTable::SortReorderByRow(
 
         {
             sc::CellStoreType& rDest = aCol[nThisCol].maCells;
-            sc::CellStoreType& rSrc = aSortedCols[i].get()->maCells;
+            sc::CellStoreType& rSrc = aSortedCols[i]->maCells;
             rSrc.transfer(nRow1, nRow2, rDest, nRow1);
         }
 
         {
             sc::CellTextAttrStoreType& rDest = aCol[nThisCol].maCellTextAttrs;
-            sc::CellTextAttrStoreType& rSrc = aSortedCols[i].get()->maCellTextAttrs;
+            sc::CellTextAttrStoreType& rSrc = aSortedCols[i]->maCellTextAttrs;
             rSrc.transfer(nRow1, nRow2, rDest, nRow1);
         }
 
         {
-            sc::CellNoteStoreType& rSrc = aSortedCols[i].get()->maCellNotes;
+            sc::CellNoteStoreType& rSrc = aSortedCols[i]->maCellNotes;
             sc::CellNoteStoreType& rDest = aCol[nThisCol].maCellNotes;
 
             // Do the same as broadcaster storage transfer (to prevent double deletion).
@@ -1091,13 +1091,13 @@ void ScTable::SortReorderByRow(
         }
 
         // Update draw object positions
-        aCol[nThisCol].UpdateDrawObjects(aSortedCols[i].get()->maCellDrawObjects, nRow1, nRow2);
+        aCol[nThisCol].UpdateDrawObjects(aSortedCols[i]->maCellDrawObjects, nRow1, nRow2);
 
         {
             // Get all row spans where the pattern is not NULL.
             std::vector<PatternSpan> aSpans =
                 sc::toSpanArrayWithValue<SCROW,const ScPatternAttr*,PatternSpan>(
-                    aSortedCols[i].get()->maPatterns);
+                    aSortedCols[i]->maPatterns);
 
             for (const auto& rSpan : aSpans)
             {
@@ -1174,10 +1174,10 @@ void ScTable::SortReorderByRowRefUpdate(
         ScBroadcastAreaSlotMachine* pBASM = pDocument->GetBASM();
         std::vector<sc::AreaListener> aGrpListeners =
             pBASM->GetAllListeners(
-                aMoveRange, sc::AreaInsideOrOverlap, sc::ListenerGroupType::Group);
+                aMoveRange, sc::AreaOverlapType::InsideOrOverlap, sc::ListenerGroupType::Group);
 
         {
-            for (auto& rGrpListener : aGrpListeners)
+            for (const auto& rGrpListener : aGrpListeners)
             {
                 assert(rGrpListener.mbGroupListening);
                 SvtListener* pGrpLis = rGrpListener.mpListener;
@@ -1256,18 +1256,18 @@ void ScTable::SortReorderByRowRefUpdate(
 
         {
             sc::CellStoreType& rDest = aCol[nThisCol].maCells;
-            sc::CellStoreType& rSrc = aSortedCols[i].get()->maCells;
+            sc::CellStoreType& rSrc = aSortedCols[i]->maCells;
             rSrc.transfer(nRow1, nRow2, rDest, nRow1);
         }
 
         {
             sc::CellTextAttrStoreType& rDest = aCol[nThisCol].maCellTextAttrs;
-            sc::CellTextAttrStoreType& rSrc = aSortedCols[i].get()->maCellTextAttrs;
+            sc::CellTextAttrStoreType& rSrc = aSortedCols[i]->maCellTextAttrs;
             rSrc.transfer(nRow1, nRow2, rDest, nRow1);
         }
 
         {
-            sc::BroadcasterStoreType& rSrc = aSortedCols[i].get()->maBroadcasters;
+            sc::BroadcasterStoreType& rSrc = aSortedCols[i]->maBroadcasters;
             sc::BroadcasterStoreType& rDest = aCol[nThisCol].maBroadcasters;
 
             // Release current broadcasters first, to prevent them from getting deleted.
@@ -1278,7 +1278,7 @@ void ScTable::SortReorderByRowRefUpdate(
         }
 
         {
-            sc::CellNoteStoreType& rSrc = aSortedCols[i].get()->maCellNotes;
+            sc::CellNoteStoreType& rSrc = aSortedCols[i]->maCellNotes;
             sc::CellNoteStoreType& rDest = aCol[nThisCol].maCellNotes;
 
             // Do the same as broadcaster storage transfer (to prevent double deletion).
@@ -1288,13 +1288,13 @@ void ScTable::SortReorderByRowRefUpdate(
         }
 
         // Update draw object positions
-        aCol[nThisCol].UpdateDrawObjects(aSortedCols[i].get()->maCellDrawObjects, nRow1, nRow2);
+        aCol[nThisCol].UpdateDrawObjects(aSortedCols[i]->maCellDrawObjects, nRow1, nRow2);
 
         {
             // Get all row spans where the pattern is not NULL.
             std::vector<PatternSpan> aSpans =
                 sc::toSpanArrayWithValue<SCROW,const ScPatternAttr*,PatternSpan>(
-                    aSortedCols[i].get()->maPatterns);
+                    aSortedCols[i]->maPatterns);
 
             for (const auto& rSpan : aSpans)
             {
@@ -1353,7 +1353,7 @@ void ScTable::SortReorderByRowRefUpdate(
     // Get all area listeners that listen on one row within the range and end
     // their listening.
     std::vector<sc::AreaListener> aAreaListeners = pDocument->GetBASM()->GetAllListeners(
-            aMoveRange, sc::OneRowInsideArea);
+            aMoveRange, sc::AreaOverlapType::OneRowInside);
     {
         for (auto& rAreaListener : aAreaListeners)
         {
@@ -2133,8 +2133,7 @@ bool ScTable::DoSubTotals( ScSubTotalParam& rParam )
                 DBShowRow(aRowEntry.nDestRow, true);
 
                 // insert label
-                OUString label = ScResId(STR_TABLE_GRAND);
-                label += " ";
+                OUString label = ScResId(STR_TABLE_GRAND) + " ";
                 label += ScResId(lcl_GetSubTotalStrId(pResFunc[0]));
                 SetString(nGroupCol[aRowEntry.nGroupNo], aRowEntry.nDestRow, nTab, label);
                 ApplyStyle(nGroupCol[aRowEntry.nGroupNo], aRowEntry.nDestRow, pStyle);
@@ -3101,18 +3100,15 @@ SCSIZE ScTable::Query(const ScQueryParam& rParamOrg, bool bKeepSub)
                 bResult = true;
             else
             {
-                OUString aStr;
+                OUStringBuffer aStr;
                 for (SCCOL k=aParam.nCol1; k <= aParam.nCol2; k++)
                 {
                     OUString aCellStr;
                     GetString(k, j, aCellStr);
-                    OUStringBuffer aBuf(aStr);
-                    aBuf.append(aCellStr);
-                    aBuf.append(u'\x0001');
-                    aStr = aBuf.makeStringAndClear();
+                    aStr.append(aCellStr + u"\x0001");
                 }
 
-                bResult = aStrSet.insert(aStr).second; // unique if inserted.
+                bResult = aStrSet.insert(aStr.makeStringAndClear()).second; // unique if inserted.
             }
         }
         else

@@ -197,11 +197,11 @@ bool ScAccessibleSpreadsheet::CalcScRangeListDifferenceMax(ScRangeList *pSrc,ScR
     int nSize =0;
     if (pDest->GetCellCount() == 0)//if the Dest Rang List is empty
     {
-        if (pSrc->GetCellCount() > sal_uInt32(nMax))//if the Src Cell count is greater then  nMax
+        if (pSrc->GetCellCount() > sal_uInt32(nMax))//if the Src Cell count is greater than  nMax
         {
             return true;
         }
-        //now the cell count is less then nMax
+        //now the cell count is less than nMax
         vecRet.reserve(10);
         size_t nSrcSize = pSrc->size();
         for (size_t i = 0; i < nSrcSize; ++i)
@@ -442,7 +442,7 @@ void ScAccessibleSpreadsheet::Notify( SfxBroadcaster& rBC, const SfxHint& rHint 
                 }
                 else
                 {
-                    OSL_FAIL("is it a deletion or a insertion?");
+                    OSL_FAIL("is it a deletion or an insertion?");
                 }
 
                 CommitTableModelChange(rRef.GetRange().aStart.Row(),
@@ -1253,7 +1253,7 @@ void ScAccessibleSpreadsheet::AddMarkedRange(const ScRange& rRange)
 
 OUString SAL_CALL ScAccessibleSpreadsheet::getImplementationName()
 {
-    return OUString("ScAccessibleSpreadsheet");
+    return "ScAccessibleSpreadsheet";
 }
 
 uno::Sequence< OUString> SAL_CALL

@@ -10,34 +10,13 @@
 #include "sdmodeltestbase.hxx"
 #include <sdpage.hxx>
 
-#include <Outliner.hxx>
-#include <svl/stritem.hxx>
 #include <editeng/editobj.hxx>
 #include <editeng/outlobj.hxx>
-#include <editeng/ulspitem.hxx>
-#include <editeng/fhgtitem.hxx>
-#include <editeng/escapementitem.hxx>
 #include <editeng/colritem.hxx>
-#include <editeng/fontitem.hxx>
-#include <editeng/wghtitem.hxx>
-#include <editeng/numitem.hxx>
-#include <editeng/lrspitem.hxx>
-#include <editeng/postitem.hxx>
-#include <editeng/bulletitem.hxx>
 
-#include <oox/drawingml/drawingmltypes.hxx>
-
-#include <svl/style.hxx>
-
-#include <svx/svdoutl.hxx>
 #include <svx/svdotext.hxx>
-#include <svx/svdoashp.hxx>
 #include <svx/svdograf.hxx>
-#include <svx/svdogrp.hxx>
 #include <svx/svdomedia.hxx>
-#include <svx/svdoole2.hxx>
-#include <svx/xflclit.hxx>
-#include <animations/animationnodehelper.hxx>
 #include <unotools/mediadescriptor.hxx>
 #include <rtl/ustring.hxx>
 
@@ -46,31 +25,16 @@
 #include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/chart/XChartDocument.hpp>
-#include <com/sun/star/chart2/XChartDocument.hpp>
-#include <com/sun/star/chart2/XDataSeriesContainer.hpp>
-#include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
-#include <com/sun/star/chart2/XChartTypeContainer.hpp>
-#include <com/sun/star/chart2/data/XLabeledDataSequence.hpp>
-#include <com/sun/star/chart2/data/XDataSequence.hpp>
-#include <com/sun/star/chart2/data/XNumericalDataSequence.hpp>
 #include <com/sun/star/awt/XBitmap.hpp>
-#include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/graphic/GraphicType.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
-#include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/text/WritingMode2.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
-#include <com/sun/star/table/XTable.hpp>
-#include <com/sun/star/table/XMergeableCell.hpp>
 
 
 #include <svx/svdotable.hxx>
 #include <config_features.h>
-#include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 
 using namespace css;
 using namespace css::animations;
@@ -105,6 +69,7 @@ public:
     void testTdf119629();
     void testTdf123557();
     void testTdf113822();
+    void testTdf126761();
 
     CPPUNIT_TEST_SUITE(SdExportTest);
 
@@ -135,6 +100,7 @@ public:
     CPPUNIT_TEST(testTdf119629);
     CPPUNIT_TEST(testTdf123557);
     CPPUNIT_TEST(testTdf113822);
+    CPPUNIT_TEST(testTdf126761);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -457,10 +423,10 @@ void SdExportTest::testSwappedOutImageExport()
     {
         // Load the original file with one image
         ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/odp/document_with_two_images.odp"), ODP);
-        const OString sFailedMessage = OString("Failed on filter: ") + OString(aFileFormats[vFormats[nExportFormat]].pFilterName);
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + aFileFormats[vFormats[nExportFormat]].pFilterName;
 
         // Export the document and import again for a check
-        uno::Reference< lang::XComponent > xComponent(xDocShRef->GetModel(), uno::UNO_QUERY);
+        uno::Reference< lang::XComponent > xComponent = xDocShRef->GetModel();
         uno::Reference<frame::XStorable> xStorable(xComponent, uno::UNO_QUERY);
         utl::MediaDescriptor aMediaDescriptor;
         aMediaDescriptor["FilterName"] <<= OStringToOUString(OString(aFileFormats[vFormats[nExportFormat]].pFilterName), RTL_TEXTENCODING_UTF8);
@@ -516,7 +482,7 @@ void SdExportTest::testOOoXMLAnimations()
 {
     ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/sxi/ooo41061-1.sxi"), SXI);
 
-    uno::Reference<lang::XComponent> xComponent(xDocShRef->GetModel(), uno::UNO_QUERY);
+    uno::Reference<lang::XComponent> xComponent = xDocShRef->GetModel();
     uno::Reference<frame::XStorable> xStorable(xComponent, uno::UNO_QUERY);
     utl::MediaDescriptor aMediaDescriptor;
     aMediaDescriptor["FilterName"] <<= OStringToOUString(OString(getFormat(ODP)->pFilterName), RTL_TEXTENCODING_UTF8);
@@ -592,7 +558,7 @@ void SdExportTest::testUnknownAttributes()
 {
     ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/unknown-attribute.fodp"), FODP);
 
-    uno::Reference<lang::XComponent> xComponent(xDocShRef->GetModel(), uno::UNO_QUERY);
+    uno::Reference<lang::XComponent> xComponent = xDocShRef->GetModel();
     uno::Reference<frame::XStorable> xStorable(xComponent, uno::UNO_QUERY);
     utl::MediaDescriptor aMediaDescriptor;
     aMediaDescriptor["FilterName"] <<= OStringToOUString(OString(getFormat(ODP)->pFilterName), RTL_TEXTENCODING_UTF8);
@@ -615,14 +581,14 @@ void SdExportTest::testTdf80020()
     ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/odp/tdf80020.odp"), ODP);
     {
         uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xDocShRef->GetModel(), uno::UNO_QUERY);
-        uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+        uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
         uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("graphics"), uno::UNO_QUERY);
         uno::Reference<style::XStyle> xStyle(xStyleFamily->getByName("Test Style"), uno::UNO_QUERY);
         CPPUNIT_ASSERT_EQUAL(OUString("text"), xStyle->getParentStyle());
         xDocShRef = saveAndReload( xDocShRef.get(), ODP );
     }
     uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xDocShRef->GetModel(), uno::UNO_QUERY);
-    uno::Reference<container::XNameAccess> xStyleFamilies(xStyleFamiliesSupplier->getStyleFamilies(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xStyleFamilies = xStyleFamiliesSupplier->getStyleFamilies();
     uno::Reference<container::XNameAccess> xStyleFamily(xStyleFamilies->getByName("graphics"), uno::UNO_QUERY);
     uno::Reference<style::XStyle> xStyle(xStyleFamily->getByName("Test Style"), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("text"), xStyle->getParentStyle());
@@ -645,7 +611,7 @@ void SdExportTest::testLinkedGraphicRT()
         sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/odp/document_with_linked_graphic.odp"), ODP);
 
         // Export the document and import again for a check
-        uno::Reference< lang::XComponent > xComponent(xDocShRef->GetModel(), uno::UNO_QUERY);
+        uno::Reference< lang::XComponent > xComponent = xDocShRef->GetModel();
         uno::Reference<frame::XStorable> xStorable(xComponent, uno::UNO_QUERY);
         utl::MediaDescriptor aMediaDescriptor;
         aMediaDescriptor["FilterName"] <<= OStringToOUString(OString(aFileFormats[vFormats[nExportFormat]].pFilterName), RTL_TEXTENCODING_UTF8);
@@ -676,7 +642,7 @@ void SdExportTest::testLinkedGraphicRT()
 
         // Check whether graphic imported well after export
         {
-            const OString sFailedMessage = OString("Failed on filter: ") + OString(aFileFormats[vFormats[nExportFormat]].pFilterName);
+            const OString sFailedMessage = OStringLiteral("Failed on filter: ") + aFileFormats[vFormats[nExportFormat]].pFilterName;
 
             SdDrawDocument *pDoc = xDocShRef->GetDoc();
             CPPUNIT_ASSERT_MESSAGE( sFailedMessage.getStr(), pDoc != nullptr );
@@ -714,10 +680,10 @@ void SdExportTest::testImageWithSpecialID()
     {
         // Load the original file
         ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/odp/images_with_special_IDs.odp"), ODP);
-        const OString sFailedMessage = OString("Failed on filter: ") + OString(aFileFormats[vFormats[nExportFormat]].pFilterName);
+        const OString sFailedMessage = OStringLiteral("Failed on filter: ") + aFileFormats[vFormats[nExportFormat]].pFilterName;
 
         // Export the document and import again for a check
-        uno::Reference< lang::XComponent > xComponent(xDocShRef->GetModel(), uno::UNO_QUERY);
+        uno::Reference< lang::XComponent > xComponent = xDocShRef->GetModel();
         uno::Reference<frame::XStorable> xStorable(xComponent, uno::UNO_QUERY);
         utl::MediaDescriptor aMediaDescriptor;
         aMediaDescriptor["FilterName"] <<= OStringToOUString(OString(aFileFormats[vFormats[nExportFormat]].pFilterName), RTL_TEXTENCODING_UTF8);
@@ -983,7 +949,7 @@ void SdExportTest::testTdf115394PPT()
     sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/ppt/tdf115394.ppt"), PPT);
 
     // Export the document and import again for a check
-    uno::Reference< lang::XComponent > xComponent(xDocShRef->GetModel(), uno::UNO_QUERY);
+    uno::Reference< lang::XComponent > xComponent = xDocShRef->GetModel();
     uno::Reference<frame::XStorable> xStorable(xComponent, uno::UNO_QUERY);
     utl::MediaDescriptor aMediaDescriptor;
     aMediaDescriptor["FilterName"] <<= OStringToOUString(OString(aFileFormats[PPT].pFilterName), RTL_TEXTENCODING_UTF8);
@@ -1020,9 +986,9 @@ void SdExportTest::testBulletsAsImage()
     for (sal_Int32 nExportFormat : {ODP, PPTX, PPT})
     {
         ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/odp/BulletsAsImage.odp"), ODP);
-        const OString sFailedMessageBase = OString("Failed on filter '") + OString(aFileFormats[nExportFormat].pFilterName) + OString("': ");
+        const OString sFailedMessageBase = OStringLiteral("Failed on filter '") + aFileFormats[nExportFormat].pFilterName + "': ";
 
-        uno::Reference< lang::XComponent > xComponent(xDocShRef->GetModel(), uno::UNO_QUERY);
+        uno::Reference< lang::XComponent > xComponent = xDocShRef->GetModel();
         uno::Reference<frame::XStorable> xStorable(xComponent, uno::UNO_QUERY);
         utl::MediaDescriptor aMediaDescriptor;
         aMediaDescriptor["FilterName"] <<= OStringToOUString(OString(aFileFormats[nExportFormat].pFilterName), RTL_TEXTENCODING_UTF8);
@@ -1047,7 +1013,7 @@ void SdExportTest::testBulletsAsImage()
         awt::Size aSize;
         sal_Int16 nNumberingType = -1;
 
-        for (beans::PropertyValue const & rProperty : aProperties)
+        for (beans::PropertyValue const & rProperty : std::as_const(aProperties))
         {
             if (rProperty.Name == "NumberingType")
             {
@@ -1181,6 +1147,27 @@ void SdExportTest::testTdf123557()
             "/anim:par[@presentation:node-type='timing-root']"
             "/anim:seq[@presentation:node-type='interactive-sequence']"
             "/anim:par[@smil:begin]",3);
+    xDocShRef->DoClose();
+}
+
+void SdExportTest::testTdf126761()
+{
+    sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/ppt/tdf126761.ppt"), PPT);
+    xDocShRef = saveAndReload( xDocShRef.get(), ODP );
+    uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
+
+    // Get first paragraph of the text
+    uno::Reference<text::XTextRange> const xParagraph( getParagraphFromShape( 0, xShape ) );
+
+    // Get first run of the paragraph
+    uno::Reference<text::XTextRange> xRun( getRunFromParagraph (0, xParagraph ) );
+    uno::Reference< beans::XPropertySet > xPropSet( xRun, uno::UNO_QUERY_THROW );
+
+    // Check character underline, to make sure it has been set correctly
+    sal_uInt32 nCharUnderline;
+    xPropSet->getPropertyValue( "CharUnderline" ) >>= nCharUnderline;
+    CPPUNIT_ASSERT_EQUAL( sal_uInt32(1), nCharUnderline );
+
     xDocShRef->DoClose();
 }
 

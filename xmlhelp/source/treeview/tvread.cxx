@@ -28,7 +28,6 @@
 #include <unotools/configmgr.hxx>
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
@@ -124,20 +123,7 @@ namespace treeview {
         {
             if( targetURL.isEmpty() )
             {
-                sal_Int32 len;
-                for ( const TVDom* p = this;; p = p->parent )
-                {
-                    len = p->application.getLength();
-                    if ( len != 0 )
-                        break;
-                }
-
-                OUStringBuffer strBuff( 22 + len + id.getLength() );
-                strBuff.append(
-                                    "vnd.sun.star.help://"
-                                    ).append(id);
-
-                targetURL = strBuff.makeStringAndClear();
+                targetURL = "vnd.sun.star.help://" + id;
             }
 
             return targetURL;
@@ -175,7 +161,6 @@ ConfigData::ConfigData()
       vendVersion("%VENDORVERSION"),
       vendShort("%VENDORSHORT")
 {
-    memset(m_vAdd, 0, sizeof(m_vAdd));
 }
 
 void ConfigData::replaceName( OUString& oustring ) const
@@ -402,7 +387,7 @@ TVChildTarget::TVChildTarget( const Reference< XComponentContext >& xContext )
         len = configData.vFileLen[--j];
         std::unique_ptr<char[]> s(new char[ int(len) ]);  // the buffer to hold the installed files
         osl::File aFile( configData.vFileURL[j] );
-        aFile.open( osl_File_OpenFlag_Read );
+        (void)aFile.open( osl_File_OpenFlag_Read );
         aFile.read( s.get(),len,ret );
         aFile.close();
 
@@ -666,7 +651,7 @@ ConfigData TVChildTarget::init( const Reference< XComponentContext >& xContext )
         locale = "en-US";
         ret = "en";
         }
-    url = url + ret;
+    url += ret;
 
     // first of all, try do determine whether there are any *.tree files present
 
@@ -773,15 +758,13 @@ TVChildTarget::getHierAccess( const Reference< XMultiServiceFactory >& sProvider
     if( sProvider.is() )
     {
         Sequence< Any > seq(1);
-        OUString sReaderService( "com.sun.star.configuration.ConfigurationAccess" );
-
         seq[0] <<= OUString::createFromAscii( file );
 
         try
         {
             xHierAccess =
                 Reference< XHierarchicalNameAccess >
-                ( sProvider->createInstanceWithArguments( sReaderService,seq ),
+                ( sProvider->createInstanceWithArguments( "com.sun.star.configuration.ConfigurationAccess", seq ),
                   UNO_QUERY );
         }
         catch( const css::uno::Exception& )
@@ -1020,7 +1003,7 @@ void ExtensionIteratorBase::implGetLanguageVectorFromPackage( ::std::vector< OUS
 {
     rv.clear();
     OUString aExtensionPath = xPackage->getURL();
-    Sequence< OUString > aEntrySeq = m_xSFA->getFolderContents( aExtensionPath, true );
+    const Sequence< OUString > aEntrySeq = m_xSFA->getFolderContents( aExtensionPath, true );
 
     for( const OUString& aEntry : aEntrySeq )
     {
@@ -1113,7 +1096,7 @@ OUString TreeFileIterator::expandURL( const OUString& aURL )
     Reference< uri::XUriReference > uriRef;
     for (;;)
     {
-        uriRef.set( xFac->parse( aRetURL ), UNO_QUERY );
+        uriRef = xFac->parse( aRetURL );
         if ( uriRef.is() )
         {
             Reference < uri::XVndSunStarExpandUrl > sxUri( uriRef, UNO_QUERY );

@@ -125,7 +125,7 @@ protected:
 protected:
     SdrUndoObj(SdrObject& rNewObj);
 
-    void ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rStr, bool bRepeat = false) const;
+    OUString ImpGetDescriptionStr(const char* pStrCacheID, bool bRepeat = false) const;
 
     [[nodiscard]] static OUString GetDescriptionStringForObject( const SdrObject& _rForObject, const char* pStrCacheID, bool bRepeat = false );
 
@@ -243,7 +243,7 @@ protected:
     SdrUndoObjList(SdrObject& rNewObj, bool bOrdNumDirect);
     virtual ~SdrUndoObjList() override;
 
-    bool IsOwner() { return bOwner; }
+    bool IsOwner() const { return bOwner; }
     void SetOwner(bool bNew);
 };
 
@@ -267,7 +267,7 @@ public:
 };
 
 /**
- * Inserting Objects into a ObjectList.
+ * Inserting Objects into an ObjectList.
  * Use with corresponding Removes within an UndoGroup.
  * Create Action before removal from ObjList.
  */
@@ -341,10 +341,10 @@ public:
     virtual void Undo() override;
     virtual void Redo() override;
 
-    bool IsNewOwner() { return bNewOwner; }
+    bool IsNewOwner() const { return bNewOwner; }
     void SetNewOwner(bool bNew);
 
-    bool IsOldOwner() { return bOldOwner; }
+    bool IsOldOwner() const { return bOldOwner; }
     void SetOldOwner(bool bNew);
 };
 
@@ -527,7 +527,7 @@ protected:
 protected:
     SdrUndoPage(SdrPage& rNewPg);
 
-    static void ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rStr);
+    static OUString ImpGetDescriptionStr(const char* pStrCacheID);
 };
 
 /**

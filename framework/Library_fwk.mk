@@ -27,7 +27,7 @@ $(eval $(call gb_Library_set_include,fwk,\
     $$(INCLUDE) \
 ))
 
-$(eval $(call gb_Library_set_precompiled_header,fwk,$(SRCDIR)/framework/inc/pch/precompiled_fwk))
+$(eval $(call gb_Library_set_precompiled_header,fwk,framework/inc/pch/precompiled_fwk))
 
 $(eval $(call gb_Library_use_external,fwk,boost_headers))
 
@@ -88,6 +88,7 @@ $(eval $(call gb_Library_add_exception_objects,fwk,\
     framework/source/helper/uiconfigelementwrapperbase \
     framework/source/helper/uielementwrapperbase \
     framework/source/helper/vclstatusindicator \
+    framework/source/helper/wakeupthread \
     framework/source/interaction/quietinteraction \
     framework/source/jobs/job \
     framework/source/jobs/jobdata \
@@ -112,9 +113,7 @@ $(eval $(call gb_Library_add_exception_objects,fwk,\
     framework/source/services/taskcreatorsrv \
     framework/source/services/urltransformer \
     framework/source/uiconfiguration/CommandImageResolver \
-    framework/source/uiconfiguration/ImageArrayData \
     framework/source/uiconfiguration/ImageList \
-    framework/source/uiconfiguration/ImplImageList \
     framework/source/uiconfiguration/globalsettings \
     framework/source/uiconfiguration/graphicnameaccess \
     framework/source/uiconfiguration/imagemanager \

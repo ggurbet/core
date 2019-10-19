@@ -22,7 +22,7 @@
 
 #include <RangeSelectionListener.hxx>
 
-#include <svtools/wizardmachine.hxx>
+#include <vcl/wizardmachine.hxx>
 
 namespace chart { class TabPageNotifiable; }
 namespace com { namespace sun { namespace star { namespace chart2 { class XChartTypeTemplate; } } } }
@@ -33,31 +33,30 @@ namespace chart
 class ChartTypeTemplateProvider;
 class DialogModel;
 
-class RangeChooserTabPage final : public svt::OWizardPage, public RangeSelectionListenerParent
+class RangeChooserTabPage final : public vcl::OWizardPage, public RangeSelectionListenerParent
 {
 public:
 
-    RangeChooserTabPage(TabPageParent pParent, DialogModel & rDialogModel,
+    RangeChooserTabPage(weld::Container* pPage, weld::DialogController* pController, DialogModel & rDialogModel,
                         ChartTypeTemplateProvider* pTemplateProvider,
-                        Dialog * pParentDialog, bool bHideDescription = false);
+                        bool bHideDescription = false);
     virtual ~RangeChooserTabPage() override;
-    virtual void dispose() override;
 
     //RangeSelectionListenerParent
     virtual void listeningFinished( const OUString & rNewRange ) override;
     virtual void disposingRangeSelection() override;
 
-    virtual void ActivatePage() override;
+    virtual void Activate() override;
 
     void commitPage();
 
 private:
 
     //OWizardPage
-    virtual bool commitPage( ::svt::WizardTypes::CommitPageReason eReason ) override;
+    virtual bool commitPage( ::vcl::WizardTypes::CommitPageReason eReason ) override;
 
     //TabPage
-    virtual void DeactivatePage() override;
+    virtual void Deactivate() override;
 
     void initControlsFromModel();
     void changeDialogModelAccordingToControls();
@@ -78,8 +77,6 @@ private:
     ChartTypeTemplateProvider*                              m_pTemplateProvider;
 
     DialogModel &                                           m_rDialogModel;
-    VclPtr<Dialog>                                          m_pParentDialog;
-    weld::DialogController*                                 m_pParentController;
     TabPageNotifiable *                                     m_pTabPageNotifiable;
 
     std::unique_ptr<weld::Label> m_xFT_Caption;

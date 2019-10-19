@@ -19,17 +19,10 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_OPTLINGU_HXX
 #define INCLUDED_CUI_SOURCE_INC_OPTLINGU_HXX
 
-#include <vcl/button.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/toolbox.hxx>
-#include <vcl/field.hxx>
-#include <vcl/fixedhyper.hxx>
 #include <sfx2/tabdlg.hxx>
-#include <svx/checklbx.hxx>
 #include <svx/langbox.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
-#include <com/sun/star/beans/XPropertySet.hpp>
 
 namespace com{namespace sun{namespace star{
 namespace beans{
@@ -66,7 +59,7 @@ class SvxEditModulesDlg : public weld::GenericDialogController
     std::unique_ptr<weld::Button> m_xBackPB;
     std::unique_ptr<weld::LinkButton> m_xMoreDictsLink;
     std::unique_ptr<weld::Button> m_xClosePB;
-    std::unique_ptr<LanguageBox> m_xLanguageLB;
+    std::unique_ptr<SvxLanguageBox> m_xLanguageLB;
 
     DECL_LINK( SelectHdl_Impl, weld::TreeView&, void );
     DECL_LINK( UpDownHdl_Impl, weld::Button&, void );
@@ -75,7 +68,7 @@ class SvxEditModulesDlg : public weld::GenericDialogController
     DECL_LINK( LangSelectListBoxHdl_Impl, weld::ComboBox&, void );
     typedef std::pair<int, int> row_col;
     DECL_LINK( BoxCheckButtonHdl_Impl, const row_col&, void );
-    void LangSelectHdl_Impl(const LanguageBox* pBox);
+    void LangSelectHdl_Impl(const SvxLanguageBox* pBox);
 
 public:
     SvxEditModulesDlg(weld::Window* pParent, SvxLinguData_Impl& rData);
@@ -86,7 +79,6 @@ public:
 
 class SvxLinguTabPage : public SfxTabPage
 {
-    friend class VclPtr<SvxLinguTabPage>;
 private:
     OUString            sCapitalWords;
     OUString            sWordsWithDigits;
@@ -126,14 +118,12 @@ private:
     std::unique_ptr<weld::Button> m_xLinguOptionsEditPB;
     std::unique_ptr<weld::LinkButton> m_xMoreDictsLink;
 
-    SvxLinguTabPage(TabPageParent pParent, const SfxItemSet& rCoreSet);
-
     void    AddDicBoxEntry( const css::uno::Reference< css::linguistic2::XDictionary > &rxDic, sal_uInt16 nIdx );
     static sal_uInt32 GetDicUserData( const css::uno::Reference< css::linguistic2::XDictionary > &rxDic, sal_uInt16 nIdx );
 
     DECL_LINK( SelectHdl_Impl, weld::TreeView&, void );
     DECL_LINK( ClickHdl_Impl, weld::Button&, void );
-    DECL_LINK( BoxDoubleClickHdl_Impl, weld::TreeView&, void );
+    DECL_LINK( BoxDoubleClickHdl_Impl, weld::TreeView&, bool );
     typedef std::pair<int, int> row_col;
     DECL_LINK( ModulesBoxCheckButtonHdl_Impl, const row_col&, void );
     DECL_LINK( DicsBoxCheckButtonHdl_Impl, const row_col&, void );
@@ -143,9 +133,9 @@ private:
     void                UpdateDicBox_Impl();
 
 public:
-    virtual             ~SvxLinguTabPage() override;
-    virtual void        dispose() override;
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
+    SvxLinguTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
+    virtual ~SvxLinguTabPage() override;
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

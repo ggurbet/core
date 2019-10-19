@@ -8,74 +8,34 @@
  */
 #include <officecfg/Office/Common.hxx>
 #include "sdmodeltestbase.hxx"
-#include <Outliner.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/sequence.hxx>
-#include <svl/stritem.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/editobj.hxx>
 #include <editeng/outlobj.hxx>
-#include <editeng/ulspitem.hxx>
-#include <editeng/fhgtitem.hxx>
-#include <editeng/escapementitem.hxx>
-#include <editeng/colritem.hxx>
-#include <editeng/fontitem.hxx>
-#include <editeng/wghtitem.hxx>
 #include <editeng/numitem.hxx>
-#include <editeng/lrspitem.hxx>
-#include <editeng/postitem.hxx>
-#include <editeng/bulletitem.hxx>
 #include <editeng/unoprnms.hxx>
 
-#include <oox/drawingml/drawingmltypes.hxx>
-
-#include <svl/style.hxx>
-
-#include <svx/svdoutl.hxx>
 #include <svx/svdotext.hxx>
-#include <svx/svdoashp.hxx>
-#include <svx/svdograf.hxx>
-#include <svx/svdogrp.hxx>
 #include <svx/svdomedia.hxx>
-#include <svx/svdoole2.hxx>
-#include <svx/xflclit.hxx>
-#include <animations/animationnodehelper.hxx>
-#include <unotools/mediadescriptor.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlndsit.hxx>
 #include <rtl/ustring.hxx>
-
-#include <vcl/opengl/OpenGLWrapper.hxx>
 
 #include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/animations/TransitionType.hpp>
 #include <com/sun/star/animations/TransitionSubType.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/chart/XChartDocument.hpp>
-#include <com/sun/star/chart2/XChartDocument.hpp>
-#include <com/sun/star/chart2/XDataSeriesContainer.hpp>
-#include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
-#include <com/sun/star/chart2/XChartTypeContainer.hpp>
-#include <com/sun/star/chart2/data/XLabeledDataSequence.hpp>
-#include <com/sun/star/chart2/data/XDataSequence.hpp>
-#include <com/sun/star/chart2/data/XNumericalDataSequence.hpp>
 #include <com/sun/star/awt/Gradient.hpp>
-#include <com/sun/star/awt/XBitmap.hpp>
-#include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/awt/Rectangle.hpp>
-#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeAdjustmentValue.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/text/WritingMode2.hpp>
-#include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/style/LineSpacing.hpp>
 #include <com/sun/star/style/LineSpacingMode.hpp>
-#include <com/sun/star/table/BorderLine2.hpp>
-#include <com/sun/star/table/XTable.hpp>
-#include <com/sun/star/table/XMergeableCell.hpp>
 #include <com/sun/star/frame/XLoadable.hpp>
 
-#include <svx/svdotable.hxx>
-#include <config_features.h>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 
 #include <sdpage.hxx>
@@ -151,6 +111,7 @@ public:
     void testTdf111863();
     void testTdf111518();
     void testTdf100387();
+    void testClosingShapesAndLineCaps();
     void testRotateFlip();
     void testTdf106867();
     void testTdf112280();
@@ -173,11 +134,13 @@ public:
     void testThemeColors();
     void testTdf114848();
     void testTdf68759();
+    void testTdf127901();
     void testTdf90626();
     void testTdf107608();
     void testTdf111786();
     void testFontScale();
     void testShapeAutofitPPTX();
+    void testLegacyShapeAutofitPPTX();
     void testTdf115394();
     void testTdf115394Zero();
     void testTdf115005();
@@ -188,6 +151,7 @@ public:
     void testTdf111789();
     void testTdf100348_convert_Fontwork2TextWarp();
     void testTdf1225573_FontWorkScaleX();
+    void testTdf99497_keepAppearanceOfCircleKind();
     /// SmartArt animated elements
     void testTdf104792();
     void testTdf90627();
@@ -199,6 +163,7 @@ public:
     void testTdf118768();
     void testTdf118836();
     void testTdf116350TextEffects();
+    void testTdf128096();
     void testTdf120573();
     void testTdf118825();
     void testTdf119118();
@@ -212,6 +177,11 @@ public:
     void testTdf125360_1();
     void testTdf125360_2();
     void testTdf125551();
+    void testTdf126234();
+    void testTdf126741();
+    void testTdf127372();
+    void testTdf127379();
+    void testTdf98603();
 
     CPPUNIT_TEST_SUITE(SdOOXMLExportTest2);
 
@@ -243,6 +213,7 @@ public:
     CPPUNIT_TEST(testTdf111863);
     CPPUNIT_TEST(testTdf111518);
     CPPUNIT_TEST(testTdf100387);
+    CPPUNIT_TEST(testClosingShapesAndLineCaps);
     CPPUNIT_TEST(testRotateFlip);
     CPPUNIT_TEST(testTdf106867);
     CPPUNIT_TEST(testTdf112280);
@@ -265,11 +236,13 @@ public:
     CPPUNIT_TEST(testThemeColors);
     CPPUNIT_TEST(testTdf114848);
     CPPUNIT_TEST(testTdf68759);
+    CPPUNIT_TEST(testTdf127901);
     CPPUNIT_TEST(testTdf90626);
     CPPUNIT_TEST(testTdf107608);
     CPPUNIT_TEST(testTdf111786);
     CPPUNIT_TEST(testFontScale);
     CPPUNIT_TEST(testShapeAutofitPPTX);
+    CPPUNIT_TEST(testLegacyShapeAutofitPPTX);
     CPPUNIT_TEST(testTdf115394);
     CPPUNIT_TEST(testTdf115394Zero);
     CPPUNIT_TEST(testTdf115005);
@@ -279,6 +252,7 @@ public:
     CPPUNIT_TEST(testTdf111789);
     CPPUNIT_TEST(testTdf100348_convert_Fontwork2TextWarp);
     CPPUNIT_TEST(testTdf1225573_FontWorkScaleX);
+    CPPUNIT_TEST(testTdf99497_keepAppearanceOfCircleKind);
     CPPUNIT_TEST(testTdf104792);
     CPPUNIT_TEST(testTdf90627);
     CPPUNIT_TEST(testTdf104786);
@@ -289,6 +263,7 @@ public:
     CPPUNIT_TEST(testTdf118768);
     CPPUNIT_TEST(testTdf118836);
     CPPUNIT_TEST(testTdf116350TextEffects);
+    CPPUNIT_TEST(testTdf128096);
     CPPUNIT_TEST(testTdf120573);
     CPPUNIT_TEST(testTdf118825);
     CPPUNIT_TEST(testTdf119118);
@@ -302,6 +277,11 @@ public:
     CPPUNIT_TEST(testTdf125360_1);
     CPPUNIT_TEST(testTdf125360_2);
     CPPUNIT_TEST(testTdf125551);
+    CPPUNIT_TEST(testTdf126234);
+    CPPUNIT_TEST(testTdf126741);
+    CPPUNIT_TEST(testTdf127372);
+    CPPUNIT_TEST(testTdf127379);
+    CPPUNIT_TEST(testTdf98603);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -517,7 +497,7 @@ void SdOOXMLExportTest2::testTdf91378()
       SdDrawDocument *pDoc = xDocShRef->GetDoc();
       CPPUNIT_ASSERT_MESSAGE( "no document", pDoc != nullptr );
       uno::Reference<document::XDocumentPropertiesSupplier> xDocumentPropertiesSupplier( xDocShRef->GetModel(), uno::UNO_QUERY );
-      uno::Reference<document::XDocumentProperties> xProps( xDocumentPropertiesSupplier->getDocumentProperties(), uno::UNO_QUERY );
+      uno::Reference<document::XDocumentProperties> xProps = xDocumentPropertiesSupplier->getDocumentProperties();
       uno::Reference<beans::XPropertySet> xUDProps( xProps->getUserDefinedProperties(), uno::UNO_QUERY );
       OUString propValue;
       xUDProps->getPropertyValue("Testing") >>= propValue;
@@ -1130,6 +1110,42 @@ void SdOOXMLExportTest2::testTdf100387()
                              "/p:cTn/p:childTnLst/p:par/p:cTn/p:childTnLst/p:par/p:cTn/p:childTnLst/p:set/p:cBhvr/p:tgtEl/p:spTgt/p:txEl/p:pRg", "end", "2");
 }
 
+// tdf#126746 Add support for Line Caps import and export
+void SdOOXMLExportTest2::testClosingShapesAndLineCaps()
+{
+    sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/odp/closed-shapes.odp"), ODP);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+    xDocShRef->DoClose();
+    xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:spPr/a:custGeom/a:pathLst/a:path/a:moveTo/a:pt", 1);
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:spPr/a:custGeom/a:pathLst/a:path/a:lnTo[1]/a:pt", 1);
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:spPr/a:custGeom/a:pathLst/a:path/a:lnTo[2]/a:pt", 1);
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:spPr/a:custGeom/a:pathLst/a:path/a:close", 1);
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:spPr/a:ln", "cap", "rnd");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:spPr/a:ln/a:miter", 1);
+
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[2]/p:spPr/a:custGeom/a:pathLst/a:path/a:close", 0);
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[2]/p:spPr/a:ln", "cap", "rnd");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[2]/p:spPr/a:ln/a:miter", 1);
+
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[3]/p:spPr/a:custGeom/a:pathLst/a:path/a:close", 0);
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[3]/p:spPr/a:ln", "cap", "rnd");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[3]/p:spPr/a:ln/a:miter", 1);
+
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[4]/p:spPr/a:custGeom/a:pathLst/a:path/a:close", 0);
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[4]/p:spPr/a:ln", "cap", "sq");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[4]/p:spPr/a:ln/a:round", 1);
+
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[5]/p:spPr/a:custGeom/a:pathLst/a:path/a:close", 0);
+    assertXPathNoAttribute(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[5]/p:spPr/a:ln", "cap"); // by default it is "flat" cap style
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[5]/p:spPr/a:ln/a:bevel", 1);
+
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[6]/p:spPr/a:custGeom/a:pathLst/a:path/a:close", 0);
+    assertXPathNoAttribute(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[5]/p:spPr/a:ln", "cap"); // by default it is "flat" cap style
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[6]/p:spPr/a:ln/a:round", 1);
+}
+
 void SdOOXMLExportTest2::testRotateFlip()
 {
     sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/odp/rotate_flip.odp"), ODP);
@@ -1172,6 +1188,7 @@ void SdOOXMLExportTest2::testRotateFlip()
             assertXPath(pXmlDocContent, sPt, "x", points[nPointIndex][0]);
             assertXPath(pXmlDocContent, sPt, "y", points[nPointIndex][1]);
         }
+        assertXPath(pXmlDocContent, sSpPr + "/a:custGeom/a:pathLst/a:path/a:close", 1);
     }
 }
 
@@ -1523,6 +1540,25 @@ void SdOOXMLExportTest2::testTdf68759()
 
 }
 
+void SdOOXMLExportTest2::testTdf127901()
+{
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/odp/tdf127901.odp"), ODP);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+    xDocShRef->DoClose();
+
+    xmlDocPtr pXmlDocContent1 = parseExport(tempFile, "ppt/slides/slide1.xml");
+    assertXPath(pXmlDocContent1, "/p:sld/p:cSld/p:spTree/p:pic/p:blipFill/a:blip/a:lum", "bright", "70000");
+    assertXPath(pXmlDocContent1, "/p:sld/p:cSld/p:spTree/p:pic/p:blipFill/a:blip/a:lum", "contrast", "-70000");
+
+    xmlDocPtr pXmlDocContent2 = parseExport(tempFile, "ppt/slides/slide2.xml");
+    assertXPath(pXmlDocContent2, "/p:sld/p:cSld/p:spTree/p:pic/p:blipFill/a:blip/a:grayscl", 1);
+
+    xmlDocPtr pXmlDocContent3 = parseExport(tempFile, "ppt/slides/slide3.xml");
+    assertXPath(pXmlDocContent3, "/p:sld/p:cSld/p:spTree/p:pic/p:blipFill/a:blip/a:biLevel", "thresh", "50000");
+
+}
+
 void SdOOXMLExportTest2::testTdf90626()
 {
     ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/odp/tdf90626.odp"), ODP);
@@ -1609,6 +1645,22 @@ void SdOOXMLExportTest2::testShapeAutofitPPTX()
     assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:txBody/a:bodyPr/a:spAutoFit", 1);
     // TextAutoGrowHeight --> "Resize shape to fit text" --> false
     assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[2]/p:txBody/a:bodyPr/a:noAutofit", 1);
+}
+
+void SdOOXMLExportTest2::testLegacyShapeAutofitPPTX()
+{
+    sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/odp/testLegacyShapeAutofit.odp"), ODP);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+    xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
+    CPPUNIT_ASSERT(pXmlDocContent);
+
+    // Text in a legacy rectangle
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:txBody/a:bodyPr/a:noAutofit", 1);
+    // Text in (closed) Polygon
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[2]/p:txBody/a:bodyPr/a:noAutofit", 1);
+    // Text in a legacy ellipse
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[3]/p:txBody/a:bodyPr/a:noAutofit", 1);
 }
 
 void SdOOXMLExportTest2::testTdf115394()
@@ -2009,6 +2061,20 @@ void SdOOXMLExportTest2::testTdf116350TextEffects()
     xDocShRef->DoClose();
 }
 
+void SdOOXMLExportTest2::testTdf128096()
+{
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/odp/tdf128096.odp"), ODP);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+    xDocShRef->DoClose();
+
+    xmlDocPtr pXmlDocContent1 = parseExport(tempFile, "ppt/slides/slide1.xml");
+    assertXPath(pXmlDocContent1, "//p:sld/p:cSld/p:spTree/p:sp/p:txBody/a:p/a:r/a:rPr/a:highlight/a:srgbClr", "val", "ffff00");
+
+    // Check that underlined content is also highlighted
+    xmlDocPtr pXmlDocContent2 = parseExport(tempFile, "ppt/slides/slide2.xml");
+    assertXPath(pXmlDocContent2, "//p:sld/p:cSld/p:spTree/p:sp/p:txBody/a:p/a:r/a:rPr/a:highlight/a:srgbClr", "val", "ffff00");
+}
 void SdOOXMLExportTest2::testTdf120573()
 {
     ::sd::DrawDocShellRef xDocShRef = loadURL( m_directories.getURLFromSrc( "sd/qa/unit/data/pptx/tdf120573.pptx" ), PPTX );
@@ -2427,6 +2493,144 @@ void SdOOXMLExportTest2::testTdf1225573_FontWorkScaleX()
     CPPUNIT_ASSERT_LESS(static_cast<long>(50), labs(aBoundRectWave.Width - 11514));
 
     xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf126234()
+{
+    sd::DrawDocShellRef xDocShRef = loadURL( m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf126234.pptx"), PPTX );
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    // check relative size of the bullet, 400% is a legitimate value for MS Office document
+    // Without a fix, it will fail to set the size correctly
+    const SdrPage *pPage = GetPage( 1, xDocShRef );
+    SdrTextObj *pTxtObj = dynamic_cast<SdrTextObj *>( pPage->GetObj(0) );
+    CPPUNIT_ASSERT_MESSAGE( "no text object", pTxtObj != nullptr);
+    const EditTextObject& aEdit = pTxtObj->GetOutlinerParaObject()->GetTextObject();
+    const SvxNumBulletItem *pNumFmt = aEdit.GetParaAttribs(0).GetItem(EE_PARA_NUMBULLET);
+    CPPUNIT_ASSERT(pNumFmt);
+    CPPUNIT_ASSERT_EQUAL(sal_uInt16(400), pNumFmt->GetNumRule()->GetLevel(0).GetBulletRelSize());
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf126741()
+{
+    sd::DrawDocShellRef xDocShRef = loadURL( m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf126741.pptx"), PPTX );
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    // dash dot dot line style import fix
+    // The original fixed values are replaced with the percent values, because
+    // with fix for tdf#127166 the MS Office preset styles are correctly detected.
+    const SdrPage *pPage = GetPage( 1, xDocShRef );
+    SdrObject *const pObj = pPage->GetObj(0);
+    CPPUNIT_ASSERT(pObj);
+
+    const XLineStyleItem& rStyleItem = dynamic_cast<const XLineStyleItem&>(
+        pObj->GetMergedItem(XATTR_LINESTYLE));
+    const XLineDashItem& rDashItem = dynamic_cast<const XLineDashItem&>(
+        pObj->GetMergedItem(XATTR_LINEDASH));
+
+    CPPUNIT_ASSERT_EQUAL(drawing::LineStyle_DASH, rStyleItem.GetValue());
+    CPPUNIT_ASSERT_EQUAL(sal_uInt16(1), rDashItem.GetDashValue().GetDots());
+    CPPUNIT_ASSERT_EQUAL(sal_uInt32(800), rDashItem.GetDashValue().GetDotLen());
+    CPPUNIT_ASSERT_EQUAL(sal_uInt16(2), rDashItem.GetDashValue().GetDashes());
+    CPPUNIT_ASSERT_EQUAL(sal_uInt32(100), rDashItem.GetDashValue().GetDashLen());
+    CPPUNIT_ASSERT_EQUAL(sal_uInt32(300), rDashItem.GetDashValue().GetDistance());
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf99497_keepAppearanceOfCircleKind()
+{
+    // Error was, that all CircleKind were exported to 'ellipse'.
+    // Resulting pptx has to contain the customshapes of the corresponding kind
+    // slide 1 ARC -> arc, slide 2 CUT -> chord, slide 3 SECTION -> pie
+    // Adjustment values need to exist and their values need to correspond to the
+    // original angles. Shape 'arc' needs to be unfilled.
+    const OUString sPath("/sd/qa/unit/data/odp/tdf99497_CircleKind.odp");
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc(sPath), ODP);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    // slide 1 45° -> adj1 = 20493903, 270° -> adj2 = 5400000, <a:noFill/> exists
+    xmlDocPtr pXmlDocContent1 = parseExport(tempFile, "ppt/slides/slide1.xml");
+    const OString sPathStart1("/p:sld/p:cSld/p:spTree/p:sp/p:spPr/a:prstGeom");
+    assertXPath(pXmlDocContent1, sPathStart1 + "[@prst='arc']");
+    const OString sPathAdj1(sPathStart1 + "/a:avLst/a:gd");
+    assertXPath(pXmlDocContent1, sPathAdj1 + "[@name='adj1' and  @fmla='val 20493903']");
+    assertXPath(pXmlDocContent1, sPathAdj1 + "[@name='adj2' and  @fmla='val 5400000']");
+    assertXPath(pXmlDocContent1, "/p:sld/p:cSld/p:spTree/p:sp/p:spPr/a:noFill");
+
+    // slide 2 270° -> adj1 = 5400000, 180° -> adj2 = 10800000
+    xmlDocPtr pXmlDocContent2 = parseExport(tempFile, "ppt/slides/slide2.xml");
+    const OString sPathStart2("/p:sld/p:cSld/p:spTree/p:sp/p:spPr/a:prstGeom");
+    assertXPath(pXmlDocContent2, sPathStart2 + "[@prst='chord']");
+    const OString sPathAdj2(sPathStart2 + "/a:avLst/a:gd");
+    assertXPath(pXmlDocContent2, sPathAdj2 + "[@name='adj1' and  @fmla='val 5400000']");
+    assertXPath(pXmlDocContent2, sPathAdj2 + "[@name='adj2' and  @fmla='val 10800000']");
+
+    // slide 3 120° -> adj1 = 12600000, 30° -> adj2 = 20946396
+    xmlDocPtr pXmlDocContent3 = parseExport(tempFile, "ppt/slides/slide3.xml");
+    const OString sPathStart3("/p:sld/p:cSld/p:spTree/p:sp/p:spPr/a:prstGeom");
+    assertXPath(pXmlDocContent3, sPathStart3 + "[@prst='pie']");
+    const OString sPathAdj3(sPathStart3 + "/a:avLst/a:gd");
+    assertXPath(pXmlDocContent3, sPathAdj3 + "[@name='adj1' and  @fmla='val 12600000']");
+    assertXPath(pXmlDocContent3, sPathAdj3 + "[@name='adj2' and  @fmla='val 20946396']");
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf127372()
+{
+    ::sd::DrawDocShellRef xDocShRef = loadURL( m_directories.getURLFromSrc("/sd/qa/unit/data/odp/tdf127372.odp"), ODP);
+    xDocShRef = saveAndReload( xDocShRef.get(), PPTX );
+    uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
+    awt::Gradient aTransparenceGradient;
+    xShape->getPropertyValue("FillTransparenceGradient") >>= aTransparenceGradient;
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0x000000), aTransparenceGradient.StartColor);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0x000000), aTransparenceGradient.EndColor);
+}
+
+void SdOOXMLExportTest2::testTdf127379()
+{
+    ::sd::DrawDocShellRef xDocShRef = loadURL( m_directories.getURLFromSrc("/sd/qa/unit/data/odp/tdf127379.odp"), ODP);
+    xDocShRef = saveAndReload( xDocShRef.get(), PPTX );
+    uno::Reference< drawing::XDrawPagesSupplier > xDoc(
+    xDocShRef->GetDoc()->getUnoModel(), uno::UNO_QUERY_THROW );
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDoc->getDrawPages()->getCount() );
+
+    uno::Reference< drawing::XDrawPage > xPage( getPage( 0, xDocShRef ) );
+    uno::Reference< beans::XPropertySet > xPropSet( xPage, uno::UNO_QUERY );
+
+    uno::Any aAny = xPropSet->getPropertyValue( "Background" );
+    CPPUNIT_ASSERT_MESSAGE("Slide background is missing", aAny.hasValue());
+    uno::Reference< beans::XPropertySet > aXBackgroundPropSet;
+    aAny >>= aXBackgroundPropSet;
+
+    drawing::FillStyle aFillStyle(drawing::FillStyle_NONE);
+    aXBackgroundPropSet->getPropertyValue("FillStyle") >>= aFillStyle;
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_GRADIENT, aFillStyle);
+
+    awt::Gradient aGradient;
+    CPPUNIT_ASSERT(aXBackgroundPropSet->getPropertyValue("FillGradient") >>= aGradient);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0xFF0000), aGradient.StartColor);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0x2A6099), aGradient.EndColor);
+}
+
+void SdOOXMLExportTest2::testTdf98603()
+{
+    ::sd::DrawDocShellRef xDocShRef = loadURL( m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf98603.pptx"), PPTX);
+    xDocShRef = saveAndReload( xDocShRef.get(), PPTX );
+    uno::Reference<beans::XPropertySet> xShape(getShapeFromPage(0, 0, xDocShRef));
+    uno::Reference<text::XTextRange> const xParagraph(getParagraphFromShape(0, xShape));
+    uno::Reference<text::XTextRange> xRun(getRunFromParagraph(0, xParagraph));
+    uno::Reference< beans::XPropertySet> xPropSet(xRun, uno::UNO_QUERY_THROW);
+    css::lang::Locale aLocale;
+    xPropSet->getPropertyValue("CharLocaleComplex") >>= aLocale;
+    CPPUNIT_ASSERT_EQUAL(OUString("he"), aLocale.Language);
+    CPPUNIT_ASSERT_EQUAL(OUString("IL"), aLocale.Country);
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SdOOXMLExportTest2);

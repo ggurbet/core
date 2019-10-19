@@ -20,9 +20,7 @@
 #define INCLUDED_CUI_SOURCE_INC_AUTOCDLG_HXX
 
 #include <sfx2/tabdlg.hxx>
-#include <svtools/langtab.hxx>
 #include <svx/langbox.hxx>
-#include <tools/debug.hxx>
 #include <vcl/metric.hxx>
 
 #include <set>
@@ -38,7 +36,7 @@ namespace editeng { class SortedAutoCompleteStrings; }
 class OfaAutoCorrDlg : public SfxTabDialogController
 {
     std::unique_ptr<weld::Widget> m_xLanguageBox;
-    std::unique_ptr<LanguageBox>  m_xLanguageLB;
+    std::unique_ptr<SvxLanguageBox> m_xLanguageLB;
 
     DECL_LINK(SelectLanguageHdl, weld::ComboBox&, void);
 public:
@@ -53,8 +51,6 @@ public:
 
 class OfaAutocorrOptionsPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-
 private:
     OUString m_sInput;
     OUString m_sDoubleCaps;
@@ -70,10 +66,10 @@ private:
     void InsertEntry(const OUString& rTxt);
 
 public:
-    OfaAutocorrOptionsPage(TabPageParent pParent, const SfxItemSet& rSet);
+    OfaAutocorrOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~OfaAutocorrOptionsPage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -86,9 +82,6 @@ public:
 
 class OfaSwAutoFmtOptionsPage : public SfxTabPage
 {
-    friend class VclPtr<OfaSwAutoFmtOptionsPage>;
-    using TabPage::ActivatePage;
-
     OUString        sDeleteEmptyPara;
     OUString        sUseReplaceTbl;
     OUString        sCapitalStartWord;
@@ -121,17 +114,16 @@ class OfaSwAutoFmtOptionsPage : public SfxTabPage
 
     DECL_LINK(SelectHdl, weld::TreeView&, void);
     DECL_LINK(EditHdl, weld::Button&, void);
-    DECL_LINK(DoubleClickEditHdl, weld::TreeView&, void);
+    DECL_LINK(DoubleClickEditHdl, weld::TreeView&, bool);
 
     void CreateEntry(const OUString& rTxt, sal_uInt16 nCol);
 
-    OfaSwAutoFmtOptionsPage(TabPageParent pParent, const SfxItemSet& rSet);
-    virtual ~OfaSwAutoFmtOptionsPage() override;
-    virtual void dispose() override;
-
 public:
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    OfaSwAutoFmtOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                             const SfxItemSet* rAttrSet);
+    virtual ~OfaSwAutoFmtOptionsPage() override;
+
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
     virtual void        ActivatePage( const SfxItemSet& ) override;
@@ -158,9 +150,6 @@ typedef std::map<LanguageType, StringChangeList> StringChangeTable;
 
 class OfaAutocorrReplacePage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 private:
 
     StringChangeTable aChangesTable;
@@ -188,6 +177,7 @@ private:
     std::unique_ptr<weld::Button> m_xNewReplacePB;
     std::unique_ptr<weld::Button> m_xReplacePB;
     std::unique_ptr<weld::Button> m_xDeleteReplacePB;
+    std::unique_ptr<weld::Container> m_xButtonBox;
 
     DECL_LINK(SelectHdl, weld::TreeView&, void);
     DECL_LINK(NewDelButtonHdl, weld::Button&, void);
@@ -201,11 +191,10 @@ private:
                             LanguageType eNewLanguage);
 
 public:
-    OfaAutocorrReplacePage(TabPageParent pParent, const SfxItemSet& rSet);
+    OfaAutocorrReplacePage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~OfaAutocorrReplacePage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -230,9 +219,6 @@ typedef std::map<LanguageType, StringsArrays> StringsTable;
 
 class OfaAutocorrExceptPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 private:
     StringsTable    aStringsTable;
     std::unique_ptr<CollatorWrapper> pCompareClass;
@@ -260,11 +246,10 @@ private:
                                         LanguageType eOldLanguage,
                                         LanguageType eNewLanguage);
 public:
-    OfaAutocorrExceptPage(TabPageParent pParent, const SfxItemSet& rSet);
+    OfaAutocorrExceptPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~OfaAutocorrExceptPage() override;
-    virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController,
                                 const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -279,9 +264,6 @@ public:
 
 class OfaQuoteTabPage : public SfxTabPage
 {
-    friend class VclPtr<OfaQuoteTabPage>;
-    using TabPage::ActivatePage;
-
 private:
     OUString        sNonBrkSpace;
     OUString        sOrdinal;
@@ -319,12 +301,11 @@ private:
     static void CreateEntry(weld::TreeView& rLstBox, const OUString& rTxt,
                             sal_uInt16 nCol, sal_uInt16 nTextCol);
 
-    OfaQuoteTabPage(TabPageParent pParent, const SfxItemSet& rSet);
 public:
-    virtual ~OfaQuoteTabPage() override;
-
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent,
+    OfaQuoteTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController,
                                      const SfxItemSet* rAttrSet);
+    virtual ~OfaQuoteTabPage() override;
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -335,9 +316,7 @@ public:
 
 class OfaAutoCompleteTabPage : public SfxTabPage
 {
-    friend class VclPtr<OfaAutoCompleteTabPage>;
 private:
-    using TabPage::ActivatePage;
     editeng::SortedAutoCompleteStrings* m_pAutoCompleteList;
     sal_uInt16      m_nAutoCmpltListCnt;
 
@@ -357,11 +336,11 @@ private:
     DECL_LINK(CheckHdl, weld::ToggleButton&, void);
     DECL_LINK(KeyReleaseHdl, const KeyEvent&, bool);
 
-    OfaAutoCompleteTabPage(TabPageParent pParent, const SfxItemSet& rSet);
 public:
-    virtual ~OfaAutoCompleteTabPage() override;
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent,
+    OfaAutoCompleteTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController,
                                      const SfxItemSet* rAttrSet);
+    virtual ~OfaAutoCompleteTabPage() override;
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -379,8 +358,6 @@ public:
 */
 class OfaSmartTagOptionsTabPage : public SfxTabPage
 {
-    using TabPage::ActivatePage;
-
 private:
 
     // controls
@@ -422,10 +399,10 @@ private:
 
 public:
     /// construction via Create()
-    OfaSmartTagOptionsTabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    OfaSmartTagOptionsTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~OfaSmartTagOptionsTabPage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

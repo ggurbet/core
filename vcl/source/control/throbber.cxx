@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/throbber.hxx>
+#include <vcl/toolkit/throbber.hxx>
 #include <vcl/svapp.hxx>
 
 #include <com/sun/star/uno/XComponentContext.hpp>
@@ -81,7 +81,7 @@ namespace
         {
             Reference< XGraphic > xGraphic;
             aMediaProperties.put( "URL", rImageURL );
-            xGraphic.set( xGraphicProvider->queryGraphic( aMediaProperties.getPropertyValues() ), UNO_QUERY );
+            xGraphic = xGraphicProvider->queryGraphic( aMediaProperties.getPropertyValues() );
             aImages.emplace_back( xGraphic );
         }
 

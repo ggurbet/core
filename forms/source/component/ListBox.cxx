@@ -548,7 +548,7 @@ namespace frm
 
     OUString SAL_CALL OListBoxModel::getServiceName()
     {
-        return OUString(FRM_COMPONENT_LISTBOX);   // old (non-sun) name for compatibility !
+        return FRM_COMPONENT_LISTBOX;   // old (non-sun) name for compatibility !
     }
 
 
@@ -606,8 +606,7 @@ namespace frm
         }
         catch( const Exception& )
         {
-            css::uno::Any ex( cppu::getCaughtException() );
-            SAL_WARN( "forms.component", "OComboBoxModel::read: caught an exception while examining the aggregate's string item list! " << exceptionToString(ex) );
+            TOOLS_WARN_EXCEPTION( "forms.component", "OComboBoxModel::read: caught an exception while examining the aggregate's string item list" );
         }
 
         // Version
@@ -1417,7 +1416,7 @@ namespace frm
             ::std::set< sal_Int16 > aSelectionSet;
 
             // find the selection entries in our item list
-            for ( OUString const & selectEntry : aSelectEntries )
+            for ( OUString const & selectEntry : std::as_const(aSelectEntries) )
             {
                 int idx = 0;
                 for(const OUString& s : getStringItemList())

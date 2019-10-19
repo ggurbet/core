@@ -52,16 +52,16 @@ SwIoDetect aFilterDetect[] =
     SwIoDetect( FILTER_DOCX )
 };
 
-const OUString SwIoSystem::GetSubStorageName( const SfxFilter& rFltr )
+OUString SwIoSystem::GetSubStorageName( const SfxFilter& rFltr )
 {
     // for StorageFilters also set the SubStorageName
     const OUString& rUserData = rFltr.GetUserData();
     if (rUserData == FILTER_XML ||
         rUserData == FILTER_XMLV ||
         rUserData == FILTER_XMLVW)
-        return OUString("content.xml");
+        return "content.xml";
     if (rUserData == sWW6 || rUserData == FILTER_WW8)
-        return OUString("WordDocument");
+        return "WordDocument";
     return OUString();
 }
 

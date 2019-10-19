@@ -536,7 +536,7 @@ public:
     void SetStyleSheetPool(SfxStyleSheetBasePool* pPool)     { mxStyleSheetPool=pPool; }
 
     void    SetStarDrawPreviewMode(bool bPreview);
-    bool    IsStarDrawPreviewMode() { return bStarDrawPreviewMode; }
+    bool    IsStarDrawPreviewMode() const { return bStarDrawPreviewMode; }
 
     bool GetDisableTextEditUsesCommonUndoManager() const { return mbDisableTextEditUsesCommonUndoManager; }
     void SetDisableTextEditUsesCommonUndoManager(bool bNew) { mbDisableTextEditUsesCommonUndoManager = bNew; }
@@ -585,9 +585,7 @@ public:
 
     bool IsInDestruction() const { return mbInDestruction;}
 
-    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelImplementationId();
-
-    virtual ImageMap* GetImageMapForObject(SdrObject*){return nullptr;};
+    static const css::uno::Sequence< sal_Int8 >& getUnoTunnelId();
 
     /** enables (true) or disables (false) recording of undo actions
         If undo actions are added while undo is disabled, they are deleted.

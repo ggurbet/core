@@ -19,7 +19,6 @@
 
 #include "pdfwriter_impl.hxx"
 #include <vcl/bitmapex.hxx>
-#include <vcl/image.hxx>
 
 using namespace vcl;
 
@@ -446,7 +445,7 @@ void PDFWriter::AddStream( const OUString& rMimeType, PDFOutputStream* pStream )
     xImplementation->addStream( rMimeType, pStream );
 }
 
-std::set< PDFWriter::ErrorCode > const & PDFWriter::GetErrors()
+std::set< PDFWriter::ErrorCode > const & PDFWriter::GetErrors() const
 {
     return xImplementation->getErrors();
 }

@@ -77,7 +77,7 @@ namespace rptxml
 
     OUString ORptExportHelper::getImplementationName_Static(  )
     {
-        return OUString("com.sun.star.comp.report.XMLSettingsExporter");
+        return "com.sun.star.comp.report.XMLSettingsExporter";
     }
 
     Sequence< OUString > ORptExportHelper::getSupportedServiceNames_Static(  )
@@ -93,7 +93,7 @@ namespace rptxml
 
     OUString ORptContentExportHelper::getImplementationName_Static(  )
     {
-        return OUString("com.sun.star.comp.report.XMLContentExporter");
+        return "com.sun.star.comp.report.XMLContentExporter";
     }
 
     Sequence< OUString > ORptContentExportHelper::getSupportedServiceNames_Static(  )
@@ -111,7 +111,7 @@ namespace rptxml
 
     OUString ORptStylesExportHelper::getImplementationName_Static(  )
     {
-        return OUString("com.sun.star.comp.report.XMLStylesExporter");
+        return "com.sun.star.comp.report.XMLStylesExporter";
     }
 
     Sequence< OUString > ORptStylesExportHelper::getSupportedServiceNames_Static(  )
@@ -128,7 +128,7 @@ namespace rptxml
 
     OUString ORptMetaExportHelper::getImplementationName_Static(  )
     {
-        return OUString("com.sun.star.comp.report.XMLMetaExporter");
+        return "com.sun.star.comp.report.XMLMetaExporter";
     }
 
     Sequence< OUString > ORptMetaExportHelper::getSupportedServiceNames_Static(  )
@@ -145,7 +145,7 @@ namespace rptxml
 
     OUString ODBFullExportHelper::getImplementationName_Static(  )
     {
-        return OUString("com.sun.star.comp.report.XMLFullExporter");
+        return "com.sun.star.comp.report.XMLFullExporter";
     }
 
     Sequence< OUString > ODBFullExportHelper::getSupportedServiceNames_Static(  )
@@ -307,7 +307,7 @@ Reference< XInterface > ORptExport::create(Reference< XComponentContext > const 
 
 OUString ORptExport::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.report.ExportFilter");
+    return "com.sun.star.comp.report.ExportFilter";
 }
 
 
@@ -355,14 +355,13 @@ void ORptExport::exportMasterDetailFields(const Reference<XReportComponent>& _xR
         OSL_ENSURE(aDetailFields.getLength() == aMasterFields.getLength(),"not equal length for master and detail fields!");
 
         const OUString* pDetailFieldsIter = aDetailFields.getConstArray();
-        const OUString* pIter = aMasterFields.getConstArray();
-        const OUString* pEnd   = pIter + aMasterFields.getLength();
-        for(;pIter != pEnd;++pIter,++pDetailFieldsIter)
+        for(const OUString& rMasterField : aMasterFields)
         {
-            AddAttribute( XML_NAMESPACE_REPORT, XML_MASTER , *pIter );
+            AddAttribute( XML_NAMESPACE_REPORT, XML_MASTER , rMasterField );
             if ( !pDetailFieldsIter->isEmpty() )
                 AddAttribute( XML_NAMESPACE_REPORT, XML_DETAIL , *pDetailFieldsIter );
             SvXMLElementExport aPair(*this,XML_NAMESPACE_REPORT, XML_MASTER_DETAIL_FIELD, true, true);
+            ++pDetailFieldsIter;
         }
     }
 }
@@ -505,6 +504,29 @@ void ORptExport::collectStyleNames(sal_Int32 _nFamily,const ::std::vector< sal_I
     }
 }
 
+void ORptExport::collectStyleNames(sal_Int32 _nFamily, const ::std::vector< sal_Int32>& _aSize, const ::std::vector< sal_Int32>& _aSizeAutoGrow, std::vector<OUString>& _rStyleNames)
+{
+    ::std::vector< XMLPropertyState > aPropertyStates;
+    aPropertyStates.emplace_back(0);
+    ::std::vector<sal_Int32>::const_iterator aIter = _aSize.begin();
+    ::std::vector<sal_Int32>::const_iterator aIter2 = aIter + 1;
+    ::std::vector<sal_Int32>::const_iterator aEnd = _aSize.end();
+    for (;aIter2 != aEnd; ++aIter, ++aIter2)
+    {
+        sal_Int32 nValue = static_cast<sal_Int32>(*aIter2 - *aIter);
+        aPropertyStates[0].maValue <<= nValue;
+        // note: there cannot be 0-height rows, because a call to std::unique has removed them
+        // it cannot be predicted that the size of _aSizeAutoGrow has any relation to the size of
+        // _aSize, because of the same std::unique operation (and _aSizeAutoGrow wasn't even the same
+        // size before that), so the matching element in _aSizeAutoGrow has to be found by lookup.
+        ::std::vector<sal_Int32>::const_iterator aAutoGrow = ::std::find(_aSizeAutoGrow.begin(), _aSizeAutoGrow.end(), *aIter2);
+        bool bAutoGrow = aAutoGrow != _aSizeAutoGrow.end();
+        // the mnIndex is into the array returned by OXMLHelper::GetRowStyleProps()
+        aPropertyStates[0].mnIndex = bAutoGrow ? 1 : 0;
+        _rStyleNames.push_back(GetAutoStylePool()->Add(_nFamily, aPropertyStates));
+    }
+}
+
 void ORptExport::exportSectionAutoStyle(const Reference<XSection>& _xProp)
 {
     OSL_ENSURE(_xProp != nullptr,"Section is NULL -> GPF");
@@ -524,6 +546,11 @@ void ORptExport::exportSectionAutoStyle(const Reference<XSection>& _xProp)
     aRowPos.reserve(2*(nCount + 1));
     aRowPos.push_back(0);
     aRowPos.push_back(_xProp->getHeight());
+
+
+    ::std::vector<sal_Int32> aRowPosAutoGrow;
+    aRowPosAutoGrow.reserve(2 * (nCount + 1));
+
 
     sal_Int32 i;
     for (i = 0 ; i< nCount ; ++i)
@@ -553,11 +580,20 @@ void ORptExport::exportSectionAutoStyle(const Reference<XSection>& _xProp)
         aRowPos.push_back(nY);
         nY += xReportElement->getHeight();
         aRowPos.push_back(nY); // --nY why?
+        bool bAutoGrow = xReportElement->getAutoGrow();
+        if (bAutoGrow)
+        {
+            // the resulting table row ending at nY should auto-grow
+            aRowPosAutoGrow.push_back(nY);
+        }
     }
 
     ::std::sort(aColumnPos.begin(),aColumnPos.end(),::std::less<sal_Int32>());
     aColumnPos.erase(::std::unique(aColumnPos.begin(),aColumnPos.end()),aColumnPos.end());
 
+    // note: the aRowPos contains top and bottom position of every report control; we now compute the
+    // top of every row in the resulting table, by sorting and eliminating unnecessary duplicate
+    // positions. (the same for the columns in the preceding lines.)
     ::std::sort(aRowPos.begin(),aRowPos.end(),::std::less<sal_Int32>());
     aRowPos.erase(::std::unique(aRowPos.begin(),aRowPos.end()),aRowPos.end());
 
@@ -570,7 +606,7 @@ void ORptExport::exportSectionAutoStyle(const Reference<XSection>& _xProp)
     TGridStyleMap::iterator aPos = m_aColumnStyleNames.emplace(_xProp.get(),std::vector<OUString>()).first;
     collectStyleNames(XML_STYLE_FAMILY_TABLE_COLUMN,aColumnPos,aPos->second);
     aPos = m_aRowStyleNames.emplace(_xProp.get(),std::vector<OUString>()).first;
-    collectStyleNames(XML_STYLE_FAMILY_TABLE_ROW,aRowPos,aPos->second);
+    collectStyleNames(XML_STYLE_FAMILY_TABLE_ROW, aRowPos, aRowPosAutoGrow, aPos->second);
 
     sal_Int32 x1 = 0;
     sal_Int32 y1 = 0;
@@ -1046,14 +1082,11 @@ void ORptExport::exportGroup(const Reference<XReportDefinition>& _xReportDefinit
                             sExpression = sExpression.replaceAt(nIndex, 1, "\"\"");
                             nIndex = sExpression.indexOf('"',nIndex+2);
                         }
-                        OUString sFormula("rpt:HASCHANGED(\"");
 
                         TGroupFunctionMap::const_iterator aGroupFind = m_aGroupFunctionMap.find(xGroup);
                         if ( aGroupFind != m_aGroupFunctionMap.end() )
                             sExpression = aGroupFind->second->getName();
-                        sFormula += sExpression;
-                        sFormula += "\")";
-                        sExpression = sFormula;
+                        sExpression = "rpt:HASCHANGED(\"" + sExpression + "\")";
                     }
                     AddAttribute(XML_NAMESPACE_REPORT, XML_SORT_EXPRESSION, sField);
                     AddAttribute(XML_NAMESPACE_REPORT, XML_GROUP_EXPRESSION,sExpression);
@@ -1502,7 +1535,7 @@ void ORptExport::exportGroupsExpressionAsFunction(const Reference< XGroups>& _xG
                             // so we need to expand the formula of sCountName
                             sPrefix = " + 1) / " + OUString::number(xGroup->getGroupInterval());
                             sFunctionName = sFunction + "_" + sExpression;
-                            sFunction = sFunction + "(";
+                            sFunction += "(";
                             sInitialFormula = "rpt:0";
                         }
                         break;
@@ -1520,10 +1553,7 @@ void ORptExport::exportGroupsExpressionAsFunction(const Reference< XGroups>& _xG
                     xFunction->setName(sFunctionName);
                     if ( !sInitialFormula.isEmpty() )
                         xFunction->setInitialFormula(beans::Optional< OUString>(true, sInitialFormula));
-                    sFunction = "rpt:" + sFunction;
-                    sFunction += "([";
-                    sFunction += sExpression;
-                    sFunction += "]";
+                    sFunction = "rpt:" + sFunction + "([" + sExpression + "]";
 
                     if ( !sPrefix.isEmpty() )
                         sFunction += sPrefix;

@@ -458,7 +458,7 @@ void EffectMigration::SetAnimationEffect( SvxShape* pShape, AnimationEffect eEff
     {
         bool bEffectCreated = false;
 
-        // check if there is already an text effect for this shape
+        // check if there is already a text effect for this shape
         EffectSequence::iterator aIterOnlyText( ImplFindEffect( pMainSequence, xShape, ShapeAnimationSubType::ONLY_TEXT ) );
         if( aIterOnlyText != aEnd )
         {
@@ -1125,7 +1125,7 @@ void EffectMigration::SetPresentationOrder( SvxShape* pShape, sal_Int32 nNewPos 
 
     std::vector< CustomAnimationEffectPtr > aEffects;
 
-    for( auto& rIter : aEffectVector[nCurrentPos] )
+    for( const auto& rIter : aEffectVector[nCurrentPos] )
     {
         aEffects.push_back( *rIter );
         rSequence.erase( rIter );
@@ -1164,7 +1164,7 @@ sal_Int32 EffectMigration::GetPresentationOrder( SvxShape* pShape )
     Reference< XShape > xThis( pShape );
     Reference< XShape > xCurrent;
 
-    for( CustomAnimationEffectPtr& pEffect : rSequence )
+    for( const CustomAnimationEffectPtr& pEffect : rSequence )
     {
         if( !xCurrent.is() || pEffect->getTargetShape() != xCurrent )
         {

@@ -122,7 +122,7 @@ protected:
     bool m_bFlyLock   :1; // stop positioning of at-character flyframes
 
     // checks if forward flow makes sense to prevent infinite moves
-    inline bool IsFwdMoveAllowed();
+    inline bool IsFwdMoveAllowed() const;
     // #i44049# - method <CalcContent(..)> has to check this property.
     friend void CalcContent( SwLayoutFrame *pLay, bool bNoColl );
     bool IsKeepFwdMoveAllowed( bool bIgnoreMyOwnKeepValue = false );    // like above, forward flow for Keep.
@@ -142,7 +142,7 @@ protected:
     bool CheckMoveFwd( bool& rbMakePage, bool bKeep, bool bIgnoreMyOwnKeepValue );
     bool MoveFwd( bool bMakePage, bool bPageBreak, bool bMoveAlways = false );
     bool MoveBwd( bool &rbReformat );
-    virtual bool ShouldBwdMoved( SwLayoutFrame *pNewUpper, bool bHead, bool &rReformat )=0;
+    virtual bool ShouldBwdMoved( SwLayoutFrame *pNewUpper, bool &rReformat )=0;
 
 public:
     SwFlowFrame( SwFrame &rFrame );
@@ -237,7 +237,7 @@ public:
     static const SwFlowFrame *CastFlowFrame( const SwFrame *pFrame );
 };
 
-inline bool SwFlowFrame::IsFwdMoveAllowed()
+inline bool SwFlowFrame::IsFwdMoveAllowed() const
 {
     return m_rThis.GetIndPrev() != nullptr;
 }

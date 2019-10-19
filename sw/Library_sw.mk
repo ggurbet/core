@@ -23,7 +23,7 @@ $(eval $(call gb_Library_add_sdi_headers,sw,sw/sdi/swslots))
 
 $(eval $(call gb_Library_set_componentfile,sw,sw/util/sw))
 
-$(eval $(call gb_Library_set_precompiled_header,sw,$(SRCDIR)/sw/inc/pch/precompiled_sw))
+$(eval $(call gb_Library_set_precompiled_header,sw,sw/inc/pch/precompiled_sw))
 
 $(eval $(call gb_Library_set_include,sw,\
     -I$(SRCDIR)/sw/source/core/inc \
@@ -150,11 +150,13 @@ $(eval $(call gb_Library_add_exception_objects,sw,\
     sw/source/core/crsr/crsrsh \
     sw/source/core/crsr/crstrvl \
     sw/source/core/crsr/crstrvl1 \
+    sw/source/core/crsr/DateFormFieldButton \
     sw/source/core/crsr/DropDownFormFieldButton \
     sw/source/core/crsr/findattr \
     sw/source/core/crsr/findcoll \
     sw/source/core/crsr/findfmt \
     sw/source/core/crsr/findtxt \
+    sw/source/core/crsr/FormFieldButton \
     sw/source/core/crsr/pam \
     sw/source/core/crsr/paminit \
     sw/source/core/crsr/swcrsr \

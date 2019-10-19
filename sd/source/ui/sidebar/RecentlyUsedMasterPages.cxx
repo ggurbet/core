@@ -20,26 +20,16 @@
 #include "RecentlyUsedMasterPages.hxx"
 #include "MasterPageContainerProviders.hxx"
 #include <MasterPageObserver.hxx>
-#include "MasterPagesSelector.hxx"
 #include "MasterPageDescriptor.hxx"
 #include <tools/ConfigurationAccess.hxx>
-#include <drawdoc.hxx>
-#include <sdpage.hxx>
 
 #include <algorithm>
 #include <memory>
 #include <vector>
 
-#include <unomodel.hxx>
-#include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
-#include <com/sun/star/drawing/XDrawPages.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
-#include <com/sun/star/container/XHierarchicalNameAccess.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/beans/PropertyState.hpp>
-#include <unotools/confignode.hxx>
 #include <osl/doublecheckedlocking.h>
 #include <osl/getglobalmutex.hxx>
 
@@ -51,11 +41,11 @@ namespace {
 
 OUString GetPathToImpressConfigurationRoot()
 {
-    return OUString("/org.openoffice.Office.Impress/");
+    return "/org.openoffice.Office.Impress/";
 }
 OUString GetPathToSetNode()
 {
-    return OUString("MultiPaneGUI/ToolPanel/RecentlyUsedMasterPages");
+    return "MultiPaneGUI/ToolPanel/RecentlyUsedMasterPages";
 }
 
 } // end of anonymous namespace
@@ -134,13 +124,13 @@ void RecentlyUsedMasterPages::LoadPersistentValues()
         OUString sName;
 
         // Read the names and URLs of the master pages.
-        Sequence<OUString> aKeys (xSet->getElementNames());
+        const Sequence<OUString> aKeys (xSet->getElementNames());
         mvMasterPages.clear();
         mvMasterPages.reserve(aKeys.getLength());
-        for (int i=0; i<aKeys.getLength(); i++)
+        for (const auto& rKey : aKeys)
         {
             Reference<container::XNameAccess> xSetItem (
-                xSet->getByName(aKeys[i]), UNO_QUERY);
+                xSet->getByName(rKey), UNO_QUERY);
             if (xSetItem.is())
             {
                 Any aURL (xSetItem->getByName(sURLMemberName));
@@ -194,10 +184,9 @@ void RecentlyUsedMasterPages::SavePersistentValues()
             return;
 
         // Clear the set.
-        Sequence<OUString> aKeys (xSet->getElementNames());
-        sal_Int32 i;
-        for (i=0; i<aKeys.getLength(); i++)
-            xSet->removeByName (aKeys[i]);
+        const Sequence<OUString> aKeys (xSet->getElementNames());
+        for (const auto& rKey : aKeys)
+            xSet->removeByName (rKey);
 
         // Fill it with the URLs of this object.
         const OUString sURLMemberName("URL");
@@ -211,8 +200,7 @@ void RecentlyUsedMasterPages::SavePersistentValues()
         for (const auto& rDescriptor : mvMasterPages)
         {
             // Create new child.
-            OUString sKey ("index_");
-            sKey += OUString::number(nIndex);
+            OUString sKey = "index_" + OUString::number(nIndex);
             Reference<container::XNameReplace> xChild(
                 xChildFactory->createInstance(), UNO_QUERY);
             if (xChild.is())
@@ -272,7 +260,7 @@ MasterPageContainer::Token RecentlyUsedMasterPages::GetTokenForIndex (sal_uInt32
 
 void RecentlyUsedMasterPages::SendEvent()
 {
-    for (auto& aLink : maListeners)
+    for (const auto& aLink : maListeners)
     {
         aLink.Call(nullptr);
     }

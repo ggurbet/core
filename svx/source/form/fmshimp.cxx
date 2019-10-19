@@ -83,6 +83,7 @@
 #include <comphelper/evtmethodhelper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/property.hxx>
+#include <comphelper/sequence.hxx>
 #include <comphelper/solarmutex.hxx>
 #include <comphelper/string.hxx>
 #include <comphelper/types.hxx>
@@ -398,44 +399,31 @@ namespace
         Sequence< ScriptEventDescriptor>    aTransferable(nMaxNewLen);
         ScriptEventDescriptor* pTransferable = aTransferable.getArray();
 
-        const ScriptEventDescriptor* pCurrent = rTransferIfAvailable.getConstArray();
-        sal_Int32 i,j,k;
-        for (i=0; i<rTransferIfAvailable.getLength(); ++i, ++pCurrent)
+        for (const ScriptEventDescriptor& rCurrent : rTransferIfAvailable)
         {
             // search the model/control idl classes for the event described by pCurrent
-            for (   Sequence< Type>* pCurrentArray = &aModelListeners;
-                    pCurrentArray;
-                    pCurrentArray = (pCurrentArray == &aModelListeners) ? &aControlListeners : nullptr
-                )
+            for (const Sequence< Type>* pCurrentArray : { &aModelListeners, &aControlListeners })
             {
-                const Type* pCurrentListeners = pCurrentArray->getConstArray();
-                for (j=0; j<pCurrentArray->getLength(); ++j, ++pCurrentListeners)
+                for (const Type& rCurrentListener : *pCurrentArray)
                 {
-                    OUString aListener = (*pCurrentListeners).getTypeName();
+                    OUString aListener = rCurrentListener.getTypeName();
                     if (!aListener.isEmpty())
                         aListener = aListener.copy(aListener.lastIndexOf('.')+1);
 
-                    if (aListener == pCurrent->ListenerType)
+                    if (aListener == rCurrent.ListenerType)
                         // the current ScriptEventDescriptor doesn't match the current listeners class
                         continue;
 
                     // now check the methods
-                    Sequence< OUString> aMethodsNames = ::comphelper::getEventMethodsForType(*pCurrentListeners);
+                    Sequence< OUString> aMethodsNames = ::comphelper::getEventMethodsForType(rCurrentListener);
 
-                    const OUString* pMethodsNames = aMethodsNames.getConstArray();
-                    for (k=0; k<aMethodsNames.getLength(); ++k, ++pMethodsNames)
+                    if (comphelper::findValue(aMethodsNames, rCurrent.EventMethod) != -1)
                     {
-                        if ((*pMethodsNames) != pCurrent->EventMethod)
-                            // the current ScriptEventDescriptor doesn't match the current listeners current method
-                            continue;
-
                         // we can transfer the script event : the model (control) supports it
-                        *pTransferable = *pCurrent;
+                        *pTransferable = rCurrent;
                         ++pTransferable;
                         break;
                     }
-                    if (k<aMethodsNames.getLength())
-                        break;
                 }
             }
         }
@@ -451,28 +439,28 @@ namespace
     {
         switch (nType)
         {
-            case OBJ_FM_EDIT            : return OUString(FM_COMPONENT_TEXTFIELD);
-            case OBJ_FM_BUTTON          : return OUString(FM_COMPONENT_COMMANDBUTTON);
-            case OBJ_FM_FIXEDTEXT       : return OUString(FM_COMPONENT_FIXEDTEXT);
-            case OBJ_FM_LISTBOX         : return OUString(FM_COMPONENT_LISTBOX);
-            case OBJ_FM_CHECKBOX        : return OUString(FM_COMPONENT_CHECKBOX);
-            case OBJ_FM_RADIOBUTTON     : return OUString(FM_COMPONENT_RADIOBUTTON);
-            case OBJ_FM_GROUPBOX        : return OUString(FM_COMPONENT_GROUPBOX);
-            case OBJ_FM_COMBOBOX        : return OUString(FM_COMPONENT_COMBOBOX);
-            case OBJ_FM_GRID            : return OUString(FM_COMPONENT_GRIDCONTROL);
-            case OBJ_FM_IMAGEBUTTON     : return OUString(FM_COMPONENT_IMAGEBUTTON);
-            case OBJ_FM_FILECONTROL     : return OUString(FM_COMPONENT_FILECONTROL);
-            case OBJ_FM_DATEFIELD       : return OUString(FM_COMPONENT_DATEFIELD);
-            case OBJ_FM_TIMEFIELD       : return OUString(FM_COMPONENT_TIMEFIELD);
-            case OBJ_FM_NUMERICFIELD    : return OUString(FM_COMPONENT_NUMERICFIELD);
-            case OBJ_FM_CURRENCYFIELD   : return OUString(FM_COMPONENT_CURRENCYFIELD);
-            case OBJ_FM_PATTERNFIELD    : return OUString(FM_COMPONENT_PATTERNFIELD);
-            case OBJ_FM_HIDDEN          : return OUString(FM_COMPONENT_HIDDENCONTROL);
-            case OBJ_FM_IMAGECONTROL    : return OUString(FM_COMPONENT_IMAGECONTROL);
-            case OBJ_FM_FORMATTEDFIELD  : return OUString(FM_COMPONENT_FORMATTEDFIELD);
-            case OBJ_FM_SCROLLBAR       : return OUString(FM_SUN_COMPONENT_SCROLLBAR);
-            case OBJ_FM_SPINBUTTON      : return OUString(FM_SUN_COMPONENT_SPINBUTTON);
-            case OBJ_FM_NAVIGATIONBAR   : return OUString(FM_SUN_COMPONENT_NAVIGATIONBAR);
+            case OBJ_FM_EDIT            : return FM_COMPONENT_TEXTFIELD;
+            case OBJ_FM_BUTTON          : return FM_COMPONENT_COMMANDBUTTON;
+            case OBJ_FM_FIXEDTEXT       : return FM_COMPONENT_FIXEDTEXT;
+            case OBJ_FM_LISTBOX         : return FM_COMPONENT_LISTBOX;
+            case OBJ_FM_CHECKBOX        : return FM_COMPONENT_CHECKBOX;
+            case OBJ_FM_RADIOBUTTON     : return FM_COMPONENT_RADIOBUTTON;
+            case OBJ_FM_GROUPBOX        : return FM_COMPONENT_GROUPBOX;
+            case OBJ_FM_COMBOBOX        : return FM_COMPONENT_COMBOBOX;
+            case OBJ_FM_GRID            : return FM_COMPONENT_GRIDCONTROL;
+            case OBJ_FM_IMAGEBUTTON     : return FM_COMPONENT_IMAGEBUTTON;
+            case OBJ_FM_FILECONTROL     : return FM_COMPONENT_FILECONTROL;
+            case OBJ_FM_DATEFIELD       : return FM_COMPONENT_DATEFIELD;
+            case OBJ_FM_TIMEFIELD       : return FM_COMPONENT_TIMEFIELD;
+            case OBJ_FM_NUMERICFIELD    : return FM_COMPONENT_NUMERICFIELD;
+            case OBJ_FM_CURRENCYFIELD   : return FM_COMPONENT_CURRENCYFIELD;
+            case OBJ_FM_PATTERNFIELD    : return FM_COMPONENT_PATTERNFIELD;
+            case OBJ_FM_HIDDEN          : return FM_COMPONENT_HIDDENCONTROL;
+            case OBJ_FM_IMAGECONTROL    : return FM_COMPONENT_IMAGECONTROL;
+            case OBJ_FM_FORMATTEDFIELD  : return FM_COMPONENT_FORMATTEDFIELD;
+            case OBJ_FM_SCROLLBAR       : return FM_SUN_COMPONENT_SCROLLBAR;
+            case OBJ_FM_SPINBUTTON      : return FM_SUN_COMPONENT_SPINBUTTON;
+            case OBJ_FM_NAVIGATIONBAR   : return FM_SUN_COMPONENT_NAVIGATIONBAR;
         }
         return OUString();
     }
@@ -526,7 +514,7 @@ bool IsSearchableControl( const css::uno::Reference< css::uno::XInterface>& _rxC
 bool FmXBoundFormFieldIterator::ShouldStepInto(const Reference< XInterface>& _rContainer) const
 {
     if (_rContainer == m_xStartingPoint)
-        // would be quite stupid to step over the root ....
+        // would be quite stupid to step over the root...
         return true;
 
     return Reference< XControlModel>(_rContainer, UNO_QUERY).is();
@@ -764,9 +752,8 @@ void SAL_CALL FmXFormShell::disposing(const lang::EventObject& e)
         if (xFormController.is())
             xFormController->removeActivateListener(static_cast<XFormControllerListener*>(this));
 
-        Reference< css::lang::XComponent> xComp(m_xExternalViewController, UNO_QUERY);
-        if (xComp.is())
-            xComp->removeEventListener(static_cast<XEventListener*>(static_cast<XPropertyChangeListener*>(this)));
+        if (m_xExternalViewController.is())
+            m_xExternalViewController->removeEventListener(static_cast<XEventListener*>(static_cast<XPropertyChangeListener*>(this)));
 
         m_xExternalViewController = nullptr;
         m_xExternalDisplayedForm = nullptr;
@@ -1213,18 +1200,12 @@ bool FmXFormShell::executeControlConversionSlot_Lock(const Reference<XFormCompon
                 Reference<XControlContainer> xControlContainer(getControlContainerForView_Lock());
 
                 Sequence< Reference< XControl> > aControls( xControlContainer->getControls() );
-                const Reference< XControl>* pControls = aControls.getConstArray();
 
-                sal_uInt32 nLen = aControls.getLength();
                 Reference< XControl> xControl;
-                for (sal_uInt32 i=0 ; i<nLen; ++i)
-                {
-                    if (pControls[i]->getModel() == xNewModel)
-                    {
-                        xControl = pControls[i];
-                        break;
-                    }
-                }
+                auto pControl = std::find_if(aControls.begin(), aControls.end(),
+                    [&xNewModel](const Reference< XControl>& rControl) { return rControl->getModel() == xNewModel; });
+                if (pControl != aControls.end())
+                    xControl = *pControl;
                 TransferEventScripts(xNewModel, xControl, aOldScripts);
             }
 
@@ -1389,7 +1370,7 @@ void FmXFormShell::LoopGrids_Lock(LoopGridsSync nSync, LoopGridsFlags nFlags)
 }
 
 
-Reference< XControlContainer > FmXFormShell::getControlContainerForView_Lock()
+Reference< XControlContainer > FmXFormShell::getControlContainerForView_Lock() const
 {
     if (impl_checkDisposed_Lock())
         return nullptr;
@@ -1540,7 +1521,7 @@ void FmXFormShell::ExecuteSearch_Lock()
                 Reference< XGridPeer> xGridPeer(xActiveControl->getPeer(), UNO_QUERY);
                 Reference< XIndexAccess> xColumns;
                 if (xGridPeer.is())
-                    xColumns.set(xGridPeer->getColumns(),UNO_QUERY);
+                    xColumns = xGridPeer->getColumns();
 
                 sal_Int16 nViewCol = xGrid->getCurrentColumnPosition();
                 sal_Int32 nModelCol = GridView2ModelPos(xColumns, nViewCol);
@@ -1663,7 +1644,7 @@ void FmXFormShell::SetY2KState_Lock(sal_uInt16 n)
     if (!xCurrentForms.is())
     {   // in the alive mode, my forms are not set, but the ones on the page are
         if (m_pShell->GetCurPage())
-            xCurrentForms.set( m_pShell->GetCurPage()->GetForms( false ), UNO_QUERY );
+            xCurrentForms = m_pShell->GetCurPage()->GetForms( false );
     }
     if (!xCurrentForms.is())
         return;
@@ -1815,14 +1796,13 @@ void FmXFormShell::ExecuteFormSlot_Lock( sal_Int32 _nSlot )
 
 void FmXFormShell::impl_switchActiveControllerListening_Lock(const bool _bListen)
 {
-    Reference< XComponent> xComp( m_xActiveController, UNO_QUERY );
-    if ( !xComp.is() )
+    if ( !m_xActiveController.is() )
         return;
 
     if ( _bListen )
-        xComp->addEventListener( static_cast<XFormControllerListener*>(this) );
+        m_xActiveController->addEventListener( static_cast<XFormControllerListener*>(this) );
     else
-        xComp->removeEventListener( static_cast<XFormControllerListener*>(this) );
+        m_xActiveController->removeEventListener( static_cast<XFormControllerListener*>(this) );
 }
 
 
@@ -2097,7 +2077,7 @@ void FmXFormShell::startListening_Lock()
                     case NavigationBarMode_PARENT:
                     {
                         // search for the controller via which navigation is possible
-                        Reference< XChild> xChild(m_xActiveController, UNO_QUERY);
+                        Reference< XChild> xChild = m_xActiveController;
                         Reference< runtime::XFormController > xParent;
                         while (xChild.is())
                         {
@@ -2398,7 +2378,7 @@ IMPL_LINK(FmXFormShell, OnSearchContextRequest_Lock, FmSearchContext&, rfmscCont
                     if (!xPeerContainer.is())
                         break;
 
-                    Reference< XIndexAccess> xModelColumns(xGridPeer->getColumns(), UNO_QUERY);
+                    Reference< XIndexAccess> xModelColumns = xGridPeer->getColumns();
                     DBG_ASSERT(xModelColumns.is(), "FmXFormShell::OnSearchContextRequest : there is a grid control without columns !");
                     // the case 'no columns' should be indicated with an empty container, I think ...
                     DBG_ASSERT(xModelColumns->getCount() >= xPeerContainer->getCount(), "FmXFormShell::OnSearchContextRequest : impossible : have more view than model columns !");
@@ -2421,9 +2401,9 @@ IMPL_LINK(FmXFormShell, OnSearchContextRequest_Lock, FmSearchContext&, rfmscCont
                         // the cursor has a field matching the control source ?
                         if (xValidFormFields->hasByName(aName))
                         {
-                            strFieldList = strFieldList + aName + ";";
+                            strFieldList += aName + ";";
 
-                            sFieldDisplayNames = sFieldDisplayNames +
+                            sFieldDisplayNames +=
                                     ::comphelper::getString(xCurrentColModel->getPropertyValue(FM_PROP_LABEL)) +
                                     ";";
 
@@ -2451,10 +2431,10 @@ IMPL_LINK(FmXFormShell, OnSearchContextRequest_Lock, FmSearchContext&, rfmscCont
                     if (IsSearchableControl(xControl))
                     {
                         // all tests passed -> take along in the list
-                        strFieldList = strFieldList + sControlSource + ";";
+                        strFieldList += sControlSource + ";";
 
                         // the label which should appear for the control :
-                        sFieldDisplayNames = sFieldDisplayNames +
+                        sFieldDisplayNames +=
                                 getLabelName(Reference< XPropertySet>(xControlModel, UNO_QUERY)) +
                                 ";";
 
@@ -2561,7 +2541,7 @@ void FmXFormShell::UpdateForms_Lock(bool _bInvalidate)
 
     FmFormPage* pPage = m_pShell->GetCurPage();
     if ( pPage && m_pShell->m_bDesignMode )
-        xForms.set(pPage->GetForms( false ), css::uno::UNO_QUERY);
+        xForms = pPage->GetForms( false );
 
     if ( m_xForms != xForms )
     {
@@ -2843,7 +2823,7 @@ Reference< XControl> FmXFormShell::impl_getControl_Lock(const Reference<XControl
     {
         Reference< XControlContainer> xControlContainer(getControlContainerForView_Lock(), UNO_SET_THROW);
 
-        Sequence< Reference< XControl > > seqControls( xControlContainer->getControls() );
+        const Sequence< Reference< XControl > > seqControls( xControlContainer->getControls() );
         // ... that I can then search
         for (Reference< XControl > const & control : seqControls)
         {
@@ -2917,7 +2897,7 @@ void FmXFormShell::impl_collectFormSearchContexts_nothrow_Lock( const Reference<
                 aNextLevelPrefix.append( '/' );
             aNextLevelPrefix.append( sCurrentFormName );
 
-            // remember both the form and it's "display name"
+            // remember both the form and its "display name"
             _out_rForms.push_back( xCurrentAsForm );
             _out_rNames.push_back( sCompleteCurrentName.makeStringAndClear() );
 
@@ -2983,13 +2963,12 @@ static void saveFilter(const Reference< runtime::XFormController >& _rxControlle
 {
     Reference< XPropertySet> xFormAsSet(_rxController->getModel(), UNO_QUERY);
     Reference< XPropertySet> xControllerAsSet(_rxController, UNO_QUERY);
-    Reference< XIndexAccess> xControllerAsIndex(_rxController, UNO_QUERY);
 
     // call the subcontroller
     Reference< runtime::XFormController > xController;
-    for (sal_Int32 i = 0, nCount = xControllerAsIndex->getCount(); i < nCount; ++i)
+    for (sal_Int32 i = 0, nCount = _rxController->getCount(); i < nCount; ++i)
     {
-        xControllerAsIndex->getByIndex(i) >>= xController;
+        _rxController->getByIndex(i) >>= xController;
         saveFilter(xController);
     }
 
@@ -3175,9 +3154,8 @@ void FmXFormShell::CreateExternalView_Lock()
         if (xExternalViewFrame.is())
         {
             m_xExternalViewController = xExternalViewFrame->getController();
-            Reference< css::lang::XComponent> xComp(m_xExternalViewController, UNO_QUERY);
-            if (xComp.is())
-                xComp->addEventListener(static_cast<XEventListener*>(static_cast<XPropertyChangeListener*>(this)));
+            if (m_xExternalViewController.is())
+                m_xExternalViewController->addEventListener(static_cast<XEventListener*>(static_cast<XPropertyChangeListener*>(this)));
         }
     }
     else
@@ -3358,27 +3336,26 @@ void FmXFormShell::CreateExternalView_Lock()
                 Reference< XPropertySetInfo> xControlModelInfo( xCurrentModelSet->getPropertySetInfo());
                 DBG_ASSERT(xControlModelInfo.is(), "FmXFormShell::CreateExternalView : the control model has no property info ! This will crash !");
                 aProps = xControlModelInfo->getProperties();
-                const Property* pProps = aProps.getConstArray();
 
                 // realloc the control description sequence
                 sal_Int32 nExistentDescs = pColumnProps - aColumnProps.getArray();
                 aColumnProps.realloc(nExistentDescs + aProps.getLength());
                 pColumnProps = aColumnProps.getArray() + nExistentDescs;
 
-                for (sal_Int32 i=0; i<aProps.getLength(); ++i, ++pProps)
+                for (const Property& rProp : std::as_const(aProps))
                 {
-                    if (pProps->Name == FM_PROP_LABEL)
+                    if (rProp.Name == FM_PROP_LABEL)
                         // already set
                         continue;
-                    if (pProps->Name == FM_PROP_DEFAULTCONTROL)
+                    if (rProp.Name == FM_PROP_DEFAULTCONTROL)
                         // allow the column's own "default control"
                         continue;
-                    if (pProps->Attributes & PropertyAttribute::READONLY)
+                    if (rProp.Attributes & PropertyAttribute::READONLY)
                         // assume that properties which are readonly for the control are ro for the column to be created, too
                         continue;
 
-                    pColumnProps->Name = pProps->Name;
-                    pColumnProps->Value = xCurrentModelSet->getPropertyValue(pProps->Name);
+                    pColumnProps->Name = rProp.Name;
+                    pColumnProps->Value = xCurrentModelSet->getPropertyValue(rProp.Name);
                     ++pColumnProps;
                 }
                 aColumnProps.realloc(pColumnProps - aColumnProps.getArray());
@@ -3461,7 +3438,7 @@ void FmXFormShell::CreateExternalView_Lock()
                     "FmXFormShell::CreateExternalView : inconsistent radio descriptions !");
                 sal_Int16 nPosition = (*aOffset).second;
                 nPosition = nPosition + nOffset;
-                    // we already inserted nOffset additional columns ....
+                    // we already inserted nOffset additional columns...
                 pDispatchArgs->Value <<= nPosition;
                 ++pDispatchArgs;
 
@@ -3530,10 +3507,8 @@ void FmXFormShell::Notify( const css::uno::Sequence< OUString >& _rPropertyNames
     if (impl_checkDisposed_Lock())
         return;
 
-    const OUString* pSearch = _rPropertyNames.getConstArray();
-    const OUString* pSearchTil = pSearch + _rPropertyNames.getLength();
-    for (;pSearch < pSearchTil; ++pSearch)
-        if (*pSearch == "FormControlPilotsEnabled")
+    for (const OUString& rName : _rPropertyNames)
+        if (rName == "FormControlPilotsEnabled")
         {
             implAdjustConfigCache_Lock();
             InvalidateSlot_Lock(SID_FM_USE_WIZARDS, true);
@@ -3684,7 +3659,7 @@ void FmXFormShell::impl_defaultCurrentForm_nothrow_Lock()
 
     try
     {
-        Reference< XIndexAccess > xForms( pPage->GetForms( false ), UNO_QUERY );
+        Reference< XIndexAccess > xForms = pPage->GetForms( false );
         if ( !xForms.is() || !xForms->hasElements() )
             return;
 
@@ -3781,7 +3756,7 @@ namespace
             if ( isEmbeddedInDatabase( _rxLoadable.get(), xConn ) )
                 return true;
 
-            // is there already a active connection
+            // is there already an active connection
             xSet->getPropertyValue(FM_PROP_ACTIVE_CONNECTION) >>= xConn;
             if ( xConn.is() )
                 return true;
@@ -3828,8 +3803,7 @@ void FmXFormShell::loadForms_Lock(FmFormPage* _pPage, const LoadFormsFlags _nBeh
         rFmFormModel.GetUndoEnv().Lock();
 
         // load all forms
-        Reference< XIndexAccess >  xForms;
-        xForms.set(_pPage->GetForms( false ), css::uno::UNO_QUERY);
+        Reference< XIndexAccess >  xForms = _pPage->GetForms( false );
 
         if ( xForms.is() )
         {

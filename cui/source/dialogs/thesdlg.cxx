@@ -18,25 +18,14 @@
  */
 
 #include <thesdlg.hxx>
-#include <strings.hrc>
-#include <dialmgr.hxx>
 
 #include <tools/debug.hxx>
 #include <svl/lngmisc.hxx>
 #include <vcl/event.hxx>
-#include <vcl/graphicfilter.hxx>
-#include <vcl/wrkwin.hxx>
 #include <vcl/svapp.hxx>
-#include <svx/dlgutil.hxx>
-#include <svx/svxerr.hxx>
-#include <editeng/unolingu.hxx>
-#include <svx/langbox.hxx>
 #include <svtools/langtab.hxx>
-#include <unotools/lingucfg.hxx>
 #include <i18nlangtag/languagetag.hxx>
-#include <i18nlangtag/mslangid.hxx>
 #include <comphelper/string.hxx>
-#include <osl/file.hxx>
 
 #include <stack>
 #include <algorithm>
@@ -208,7 +197,7 @@ IMPL_LINK( SvxThesaurusDialog, AlternativesSelectHdl_Impl, weld::TreeView&, rBox
     }
 }
 
-IMPL_LINK( SvxThesaurusDialog, AlternativesDoubleClickHdl_Impl, weld::TreeView&, rBox, void )
+IMPL_LINK( SvxThesaurusDialog, AlternativesDoubleClickHdl_Impl, weld::TreeView&, rBox, bool )
 {
     int nEntry = rBox.get_selected_index();
     if (nEntry != -1)
@@ -228,6 +217,8 @@ IMPL_LINK( SvxThesaurusDialog, AlternativesDoubleClickHdl_Impl, weld::TreeView&,
     //! workaround to set the selection since calling SelectEntryPos within
     //! the double click handler does not work
     Application::PostUserEvent(LINK(this, SvxThesaurusDialog, SelectFirstHdl_Impl));
+
+    return true;
 }
 
 IMPL_LINK_NOARG(SvxThesaurusDialog, SelectFirstHdl_Impl, void *, void)
@@ -305,7 +296,7 @@ SvxThesaurusDialog::SvxThesaurusDialog(
     }
     std::sort( aLangVec.begin(), aLangVec.end() );
     m_xLangLB->freeze();
-    for (OUString & i : aLangVec)
+    for (const OUString & i : aLangVec)
         m_xLangLB->append_text(i);
     m_xLangLB->thaw();
 
@@ -343,7 +334,7 @@ void SvxThesaurusDialog::SetWindowTitle( LanguageType nLanguage )
     m_xDialog->set_title(aStr);    // set window title
 }
 
-OUString SvxThesaurusDialog::GetWord()
+OUString SvxThesaurusDialog::GetWord() const
 {
     return m_xReplaceEdit->get_text();
 }

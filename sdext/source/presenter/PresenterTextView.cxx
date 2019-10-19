@@ -86,8 +86,8 @@ PresenterTextView::PresenterTextView (
       mbIsFormatPending(false),
       maTextChangeBroadcaster()
 {
-    Reference<lang::XMultiComponentFactory> xFactory (
-        rxContext->getServiceManager(), UNO_QUERY);
+    Reference<lang::XMultiComponentFactory> xFactory =
+        rxContext->getServiceManager();
     if ( ! xFactory.is())
         return;
 
@@ -111,8 +111,8 @@ void PresenterTextView::SetText (const Reference<text::XText>& rxText)
     if ( ! xParagraphAccess.is())
         return;
 
-    Reference<container::XEnumeration> xParagraphs (
-        xParagraphAccess->createEnumeration() , UNO_QUERY);
+    Reference<container::XEnumeration> xParagraphs =
+        xParagraphAccess->createEnumeration();
     if ( ! xParagraphs.is())
         return;
 
@@ -657,7 +657,7 @@ awt::Point PresenterTextParagraph::GetRelativeLocation() const
         sal_Int32(mnYOrigin + mnVerticalOffset));
 }
 
-awt::Size PresenterTextParagraph::GetSize()
+awt::Size PresenterTextParagraph::GetSize() const
 {
     return awt::Size(
         sal_Int32(mnWidth),
@@ -725,7 +725,7 @@ void PresenterTextParagraph::AddLine (
     rCurrentLine.startPos = rCurrentLine.endPos;
 }
 
-double PresenterTextParagraph::GetTotalTextHeight()
+double PresenterTextParagraph::GetTotalTextHeight() const
 {
     return maLines.size() * mnLineHeight;
 }
@@ -1062,8 +1062,7 @@ PresenterTextCaret::~PresenterTextCaret()
     }
     catch (uno::Exception const&)
     {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN("sdext.presenter", "unexpected exception in ~PresenterTextCaret " << exceptionToString(ex));
+        TOOLS_WARN_EXCEPTION("sdext.presenter", "unexpected exception in ~PresenterTextCaret");
     }
 }
 

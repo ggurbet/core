@@ -21,10 +21,10 @@
 
 #include <memory>
 #include <com/sun/star/uno/Sequence.hxx>
+#include <com/sun/star/i18n/ScriptType.hpp>
 #include <svx/svxdllapi.h>
 #include <vcl/image.hxx>
 #include <vcl/lstbox.hxx>
-#include <vcl/combobox.hxx>
 #include <vcl/weld.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
@@ -64,8 +64,6 @@ public:
     void            AddLanguages( const std::vector< LanguageType >& rLanguageTypes, SvxLanguageListFlags nLangList );
 
     sal_Int32       InsertLanguage( const LanguageType eLangType );
-    void            InsertDefaultLanguage( sal_Int16 nType );
-    void            InsertSystemLanguage();
     void            SelectLanguage( const LanguageType eLangType );
     LanguageType    GetSelectedLanguage() const;
 
@@ -91,25 +89,7 @@ protected:
     SVX_DLLPRIVATE virtual sal_Int32    ImplGetEntryPos( const void* pData ) const = 0;
 };
 
-
-class SVX_DLLPUBLIC SvxLanguageBox : public ListBox, public SvxLanguageBoxBase
-{
-public:
-    SvxLanguageBox( vcl::Window* pParent, WinBits nBits );
-
-private:
-    SVX_DLLPRIVATE virtual sal_Int32    ImplInsertImgEntry( const OUString& rEntry, sal_Int32  nPos, bool bChecked ) override;
-
-    SVX_DLLPRIVATE virtual void         ImplClear() override;
-    SVX_DLLPRIVATE virtual sal_Int32    ImplInsertEntry( const OUString& rEntry, sal_Int32 nPos ) override;
-    SVX_DLLPRIVATE virtual void         ImplSetEntryData( sal_Int32 nPos, void* pData ) override;
-    SVX_DLLPRIVATE virtual sal_Int32    ImplGetSelectedEntryPos() const override;
-    SVX_DLLPRIVATE virtual void*        ImplGetEntryData( sal_Int32 nPos ) const override;
-    SVX_DLLPRIVATE virtual void         ImplSelectEntryPos( sal_Int32 nPos, bool bSelect ) override;
-    SVX_DLLPRIVATE virtual sal_Int32    ImplGetEntryPos( const void* pData ) const override;
-};
-
-class SVX_DLLPUBLIC LanguageBox
+class SVX_DLLPUBLIC SvxLanguageBox
 {
 public:
     enum class EditedAndValid
@@ -130,25 +110,28 @@ private:
     bool m_bLangNoneIsLangAll;
     bool m_bWithCheckmark;
 
-    SVX_DLLPRIVATE weld::ComboBoxEntry BuildEntry(const LanguageType nLangType);
+    SVX_DLLPRIVATE weld::ComboBoxEntry BuildEntry(const LanguageType nLangType, sal_Int16 nType = css::i18n::ScriptType::WEAK);
     SVX_DLLPRIVATE void AddLanguages(const std::vector< LanguageType >& rLanguageTypes, SvxLanguageListFlags nLangList,
                                      std::vector<weld::ComboBoxEntry>& rEntries);
+    SVX_DLLPRIVATE void InsertLanguage(const LanguageType nLangType, sal_Int16 nType);
 
     SVX_DLLPRIVATE int ImplTypeToPos(LanguageType eType) const;
     SVX_DLLPRIVATE void ImplClear();
     DECL_LINK(ChangeHdl, weld::ComboBox&, void);
 public:
-    LanguageBox(std::unique_ptr<weld::ComboBox> pControl);
+    SvxLanguageBox(std::unique_ptr<weld::ComboBox> pControl);
     void            SetLanguageList( SvxLanguageListFlags nLangList,
                             bool bHasLangNone, bool bLangNoneIsLangAll = false,
                             bool bCheckSpellAvail = false );
     void            InsertLanguage(const LanguageType nLangType);
+    void            InsertDefaultLanguage(sal_Int16 nType);
 
     EditedAndValid      GetEditedAndValid() const { return m_eEditedAndValid;}
     sal_Int32           SaveEditedAsEntry();
 
     void connect_changed(const Link<weld::ComboBox&, void>& rLink) { m_aChangeHdl = rLink; }
     void connect_focus_in(const Link<weld::Widget&, void>& rLink) { m_xControl->connect_focus_in(rLink); }
+    void grab_focus() { m_xControl->grab_focus(); }
     void save_active_id() { m_eSavedLanguage = get_active_id(); }
     LanguageType get_saved_active_id() const { return m_eSavedLanguage; }
     bool get_active_id_changed_from_saved() const { return m_eSavedLanguage != get_active_id(); }
@@ -171,34 +154,6 @@ public:
     OUString get_text(int nPos) const { return m_xControl->get_text(nPos); }
     int get_count() const { return m_xControl->get_count(); }
     weld::ComboBox* get_widget() { return m_xControl.get(); }
-};
-
-class SVX_DLLPUBLIC SvxLanguageComboBox : public ComboBox, public SvxLanguageBoxBase
-{
-public:
-    SvxLanguageComboBox( vcl::Window* pParent, WinBits nBits );
-
-    enum class EditedAndValid
-    {
-        No,
-        Valid,
-        Invalid
-    };
-
-private:
-    EditedAndValid  meEditedAndValid;
-
-    SVX_DLLPRIVATE virtual sal_Int32    ImplInsertImgEntry( const OUString& rEntry, sal_Int32  nPos, bool bChecked ) override;
-
-    SVX_DLLPRIVATE virtual void         ImplClear() override;
-    SVX_DLLPRIVATE virtual sal_Int32    ImplInsertEntry( const OUString& rEntry, sal_Int32 nPos ) override;
-    SVX_DLLPRIVATE virtual void         ImplSetEntryData( sal_Int32 nPos, void* pData ) override;
-    SVX_DLLPRIVATE virtual sal_Int32    ImplGetSelectedEntryPos() const override;
-    SVX_DLLPRIVATE virtual void*        ImplGetEntryData( sal_Int32 nPos ) const override;
-    SVX_DLLPRIVATE virtual void         ImplSelectEntryPos( sal_Int32 nPos, bool bSelect ) override;
-    SVX_DLLPRIVATE virtual sal_Int32    ImplGetEntryPos( const void* pData ) const override;
-
-    DECL_LINK( EditModifyHdl, Edit&, void );
 };
 
 #endif

@@ -19,9 +19,7 @@
 
 #include <rangelst.hxx>
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 
-#include <editeng/brushitem.hxx>
 #include <editeng/editview.hxx>
 #include <svx/fmshell.hxx>
 #include <svx/sdr/overlay/overlaymanager.hxx>
@@ -34,6 +32,7 @@
 #include <vcl/uitest/eventdescription.hxx>
 #include <sal/log.hxx>
 
+#include <IAnyRefDialog.hxx>
 #include <tabview.hxx>
 #include <tabvwsh.hxx>
 #include <docsh.hxx>
@@ -43,7 +42,6 @@
 #include <colrowba.hxx>
 #include <tabcont.hxx>
 #include <scmod.hxx>
-#include <uiitems.hxx>
 #include <sc.hrc>
 #include <viewutil.hxx>
 #include <editutil.hxx>
@@ -54,17 +52,11 @@
 #include <rfindlst.hxx>
 #include <hiranges.hxx>
 #include <viewuno.hxx>
-#include <chartarr.hxx>
-#include <anyrefdg.hxx>
 #include <dpobject.hxx>
-#include <patattr.hxx>
-#include <dociter.hxx>
 #include <seltrans.hxx>
 #include <fillinfo.hxx>
-#include <AccessibilityHints.hxx>
 #include <rangeutl.hxx>
 #include <client.hxx>
-#include <simpref.hxx>
 #include <tabprotection.hxx>
 #include <markdata.hxx>
 #include <formula/FormulaCompiler.hxx>
@@ -176,7 +168,7 @@ void ScTabView::ClickCursor( SCCOL nPosX, SCROW nPosY, bool bControl )
     }
 }
 
-void ScTabView::UpdateAutoFillMark()
+void ScTabView::UpdateAutoFillMark(bool bFromPaste)
 {
     // single selection or cursor
     ScRange aMarkRange;
@@ -198,7 +190,8 @@ void ScTabView::UpdateAutoFillMark()
 
     //  selection transfer object is checked together with AutoFill marks,
     //  because it has the same requirement of a single continuous block.
-    CheckSelectionTransfer();   // update selection transfer object
+    if (!bFromPaste)
+        CheckSelectionTransfer();   // update selection transfer object
 }
 
 void ScTabView::FakeButtonUp( ScSplitPos eWhich )
@@ -406,13 +399,6 @@ void ScTabView::SetCursor( SCCOL nPosX, SCROW nPosY, bool bNew )
 
                 if (pDocSh)
                 {
-                    // Provide size in the payload, so clients don't have to
-                    // call lok::Document::getDocumentSize().
-                    std::stringstream ss;
-                    ss << aNewSize.Width() << ", " << aNewSize.Height();
-                    OString sSize = ss.str().c_str();
-                    aViewData.GetViewShell()->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, sSize.getStr());
-
                     // New area extended to the right of the sheet after last column
                     // including overlapping area with aNewRowArea
                     tools::Rectangle aNewColArea(aOldSize.getWidth(), 0, aNewSize.getWidth(), aNewSize.getHeight());
@@ -431,6 +417,14 @@ void ScTabView::SetCursor( SCCOL nPosX, SCROW nPosY, bool bNew )
                     {
                         SfxLokHelper::notifyInvalidation(aViewData.GetViewShell(), aNewRowArea.toString());
                     }
+
+                    // Provide size in the payload, so clients don't have to
+                    // call lok::Document::getDocumentSize().
+                    std::stringstream ss;
+                    ss << aNewSize.Width() << ", " << aNewSize.Height();
+                    OString sSize = ss.str().c_str();
+                    ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(aViewData.GetViewShell()->GetCurrentDocument());
+                    SfxLokHelper::notifyDocumentSizeChanged(aViewData.GetViewShell(), sSize, pModel, false);
                 }
             }
         }
@@ -486,15 +480,6 @@ void ScTabView::CheckSelectionTransfer()
                 collectUIInformation({{"RANGE", aStartAddress + ":" + aEndAddress}});
             }
         }
-        else if ( pOld && pOld->GetView() == this )
-        {
-            //  remove own selection
-
-            pOld->ForgetView();
-            pScMod->SetSelectionTransfer( nullptr );
-            TransferableHelper::ClearSelection( GetActiveWin() );       // may delete pOld
-        }
-        // else: selection from outside: leave unchanged
     }
 }
 
@@ -521,7 +506,7 @@ void ScTabView::SetTabProtectionSymbol( SCTAB nTab, const bool bProtect )
     pTabControl->SetProtectionSymbol( static_cast<sal_uInt16>(nTab)+1, bProtect);
 }
 
-void ScTabView::SelectionChanged()
+void ScTabView::SelectionChanged(bool bFromPaste)
 {
     SfxViewFrame* pViewFrame = aViewData.GetViewShell()->GetViewFrame();
     if (pViewFrame)
@@ -535,7 +520,7 @@ void ScTabView::SelectionChanged()
         }
     }
 
-    UpdateAutoFillMark();   // also calls CheckSelectionTransfer
+    UpdateAutoFillMark(bFromPaste);   // also calls CheckSelectionTransfer
 
     SfxBindings& rBindings = aViewData.GetBindings();
 
@@ -1934,7 +1919,6 @@ void ScTabView::SetTabNo( SCTAB nTab, bool bNew, bool bExtendSelection, bool bSa
         else
         {
             // hide / show inplace client
-
             ScClient* pClient = static_cast<ScClient*>(aViewData.GetViewShell()->GetIPClient());
             if ( pClient && pClient->IsObjectInPlaceActive() )
             {
@@ -2073,6 +2057,9 @@ void ScTabView::OnLibreOfficeKitTabChanged()
         SfxLokHelper::forEachOtherView(pThisViewShell, lTabSwitch);
 
         pThisViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_INVALIDATE_HEADER, "all");
+
+        if (pThisViewShell->GetInputHandler())
+            pThisViewShell->GetInputHandler()->UpdateLokReferenceMarks();
     }
 }
 
@@ -2144,9 +2131,14 @@ void ScTabView::UpdateEditView()
         if (aViewData.HasEditView(eCurrent))
         {
             EditView* pEditView = aViewData.GetEditView(eCurrent);
+
+            long nRefTabNo = GetViewData().GetRefTabNo();
+            long nX = GetViewData().GetCurXForTab(nRefTabNo);
+            long nY = GetViewData().GetCurYForTab(nRefTabNo);
+
             aViewData.SetEditEngine(eCurrent,
                 static_cast<ScEditEngineDefaulter*>(pEditView->GetEditEngine()),
-                pGridWin[i], GetViewData().GetCurX(), GetViewData().GetCurY() );
+                pGridWin[i], nX, nY );
             if (eCurrent == eActive)
                 pEditView->ShowCursor( false );
         }
@@ -2565,6 +2557,8 @@ void ScTabView::DoDPFieldPopup(OUString const & rPivotTableName, sal_Int32 nDime
 
     ScDPCollection* pDPCollection = rDocument.GetDPCollection();
     ScDPObject* pDPObject = pDPCollection->GetByName(rPivotTableName);
+    if (!pDPObject)
+        return;
 
     pDPObject->BuildAllDimensionMembers();
 

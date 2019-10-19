@@ -25,7 +25,6 @@
 #include <editeng/colritem.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/fhgtitem.hxx>
-#include <editeng/scripttypeitem.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/printer.hxx>
 #include <vcl/cursor.hxx>
@@ -33,7 +32,6 @@
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
-#include <comphelper/scopeguard.hxx>
 #include <sfx2/lokhelper.hxx>
 
 #include <svx/svdview.hxx>
@@ -71,6 +69,7 @@
 #include <vcl/virdev.hxx>
 #include <svx/sdrpaintwindow.hxx>
 #include <drwlayer.hxx>
+#include <printfun.hxx>
 
 static void lcl_LimitRect( tools::Rectangle& rRect, const tools::Rectangle& rVisible )
 {
@@ -308,7 +307,7 @@ void ScGridWindow::Paint( vcl::RenderContext& /*rRenderContext*/, const tools::R
     ScDocument* pDoc = pViewData->GetDocument();
     if ( pDoc->IsInInterpreter() )
     {
-        // Via Reschedule, interpretended cells do not trigger Invalidate again,
+        // Via Reschedule, interpreted cells do not trigger Invalidate again,
         // otherwise for instance an error box would never appear (bug 36381).
         // Later, through bNeedsRepaint everything is painted again.
         if ( bNeedsRepaint )
@@ -527,6 +526,9 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
     ScDocument& rDoc = *pViewData->GetDocument();
     const ScViewOptions& rOpts = pViewData->GetOptions();
     bool bIsTiledRendering = comphelper::LibreOfficeKit::isActive();
+    bool bNoBackgroundAndGrid = bIsTiledRendering
+                                && comphelper::LibreOfficeKit::isCompatFlagSet(
+                                       comphelper::LibreOfficeKit::Compat::scNoGridBackground);
 
     SCTAB nTab = aOutputData.nTab;
     SCCOL nX1 = aOutputData.nX1;
@@ -559,6 +561,23 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
     bool bGridFirst = !rOpts.GetOption( VOPT_GRID_ONTOP );
 
     bool bPage = rOpts.GetOption( VOPT_PAGEBREAKS );
+    // tdf#124983, if option LibreOfficeDev Calc/View/Visual Aids/Page breaks
+    // is enabled, breaks should be visible. If the document is opened the first
+    // time, the breaks are not calculated yet, so this initialization is
+    // done here.
+    if (bPage)
+    {
+        std::set<SCCOL> aColBreaks;
+        std::set<SCROW> aRowBreaks;
+        rDoc.GetAllColBreaks(aColBreaks, nTab, true, false);
+        rDoc.GetAllRowBreaks(aRowBreaks, nTab, true, false);
+        if (aColBreaks.size() == 0 || aRowBreaks.size() == 0)
+        {
+            ScDocShell* pDocSh = pViewData->GetDocShell();
+            ScPrintFunc aPrintFunc(pDocSh, pDocSh->GetPrinter(), nTab);
+            aPrintFunc.UpdatePages();
+        }
+    }
 
     bool bPageMode = pViewData->IsPagebreakMode();
     if (bPageMode)                                      // after FindChanged
@@ -710,16 +729,16 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
         DrawRedraw( aOutputData, SC_LAYER_BACK );
     }
     else
-        aOutputData.SetSolidBackground(true);
+        aOutputData.SetSolidBackground(!bNoBackgroundAndGrid);
 
     aOutputData.DrawDocumentBackground();
 
-    if ( bGridFirst && ( bGrid || bPage ) )
+    if (bGridFirst && (bGrid || bPage) && !bNoBackgroundAndGrid)
         aOutputData.DrawGrid(*pContentDev, bGrid, bPage);
 
     aOutputData.DrawBackground(*pContentDev);
 
-    if ( !bGridFirst && ( bGrid || bPage ) )
+    if (!bGridFirst && (bGrid || bPage) && !bNoBackgroundAndGrid)
         aOutputData.DrawGrid(*pContentDev, bGrid, bPage);
 
     pContentDev->SetMapMode(MapMode(MapUnit::MapPixel));
@@ -827,8 +846,8 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
     {
         Color aRefColor( rColorCfg.GetColorValue(svtools::CALCREFERENCE).nColor );
         aOutputData.DrawRefMark( pViewData->GetRefStartX(), pViewData->GetRefStartY(),
-                                 pViewData->GetRefEndX(), pViewData->GetRefEndY(),
-                                 aRefColor, false );
+                                pViewData->GetRefEndX(), pViewData->GetRefEndY(),
+                                aRefColor, false );
     }
 
         // range finder
@@ -1211,7 +1230,7 @@ void ScGridWindow::PaintTile( VirtualDevice& rDevice,
                              -nTopLeftTileRowOffset,
                              nTopLeftTileCol, nTopLeftTileRow,
                              nBottomRightTileCol, nBottomRightTileRow,
-                             fPPTX, fPPTY);
+                             fPPTX, fPPTY, nullptr, nullptr);
 
     // setup the SdrPage so that drawinglayer works correctly
     ScDrawLayer* pModel = pDoc->GetDrawLayer();

@@ -21,6 +21,7 @@
 #include <svl/PasswordHelper.hxx>
 #include <comphelper/docpasswordhelper.hxx>
 #include <comphelper/hash.hxx>
+#include <comphelper/sequence.hxx>
 #include <osl/diagnose.h>
 #include <document.hxx>
 
@@ -66,11 +67,11 @@ OUString ScPassHashHelper::getHashURI(ScPasswordHash eHash)
     switch (eHash)
     {
         case PASSHASH_SHA256:
-            return OUString(URI_SHA256_ODF12);
+            return URI_SHA256_ODF12;
         case PASSHASH_SHA1:
-            return OUString(URI_SHA1);
+            return URI_SHA1;
         case PASSHASH_XL:
-            return OUString(URI_XLS_LEGACY);
+            return URI_XLS_LEGACY;
         case PASSHASH_UNSPECIFIED:
         default:
             ;
@@ -186,11 +187,7 @@ Sequence<sal_Int8> ScTableProtectionImpl::hashPassword(
     // TODO: Right now, we only support double-hash by SHA1.
     if (eHash == PASSHASH_SHA1)
     {
-        vector<sal_Char> aChars;
-        sal_Int32 n = rPassHash.getLength();
-        aChars.reserve(n);
-        for (sal_Int32 i = 0; i < n; ++i)
-            aChars.push_back(static_cast<sal_Char>(rPassHash[i]));
+        auto aChars = comphelper::sequenceToContainer<vector<sal_Char>>(rPassHash);
 
         Sequence<sal_Int8> aNewHash;
         SvPasswordHelper::GetHashPassword(aNewHash, aChars.data(), aChars.size());
@@ -328,8 +325,8 @@ void ScTableProtectionImpl::setPasswordHash(
     maPassHash = aPassword;
 
 #if DEBUG_TAB_PROTECTION
-    for (sal_Int32 i = 0; i < nLen; ++i)
-        printf("%2.2X ", static_cast<sal_uInt8>(aPassword[i]));
+    for (sal_Int8 n : aPassword)
+        printf("%2.2X ", static_cast<sal_uInt8>(n));
     printf("\n");
 #endif
 }
@@ -457,7 +454,7 @@ bool ScTableProtectionImpl::isBlockEditable( const ScRange& rRange ) const
     // No security descriptor in an enhanced protection means the ranges of
     // that protection are editable. If there is any security descriptor
     // present we assume the permission to edit is not granted. Until we
-    // actually can evaluate the descriptors..
+    // actually can evaluate the descriptors...
 
     auto lIsEditable = [rRange](const ScEnhancedProtection& rEnhancedProtection) {
         return !rEnhancedProtection.hasSecurityDescriptor()

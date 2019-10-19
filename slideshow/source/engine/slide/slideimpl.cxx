@@ -119,7 +119,6 @@ public:
     virtual void drawPolygons() const override;
     virtual bool isPaintOverlayActive() const override;
     virtual void enablePaintOverlay() override;
-    virtual void disablePaintOverlay() override;
     virtual void update_settings( bool bUserPaintEnabled, RGBColor const& aUserPaintColor, double dUserPaintStrokeWidth ) override;
 
 
@@ -333,7 +332,8 @@ SlideImpl::SlideImpl( const uno::Reference< drawing::XDrawPage >&           xDra
                         mpLayerManager,
                         rCursorManager,
                         rShapeListenerMap,
-                        rShapeCursorMap)),
+                        rShapeCursorMap,
+                        xDrawPage)),
     mpSubsettableShapeManager( mpShapeManager ),
     maContext( mpSubsettableShapeManager,
                rEventQueue,
@@ -776,7 +776,7 @@ bool SlideImpl::implPrefetchShow()
     }
     catch( uno::Exception& )
     {
-        SAL_WARN( "slideshow", exceptionToString(cppu::getCaughtException()) );
+        TOOLS_WARN_EXCEPTION( "slideshow", "" );
         // TODO(E2): Error handling. For now, bail out
     }
 
@@ -792,10 +792,6 @@ void SlideImpl::enablePaintOverlay()
         mbUserPaintOverlayEnabled = true;
         activatePaintOverlay();
     }
-}
-
-void SlideImpl::disablePaintOverlay()
-{
 }
 
 void SlideImpl::activatePaintOverlay()
@@ -841,15 +837,14 @@ void SlideImpl::applyShapeAttributes(
     const css::uno::Reference< css::animations::XAnimationNode >& xRootAnimationNode,
     bool bInitial) const
 {
-    uno::Sequence< animations::TargetProperties > aProps(
+    const uno::Sequence< animations::TargetProperties > aProps(
         TargetPropertiesCreator::createTargetProperties( xRootAnimationNode, bInitial ) );
 
     // apply extracted values to our shapes
-    const ::std::size_t nSize( aProps.getLength() );
-    for( ::std::size_t i=0; i<nSize; ++i )
+    for( const auto& rProp : aProps )
     {
         sal_Int16                         nParaIndex( -1 );
-        uno::Reference< drawing::XShape > xShape( aProps[i].Target,
+        uno::Reference< drawing::XShape > xShape( rProp.Target,
                                                   uno::UNO_QUERY );
 
         if( !xShape.is() )
@@ -857,7 +852,7 @@ void SlideImpl::applyShapeAttributes(
             // not a shape target. Maybe a ParagraphTarget?
             presentation::ParagraphTarget aParaTarget;
 
-            if( aProps[i].Target >>= aParaTarget )
+            if( rProp.Target >>= aParaTarget )
             {
                 // yep, ParagraphTarget found - extract shape
                 // and index
@@ -913,14 +908,13 @@ void SlideImpl::applyShapeAttributes(
                 }
             }
 
-            const uno::Sequence< beans::NamedValue >& rShapeProps( aProps[i].Properties );
-            const ::std::size_t nShapePropSize( rShapeProps.getLength() );
-            for( ::std::size_t j=0; j<nShapePropSize; ++j )
+            const uno::Sequence< beans::NamedValue >& rShapeProps( rProp.Properties );
+            for( const auto& rShapeProp : rShapeProps )
             {
                 bool bVisible=false;
-                if( rShapeProps[j].Name.equalsIgnoreAsciiCase("visibility") &&
+                if( rShapeProp.Name.equalsIgnoreAsciiCase("visibility") &&
                     extractValue( bVisible,
-                                  rShapeProps[j].Value,
+                                  rShapeProp.Value,
                                   pShape,
                                   ::basegfx::B2DSize( getSlideSize() ) ))
                 {
@@ -980,8 +974,7 @@ bool SlideImpl::loadShapes()
     if( xMasterPageTarget.is() )
     {
         xMasterPage = xMasterPageTarget->getMasterPage();
-        xMasterPageShapes.set( xMasterPage,
-                               uno::UNO_QUERY );
+        xMasterPageShapes = xMasterPage;
 
         if( xMasterPage.is() && xMasterPageShapes.is() )
         {
@@ -1026,7 +1019,7 @@ bool SlideImpl::loadShapes()
             }
             catch( uno::Exception& )
             {
-                SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
+                TOOLS_WARN_EXCEPTION( "slideshow", "" );
                 return false;
             }
         }
@@ -1065,7 +1058,7 @@ bool SlideImpl::loadShapes()
     }
     catch( uno::Exception& )
     {
-        SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
+        TOOLS_WARN_EXCEPTION( "slideshow", "" );
         return false;
     }
 

@@ -2605,34 +2605,6 @@ gb_LinkTarget__use_avahi :=
 
 endif # ENABLE_AVAHI
 
-
-define gb_LinkTarget__use_gtk
-$(call gb_LinkTarget_set_include,$(1),\
-	$$(INCLUDE) \
-	$(GTK_CFLAGS) \
-)
-
-$(call gb_LinkTarget_add_libs,$(1),$(GTK_LIBS))
-
-ifeq ($(ENABLE_GTK_PRINT),TRUE)
-
-$(call gb_LinkTarget_add_defs,$(1),-DENABLE_GTK_PRINT)
-
-$(call gb_LinkTarget_set_include,$(1),\
-	$$(INCLUDE) \
-	$(GTK_PRINT_CFLAGS) \
-)
-
-$(call gb_LinkTarget_add_libs,$(1),$(GTK_PRINT_LIBS))
-
-endif
-
-endef
-
-define gb_LinkTarget__use_gthread
-$(call gb_LinkTarget_add_libs,$(1),$(GTHREAD_LIBS))
-endef
-
 ifeq ($(ENABLE_CUPS),TRUE)
 
 define gb_LinkTarget__use_cups
@@ -3076,9 +3048,9 @@ endef
 
 endif # SYSTEM_POSTGRESQL
 
-ifeq ($(ENABLE_KDE5),TRUE)
+ifeq ($(ENABLE_KF5),TRUE)
 
-define gb_LinkTarget__use_kde5
+define gb_LinkTarget__use_kf5
 $(call gb_LinkTarget_set_include,$(1),\
 	$(subst -isystem/,-isystem /,$(filter -I% -isystem%,$(subst -isystem /,-isystem/,$(KF5_CFLAGS)))) \
 	$$(INCLUDE) \
@@ -3094,13 +3066,13 @@ $(call gb_LinkTarget_add_libs,$(1),\
 
 endef
 
-else # !ENABLE_KDE5
+else # !ENABLE_KF5
 
-define gb_LinkTarget__use_kde5
+define gb_LinkTarget__use_kf5
 
 endef
 
-endif # ENABLE_KDE5
+endif # ENABLE_KF5
 
 
 
@@ -3262,7 +3234,7 @@ $(call gb_LinkTarget_set_include,$(1),\
 )
 
 $(call gb_LinkTarget_add_libs,$(1),\
-       -L$(call gb_UnpackedTarball_get_dir,liborcus)/src/liborcus/.libs -lorcus-0.14 \
+       -L$(call gb_UnpackedTarball_get_dir,liborcus)/src/liborcus/.libs -lorcus-0.15 \
 )
 
 $(if $(SYSTEM_BOOST), \
@@ -3281,7 +3253,7 @@ $(call gb_LinkTarget_set_include,$(1),\
 )
 
 $(call gb_LinkTarget_add_libs,$(1),\
-	-L$(call gb_UnpackedTarball_get_dir,liborcus)/src/parser/.libs -lorcus-parser-0.14 \
+	-L$(call gb_UnpackedTarball_get_dir,liborcus)/src/parser/.libs -lorcus-parser-0.15 \
 )
 
 endef
@@ -3617,7 +3589,11 @@ gb_LinkTarget__use_libgpg-error :=
 endif # ENABLE_GPGMEPP
 
 define gb_LinkTarget__use_dconf
-$(call gb_LinkTarget_add_defs,$(1),$(DCONF_CFLAGS))
+$(call gb_LinkTarget_set_include,$(1),\
+		$$(INCLUDE) \
+		$(DCONF_CFLAGS) \
+)
+
 $(call gb_LinkTarget_add_libs,$(1),$(DCONF_LIBS))
 endef
 
@@ -4160,8 +4136,9 @@ ifneq ($(SYSTEM_QRCODEGEN),)
 
 define gb_LinkTarget__use_qrcodegen
 $(call gb_LinkTarget_set_include,$(1),\
-       $$(INCLUDE) \
-	   $(QRCODEGEN_CFLAGS) \
+	-DSYSTEM_QRCODEGEN \
+	$$(INCLUDE) \
+	$(QRCODEGEN_CFLAGS) \
 )
 $(call gb_LinkTarget_add_libs,$(1),$(QRCODEGEN_LIBS))
 
@@ -4172,7 +4149,7 @@ gb_ExternalProject__use_qrcodegen :=
 else # !SYSTEM_QRCODEGEN
 
 define gb_LinkTarget__use_qrcodegen
-l$(call gb_LinkTarget_use_unpacked,$(1),qrcodegen)
+$(call gb_LinkTarget_use_unpacked,$(1),qrcodegen)
 $(call gb_LinkTarget_set_include,$(1),\
 	-I$(call gb_UnpackedTarball_get_dir,qrcodegen/cpp/)\
 	$$(INCLUDE) \

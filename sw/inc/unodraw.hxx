@@ -20,6 +20,7 @@
 #define INCLUDED_SW_INC_UNODRAW_HXX
 
 #include <svl/itemprop.hxx>
+#include <svl/listener.hxx>
 #include <svx/fmdpage.hxx>
 #include "calbck.hxx"
 #include "frmfmt.hxx"
@@ -38,10 +39,12 @@
 class SdrMarkList;
 class SdrView;
 class SwDoc;
+class SwXShape;
 
 class SwFmDrawPage : public SvxFmDrawPage
 {
     SdrPageView*        pPageView;
+    std::vector<SwXShape*> m_vShapes;
 public:
     SwFmDrawPage( SdrPage* pPage );
     virtual ~SwFmDrawPage() throw () override;
@@ -52,12 +55,19 @@ public:
     SdrView*            GetDrawView() {return mpView.get();}
     SdrPageView*        GetPageView();
     void                RemovePageView();
-    static css::uno::Reference< css::uno::XInterface >       GetInterface( SdrObject* pObj );
+    static css::uno::Reference<css::drawing::XShape> GetShape(SdrObject* pObj);
+    static css::uno::Reference<css::drawing::XShapeGroup> GetShapeGroup(SdrObject* pObj);
 
     // The following method is called when a SvxShape-object is to be created.
     // Derived classes may obtain at this point a derivation or an object
     // that is aggregating a SvxShape.
     virtual css::uno::Reference< css::drawing::XShape >  CreateShape( SdrObject *pObj ) const override;
+    void RemoveShape(const SwXShape* pShape)
+    {
+        auto ppShape = find(m_vShapes.begin(), m_vShapes.end(), pShape);
+        if(ppShape != m_vShapes.end())
+            m_vShapes.erase(ppShape);
+    };
 };
 
 typedef cppu::WeakAggImplHelper4
@@ -121,12 +131,13 @@ cppu::WeakAggImplHelper6
     css::drawing::XShape
 >
 SwXShapeBaseClass;
-class SwXShape : public SwXShapeBaseClass,
-    public SwClient
+class SwXShape : public SwXShapeBaseClass, public SvtListener
 {
     friend class SwXGroupShape;
     friend class SwXDrawPage;
     friend class SwFmDrawPage;
+    const SwFmDrawPage* m_pPage;
+    SwFrameFormat* m_pFormat;
 
     css::uno::Reference< css::uno::XAggregation > xShapeAgg;
     // reference to <XShape>, determined in the
@@ -188,15 +199,19 @@ class SwXShape : public SwXShapeBaseClass,
         @throws css::uno::RuntimeException
     */
     css::uno::Any _getPropAtAggrObj( const OUString& _rPropertyName );
+    void SetFrameFormat(SwFrameFormat* pFormat)
+    {
+        EndListeningAll();
+        StartListening(pFormat->GetNotifier());
+        m_pFormat = pFormat;
+    }
 
 protected:
     virtual ~SwXShape() override;
-    //SwClient
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
-
 public:
-    SwXShape(css::uno::Reference<css::uno::XInterface> & xShape, SwDoc const* pDoc);
+    SwXShape(css::uno::Reference<css::uno::XInterface> & xShape, SwDoc const*const pDoc);
 
+    virtual void Notify(const SfxHint&) override;
     static const css::uno::Sequence< sal_Int8 > & getUnoTunnelId();
     virtual css::uno::Any SAL_CALL queryInterface( const css::uno::Type& aType ) override;
     virtual css::uno::Sequence< css::uno::Type > SAL_CALL getTypes(  ) override;
@@ -241,8 +256,8 @@ public:
     virtual OUString SAL_CALL getShapeType(  ) override;
 
     SwShapeDescriptor_Impl*     GetDescImpl() {return pImpl.get();}
-    SwFrameFormat*               GetFrameFormat() const { return const_cast<SwFrameFormat*>(static_cast<const SwFrameFormat*>(GetRegisteredIn())); }
-    const css::uno::Reference< css::uno::XAggregation >& GetAggregationInterface() {return xShapeAgg;}
+    SwFrameFormat* GetFrameFormat() const { return m_pFormat; }
+    const css::uno::Reference< css::uno::XAggregation >& GetAggregationInterface() const {return xShapeAgg;}
 
     // helper
     static void AddExistingShapeToFormat( SdrObject const & _rObj );

@@ -48,6 +48,7 @@ public:
     void testBarChart();
     void testCrosses();
     void testScatterChartTextXValues();
+    void testScatterXAxisValues();
     void testChartDataTable();
     void testChartExternalData();
     void testEmbeddingsGrabBag();
@@ -103,6 +104,8 @@ public:
     void testTitleManualLayoutXLSX();
     void testPlotAreaManualLayoutXLSX();
     void testLegendManualLayoutXLSX();
+    void testChartSubTitle();
+    void testChartMainWithSubTitle();
     void testChartTitlePropertiesColorFillXLSX();
     void testChartTitlePropertiesGradientFillXLSX();
     void testChartTitlePropertiesBitmapFillXLSX();
@@ -117,6 +120,8 @@ public:
     void testSetSeriesToSecondaryAxisXLSX();
     void testCombinedChartSecondaryAxisXLSX();
     void testCombinedChartSecondaryAxisODS();
+    void testCrossBetweenXLSX();
+    void testCrossBetweenODS();
     void testAxisTitleRotationXLSX();
     void testAxisCrossBetweenXSLX();
     void testPieChartDataPointExplosionXLSX();
@@ -128,6 +133,8 @@ public:
     void testChartTitlePropertiesGradientFillPPTX();
     void testChartTitlePropertiesBitmapFillPPTX();
     void testxAxisLabelsRotation();
+    void testMultipleCategoryAxisLablesXLSX();
+    void testMultipleCategoryAxisLablesDOCX();
     void testTdf116163();
     void testTdf111824();
     void testTdf119029();
@@ -146,6 +153,7 @@ public:
     CPPUNIT_TEST(testBarChart);
     CPPUNIT_TEST(testCrosses);
     CPPUNIT_TEST(testScatterChartTextXValues);
+    CPPUNIT_TEST(testScatterXAxisValues);
     CPPUNIT_TEST(testChartDataTable);
     CPPUNIT_TEST(testChartExternalData);
     CPPUNIT_TEST(testEmbeddingsGrabBag);
@@ -201,6 +209,8 @@ public:
     CPPUNIT_TEST(testTitleManualLayoutXLSX);
     CPPUNIT_TEST(testPlotAreaManualLayoutXLSX);
     CPPUNIT_TEST(testLegendManualLayoutXLSX);
+    CPPUNIT_TEST(testChartSubTitle);
+    CPPUNIT_TEST(testChartMainWithSubTitle);
     CPPUNIT_TEST(testChartTitlePropertiesColorFillXLSX);
     CPPUNIT_TEST(testChartTitlePropertiesGradientFillXLSX);
     CPPUNIT_TEST(testChartTitlePropertiesBitmapFillXLSX);
@@ -215,6 +225,8 @@ public:
     CPPUNIT_TEST(testSetSeriesToSecondaryAxisXLSX);
     CPPUNIT_TEST(testCombinedChartSecondaryAxisXLSX);
     CPPUNIT_TEST(testCombinedChartSecondaryAxisODS);
+    CPPUNIT_TEST(testCrossBetweenXLSX);
+    CPPUNIT_TEST(testCrossBetweenODS);
     CPPUNIT_TEST(testAxisTitleRotationXLSX);
     CPPUNIT_TEST(testAxisCrossBetweenXSLX);
     CPPUNIT_TEST(testPieChartDataPointExplosionXLSX);
@@ -226,6 +238,8 @@ public:
     CPPUNIT_TEST(testChartTitlePropertiesGradientFillPPTX);
     CPPUNIT_TEST(testChartTitlePropertiesBitmapFillPPTX);
     CPPUNIT_TEST(testxAxisLabelsRotation);
+    CPPUNIT_TEST(testMultipleCategoryAxisLablesXLSX);
+    CPPUNIT_TEST(testMultipleCategoryAxisLablesDOCX);
     CPPUNIT_TEST(testTdf116163);
     CPPUNIT_TEST(testTdf111824);
     CPPUNIT_TEST(testTdf119029);
@@ -644,6 +658,20 @@ void Chart2ExportTest::testScatterChartTextXValues()
        return;
 
     assertXPathContent(pXmlDoc, "//c:scatterChart/c:ser[1]/c:xVal[1]/c:numRef[1]/c:numCache[1]/c:pt[1]/c:v[1]", "1");
+}
+
+void Chart2ExportTest::testScatterXAxisValues()
+{
+    load("/chart2/qa/extras/data/odt/", "tdf114657.odt");
+
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart", "Office Open XML Text");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(pXmlDoc, "//c:scatterChart/c:ser/c:xVal/c:numRef/c:numCache/c:ptCount", "val", "5");
+    assertXPathContent(pXmlDoc, "//c:scatterChart/c:ser/c:xVal/c:numRef/c:numCache/c:pt[1]/c:v", "15");
+    assertXPathContent(pXmlDoc, "//c:scatterChart/c:ser/c:xVal/c:numRef/c:numCache/c:pt[2]/c:v", "11");
+    assertXPathContent(pXmlDoc, "//c:scatterChart/c:ser/c:xVal/c:numRef/c:numCache/c:pt[3]/c:v", "20");
+    assertXPathContent(pXmlDoc, "//c:scatterChart/c:ser/c:xVal/c:numRef/c:numCache/c:pt[4]/c:v", "16");
 }
 
 void Chart2ExportTest::testChartDataTable()
@@ -1546,7 +1574,9 @@ void Chart2ExportTest::testBubble3DXLSX()
     load("/chart2/qa/extras/data/xlsx/", "bubble_chart_simple.xlsx");
     xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
     CPPUNIT_ASSERT(pXmlDoc);
-    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:bubbleChart/c:bubble3D", "val", "0");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:bubbleChart/c:ser[1]/c:bubble3D", "val", "0");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:bubbleChart/c:ser[2]/c:bubble3D", "val", "0");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:bubbleChart/c:ser[3]/c:bubble3D", "val", "0");
 }
 
 void Chart2ExportTest::testNoMarkerXLSX()
@@ -1639,6 +1669,35 @@ void Chart2ExportTest::testLegendManualLayoutXLSX()
 
     // Make sure that default text font size is preserved after export
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:legend/c:txPr/a:p/a:pPr/a:defRPr", "sz", "900");
+}
+
+void Chart2ExportTest::testChartSubTitle()
+{
+    load("/chart2/qa/extras/data/ods/", "testChartSubTitle.ods");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // test properties of subtitle
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:pPr/a:defRPr", "sz", "1100");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:pPr/a:defRPr", "b", "1");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:pPr/a:defRPr/a:solidFill/a:srgbClr", "val", "00a933");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:r/a:rPr/a:latin", "typeface", "Times New Roman");
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:r/a:t", "It is a Subtitle");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:solidFill/a:srgbClr", "val", "b2b2b2");
+}
+
+void Chart2ExportTest::testChartMainWithSubTitle()
+{
+    load("/chart2/qa/extras/data/ods/", "testChartMainWithSubTitle.ods");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // test properties of title
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:pPr/a:defRPr", "sz", "1300");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:pPr/a:defRPr", "b", "0");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:pPr/a:defRPr", "i", "1");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:pPr/a:defRPr/a:solidFill/a:srgbClr", "val", "f10d0c");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:r/a:rPr/a:latin", "typeface", "Arial");
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:tx/c:rich/a:p/a:r/a:t", "It is a Maintitle\nIt is a Subtitle");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:solidFill/a:srgbClr", "val", "81d41a");
 }
 
 void Chart2ExportTest::testChartTitlePropertiesColorFillXLSX()
@@ -1844,6 +1903,24 @@ void Chart2ExportTest::testCombinedChartSecondaryAxisODS()
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:valAx[2]/c:axId", "val", YValueIdOfBarchart);
     // do not need CT_crosses tag if the actual axis is deleted, so we need to make sure it is not saved
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx[2]/c:crosses", 0);
+}
+
+void Chart2ExportTest::testCrossBetweenXLSX()
+{
+    // Original file was created with MS Office
+    load("/chart2/qa/extras/data/xlsx/", "tdf127777.xlsx");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:valAx/c:crossBetween", "val", "between");
+}
+
+void Chart2ExportTest::testCrossBetweenODS()
+{
+    // Original file was created with LibreOffice
+    load("/chart2/qa/extras/data/ods/", "test_CrossBetween.ods");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:valAx/c:crossBetween", "val", "between");
 }
 
 void Chart2ExportTest::testAxisTitleRotationXLSX()
@@ -2090,6 +2167,40 @@ void Chart2ExportTest::testxAxisLabelsRotation()
 
     // Chart1 xAxis labels should be 45 degree
     assertXPath(pXmlDoc1, "/c:chartSpace/c:chart/c:plotArea/c:catAx/c:txPr/a:bodyPr", "rot", "2700000");
+}
+
+void Chart2ExportTest::testMultipleCategoryAxisLablesXLSX()
+{
+    load("/chart2/qa/extras/data/ods/", "multilevelcat.ods");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // check category axis labels number of first level
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:ptCount", "val", "6");
+    // check category axis labels text of first level
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:lvl[1]/c:pt[1]/c:v", "Categoria 1");
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:lvl[1]/c:pt[6]/c:v", "Categoria 6");
+    // check category axis labels text of second level
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:lvl[2]/c:pt[1]/c:v", "2011");
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:lvl[2]/c:pt[3]/c:v", "2013");
+    // check the 'noMultiLvlLbl' tag - ChartExport.cxx:2950 FIXME: seems not support, so check the default noMultiLvlLbl value.
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx/c:noMultiLvlLbl", "val", "0");
+}
+
+void Chart2ExportTest::testMultipleCategoryAxisLablesDOCX()
+{
+    load("/chart2/qa/extras/data/odt/", "multilevelcat.odt");
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart", "Office Open XML Text");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // check category axis labels number of first level
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:ptCount", "val", "4");
+    // check category axis labels text of first level
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:lvl[1]/c:pt[1]/c:v", "Categoria 1");
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:lvl[1]/c:pt[4]/c:v", "Categoria 4");
+    // check category axis labels text of second level
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:lvl[2]/c:pt[1]/c:v", "2011");
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:cat/c:multiLvlStrRef/c:multiLvlStrCache/c:lvl[2]/c:pt[2]/c:v", "2012");
+    // check the 'noMultiLvlLbl' tag - ChartExport.cxx:2950 FIXME: seems not support, so check the default noMultiLvlLbl value.
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx/c:noMultiLvlLbl", "val", "0");
 }
 
 void Chart2ExportTest::testTdf116163()

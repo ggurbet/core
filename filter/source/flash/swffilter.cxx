@@ -61,13 +61,13 @@ namespace swf {
 
 class OslOutputStreamWrapper : public ::cppu::WeakImplHelper<css::io::XOutputStream>
 {
-    osl::File   mrFile;
+    osl::File maFile;
 
 public:
-    explicit OslOutputStreamWrapper(const OUString& rFileName) : mrFile(rFileName)
+    explicit OslOutputStreamWrapper(const OUString& rFileName) : maFile(rFileName)
     {
         osl_removeFile(rFileName.pData);
-        mrFile.open( osl_File_OpenFlag_Create|osl_File_OpenFlag_Write );
+        (void)maFile.open(osl_File_OpenFlag_Create|osl_File_OpenFlag_Write);
     }
 
     // css::io::XOutputStream
@@ -85,7 +85,7 @@ void SAL_CALL OslOutputStreamWrapper::writeBytes( const css::uno::Sequence< sal_
 
     while( uBytesToWrite )
     {
-        osl::File::RC eRC = mrFile.write( pBuffer, uBytesToWrite, uBytesWritten);
+        osl::File::RC eRC = maFile.write( pBuffer, uBytesToWrite, uBytesWritten);
 
         switch( eRC )
         {
@@ -116,7 +116,7 @@ void SAL_CALL OslOutputStreamWrapper::flush(  )
 
 void SAL_CALL OslOutputStreamWrapper::closeOutput(  )
 {
-    osl::File::RC eRC = mrFile.close();
+    osl::File::RC eRC = maFile.close();
 
     switch( eRC )
     {
@@ -198,7 +198,7 @@ static OUString exportBackground(FlashExporter &aFlashExporter, const Reference<
     {
         osl_removeFile(fullpath.pData);
         if ( 0xffff == nCached )
-            return OUString("NULL");
+            return "NULL";
         else
             return "slide" + OUString::number(nCached+1) + OUString::createFromAscii(suffix) + ".swf";
     }
@@ -308,7 +308,7 @@ void FlashExportFilter::ExportAsMultipleFiles(const Sequence< PropertyValue >& a
     if(!xDrawPagesSupplier.is())
         return;
 
-    Reference< XIndexAccess > xDrawPages( xDrawPagesSupplier->getDrawPages(), UNO_QUERY );
+    Reference< XIndexAccess > xDrawPages = xDrawPagesSupplier->getDrawPages();
     if(!xDrawPages.is())
         return;
 
@@ -479,7 +479,7 @@ void SAL_CALL FlashExportFilter::initialize( const css::uno::Sequence< css::uno:
 
 OUString FlashExportFilter_getImplementationName ()
 {
-    return OUString ( "com.sun.star.comp.Impress.FlashExportFilter" );
+    return "com.sun.star.comp.Impress.FlashExportFilter";
 }
 
 Sequence< OUString > FlashExportFilter_getSupportedServiceNames(  )

@@ -35,7 +35,7 @@ namespace com { namespace sun { namespace star {
     namespace uno { class XComponentContext; } }
 } }
 
-// use this class when you have an a object like
+// use this class when you have an object like
 // interface  XAnInterface which contains XHelperInterface in its inheritance hierarchy
 // interface XAnInterface
 // {
@@ -131,7 +131,7 @@ public:
 #define VBAHELPER_IMPL_XHELPERINTERFACE( classname, servicename ) \
 OUString classname::getServiceImplName() \
 { \
-    return OUString( #classname ); \
+    return #classname; \
 } \
 css::uno::Sequence< OUString > classname::getServiceNames() \
 { \

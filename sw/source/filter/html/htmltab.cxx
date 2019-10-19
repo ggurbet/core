@@ -34,6 +34,7 @@
 #include <svtools/htmltokn.h>
 #include <svtools/htmlkywd.hxx>
 #include <svl/urihelper.hxx>
+#include <svl/listener.hxx>
 #include <sal/log.hxx>
 
 #include <dcontact.hxx>
@@ -3371,7 +3372,7 @@ void SwHTMLParser::BuildTableCell( HTMLTable *pCurTable, bool bReadOptions,
             if( !bForceFrame && (bTopTable || pCurTable->HasParentSection()) )
             {
                 SplitAttrTab(pTCntxt->xAttrTab, bTopTable);
-                // If we reuse a already existing paragraph, we can't add
+                // If we reuse an already existing paragraph, we can't add
                 // PostIts since the paragraph gets behind that table.
                 // They're gonna be moved into the first paragraph of the table
                 // If we have tables in tables, we also can't add PostIts to a
@@ -4860,22 +4861,24 @@ HTMLTableOptions::HTMLTableOptions( const HTMLOptions& rOptions,
 
 namespace
 {
-    class FrameDeleteWatch : public SwClient
+    class FrameDeleteWatch final: public SvtListener
     {
+        SwFrameFormat* m_pFormat;
     public:
-        FrameDeleteWatch(SwFrameFormat* pObjectFormat)
+        FrameDeleteWatch(SwFrameFormat* pFormat)
+            : m_pFormat(pFormat)
         {
-            if (pObjectFormat)
-                pObjectFormat->Add(this);
+            if(m_pFormat)
+                StartListening(pFormat->GetNotifier());
         }
 
-        virtual void SwClientNotify(const SwModify& rModify, const SfxHint& rHint) override
+        virtual void Notify(const SfxHint& rHint) override
         {
-            SwClient::SwClientNotify(rModify, rHint);
             if (auto pDrawFrameFormatHint = dynamic_cast<const sw::DrawFrameFormatHint*>(&rHint))
             {
                 if (pDrawFrameFormatHint->m_eId == sw::DrawFrameFormatHintId::DYING)
                 {
+                    m_pFormat = nullptr;
                     EndListeningAll();
                 }
             }
@@ -4883,11 +4886,12 @@ namespace
 
         bool WasDeleted() const
         {
-            return !GetRegisteredIn();
+            return !m_pFormat;
         }
 
         virtual ~FrameDeleteWatch() override
         {
+            m_pFormat = nullptr;
             EndListeningAll();
         }
     };
@@ -4977,7 +4981,7 @@ void SwHTMLParser::DeleteSection(SwStartNode* pSttNd)
         if (aWatch.WasDeleted())
             m_pMarquee = nullptr;
         else
-            pObjectFormat->Remove(&aWatch);
+            aWatch.EndListeningAll();
     }
 }
 

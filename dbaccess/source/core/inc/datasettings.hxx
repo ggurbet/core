@@ -42,6 +42,7 @@ public:
     OUString                       m_sGroupBy;
     OUString                       m_sOrder;
     bool                           m_bApplyFilter;     // no BitField ! the base class needs a pointer to this member !
+    bool                           m_bAutoGrow;
     css::awt::FontDescriptor       m_aFont;
     css::uno::Any                  m_aRowHeight;
     css::uno::Any                  m_aTextColor;

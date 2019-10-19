@@ -12,7 +12,6 @@
 
 #include "scdllapi.h"
 #include "address.hxx"
-#include <vcl/image.hxx>
 
 #include <vector>
 #include <memory>
@@ -49,7 +48,7 @@ struct ScOrcusXMLTreeParam
 
     /**
      * Store all custom data instances since the tree control doesn't manage
-     * the life cycle of user datas.
+     * the life cycle of user data.
      */
     UserDataStoreType m_UserDataStore;
 
@@ -70,6 +69,7 @@ struct ScOrcusImportXMLParam
     {
         ScAddress maPos;
         std::vector<OString> maFieldPaths;
+        std::vector<OString> maRowGroups;
     };
 
     typedef std::vector<CellLink> CellLinksType;

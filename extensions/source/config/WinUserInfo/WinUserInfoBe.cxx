@@ -18,7 +18,7 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <map>
 #include <o3tl/char16_t2wchar_t.hxx>
-#include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <Iads.h>
 #include <Adshlp.h>
@@ -217,29 +217,21 @@ private:
     {
         try
         {
-            const OUString sNul('\0');
-            OUStringBuffer sCachedData(200);
-            sCachedData.append("user=").append(m_sUserDN);
-            sCachedData.append(sNul).append(givenname).append("=").append(GetGivenName());
-            sCachedData.append(sNul).append(sn).append("=").append(GetSn());
-            sCachedData.append(sNul).append(initials).append("=").append(GetInitials());
-            sCachedData.append(sNul).append(street).append("=").append(GetStreet());
-            sCachedData.append(sNul).append(l).append("=").append(GetCity());
-            sCachedData.append(sNul).append(st).append("=").append(GetState());
-            sCachedData.append(sNul).append(postalcode).append("=").append(GetPostalCode());
-            sCachedData.append(sNul).append(c).append("=").append(GetCountry());
-            sCachedData.append(sNul).append(o).append("=").append(GetOrganization());
-            sCachedData.append(sNul).append(title).append("=").append(GetTitle());
-            sCachedData.append(sNul).append(homephone).append("=").append(GetHomePhone());
-            sCachedData.append(sNul)
-                .append(telephonenumber)
-                .append("=")
-                .append(GetTelephoneNumber());
-            sCachedData.append(sNul)
-                .append(facsimiletelephonenumber)
-                .append("=")
-                .append(GetFaxNumber());
-            sCachedData.append(sNul).append(mail).append("=").append(GetMail());
+            OUString sCachedData = "user=" + m_sUserDN // user DN
+                                   + "\0" + givenname + "=" + GetGivenName() // 1st name
+                                   + "\0" + sn + "=" + GetSn() // sn
+                                   + "\0" + initials + "=" + GetInitials() // initials
+                                   + "\0" + street + "=" + GetStreet() // street
+                                   + "\0" + l + "=" + GetCity() // l
+                                   + "\0" + st + "=" + GetState() // st
+                                   + "\0" + postalcode + "=" + GetPostalCode() // p.code
+                                   + "\0" + c + "=" + GetCountry() // c
+                                   + "\0" + o + "=" + GetOrganization() // o
+                                   + "\0" + title + "=" + GetTitle() // title
+                                   + "\0" + homephone + "=" + GetHomePhone() // h.phone
+                                   + "\0" + telephonenumber + "=" + GetTelephoneNumber() // tel
+                                   + "\0" + facsimiletelephonenumber + "=" + GetFaxNumber() // fax
+                                   + "\0" + mail + "=" + GetMail(); // mail
             const css::uno::Sequence<sal_Int8> seqCachedData(
                 reinterpret_cast<const sal_Int8*>(sCachedData.getStr()),
                 sCachedData.getLength() * sizeof(sal_Unicode));
@@ -257,10 +249,10 @@ private:
                                                                         css::uno::UNO_QUERY_THROW);
             xChangesBatch->commitChanges();
         }
-        catch (const css::uno::Exception& e)
+        catch (const css::uno::Exception&)
         {
-            SAL_WARN("extensions.config",
-                     "ADsUserAccess: access to configuration data failed: " << e);
+            TOOLS_WARN_EXCEPTION("extensions.config",
+                                 "ADsUserAccess: access to configuration data failed:");
         }
     }
 
@@ -458,7 +450,7 @@ css::uno::Any WinUserInfoBe::getPropertyValue(OUString const& PropertyName)
 
 OUString WinUserInfoBe::getWinUserInfoBeName()
 {
-    return OUString("com.sun.star.comp.configuration.backend.WinUserInfoBe");
+    return "com.sun.star.comp.configuration.backend.WinUserInfoBe";
 }
 
 OUString SAL_CALL WinUserInfoBe::getImplementationName() { return getWinUserInfoBeName(); }

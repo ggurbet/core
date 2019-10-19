@@ -87,7 +87,7 @@ namespace{
 
 /// Checks to see if the request has a parameter of IsSticky:bool=true
 /// It means that the selected command/button will stay selected after use
-bool isSticky(SfxRequest& rReq)
+bool isSticky(const SfxRequest& rReq)
 {
     const SfxItemSet *pArgs = rReq.GetArgs ();
     if (pArgs)
@@ -141,7 +141,7 @@ void FuConstructRectangle::DoExecute( SfxRequest& rReq )
                                            pCenterY->GetValue () + pAxisY->GetValue () / 2);
                 SdrCircObj  *pNewCircle = new SdrCircObj(
                     mpView->getSdrModelFromSdrView(),
-                    OBJ_CIRC,
+                    SdrCircKind::Full,
                     aNewRectangle);
                 SdrPageView *pPV = mpView->GetSdrPageView();
 

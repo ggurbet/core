@@ -20,7 +20,6 @@
 #include <controller/SlsFocusManager.hxx>
 
 #include <SlideSorter.hxx>
-#include <PaneDockingWindow.hxx>
 #include <controller/SlideSorterController.hxx>
 #include <controller/SlsCurrentSlideManager.hxx>
 #include <controller/SlsVisibleAreaManager.hxx>
@@ -28,7 +27,6 @@
 #include <model/SlsPageDescriptor.hxx>
 #include <view/SlideSorterView.hxx>
 #include <view/SlsLayouter.hxx>
-#include <vcl/toolbox.hxx>
 
 #include <Window.hxx>
 #include <sdpage.hxx>
@@ -220,7 +218,7 @@ void FocusManager::NotifyFocusChangeListeners() const
     ::std::vector<Link<LinkParamNone*,void>> aListeners (maFocusChangeListeners);
 
     // Tell the selection change listeners that the selection has changed.
-    for (auto& rListener : aListeners)
+    for (const auto& rListener : aListeners)
     {
         rListener.Call(nullptr);
     }

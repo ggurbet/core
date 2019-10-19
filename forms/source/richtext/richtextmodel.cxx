@@ -228,20 +228,20 @@ namespace frm
 
     OUString SAL_CALL ORichTextModel::getImplementationName()
     {
-        return OUString( "com.sun.star.comp.forms.ORichTextModel" );
+        return "com.sun.star.comp.forms.ORichTextModel";
     }
 
     Sequence< OUString > SAL_CALL ORichTextModel::getSupportedServiceNames()
     {
-        Sequence< OUString > aOwnNames( 8 );
-        aOwnNames[ 0 ] = FRM_SUN_COMPONENT_RICHTEXTCONTROL;
-        aOwnNames[ 1 ] = "com.sun.star.text.TextRange";
-        aOwnNames[ 2 ] = "com.sun.star.style.CharacterProperties";
-        aOwnNames[ 3 ] = "com.sun.star.style.ParagraphProperties";
-        aOwnNames[ 4 ] = "com.sun.star.style.CharacterPropertiesAsian";
-        aOwnNames[ 5 ] = "com.sun.star.style.CharacterPropertiesComplex";
-        aOwnNames[ 6 ] = "com.sun.star.style.ParagraphPropertiesAsian";
-        aOwnNames[ 7 ] = "com.sun.star.style.ParagraphPropertiesComplex";
+        Sequence< OUString > aOwnNames {
+            FRM_SUN_COMPONENT_RICHTEXTCONTROL,
+            "com.sun.star.text.TextRange",
+            "com.sun.star.style.CharacterProperties",
+            "com.sun.star.style.ParagraphProperties",
+            "com.sun.star.style.CharacterPropertiesAsian",
+            "com.sun.star.style.CharacterPropertiesComplex",
+            "com.sun.star.style.ParagraphPropertiesAsian",
+            "com.sun.star.style.ParagraphPropertiesComplex" };
 
         return ::comphelper::combineSequences(
             getAggregateServiceNames(),
@@ -497,7 +497,7 @@ namespace frm
 
     OUString SAL_CALL ORichTextModel::getServiceName()
     {
-        return OUString(FRM_SUN_COMPONENT_RICHTEXTCONTROL);
+        return FRM_SUN_COMPONENT_RICHTEXTCONTROL;
     }
 
 

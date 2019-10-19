@@ -2323,16 +2323,14 @@ void ScInterpreter::ScCell()
             else if( aInfoType == "COORD" )
             {   // address, lotus 1-2-3 formatted: $TABLE:$COL$ROW
                 // Yes, passing tab as col is intentional!
-                OUStringBuffer aFuncResult;
-                OUString aCellStr =
-                ScAddress( static_cast<SCCOL>(aCellPos.Tab()), 0, 0 ).Format(
-                    (ScRefFlags::COL_ABS|ScRefFlags::COL_VALID), nullptr, pDok->GetAddressConvention() );
-                aFuncResult.append(aCellStr);
-                aFuncResult.append(':');
-                aCellStr = aCellPos.Format((ScRefFlags::COL_ABS|ScRefFlags::COL_VALID|ScRefFlags::ROW_ABS|ScRefFlags::ROW_VALID),
+                OUString aCellStr1 =
+                    ScAddress( static_cast<SCCOL>(aCellPos.Tab()), 0, 0 ).Format(
+                        (ScRefFlags::COL_ABS|ScRefFlags::COL_VALID), nullptr, pDok->GetAddressConvention() );
+                OUString aCellStr2 =
+                    aCellPos.Format((ScRefFlags::COL_ABS|ScRefFlags::COL_VALID|ScRefFlags::ROW_ABS|ScRefFlags::ROW_VALID),
                                  nullptr, pDok->GetAddressConvention());
-                aFuncResult.append(aCellStr);
-                PushString( aFuncResult.makeStringAndClear() );
+                OUString aFuncResult = aCellStr1 + ":" + aCellStr2;
+                PushString( aFuncResult );
             }
 
 // *** CELL PROPERTIES ***
@@ -2493,12 +2491,8 @@ void ScInterpreter::ScCellExternal()
             return;
         }
 
-        OUStringBuffer aBuf;
-        aBuf.append('\'');
-        aBuf.append(*p);
-        aBuf.append("'#$");
-        aBuf.append(aTabName);
-        PushString(aBuf.makeStringAndClear());
+        OUString aBuf = "'" + *p + "'#$" + aTabName;
+        PushString(aBuf);
     }
     else if ( aInfoType == "CONTENTS" )
     {
@@ -2592,7 +2586,7 @@ void ScInterpreter::ScIsRef()
         {
             FormulaConstTokenRef x = PopToken();
             if ( nGlobalError == FormulaError::NONE )
-                bRes = !x.get()->GetRefList()->empty();
+                bRes = !x->GetRefList()->empty();
         }
         break;
         case svExternalSingleRef:
@@ -3750,7 +3744,7 @@ void ScInterpreter::ScMin( bool bTextAsZero )
             /* TODO: the awkward "no value is minimum 0.0" is likely the case
              * if a value is numeric_limits::max. Still, that could be a valid
              * minimum value as well, but nVal and nMin had been reset after
-             * the last svRefList.. so we may lie here. */
+             * the last svRefList... so we may lie here. */
             for (SCSIZE i=0; i < nMatRows; ++i)
             {
                 double fVecRes = xResMat->GetDouble(0,i);
@@ -3908,7 +3902,7 @@ void ScInterpreter::ScMax( bool bTextAsZero )
             /* TODO: the awkward "no value is maximum 0.0" is likely the case
              * if a value is numeric_limits::lowest. Still, that could be a
              * valid maximum value as well, but nVal and nMax had been reset
-             * after the last svRefList.. so we may lie here. */
+             * after the last svRefList... so we may lie here. */
             for (SCSIZE i=0; i < nMatRows; ++i)
             {
                 double fVecRes = xResMat->GetDouble(0,i);
@@ -6345,7 +6339,7 @@ void ScInterpreter::IterateParametersIfs( double(*ResultFunc)( const sc::ParamIf
 
             // end-result calculation
 
-            // This gets weird.. if conditions were calculated using a
+            // This gets weird... if conditions were calculated using a
             // reference list array but the main calculation range is not a
             // reference list array, then the conditions of the array are
             // applied to the main range each in turn to form the array result.
@@ -8159,7 +8153,7 @@ void ScInterpreter::ScIndirect()
             // It may be even a TableRef.
             // Anything else that resolves to one reference could be added
             // here, but we don't want to compile every arbitrary string. This
-            // is already nasty enough..
+            // is already nasty enough...
             sal_Int32 nIndex = 0;
             if ((nIndex = sRefStr.indexOf('[')) >= 0 && sRefStr.indexOf(']',nIndex+1) > nIndex)
             {
@@ -8167,10 +8161,10 @@ void ScInterpreter::ScIndirect()
                 {
                     ScCompiler aComp( pDok, aPos, pDok->GetGrammar());
                     aComp.SetRefConvention( eConv);     // must be after grammar
-                    std::unique_ptr<ScTokenArray> pArr( aComp.CompileString( sRefStr));
+                    std::unique_ptr<ScTokenArray> pTokArr( aComp.CompileString( sRefStr));
 
-                    // Whatever.. use only the specific case.
-                    if (!pArr->HasOpCode( ocTableRef))
+                    // Whatever... use only the specific case.
+                    if (!pTokArr->HasOpCode( ocTableRef))
                         break;
 
                     aComp.CompileTokenArray();
@@ -8178,10 +8172,10 @@ void ScInterpreter::ScIndirect()
                     // A syntactically valid reference will generate exactly
                     // one RPN token, a reference or error. Discard everything
                     // else as error.
-                    if (pArr->GetCodeLen() != 1)
+                    if (pTokArr->GetCodeLen() != 1)
                         break;
 
-                    ScTokenRef xTok( pArr->FirstRPNToken());
+                    ScTokenRef xTok( pTokArr->FirstRPNToken());
                     if (!xTok)
                         break;
 
@@ -8609,7 +8603,7 @@ void ScInterpreter::ScIndex()
                             return;
                         }
                         ScRange aRange( ScAddress::UNINITIALIZED);
-                        DoubleRefToRange( (*(xRef.get()->GetRefList()))[nArea-1], aRange);
+                        DoubleRefToRange( (*(xRef->GetRefList()))[nArea-1], aRange);
                         aRange.GetVars( nCol1, nRow1, nTab1, nCol2, nRow2, nTab2);
                         if ( nParamCount == 2 && nRow1 == nRow2 )
                             bRowArray = true;
@@ -8702,8 +8696,8 @@ void ScInterpreter::ScAreas()
             case svRefList:
                 {
                     FormulaConstTokenRef xT = PopToken();
-                    ValidateRef( *(xT.get()->GetRefList()));
-                    nCount += xT.get()->GetRefList()->size();
+                    ValidateRef( *(xT->GetRefList()));
+                    nCount += xT->GetRefList()->size();
                 }
                 break;
             default:
@@ -9150,7 +9144,7 @@ void ScInterpreter::ScFindB()
         else
         {
             // create a string from sStr starting at nStart
-            OUStringBuffer aBuf( lcl_RightB( aStr, nLen - nStart + 1 ) );
+            OUString aBuf = lcl_RightB( aStr, nLen - nStart + 1 );
             // search aBuf for asStr
             sal_Int32 nPos = aBuf.indexOf( asStr, 0 );
             if ( nPos == -1 )
@@ -9158,7 +9152,7 @@ void ScInterpreter::ScFindB()
             else
             {
                 // obtain byte value of nPos
-                int nBytePos = lcl_getLengthB( aBuf.makeStringAndClear(), nPos );
+                int nBytePos = lcl_getLengthB( aBuf, nPos );
                 PushDouble( nBytePos + nStart );
             }
         }
@@ -9695,7 +9689,7 @@ FormulaError ScInterpreter::GetErrorType()
                 nErr = nGlobalError;
             else
             {
-                const ScRefList* pRefList = x.get()->GetRefList();
+                const ScRefList* pRefList = x->GetRefList();
                 size_t n = pRefList->size();
                 if (!n)
                     nErr = FormulaError::NoRef;
@@ -9848,7 +9842,7 @@ bool ScInterpreter::MayBeWildcard( const OUString& rStr )
 {
     // Wildcards with '~' escape, if there are no wildcards then an escaped
     // character does not make sense, but it modifies the search pattern in an
-    // Excel compatible wildcard search..
+    // Excel compatible wildcard search...
     static const sal_Unicode cw[] = { '*','?','~', 0 };
     const sal_Unicode* p1 = rStr.getStr();
     sal_Unicode c1;

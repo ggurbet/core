@@ -175,7 +175,7 @@ OUString T602ImportFilter::detect( Sequence<PropertyValue>& Descriptor)
         (aData[1] != 'C') || (aData[2] != 'T') || (aData[3] != ' '))
         return OUString();
 
-    return OUString(  "writer_T602_Document"  );
+    return "writer_T602_Document";
 }
 
 // XFilter
@@ -247,10 +247,10 @@ bool T602ImportFilter::importImpl( const Sequence< css::beans::PropertyValue >& 
         return false;
     }
 
-    // An XML import service: what we push sax messages to..
+    // An XML import service: what we push sax messages to...
     mxHandler.set( mxMSF->createInstance( "com.sun.star.comp.Writer.XMLImporter" ), UNO_QUERY );
 
-    // The XImporter sets up an empty target document for XDocumentHandler to write to..
+    // The XImporter sets up an empty target document for XDocumentHandler to write to...
     Reference < XImporter > xImporter(mxHandler, UNO_QUERY);
     xImporter->setTargetDocument(mxDoc);
 
@@ -865,16 +865,12 @@ Sequence< OUString > SAL_CALL T602ImportFilter::getSupportedServiceNames(  )
 
 OUString T602ImportFilter_getImplementationName ()
 {
-    return OUString ( "com.sun.star.comp.Writer.T602ImportFilter" );
+    return "com.sun.star.comp.Writer.T602ImportFilter";
 }
 
 Sequence< OUString > T602ImportFilter_getSupportedServiceNames(  )
 {
-    Sequence < OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] =  "com.sun.star.document.ImportFilter";
-    pArray[1] =  "com.sun.star.document.ExtendedTypeDetection";
-    return aRet;
+    return { "com.sun.star.document.ImportFilter", "com.sun.star.document.ExtendedTypeDetection" };
 }
 
 Reference< XInterface > T602ImportFilter_createInstance( const Reference< XMultiServiceFactory > & rSMgr)
@@ -1135,13 +1131,12 @@ Sequence< OUString > SAL_CALL T602ImportFilterDialog::getSupportedServiceNames( 
 
 OUString T602ImportFilterDialog_getImplementationName ()
 {
-    return OUString ( "com.sun.star.comp.Writer.T602ImportFilterDialog" );
+    return "com.sun.star.comp.Writer.T602ImportFilterDialog";
 }
 
 Sequence< OUString > T602ImportFilterDialog_getSupportedServiceNames(  )
 {
-    Sequence<OUString> aRet { "com.sun.star.ui.dialogs.FilterOptionsDialog" };
-    return aRet;
+    return { "com.sun.star.ui.dialogs.FilterOptionsDialog" };
 }
 
 Reference< XInterface > T602ImportFilterDialog_createInstance( const Reference< XMultiServiceFactory > & )

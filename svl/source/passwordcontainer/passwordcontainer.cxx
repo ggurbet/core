@@ -112,10 +112,10 @@ static std::vector< OUString > getInfoFromInd( const OUString& aInd )
                         return aResult;
                     }
 
-                    aNum += OUStringLiteral1( pLine[i] );
+                    aNum += OUStringChar( pLine[i] );
                 }
 
-                newItem.append( OUStringLiteral1( aNum.toUInt32( 16 ) ) );
+                newItem.append( sal_Unicode( aNum.toUInt32( 16 ) ) );
                 pLine += 3;
             }
 
@@ -183,22 +183,20 @@ PassMap StorageItem::getInfo()
     Sequence< OUString > aNodeNames     = ConfigItem::GetNodeNames( "Store" );
     sal_Int32 aNodeCount = aNodeNames.getLength();
     Sequence< OUString > aPropNames( aNodeCount );
-    sal_Int32 aNodeInd;
 
-    for( aNodeInd = 0; aNodeInd < aNodeCount; ++aNodeInd )
-    {
-        aPropNames[aNodeInd]  = "Store/Passwordstorage['" + aNodeNames[aNodeInd] + "']/Password";
-    }
+    std::transform(aNodeNames.begin(), aNodeNames.end(), aPropNames.begin(),
+        [](const OUString& rName) -> OUString {
+            return "Store/Passwordstorage['" + rName + "']/Password"; });
 
     Sequence< Any > aPropertyValues = ConfigItem::GetProperties( aPropNames );
 
-    if( aPropertyValues.getLength() != aNodeNames.getLength() )
+    if( aPropertyValues.getLength() != aNodeCount )
     {
-        OSL_ENSURE( aPropertyValues.getLength() == aNodeNames.getLength(), "Problems during reading" );
+        OSL_FAIL( "Problems during reading" );
         return aResult;
     }
 
-    for( aNodeInd = 0; aNodeInd < aNodeCount; ++aNodeInd )
+    for( sal_Int32 aNodeInd = 0; aNodeInd < aNodeCount; ++aNodeInd )
     {
         std::vector< OUString > aUrlUsr = getInfoFromInd( aNodeNames[aNodeInd] );
 
@@ -251,7 +249,7 @@ bool StorageItem::useStorage()
 
     if( aPropertyValues.getLength() != aNodeNames.getLength() )
     {
-        OSL_ENSURE( aPropertyValues.getLength() == aNodeNames.getLength(), "Problems during reading" );
+        OSL_FAIL( "Problems during reading" );
         return false;
     }
 
@@ -278,7 +276,7 @@ bool StorageItem::getEncodedMP( OUString& aResult )
 
     if( aPropertyValues.getLength() != aNodeNames.getLength() )
     {
-        OSL_ENSURE( aPropertyValues.getLength() == aNodeNames.getLength(), "Problems during reading" );
+        OSL_FAIL( "Problems during reading" );
         return false;
     }
 
@@ -1093,7 +1091,7 @@ sal_Bool SAL_CALL PasswordContainer::changeMasterPassword( const uno::Reference<
             if ( !aPass.isEmpty() )
             {
                 // get all the persistent entries if it is possible
-                Sequence< UrlRecord > aPersistent = getAllPersistent( uno::Reference< task::XInteractionHandler >() );
+                const Sequence< UrlRecord > aPersistent = getAllPersistent( uno::Reference< task::XInteractionHandler >() );
 
                 // remove the master password and the entries persistence
                 removeMasterPassword();
@@ -1104,11 +1102,9 @@ sal_Bool SAL_CALL PasswordContainer::changeMasterPassword( const uno::Reference<
                 m_pStorageFile->setEncodedMP( EncodePasswords( aMaster, m_aMasterPasswd ) );
 
                 // store all the entries with the new password
-                for ( int nURLInd = 0; nURLInd < aPersistent.getLength(); nURLInd++ )
-                    for ( int nNameInd = 0; nNameInd< aPersistent[nURLInd].UserList.getLength(); nNameInd++ )
-                        addPersistent( aPersistent[nURLInd].Url,
-                                       aPersistent[nURLInd].UserList[nNameInd].UserName,
-                                       aPersistent[nURLInd].UserList[nNameInd].Passwords,
+                for ( const auto& rURL : aPersistent )
+                    for ( const auto& rUser : rURL.UserList )
+                        addPersistent( rURL.Url, rUser.UserName, rUser.Passwords,
                                        uno::Reference< task::XInteractionHandler >() );
 
                 bResult = true;
@@ -1198,7 +1194,7 @@ sal_Bool SAL_CALL PasswordContainer::useDefaultMasterPassword( const uno::Refere
             if ( !aPass.isEmpty() )
             {
                 // get all the persistent entries if it is possible
-                Sequence< UrlRecord > aPersistent = getAllPersistent( uno::Reference< task::XInteractionHandler >() );
+                const Sequence< UrlRecord > aPersistent = getAllPersistent( uno::Reference< task::XInteractionHandler >() );
 
                 // remove the master password and the entries persistence
                 removeMasterPassword();
@@ -1208,11 +1204,9 @@ sal_Bool SAL_CALL PasswordContainer::useDefaultMasterPassword( const uno::Refere
                 m_pStorageFile->setEncodedMP( OUString(), true );
 
                 // store all the entries with the new password
-                for ( int nURLInd = 0; nURLInd < aPersistent.getLength(); nURLInd++ )
-                    for ( int nNameInd = 0; nNameInd< aPersistent[nURLInd].UserList.getLength(); nNameInd++ )
-                        addPersistent( aPersistent[nURLInd].Url,
-                                       aPersistent[nURLInd].UserList[nNameInd].UserName,
-                                       aPersistent[nURLInd].UserList[nNameInd].Passwords,
+                for ( const auto& rURL : aPersistent )
+                    for ( const auto& rUser : rURL.UserList )
+                        addPersistent( rURL.Url, rUser.UserName, rUser.Passwords,
                                        uno::Reference< task::XInteractionHandler >() );
 
                 bResult = true;
@@ -1321,7 +1315,7 @@ Sequence< OUString > PasswordContainer::impl_getStaticSupportedServiceNames(  )
 
 OUString PasswordContainer::impl_getStaticImplementationName()
 {
-    return OUString("stardiv.svl.PasswordContainer");
+    return "stardiv.svl.PasswordContainer";
 }
 
 Reference< XInterface > SAL_CALL PasswordContainer::impl_createInstance( const Reference< XMultiServiceFactory >& xServiceManager )

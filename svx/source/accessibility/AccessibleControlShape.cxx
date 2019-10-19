@@ -67,22 +67,22 @@ namespace
 {
     OUString lcl_getNamePropertyName( )
     {
-        return OUString( "Name" );
+        return "Name";
     }
     OUString lcl_getDescPropertyName( )
     {
-        return OUString( "HelpText" );
+        return "HelpText";
     }
     OUString lcl_getLabelPropertyName( )
     {
-        return OUString( "Label" );
+        return "Label";
     }
     OUString lcl_getLabelControlPropertyName( )
     {
-        return OUString("LabelControl");
+        return "LabelControl";
     }
     // return the property which should be used as AccessibleName
-    const OUString lcl_getPreferredAccNameProperty( const Reference< XPropertySetInfo >& _rxPSI )
+    OUString lcl_getPreferredAccNameProperty( const Reference< XPropertySetInfo >& _rxPSI )
     {
         if ( _rxPSI.is() && _rxPSI->hasPropertyByName( lcl_getLabelPropertyName() ) )
             return lcl_getLabelPropertyName();
@@ -186,7 +186,7 @@ void AccessibleControlShape::Init()
         // for any component, which supports _exactly_ the same interfaces as the component. In addition, it can
         // be aggregated, as by definition the proxy's ref count is exactly 1 when returned from the factory.
         // Sounds better. Though this yields the problem of slightly degraded performance, it's the only solution
-        // I'm aware of at the moment .....
+        // I'm aware of at the moment...
 
         // get the control which belongs to our model (relative to our view)
         const OutputDevice* pViewWindow = maShapeTreeInfo.GetDevice();
@@ -298,7 +298,7 @@ void SAL_CALL AccessibleControlShape::grabFocus()
 
 OUString SAL_CALL AccessibleControlShape::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.accessibility.AccessibleControlShape" );
+    return "com.sun.star.comp.accessibility.AccessibleControlShape";
 }
 
 OUString AccessibleControlShape::CreateAccessibleBaseName()
@@ -313,9 +313,8 @@ OUString AccessibleControlShape::CreateAccessibleBaseName()
             break;
         default:
             sName = "UnknownAccessibleControlShape";
-            Reference< XShapeDescriptor > xDescriptor (mxShape, UNO_QUERY);
-            if (xDescriptor.is())
-                sName += ": " + xDescriptor->getShapeType();
+            if (mxShape.is())
+                sName += ": " + mxShape->getShapeType();
     }
 
     return sName;
@@ -345,11 +344,10 @@ OUString
 
         default:
             aDG.Initialize ("Unknown accessible control shape");
-            Reference< XShapeDescriptor > xDescriptor (mxShape, UNO_QUERY);
-            if (xDescriptor.is())
+            if (mxShape.is())
             {
                 aDG.AppendString ("service name=");
-                aDG.AppendString (xDescriptor->getShapeType());
+                aDG.AppendString (mxShape->getShapeType());
             }
     }
 
@@ -633,7 +631,7 @@ void SAL_CALL AccessibleControlShape::disposing()
     m_xModelPropsMeta.clear();
     m_aControlContext = WeakReference< XAccessibleContext >();
 
-    // stop listening at the control container (should never be necessary here, but who knows ....)
+    // stop listening at the control container (should never be necessary here, but who knows...)
     if ( m_bWaitingForControl )
     {
         OSL_FAIL( "AccessibleControlShape::disposing: this should never happen!" );
@@ -650,7 +648,7 @@ void SAL_CALL AccessibleControlShape::disposing()
     {
         // don't listen for mode changes anymore
         Reference< XModeChangeBroadcaster > xControlModes( m_xUnoControl, UNO_QUERY );
-        OSL_ENSURE( xControlModes.is(), "AccessibleControlShape::disposing: don't have an mode broadcaster anymore!" );
+        OSL_ENSURE( xControlModes.is(), "AccessibleControlShape::disposing: don't have a mode broadcaster anymore!" );
         if ( xControlModes.is() )
             xControlModes->removeModeChangeListener( this );
 
@@ -809,13 +807,11 @@ void AccessibleControlShape::initializeComposedState()
             aInnerStates = xInnerStates->getStates();
 
         // look which one are to be propagated to the composed context
-        const sal_Int16* pStates = aInnerStates.getConstArray();
-        const sal_Int16* pStatesEnd = pStates + aInnerStates.getLength();
-        for ( ; pStates != pStatesEnd; ++pStates )
+        for ( const sal_Int16 nState : aInnerStates )
         {
-            if ( isComposedState( *pStates ) && !pComposedStates->contains( *pStates ) )
+            if ( isComposedState( nState ) && !pComposedStates->contains( nState ) )
             {
-                pComposedStates->AddState( *pStates );
+                pComposedStates->AddState( nState );
             }
         }
     }

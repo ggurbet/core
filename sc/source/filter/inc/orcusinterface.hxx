@@ -332,6 +332,8 @@ public:
 
     virtual orcus::spreadsheet::range_size_t get_sheet_size() const override;
 
+    virtual void fill_down_cells(orcus::spreadsheet::row_t row, orcus::spreadsheet::col_t col, orcus::spreadsheet::row_t range_size) override;
+
     SCTAB getIndex() const { return mnTab; }
 
     const sc::SharedFormulaGroups& getSharedFormulaGroups() const;
@@ -585,7 +587,8 @@ class ScOrcusFactory : public orcus::spreadsheet::iface::import_factory
             FormulaWithResult,
             SharedFormula,
             SharedFormulaWithResult,
-            Matrix
+            Matrix,
+            FillDownCells
         };
 
         ScAddress const maPos;
@@ -648,6 +651,7 @@ public:
     void pushCellStoreToken( const ScAddress& rPos, double fValue );
     void pushCellStoreToken(
         const ScAddress& rPos, const OUString& rFormula, formula::FormulaGrammar::Grammar eGrammar );
+    void pushFillDownCellsToken( const ScAddress& rPos, uint32_t nFillSize );
 
     void pushSharedFormulaToken( const ScAddress& rPos, uint32_t nIndex );
     void pushMatrixFormulaToken(

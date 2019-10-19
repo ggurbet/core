@@ -22,26 +22,20 @@
 
 #include <opencl/openclconfig.hxx>
 #include <sfx2/tabdlg.hxx>
-#include <svtools/simptabl.hxx>
-#include <vcl/button.hxx>
-#include <vcl/fixed.hxx>
 
 class SvxOpenCLTabPage : public SfxTabPage
 {
 private:
     OpenCLConfig maConfig;
 
-    VclPtr<CheckBox> mpUseOpenCL;
-
-    VclPtr<FixedText> mpOclUsed;
-    VclPtr<FixedText> mpOclNotUsed;
+    std::unique_ptr<weld::CheckButton> mxUseOpenCL;
+    std::unique_ptr<weld::Label> mxOclUsed;
+    std::unique_ptr<weld::Label> mxOclNotUsed;
 
 public:
-    SvxOpenCLTabPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    SvxOpenCLTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet );
     virtual ~SvxOpenCLTabPage() override;
-    virtual void dispose() override;
-
-    static VclPtr<SfxTabPage>      Create( TabPageParent pParent, const SfxItemSet* rSet );
 
     virtual bool            FillItemSet( SfxItemSet* rSet ) override;
     virtual void            Reset( const SfxItemSet* rSet ) override;

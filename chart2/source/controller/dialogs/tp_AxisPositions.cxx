@@ -31,8 +31,8 @@ using namespace ::com::sun::star;
 namespace chart
 {
 
-AxisPositionsTabPage::AxisPositionsTabPage(TabPageParent pWindow,const SfxItemSet& rInAttrs)
-    : SfxTabPage(pWindow ,"modules/schart/ui/tp_AxisPositions.ui" ,"tp_AxisPositions" , &rInAttrs)
+AxisPositionsTabPage::AxisPositionsTabPage(weld::Container* pPage, weld::DialogController* pController,const SfxItemSet& rInAttrs)
+    : SfxTabPage(pPage, pController, "modules/schart/ui/tp_AxisPositions.ui", "tp_AxisPositions", &rInAttrs)
     , m_pNumFormatter(nullptr)
     , m_bCrossingAxisIsCategoryAxis(false)
     , m_aCategories()
@@ -63,12 +63,11 @@ AxisPositionsTabPage::AxisPositionsTabPage(TabPageParent pWindow,const SfxItemSe
 
 AxisPositionsTabPage::~AxisPositionsTabPage()
 {
-    disposeOnce();
 }
 
-VclPtr<SfxTabPage> AxisPositionsTabPage::Create(TabPageParent pParent, const SfxItemSet* rOutAttrs)
+std::unique_ptr<SfxTabPage> AxisPositionsTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rOutAttrs)
 {
-    return VclPtr<AxisPositionsTabPage>::Create(pParent, *rOutAttrs);
+    return std::make_unique<AxisPositionsTabPage>(pPage, pController, *rOutAttrs);
 }
 
 bool AxisPositionsTabPage::FillItemSet(SfxItemSet* rOutAttrs)

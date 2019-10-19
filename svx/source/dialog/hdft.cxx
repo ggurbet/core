@@ -53,6 +53,7 @@
 using namespace com::sun::star;
 
 // Word 97 incompatibility (#i19922#)
+// #i19922# - tdf#126051 see cui/source/tabpages/page.cxx and sw/source/uibase/sidebar/PageMarginControl.hxx
 static const long MINBODY = 56;  // 1mm in twips rounded
 
 // default distance to Header or footer
@@ -93,13 +94,11 @@ namespace svx {
         if ( pDlg->Execute() == RET_OK && pDlg->GetOutputItemSet() )
         {
             SfxItemIter aIter( *pDlg->GetOutputItemSet() );
-            const SfxPoolItem* pItem = aIter.FirstItem();
 
-            while ( pItem )
+            for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
             {
                 if ( !IsInvalidItem( pItem ) )
                     pBBSet->Put( *pItem );
-                pItem = aIter.NextItem();
             }
             bRes = true;
         }
@@ -107,28 +106,28 @@ namespace svx {
     }
 }
 
-VclPtr<SfxTabPage> SvxHeaderPage::Create( TabPageParent pParent, const SfxItemSet* rSet )
+std::unique_ptr<SfxTabPage> SvxHeaderPage::Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxHeaderPage>::Create( pParent, *rSet );
+    return std::make_unique<SvxHeaderPage>( pPage, pController, *rSet );
 }
 
-VclPtr<SfxTabPage> SvxFooterPage::Create( TabPageParent pParent, const SfxItemSet* rSet )
+std::unique_ptr<SfxTabPage> SvxFooterPage::Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxFooterPage>::Create( pParent, *rSet );
+    return std::make_unique<SvxFooterPage>( pPage, pController, *rSet );
 }
 
-SvxHeaderPage::SvxHeaderPage(TabPageParent pParent, const SfxItemSet& rAttr)
-    : SvxHFPage( pParent, rAttr, SID_ATTR_PAGE_HEADERSET )
-{
-}
-
-SvxFooterPage::SvxFooterPage(TabPageParent pParent, const SfxItemSet& rAttr)
-    : SvxHFPage( pParent, rAttr, SID_ATTR_PAGE_FOOTERSET )
+SvxHeaderPage::SvxHeaderPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttr)
+    : SvxHFPage( pPage, pController, rAttr, SID_ATTR_PAGE_HEADERSET )
 {
 }
 
-SvxHFPage::SvxHFPage(TabPageParent pParent, const SfxItemSet& rSet, sal_uInt16 nSetId)
-    : SfxTabPage(pParent, "svx/ui/headfootformatpage.ui", "HFFormatPage", &rSet)
+SvxFooterPage::SvxFooterPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rAttr)
+    : SvxHFPage( pPage, pController, rAttr, SID_ATTR_PAGE_FOOTERSET )
+{
+}
+
+SvxHFPage::SvxHFPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet, sal_uInt16 nSetId)
+    : SfxTabPage(pPage, pController, "svx/ui/headfootformatpage.ui", "HFFormatPage", &rSet)
     , nId(nSetId)
     , mbDisableQueryBox(false)
     , mbEnableDrawingLayerFillStyles(false)
@@ -619,23 +618,20 @@ IMPL_LINK_NOARG(SvxHFPage, BackgroundHdl, weld::Button&, void)
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
 
     ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxBorderBackgroundDlg(
-        GetDialogFrameWeld(),
+        GetFrameWeld(),
         *pBBSet,
         mbEnableDrawingLayerFillStyles));
 
     if(RET_OK == pDlg->Execute() && pDlg->GetOutputItemSet())
     {
         SfxItemIter aIter(*pDlg->GetOutputItemSet());
-        const SfxPoolItem* pItem = aIter.FirstItem();
 
-        while(pItem)
+        for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
         {
             if(!IsInvalidItem(pItem))
             {
                 pBBSet->Put(*pItem);
             }
-
-            pItem = aIter.NextItem();
         }
 
         {

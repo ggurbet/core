@@ -36,7 +36,7 @@ $(eval $(call gb_Library_set_include,svxcore,\
     -I$(WORKDIR)/SdiTarget/svx/sdi \
 ))
 
-$(eval $(call gb_Library_set_precompiled_header,svxcore,$(SRCDIR)/svx/inc/pch/precompiled_svxcore))
+$(eval $(call gb_Library_set_precompiled_header,svxcore,svx/inc/pch/precompiled_svxcore))
 
 #BOOST switch in customshapes
 #dialog:
@@ -111,7 +111,6 @@ $(eval $(call gb_Library_add_exception_objects,svxcore,\
     svx/source/customshapes/EnhancedCustomShapeFunctionParser \
     svx/source/customshapes/EnhancedCustomShapeGeometry \
     svx/source/customshapes/EnhancedCustomShapeTypeNames \
-    svx/source/dialog/checklbx \
     svx/source/dialog/dialmgr \
     svx/source/dialog/dlgutil \
     svx/source/dialog/hexcolorcontrol \
@@ -236,6 +235,7 @@ $(eval $(call gb_Library_add_exception_objects,svxcore,\
     svx/source/sdr/overlay/overlaymanager \
     svx/source/sdr/overlay/overlayobjectlist \
     svx/source/sdr/overlay/overlayhandle \
+    svx/source/sdr/misc/ImageMapInfo \
     svx/source/sdr/primitive2d/sdrellipseprimitive2d \
     svx/source/sdr/primitive2d/sdrprimitivetools \
     svx/source/sdr/primitive2d/sdrtextprimitive2d \
@@ -279,6 +279,7 @@ $(eval $(call gb_Library_add_exception_objects,svxcore,\
     svx/source/svdraw/charthelper \
     svx/source/svdraw/gradtrns \
     svx/source/svdraw/polypolygoneditor \
+    svx/source/svdraw/presetooxhandleadjustmentrelations \
     svx/source/svdraw/sdrhittesthelper \
     svx/source/svdraw/sdrmasterpagedescriptor \
     svx/source/svdraw/sdrpagewindow \

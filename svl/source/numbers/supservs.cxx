@@ -66,7 +66,7 @@ void SAL_CALL SvNumberFormatsSupplierServiceObject::initialize( const Sequence< 
         // maybe you already called a method which needed the formatter
         // you should use XMultiServiceFactory::createInstanceWithArguments to avoid that
     if (m_pOwnFormatter)
-    {   // !!! this is only a emergency handling, normally this should not occur !!!
+    {   // !!! this is only an emergency handling, normally this should not occur !!!
         m_pOwnFormatter.reset();
         SetNumberFormatter(m_pOwnFormatter.get());
     }
@@ -75,13 +75,12 @@ void SAL_CALL SvNumberFormatsSupplierServiceObject::initialize( const Sequence< 
     LanguageType eNewFormatterLanguage = LANGUAGE_SYSTEM;
         // the default
 
-    const Any* pArgs = _rArguments.getConstArray();
-    for (sal_Int32 i=0; i<_rArguments.getLength(); ++i, ++pArgs)
+    for (const Any& rArg : _rArguments)
     {
-        if (pArgs->getValueType().equals(aExpectedArgType))
+        if (rArg.getValueType().equals(aExpectedArgType))
         {
             css::lang::Locale aLocale;
-            *pArgs >>= aLocale;
+            rArg >>= aLocale;
             eNewFormatterLanguage = LanguageTag::convertToLanguageType( aLocale, false);
         }
 #ifdef DBG_UTIL
@@ -99,7 +98,7 @@ void SAL_CALL SvNumberFormatsSupplierServiceObject::initialize( const Sequence< 
 
 OUString SAL_CALL SvNumberFormatsSupplierServiceObject::getImplementationName(  )
 {
-    return OUString("com.sun.star.uno.util.numbers.SvNumberFormatsSupplierServiceObject");
+    return "com.sun.star.uno.util.numbers.SvNumberFormatsSupplierServiceObject";
 }
 
 sal_Bool SAL_CALL SvNumberFormatsSupplierServiceObject::supportsService( const OUString& _rServiceName )

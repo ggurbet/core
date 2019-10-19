@@ -108,13 +108,12 @@ static PyRef getObjectFromLoaderModule( const char * func )
 
 static OUString getImplementationName()
 {
-    return OUString( "org.openoffice.comp.pyuno.Loader" );
+    return "org.openoffice.comp.pyuno.Loader";
 }
 
 static Sequence< OUString > getSupportedServiceNames()
 {
-    OUString serviceName( "com.sun.star.loader.Python" );
-    return Sequence< OUString > ( &serviceName, 1 );
+    return { "com.sun.star.loader.Python" };
 }
 
 static void setPythonHome ( const OUString & pythonHome )

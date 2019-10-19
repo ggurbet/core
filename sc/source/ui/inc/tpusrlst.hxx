@@ -21,9 +21,6 @@
 #define INCLUDED_SC_SOURCE_UI_INC_TPUSRLST_HXX
 
 #include <sfx2/tabdlg.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/lstbox.hxx>
-#include <vcl/vclmedit.hxx>
 
 class ScUserList;
 class ScDocument;
@@ -32,38 +29,28 @@ class ScRefAddress;
 
 class ScTpUserLists : public SfxTabPage
 {
-    friend class VclPtr<ScTpUserLists>;
 public:
-    static  VclPtr<SfxTabPage> Create          ( TabPageParent pParent,
-                                          const SfxItemSet*     rAttrSet );
+    ScTpUserLists(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rArgSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController,
+                                          const SfxItemSet* rAttrSet);
+    virtual ~ScTpUserLists() override;
     virtual bool        FillItemSet     ( SfxItemSet* rCoreAttrs ) override;
     virtual void        Reset           ( const SfxItemSet* rCoreAttrs ) override;
-    using SfxTabPage::DeactivatePage;
     virtual DeactivateRC   DeactivatePage  ( SfxItemSet* pSet ) override;
 
 private:
-            ScTpUserLists( vcl::Window*              pParent,
-                           const SfxItemSet&    rArgSet );
-            virtual ~ScTpUserLists() override;
-    virtual void dispose() override;
-
-private:
-    VclPtr<FixedText>          mpFtLists;
-    VclPtr<ListBox>            mpLbLists;
-    VclPtr<FixedText>          mpFtEntries;
-    VclPtr<VclMultiLineEdit>   mpEdEntries;
-    VclPtr<FixedText>          mpFtCopyFrom;
-    VclPtr<Edit>               mpEdCopyFrom;
-
-    VclPtr<PushButton>         mpBtnNew;
-    VclPtr<PushButton>         mpBtnDiscard;
-
-    VclPtr<PushButton>         mpBtnAdd;
-    VclPtr<PushButton>         mpBtnModify;
-
-    VclPtr<PushButton>         mpBtnRemove;
-
-    VclPtr<PushButton>         mpBtnCopy;
+    std::unique_ptr<weld::Label> mxFtLists;
+    std::unique_ptr<weld::TreeView> mxLbLists;
+    std::unique_ptr<weld::Label> mxFtEntries;
+    std::unique_ptr<weld::TextView> mxEdEntries;
+    std::unique_ptr<weld::Label> mxFtCopyFrom;
+    std::unique_ptr<weld::Entry> mxEdCopyFrom;
+    std::unique_ptr<weld::Button> mxBtnNew;
+    std::unique_ptr<weld::Button> mxBtnDiscard;
+    std::unique_ptr<weld::Button> mxBtnAdd;
+    std::unique_ptr<weld::Button> mxBtnModify;
+    std::unique_ptr<weld::Button> mxBtnRemove;
+    std::unique_ptr<weld::Button> mxBtnCopy;
 
     const OUString      aStrQueryRemove;
     const OUString      aStrCopyList;
@@ -94,9 +81,9 @@ private:
                                   const ScRefAddress& rEndPos );
 
     // Handler:
-    DECL_LINK( LbSelectHdl, ListBox&, void );
-    DECL_LINK( BtnClickHdl, Button*, void );
-    DECL_LINK( EdEntriesModHdl, Edit&, void);
+    DECL_LINK( LbSelectHdl, weld::TreeView&, void );
+    DECL_LINK( BtnClickHdl, weld::Button&, void );
+    DECL_LINK( EdEntriesModHdl, weld::TextView&, void);
 };
 
 #endif // INCLUDED_SC_SOURCE_UI_INC_TPUSRLST_HXX

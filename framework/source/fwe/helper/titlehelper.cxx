@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
+
 #include <framework/titlehelper.hxx>
 #include <classes/fwkresid.hxx>
 #include <strings.hrc>
@@ -234,7 +236,7 @@ void SAL_CALL TitleHelper::disposing(const css::lang::EventObject& aEvent)
     {
         osl::MutexGuard aLock(m_aMutex);
 
-        xOwner.set(m_xOwner.get()          , css::uno::UNO_QUERY);
+        xOwner = m_xOwner;
         xNumbers.set(m_xUntitledNumbers.get(), css::uno::UNO_QUERY);
         nLeasedNumber = m_nLeasedNumber;
     }
@@ -340,7 +342,7 @@ void TitleHelper::impl_updateTitleForModel (const css::uno::Reference< css::fram
         if (m_bExternalTitle)
             return;
 
-        xOwner.set     (m_xOwner.get()          , css::uno::UNO_QUERY);
+        xOwner = m_xOwner;
         xNumbers.set   (m_xUntitledNumbers.get(), css::uno::UNO_QUERY);
         nLeasedNumber = m_nLeasedNumber;
     }
@@ -423,7 +425,7 @@ void TitleHelper::impl_updateTitleForController (const css::uno::Reference< css:
         if (m_bExternalTitle)
             return;
 
-        xOwner.set      (m_xOwner.get()          , css::uno::UNO_QUERY);
+        xOwner = m_xOwner;
         xNumbers.set    (m_xUntitledNumbers.get(), css::uno::UNO_QUERY);
         nLeasedNumber = m_nLeasedNumber;
     }
@@ -442,7 +444,7 @@ void TitleHelper::impl_updateTitleForController (const css::uno::Reference< css:
         nLeasedNumber = xNumbers->leaseNumber (xOwner);
 
     css::uno::Reference< css::frame::XTitle > xModelTitle(xController->getModel (), css::uno::UNO_QUERY);
-    css::uno::Reference< css::frame::XModel > xModel(xController->getModel (), css::uno::UNO_QUERY);
+    css::uno::Reference< css::frame::XModel > xModel = xController->getModel ();
     if (!xModelTitle.is ())
         xModelTitle.set(xController, css::uno::UNO_QUERY);
     if (xModelTitle.is ())
@@ -600,7 +602,7 @@ void TitleHelper::impl_appendDebugVersion (OUStringBuffer& sTitle)
     OUString sVersion = ::utl::Bootstrap::getBuildIdData("development");
     sTitle.append(" [");
     sTitle.append(sVersion);
-#ifndef LIBO_HEADLESS
+#if HAVE_FEATURE_UI
     if (OpenGLWrapper::isVCLOpenGLEnabled())
         sTitle.append("-GL");
 #endif

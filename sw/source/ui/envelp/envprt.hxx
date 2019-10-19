@@ -21,6 +21,7 @@
 #define INCLUDED_SW_SOURCE_UI_ENVELP_ENVPRT_HXX
 
 #include <sfx2/tabdlg.hxx>
+#include <vcl/print.hxx>
 #include <vcl/weld.hxx>
 
 #include <envimg.hxx>
@@ -52,19 +53,11 @@ class SwEnvPrtPage : public SfxTabPage
 
     SwEnvDlg* GetParentSwEnvDlg() {return static_cast<SwEnvDlg*>(GetDialogController()); }
 
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 public:
-    SwEnvPrtPage(TabPageParent pParent, const SfxItemSet& rSet);
-    virtual void dispose() override
-    {
-        m_xPrt.clear();
-        SfxTabPage::dispose();
-    }
+    SwEnvPrtPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwEnvPrtPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
 
     virtual void ActivatePage(const SfxItemSet& rSet) override;
     virtual DeactivateRC DeactivatePage(SfxItemSet* pSet) override;

@@ -22,120 +22,25 @@
 #include <com/sun/star/awt/Point.hpp>
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/drawing/XShapes.hpp>
 #include <com/sun/star/xml/dom/XDocument.hpp>
 #include <com/sun/star/xml/sax/XFastSAXSerializable.hpp>
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <editeng/unoprnms.hxx>
-#include <drawingml/textbody.hxx>
-#include <drawingml/textparagraph.hxx>
-#include <drawingml/textrun.hxx>
 #include <drawingml/fillproperties.hxx>
 #include <drawingml/customshapeproperties.hxx>
-#include <oox/ppt/pptshapegroupcontext.hxx>
-#include <oox/ppt/pptshape.hxx>
 #include <oox/token/namespaces.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
+#include <svx/svdpage.hxx>
 
 #include "diagramlayoutatoms.hxx"
 #include "layoutatomvisitors.hxx"
 #include "diagramfragmenthandler.hxx"
 
-#include <iostream>
-#include <fstream>
-
 using namespace ::com::sun::star;
 
 namespace oox { namespace drawingml {
-
-namespace dgm {
-
-void Connection::dump() const
-{
-    SAL_INFO(
-        "oox.drawingml",
-        "cnx modelId " << msModelId << ", srcId " << msSourceId << ", dstId "
-            << msDestId << ", parTransId " << msParTransId << ", presId "
-            << msPresId << ", sibTransId " << msSibTransId << ", srcOrd "
-            << mnSourceOrder << ", dstOrd " << mnDestOrder);
-}
-
-void Point::dump() const
-{
-    SAL_INFO(
-        "oox.drawingml",
-        "pt text " << mpShape.get() << ", cnxId " << msCnxId << ", modelId "
-            << msModelId << ", type " << mnType);
-}
-
-} // dgm namespace
-
-DiagramData::DiagramData() :
-    mpFillProperties( new FillProperties )
-{
-}
-
-const dgm::Point* DiagramData::getRootPoint() const
-{
-    for (const auto & aCurrPoint : maPoints)
-        if (aCurrPoint.mnType == XML_doc)
-            return &aCurrPoint;
-
-    SAL_WARN("oox.drawingml", "No root point");
-    return nullptr;
-}
-
-void DiagramData::dump() const
-{
-    SAL_INFO("oox.drawingml", "Dgm: DiagramData # of cnx: " << maConnections.size() );
-    for (const auto& rConnection : maConnections)
-        rConnection.dump();
-
-    SAL_INFO("oox.drawingml", "Dgm: DiagramData # of pt: " << maPoints.size() );
-    for (const auto& rPoint : maPoints)
-        rPoint.dump();
-}
-
-#ifdef DEBUG_OOX_DIAGRAM
-OString normalizeDotName( const OUString& rStr )
-{
-    OUStringBuffer aBuf;
-    aBuf.append('N');
-
-    const sal_Int32 nLen(rStr.getLength());
-    sal_Int32 nCurrIndex(0);
-    while( nCurrIndex < nLen )
-    {
-        const sal_Int32 aChar=rStr.iterateCodePoints(&nCurrIndex);
-        if( aChar != '-' && aChar != '{' && aChar != '}' )
-            aBuf.append((sal_Unicode)aChar);
-    }
-
-    return OUStringToOString(aBuf.makeStringAndClear(),
-                                  RTL_TEXTENCODING_UTF8);
-}
-#endif
-
-static sal_Int32 calcDepth( const OUString& rNodeName,
-                            const dgm::Connections& rCnx )
-{
-    // find length of longest path in 'isChild' graph, ending with rNodeName
-    for (auto const& elem : rCnx)
-    {
-        if( !elem.msParTransId.isEmpty() &&
-            !elem.msSibTransId.isEmpty() &&
-            !elem.msSourceId.isEmpty() &&
-            !elem.msDestId.isEmpty() &&
-            elem.mnType == XML_parOf &&
-            rNodeName == elem.msDestId )
-        {
-            return calcDepth(elem.msSourceId, rCnx) + 1;
-        }
-    }
-
-    return 0;
-}
 
 static void sortChildrenByZOrder(const ShapePtr& pShape)
 {
@@ -173,172 +78,12 @@ static void sortChildrenByZOrder(const ShapePtr& pShape)
               [](const ShapePtr& a, const ShapePtr& b) { return a->getZOrder() < b->getZOrder(); });
 
     // Apply also for children.
-    for (auto& rChild : rChildren)
+    for (const auto& rChild : rChildren)
         sortChildrenByZOrder(rChild);
-}
-
-void Diagram::build(  )
-{
-    // build name-object maps
-#ifdef DEBUG_OOX_DIAGRAM
-    std::ofstream output("tree.dot");
-
-    output << "digraph datatree {" << std::endl;
-#endif
-    dgm::Points& rPoints = getData()->getPoints();
-    for (auto & point : rPoints)
-    {
-#ifdef DEBUG_OOX_DIAGRAM
-        output << "\t"
-               << normalizeDotName(point.msModelId).getStr()
-               << "[";
-
-        if( !point.msPresentationLayoutName.isEmpty() )
-            output << "label=\""
-                   << OUStringToOString(
-                       point.msPresentationLayoutName,
-                       RTL_TEXTENCODING_UTF8).getStr() << "\", ";
-        else
-            output << "label=\""
-                   << OUStringToOString(
-                       point.msModelId,
-                       RTL_TEXTENCODING_UTF8).getStr() << "\", ";
-
-        switch( point.mnType )
-        {
-            case XML_doc: output << "style=filled, color=red"; break;
-            case XML_asst: output << "style=filled, color=green"; break;
-            default:
-            case XML_node: output << "style=filled, color=blue"; break;
-            case XML_pres: output << "style=filled, color=yellow"; break;
-            case XML_parTrans: output << "color=grey"; break;
-            case XML_sibTrans: output << " "; break;
-        }
-
-        output << "];" << std::endl;
-#endif
-
-        // does currpoint have any text set?
-        if( point.mpShape &&
-            point.mpShape->getTextBody() &&
-            !point.mpShape->getTextBody()->getParagraphs().empty() &&
-            !point.mpShape->getTextBody()->getParagraphs().front()->getRuns().empty() )
-        {
-#ifdef DEBUG_OOX_DIAGRAM
-            static sal_Int32 nCount=0;
-            output << "\t"
-                   << "textNode" << nCount
-                   << " ["
-                   << "label=\""
-                   << OUStringToOString(
-                       point.mpShape->getTextBody()->getParagraphs().front()->getRuns().front()->getText(),
-                       RTL_TEXTENCODING_UTF8).getStr()
-                   << "\"" << "];" << std::endl;
-            output << "\t"
-                   << normalizeDotName(point.msModelId).getStr()
-                   << " -> "
-                   << "textNode" << nCount++
-                   << ";" << std::endl;
-#endif
-        }
-
-        const bool bInserted1=getData()->getPointNameMap().insert(
-            std::make_pair(point.msModelId,&point)).second;
-
-        SAL_WARN_IF(!bInserted1, "oox.drawingml", "Diagram::build(): non-unique point model id");
-
-        if( !point.msPresentationLayoutName.isEmpty() )
-        {
-            DiagramData::PointsNameMap::value_type::second_type& rVec=
-                getData()->getPointsPresNameMap()[point.msPresentationLayoutName];
-            rVec.push_back(&point);
-        }
-    }
-
-    const dgm::Connections& rConnections = getData()->getConnections();
-    for (auto const& connection : rConnections)
-    {
-#ifdef DEBUG_OOX_DIAGRAM
-        if( !connection.msParTransId.isEmpty() ||
-            !connection.msSibTransId.isEmpty() )
-        {
-            if( !connection.msSourceId.isEmpty() ||
-                !connection.msDestId.isEmpty() )
-            {
-                output << "\t"
-                       << normalizeDotName(connection.msSourceId).getStr()
-                       << " -> "
-                       << normalizeDotName(connection.msParTransId).getStr()
-                       << " -> "
-                       << normalizeDotName(connection.msSibTransId).getStr()
-                       << " -> "
-                       << normalizeDotName(connection.msDestId).getStr()
-                       << " [style=dotted,"
-                       << ((connection.mnType == XML_presOf) ? " color=red, " : ((connection.mnType == XML_presParOf) ? " color=green, " : " "))
-                       << "label=\""
-                       << OUStringToOString(connection.msModelId,
-                                                 RTL_TEXTENCODING_UTF8 ).getStr()
-                       << "\"];" << std::endl;
-            }
-            else
-            {
-                output << "\t"
-                       << normalizeDotName(connection.msParTransId).getStr()
-                       << " -> "
-                       << normalizeDotName(connection.msSibTransId).getStr()
-                       << " ["
-                       << ((connection.mnType == XML_presOf) ? " color=red, " : ((connection.mnType == XML_presParOf) ? " color=green, " : " "))
-                       << "label=\""
-                       << OUStringToOString(connection.msModelId,
-                                                 RTL_TEXTENCODING_UTF8 ).getStr()
-                       << "\"];" << std::endl;
-            }
-        }
-        else if( !connection.msSourceId.isEmpty() ||
-                 !connection.msDestId.isEmpty() )
-            output << "\t"
-                   << normalizeDotName(connection.msSourceId).getStr()
-                   << " -> "
-                   << normalizeDotName(connection.msDestId).getStr()
-                   << " [label=\""
-                   << OUStringToOString(connection.msModelId,
-                                             RTL_TEXTENCODING_UTF8 ).getStr()
-                   << ((connection.mnType == XML_presOf) ? "\", color=red]" : ((connection.mnType == XML_presParOf) ? "\", color=green]" : "\"]"))
-                   << ";" << std::endl;
-#endif
-
-        const bool bInserted1=getData()->getConnectionNameMap().insert(
-            std::make_pair(connection.msModelId,&connection)).second;
-
-        SAL_WARN_IF(!bInserted1, "oox.drawingml", "Diagram::build(): non-unique connection model id");
-
-        if( connection.mnType == XML_presOf )
-        {
-            DiagramData::StringMap::value_type::second_type& rVec=getData()->getPresOfNameMap()[connection.msDestId];
-            rVec[connection.mnDestOrder] = { connection.msSourceId, sal_Int32(0) };
-        }
-    }
-
-    // assign outline levels
-    DiagramData::StringMap& rStringMap = getData()->getPresOfNameMap();
-    for (auto & elemPresOf : rStringMap)
-    {
-        for (auto & elem : elemPresOf.second)
-        {
-            const sal_Int32 nDepth = calcDepth(elem.second.msSourceId, getData()->getConnections());
-            elem.second.mnDepth = nDepth != 0 ? nDepth : -1;
-        }
-    }
-#ifdef DEBUG_OOX_DIAGRAM
-    output << "}" << std::endl;
-#endif
 }
 
 void Diagram::addTo( const ShapePtr & pParentShape )
 {
-    // collect data, init maps
-    build( );
-
     if (pParentShape->getSize().Width == 0 || pParentShape->getSize().Height == 0)
         SAL_WARN("oox.drawingml", "Diagram cannot be correctly laid out. Size: "
             << pParentShape->getSize().Width << "x" << pParentShape->getSize().Height);
@@ -368,8 +113,6 @@ void Diagram::addTo( const ShapePtr & pParentShape )
     pBackground->setLocked(true);
     auto& aChildren = pParentShape->getChildren();
     aChildren.insert(aChildren.begin(), pBackground);
-
-    pParentShape->setDiagramDoms( getDomsAsPropertyValues() );
 }
 
 uno::Sequence<beans::PropertyValue> Diagram::getDomsAsPropertyValues() const
@@ -584,12 +327,17 @@ void loadDiagram( ShapePtr const & pShape,
         }
     }
 
+    // collect data, init maps
+    pData->build();
+
     // diagram loaded. now lump together & attach to shape
     pDiagram->addTo(pShape);
+    pShape->setDiagramData(pData);
+    pShape->setDiagramDoms(pDiagram->getDomsAsPropertyValues());
 }
 
 void loadDiagram(ShapePtr const& pShape,
-                 const uno::Reference<xml::dom::XDocument>& dataDom,
+                 DiagramDataPtr pDiagramData,
                  const uno::Reference<xml::dom::XDocument>& layoutDom,
                  const uno::Reference<xml::dom::XDocument>& styleDom,
                  const uno::Reference<xml::dom::XDocument>& colorDom,
@@ -597,21 +345,10 @@ void loadDiagram(ShapePtr const& pShape,
 {
     DiagramPtr pDiagram(new Diagram);
 
-    DiagramDataPtr pData(new DiagramData());
-    pDiagram->setData(pData);
+    pDiagram->setData(pDiagramData);
 
     DiagramLayoutPtr pLayout(new DiagramLayout(*pDiagram));
     pDiagram->setLayout(pLayout);
-
-
-    // data
-    if (dataDom.is())
-    {
-        rtl::Reference<core::FragmentHandler> xRefDataModel(
-            new DiagramDataFragmentHandler(rFilter, OUString(), pData));
-
-        importFragment(rFilter, dataDom, "OOXData", pDiagram, xRefDataModel);
-    }
 
     // layout
     if (layoutDom.is())
@@ -644,12 +381,17 @@ void loadDiagram(ShapePtr const& pShape,
     pDiagram->addTo(pShape);
 }
 
-void reloadDiagram(css::uno::Reference<css::drawing::XShape>& rXShape,
-                   core::XmlFilterBase& rFilter)
+void reloadDiagram(SdrObject* pObj, core::XmlFilterBase& rFilter)
 {
-    uno::Reference<beans::XPropertySet> xPropSet(rXShape, uno::UNO_QUERY_THROW);
+    DiagramDataPtr pDiagramData = std::dynamic_pointer_cast<DiagramData>(pObj->GetDiagramData());
+    if (!pDiagramData)
+        return;
 
-    uno::Reference<xml::dom::XDocument> dataDom;
+    pObj->getChildrenOfSdrObject()->ClearSdrObjList();
+
+    uno::Reference<css::drawing::XShape> xShape(pObj->getUnoShape(), uno::UNO_QUERY_THROW);
+    uno::Reference<beans::XPropertySet> xPropSet(xShape, uno::UNO_QUERY_THROW);
+
     uno::Reference<xml::dom::XDocument> layoutDom;
     uno::Reference<xml::dom::XDocument> styleDom;
     uno::Reference<xml::dom::XDocument> colorDom;
@@ -657,30 +399,28 @@ void reloadDiagram(css::uno::Reference<css::drawing::XShape>& rXShape,
     // retrieve the doms from the GrabBag
     uno::Sequence<beans::PropertyValue> propList;
     xPropSet->getPropertyValue(UNO_NAME_MISC_OBJ_INTEROPGRABBAG) >>= propList;
-    for (sal_Int32 nProp = 0; nProp < propList.getLength(); ++nProp)
+    for (const auto& rProp : std::as_const(propList))
     {
-        OUString propName = propList[nProp].Name;
-        if (propName == "OOXData")
-            propList[nProp].Value >>= dataDom;
-        else if (propName == "OOXLayout")
-            propList[nProp].Value >>= layoutDom;
+        OUString propName = rProp.Name;
+        if (propName == "OOXLayout")
+            rProp.Value >>= layoutDom;
         else if (propName == "OOXStyle")
-            propList[nProp].Value >>= styleDom;
+            rProp.Value >>= styleDom;
         else if (propName == "OOXColor")
-            propList[nProp].Value >>= colorDom;
+            rProp.Value >>= colorDom;
     }
 
     ShapePtr pShape(new Shape());
     pShape->setDiagramType();
-    pShape->setSize(awt::Size(rXShape->getSize().Width * EMU_PER_HMM,
-                              rXShape->getSize().Height * EMU_PER_HMM));
+    pShape->setSize(awt::Size(xShape->getSize().Width * EMU_PER_HMM,
+                              xShape->getSize().Height * EMU_PER_HMM));
 
-    loadDiagram(pShape, dataDom, layoutDom, styleDom, colorDom, rFilter);
+    loadDiagram(pShape, pDiagramData, layoutDom, styleDom, colorDom, rFilter);
 
-    uno::Reference<drawing::XShapes> xShapes(rXShape, uno::UNO_QUERY_THROW);
+    uno::Reference<drawing::XShapes> xShapes(xShape, uno::UNO_QUERY_THROW);
     basegfx::B2DHomMatrix aTransformation;
-    aTransformation.translate(rXShape->getPosition().X * EMU_PER_HMM,
-                              rXShape->getPosition().Y * EMU_PER_HMM);
+    aTransformation.translate(xShape->getPosition().X * EMU_PER_HMM,
+                              xShape->getPosition().Y * EMU_PER_HMM);
     for (auto const& child : pShape->getChildren())
         child->addShape(rFilter, rFilter.getCurrentTheme(), xShapes, aTransformation, pShape->getFillProperties());
 }

@@ -129,7 +129,7 @@ void SwFrameShell::ExecMove(SfxRequest& rReq)
     }
 }
 
-void SwFrameShell::ExecField(SfxRequest& rReq)
+void SwFrameShell::ExecField(const SfxRequest& rReq)
 {
     SwWrtShell& rSh = GetShell();
     sal_uInt16 nSlot = rReq.GetSlot();
@@ -1356,7 +1356,7 @@ void SwFrameShell::ExecDrawDlgTextFrame(SfxRequest const & rReq)
                     pDoc,
                     false));
 
-                pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+                pDlg->StartExecuteAsync([pDlg, this](sal_Int32 nResult){
                     if(nResult == RET_OK)
                     {
                         // set attributes at FlyFrame

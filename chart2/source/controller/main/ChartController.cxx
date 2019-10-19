@@ -280,43 +280,43 @@ OUString ChartController::GetContextName()
 
     uno::Any aAny = getSelection();
     if (!aAny.hasValue())
-        return OUString("Chart");
+        return "Chart";
 
     OUString aCID;
     aAny >>= aCID;
 
     if (aCID.isEmpty())
-        return OUString("Chart");
+        return "Chart";
 
     ObjectType eObjectID = ObjectIdentifier::getObjectType(aCID);
     switch (eObjectID)
     {
         case OBJECTTYPE_DATA_SERIES:
-            return OUString("Series");
+            return "Series";
         break;
         case OBJECTTYPE_DATA_ERRORS_X:
         case OBJECTTYPE_DATA_ERRORS_Y:
         case OBJECTTYPE_DATA_ERRORS_Z:
-            return OUString("ErrorBar");
+            return "ErrorBar";
         case OBJECTTYPE_AXIS:
-            return OUString("Axis");
+            return "Axis";
         case OBJECTTYPE_GRID:
-            return OUString("Grid");
+            return "Grid";
         case OBJECTTYPE_DIAGRAM:
             {
                 css::uno::Reference<css::chart2::XChartType> xChartType = getChartType(css::uno::Reference<css::chart2::XChartDocument>(getModel(), uno::UNO_QUERY));
                 if (xChartType.is() && xChartType->getChartType() == "com.sun.star.chart2.PieChartType")
-                    return OUString("ChartElements");
+                    return "ChartElements";
                 break;
             }
         case OBJECTTYPE_DATA_CURVE:
         case OBJECTTYPE_DATA_AVERAGE_LINE:
-            return OUString("Trendline");
+            return "Trendline";
         default:
         break;
     }
 
-    return OUString("Chart");
+    return "Chart";
 }
 
 // private methods
@@ -338,7 +338,7 @@ bool ChartController::impl_isDisposedOrSuspended() const
 
 OUString SAL_CALL ChartController::getImplementationName()
 {
-    return OUString(CHART_CONTROLLER_SERVICE_IMPLEMENTATION_NAME);
+    return CHART_CONTROLLER_SERVICE_IMPLEMENTATION_NAME;
 }
 
 sal_Bool SAL_CALL ChartController::supportsService( const OUString& rServiceName )
@@ -371,13 +371,11 @@ uno::Reference<ui::XSidebar> getSidebarFromModel(const uno::Reference<frame::XMo
     if (!xController.is())
         return nullptr;
 
-    uno::Reference<ui::XSidebarProvider> xSidebarProvider (xController->getSidebar(), uno::UNO_QUERY);
+    uno::Reference<ui::XSidebarProvider> xSidebarProvider  = xController->getSidebar();
     if (!xSidebarProvider.is())
         return nullptr;
 
-    uno::Reference<ui::XSidebar> xSidebar(xSidebarProvider->getSidebar(), uno::UNO_QUERY);
-
-    return xSidebar;
+    return xSidebarProvider->getSidebar();
 }
 
 }
@@ -784,8 +782,7 @@ void SAL_CALL ChartController::dispose()
             if( xSelectionChangeListener.is() )
             {
                 uno::Reference< frame::XController > xController( this );
-                uno::Reference< lang::XComponent > xComp( xController, uno::UNO_QUERY );
-                lang::EventObject aEvent( xComp );
+                lang::EventObject aEvent( xController );
                 xSelectionChangeListener->disposing( aEvent );
             }
         }
@@ -1488,7 +1485,7 @@ DrawViewWrapper* ChartController::GetDrawViewWrapper()
 }
 
 
-VclPtr<ChartWindow> ChartController::GetChartWindow()
+VclPtr<ChartWindow> ChartController::GetChartWindow() const
 {
     // clients getting the naked VCL Window from UNO should always have the
     // solar mutex (and keep it over the lifetime of this ptr), as VCL might
@@ -1508,7 +1505,7 @@ weld::Window* ChartController::GetChartFrame()
     return Application::GetFrameWeld(m_xViewWindow);
 }
 
-bool ChartController::isAdditionalShapeSelected()
+bool ChartController::isAdditionalShapeSelected() const
 {
     return m_aSelection.isAdditionalShapeSelected();
 }

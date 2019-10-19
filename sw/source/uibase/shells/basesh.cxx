@@ -47,6 +47,8 @@
 #include <svl/itemiter.hxx>
 #include <svl/stritem.hxx>
 #include <editeng/colritem.hxx>
+#include <editeng/fhgtitem.hxx>
+#include <editeng/fontitem.hxx>
 #include <editeng/shaditem.hxx>
 #include <editeng/boxitem.hxx>
 #include <svl/srchitem.hxx>
@@ -75,6 +77,7 @@
 #include <docstat.hxx>
 #include <usrfld.hxx>
 #include <expfld.hxx>
+#include <fmtsrnd.hxx>
 #include <fldmgr.hxx>
 #include <frmmgr.hxx>
 #include <tablemgr.hxx>
@@ -108,10 +111,14 @@
 
 #include <svx/unobrushitemhelper.hxx>
 #include <comphelper/scopeguard.hxx>
+#include <comphelper/lok.hxx>
+
+#include <svx/svxdlg.hxx>
 
 #include <SwStyleNameMapper.hxx>
 #include <poolfmt.hxx>
 #include <shellres.hxx>
+#include <UndoTable.hxx>
 
 FlyMode SwBaseShell::eFrameMode = FLY_DRAG_END;
 
@@ -296,7 +303,7 @@ void SwBaseShell::ExecClpbrd(SfxRequest &rReq)
 
                     if( rSh.IsFrameSelected() || rSh.IsObjSelected() )
                         rSh.EnterSelFrameMode();
-                    pView->AttrChangedNotify( &rSh );
+                    pView->AttrChangedNotify(nullptr);
                 }
                 else
                     return;
@@ -327,7 +334,7 @@ void SwBaseShell::ExecClpbrd(SfxRequest &rReq)
                         bIgnore = true;
                         if( rSh.IsFrameSelected() || rSh.IsObjSelected())
                             rSh.EnterSelFrameMode();
-                        pView->AttrChangedNotify( &rSh );
+                        pView->AttrChangedNotify(nullptr);
                     }
                 }
             }
@@ -359,7 +366,7 @@ void SwBaseShell::ExecClpbrd(SfxRequest &rReq)
 
                     if (rSh.IsFrameSelected() || rSh.IsObjSelected())
                         rSh.EnterSelFrameMode();
-                    pView->AttrChangedNotify( &rSh );
+                    pView->AttrChangedNotify(nullptr);
                 }
                 else
                     return;
@@ -368,33 +375,56 @@ void SwBaseShell::ExecClpbrd(SfxRequest &rReq)
 
         case SID_PASTE_SPECIAL:
             {
-                TransferableDataHelper aDataHelper(
-                    TransferableDataHelper::CreateFromSystemClipboard( &rSh.GetView().GetEditWin()) );
-                if( aDataHelper.GetXTransferable().is()
-                    && SwTransferable::IsPaste( rSh, aDataHelper )
+                std::shared_ptr<TransferableDataHelper> aDataHelper;
+                aDataHelper.reset(new TransferableDataHelper(TransferableDataHelper::CreateFromSystemClipboard( &rSh.GetView().GetEditWin())));
+
+                if( aDataHelper->GetXTransferable().is()
+                    && SwTransferable::IsPaste( rSh, *aDataHelper )
                     && !rSh.CursorInsideInputField() )
                 {
-                    // Temporary variables, because the shell could already be
-                    // destroyed after the paste.
-                    SwView* pView = &rView;
-                    SotClipboardFormatId nFormatId = SotClipboardFormatId::NONE;
                     rReq.Ignore();
                     bIgnore = true;
-                    if(SwTransferable::PasteSpecial( rSh, aDataHelper, nFormatId ))
+
+                    SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
+                    VclPtr<SfxAbstractPasteDialog> pDlg(pFact->CreatePasteDialog( rReq.GetFrameWeld() ));
+
+                    // Prepare the dialog
+                    SwTransferable::PrePasteSpecial(rSh, *aDataHelper, pDlg);
+                    pDlg->PreGetFormat(*aDataHelper);
+
+
+                    pDlg->StartExecuteAsync([aDataHelper, pDlg, &rSh, this](sal_Int32 nResult){
+                    if (nResult == RET_OK)
                     {
-                        SfxViewFrame* pViewFrame = pView->GetViewFrame();
-                        uno::Reference< frame::XDispatchRecorder > xRecorder =
-                            pViewFrame->GetBindings().GetRecorder();
-                        if(xRecorder.is()) {
-                            SfxRequest aReq( pViewFrame, SID_CLIPBOARD_FORMAT_ITEMS );
-                            aReq.AppendItem( SfxUInt32Item( SID_CLIPBOARD_FORMAT_ITEMS, static_cast<sal_uInt32>(nFormatId) ) );
-                            aReq.Done();
+                        // Temporary variables, because the shell could already be
+                        // destroyed after the paste.
+                        SwView* pView = &rView;
+                        bool bRet = false;
+                        SotClipboardFormatId nFormatId = pDlg->GetFormatOnly();
+
+                        if( nFormatId != SotClipboardFormatId::NONE )
+                            bRet = SwTransferable::PasteFormat( rSh, *aDataHelper, nFormatId );
+
+                        if (bRet)
+                        {
+                            SfxViewFrame* pViewFrame = pView->GetViewFrame();
+                            uno::Reference< frame::XDispatchRecorder > xRecorder =
+                                    pViewFrame->GetBindings().GetRecorder();
+                            if(xRecorder.is()) {
+                                SfxRequest aReq( pViewFrame, SID_CLIPBOARD_FORMAT_ITEMS );
+                                aReq.AppendItem( SfxUInt32Item( SID_CLIPBOARD_FORMAT_ITEMS, static_cast<sal_uInt32>(nFormatId) ) );
+                                aReq.Done();
+                            }
                         }
+
+                        if (rSh.IsFrameSelected() || rSh.IsObjSelected())
+                            rSh.EnterSelFrameMode();
+                        pView->AttrChangedNotify(nullptr);
                     }
 
-                    if (rSh.IsFrameSelected() || rSh.IsObjSelected())
-                        rSh.EnterSelFrameMode();
-                    pView->AttrChangedNotify( &rSh );
+                    pDlg->disposeOnce();
+
+                    });
                 }
                 else
                     return;
@@ -432,7 +462,7 @@ void SwBaseShell::StateClpbrd(SfxItemSet &rSet)
             }
             [[fallthrough]];
         case SID_COPY:
-            if( !bCopy )
+            if( !bCopy || GetView().isContentExtractionLocked())
                 rSet.DisableItem( nWhich );
             break;
 
@@ -644,8 +674,7 @@ void SwBaseShell::Execute(SfxRequest &rReq)
         case FN_REPAGINATE:
             {
                 Reference < XModel > xModel = GetView().GetDocShell()->GetModel();
-                Reference < XUnoTunnel > xDocTunnel ( xModel, UNO_QUERY );
-                SwXTextDocument *pDoc = reinterpret_cast < SwXTextDocument * > ( xDocTunnel->getSomething ( SwXTextDocument::getUnoTunnelId() ) );
+                auto pDoc = comphelper::getUnoTunnelImplementation<SwXTextDocument>(xModel);
                 pDoc->NotifyRefreshListeners();
                 rSh.CalcLayout();
             }
@@ -755,7 +784,7 @@ void SwBaseShell::Execute(SfxRequest &rReq)
                 {
                     rSh.HideCursor();
                     rSh.EnterSelFrameMode();
-                    GetView().AttrChangedNotify( &rSh );
+                    GetView().AttrChangedNotify(nullptr);
                 }
         }
         break;
@@ -1190,7 +1219,7 @@ void SwBaseShell::Execute(SfxRequest &rReq)
                 {
                     bool bDesignMode = pBoolItem->GetValue();
 
-                    // set form design mode
+                    // set from design mode
                     OSL_ENSURE( GetView().GetFormShell() != nullptr, "form shell?" );
                     SfxRequest aReq( GetView().GetViewFrame(), SID_FM_DESIGN_MODE );
                     aReq.AppendItem( SfxBoolItem( SID_FM_DESIGN_MODE, bDesignMode ) );
@@ -1279,7 +1308,7 @@ void SwBaseShell::Execute(SfxRequest &rReq)
     }
 }
 
-// Here the state fpr SID_IMAP / SID_CONTOUR will be handled
+// Here the state for SID_IMAP / SID_CONTOUR will be handled
 // until the swapping of the graphic is finished.
 
 IMPL_LINK_NOARG(SwBaseShell, GraphicArrivedHdl, SwCursorShell&, void)
@@ -1654,6 +1683,15 @@ void SwBaseShell::GetState( SfxItemSet &rSet )
                         rSet.DisableItem(nWhich);
                     else if(nWhich != SID_ANCHOR_MENU)
                         rSet.Put(SfxBoolItem(nWhich, bSet));
+
+                    if (comphelper::LibreOfficeKit::isActive())
+                    {
+                        if (nWhich == FN_TOOL_ANCHOR_PAGE || nWhich == FN_TOOL_ANCHOR_PARAGRAPH
+                            || nWhich == FN_TOOL_ANCHOR_FRAME)
+                        {
+                            rSet.DisableItem(nWhich);
+                        }
+                    }
                 }
                 else
                     rSet.DisableItem( nWhich );
@@ -2266,7 +2304,7 @@ void SwBaseShell::ExecBckCol(SfxRequest& rReq)
     const SfxItemSet* pArgs = rReq.GetArgs();
     sal_uInt16 nSlot(rReq.GetSlot());
 
-    if (!pArgs && ( nSlot != SID_BACKGROUND_COLOR || nSlot != SID_TABLE_CELL_BACKGROUND_COLOR ) )
+    if (!pArgs && nSlot != SID_BACKGROUND_COLOR && nSlot != SID_TABLE_CELL_BACKGROUND_COLOR)
     {
         return;
     }
@@ -2411,7 +2449,7 @@ void SwBaseShell::GetBorderState(SfxItemSet &rSet)
 void SwBaseShell::ExecDlg(SfxRequest &rReq)
 {
     SwWrtShell &rSh = GetShell();
-    weld::Window* pMDI = GetView().GetViewFrame()->GetWindow().GetFrameWeld();
+    weld::Window* pMDI = GetView().GetFrameWeld();
     // So that from the basic no dialogues for the background views are called:
     bool bBackground = (&GetView() != GetActiveView());
     const SfxPoolItem* pItem = nullptr;
@@ -2704,12 +2742,16 @@ void SwBaseShell::InsertTable( SfxRequest& _rRequest )
                     rSh.GetTableFormat()->SetName( aTableName );
 
                 if( pTAFormat != nullptr && !aAutoName.isEmpty()
-                        && aAutoName != SwStyleNameMapper::GetUIName( RES_POOLTABSTYLE_DEFAULT, OUString() )
                         && aAutoName != SwViewShell::GetShellRes()->aStrNone )
                 {
                     SwTableNode* pTableNode = const_cast<SwTableNode*>( rSh.IsCursorInTable() );
                     if ( pTableNode )
+                    {
                         pTableNode->GetTable().SetTableStyleName( aAutoName );
+                        SwUndoTableAutoFormat* pUndo = new SwUndoTableAutoFormat( *pTableNode, *pTAFormat );
+                        if ( pUndo )
+                            rSh.GetIDocumentUndoRedo().AppendUndo( std::unique_ptr<SwUndo>(pUndo) );
+                    }
                 }
 
                 rSh.EndAllAction();

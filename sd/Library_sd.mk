@@ -9,7 +9,7 @@
 
 $(eval $(call gb_Library_Library,sd))
 
-$(eval $(call gb_Library_set_precompiled_header,sd,$(SRCDIR)/sd/inc/pch/precompiled_sd))
+$(eval $(call gb_Library_set_precompiled_header,sd,sd/inc/pch/precompiled_sd))
 
 # runtime dependency for unit tests
 $(eval $(call gb_Library_use_package,sd,sd_xml))
@@ -110,7 +110,8 @@ $(eval $(call gb_Library_use_externals,sd,\
 ))
 
 ifneq ($(DBUS_HAVE_GLIB),)
-$(eval $(call gb_Library_add_defs,sd,\
+$(eval $(call gb_Library_set_include,sd,\
+	$$(INCLUDE) \
 	$(DBUS_GLIB_CFLAGS) \
 ))
 $(eval $(call gb_Library_add_libs,sd,\

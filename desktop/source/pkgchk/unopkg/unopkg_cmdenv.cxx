@@ -122,8 +122,7 @@ CommandEnvironmentImpl::~CommandEnvironmentImpl()
             xComp->dispose();
     }
     catch (const RuntimeException &) {
-        css::uno::Any ex( cppu::getCaughtException() );
-        SAL_WARN( "desktop", exceptionToString(ex) );
+        TOOLS_WARN_EXCEPTION( "desktop", "" );
     }
 }
 
@@ -250,7 +249,7 @@ void CommandEnvironmentImpl::handle(
     }
     else if (request >>= instExc)
     {
-        //Only if the unopgk was started with gui + extension then we user is asked.
+        //Only if the unopgk was started with gui + extension then the user is asked.
         //In console mode there is no asking.
         approve = true;
     }
@@ -280,7 +279,8 @@ void CommandEnvironmentImpl::handle(
     }
 
     // select:
-    for ( auto const& rCont : xRequest->getContinuations() )
+    const css::uno::Sequence<css::uno::Reference<css::task::XInteractionContinuation>> xIC = xRequest->getContinuations();
+    for ( auto const& rCont : xIC )
     {
         if (approve) {
             Reference<task::XInteractionApprove> xInteractionApprove(

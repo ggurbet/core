@@ -19,17 +19,10 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_SIDEBAR_PAGEMARGINCONTROL_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_SIDEBAR_PAGEMARGINCONTROL_HXX
 
-#include <tools/fldunit.hxx>
-#include <svl/poolitem.hxx>
-#include <svx/rulritem.hxx>
-#include <unotools/viewoptions.hxx>
+#include <sfx2/tbxctrl.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/field.hxx>
-#include <svtools/unitconv.hxx>
-#include <vector>
 #include <vcl/layout.hxx>
-
-#include <svx/tbxctl.hxx>
 
 #define SWPAGE_NARROW_VALUE    720
 #define SWPAGE_NORMAL_VALUE    1136
@@ -37,7 +30,8 @@
 #define SWPAGE_WIDE_VALUE2     2880
 #define SWPAGE_WIDE_VALUE3     1800
 
-static const long MINBODY = 284; //0.5 cm in twips
+// #i19922# - tdf#126051 see cui/source/tabpages/page.cxx and svx/source/dialog/hdft.cxx
+static const long MINBODY = 56;  // 1mm in twips rounded
 
 namespace sw { namespace sidebar {
 

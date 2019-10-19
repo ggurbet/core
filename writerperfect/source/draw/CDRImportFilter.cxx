@@ -20,11 +20,6 @@
 
 #include "CDRImportFilter.hxx"
 
-using com::sun::star::uno::RuntimeException;
-using com::sun::star::uno::Sequence;
-using com::sun::star::uno::XComponentContext;
-using com::sun::star::uno::XInterface;
-
 bool CDRImportFilter::doImportDocument(weld::Window*, librevenge::RVNGInputStream& rInput,
                                        OdgGenerator& rGenerator, utl::MediaDescriptor&)
 {
@@ -45,7 +40,7 @@ bool CDRImportFilter::doDetectFormat(librevenge::RVNGInputStream& rInput, OUStri
 // XServiceInfo
 OUString SAL_CALL CDRImportFilter::getImplementationName()
 {
-    return OUString("com.sun.star.comp.Draw.CDRImportFilter");
+    return "com.sun.star.comp.Draw.CDRImportFilter";
 }
 
 sal_Bool SAL_CALL CDRImportFilter::supportsService(const OUString& rServiceName)
@@ -53,13 +48,9 @@ sal_Bool SAL_CALL CDRImportFilter::supportsService(const OUString& rServiceName)
     return cppu::supportsService(this, rServiceName);
 }
 
-Sequence<OUString> SAL_CALL CDRImportFilter::getSupportedServiceNames()
+css::uno::Sequence<OUString> SAL_CALL CDRImportFilter::getSupportedServiceNames()
 {
-    Sequence<OUString> aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.document.ImportFilter";
-    pArray[1] = "com.sun.star.document.ExtendedTypeDetection";
-    return aRet;
+    return { "com.sun.star.document.ImportFilter", "com.sun.star.document.ExtendedTypeDetection" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*

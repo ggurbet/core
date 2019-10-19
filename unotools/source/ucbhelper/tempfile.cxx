@@ -370,7 +370,7 @@ TempFile::TempFile( const OUString& rLeadingChars, bool _bStartWithZero,
                             true, true, bCreateParentDirs );
 }
 
-TempFile::TempFile(TempFile && other):
+TempFile::TempFile(TempFile && other) noexcept :
     aName(std::move(other.aName)), pStream(std::move(other.pStream)), bIsDirectory(other.bIsDirectory),
     bKillingFileEnabled(other.bKillingFileEnabled)
 {
@@ -468,6 +468,12 @@ OUString TempFile::SetTempNameBaseDirectory( const OUString &rBaseName )
 
     return aTmp;
 }
+
+OUString TempFile::GetTempNameBaseDirectory()
+{
+    return ConstructTempDir_Impl(nullptr);
+}
+
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

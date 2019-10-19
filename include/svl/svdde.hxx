@@ -61,7 +61,7 @@ public:
                     DdeData(SAL_UNUSED_PARAMETER const void*, SAL_UNUSED_PARAMETER long, SAL_UNUSED_PARAMETER SotClipboardFormatId = SotClipboardFormatId::STRING);
                     DdeData(SAL_UNUSED_PARAMETER const OUString&);
                     DdeData(const DdeData&);
-                    DdeData(DdeData&&);
+                    DdeData(DdeData&&) noexcept;
                     ~DdeData();
 
     void const *    getData() const;
@@ -70,7 +70,7 @@ public:
     SotClipboardFormatId GetFormat() const;
 
     DdeData&        operator=(const DdeData&);
-    DdeData&        operator=(DdeData&&);
+    DdeData&        operator=(DdeData&&) noexcept;
 
     static sal_uLong GetExternalFormat(SotClipboardFormatId nFmt);
     static SotClipboardFormatId GetInternalFormat(sal_uLong nFmt);
@@ -98,8 +98,8 @@ protected:
 public:
     virtual        ~DdeTransaction();
 
-    bool            IsBusy() { return bBusy; }
-    const OUString GetName() const;
+    bool            IsBusy() const { return bBusy; }
+    OUString GetName() const;
 
     void            Execute();
 
@@ -112,7 +112,7 @@ public:
     void                 SetFormat( SotClipboardFormatId nFmt ) { aDdeData.SetFormat( nFmt );  }
     SotClipboardFormatId GetFormat() const       { return aDdeData.GetFormat(); }
 
-    long            GetError();
+    long            GetError() const;
 
 private:
     friend class    DdeInternal;
@@ -179,14 +179,14 @@ public:
                     DdeConnection( SAL_UNUSED_PARAMETER const OUString&, SAL_UNUSED_PARAMETER const OUString& );
                     ~DdeConnection();
 
-    long            GetError();
+    long            GetError() const;
 
     static const std::vector<DdeConnection*>& GetConnections();
 
     bool            IsConnected();
 
-    const OUString  GetServiceName();
-    const OUString  GetTopicName();
+    OUString        GetServiceName() const;
+    OUString        GetTopicName() const;
 
 private:
                             DdeConnection( const DdeConnection& ) = delete;
@@ -211,7 +211,7 @@ public:
                     DdeItem( const DdeItem& );
                     virtual ~DdeItem();
 
-    const OUString GetName() const;
+    OUString GetName() const;
     short           GetLinks();
     void            NotifyClient();
 };
@@ -257,7 +257,7 @@ public:
                     DdeTopic( SAL_UNUSED_PARAMETER const OUString& );
     virtual        ~DdeTopic();
 
-    const OUString  GetName() const;
+    OUString        GetName() const;
 
     void            NotifyClient( const OUString& );
     bool            IsSystemTopic();
@@ -265,7 +265,7 @@ public:
     void            InsertItem( DdeItem* );     // For own superclasses
     DdeItem*        AddItem( const DdeItem& );  // Will be cloned
     void            RemoveItem( const DdeItem& );
-    const OUString& GetCurItem() { return aItem;  }
+    const OUString& GetCurItem() const { return aItem;  }
     const std::vector<DdeItem*>& GetItems() const  { return aItems; }
 
 private:
@@ -302,8 +302,8 @@ public:
                     DdeService( const DdeService& ) = delete;
     DdeService&     operator= ( const DdeService& ) = delete;
 
-    const OUString  GetName() const;
-    short           GetError()              { return nStatus; }
+    OUString        GetName() const;
+    short           GetError() const { return nStatus; }
 
     static DdeServices& GetServices();
     std::vector<DdeTopic*>& GetTopics() { return aTopics; }
@@ -317,7 +317,7 @@ public:
 };
 
 
-inline long DdeTransaction::GetError()
+inline long DdeTransaction::GetError() const
 {
     return rDde.GetError();
 }

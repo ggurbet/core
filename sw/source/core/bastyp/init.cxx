@@ -23,20 +23,26 @@
 #include <cellatr.hxx>
 #include <checkit.hxx>
 #include <cmdid.h>
-#include <fesh.hxx>
 #include <comphelper/processfactory.hxx>
 #include <doc.hxx>
 #include <editeng/acorrcfg.hxx>
 #include <editeng/autokernitem.hxx>
 #include <editeng/blinkitem.hxx>
+#include <editeng/boxitem.hxx>
+#include <editeng/brushitem.hxx>
 #include <editeng/formatbreakitem.hxx>
 #include <editeng/charhiddenitem.hxx>
 #include <editeng/charreliefitem.hxx>
 #include <editeng/charrotateitem.hxx>
 #include <editeng/charscaleitem.hxx>
 #include <editeng/cmapitem.hxx>
+#include <editeng/colritem.hxx>
+#include <editeng/contouritem.hxx>
+#include <editeng/crossedoutitem.hxx>
 #include <editeng/emphasismarkitem.hxx>
 #include <editeng/escapementitem.hxx>
+#include <editeng/fontitem.hxx>
+#include <editeng/fhgtitem.hxx>
 #include <editeng/forbiddenruleitem.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <editeng/hngpnctitem.hxx>
@@ -54,17 +60,20 @@
 #include <editeng/pgrditem.hxx>
 #include <editeng/prntitem.hxx>
 #include <editeng/protitem.hxx>
+#include <editeng/postitem.hxx>
 #include <editeng/rsiditem.hxx>
 #include <svl/grabbagitem.hxx>
 #include <editeng/scriptspaceitem.hxx>
 #include <editeng/shaditem.hxx>
+#include <editeng/shdditem.hxx>
 #include <editeng/spltitem.hxx>
 #include <editeng/svxacorr.hxx>
 #include <editeng/swafopt.hxx>
 #include <editeng/tstpitem.hxx>
 #include <editeng/twolinesitem.hxx>
 #include <editeng/ulspitem.hxx>
-#include <editeng/unolingu.hxx>
+#include <editeng/udlnitem.hxx>
+#include <editeng/wghtitem.hxx>
 #include <editeng/widwitem.hxx>
 #include <editeng/wrlmitem.hxx>
 #include <editeng/xmlcnitm.hxx>
@@ -102,15 +111,12 @@
 #include <hfspacingitem.hxx>
 #include <hintids.hxx>
 #include <init.hxx>
-#include <pam.hxx>
 #include <paratr.hxx>
 #include <proofreadingiterator.hxx>
 #include <editeng/editids.hrc>
 #include <svx/svxids.hrc>
 #include <rtl/instance.hxx>
 #include <svl/macitem.hxx>
-#include <svx/xfillit0.hxx>
-#include <svx/xflgrit.hxx>
 #include <svx/sdtaitm.hxx>
 #include <swcalwrp.hxx>
 #include <SwStyleNameMapper.hxx>
@@ -121,7 +127,6 @@
 #include <unotools/charclass.hxx>
 #include <unotools/configmgr.hxx>
 #include <unotools/collatorwrapper.hxx>
-#include <unotools/syslocale.hxx>
 #include <unotools/transliterationwrapper.hxx>
 #include <vcl/mapmod.hxx>
 #include <vcl/svapp.hxx>
@@ -348,12 +353,13 @@ SfxItemInfo aSlotTab[] =
 
     { SID_ATTR_PARA_OUTLINE_LEVEL, true }, // RES_PARATR_OUTLINELEVEL //#outline level
     { 0, true },                           // RES_PARATR_RSID
-    { 0, true },                           // RES_PARATR_GRABBAG
+    { SID_ATTR_PARA_GRABBAG, true },       // RES_PARATR_GRABBAG
     { 0, true },                           // RES_PARATR_LIST_ID
     { 0, true },                           // RES_PARATR_LIST_LEVEL
     { 0, true },                           // RES_PARATR_LIST_ISRESTART
     { 0, true },                           // RES_PARATR_LIST_RESTARTVALUE
     { 0, true },                           // RES_PARATR_LIST_ISCOUNTED
+    { 0, true },                           // RES_PARATR_LIST_AUTOFMT
 
     { 0, true },                           // RES_FILL_ORDER
     { 0, true },                           // RES_FRM_SIZE
@@ -556,6 +562,7 @@ void InitCore()
     aAttrTab[ RES_PARATR_LIST_ISRESTART - POOLATTR_BEGIN ] = new SfxBoolItem( RES_PARATR_LIST_ISRESTART, false );
     aAttrTab[ RES_PARATR_LIST_RESTARTVALUE - POOLATTR_BEGIN ] = new SfxInt16Item( RES_PARATR_LIST_RESTARTVALUE, 1 );
     aAttrTab[ RES_PARATR_LIST_ISCOUNTED - POOLATTR_BEGIN ] = new SfxBoolItem( RES_PARATR_LIST_ISCOUNTED, true );
+    aAttrTab[ RES_PARATR_LIST_AUTOFMT - POOLATTR_BEGIN ] = new SwFormatAutoFormat(RES_PARATR_LIST_AUTOFMT);//new SfxSetItem(RES_PARATR_LIST_AUTOFMT, std::make_unique<SfxItemSet>(aCharAutoFormatSetRange));
 
     aAttrTab[ RES_FILL_ORDER- POOLATTR_BEGIN ] =            new SwFormatFillOrder;
     aAttrTab[ RES_FRM_SIZE- POOLATTR_BEGIN ] =              new SwFormatFrameSize;
@@ -688,44 +695,6 @@ void FinitCore()
         SfxItemPool::ReleaseDefaults( &aAttrTab );
 #endif
     delete SwDoc::s_pAutoCompleteWords;
-
-    delete SwStyleNameMapper::s_pTextUINameArray;
-    delete SwStyleNameMapper::s_pListsUINameArray;
-    delete SwStyleNameMapper::s_pExtraUINameArray;
-    delete SwStyleNameMapper::s_pRegisterUINameArray;
-    delete SwStyleNameMapper::s_pDocUINameArray;
-    delete SwStyleNameMapper::s_pHTMLUINameArray;
-    delete SwStyleNameMapper::s_pFrameFormatUINameArray;
-    delete SwStyleNameMapper::s_pChrFormatUINameArray;
-    delete SwStyleNameMapper::s_pHTMLChrFormatUINameArray;
-    delete SwStyleNameMapper::s_pPageDescUINameArray;
-    delete SwStyleNameMapper::s_pNumRuleUINameArray;
-
-    // Delete programmatic name arrays also
-    delete SwStyleNameMapper::s_pTextProgNameArray;
-    delete SwStyleNameMapper::s_pListsProgNameArray;
-    delete SwStyleNameMapper::s_pExtraProgNameArray;
-    delete SwStyleNameMapper::s_pRegisterProgNameArray;
-    delete SwStyleNameMapper::s_pDocProgNameArray;
-    delete SwStyleNameMapper::s_pHTMLProgNameArray;
-    delete SwStyleNameMapper::s_pFrameFormatProgNameArray;
-    delete SwStyleNameMapper::s_pChrFormatProgNameArray;
-    delete SwStyleNameMapper::s_pHTMLChrFormatProgNameArray;
-    delete SwStyleNameMapper::s_pPageDescProgNameArray;
-    delete SwStyleNameMapper::s_pNumRuleProgNameArray;
-
-    // And finally, any hash tables that we used
-    delete SwStyleNameMapper::s_pParaUIMap;
-    delete SwStyleNameMapper::s_pCharUIMap;
-    delete SwStyleNameMapper::s_pPageUIMap;
-    delete SwStyleNameMapper::s_pFrameUIMap;
-    delete SwStyleNameMapper::s_pNumRuleUIMap;
-
-    delete SwStyleNameMapper::s_pParaProgMap;
-    delete SwStyleNameMapper::s_pCharProgMap;
-    delete SwStyleNameMapper::s_pPageProgMap;
-    delete SwStyleNameMapper::s_pFrameProgMap;
-    delete SwStyleNameMapper::s_pNumRuleProgMap;
 
     // delete all default attributes
     for(SfxPoolItem* pHt : aAttrTab)

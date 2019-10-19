@@ -55,7 +55,7 @@ sal_uInt16 Count_Impl( const sal_uInt16 *pRanges )
 
 /**
  * Determines the total number of sal_uInt16s described in a 0-terminated
- * array of pairs of sal_uInt16s, each representing an range of sal_uInt16s.
+ * array of pairs of sal_uInt16s, each representing a range of sal_uInt16s.
  */
 sal_uInt16 Capacity_Impl( const sal_uInt16 *pRanges )
 {
@@ -216,7 +216,7 @@ SfxItemSet::SfxItemSet( const SfxItemSet& rASet )
     memcpy( m_pWhichRanges, rASet.m_pWhichRanges, sizeof( sal_uInt16 ) * cnt);
 }
 
-SfxItemSet::SfxItemSet( SfxItemSet&& rASet )
+SfxItemSet::SfxItemSet(SfxItemSet&& rASet) noexcept
     : m_pPool( rASet.m_pPool )
     , m_pParent( rASet.m_pParent )
     , m_pItems( std::move(rASet.m_pItems) )
@@ -656,9 +656,10 @@ void SfxItemSet::PutExtended
 void SfxItemSet::MergeRange( sal_uInt16 nFrom, sal_uInt16 nTo )
 {
     // special case: exactly one sal_uInt16 which is already included?
-    SfxItemState eItemState = GetItemState(nFrom, false);
-    if ( nFrom == nTo && ( eItemState == SfxItemState::DEFAULT || eItemState == SfxItemState::SET ) )
-        return;
+    if (nFrom == nTo)
+        if (SfxItemState eItemState = GetItemState(nFrom, false);
+            eItemState == SfxItemState::DEFAULT || eItemState == SfxItemState::SET)
+            return;
 
 #ifdef DBG_UTIL
     assert(nFrom <= nTo);
@@ -1013,17 +1014,15 @@ void SfxItemSet::Intersect( const SfxItemSet& rSet )
     {
         SfxItemIter aIter( *this );
         const SfxPoolItem* pItem = aIter.GetCurItem();
-        while( true )
+        do
         {
             sal_uInt16 nWhich = IsInvalidItem( pItem )
                                 ? GetWhichByPos( aIter.GetCurPos() )
                                 : pItem->Which();
             if( SfxItemState::UNKNOWN == rSet.GetItemState( nWhich, false ) )
                 ClearItem( nWhich );        // Delete
-            if( aIter.IsAtEnd() )
-                break;
             pItem = aIter.NextItem();
-        }
+        } while (pItem);
     }
 }
 
@@ -1079,17 +1078,15 @@ void SfxItemSet::Differentiate( const SfxItemSet& rSet )
     {
         SfxItemIter aIter( *this );
         const SfxPoolItem* pItem = aIter.GetCurItem();
-        while( true )
+        do
         {
             sal_uInt16 nWhich = IsInvalidItem( pItem )
                                 ? GetWhichByPos( aIter.GetCurPos() )
                                 : pItem->Which();
             if( SfxItemState::SET == rSet.GetItemState( nWhich, false ) )
                 ClearItem( nWhich ); // Delete
-            if( aIter.IsAtEnd() )
-                break;
             pItem = aIter.NextItem();
-        }
+        } while (pItem);
 
     }
 }
@@ -1500,7 +1497,7 @@ void SfxItemSet::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("SfxItemSet"));
     SfxItemIter aIter(*this);
-    for (const SfxPoolItem* pItem = aIter.FirstItem(); pItem; pItem = aIter.NextItem())
+    for (const SfxPoolItem* pItem = aIter.GetCurItem(); pItem; pItem = aIter.NextItem())
          pItem->dumpAsXml(pWriter);
     xmlTextWriterEndElement(pWriter);
 }

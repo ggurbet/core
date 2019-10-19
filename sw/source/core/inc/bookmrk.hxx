@@ -29,7 +29,7 @@
 #include <tools/ref.hxx>
 #include <IMark.hxx>
 #include <swrect.hxx>
-#include "DropDownFormFieldButton.hxx"
+#include "FormFieldButton.hxx"
 
 namespace com {
     namespace sun {
@@ -44,6 +44,7 @@ namespace com {
 class SwDoc;
 class SwEditWin;
 class SwServerObject;
+class SvNumberFormatter;
 
 namespace sw {
     namespace mark {
@@ -247,39 +248,93 @@ namespace sw {
             virtual void ReleaseDoc(SwDoc* const pDoc) override;
         };
 
+        // Non text fieldmarks have no content between the start and end marks.
+        class NonTextFieldmark
+            : public Fieldmark
+        {
+        public:
+            NonTextFieldmark(const SwPaM& rPaM);
+            virtual void InitDoc(SwDoc* const io_pDoc, sw::mark::InsertMode eMode) override;
+            virtual void ReleaseDoc(SwDoc* const pDoc) override;
+        };
+
         /// Fieldmark representing a checkbox form field.
         class CheckboxFieldmark
             : virtual public ICheckboxFieldmark
-            , public Fieldmark
+            , public NonTextFieldmark
         {
         public:
             CheckboxFieldmark(const SwPaM& rPaM);
-            virtual void InitDoc(SwDoc* const io_pDoc, sw::mark::InsertMode eMode) override;
-            virtual void ReleaseDoc(SwDoc* const pDoc) override;
             bool IsChecked() const override;
             void SetChecked(bool checked) override;
         };
 
+        /// Fieldmark with a drop down button (e.g. this button opens the date picker for a date field)
+        class FieldmarkWithDropDownButton
+            : public NonTextFieldmark
+        {
+        public:
+            FieldmarkWithDropDownButton(const SwPaM& rPaM);
+            virtual ~FieldmarkWithDropDownButton() override;
+
+            virtual void ShowButton(SwEditWin* pEditWin) = 0;
+            void HideButton();
+            void RemoveButton();
+
+        protected:
+            VclPtr<FormFieldButton> m_pButton;
+        };
+
         /// Fieldmark representing a drop-down form field.
         class DropDownFieldmark
-            : public Fieldmark
+            : public FieldmarkWithDropDownButton
         {
         public:
             DropDownFieldmark(const SwPaM& rPaM);
             virtual ~DropDownFieldmark() override;
-            virtual void InitDoc(SwDoc* const io_pDoc, sw::mark::InsertMode eMode) override;
-            virtual void ReleaseDoc(SwDoc* const pDoc) override;
+
+            virtual void ShowButton(SwEditWin* pEditWin) override;
 
             // This method should be called only by the portion so we can now the portion's painting area
             void SetPortionPaintArea(const SwRect& rPortionPaintArea);
 
-            void ShowButton(SwEditWin* pEditWin);
-            void HideButton();
-            void RemoveButton();
-
         private:
             SwRect m_aPortionPaintArea;
-            VclPtr<DropDownFormFieldButton> m_pButton;
+        };
+
+        /// Fieldmark representing a date form field.
+        class DateFieldmark
+            : virtual public IDateFieldmark
+            , public FieldmarkWithDropDownButton
+        {
+        public:
+            DateFieldmark(const SwPaM& rPaM);
+            virtual ~DateFieldmark() override;
+
+            virtual void InitDoc(SwDoc* const io_pDoc, sw::mark::InsertMode eMode) override;
+            virtual void ReleaseDoc(SwDoc* const pDoc) override;
+
+            virtual void ShowButton(SwEditWin* pEditWin) override;
+
+            void SetPortionPaintAreaStart(const SwRect& rPortionPaintArea);
+            void SetPortionPaintAreaEnd(const SwRect& rPortionPaintArea);
+
+            virtual OUString GetContent() const override;
+            virtual void ReplaceContent(const OUString& sNewContent) override;
+
+            virtual std::pair<bool, double> GetCurrentDate() const override;
+            virtual void SetCurrentDate(double fDate) override;
+            virtual OUString GetDateInStandardDateFormat(double fDate) const override;
+
+        private:
+            OUString GetDateInCurrentDateFormat(double fDate) const;
+            std::pair<bool, double> ParseCurrentDateParam() const;
+            void InvalidateCurrentDateParam();
+
+            SvNumberFormatter* m_pNumberFormatter;
+            sw::DocumentContentOperationsManager* m_pDocumentContentOperationsManager;
+            SwRect m_aPaintAreaStart;
+            SwRect m_aPaintAreaEnd;
         };
     }
 }

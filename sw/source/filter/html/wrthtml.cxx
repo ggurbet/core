@@ -55,6 +55,7 @@
 #include <docary.hxx>
 #include <pam.hxx>
 #include <doc.hxx>
+#include <ndgrf.hxx>
 #include <ndtxt.hxx>
 #include <mdiexp.hxx>
 #include <fltini.hxx>
@@ -90,7 +91,7 @@ using namespace css;
 static sal_Char sIndentTabs[MAX_INDENT_LEVEL+2] =
     "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
-SwHTMLWriter::SwHTMLWriter( const OUString& rBaseURL )
+SwHTMLWriter::SwHTMLWriter( const OUString& rBaseURL, const OUString& rFilterOptions )
     : m_pNumRuleInfo(new SwHTMLNumRuleInfo)
     , m_nHTMLMode(0)
     , m_eCSS1Unit(FieldUnit::NONE)
@@ -162,6 +163,8 @@ SwHTMLWriter::SwHTMLWriter( const OUString& rBaseURL )
         mpTempBaseURL->EnableKillingFile();
         SetBaseURL(mpTempBaseURL->GetURL());
     }
+
+    SetupFilterOptions(rFilterOptions);
 }
 
 SwHTMLWriter::~SwHTMLWriter()
@@ -184,21 +187,26 @@ void SwHTMLWriter::SetupFilterOptions(SfxMedium& rMedium)
         return;
 
 
-    OUString sFilterOptions = static_cast<const SfxStringItem*>(pItem)->GetValue();
-    if (sFilterOptions == "SkipImages")
+    const OUString sFilterOptions = static_cast<const SfxStringItem*>(pItem)->GetValue();
+    SetupFilterOptions(sFilterOptions);
+}
+
+void SwHTMLWriter::SetupFilterOptions(const OUString& rFilterOptions)
+{
+    if (rFilterOptions == "SkipImages")
     {
         mbSkipImages = true;
     }
-    else if (sFilterOptions == "SkipHeaderFooter")
+    else if (rFilterOptions == "SkipHeaderFooter")
     {
         mbSkipHeaderFooter = true;
     }
-    else if (sFilterOptions == "EmbedImages" )
+    else if (rFilterOptions == "EmbedImages")
     {
         mbEmbedImages = true;
     }
 
-    uno::Sequence<OUString> aOptionSeq = comphelper::string::convertCommaSeparated(sFilterOptions);
+    const uno::Sequence<OUString> aOptionSeq = comphelper::string::convertCommaSeparated(rFilterOptions);
     const OUString aXhtmlNsKey("xhtmlns=");
     for (const auto& rOption : aOptionSeq)
     {
@@ -250,7 +258,7 @@ ErrCode SwHTMLWriter::WriteStream()
     m_aFontHeights[6] = rHtmlOptions.GetFontSize( 6 ) * 20;
 
     // output styles anyway
-    // (then also top nad bottom paragraph spacing)
+    // (then also top and bottom paragraph spacing)
     m_nExportMode = rHtmlOptions.GetExportMode();
     m_nHTMLMode = GetHtmlMode(nullptr);
 
@@ -402,12 +410,11 @@ ErrCode SwHTMLWriter::WriteStream()
                     pSNd->GetSection().GetSectionName(), m_eDestEnc,
                     &m_aNonConvertableCharacters );
 
-                OStringBuffer sOut;
-                sOut.append('<').append(OOO_STRING_SVTOOLS_HTML_division)
-                    .append(' ').append(OOO_STRING_SVTOOLS_HTML_O_id)
-                    .append("=\"").append(aName).append('\"').append('>')
-                    .append(aStartTags);
-                aStartTags = sOut.makeStringAndClear();
+                aStartTags =
+                    "<" OOO_STRING_SVTOOLS_HTML_division
+                    " " OOO_STRING_SVTOOLS_HTML_O_id
+                    "=\"" + aName + "\">" +
+                    aStartTags;
             }
             // FindSectionNode() on a SectionNode return the same!
             pSNd = pSNd->StartOfSectionNode()->FindSectionNode();
@@ -431,7 +438,7 @@ ErrCode SwHTMLWriter::WriteStream()
     OutHiddenForms();
 
     if( !aStartTags.isEmpty() )
-        Strm().WriteCharPtr( aStartTags.getStr() );
+        Strm().WriteOString( aStartTags );
 
     const SfxPoolItem *pItem;
     const SfxItemSet& rPageItemSet = m_pCurrPageDesc->GetMaster().GetAttrSet();
@@ -601,19 +608,19 @@ static void lcl_html_OutSectionStartTag( SwHTMLWriter& rHTMLWrt,
     if( !rName.isEmpty() && !bContinued )
     {
         sOut.append(" " OOO_STRING_SVTOOLS_HTML_O_id "=\"");
-        rHTMLWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        rHTMLWrt.Strm().WriteOString( sOut.makeStringAndClear() );
         HTMLOutFuncs::Out_String( rHTMLWrt.Strm(), rName, rHTMLWrt.m_eDestEnc, &rHTMLWrt.m_aNonConvertableCharacters );
         sOut.append('\"');
     }
 
     SvxFrameDirection nDir = rHTMLWrt.GetHTMLDirection( rFormat.GetAttrSet() );
-    rHTMLWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rHTMLWrt.Strm().WriteOString( sOut.makeStringAndClear() );
     rHTMLWrt.OutDirection( nDir );
 
     if( FILE_LINK_SECTION == rSection.GetType() )
     {
         sOut.append(" " OOO_STRING_SVTOOLS_HTML_O_href "=\"");
-        rHTMLWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        rHTMLWrt.Strm().WriteOString( sOut.makeStringAndClear() );
 
         const OUString& aFName = rSection.GetLinkFileName();
         sal_Int32 nIdx{ 0 };
@@ -669,7 +676,7 @@ static void lcl_html_OutSectionStartTag( SwHTMLWriter& rHTMLWrt,
         }
     }
 
-    rHTMLWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+    rHTMLWrt.Strm().WriteOString( sOut.makeStringAndClear() );
     if( rHTMLWrt.IsHTMLMode( rHTMLWrt.m_bCfgOutStyles ? HTMLMODE_ON : 0 ) )
         rHTMLWrt.OutCSS1_SectionFormatOptions( rFormat, pCol );
 
@@ -761,7 +768,7 @@ static Writer& OutHTML_Section( Writer& rWrt, const SwSectionNode& rSectNd )
             rHTMLWrt.m_pCurrentPam->GetPoint()->nNode.GetIndex()+1,
             rSectNd.EndOfSectionIndex(),
             false, pFormat );
-        rHTMLWrt.Out_SwDoc( rHTMLWrt.m_pCurrentPam );
+        rHTMLWrt.Out_SwDoc( rHTMLWrt.m_pCurrentPam.get() );
     }
 
     rHTMLWrt.m_pCurrentPam->GetPoint()->nNode = *rSectNd.EndOfSectionNode();
@@ -902,8 +909,8 @@ static void OutBodyColor( const sal_Char* pTag, const SwFormat *pFormat,
     if( pColorItem )
     {
         OStringBuffer sOut;
-        sOut.append(" " + OString(pTag) + "=");
-        rHWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        sOut.append(OStringLiteral(" ") + pTag + "=");
+        rHWrt.Strm().WriteOString( sOut.makeStringAndClear() );
         Color aColor( pColorItem->GetValue() );
         if( COL_AUTO == aColor )
             aColor = COL_BLACK;
@@ -1048,7 +1055,7 @@ const SwPageDesc *SwHTMLWriter::MakeHeader( sal_uInt16 &rHeaderAttrs )
         // the body won't be indented, because then everything would be indented!
         OutNewLine();
         sOut.append("<" + GetNamespace() + OOO_STRING_SVTOOLS_HTML_body);
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
 
         // language
         OutLanguage( m_eLang );
@@ -1099,7 +1106,7 @@ void SwHTMLWriter::OutAnchor( const OUString& rName )
     if (!mbXHTML)
     {
         sOut.append(OOO_STRING_SVTOOLS_HTML_O_name "=\"");
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
         HTMLOutFuncs::Out_String( Strm(), rName, m_eDestEnc, &m_aNonConvertableCharacters ).WriteCharPtr( "\">" );
     }
     else
@@ -1107,7 +1114,7 @@ void SwHTMLWriter::OutAnchor( const OUString& rName )
         // XHTML wants 'id' instead of 'name', also the value can't contain
         // spaces.
         sOut.append(OOO_STRING_SVTOOLS_HTML_O_id "=\"");
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
         HTMLOutFuncs::Out_String( Strm(), rName.replace(' ', '_'), m_eDestEnc, &m_aNonConvertableCharacters ).WriteCharPtr( "\">" );
     }
     HTMLOutFuncs::Out_AsciiTag( Strm(), GetNamespace() + OOO_STRING_SVTOOLS_HTML_anchor, false );
@@ -1163,7 +1170,7 @@ void SwHTMLWriter::OutPointFieldmarks( const SwPosition& rPos )
     if (!pMarkAccess)
         return;
 
-    const sw::mark::IFieldmark* pMark = pMarkAccess->getFieldmarkFor(rPos);
+    const sw::mark::IFieldmark* pMark = pMarkAccess->getFieldmarkAt(rPos);
     if (!pMark)
         return;
 
@@ -1174,25 +1181,25 @@ void SwHTMLWriter::OutPointFieldmarks( const SwPosition& rPos )
 
         if (pCheckBox)
         {
-            OString aOut("<");
-            aOut += OOO_STRING_SVTOOLS_HTML_input;
-            aOut += " ";
-            aOut += OOO_STRING_SVTOOLS_HTML_O_type;
-            aOut += "=\"";
-            aOut += OOO_STRING_SVTOOLS_HTML_IT_checkbox;
-            aOut += "\"";
+            OString aOut("<"
+                OOO_STRING_SVTOOLS_HTML_input
+                " "
+                OOO_STRING_SVTOOLS_HTML_O_type
+                "=\""
+                OOO_STRING_SVTOOLS_HTML_IT_checkbox
+                "\"");
 
             if (pCheckBox->IsChecked())
             {
-                aOut += " ";
-                aOut += OOO_STRING_SVTOOLS_HTML_O_checked;
-                aOut += "=\"";
-                aOut += OOO_STRING_SVTOOLS_HTML_O_checked;
-                aOut += "\"";
+                aOut += " "
+                    OOO_STRING_SVTOOLS_HTML_O_checked
+                    "=\""
+                    OOO_STRING_SVTOOLS_HTML_O_checked
+                    "\"";
             }
 
             aOut += "/>";
-            Strm().WriteCharPtr(aOut.getStr());
+            Strm().WriteOString(aOut);
         }
     }
 
@@ -1204,7 +1211,7 @@ void SwHTMLWriter::OutImplicitMark( const OUString& rMark,
 {
     if( !rMark.isEmpty() && !m_aImplicitMarks.empty() )
     {
-        OUString sMark(rMark + OUStringLiteral1(cMarkSeparator) + OUString::createFromAscii(pMarkType));
+        OUString sMark(rMark + OUStringChar(cMarkSeparator) + OUString::createFromAscii(pMarkType));
         if( 0 != m_aImplicitMarks.erase( sMark ) )
         {
             OutAnchor(sMark.replace('?', '_')); // '?' causes problems in IE/Netscape 5
@@ -1253,9 +1260,9 @@ void SwHTMLWriter::OutBackground( const SvxBrushItem *pBrushItem, bool bGraphic 
     /// only checking, if transparency is not set.
     if( rBackColor != COL_TRANSPARENT )
     {
-        OStringBuffer sOut;
-        sOut.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_bgcolor).append('=');
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        OString sOut =
+            " " OOO_STRING_SVTOOLS_HTML_O_bgcolor "=";
+        Strm().WriteOString( sOut );
         HTMLOutFuncs::Out_Color( Strm(), rBackColor);
     }
 
@@ -1332,7 +1339,7 @@ void SwHTMLWriter::OutLanguage( LanguageType nLang )
         else
             sOut.append(OOO_STRING_SVTOOLS_HTML_O_lang);
         sOut.append("=\"");
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        Strm().WriteOString( sOut.makeStringAndClear() );
         HTMLOutFuncs::Out_String( Strm(), LanguageTag::convertToBcp47(nLang),
                                   m_eDestEnc, &m_aNonConvertableCharacters ).WriteChar( '"' );
     }
@@ -1367,10 +1374,10 @@ void SwHTMLWriter::OutDirection( SvxFrameDirection nDir )
     OString sConverted = convertDirection(nDir);
     if (!sConverted.isEmpty())
     {
-        OStringBuffer sOut;
-        sOut.append(' ').append(OOO_STRING_SVTOOLS_HTML_O_dir)
-            .append("=\"").append(sConverted).append('\"');
-        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        OString sOut =
+            " " OOO_STRING_SVTOOLS_HTML_O_dir
+            "=\"" + sConverted + "\"";
+        Strm().WriteOString( sOut );
     }
 }
 
@@ -1482,7 +1489,7 @@ HTMLSaveData::HTMLSaveData(SwHTMLWriter& rWriter, sal_uLong nStt,
 {
     bOldWriteAll = rWrt.m_bWriteAll;
 
-    rWrt.m_pCurrentPam = Writer::NewSwPaM( *rWrt.m_pDoc, nStt, nEnd );
+    rWrt.m_pCurrentPam = Writer::NewUnoCursor(*rWrt.m_pDoc, nStt, nEnd);
 
     // recognize table in special areas
     if( nStt != rWrt.m_pCurrentPam->GetMark()->nNode.GetIndex() )
@@ -1492,7 +1499,7 @@ HTMLSaveData::HTMLSaveData(SwHTMLWriter& rWriter, sal_uLong nStt,
             rWrt.m_pCurrentPam->GetMark()->nNode = nStt;
     }
 
-    rWrt.SetEndPaM( rWrt.m_pCurrentPam );
+    rWrt.SetEndPaM( rWrt.m_pCurrentPam.get() );
     rWrt.m_pCurrentPam->Exchange( );
     rWrt.m_bWriteAll = true;
     rWrt.m_nDefListLvl = 0;
@@ -1519,7 +1526,7 @@ HTMLSaveData::HTMLSaveData(SwHTMLWriter& rWriter, sal_uLong nStt,
 
 HTMLSaveData::~HTMLSaveData()
 {
-    delete rWrt.m_pCurrentPam;                    // delete PaM again
+    rWrt.m_pCurrentPam.reset(); // delete PaM again
 
     rWrt.m_pCurrentPam = pOldPam;
     rWrt.SetEndPaM( pOldEnd );
@@ -1547,9 +1554,9 @@ HTMLSaveData::~HTMLSaveData()
     }
 }
 
-void GetHTMLWriter( const OUString&, const OUString& rBaseURL, WriterRef& xRet )
+void GetHTMLWriter( const OUString& rFilterOptions, const OUString& rBaseURL, WriterRef& xRet )
 {
-    xRet = new SwHTMLWriter( rBaseURL );
+    xRet = new SwHTMLWriter( rBaseURL, rFilterOptions );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

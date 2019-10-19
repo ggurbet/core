@@ -24,12 +24,29 @@ class FormulaToken;
 class ScDocument;
 class SvNumberFormatter;
 struct ScLookupCacheMap;
+class ScInterpreter;
+enum class SvNumFormatType : sal_Int16;
 
 // SetNumberFormat() is not thread-safe, so calls to it need to be delayed to the main thread.
 struct DelayedSetNumberFormat
 {
-    SCROW mRow; // Used only with formula groups, so column and tab do not need to be stored.
+    SCROW mCol;
+    SCROW mRow;
     sal_uInt32 mnNumberFormat;
+};
+
+struct NFIndexAndFmtType
+{
+    sal_uInt32 nIndex;
+    SvNumFormatType eType : 16;
+    bool bIsValid : 1;
+
+    NFIndexAndFmtType()
+        : nIndex(0)
+        , eType(static_cast<SvNumFormatType>(0))
+        , bIsValid(false)
+    {
+    }
 };
 
 class ScInterpreterContextPool;
@@ -44,12 +61,14 @@ struct ScInterpreterContext
     // Allocation cache for "aConditions" array in ScInterpreter::IterateParameterIfs()
     // This is populated/used only when formula-group threading is enabled.
     std::vector<sal_uInt32> maConditions;
+    ScInterpreter* pInterpreter;
 
     ScInterpreterContext(const ScDocument& rDoc, SvNumberFormatter* pFormatter)
         : mpDoc(&rDoc)
         , mnTokenCachePos(0)
         , maTokens(TOKEN_CACHE_SIZE, nullptr)
         , mScLookupCache(nullptr)
+        , pInterpreter(nullptr)
         , mpFormatter(pFormatter)
     {
     }
@@ -65,6 +84,8 @@ struct ScInterpreterContext
         return mpFormatter;
     }
 
+    SvNumFormatType GetNumberFormatType(sal_uInt32 nFIndex) const;
+
 private:
     friend class ScInterpreterContextPool;
     void ResetTokens();
@@ -73,6 +94,7 @@ private:
     void ClearLookupCache();
     void initFormatTable();
     SvNumberFormatter* mpFormatter;
+    mutable NFIndexAndFmtType maNFTypeCache;
 };
 
 class ScThreadedInterpreterContextGetterGuard;

@@ -236,7 +236,7 @@ sal_Bool SAL_CALL SvxShapeCollection::hasElements()
 // XServiceInfo
 OUString SAL_CALL SvxShapeCollection::getImplementationName()
 {
-    return OUString("com.sun.star.drawing.SvxShapeCollection");
+    return "com.sun.star.drawing.SvxShapeCollection";
 }
 
 sal_Bool SAL_CALL SvxShapeCollection::supportsService( const OUString& ServiceName )
@@ -246,10 +246,7 @@ sal_Bool SAL_CALL SvxShapeCollection::supportsService( const OUString& ServiceNa
 
 uno::Sequence< OUString > SAL_CALL SvxShapeCollection::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aSeq(2);
-    aSeq.getArray()[0] = "com.sun.star.drawing.Shapes";
-    aSeq.getArray()[1] = "com.sun.star.drawing.ShapeCollection";
-    return aSeq;
+    return { "com.sun.star.drawing.Shapes", "com.sun.star.drawing.ShapeCollection" };
 }
 
 }

@@ -190,13 +190,13 @@ bool IsValidObject( const XclObj& rObj )
         if (!xCooSysContainer.is())
             return false;
 
-        uno::Sequence<uno::Reference<chart2::XCoordinateSystem> > xCooSysSeq = xCooSysContainer->getCoordinateSystems();
+        const uno::Sequence<uno::Reference<chart2::XCoordinateSystem> > xCooSysSeq = xCooSysContainer->getCoordinateSystems();
         if (!xCooSysSeq.hasElements())
             return false;
 
-        for (sal_Int32 nCooSys = 0; nCooSys < xCooSysSeq.getLength(); ++nCooSys)
+        for (const auto& rCooSys : xCooSysSeq)
         {
-            Reference<chart2::XChartTypeContainer> xChartTypeCont(xCooSysSeq[nCooSys], uno::UNO_QUERY);
+            Reference<chart2::XChartTypeContainer> xChartTypeCont(rCooSys, uno::UNO_QUERY);
             if (!xChartTypeCont.is())
                 return false;
 
@@ -624,6 +624,37 @@ sal_Int32 VmlCommentExporter::StartShape()
     return nId;
 }
 
+static const char* lcl_GetHorizAlignFromItemSetChar(const SfxItemSet& rItemSet)
+{
+    switch (rItemSet.Get(EE_PARA_JUST).GetAdjust())
+    {
+        case SvxAdjust::Center:
+            return "Center";
+        case SvxAdjust::Right:
+            return "Right";
+        case SvxAdjust::Block:
+            return "Justify";
+        default:
+            return "Left";
+    }
+}
+
+static const char* lcl_GetVertAlignFromItemSetChar( const SfxItemSet& rItemSet )
+{
+    switch( rItemSet.Get( SDRATTR_TEXT_VERTADJUST ).GetValue() )
+    {
+        case SDRTEXTVERTADJUST_CENTER:
+            return "Center";
+        case SDRTEXTVERTADJUST_BOTTOM:
+            return "Bottom";
+        case SDRTEXTVERTADJUST_BLOCK:
+            return "Justify";
+        case SDRTEXTVERTADJUST_TOP:
+        default:
+            return "Top";
+    }
+}
+
 void VmlCommentExporter::EndShape( sal_Int32 nShapeElement )
 {
     char pAnchor[100];
@@ -632,11 +663,17 @@ void VmlCommentExporter::EndShape( sal_Int32 nShapeElement )
                   maFrom.Left(), maFrom.Top(), maFrom.Right(), maFrom.Bottom(),
                   maTo.Left(), maTo.Top(), maTo.Right(), maTo.Bottom() );
 
+    // Getting comment text alignments
+    const char* pVertAlign = lcl_GetVertAlignFromItemSetChar(mpCaption->GetMergedItemSet());
+    const char* pHorizAlign = lcl_GetHorizAlignFromItemSetChar(mpCaption->GetMergedItemSet());
+
     pVmlDrawing->startElement(FSNS(XML_x, XML_ClientData), XML_ObjectType, "Note");
     pVmlDrawing->singleElement(FSNS(XML_x, XML_MoveWithCells));
     pVmlDrawing->singleElement(FSNS(XML_x, XML_SizeWithCells));
     XclXmlUtils::WriteElement( pVmlDrawing, FSNS( XML_x, XML_Anchor ), pAnchor );
     XclXmlUtils::WriteElement( pVmlDrawing, FSNS( XML_x, XML_AutoFill ), "False" );
+    XclXmlUtils::WriteElement( pVmlDrawing, FSNS( XML_x, XML_TextVAlign ), pVertAlign );
+    XclXmlUtils::WriteElement( pVmlDrawing, FSNS( XML_x, XML_TextHAlign ), pHorizAlign );
     XclXmlUtils::WriteElement( pVmlDrawing, FSNS( XML_x, XML_Row ), maScPos.Row() );
     XclXmlUtils::WriteElement( pVmlDrawing, FSNS(XML_x, XML_Column), sal_Int32(maScPos.Col()));
     if(mbVisible)
@@ -731,6 +768,7 @@ static sal_uInt8 lcl_GetVerAlignFromItemSet( const SfxItemSet& rItemSet )
         case SDRTEXTVERTADJUST_CENTER:  nVerAlign = EXC_OBJ_VER_CENTER;    break;
         case SDRTEXTVERTADJUST_BOTTOM:  nVerAlign = EXC_OBJ_VER_BOTTOM;    break;
         case SDRTEXTVERTADJUST_BLOCK:   nVerAlign = EXC_OBJ_VER_JUSTIFY;   break;
+        default:;
     }
     return nVerAlign;
 }

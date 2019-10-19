@@ -20,7 +20,18 @@
 #ifndef FRAMEWORK_SOURCE_UICONFIGURATION_IMAGELIST_HXX
 #define FRAMEWORK_SOURCE_UICONFIGURATION_IMAGELIST_HXX
 
-struct ImplImageList;
+#include <vcl/image.hxx>
+#include <unordered_map>
+#include <vector>
+
+// Images identified by either name, or by id
+struct ImageAryData
+{
+    OUString    maName;
+    sal_uInt16  mnId;
+    Image       maImage;
+};
+
 
 class ImageList
 {
@@ -49,15 +60,16 @@ public:
     OUString        GetImageName( sal_uInt16 nPos ) const;
     void            GetImageNames( ::std::vector< OUString >& rNames ) const;
 
-    bool            operator==( const ImageList& rImageList ) const;
-    bool            operator!=( const ImageList& rImageList ) const { return !(ImageList::operator==( rImageList )); }
-
 private:
 
-    std::shared_ptr<ImplImageList> mpImplData;
+    std::vector< std::unique_ptr<ImageAryData> >   maImages;
+    std::unordered_map< OUString, ImageAryData * > maNameHash;
+    OUString               maPrefix;
+    Size                   maImageSize;
 
-    void    ImplInit( sal_uInt16 nItems, const Size &rSize );
     sal_uInt16  ImplGetImageId( const OUString& rImageName ) const;
+    void ImplAddImage( const OUString &aPrefix, const OUString &aName, sal_uInt16 nId, const Image &aImage );
+    void ImplRemoveImage( sal_uInt16 nPos );
 };
 
 #endif // INCLUDED_VCL_IMAGE_HXX

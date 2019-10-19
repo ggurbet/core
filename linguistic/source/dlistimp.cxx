@@ -156,10 +156,9 @@ void SAL_CALL DicEvtListenerHelper::processDictionaryEvent(
 
     // assert that there is a corresponding dictionary entry if one was
     // added or deleted
-    uno::Reference< XDictionaryEntry > xDicEntry( rDicEvent.xDictionaryEntry, UNO_QUERY );
     DBG_ASSERT( !(rDicEvent.nEvent &
                     (DictionaryEventFlags::ADD_ENTRY | DictionaryEventFlags::DEL_ENTRY))
-                || xDicEntry.is(),
+                || rDicEvent.xDictionaryEntry.is(),
                 "lng : missing dictionary entry" );
 
     // evaluate DictionaryEvents and update data for next DictionaryListEvent
@@ -167,11 +166,11 @@ void SAL_CALL DicEvtListenerHelper::processDictionaryEvent(
     DBG_ASSERT(eDicType != DictionaryType_MIXED,
         "lng : unexpected dictionary type");
     if ((rDicEvent.nEvent & DictionaryEventFlags::ADD_ENTRY) && xDic->isActive())
-        nCondensedEvt |= xDicEntry->isNegative() ?
+        nCondensedEvt |= rDicEvent.xDictionaryEntry->isNegative() ?
             DictionaryListEventFlags::ADD_NEG_ENTRY :
             DictionaryListEventFlags::ADD_POS_ENTRY;
     if ((rDicEvent.nEvent & DictionaryEventFlags::DEL_ENTRY) && xDic->isActive())
-        nCondensedEvt |= xDicEntry->isNegative() ?
+        nCondensedEvt |= rDicEvent.xDictionaryEntry->isNegative() ?
             DictionaryListEventFlags::DEL_NEG_ENTRY :
             DictionaryListEventFlags::DEL_POS_ENTRY;
     if ((rDicEvent.nEvent & DictionaryEventFlags::ENTRIES_CLEARED) && xDic->isActive())
@@ -280,12 +279,9 @@ void DicList::SearchForDictionaries(
 
     const uno::Sequence< OUString > aDirCnt( utl::LocalFileHelper::
                                         GetFolderContents( rDicDirURL, false ) );
-    const OUString *pDirCnt = aDirCnt.getConstArray();
-    sal_Int32 nEntries = aDirCnt.getLength();
 
-    for (sal_Int32 i = 0;  i < nEntries;  ++i)
+    for (const OUString& aURL : aDirCnt)
     {
-        OUString     aURL( pDirCnt[i] );
         LanguageType nLang = LANGUAGE_NONE;
         bool         bNeg  = false;
         OUString     aDicTitle = "";
@@ -597,7 +593,7 @@ void DicList::CreateDicList()
     // look for dictionaries
     const OUString aWriteablePath( GetDictionaryWriteablePath() );
     std::vector< OUString > aPaths( GetDictionaryPaths() );
-    for (OUString & aPath : aPaths)
+    for (const OUString & aPath : aPaths)
     {
         const bool bIsWriteablePath = (aPath == aWriteablePath);
         SearchForDictionaries( aDicList, aPath, bIsWriteablePath );
@@ -623,13 +619,11 @@ void DicList::CreateDicList()
     //! activation of the dictionaries
     mxDicEvtLstnrHelper->BeginCollectEvents();
     const uno::Sequence< OUString > aActiveDics( aOpt.GetActiveDics() );
-    const OUString *pActiveDic = aActiveDics.getConstArray();
-    sal_Int32 nLen = aActiveDics.getLength();
-    for (sal_Int32 i = 0;  i < nLen;  ++i)
+    for (const OUString& rActiveDic : aActiveDics)
     {
-        if (!pActiveDic[i].isEmpty())
+        if (!rActiveDic.isEmpty())
         {
-            uno::Reference< XDictionary > xDic( getDictionaryByName( pActiveDic[i] ) );
+            uno::Reference< XDictionary > xDic( getDictionaryByName( rActiveDic ) );
             if (xDic.is())
                 xDic->setActive( true );
         }
@@ -695,8 +689,7 @@ uno::Sequence< OUString > SAL_CALL DicList::getSupportedServiceNames(  )
 
 uno::Sequence< OUString > DicList::getSupportedServiceNames_Static() throw()
 {
-    uno::Sequence< OUString > aSNS { "com.sun.star.linguistic2.DictionaryList" };
-    return aSNS;
+    return { "com.sun.star.linguistic2.DictionaryList" };
 }
 
 void * DicList_getFactory( const sal_Char * pImplName,

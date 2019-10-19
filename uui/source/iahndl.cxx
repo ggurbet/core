@@ -865,13 +865,11 @@ UUIInteractionHelper::getInteractionHandlerList(
         uno::Reference< lang::XMultiServiceFactory > xConfigProv =
             configuration::theDefaultProvider::get( m_xContext );
 
-        OUStringBuffer aFullPath;
-        aFullPath.append(
-            "/org.openoffice.ucb.InteractionHandler/InteractionHandlers" );
+        OUString aFullPath = "/org.openoffice.ucb.InteractionHandler/InteractionHandlers";
 
         uno::Sequence<uno::Any> aArguments(comphelper::InitAnyPropertySequence(
         {
-            {"nodepath", uno::Any(aFullPath.makeStringAndClear())}
+            {"nodepath", uno::Any(aFullPath)}
         }));
 
         uno::Reference< uno::XInterface > xInterface(
@@ -883,7 +881,7 @@ UUIInteractionHelper::getInteractionHandlerList(
 
         uno::Reference< container::XNameAccess > xNameAccess(
             xInterface, uno::UNO_QUERY_THROW );
-        uno::Sequence< OUString > aElems = xNameAccess->getElementNames();
+        const uno::Sequence< OUString > aElems = xNameAccess->getElementNames();
 
         if ( aElems.hasElements() )
         {
@@ -893,21 +891,16 @@ UUIInteractionHelper::getInteractionHandlerList(
             // Iterate over children.
             for ( const auto& rElem : aElems )
             {
-                OUStringBuffer aElemBuffer;
-                aElemBuffer.append( "['" );
-                aElemBuffer.append( rElem );
-
                 try
                 {
                     InteractionHandlerData aInfo;
 
                     // Obtain service name.
-                    OUStringBuffer aKeyBuffer = aElemBuffer;
-                    aKeyBuffer.append( "']/ServiceName" );
+                    OUString aKeyBuffer = "['" + rElem + "']/ServiceName";
 
                     OUString aValue;
                     if ( !( xHierNameAccess->getByHierarchicalName(
-                                aKeyBuffer.makeStringAndClear() ) >>= aValue ) )
+                                aKeyBuffer ) >>= aValue ) )
                     {
                         OSL_FAIL( "GetInteractionHandlerList - "
                                     "Error getting item value!" );
@@ -946,7 +939,7 @@ UUIInteractionHelper::getParentXWindow() const
 }
 
 uno::Reference< task::XInteractionHandler2 >
-UUIInteractionHelper::getInteractionHandler()
+UUIInteractionHelper::getInteractionHandler() const
 {
     return InteractionHandler::createWithParentAndContext(
         m_xContext, m_xWindowParam,

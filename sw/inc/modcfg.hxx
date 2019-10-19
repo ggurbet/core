@@ -25,6 +25,7 @@
 #include "SwCapObjType.hxx"
 #include "tblenum.hxx"
 #include "itabenum.hxx"
+#include <caption.hxx>
 #include <tools/globname.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
@@ -129,7 +130,7 @@ class SAL_DLLPUBLIC_RTTI SwInsertConfig : public utl::ConfigItem
     SwInsertTableOptions    m_aInsTableOpts;
     bool const            m_bIsWeb;
 
-    const css::uno::Sequence<OUString>& GetPropertyNames();
+    const css::uno::Sequence<OUString>& GetPropertyNames() const;
 
     virtual void    ImplCommit() override;
 

@@ -46,9 +46,11 @@
 #include <com/sun/star/util/CloseVetoException.hpp>
 #include <org/freedesktop/PackageKit/SyncDbusSessionHelper.hpp>
 
+#include <comphelper/lok.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <comphelper/sequence.hxx>
 
 #include <svtools/addresstemplate.hxx>
 #include <svtools/miscopt.hxx>
@@ -117,7 +119,6 @@
 #include <sfx2/module.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfxpicklist.hxx>
-#include "imestatuswindow.hxx"
 #include <sfx2/sfxdlg.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sorgitm.hxx>
@@ -158,22 +159,22 @@ namespace
         switch ( eApp )
         {
             case vcl::EnumContext::Application::Writer:
-                return OUString( "Writer" );
+                return "Writer";
                 break;
             case vcl::EnumContext::Application::Calc:
-                return OUString( "Calc" );
+                return "Calc";
                 break;
             case vcl::EnumContext::Application::Impress:
-                return OUString( "Impress" );
+                return "Impress";
                 break;
             case vcl::EnumContext::Application::Draw:
-                return OUString( "Draw" );
+                return "Draw";
                 break;
             case vcl::EnumContext::Application::Formula:
-                return OUString( "Formula" );
+                return "Formula";
                 break;
             case vcl::EnumContext::Application::Base:
-                return OUString( "Base" );
+                return "Base";
                 break;
             default:
                 return OUString();
@@ -483,7 +484,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
         {
 
             Reference < XDesktop2 > xDesktop  = Desktop::create( ::comphelper::getProcessComponentContext() );
-            Reference< XIndexAccess > xTasks( xDesktop->getFrames(), UNO_QUERY );
+            Reference< XIndexAccess > xTasks = xDesktop->getFrames();
             if ( !xTasks.is() )
                 break;
 
@@ -587,7 +588,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
             // Open release notes depending on version and locale
             OUString sURL(officecfg::Office::Common::Menus::ReleaseNotesURL::get() + //https://hub.libreoffice.org/ReleaseNotes/
                 "?LOvers=" + utl::ConfigManager::getProductVersion() +
-                "&LOlocale=" + LanguageTag(utl::ConfigManager::getUILocale()).getLanguage() );
+                "&LOlocale=" + LanguageTag(utl::ConfigManager::getUILocale()).getBcp47() );
             sfx2::openUriExternally(sURL, false);
             break;
         }
@@ -665,6 +666,15 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
                 rReq.AppendItem( SfxBoolItem( SID_HELPBALLOONS, bOn) );
             break;
         }
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        case SID_TIPOFTHEDAY:
+        {
+            VclAbstractDialogFactory* pFact = VclAbstractDialogFactory::Create();
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateTipOfTheDayDialog(rReq.GetFrameWeld()));
+            pDlg->Execute();
+            bDone = true;
+            break;
+        }
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         case SID_ABOUT:
@@ -701,21 +711,6 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
             BasicDLL::BasicBreak();
             break;
 #endif
-
-        case SID_SHOW_IME_STATUS_WINDOW:
-            if (sfx2::appl::ImeStatusWindow::canToggle())
-            {
-                const SfxBoolItem * pItem = rReq.GetArg<SfxBoolItem>(SID_SHOW_IME_STATUS_WINDOW);
-                bool bShow = pItem == nullptr
-                    ? !pImpl->m_xImeStatusWindow->isShowing()
-                    : pItem->GetValue();
-                pImpl->m_xImeStatusWindow->show(bShow);
-                if (pItem == nullptr)
-                    rReq.AppendItem(SfxBoolItem(SID_SHOW_IME_STATUS_WINDOW,
-                                                bShow));
-            }
-            bDone = true;
-            break;
 
         case SID_ZOOM_50_PERCENT:
         case SID_ZOOM_75_PERCENT:
@@ -875,11 +870,10 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
                     }
 
                     const Sequence<OUString> aModeNodeNames( aModesNode.getNodeNames() );
-                    const sal_Int32 nCount( aModeNodeNames.getLength() );
 
-                    for ( sal_Int32 nReadIndex = 0; nReadIndex < nCount; ++nReadIndex )
+                    for ( const auto& rModeNodeName : aModeNodeNames )
                     {
-                        const utl::OConfigurationNode aModeNode( aModesNode.openNode( aModeNodeNames[nReadIndex] ) );
+                        const utl::OConfigurationNode aModeNode( aModesNode.openNode( rModeNodeName ) );
                         if ( !aModeNode.isValid() )
                             continue;
 
@@ -895,11 +889,10 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
                     }
 
                     // Backup visible toolbar list and hide all toolbars
-                    Sequence<Reference<XUIElement>> aUIElements = xLayoutManager->getElements();
-                    for ( sal_Int32 i = 0; i < aUIElements.getLength(); i++ )
+                    const Sequence<Reference<XUIElement>> aUIElements = xLayoutManager->getElements();
+                    for ( const Reference< XUIElement >& xUIElement : aUIElements )
                     {
-                        Reference< XUIElement > xUIElement( aUIElements[i] );
-                        Reference< XPropertySet > xPropertySet( aUIElements[i], UNO_QUERY );
+                        Reference< XPropertySet > xPropertySet( xUIElement, UNO_QUERY );
                         if ( xPropertySet.is() && xUIElement.is() )
                         {
                             try
@@ -926,13 +919,13 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
                     }
 
                     // Show toolbars
-                    for ( OUString& rName : aMandatoryToolbars )
+                    for ( const OUString& rName : std::as_const(aMandatoryToolbars) )
                     {
                         xLayoutManager->createElement( rName );
                         xLayoutManager->showElement( rName );
                     }
 
-                    for ( OUString& rName : aUserToolbars )
+                    for ( const OUString& rName : std::as_const(aUserToolbars) )
                     {
                         xLayoutManager->createElement( rName );
                         xLayoutManager->showElement( rName );
@@ -969,13 +962,11 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
                     // Save settings
                     if ( pViewFrame == SfxViewFrame::Current() )
                     {
-                        css::uno::Sequence<OUString> aBackup( aBackupList.size() );
-                        for ( size_t i = 0; i < aBackupList.size(); ++i )
-                            aBackup[i] = aBackupList[i];
+                        css::uno::Sequence<OUString> aBackup( comphelper::containerToSequence(aBackupList) );
 
-                        for ( sal_Int32 nReadIndex = 0; nReadIndex < nCount; ++nReadIndex )
+                        for ( const auto& rModeNodeName : aModeNodeNames )
                         {
-                            const utl::OConfigurationNode aModeNode( aModesNode.openNode( aModeNodeNames[nReadIndex] ) );
+                            const utl::OConfigurationNode aModeNode( aModesNode.openNode( rModeNodeName ) );
                             if ( !aModeNode.isValid() )
                                 continue;
 
@@ -1128,7 +1119,7 @@ void SfxApplication::MiscState_Impl(SfxItemSet &rSet)
                 case SID_CLOSEDOCS:
                 {
                     Reference < XDesktop2 > xDesktop = Desktop::create( ::comphelper::getProcessComponentContext() );
-                    Reference< XIndexAccess > xTasks( xDesktop->getFrames(), UNO_QUERY );
+                    Reference< XIndexAccess > xTasks = xDesktop->getFrames();
                     if ( !xTasks.is() || !xTasks->getCount() )
                         rSet.DisableItem(nWhich);
                     break;
@@ -1152,16 +1143,6 @@ void SfxApplication::MiscState_Impl(SfxItemSet &rSet)
                         rSet.DisableItem( nWhich );
                     break;
                 }
-
-                case SID_SHOW_IME_STATUS_WINDOW:
-                    if (sfx2::appl::ImeStatusWindow::canToggle())
-                        rSet.Put(SfxBoolItem(
-                                     SID_SHOW_IME_STATUS_WINDOW,
-                                     pImpl->m_xImeStatusWindow->
-                                         isShowing()));
-                    else
-                        rSet.DisableItem(SID_SHOW_IME_STATUS_WINDOW);
-                    break;
 
                 case SID_TEMPLATE_MANAGER:
                     {
@@ -1364,7 +1345,7 @@ void SfxApplication::OfaExec_Impl( SfxRequest& rReq )
             Reference <XFrame> xFrame(GetRequestFrame(rReq));
             SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
             VclPtr<VclAbstractDialog> pDlg =
-                pFact->CreateFrameDialog(rReq.GetFrameWindow(), xFrame, rReq.GetSlot(), sPageURL );
+                pFact->CreateFrameDialog(rReq.GetFrameWeld(), xFrame, rReq.GetSlot(), sPageURL );
             short nRet = pDlg->Execute();
             pDlg.disposeAndClear();
             SfxViewFrame* pView = SfxViewFrame::GetFirst();
@@ -1396,25 +1377,21 @@ void SfxApplication::OfaExec_Impl( SfxRequest& rReq )
 
                 if ( xSystemShell.is() && !sTemplRepoURL.isEmpty() )
                 {
-                    OUStringBuffer aURLBuf( sTemplRepoURL );
-                    aURLBuf.append("?lang=");
-
                     // read locale from configuration
                     OUString sLocale(officecfg::Setup::L10N::ooLocale::get());
                     if (sLocale.isEmpty())
                         sLocale = "en-US";
 
-                    aURLBuf.append( sLocale );
+                    OUString aURLBuf =  sTemplRepoURL + "?lang=" + sLocale;
                     xSystemShell->execute(
-                        aURLBuf.makeStringAndClear(),
+                        aURLBuf,
                         OUString(),
                         css::system::SystemShellExecuteFlags::URIS_ONLY );
                 }
             }
             catch( const css::uno::Exception& )
             {
-                css::uno::Any ex( cppu::getCaughtException() );
-                SAL_WARN( "sfx.appl", "SfxApplication::OfaExec_Impl(SID_MORE_DICTIONARIES): caught an exception " << exceptionToString(ex) );
+                TOOLS_WARN_EXCEPTION( "sfx.appl", "SfxApplication::OfaExec_Impl(SID_MORE_DICTIONARIES)" );
             }
             break;
         }
@@ -1710,7 +1687,8 @@ void SfxApplication::OfaState_Impl(SfxItemSet &rSet)
         rSet.DisableItem( FN_BUSINESS_CARD );
         rSet.DisableItem( FN_XFORMS_INIT );
     }
-
+    if ( comphelper::LibreOfficeKit::isActive() )
+        rSet.DisableItem( SID_AUTO_CORRECT_DLG );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

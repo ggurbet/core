@@ -23,7 +23,7 @@
 #include <scdllapi.h>
 #include <cppuhelper/weakref.hxx>
 #include <tools/wintypes.hxx>
-#include <editeng/weldeditview.hxx>
+#include <svx/weldeditview.hxx>
 #include <editeng/svxenum.hxx>
 #include <vcl/customweld.hxx>
 
@@ -71,6 +71,7 @@ public:
 protected:
     virtual void makeEditEngine() override;
     virtual bool KeyInput( const KeyEvent& rKEvt ) override;
+    virtual bool MouseButtonDown(const MouseEvent& rMEvt) override;
     virtual void GetFocus() override;
     virtual void LoseFocus() override;
 

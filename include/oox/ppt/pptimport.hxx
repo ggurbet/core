@@ -20,13 +20,11 @@
 #ifndef INCLUDED_OOX_PPT_PPTIMPORT_HXX
 #define INCLUDED_OOX_PPT_PPTIMPORT_HXX
 
-#include <exception>
 #include <map>
 #include <memory>
 #include <vector>
 
 #include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <oox/core/filterbase.hxx>
 #include <oox/core/xmlfilterbase.hxx>
@@ -64,7 +62,7 @@ public:
 
     virtual const ::oox::drawingml::Theme* getCurrentTheme() const override;
     virtual ::oox::vml::Drawing* getVmlDrawing() override;
-    virtual const oox::drawingml::table::TableStyleListPtr getTableStyles() override;
+    virtual oox::drawingml::table::TableStyleListPtr getTableStyles() override;
     virtual ::oox::drawingml::chart::ChartConverter* getChartConverter() override;
 
     const SlidePersistPtr&                                  getActualSlidePersist() const { return mpActualSlidePersist; };

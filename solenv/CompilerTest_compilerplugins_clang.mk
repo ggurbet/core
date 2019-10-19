@@ -12,12 +12,15 @@ $(eval $(call gb_CompilerTest_CompilerTest,compilerplugins_clang))
 $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/badstatics \
     compilerplugins/clang/test/blockblock \
+    compilerplugins/clang/test/bufferadd \
     compilerplugins/clang/test/buriedassign \
     compilerplugins/clang/test/casttovoid \
+    compilerplugins/clang/test/classmemaccess \
     compilerplugins/clang/test/collapseif \
     compilerplugins/clang/test/commaoperator \
     $(if $(filter-out WNT,$(OS)),compilerplugins/clang/test/constfields) \
     compilerplugins/clang/test/constparams \
+    compilerplugins/clang/test/constmethod \
     compilerplugins/clang/test/constvars \
     compilerplugins/clang/test/convertlong \
     compilerplugins/clang/test/cppunitassertequals \
@@ -33,9 +36,14 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/faileddyncast \
     compilerplugins/clang/test/finalprotected \
     compilerplugins/clang/test/flatten \
+    compilerplugins/clang/test/fragiledestructor \
+    compilerplugins/clang/test/getstr \
     compilerplugins/clang/test/indentation \
     compilerplugins/clang/test/logexceptionnicely \
     compilerplugins/clang/test/loopvartoosmall \
+    compilerplugins/clang/test/nullptr \
+    compilerplugins/clang/test/mapindex \
+    compilerplugins/clang/test/noexceptmove \
     compilerplugins/clang/test/oncevar \
     compilerplugins/clang/test/oslendian-1 \
     compilerplugins/clang/test/oslendian-2 \
@@ -48,12 +56,15 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/redundantinline \
     compilerplugins/clang/test/redundantpointerops \
     compilerplugins/clang/test/refcounting \
+    compilerplugins/clang/test/referencecasting \
+    compilerplugins/clang/test/returnconstval \
     compilerplugins/clang/test/salbool \
     compilerplugins/clang/test/salcall \
     compilerplugins/clang/test/sallogareas \
     compilerplugins/clang/test/salunicodeliteral \
     compilerplugins/clang/test/selfinit \
     compilerplugins/clang/test/sequentialassign \
+    compilerplugins/clang/test/sequenceloop \
     compilerplugins/clang/test/shouldreturnbool \
     compilerplugins/clang/test/simplifybool \
     compilerplugins/clang/test/simplifyconstruct \
@@ -61,8 +72,11 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/singlevalfields \
     compilerplugins/clang/test/staticconstfield \
     compilerplugins/clang/test/staticvar \
+    compilerplugins/clang/test/stdfunction \
+    compilerplugins/clang/test/stringadd \
     compilerplugins/clang/test/stringbuffer \
-    compilerplugins/clang/test/stringconcat \
+    compilerplugins/clang/test/stringconcatauto \
+    compilerplugins/clang/test/stringconcatliterals \
     compilerplugins/clang/test/stringconstant \
     compilerplugins/clang/test/stringloop \
     compilerplugins/clang/test/typedefparam \

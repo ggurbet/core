@@ -65,7 +65,8 @@ $(call gb_Helper_abbreviate_dirs,\
 		$(if $(WARNINGS_NOT_ERRORS),$(if $(ENABLE_WERROR),$(if $(PLUGIN_WARNINGS_AS_ERRORS),$(gb_COMPILER_PLUGINS_WARNINGS_AS_ERRORS))),$(gb_CFLAGS_WERROR)) \
 		$(if $(5),$(gb_COMPILER_PLUGINS)) \
 		$(if $(COMPILER_TEST),-fsyntax-only -ferror-limit=0 -Xclang -verify) \
-		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(2)),$(2)) \
+		$(2) \
+		$(if $(WARNINGS_DISABLED),$(gb_CXXFLAGS_DISABLE_WARNINGS)) \
 		$(if $(EXTERNAL_CODE),$(gb_CXXFLAGS_Wundef),$(gb_DEFS_INTERNAL)) \
 		-c $(3) \
 		-o $(1) \
@@ -94,10 +95,12 @@ define gb_PrecompiledHeader__command
 $(call gb_Output_announce,$(2),$(true),PCH,1)
 $(call gb_Helper_abbreviate_dirs,\
 	mkdir -p $(dir $(1)) $(dir $(call gb_PrecompiledHeader_get_dep_target,$(2),$(7))) && \
+	cd $(BUILDDIR)/ && \
 	CCACHE_DISABLE=1 $(gb_COMPILER_SETUP) \
 	$(gb_CXX) \
 		-x c++-header \
-		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(4) $(5)),$(4) $(5)) \
+		$(4) $(5) \
+		$(if $(WARNINGS_DISABLED),$(gb_CXXFLAGS_DISABLE_WARNINGS)) \
 		$(gb_COMPILERDEPFLAGS) \
 		$(if $(VISIBILITY),,$(gb_VISIBILITY_FLAGS)) \
 		$(if $(EXTERNAL_CODE),$(gb_CXXFLAGS_Wundef),$(gb_DEFS_INTERNAL)) \
@@ -122,7 +125,8 @@ $(call gb_Helper_abbreviate_dirs,\
 	CCACHE_DISABLE=1 $(gb_COMPILER_SETUP) \
 	$(gb_CXX) \
 		-x c++-header \
-		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(4) $(5)),$(4) $(5)) \
+		$(4) $(5) \
+		$(if $(WARNINGS_DISABLED),$(gb_CXXFLAGS_DISABLE_WARNINGS)) \
 		$(gb_COMPILERDEPFLAGS) \
 		$(if $(VISIBILITY),,$(gb_VISIBILITY_FLAGS)) \
 		$(if $(EXTERNAL_CODE),$(gb_CXXFLAGS_Wundef),$(gb_DEFS_INTERNAL)) \
@@ -135,6 +139,9 @@ $(call gb_Helper_abbreviate_dirs,\
 endef
 endif
 
+# not needed
+gb_PrecompiledHeader__create_reuse_files =
+gb_PrecompiledHeader__copy_reuse_files =
 
 # YaccTarget class
 

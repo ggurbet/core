@@ -746,7 +746,7 @@ void SwSectionFrame::MoveContentAndDelete( SwSectionFrame* pDel, bool bSave )
             pPrvSct = nullptr; // Such that nothing will be merged
         }
     }
-    // The content is going to be inserted..
+    // The content is going to be inserted...
     if( pSave )
     {
         lcl_InvalidateInfFlags( pSave, bSize );
@@ -853,7 +853,7 @@ void SwSectionFrame::MakeAll(vcl::RenderContext* pRenderContext)
         DelEmpty( false );
 }
 
-bool SwSectionFrame::ShouldBwdMoved( SwLayoutFrame *, bool , bool & )
+bool SwSectionFrame::ShouldBwdMoved( SwLayoutFrame *, bool & )
 {
     OSL_FAIL( "Oops, where is my tinfoil hat?" );
     return false;
@@ -1667,7 +1667,7 @@ SwLayoutFrame *SwFrame::GetNextSctLeaf( MakePageType eMakePage )
         pLayLeaf = nullptr;
     else if( IsTabFrame() )
     {
-        SwContentFrame* pTmpCnt = static_cast<SwTabFrame*>(this)->FindLastContent();
+        SwFrame *const pTmpCnt = static_cast<SwTabFrame*>(this)->FindLastContentOrTable();
         pLayLeaf = pTmpCnt ? pTmpCnt->GetUpper() : nullptr;
     }
     else if (pCellLeaf && CanContainSplitSection(this))
@@ -2569,18 +2569,16 @@ void SwSectionFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem * pNew )
     {
         SfxItemIter aNIter( *static_cast<const SwAttrSetChg*>(pNew)->GetChgSet() );
         SfxItemIter aOIter( *static_cast<const SwAttrSetChg*>(pOld)->GetChgSet() );
+        const SfxPoolItem* pNItem = aNIter.GetCurItem();
+        const SfxPoolItem* pOItem = aOIter.GetCurItem();
         SwAttrSetChg aOldSet( *static_cast<const SwAttrSetChg*>(pOld) );
         SwAttrSetChg aNewSet( *static_cast<const SwAttrSetChg*>(pNew) );
-        while( true )
+        do
         {
-            UpdateAttr_( aOIter.GetCurItem(),
-                         aNIter.GetCurItem(), nInvFlags,
-                         &aOldSet, &aNewSet );
-            if( aNIter.IsAtEnd() )
-                break;
-            aNIter.NextItem();
-            aOIter.NextItem();
-        }
+            UpdateAttr_(pOItem, pNItem, nInvFlags, &aOldSet, &aNewSet);
+            pNItem = aNIter.NextItem();
+            pOItem = aOIter.NextItem();
+        } while (pNItem);
         if ( aOldSet.Count() || aNewSet.Count() )
             SwLayoutFrame::Modify( &aOldSet, &aNewSet );
     }

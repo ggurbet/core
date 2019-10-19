@@ -39,6 +39,7 @@
 #include <dbinsdlg.hxx>
 #include <docfnote.hxx>
 #include <docstdlg.hxx>
+#include <DateFormFieldDialog.hxx>
 #include <DropDownFieldDialog.hxx>
 #include <DropDownFormFieldDialog.hxx>
 #include <envlop.hxx>
@@ -46,6 +47,7 @@
 #include <drpcps.hxx>
 #include <swuipardlg.hxx>
 #include <pattern.hxx>
+#include <pardlg.hxx>
 #include <rowht.hxx>
 #include <selglos.hxx>
 #include <splittbl.hxx>
@@ -181,6 +183,11 @@ short AbstractDropDownFormFieldDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
+short AbstractDateFormFieldDialog_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
 short AbstractSwLabDlg_Impl::Execute()
 {
     return m_xDlg->run();
@@ -236,7 +243,10 @@ short AbstractJavaEditDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
-IMPL_ABSTDLG_BASE(AbstractMailMergeDlg_Impl);
+short AbstractMailMergeDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
 
 short AbstractMailMergeCreateFromDlg_Impl::Execute()
 {
@@ -621,42 +631,42 @@ bool AbstractJavaEditDialog_Impl::IsUpdate() const
 
 DBManagerOptions AbstractMailMergeDlg_Impl::GetMergeType()
 {
-    return pDlg->GetMergeType();
+    return m_xDlg->GetMergeType();
 }
 
 const OUString& AbstractMailMergeDlg_Impl::GetSaveFilter() const
 {
-    return pDlg->GetSaveFilter();
+    return m_xDlg->GetSaveFilter();
 }
 
-const css::uno::Sequence< css::uno::Any > AbstractMailMergeDlg_Impl::GetSelection() const
+css::uno::Sequence< css::uno::Any > AbstractMailMergeDlg_Impl::GetSelection() const
 {
-    return pDlg->GetSelection();
+    return m_xDlg->GetSelection();
 }
 
 uno::Reference< sdbc::XResultSet> AbstractMailMergeDlg_Impl::GetResultSet() const
 {
-    return pDlg->GetResultSet();
+    return m_xDlg->GetResultSet();
 }
 
 bool AbstractMailMergeDlg_Impl::IsSaveSingleDoc() const
 {
-    return pDlg->IsSaveSingleDoc();
+    return m_xDlg->IsSaveSingleDoc();
 }
 
 bool AbstractMailMergeDlg_Impl::IsGenerateFromDataBase() const
 {
-    return pDlg->IsGenerateFromDataBase();
+    return m_xDlg->IsGenerateFromDataBase();
 }
 
 OUString AbstractMailMergeDlg_Impl::GetColumnName() const
 {
-    return pDlg->GetColumnName();
+    return m_xDlg->GetColumnName();
 }
 
 OUString AbstractMailMergeDlg_Impl::GetTargetURL() const
 {
-    return pDlg->GetTargetURL();
+    return m_xDlg->GetTargetURL();
 }
 
 bool AbstractMailMergeCreateFromDlg_Impl::IsThisDocument() const
@@ -732,13 +742,6 @@ void AbstractSwWordCountFloatDlg_Impl::SetCounts(const SwDocStat &rCurrCnt, cons
 
 AbstractMailMergeWizard_Impl::~AbstractMailMergeWizard_Impl()
 {
-    disposeOnce();
-}
-
-void AbstractMailMergeWizard_Impl::dispose()
-{
-    pDlg.disposeAndClear();
-    AbstractMailMergeWizard::dispose();
 }
 
 bool AbstractMailMergeWizard_Impl::StartExecuteAsync(AsyncContext &rCtx)
@@ -746,27 +749,27 @@ bool AbstractMailMergeWizard_Impl::StartExecuteAsync(AsyncContext &rCtx)
     // SwMailMergeWizardExecutor wants to run the lifecycle of this dialog
     // so clear mxOwner here and leave it up to SwMailMergeWizardExecutor
     rCtx.mxOwner.clear();
-    return pDlg->StartExecuteAsync(rCtx);
+    return weld::GenericDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
 }
 
 short AbstractMailMergeWizard_Impl::Execute()
 {
-    return pDlg->Execute();
+    return m_xDlg->run();
 }
 
 OUString AbstractMailMergeWizard_Impl::GetReloadDocument() const
 {
-    return pDlg->GetReloadDocument();
+    return m_xDlg->GetReloadDocument();
 }
 
 void AbstractMailMergeWizard_Impl::ShowPage( sal_uInt16 nLevel )
 {
-    pDlg->skipUntil(nLevel);
+    m_xDlg->skipUntil(nLevel);
 }
 
 sal_uInt16 AbstractMailMergeWizard_Impl::GetRestartPage() const
 {
-    return pDlg->GetRestartPage();
+    return m_xDlg->GetRestartPage();
 }
 
 VclPtr<AbstractSwInsertAbstractDlg> SwAbstractDialogFactory_Impl::CreateSwInsertAbstractDlg(weld::Window* pParent)
@@ -870,6 +873,11 @@ VclPtr<AbstractDropDownFieldDialog> SwAbstractDialogFactory_Impl::CreateDropDown
 VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateDropDownFormFieldDialog(weld::Widget *pParent, sw::mark::IFieldmark* pDropDownField)
 {
     return VclPtr<AbstractDropDownFormFieldDialog_Impl>::Create(std::make_unique<sw::DropDownFormFieldDialog>(pParent, pDropDownField));
+}
+
+VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateDateFormFieldDialog(weld::Widget *pParent, sw::mark::IDateFieldmark* pDateField, SwDoc* pDoc)
+{
+    return VclPtr<AbstractDateFormFieldDialog_Impl>::Create(std::make_unique<sw::DateFormFieldDialog>(pParent, pDateField, pDoc));
 }
 
 VclPtr<SfxAbstractTabDialog> SwAbstractDialogFactory_Impl::CreateSwEnvDlg(weld::Window* pParent, const SfxItemSet& rSet,
@@ -1045,14 +1053,13 @@ VclPtr<AbstractJavaEditDialog> SwAbstractDialogFactory_Impl::CreateJavaEditDialo
 }
 
 VclPtr<AbstractMailMergeDlg> SwAbstractDialogFactory_Impl::CreateMailMergeDlg(
-                                                vcl::Window* pParent, SwWrtShell& rSh,
+                                                weld::Window* pParent, SwWrtShell& rSh,
                                                 const OUString& rSourceName,
                                                 const OUString& rTableName,
                                                 sal_Int32 nCommandType,
                                                 const uno::Reference< sdbc::XConnection>& xConnection )
 {
-    VclPtr<SwMailMergeDlg> pDlg = VclPtr<SwMailMergeDlg>::Create( pParent, rSh, rSourceName, rTableName, nCommandType, xConnection, nullptr );
-    return VclPtr<AbstractMailMergeDlg_Impl>::Create( pDlg );
+    return VclPtr<AbstractMailMergeDlg_Impl>::Create(std::make_unique<SwMailMergeDlg>(pParent, rSh, rSourceName, rTableName, nCommandType, xConnection, nullptr));
 }
 
 VclPtr<AbstractMailMergeCreateFromDlg> SwAbstractDialogFactory_Impl::CreateMailMergeCreateFromDlg(weld::Window* pParent)
@@ -1137,7 +1144,7 @@ VclPtr<AbstractMailMergeWizard> SwAbstractDialogFactory_Impl::CreateMailMergeWiz
                                     SwView& rView, std::shared_ptr<SwMailMergeConfigItem>& rConfigItem)
 {
 #if HAVE_FEATURE_DBCONNECTIVITY
-    return VclPtr<AbstractMailMergeWizard_Impl>::Create( VclPtr<SwMailMergeWizard>::Create(rView, rConfigItem));
+    return VclPtr<AbstractMailMergeWizard_Impl>::Create(std::make_unique<SwMailMergeWizard>(rView, rConfigItem));
 #else
     (void) rView;
     (void) rConfigItem;

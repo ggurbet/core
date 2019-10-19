@@ -20,7 +20,6 @@
 #include <memory>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/animations/AnimationTransformType.hpp>
 #include <com/sun/star/animations/XAnimationNodeSupplier.hpp>
@@ -63,8 +62,8 @@
 #include <osl/diagnose.h>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmlprhdl.hxx>
-#include <anim.hxx>
 #include <facreg.hxx>
+#include <xmlsdtypes.hxx>
 
 #include <animations.hxx>
 #include <animationimport.hxx>
@@ -95,7 +94,7 @@ Sequence< OUString > AnimationsImport_getSupportedServiceNames() throw()
 
 OUString AnimationsImport_getImplementationName() throw()
 {
-    return OUString( "xmloff::AnimationsImport" );
+    return "xmloff::AnimationsImport";
 }
 
 static OUString

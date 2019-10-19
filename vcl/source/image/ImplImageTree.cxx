@@ -26,8 +26,6 @@
 
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/io/XInputStream.hpp>
-#include <com/sun/star/lang/Locale.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/packages/zip/ZipFileAccess.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
 #include <com/sun/star/uno/Exception.hpp>
@@ -107,8 +105,8 @@ OUString createPath(OUString const & name, sal_Int32 pos, OUString const & local
 
 OUString getIconCacheUrl(OUString const & sVariant, ImageRequestParameters const & rParameters)
 {
-    OUString sUrl("${$BRAND_BASE_DIR/" LIBO_ETC_FOLDER "/" SAL_CONFIGFILE("bootstrap") ":UserInstallation}/cache/");
-    sUrl += rParameters.msStyle + "/" + sVariant + "/" + rParameters.msName;
+    OUString sUrl = "${$BRAND_BASE_DIR/" LIBO_ETC_FOLDER "/" SAL_CONFIGFILE("bootstrap") ":UserInstallation}/cache/"
+        + rParameters.msStyle + "/" + sVariant + "/" + rParameters.msName;
     rtl::Bootstrap::expandMacros(sUrl);
     return sUrl;
 }
@@ -213,7 +211,7 @@ std::vector<OUString> ImplImageTree::getPaths(OUString const & name, LanguageTag
     sal_Int32 pos = name.lastIndexOf('/');
     if (pos != -1)
     {
-        for (OUString& rFallback : rLanguageTag.getFallbackStrings(true))
+        for (const OUString& rFallback : rLanguageTag.getFallbackStrings(true))
         {
             OUString aFallbackName = getNameNoExtension(getRealImageName(createPath(name, pos, rFallback)));
             sPaths.emplace_back(aFallbackName + ".png");
@@ -245,7 +243,7 @@ OUString ImplImageTree::getImageUrl(OUString const & rName, OUString const & rSt
 
                 LanguageTag aLanguageTag(rLang);
 
-                for (OUString& rPath: getPaths(rName, aLanguageTag))
+                for (const OUString& rPath: getPaths(rName, aLanguageTag))
                 {
                     if (rNameAccess->hasByName(rPath))
                     {
@@ -284,7 +282,7 @@ std::shared_ptr<SvMemoryStream> ImplImageTree::getImageStream(OUString const & r
 
                 LanguageTag aLanguageTag(rLang);
 
-                for (OUString& rPath: getPaths(rName, aLanguageTag))
+                for (const OUString& rPath: getPaths(rName, aLanguageTag))
                 {
                     if (rNameAccess->hasByName(rPath))
                     {
@@ -520,9 +518,9 @@ ImplImageTree::IconCache &ImplImageTree::getIconCache(const ImageRequestParamete
     IconSet &rSet = getCurrentIconSet();
     auto it = rSet.maScaledIconCaches.find(rParameters.mnScalePercentage);
     if ( it != rSet.maScaledIconCaches.end() )
-        return *it->second.get();
+        return *it->second;
     rSet.maScaledIconCaches[rParameters.mnScalePercentage] = std::make_unique<IconCache>();
-    return *rSet.maScaledIconCaches[rParameters.mnScalePercentage].get();
+    return *rSet.maScaledIconCaches[rParameters.mnScalePercentage];
 }
 
 bool ImplImageTree::iconCacheLookup(ImageRequestParameters& rParameters)

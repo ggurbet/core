@@ -48,6 +48,7 @@
 #include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <ndtxt.hxx>
+#include <undobj.hxx>
 
 #include <cfloat>
 #include <swselectionlist.hxx>
@@ -544,7 +545,7 @@ bool SwFlyFrame::GetCursorOfst( SwPosition *pPos, Point &rPoint,
     bool bInside = getFrameArea().IsInside( rPoint ) && Lower();
     bool bRet = false;
 
-    //If an Frame contains a graphic, but only text was requested, it basically
+    //If a Frame contains a graphic, but only text was requested, it basically
     //won't accept the Cursor.
     if ( bInside && pCMS && pCMS->m_eState == MV_SETONLYTEXT &&
          (!Lower() || Lower()->IsNoTextFrame()) )
@@ -984,7 +985,7 @@ sal_uInt16 SwRootFrame::GetCurrPage( const SwPaM *pActualCursor ) const
 /** Returns a PaM which sits at the beginning of the requested page.
  *
  * Formatting is done as far as necessary.
- * The PaM sits on the last page, if the page number was chosen to big.
+ * The PaM sits on the last page, if the page number was chosen too big.
  *
  * @return Null, if the operation was not possible.
  */
@@ -1356,7 +1357,7 @@ const SwContentFrame *SwLayoutFrame::GetContentPos( Point& rPoint,
                           pActual->getFramePrintArea().Right() ) );
     }
 
-    //Bring the Point in to the PrtArea
+    //Bring the Point into the PrtArea
     const SwRect aRect( pActual->getFrameArea().Pos() + pActual->getFramePrintArea().Pos(),
                         aActualSize );
     if ( aPoint.Y() < aRect.Top() )
@@ -1560,7 +1561,7 @@ Point SwRootFrame::GetNextPrevContentPos( const Point& rPoint, bool bNext ) cons
 /** Returns the absolute document position of the desired page.
  *
  * Formatting is done only as far as needed and only if bFormat=true.
- * Pos is set to the one of the last page, if the page number was chosen to big.
+ * Pos is set to the one of the last page, if the page number was chosen too big.
  *
  * @return Null, if the operation failed.
  */
@@ -1864,7 +1865,7 @@ bool SwRootFrame::MakeTableCursors( SwTableCursor& rTableCursor )
 
     bool bRet = false;
 
-    // For new table models there's no need to ask the layout..
+    // For new table models there's no need to ask the layout...
     if( rTableCursor.NewTableSelection() )
         return true;
 
@@ -2573,9 +2574,18 @@ void SwRootFrame::CalcFrameRects(SwShellCursor &rCursor)
                 const SwFlyFrame* pFly = static_cast<const SwFlyFrame*>(pAnchoredObj);
                 const SwVirtFlyDrawObj* pObj = pFly->GetVirtDrawObj();
                 const SwFormatSurround &rSur = pFly->GetFormat()->GetSurround();
-                const SwPosition* anchoredAt = pAnchoredObj->GetFrameFormat().GetAnchor().GetContentAnchor();
-                bool inSelection = ( anchoredAt != nullptr && *pStartPos <= *anchoredAt && *anchoredAt < *pEndPos );
-                if( anchoredAt != nullptr && *anchoredAt == *pEndPos )
+                SwFormatAnchor const& rAnchor(pAnchoredObj->GetFrameFormat().GetAnchor());
+                const SwPosition* anchoredAt = rAnchor.GetContentAnchor();
+                bool inSelection = (
+                            anchoredAt != nullptr
+                        && (   (rAnchor.GetAnchorId() == RndStdIds::FLY_AT_CHAR
+                                && IsDestroyFrameAnchoredAtChar(*anchoredAt, *pStartPos, *pEndPos))
+                            || (rAnchor.GetAnchorId() == RndStdIds::FLY_AT_PARA
+                                && *pStartPos <= *anchoredAt
+                                && *anchoredAt < *pEndPos)));
+                if (anchoredAt != nullptr
+                    && rAnchor.GetAnchorId() != RndStdIds::FLY_AT_CHAR
+                    && *anchoredAt == *pEndPos)
                 {
                     const SwNodes& nodes = anchoredAt->GetDoc()->GetNodes();
                     if( *pEndPos == SwPosition( nodes.GetEndOfContent()))

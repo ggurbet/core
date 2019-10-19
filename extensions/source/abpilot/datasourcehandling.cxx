@@ -320,7 +320,7 @@ namespace abp
         return *this;
     }
 
-    ODataSource& ODataSource::operator=( ODataSource&& _rSource )
+    ODataSource& ODataSource::operator=(ODataSource&& _rSource) noexcept
     {
         m_pImpl = std::move(_rSource.m_pImpl);
         return *this;
@@ -521,9 +521,7 @@ namespace abp
         Reference< XInteractionHandler > xInteractions;
         try
         {
-            xInteractions.set(
-                InteractionHandler::createWithParent(m_pImpl->xORB, nullptr),
-                UNO_QUERY);
+            xInteractions = InteractionHandler::createWithParent(m_pImpl->xORB, nullptr);
         }
         catch(const Exception&)
         {

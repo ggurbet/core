@@ -175,7 +175,7 @@ void XMLDocumentWrapper_XmlSecImpl::sendStartElement(
  *  xHandler2 - the second XDocumentHandler interface to receive the
  *          startElement SAX event. It can't be NULL.
  *  pNode -     the node on which the startElement should be generated.
- *          This node must be a element type.
+ *          This node must be an element type.
  ******************************************************************************/
 {
     SvXMLAttributeList* pAttributeList = new SvXMLAttributeList();
@@ -250,11 +250,11 @@ void XMLDocumentWrapper_XmlSecImpl::sendEndElement(
 /****** XMLDocumentWrapper_XmlSecImpl/sendEndElement **************************
  *
  *   NAME
- *  sendEndElement -- Constructs a endElement SAX event
+ *  sendEndElement -- Constructs an endElement SAX event
  *
  *   FUNCTION
  *  Used when converting the document into SAX event stream.
- *  This method constructs a endElement SAX event for a particular
+ *  This method constructs an endElement SAX event for a particular
  *  element, then calls the endElement methods of the XDocumentHandlers.
  *
  *   INPUTS
@@ -263,7 +263,7 @@ void XMLDocumentWrapper_XmlSecImpl::sendEndElement(
  *  xHandler2 - the second XDocumentHandler interface to receive the
  *          endElement SAX event. It can't be NULL.
  *  pNode -     the node on which the endElement should be generated.
- *          This node must be a element type.
+ *          This node must be an element type.
  ******************************************************************************/
 {
     OString sNodeName = getNodeQName(pNode);
@@ -350,7 +350,7 @@ OString XMLDocumentWrapper_XmlSecImpl::getNodeQName(const xmlNodePtr pNode)
         if (pNs->prefix != nullptr)
         {
             OString sPrefix(reinterpret_cast<const char*>(pNs->prefix));
-            sNodeName = sPrefix+OString(":")+sNodeName;
+            sNodeName = sPrefix + ":" + sNodeName;
         }
     }
 
@@ -380,7 +380,7 @@ xmlNodePtr XMLDocumentWrapper_XmlSecImpl::checkElement( const uno::Reference< cs
             = reinterpret_cast<XMLElementWrapper_XmlSecImpl*>(
                 sal::static_int_cast<sal_uIntPtr>(
                     xNodTunnel->getSomething(
-                        XMLElementWrapper_XmlSecImpl::getUnoTunnelImplementationId() ))) ;
+                        XMLElementWrapper_XmlSecImpl::getUnoTunnelId() ))) ;
 
         if( pElement == nullptr ) {
             throw uno::RuntimeException() ;
@@ -887,7 +887,7 @@ void SAL_CALL XMLDocumentWrapper_XmlSecImpl::compressedSetDocumentLocator( sal_I
 /* XServiceInfo */
 OUString SAL_CALL XMLDocumentWrapper_XmlSecImpl::getImplementationName(  )
 {
-    return OUString("com.sun.star.xml.wrapper.XMLDocumentWrapper");
+    return "com.sun.star.xml.wrapper.XMLDocumentWrapper";
 }
 
 sal_Bool SAL_CALL XMLDocumentWrapper_XmlSecImpl::supportsService( const OUString& rServiceName )

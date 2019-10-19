@@ -19,6 +19,7 @@
 #include "vbatablesofcontents.hxx"
 #include "vbatableofcontents.hxx"
 #include "vbarange.hxx"
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/text/XDocumentIndexesSupplier.hpp>
 #include <cppuhelper/implbase.hxx>
@@ -164,7 +165,7 @@ SwVbaTablesOfContents::createCollectionObject( const uno::Any& aSource )
 OUString
 SwVbaTablesOfContents::getServiceImplName()
 {
-    return OUString("SwVbaTablesOfContents");
+    return "SwVbaTablesOfContents";
 }
 
 uno::Sequence<OUString>

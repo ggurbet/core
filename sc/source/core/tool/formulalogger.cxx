@@ -126,7 +126,7 @@ FormulaLogger::GroupScope::GroupScope(
     const ScFormulaCell& rCell, bool bOutputEnabled ) :
     mpImpl(std::make_unique<Impl>(rLogger, rPrefix, rDoc, rCell, bOutputEnabled)) {}
 
-FormulaLogger::GroupScope::GroupScope( GroupScope&& r ) : mpImpl(std::move(r.mpImpl)) {}
+FormulaLogger::GroupScope::GroupScope(GroupScope&& r) noexcept : mpImpl(std::move(r.mpImpl)) {}
 
 FormulaLogger::GroupScope::~GroupScope() {}
 
@@ -343,9 +343,8 @@ FormulaLogger::GroupScope FormulaLogger::enterGroup(
     if (aName.isEmpty())
         aName = "-"; // unsaved document.
 
-    OUString aGroupPrefix = aName;
-
-    aGroupPrefix += ": formula-group: ";
+    OUString aGroupPrefix = aName +
+        ": formula-group: ";
     aGroupPrefix += rCell.aPos.Format(ScRefFlags::VALID | ScRefFlags::TAB_3D, &rDoc, rDoc.GetAddressConvention());
     aGroupPrefix += ": ";
 

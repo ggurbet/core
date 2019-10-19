@@ -908,7 +908,7 @@ bool ImpEditEngine::CreateLines( sal_Int32 nPara, sal_uInt32 nStartPosY )
                     break;  // while
 
                 // Continue with remainder. This only to have *some* valid
-                // X-values and not endlessly create new lines until DOOM..
+                // X-values and not endlessly create new lines until DOOM...
                 // Happened in the scenario of tdf#104152 where inserting a
                 // paragraph lead to a11y attempting to format the doc to
                 // obtain content when notified.
@@ -1255,6 +1255,8 @@ bool ImpEditEngine::CreateLines( sal_Int32 nPara, sal_uInt32 nStartPosY )
         DBG_ASSERT( pPortion, "no portion!?" );
 
         aCurrentTab.bValid = false;
+
+        assert(pLine);
 
         // this was possibly a portion too far:
         bool bFixedEnd = false;
@@ -1847,7 +1849,7 @@ void ImpEditEngine::ImpBreakLine( ParaPortion* pParaPortion, EditLine* pLine, Te
         const CharAttribList::AttribsType& rAttrs = pNode->GetCharAttribs().GetAttribs();
         for (size_t nAttr = rAttrs.size(); nAttr; )
         {
-            const EditCharAttrib& rAttr = *rAttrs[--nAttr].get();
+            const EditCharAttrib& rAttr = *rAttrs[--nAttr];
             if (rAttr.IsFeature() && rAttr.GetEnd() > nMinBreakPos && rAttr.GetEnd() <= nMaxBreakPos)
             {
                 nMinBreakPos = rAttr.GetEnd();
@@ -3363,7 +3365,7 @@ void ImpEditEngine::Paint( OutputDevice* pOutDev, tools::Rectangle aClipRect, Po
                                 {
                                     if ( rTextPortion.GetExtraValue() )
                                         aText = OUString(rTextPortion.GetExtraValue());
-                                    aText += OUStringLiteral1(CH_HYPH);
+                                    aText += OUStringChar(CH_HYPH);
                                     nTextStart = 0;
                                     nTextLen = aText.getLength();
 
@@ -3921,7 +3923,6 @@ EditPaM ImpEditEngine::ConnectContents( sal_Int32 nLeftNode, bool bBackward )
     ContentNode* pRightNode = aEditDoc.GetObject( nLeftNode+1 );
     DBG_ASSERT( pLeftNode, "Invalid left node in ConnectContents ");
     DBG_ASSERT( pRightNode, "Invalid right node in ConnectContents ");
-    DBG_ASSERT( IsInUndo(), "ConnectContent only for Undo()!" );
     return ImpConnectParagraphs( pLeftNode, pRightNode, bBackward );
 }
 

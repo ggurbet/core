@@ -86,7 +86,6 @@
 #include <annotsh.hxx>
 #include <swabstdlg.hxx>
 #include <swevent.hxx>
-#include <calbck.hxx>
 #include <memory>
 
 // distance between Anchor Y and initial note position
@@ -104,7 +103,7 @@ using namespace sw::annotation;
 
 namespace {
 
-    enum class CommentNotificationType { Add, Remove, Modify };
+    enum class CommentNotificationType { Add, Remove, Modify, Resolve };
 
     bool comp_pos(const std::unique_ptr<SwSidebarItem>& a, const std::unique_ptr<SwSidebarItem>& b)
     {
@@ -147,7 +146,8 @@ namespace {
         boost::property_tree::ptree aAnnotation;
         aAnnotation.put("action", (nType == CommentNotificationType::Add ? "Add" :
                                    (nType == CommentNotificationType::Remove ? "Remove" :
-                                    (nType == CommentNotificationType::Modify ? "Modify" : "???"))));
+                                    (nType == CommentNotificationType::Modify ? "Modify" :
+                                     (nType == CommentNotificationType::Resolve ? "Resolve" : "???")))));
         aAnnotation.put("id", nPostItId);
         if (nType != CommentNotificationType::Remove && pItem != nullptr)
         {
@@ -155,10 +155,17 @@ namespace {
 
             const SwPostItField* pField = pWin->GetPostItField();
             const SwRect& aRect = pWin->GetAnchorRect();
-            const tools::Rectangle aSVRect(aRect.Pos().getX(),
+            tools::Rectangle aSVRect(aRect.Pos().getX(),
                                     aRect.Pos().getY(),
                                     aRect.Pos().getX() + aRect.SSize().Width(),
                                     aRect.Pos().getY() + aRect.SSize().Height());
+
+            if (!pItem->maLayoutInfo.mPositionFromCommentAnchor)
+            {
+                // Comments on frames: anchor position is the corner position, not the whole frame.
+                aSVRect.SetSize(Size(0, 0));
+            }
+
             std::vector<OString> aRects;
             for (const basegfx::B2DRange& aRange : pWin->GetAnnotationTextRanges())
             {
@@ -171,6 +178,7 @@ namespace {
             aAnnotation.put("parent", pWin->CalcParent());
             aAnnotation.put("author", pField->GetPar1().toUtf8().getStr());
             aAnnotation.put("text", pField->GetPar2().toUtf8().getStr());
+            aAnnotation.put("resolved", pField->GetResolved() ? "true" : "false");
             aAnnotation.put("dateTime", utl::toISO8601(pField->GetDateTime().GetUNODateTime()));
             aAnnotation.put("anchorPos", aSVRect.toString());
             aAnnotation.put("textRange", sRects.getStr());
@@ -391,6 +399,7 @@ void SwPostItMgr::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
                 break;
             }
             case SwFormatFieldHintWhich::CHANGED:
+            case SwFormatFieldHintWhich::RESOLVED:
             {
                 SwFormatField* pFormatField = dynamic_cast<SwFormatField*>(&rBC);
                 for (auto const& postItField : mvPostItFields)
@@ -406,7 +415,10 @@ void SwPostItMgr::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
                         // If LOK has disabled tiled annotations, emit annotation callbacks
                         if (comphelper::LibreOfficeKit::isActive() && !comphelper::LibreOfficeKit::isTiledAnnotations())
                         {
-                            lcl_CommentNotification(mpView, CommentNotificationType::Modify, postItField.get(), 0);
+                            if(SwFormatFieldHintWhich::CHANGED == pFormatHint->Which())
+                                lcl_CommentNotification(mpView, CommentNotificationType::Modify, postItField.get(), 0);
+                            else
+                                lcl_CommentNotification(mpView, CommentNotificationType::Resolve, postItField.get(), 0);
                         }
                         break;
                     }
@@ -738,7 +750,7 @@ void SwPostItMgr::LayoutPostIts()
                             if (mpAnswer)
                             {
                                 if (static_cast<bool>(pPostIt->CalcParent())) //do we really have another note in front of this one
-                                    pPostIt.get()->InitAnswer(mpAnswer);
+                                    pPostIt->InitAnswer(mpAnswer);
                                 delete mpAnswer;
                                 mpAnswer = nullptr;
                             }
@@ -789,11 +801,11 @@ void SwPostItMgr::LayoutPostIts()
                     {
                         pPage->lOffset = 0;
                     }
-                    else
+                    else if (sal_Int32 nScrollSize = GetScrollSize())
                     {
-                        //when we changed our zoom level, the offset value can be to big, so lets check for the largest possible zoom value
+                        //when we changed our zoom level, the offset value can be too big, so lets check for the largest possible zoom value
                         long aAvailableHeight = mpEditWin->LogicToPixel(Size(0,pPage->mPageRect.Height())).Height() - 2 * GetSidebarScrollerHeight();
-                        long lOffset = -1 * GetScrollSize() * (aVisiblePostItList.size() - aAvailableHeight / GetScrollSize());
+                        long lOffset = -1 * nScrollSize * (aVisiblePostItList.size() - aAvailableHeight / nScrollSize);
                         if (pPage->lOffset < lOffset)
                             pPage->lOffset = lOffset;
                     }
@@ -968,7 +980,7 @@ void SwPostItMgr::DrawNotesForPage(OutputDevice *pOutDev, sal_uInt32 nPage)
 
 void SwPostItMgr::PaintTile(OutputDevice& rRenderContext)
 {
-    for (std::unique_ptr<SwSidebarItem>& pItem : mvPostItFields)
+    for (const std::unique_ptr<SwSidebarItem>& pItem : mvPostItFields)
     {
         SwAnnotationWin* pPostIt = pItem->pPostIt;
         if (!pPostIt)
@@ -1533,7 +1545,7 @@ void SwPostItMgr::Delete(sal_uInt32 nPostItId)
 {
     mpWrtShell->StartAllAction();
     if (HasActiveSidebarWin() &&
-        mpActivePostIt.get()->GetPostItField()->GetPostItId() == nPostItId)
+        mpActivePostIt->GetPostItField()->GetPostItId() == nPostItId)
     {
         SetActiveSidebarWin(nullptr);
     }
@@ -1555,6 +1567,32 @@ void SwPostItMgr::Delete(sal_uInt32 nPostItId)
     CalcRects();
     LayoutPostIts();
 }
+
+void SwPostItMgr::ToggleResolvedForThread(sal_uInt32 nPostItId)
+{
+    mpWrtShell->StartAllAction();
+
+    SwRewriter aRewriter;
+    aRewriter.AddRule(UndoArg1, SwResId(STR_CONTENT_TYPE_SINGLE_POSTIT));
+
+    // We have no undo ID at the moment.
+
+    IsPostitFieldWithPostitId aFilter(nPostItId);
+    FieldDocWatchingStack aStack(mvPostItFields, *mpView->GetDocShell(), aFilter);
+    const SwFormatField* pField = aStack.pop();
+    // pField now contains our AnnotationWin object
+    if (pField) {
+        SwAnnotationWin* pWin = GetSidebarWin(pField);
+        pWin->ToggleResolvedForThread();
+    }
+
+    PrepareView();
+    mpWrtShell->EndAllAction();
+    mbLayout = true;
+    CalcRects();
+    LayoutPostIts();
+}
+
 
 void SwPostItMgr::Delete()
 {
@@ -1898,7 +1936,7 @@ vcl::Window* SwPostItMgr::IsHitSidebarWindow(const Point& rPointLogic)
         if (bEnableMapMode)
             mpEditWin->EnableMapMode();
 
-        for (std::unique_ptr<SwSidebarItem>& pItem : mvPostItFields)
+        for (const std::unique_ptr<SwSidebarItem>& pItem : mvPostItFields)
         {
             SwAnnotationWin* pPostIt = pItem->pPostIt;
             if (!pPostIt)
@@ -2002,7 +2040,7 @@ void SwPostItMgr::CorrectPositions()
     {
         long aAnchorPosX = 0;
         long aAnchorPosY = 0;
-        for (std::unique_ptr<SwPostItPageItem>& pPage : mPages)
+        for (const std::unique_ptr<SwPostItPageItem>& pPage : mPages)
         {
             for (auto const& item : pPage->mvSidebarItems)
             {
@@ -2395,6 +2433,37 @@ void SwPostItMgr::GetAllSidebarWinForFrame( const SwFrame& rFrame,
     if ( mpFrameSidebarWinContainer != nullptr )
     {
         mpFrameSidebarWinContainer->getAll( rFrame, pChildren );
+    }
+}
+
+void SwPostItMgr::ShowHideResolvedNotes(bool visible) {
+    for (auto const& pPage : mPages)
+    {
+        for(auto b = pPage->mvSidebarItems.begin(); b!= pPage->mvSidebarItems.end(); ++b)
+        {
+            if ((*b)->pPostIt->IsThreadResolved())
+            {
+                (*b)->pPostIt->SetResolved(true);
+                (*b)->pPostIt->GetSidebarItem().bShow = visible;
+            }
+        }
+    }
+    LayoutPostIts();
+}
+
+void SwPostItMgr::UpdateResolvedStatus(const sw::annotation::SwAnnotationWin* topNote) {
+    // Given the topmost note as an argument, scans over all notes and sets the
+    // 'resolved' state of each descendant of the top notes to the resolved state
+    // of the top note.
+    bool resolved = topNote->IsResolved();
+    for (auto const& pPage : mPages)
+    {
+        for(auto b = pPage->mvSidebarItems.begin(); b!= pPage->mvSidebarItems.end(); ++b)
+        {
+            if((*b)->pPostIt->GetTopReplyNote() == topNote) {
+               (*b)->pPostIt->SetResolved(resolved);
+            }
+        }
     }
 }
 

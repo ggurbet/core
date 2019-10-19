@@ -25,8 +25,6 @@
 #include <ucbhelper/content.hxx>
 #include <curledit.hxx>
 
-#include <vcl/field.hxx>
-
 namespace dbaui
 {
 
@@ -36,8 +34,6 @@ namespace dbaui
     */
     class OConnectionTabPageSetup : public OConnectionHelper
     {
-        friend class VclPtr<OConnectionTabPageSetup>;
-
         std::unique_ptr<weld::Label> m_xHelpText;
         std::unique_ptr<weld::Label> m_xHeaderText;
 
@@ -45,22 +41,22 @@ namespace dbaui
         DECL_LINK(OnEditModified, weld::Entry&, void);
 
     public:
+        OConnectionTabPageSetup(weld::Container* pPage, weld::DialogController* pController, const OUString& _rUIXMLDescription, const OString& _rId, const SfxItemSet& _rCoreAttrs, const char* pHelpTextResId, const char* pHeaderResId, const char* pUrlResId);
         virtual ~OConnectionTabPageSetup() override;
-        static  VclPtr<OGenericAdministrationPage> CreateDbaseTabPage(TabPageParent pParent, const SfxItemSet& _rAttrSet);
-        static  VclPtr<OGenericAdministrationPage> CreateMSAccessTabPage(TabPageParent pParent, const SfxItemSet& _rAttrSet);
-        static  VclPtr<OGenericAdministrationPage> CreateADOTabPage(TabPageParent pParent, const SfxItemSet& _rAttrSet);
-        static  VclPtr<OGenericAdministrationPage> CreateODBCTabPage(TabPageParent pParent, const SfxItemSet& _rAttrSet);
-        static  VclPtr<OGenericAdministrationPage> CreateUserDefinedTabPage(TabPageParent pParent, const SfxItemSet& _rAttrSet);
+
+        static std::unique_ptr<OGenericAdministrationPage> CreateDbaseTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet);
+        static std::unique_ptr<OGenericAdministrationPage> CreateMSAccessTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet);
+        static std::unique_ptr<OGenericAdministrationPage> CreateADOTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet);
+        static std::unique_ptr<OGenericAdministrationPage> CreateODBCTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet);
+        static std::unique_ptr<OGenericAdministrationPage> CreateUserDefinedTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& _rAttrSet);
 
         virtual bool        FillItemSet (SfxItemSet* _rCoreAttrs) override;
 
         virtual void        implInitControls(const SfxItemSet& _rSet, bool _bSaveValue) override;
-        virtual bool        commitPage( ::svt::WizardTypes::CommitPageReason _eReason ) override;
+        virtual bool        commitPage( ::vcl::WizardTypes::CommitPageReason _eReason ) override;
 
     protected:
-        OConnectionTabPageSetup(TabPageParent pParent, const OUString& _rUIXMLDescription, const OString& _rId, const SfxItemSet& _rCoreAttrs, const char* pHelpTextResId, const char* pHeaderResId, const char* pUrlResId);
         virtual bool checkTestConnection() override;
-            // nControlFlags is a combination of the CBTP_xxx-constants
     };
 
 

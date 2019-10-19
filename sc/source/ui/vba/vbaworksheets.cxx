@@ -18,32 +18,22 @@
  */
 #include "vbaworksheets.hxx"
 
-#include <sfx2/dispatch.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/bindings.hxx>
-#include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <svl/itemset.hxx>
-#include <svl/eitem.hxx>
 
 #include <cppuhelper/implbase.hxx>
 
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
-#include <com/sun/star/sheet/XSpreadsheetView.hpp>
+#include <com/sun/star/sheet/XSpreadsheet.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/script/XTypeConverter.hpp>
 
 #include <ooo/vba/excel/XApplication.hpp>
 #include <tabvwsh.hxx>
 
 #include "excelvbahelper.hxx"
-#include "vbaglobals.hxx"
 #include "vbaworksheet.hxx"
-#include "vbaworkbook.hxx"
-#include <unonames.hxx>
 #include <markdata.hxx>
 
 #include <vector>
@@ -301,7 +291,7 @@ ScVbaWorksheets::Delete()
 }
 
 bool
-ScVbaWorksheets::isSelectedSheets()
+ScVbaWorksheets::isSelectedSheets() const
 {
     return !m_xSheets.is();
 }
@@ -437,10 +427,9 @@ ScVbaWorksheets::Item(const uno::Any& Index, const uno::Any& Index2)
         SheetMap aSheets;
         uno::Sequence< uno::Any > sIndices;
         aConverted >>= sIndices;
-        sal_Int32 nElems = sIndices.getLength();
-        for( sal_Int32 index = 0; index < nElems; ++index )
+        for( const auto& rIndex : std::as_const(sIndices) )
         {
-            uno::Reference< excel::XWorksheet > xWorkSheet( ScVbaWorksheets_BASE::Item( sIndices[ index ], Index2 ), uno::UNO_QUERY_THROW );
+            uno::Reference< excel::XWorksheet > xWorkSheet( ScVbaWorksheets_BASE::Item( rIndex, Index2 ), uno::UNO_QUERY_THROW );
             ScVbaWorksheet* pWorkSheet = excel::getImplFromDocModuleWrapper<ScVbaWorksheet>( xWorkSheet );
             uno::Reference< sheet::XSpreadsheet > xSheet( pWorkSheet->getSheet() , uno::UNO_SET_THROW );
             uno::Reference< container::XNamed > xName( xSheet, uno::UNO_QUERY_THROW );
@@ -456,7 +445,7 @@ ScVbaWorksheets::Item(const uno::Any& Index, const uno::Any& Index2)
 OUString
 ScVbaWorksheets::getServiceImplName()
 {
-    return OUString("ScVbaWorksheets");
+    return "ScVbaWorksheets";
 }
 
 css::uno::Sequence<OUString>

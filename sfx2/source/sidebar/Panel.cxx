@@ -63,9 +63,7 @@ Panel::Panel(const PanelDescriptor& rPanelDescriptor,
     , maContextAccess(rContextAccess)
     , mxFrame(rxFrame)
 {
-#ifdef DEBUG
-    SetText(OUString("Panel"));
-#endif
+    SetText(rPanelDescriptor.msTitle);
 }
 
 Panel::~Panel()
@@ -77,6 +75,13 @@ Panel::~Panel()
 void Panel::ApplySettings(vcl::RenderContext& rRenderContext)
 {
     rRenderContext.SetBackground(Theme::GetPaint(Theme::Paint_PanelBackground).GetWallpaper());
+}
+
+boost::property_tree::ptree Panel::DumpAsPropertyTree()
+{
+    boost::property_tree::ptree aTree(vcl::Window::DumpAsPropertyTree());
+    aTree.put("type", "panel");
+    return aTree;
 }
 
 void Panel::dispose()
@@ -91,7 +96,7 @@ void Panel::dispose()
     }
 
     {
-        Reference<lang::XComponent> xComponent (GetElementWindow(), UNO_QUERY);
+        Reference<lang::XComponent> xComponent = GetElementWindow();
         if (xComponent.is())
             xComponent->dispose();
     }

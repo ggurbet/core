@@ -19,8 +19,6 @@
 
 #include <graphic/Manager.hxx>
 #include <impgraph.hxx>
-#include <vcl/lazydelete.hxx>
-#include <vcl/svapp.hxx>
 #include <sal/log.hxx>
 
 #include <officecfg/Office/Common.hxx>
@@ -35,7 +33,7 @@ namespace graphic
 namespace
 {
 void setupConfigurationValuesIfPossible(sal_Int64& rMemoryLimit,
-                                        std::chrono::seconds& rAllowedIdleTime)
+                                        std::chrono::seconds& rAllowedIdleTime, bool& bSwapEnabled)
 {
     if (utl::ConfigManager::IsFuzzing())
         return;
@@ -47,6 +45,7 @@ void setupConfigurationValuesIfPossible(sal_Int64& rMemoryLimit,
         rMemoryLimit = Cache::GraphicManager::GraphicMemoryLimit::get();
         rAllowedIdleTime
             = std::chrono::seconds(Cache::GraphicManager::GraphicAllowedIdleTime::get());
+        bSwapEnabled = Cache::GraphicManager::GraphicSwappingEnabled::get();
     }
     catch (...)
     {
@@ -56,26 +55,33 @@ void setupConfigurationValuesIfPossible(sal_Int64& rMemoryLimit,
 
 Manager& Manager::get()
 {
-    static std::unique_ptr<Manager> gStaticManager(new Manager);
-    return *gStaticManager;
+    static Manager gStaticManager;
+    return gStaticManager;
 }
 
 Manager::Manager()
     : mnAllowedIdleTime(10)
+    , mbSwapEnabled(true)
     , mnMemoryLimit(300000000)
     , mnUsedSize(0)
     , maSwapOutTimer("graphic::Manager maSwapOutTimer")
 {
-    setupConfigurationValuesIfPossible(mnMemoryLimit, mnAllowedIdleTime);
+    setupConfigurationValuesIfPossible(mnMemoryLimit, mnAllowedIdleTime, mbSwapEnabled);
 
-    maSwapOutTimer.SetInvokeHandler(LINK(this, Manager, SwapOutTimerHandler));
-    maSwapOutTimer.SetTimeout(10000);
-    maSwapOutTimer.SetDebugName("graphic::Manager maSwapOutTimer");
-    maSwapOutTimer.Start();
+    if (mbSwapEnabled)
+    {
+        maSwapOutTimer.SetInvokeHandler(LINK(this, Manager, SwapOutTimerHandler));
+        maSwapOutTimer.SetTimeout(10000);
+        maSwapOutTimer.SetDebugName("graphic::Manager maSwapOutTimer");
+        maSwapOutTimer.Start();
+    }
 }
 
 void Manager::reduceGraphicMemory()
 {
+    if (!mbSwapEnabled)
+        return;
+
     std::scoped_lock<std::recursive_mutex> aGuard(maMutex);
 
     for (ImpGraphic* pEachImpGraphic : m_pImpGraphicList)

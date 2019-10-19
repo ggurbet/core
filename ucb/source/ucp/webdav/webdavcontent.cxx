@@ -82,6 +82,7 @@
 #include "SerfUri.hxx"
 #include "UCBDeadPropertyValue.hxx"
 #include "DAVException.hxx"
+#include "DAVProperties.hxx"
 
 using namespace com::sun::star;
 using namespace http_dav_ucp;
@@ -221,7 +222,7 @@ Content::Content(
 }
 
 
-// ctr for content on an non-existing webdav resource
+// ctr for content on a non-existing webdav resource
 Content::Content(
             const uno::Reference< uno::XComponentContext >& rxContext,
             ContentProvider* pProvider,
@@ -983,7 +984,7 @@ void Content::removeProperty( const OUString& Name,
                     {
                     case UNKNOWN:
                     case DAV:
-                        throw beans::UnknownPropertyException();
+                        throw beans::UnknownPropertyException(Name);
 
                     case NON_DAV:
                         // Try to remove property from local store.
@@ -1843,7 +1844,7 @@ uno::Sequence< uno::Any > Content::setPropertyValues(
             for ( const auto& rProppatchValue : aProppatchValues )
             {
                 aEvent.PropertyName = rProppatchValue.name;
-                aEvent.OldValue     = uno::Any(); // @@@ to expensive to obtain!
+                aEvent.OldValue     = uno::Any(); // @@@ too expensive to obtain!
                 aEvent.NewValue     = rProppatchValue.value;
 
                 aChanges.getArray()[ nChanged ] = aEvent;

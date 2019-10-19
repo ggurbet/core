@@ -19,11 +19,8 @@
 
 #include <config_folders.h>
 
-#include <cstring>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <limits.h>
-#include <osl/file.hxx>
 #include <osl/process.h>
 #include <osl/thread.h>
 #include <rtl/bootstrap.hxx>
@@ -31,8 +28,6 @@
 #include <sal/log.hxx>
 #include <tools/urlobj.hxx>
 #include <unx/helper.hxx>
-#include <vcl/ppdparser.hxx>
-#include <memory>
 
 using ::rtl::Bootstrap;
 
@@ -145,8 +140,7 @@ void psp::getPrinterPathList( std::vector< OUString >& rPathList, const char* pS
 
         if( pSubDir )
         {
-            aDir += "/";
-            aDir += pSubDir;
+            aDir += OStringLiteral("/") + pSubDir;
         }
         struct stat aStat;
         if( stat( aDir.getStr(), &aStat ) || ! S_ISDIR( aStat.st_mode ) )

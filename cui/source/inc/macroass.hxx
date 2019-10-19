@@ -38,7 +38,7 @@ class SfxMacroTabPage final : public SfxTabPage
     DECL_LINK(SelectGroup_Impl, weld::TreeView&, void);
     DECL_LINK(SelectMacro_Impl, weld::TreeView&, void);
 
-    DECL_LINK(AssignDeleteHdl_Impl, weld::TreeView&, void);
+    DECL_LINK(AssignDeleteHdl_Impl, weld::TreeView&, bool);
     DECL_LINK(AssignDeleteClickHdl_Impl, weld::Button&, void);
     void AssignDeleteHdl(const weld::Widget*);
     DECL_LINK( TimeOut_Impl, Timer*, void );
@@ -51,19 +51,17 @@ class SfxMacroTabPage final : public SfxTabPage
 
 public:
     SfxMacroTabPage(
-        TabPageParent pParent,
+        weld::Container* pPage, weld::DialogController* pController,
         const css::uno::Reference< css::frame::XFrame >& rxDocumentFrame,
         const SfxItemSet& rSet
     );
 
     virtual                     ~SfxMacroTabPage() override;
-    virtual void                dispose() override;
 
     void                        AddEvent( const OUString & rEventName, SvMacroItemId nEventId );
 
     void                        ScriptChanged();
     virtual void                PageCreated (const SfxAllItemSet& aSet) override;
-    using TabPage::ActivatePage; // FIXME WTF is this nonsense?
     virtual void                ActivatePage( const SfxItemSet& ) override;
     void                        LaunchFillGroup();
 
@@ -74,7 +72,7 @@ public:
     bool                        IsReadOnly() const override;
 
     // --------- inherit from the base -------------
-    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
+    static std::unique_ptr<SfxTabPage> Create( weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet );
 };
 
 class SfxMacroAssignDlg : public SfxSingleTabDialogController

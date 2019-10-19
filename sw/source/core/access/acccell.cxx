@@ -39,9 +39,7 @@
 #include "acccell.hxx"
 
 #include <cfloat>
-#include <limits.h>
 
-#include <ndtxt.hxx>
 #include <editeng/brushitem.hxx>
 #include <swatrset.hxx>
 #include <frmatr.hxx>
@@ -240,7 +238,7 @@ OUString SAL_CALL SwAccessibleCell::getAccessibleDescription()
 
 OUString SAL_CALL SwAccessibleCell::getImplementationName()
 {
-    return OUString(sImplementationName);
+    return sImplementationName;
 }
 
 sal_Bool SAL_CALL SwAccessibleCell::supportsService(const OUString& sTestServiceName)
@@ -250,11 +248,7 @@ sal_Bool SAL_CALL SwAccessibleCell::supportsService(const OUString& sTestService
 
 uno::Sequence< OUString > SAL_CALL SwAccessibleCell::getSupportedServiceNames()
 {
-    uno::Sequence< OUString > aRet(2);
-    OUString* pArray = aRet.getArray();
-    pArray[0] = "com.sun.star.table.AccessibleCellView";
-    pArray[1] = sAccessibleServiceName;
-    return aRet;
+    return { "com.sun.star.table.AccessibleCellView", sAccessibleServiceName };
 }
 
 void SwAccessibleCell::Dispose(bool bRecursive, bool bCanSkipInvisible)
@@ -400,9 +394,7 @@ css::uno::Any SAL_CALL SwAccessibleCell::getExtendedAttributes()
     const SwTableBoxFormula& tbl_formula = pFrameFormat->GetTableBoxFormula();
 
     OUString strFormula = ReplaceFourChar(tbl_formula.GetFormula());
-    OUString strFor("Formula:");
-    strFor += strFormula;
-    strFor += ";" ;
+    OUString strFor = "Formula:" + strFormula + ";";
     strRet <<= strFor;
 
     return strRet;

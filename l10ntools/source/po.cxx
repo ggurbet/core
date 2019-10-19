@@ -322,7 +322,7 @@ PoEntry& PoEntry::operator=(const PoEntry& rPo)
     return *this;
 }
 
-PoEntry& PoEntry::operator=(PoEntry&& rPo)
+PoEntry& PoEntry::operator=(PoEntry&& rPo) noexcept
 {
     m_pGenPo = std::move(rPo.m_pGenPo);
     m_bIsInitialized = std::move(rPo.m_bIsInitialized);
@@ -427,7 +427,7 @@ OString PoEntry::genKeyId(const OString& rGenerator)
         nCRC >>= 6;
     }
     sKeyId[5] = '\0';
-    return OString(sKeyId);
+    return sKeyId;
 }
 
 namespace
@@ -439,7 +439,7 @@ namespace
         struct tm* pNow = localtime(&aNow);
         char pBuff[50];
         strftime( pBuff, sizeof pBuff, "%Y-%m-%d %H:%M%z", pNow );
-        return OString(pBuff);
+        return pBuff;
     }
 }
 
@@ -459,18 +459,18 @@ PoHeader::PoHeader( const OString& rExtSrc )
 {
     m_pGenPo->setExtractCom("extracted from " + rExtSrc);
     m_pGenPo->setMsgStr(
-        OString("Project-Id-Version: PACKAGE VERSION\n"
+        "Project-Id-Version: PACKAGE VERSION\n"
         "Report-Msgid-Bugs-To: https://bugs.libreoffice.org/enter_bug.cgi?"
         "product=LibreOffice&bug_status=UNCONFIRMED&component=UI\n"
-        "POT-Creation-Date: ") + lcl_GetTime() +
-        OString("\nPO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+        "POT-Creation-Date: " + lcl_GetTime() +
+        "\nPO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
         "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
         "Language-Team: LANGUAGE <LL@li.org>\n"
         "MIME-Version: 1.0\n"
         "Content-Type: text/plain; charset=UTF-8\n"
         "Content-Transfer-Encoding: 8bit\n"
         "X-Accelerator-Marker: ~\n"
-        "X-Generator: LibreOffice\n"));
+        "X-Generator: LibreOffice\n");
     m_bIsInitialized = true;
 }
 

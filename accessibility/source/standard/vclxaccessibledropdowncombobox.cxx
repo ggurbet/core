@@ -73,17 +73,14 @@ void VCLXAccessibleDropDownComboBox::ProcessWindowEvent (const VclWindowEvent& r
 
 OUString VCLXAccessibleDropDownComboBox::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.toolkit.AccessibleDropDownComboBox" );
+    return "com.sun.star.comp.toolkit.AccessibleDropDownComboBox";
 }
 
 
 Sequence< OUString > VCLXAccessibleDropDownComboBox::getSupportedServiceNames()
 {
-    Sequence< OUString > aNames = VCLXAccessibleBox::getSupportedServiceNames();
-    sal_Int32 nLength = aNames.getLength();
-    aNames.realloc( nLength + 1 );
-    aNames[nLength] = "com.sun.star.accessibility.AccessibleDropDownComboBox";
-    return aNames;
+    return comphelper::concatSequences(VCLXAccessibleBox::getSupportedServiceNames(),
+                                       Sequence<OUString>{"com.sun.star.accessibility.AccessibleDropDownComboBox"});
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

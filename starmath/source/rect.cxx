@@ -333,7 +333,7 @@ void SmRect::Move(const Point &rPosition)
 }
 
 
-const Point SmRect::AlignTo(const SmRect &rRect, RectPos ePos,
+Point SmRect::AlignTo(const SmRect &rRect, RectPos ePos,
                             RectHorAlign eHor, RectVerAlign eVer) const
 {   Point  aPos (GetTopLeft());
         // will become the topleft point of the new rectangle position
@@ -467,7 +467,7 @@ SmRect & SmRect::ExtendBy(const SmRect &rRect, RectCopyMBL eCopyMode)
     // The baseline is set according to 'eCopyMode'.
     // If one of the rectangles has no relevant info the other one is copied.
 {
-    // get some values used for (italic) spaces adaption
+    // get some values used for (italic) spaces adaptation
     // ! (need to be done before changing current SmRect) !
     long  nL = std::min(GetItalicLeft(),  rRect.GetItalicLeft()),
           nR = std::max(GetItalicRight(), rRect.GetItalicRight());

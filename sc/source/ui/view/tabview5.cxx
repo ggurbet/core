@@ -17,9 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <scitems.hxx>
-#include <editeng/eeitem.hxx>
-
 #include <svx/fmshell.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdocapt.hxx>
@@ -46,12 +43,10 @@
 #include <fusel.hxx>
 #include <seltrans.hxx>
 #include <scmod.hxx>
-#include <AccessibilityHints.hxx>
 #include <docsh.hxx>
 #include <viewuno.hxx>
 #include <postit.hxx>
 
-#include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 
 #include <comphelper/lok.hxx>
@@ -111,10 +106,10 @@ void ScTabView::Init()
         explicitly because the parent frame window is already RTL disabled. */
     pTabControl->EnableRTL( AllSettings::GetLayoutRTL() );
 
-    InitScrollBar( *aHScrollLeft,    MAXCOL+1 );
-    InitScrollBar( *aHScrollRight,   MAXCOL+1 );
-    InitScrollBar( *aVScrollTop,     MAXROW+1 );
-    InitScrollBar( *aVScrollBottom,  MAXROW+1 );
+    InitScrollBar( *aHScrollLeft,    aViewData.GetDocument()->MaxCol()+1 );
+    InitScrollBar( *aHScrollRight,   aViewData.GetDocument()->MaxCol()+1 );
+    InitScrollBar( *aVScrollTop,     aViewData.GetDocument()->MaxRow()+1 );
+    InitScrollBar( *aVScrollBottom,  aViewData.GetDocument()->MaxRow()+1 );
     /*  #i97900# scrollbars remain in correct RTL mode, needed mirroring etc.
         is now handled correctly at the respective places. */
 
@@ -325,14 +320,21 @@ void ScTabView::TabChanged( bool bSameTabButMoved )
         ScDocShell* pDocSh = GetViewData().GetDocShell();
         ScModelObj* pModelObj = pDocSh ? comphelper::getUnoTunnelImplementation<ScModelObj>( pDocSh->GetModel()) : nullptr;
 
-        if (pModelObj)
+        if (pModelObj && GetViewData().GetDocument())
         {
             Size aDocSize = pModelObj->getDocumentSize();
             std::stringstream ss;
             ss << aDocSize.Width() << ", " << aDocSize.Height();
             OString sRect = ss.str().c_str();
             ScTabViewShell* pViewShell = aViewData.GetViewShell();
-            pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_DOCUMENT_SIZE_CHANGED, sRect.getStr());
+
+            // Invalidate first
+            tools::Rectangle aRectangle(0, 0, 1000000000, 1000000000);
+            OString sPayload = aRectangle.toString() + ", " + OString::number(aViewData.GetTabNo());
+            pViewShell->libreOfficeKitViewCallback(LOK_CALLBACK_INVALIDATE_TILES, sPayload.getStr());
+
+            ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>(pViewShell->GetCurrentDocument());
+            SfxLokHelper::notifyDocumentSizeChanged(pViewShell, sRect, pModel, false);
         }
     }
 }
@@ -583,7 +585,7 @@ void ScTabView::MakeVisible( const tools::Rectangle& rHMMRect )
         long nLinesX=0, nLinesY=0;      // columns/rows - scroll at least nScrollX/Y
 
         if (nScrollX > 0)
-            while (nScrollX > 0 && nPosX < MAXCOL)
+            while (nScrollX > 0 && nPosX < pDoc->MaxCol())
             {
                 nScrollX -= static_cast<long>( pDoc->GetColWidth(nPosX, nTab) * nPPTX );
                 ++nPosX;
@@ -598,7 +600,7 @@ void ScTabView::MakeVisible( const tools::Rectangle& rHMMRect )
             }
 
         if (nScrollY > 0)
-            while (nScrollY > 0 && nPosY < MAXROW)
+            while (nScrollY > 0 && nPosY < pDoc->MaxRow())
             {
                 nScrollY -= static_cast<long>( pDoc->GetRowHeight(nPosY, nTab) * nPPTY );
                 ++nPosY;

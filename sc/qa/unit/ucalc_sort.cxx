@@ -366,7 +366,7 @@ void Test::testSortSingleRow()
     m_pDoc->DeleteTab(0);
 }
 
-// regression test fo fdo#53814, sorting doesn't work as expected
+// regression test of fdo#53814, sorting doesn't work as expected
 // if cells in the sort are referenced by formulas
 void Test::testSortWithFormulaRefs()
 {
@@ -1232,8 +1232,8 @@ void Test::testSortRefUpdate4_Impl()
 /* FIXME: this test is not roll-over-midnight safe and will fail then! We may
  * want to have something different, but due to the nature of volatile
  * functions it's not that easy to come up with something reproducible staying
- * stable over sorts.. ;-)  Check for time and don't run test a few seconds
- * before midnight, ermm.. */
+ * stable over sorts... ;-)  Check for time and don't run test a few seconds
+ * before midnight, ermm... */
 void Test::testSortRefUpdate5()
 {
     SortRefUpdateSetter aUpdateSet;
@@ -1914,7 +1914,7 @@ void Test::testSortImages()
 
     // Insert graphic in cell B2.
     const tools::Rectangle aOrigRect(1000, 1000, 1200, 1200);
-    SdrCircObj* pObj = new SdrCircObj(*pDrawLayer, OBJ_CIRC, aOrigRect);
+    SdrCircObj* pObj = new SdrCircObj(*pDrawLayer, SdrCircKind::Full, aOrigRect);
     SdrPage* pPage = pDrawLayer->GetPage(0);
     CPPUNIT_ASSERT(pPage);
     pPage->InsertObject(pObj);

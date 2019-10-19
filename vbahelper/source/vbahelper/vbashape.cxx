@@ -178,7 +178,7 @@ sal_Int32 ScVbaShape::getAutoShapeType(const css::uno::Reference< drawing::XShap
         uno::Sequence< beans::PropertyValue > aGeoPropSeq;
         if ( aGeoPropSet >>= aGeoPropSeq )
         {
-            for( const auto& rProp : aGeoPropSeq )
+            for( const auto& rProp : std::as_const(aGeoPropSeq) )
             {
                 if( rProp.Name == "Type" )
                 {
@@ -533,7 +533,7 @@ ScVbaShape::Select( const uno::Any& /*Replace*/ )
     xSelectSupp->select( uno::makeAny( m_xShape ) );
 }
 
-// This method should not be part of Shape, what we reall need to do is...
+// This method should not be part of Shape, what we really need to do is...
 // dynamically create the appropriate objects e.g. TextBox, Oval, Picture etc.
 // ( e.g. the ones that really do have ShapeRange as an attribute )
 uno::Any SAL_CALL
@@ -742,7 +742,7 @@ ScVbaShape::WrapFormat()
 OUString
 ScVbaShape::getServiceImplName()
 {
-    return OUString("ScVbaShape");
+    return "ScVbaShape";
 }
 
 uno::Sequence< OUString >

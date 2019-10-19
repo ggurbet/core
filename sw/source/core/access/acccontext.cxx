@@ -22,7 +22,6 @@
 
 #include <com/sun/star/accessibility/XAccessible.hpp>
 #include <com/sun/star/accessibility/XAccessibleStateSet.hpp>
-#include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
@@ -43,14 +42,12 @@
 #include <flyfrm.hxx>
 #include <dflyobj.hxx>
 #include <pam.hxx>
-#include <viewimp.hxx>
 #include <accmap.hxx>
 #include "accfrmobjslist.hxx"
 #include "acccontext.hxx"
 #include <svx/AccessibleShape.hxx>
 #include <comphelper/accessibleeventnotifier.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include "accpara.hxx"
 #include <PostItMgr.hxx>
 
 using namespace sw::access;
@@ -1077,22 +1074,24 @@ void SwAccessibleContext::DisposeChild( const SwAccessibleChild& rChildFrameOrOb
          IsShowing( *(GetMap()), rChildFrameOrObj ) ||
          !SwAccessibleChild( GetFrame() ).IsVisibleChildrenOnly() )
     {
-        // If the object could have existed before, than there is nothing to do,
+        // If the object could have existed before, then there is nothing to do,
         // because no wrapper exists now and therefore no one is interested to
         // get notified of the movement.
         if( rChildFrameOrObj.GetSwFrame() )
         {
             ::rtl::Reference< SwAccessibleContext > xAccImpl =
-                    GetMap()->GetContextImpl( rChildFrameOrObj.GetSwFrame() );
-            xAccImpl->Dispose( bRecursive );
+                    GetMap()->GetContextImpl( rChildFrameOrObj.GetSwFrame(), false );
+            if (xAccImpl)
+                xAccImpl->Dispose( bRecursive );
         }
         else if ( rChildFrameOrObj.GetDrawObject() )
         {
             ::rtl::Reference< ::accessibility::AccessibleShape > xAccImpl =
                     GetMap()->GetContextImpl( rChildFrameOrObj.GetDrawObject(),
-                                              this );
-            DisposeShape( rChildFrameOrObj.GetDrawObject(),
-                          xAccImpl.get() );
+                                              this, false );
+            if (xAccImpl)
+                DisposeShape( rChildFrameOrObj.GetDrawObject(),
+                              xAccImpl.get() );
         }
         else if ( rChildFrameOrObj.GetWindow() )
         {
@@ -1173,7 +1172,7 @@ void SwAccessibleContext::InvalidateChildPosOrSize(
                      ( rOldFrame.Left() == 0 && rOldFrame.Top() == 0 );
     if( IsShowing( *(GetMap()), rChildFrameOrObj ) )
     {
-        // If the object could have existed before, than there is nothing to do,
+        // If the object could have existed before, then there is nothing to do,
         // because no wrapper exists now and therefore no one is interested to
         // get notified of the movement.
         if( bNew || (bVisibleChildrenOnly && !IsShowing( rOldFrame )) )
@@ -1211,7 +1210,7 @@ void SwAccessibleContext::InvalidateChildPosOrSize(
     }
     else
     {
-        // If the frame was visible before, than a child event for the parent
+        // If the frame was visible before, then a child event for the parent
         // needs to be send. However, there is no wrapper existing, and so
         // no notifications for grandchildren are required. If the are
         // grandgrandchildren, they would be notified by the layout.

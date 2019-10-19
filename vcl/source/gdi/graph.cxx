@@ -21,18 +21,17 @@
 #include <vcl/outdev.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/graph.hxx>
+#include <vcl/image.hxx>
 #include <vcl/metaact.hxx>
 #include <impgraph.hxx>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/graphic/GraphicProvider.hpp>
-#include <com/sun/star/graphic/XGraphicProvider.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
-#include <com/sun/star/lang/XTypeProvider.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <graphic/UnoGraphic.hxx>
 #include <vcl/GraphicExternalLink.hxx>
 
+#include <image.h>
 
 using namespace ::com::sun::star;
 
@@ -196,7 +195,7 @@ Graphic::Graphic(const Graphic& rGraphic)
         mxImpGraphic = rGraphic.mxImpGraphic;
 }
 
-Graphic::Graphic(Graphic&& rGraphic)
+Graphic::Graphic(Graphic&& rGraphic) noexcept
     : mxImpGraphic(std::move(rGraphic.mxImpGraphic))
 {
 }
@@ -216,6 +215,17 @@ Graphic::Graphic(const BitmapEx& rBmpEx)
 {
 }
 
+// We use XGraphic for passing toolbar images across app UNO aps
+// and we need to be able to see and preserve 'stock' images too.
+Graphic::Graphic(const Image& rImage)
+    // FIXME: should really defer the BitmapEx load.
+    : mxImpGraphic(new ImpGraphic(rImage.GetBitmapEx()))
+{
+    OUString aStock = rImage.GetStock();
+    if (aStock.getLength())
+        mxImpGraphic->setOriginURL("private:graphicrepository/" + aStock);
+}
+
 Graphic::Graphic(const VectorGraphicDataPtr& rVectorGraphicDataPtr)
     : mxImpGraphic(vcl::graphic::Manager::get().newInstance(rVectorGraphicDataPtr))
 {
@@ -233,10 +243,7 @@ Graphic::Graphic(const GDIMetaFile& rMtf)
 
 Graphic::Graphic( const css::uno::Reference< css::graphic::XGraphic >& rxGraphic )
 {
-    uno::Reference< lang::XUnoTunnel >      xTunnel( rxGraphic, uno::UNO_QUERY );
-    const ::Graphic*                        pGraphic = ( xTunnel.is() ?
-                                                         reinterpret_cast< ::Graphic* >( xTunnel->getSomething( getUnoTunnelId() ) ) :
-                                                          nullptr );
+    const ::Graphic* pGraphic = comphelper::getUnoTunnelImplementation<::Graphic>(rxGraphic);
 
     if( pGraphic )
     {
@@ -280,7 +287,7 @@ Graphic& Graphic::operator=( const Graphic& rGraphic )
     return *this;
 }
 
-Graphic& Graphic::operator=(Graphic&& rGraphic)
+Graphic& Graphic::operator=(Graphic&& rGraphic) noexcept
 {
     mxImpGraphic = std::move(rGraphic.mxImpGraphic);
     return *this;
@@ -505,7 +512,7 @@ void Graphic::SetDummyContext( bool value )
     mxImpGraphic->ImplSetDummyContext( value );
 }
 
-bool Graphic::IsDummyContext()
+bool Graphic::IsDummyContext() const
 {
     return mxImpGraphic->ImplIsDummyContext();
 }
@@ -514,6 +521,11 @@ void Graphic::SetGfxLink( const std::shared_ptr<GfxLink>& rGfxLink )
 {
     ImplTestRefCount();
     mxImpGraphic->ImplSetLink( rGfxLink );
+}
+
+std::shared_ptr<GfxLink> Graphic::GetSharedGfxLink() const
+{
+    return mxImpGraphic->ImplGetSharedGfxLink();
 }
 
 GfxLink Graphic::GetGfxLink() const
@@ -552,21 +564,21 @@ const VectorGraphicDataPtr& Graphic::getVectorGraphicData() const
     return mxImpGraphic->getVectorGraphicData();
 }
 
-void Graphic::setPdfData(const std::shared_ptr<uno::Sequence<sal_Int8>>& rPdfData)
+void Graphic::setPdfData(const std::shared_ptr<std::vector<sal_Int8>>& rPdfData)
 {
     ImplTestRefCount();
     mxImpGraphic->setPdfData(rPdfData);
 }
 
-const std::shared_ptr<uno::Sequence<sal_Int8>>& Graphic::getPdfData() const
+const std::shared_ptr<std::vector<sal_Int8>> & Graphic::getPdfData() const
 {
     return mxImpGraphic->getPdfData();
 }
 
 bool Graphic::hasPdfData() const
 {
-    std::shared_ptr<uno::Sequence<sal_Int8>> pPdfData = getPdfData();
-    return pPdfData && pPdfData->hasElements();
+    std::shared_ptr<std::vector<sal_Int8>> pPdfData(getPdfData());
+    return pPdfData && !pPdfData->empty();
 }
 
 void Graphic::setPageNumber(sal_Int32 nPageNumber)

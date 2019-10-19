@@ -23,23 +23,20 @@
 
 #include <sal/types.h>
 #include <rtl/ustring.hxx>
-#include <rtl/ustrbuf.hxx>
 
 #include <map>
 #include <memory>
 #include <vector>
 
-#include <com/sun/star/table/XTableColumns.hpp>
 #include <com/sun/star/table/XColumnRowRange.hpp>
 #include <com/sun/star/table/XCell.hpp>
-#include <com/sun/star/text/XText.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
 
 #include <rtl/ref.hxx>
 
 #include <xmloff/dllapi.h>
 #include <salhelper/simplereferenceobject.hxx>
-#include <xmloff/xmlprmap.hxx>
+#include <xmloff/prhdlfac.hxx>
 #include <xmloff/xmlexppr.hxx>
 
 class SvXMLExport;

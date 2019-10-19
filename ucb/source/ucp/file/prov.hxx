@@ -20,12 +20,9 @@
 #ifndef INCLUDED_UCB_SOURCE_UCP_FILE_PROV_HXX
 #define INCLUDED_UCB_SOURCE_UCP_FILE_PROV_HXX
 
-#include <cppuhelper/weak.hxx>
-
 #include <osl/mutex.hxx>
-#include <ucbhelper/macros.hxx>
 #include <com/sun/star/uno/XInterface.hpp>
-#include <com/sun/star/lang/XTypeProvider.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
@@ -34,7 +31,6 @@
 #include <com/sun/star/ucb/XContentIdentifierFactory.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/ucb/XFileIdentifierConverter.hpp>
-#include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <memory>
 
@@ -104,7 +100,7 @@ namespace fileaccess {
             const css::uno::Reference< css::ucb::XContentIdentifier >& Id1,
             const css::uno::Reference< css::ucb::XContentIdentifier >& Id2 ) override;
 
-        // XProperySet
+        // XPropertySet
 
         virtual css::uno::Reference< css::beans::XPropertySetInfo > SAL_CALL
         getPropertySetInfo(  ) override;

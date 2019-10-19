@@ -6,6 +6,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+#ifndef LO_CLANG_SHARED_PLUGINS
 
 #include <string>
 #include <set>
@@ -41,12 +42,8 @@ private:
 
 void OverrideParam::run()
 {
-    /*
-    StringRef fn(handler.getMainFileName());
-    if (fn == SRCDIR "/include/svx/checklbx.hxx")
-         return;
-*/
-    TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
+    if (preRun())
+        TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
 }
 
 bool OverrideParam::VisitCXXMethodDecl(const CXXMethodDecl * methodDecl) {
@@ -57,10 +54,6 @@ bool OverrideParam::VisitCXXMethodDecl(const CXXMethodDecl * methodDecl) {
         return true;
     }
     loplugin::DeclCheck dc(methodDecl);
-    // there is an InsertEntry override here which causes trouble if I modify it
-    if (dc.Function("InsertEntry").Class("SvxCheckListBox").GlobalNamespace()) {
-        return true;
-    }
     // This class is overriding ShowCursor(bool) AND declaring a ShowCursor() method.
     // Adding a default param causes 'ambiguous override'.
     if (dc.Function("ShowCursor").Class("ScTabViewShell").GlobalNamespace()) {
@@ -164,8 +157,10 @@ bool OverrideParam::hasSameDefaultParams(const ParmVarDecl * parmVarDecl, const 
         // that would probably have unwanted side-effects)
 }
 
-loplugin::Plugin::Registration< OverrideParam > X("overrideparam");
+loplugin::Plugin::Registration< OverrideParam > overrideparam("overrideparam");
 
-}
+} // namespace
+
+#endif // LO_CLANG_SHARED_PLUGINS
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -30,16 +30,14 @@
 #include <sfx2/sfxsids.hrc>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <svl/urlbmk.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/xbtmpit.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/xfillit0.hxx>
-#include <svx/xoutbmp.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdomedia.hxx>
 #include <svx/svdoole2.hxx>
-#include <sot/storage.hxx>
+#include <svx/ImageMapInfo.hxx>
 #include <sfx2/app.hxx>
 #include <avmedia/mediawindow.hxx>
 #include <svtools/ehdl.hxx>
@@ -54,18 +52,14 @@
 #include <drawdoc.hxx>
 #include <sdresid.hxx>
 #include <strings.hrc>
-#include <imapinfo.hxx>
 #include <sdpage.hxx>
 #include <view/SlideSorterView.hxx>
-#include <undo/undoobjects.hxx>
-#include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/XEmbedPersist.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <svtools/soerr.hxx>
 #include <sfx2/ipclient.hxx>
-#include <svx/svdoashp.hxx>
 #include <tools/debug.hxx>
 
 using namespace com::sun::star;
@@ -83,7 +77,7 @@ SdrGrafObj* View::InsertGraphic( const Graphic& rGraphic, sal_Int8& rAction,
     SdrEndTextEdit();
     mnAction = rAction;
 
-    // Is there a object at the position rPos?
+    // Is there an object at the position rPos?
     SdrGrafObj*     pNewGrafObj = nullptr;
     SdrPageView*    pPV = GetSdrPageView();
     SdrObject*      pPickObj = pObj;
@@ -145,7 +139,7 @@ SdrGrafObj* View::InsertGraphic( const Graphic& rGraphic, sal_Int8& rAction,
         }
 
         if (pImageMap)
-            pNewGrafObj->AppendUserData(std::unique_ptr<SdrObjUserData>(new SdIMapInfo(*pImageMap)));
+            pNewGrafObj->AppendUserData(std::unique_ptr<SdrObjUserData>(new SvxIMapInfo(*pImageMap)));
 
         ReplaceObjectAtView(pPickObj, *pPV, pNewGrafObj); // maybe ReplaceObjectAtView
 
@@ -230,7 +224,7 @@ SdrGrafObj* View::InsertGraphic( const Graphic& rGraphic, sal_Int8& rAction,
         {
             // replace object
             if (pImageMap)
-                pNewGrafObj->AppendUserData(std::unique_ptr<SdrObjUserData>(new SdIMapInfo(*pImageMap)));
+                pNewGrafObj->AppendUserData(std::unique_ptr<SdrObjUserData>(new SvxIMapInfo(*pImageMap)));
 
             ::tools::Rectangle aPickObjRect(pPickObj->GetCurrentBoundRect());
             Size aPickObjSize(aPickObjRect.GetSize());
@@ -270,10 +264,11 @@ SdrGrafObj* View::InsertGraphic( const Graphic& rGraphic, sal_Int8& rAction,
         }
         else
         {
-            InsertObjectAtView(pNewGrafObj, *pPV, nOptions);
-
-            if( pImageMap )
-                pNewGrafObj->AppendUserData(std::unique_ptr<SdrObjUserData>(new SdIMapInfo(*pImageMap)));
+            bool bSuccess = InsertObjectAtView(pNewGrafObj, *pPV, nOptions);
+            if (!bSuccess)
+                pNewGrafObj = nullptr;
+            else if (pImageMap)
+                pNewGrafObj->AppendUserData(std::unique_ptr<SdrObjUserData>(new SvxIMapInfo(*pImageMap)));
         }
     }
 
@@ -359,20 +354,27 @@ SdrMediaObj* View::InsertMediaObj( const OUString& rMediaURL, const OUString& rM
         if( pPickObj )
             ReplaceObjectAtView(pPickObj, *pPV, pNewMediaObj);
         else
-            InsertObjectAtView( pNewMediaObj, *pPV, SdrInsertFlags::SETDEFLAYER );
+        {
+            if (!InsertObjectAtView(pNewMediaObj, *pPV, SdrInsertFlags::SETDEFLAYER))
+                pNewMediaObj = nullptr;
+        }
 
         OUString referer;
         DrawDocShell * sh = GetDocSh();
         if (sh != nullptr && sh->HasName()) {
             referer = sh->GetMedium()->GetName();
         }
-        pNewMediaObj->setURL( rMediaURL, referer, rMimeType );
 
-        if( pPickObj )
+        if (pNewMediaObj)
         {
-            pNewMediaObj->AdjustToMaxRect( aRect );
-            if( bIsPres )
-                pNewMediaObj->SetUserCall( pUserCall );
+            pNewMediaObj->setURL( rMediaURL, referer, rMimeType );
+
+            if( pPickObj )
+            {
+                pNewMediaObj->AdjustToMaxRect( aRect );
+                if( bIsPres )
+                    pNewMediaObj->SetUserCall( pUserCall );
+            }
         }
     }
 
@@ -559,8 +561,8 @@ IMPL_LINK_NOARG(View, DropInsertFileHdl, Timer *, void)
                                     nOptions |= SdrInsertFlags::DONTMARK;
                             }
 
-                            InsertObjectAtView( pOleObj, *GetSdrPageView(), nOptions );
-                            pOleObj->SetLogicRect( aRect );
+                            if (InsertObjectAtView( pOleObj, *GetSdrPageView(), nOptions ))
+                                pOleObj->SetLogicRect( aRect );
                             aSz.Width = aRect.GetWidth();
                             aSz.Height = aRect.GetHeight();
                             xObj->setVisualAreaSize( nAspect,aSz );

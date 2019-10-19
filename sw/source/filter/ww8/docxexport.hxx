@@ -119,7 +119,7 @@ public:
     DocxExportFilter& GetFilter() { return *m_pFilter; };
     const DocxExportFilter& GetFilter() const { return *m_pFilter; };
 
-    const ww8::Frame* GetFloatingTableFrame() { return m_pFloatingTableFrame; }
+    const ww8::Frame* GetFloatingTableFrame() const { return m_pFloatingTableFrame; }
 
     /// Access to the attribute output class.
     virtual AttributeOutputBase& AttrOutput() const override;
@@ -176,7 +176,7 @@ public:
                     const OUString &rHelp,
                     const OUString &ToolTip,
                     const OUString &rSelected,
-                    css::uno::Sequence<OUString> &rListItems) override;
+                    const css::uno::Sequence<OUString> &rListItems) override;
 
     virtual void DoFormText(const SwInputField * pField) override;
 
@@ -271,7 +271,8 @@ public:
     void WriteMainText();
 
     /// Pass the pDocument, pCurrentPam and pOriginalPam to the base class.
-    DocxExport( DocxExportFilter *pFilter, SwDoc *pDocument, SwPaM* pCurrentPam, SwPaM* pOriginalPam,
+    DocxExport( DocxExportFilter *pFilter, SwDoc *pDocument,
+            std::shared_ptr<SwUnoCursor> & pCurrentPam, SwPaM* pOriginalPam,
                bool bDocm, bool bTemplate);
 
     /// Destructor.
@@ -286,7 +287,7 @@ public:
     /// Set the document default tab stop.
     void setDefaultTabStop( int stop ) { m_aSettings.defaultTabStop = stop; }
 
-    const ::sax_fastparser::FSHelperPtr& GetFS() { return mpFS; }
+    const ::sax_fastparser::FSHelperPtr& GetFS() const { return mpFS; }
 
     void SetFS(::sax_fastparser::FSHelperPtr const & mpFS);
 

@@ -24,8 +24,9 @@
 #include <sfx2/progress.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/stdtext.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/button.hxx>
 #include <vcl/oldprintadaptor.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/prnmon.hxx>
@@ -164,7 +165,7 @@ namespace
 
             m_xQueryBox->add_button(SvxResId(RID_SVXSTR_QRY_PRINT_SELECTION), RET_OK);
             m_xQueryBox->add_button(SvxResId(RID_SVXSTR_QRY_PRINT_ALL), 2);
-            m_xQueryBox->add_button(Button::GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
+            m_xQueryBox->add_button(GetStandardText(StandardButtonType::Cancel), RET_CANCEL);
             m_xQueryBox->set_default_response(RET_OK);
         }
         short run() { return m_xQueryBox->run(); }
@@ -173,10 +174,10 @@ namespace
 
 // TabPage for application-specific print options
 
-VclPtr<SfxTabPage> SwView::CreatePrintOptionsPage(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> SwView::CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController,
                                                   const SfxItemSet& rSet)
 {
-    return ::CreatePrintOptionsPage(pParent, rSet, false);
+    return ::CreatePrintOptionsPage(pPage, pController, rSet, false);
 }
 
 // Print dispatcher
@@ -294,7 +295,7 @@ void SwView::SetRedlineAuthor(const OUString& rAuthor)
     m_pViewImpl->m_sRedlineAuthor = rAuthor;
 }
 
-const OUString& SwView::GetRedlineAuthor()
+const OUString& SwView::GetRedlineAuthor() const
 {
     return m_pViewImpl->m_sRedlineAuthor;
 }
@@ -306,7 +307,7 @@ void SwView::NotifyCursor(SfxViewShell* pViewShell) const
 
 // Create page printer/additions for SwView and SwPagePreview
 
-VclPtr<SfxTabPage> CreatePrintOptionsPage(TabPageParent pParent,
+std::unique_ptr<SfxTabPage> CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController,
                                           const SfxItemSet &rOptions,
                                           bool bPreview)
 {
@@ -317,16 +318,16 @@ VclPtr<SfxTabPage> CreatePrintOptionsPage(TabPageParent pParent,
     if (!fnCreatePage)
         return nullptr;
 
-    VclPtr<SfxTabPage> pSfxPage = fnCreatePage(pParent, &rOptions);
-    OSL_ENSURE(pSfxPage, "No page");
-    if (!pSfxPage)
+    std::unique_ptr<SfxTabPage> xSfxPage = fnCreatePage(pPage, pController, &rOptions);
+    OSL_ENSURE(xSfxPage, "No page");
+    if (!xSfxPage)
         return nullptr;
 
     SfxAllItemSet aSet(*(rOptions.GetPool()));
     aSet.Put(SfxBoolItem(SID_PREVIEWFLAG_TYPE, bPreview));
     aSet.Put(SfxBoolItem(SID_FAX_LIST, true));
-    pSfxPage->PageCreated(aSet);
-    return pSfxPage;
+    xSfxPage->PageCreated(aSet);
+    return xSfxPage;
 }
 
 void SetAppPrintOptions( SwViewShell* pSh, bool bWeb )

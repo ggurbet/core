@@ -128,7 +128,7 @@ CalendarImpl::getLoadedCalendar2()
     return xCalendar->getLoadedCalendar2();
 }
 
-Calendar SAL_CALL
+::css::i18n::Calendar SAL_CALL
 CalendarImpl::getLoadedCalendar()
 {
     if (!xCalendar.is())
@@ -353,7 +353,7 @@ CalendarImpl::getDisplayString( sal_Int32 nCalendarDisplayCode, sal_Int16 nNativ
 OUString SAL_CALL
 CalendarImpl::getImplementationName()
 {
-    return OUString("com.sun.star.i18n.CalendarImpl");
+    return "com.sun.star.i18n.CalendarImpl";
 }
 
 sal_Bool SAL_CALL
@@ -365,10 +365,7 @@ CalendarImpl::supportsService(const OUString& rServiceName)
 Sequence< OUString > SAL_CALL
 CalendarImpl::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet(2);
-    aRet[0] = "com.sun.star.i18n.LocaleCalendar";
-    aRet[1] = "com.sun.star.i18n.LocaleCalendar2";
-    return aRet;
+    return { "com.sun.star.i18n.LocaleCalendar", "com.sun.star.i18n.LocaleCalendar2" };
 }
 
 }

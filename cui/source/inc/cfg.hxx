@@ -20,22 +20,14 @@
 #define INCLUDED_CUI_SOURCE_INC_CFG_HXX
 
 #include <vcl/weld.hxx>
-#include <svtools/imgdef.hxx>
-#include <svtools/miscopt.hxx>
 #include <svtools/valueset.hxx>
 
-#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
-#include <com/sun/star/ui/XUIConfigurationListener.hpp>
 #include <com/sun/star/ui/XUIConfigurationManager.hpp>
 #include <com/sun/star/ui/XImageManager.hpp>
-#include <com/sun/star/ui/ImageType.hpp>
-#include <com/sun/star/ui/ItemType.hpp>
 #include <com/sun/star/graphic/XGraphicProvider.hpp>
 #include <com/sun/star/frame/XFrame.hpp>
-#include <com/sun/star/frame/ModuleManager.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
 
 #include <sfx2/tabdlg.hxx>
@@ -129,26 +121,26 @@ public:
         const css::uno::Reference< css::uno::XInterface >& xManager );
 
     void SetModified( bool bValue = true ) { bModified = bValue; }
-    bool IsModified( ) { return bModified; }
+    bool IsModified( ) const { return bModified; }
 
-    bool IsReadOnly( ) { return bReadOnly; }
-    bool IsDocConfig( ) { return bDocConfig; }
-
-    const css::uno::Reference
-        < css::ui::XUIConfigurationManager >&
-            GetConfigManager() { return m_xCfgMgr; };
+    bool IsReadOnly( ) const { return bReadOnly; }
+    bool IsDocConfig( ) const { return bDocConfig; }
 
     const css::uno::Reference
         < css::ui::XUIConfigurationManager >&
-            GetParentConfigManager() { return m_xParentCfgMgr; };
+            GetConfigManager() const { return m_xCfgMgr; };
+
+    const css::uno::Reference
+        < css::ui::XUIConfigurationManager >&
+            GetParentConfigManager() const { return m_xParentCfgMgr; };
 
     const css::uno::Reference
         < css::ui::XImageManager >&
-            GetImageManager() { return m_xImgMgr; };
+            GetImageManager() const { return m_xImgMgr; };
 
     const css::uno::Reference
         < css::ui::XImageManager >&
-            GetParentImageManager() { return m_xParentImgMgr; };
+            GetParentImageManager() const { return m_xParentImgMgr; };
 
     css::uno::Reference
         < css::container::XNameAccess > m_xCommandToLabelMap;
@@ -296,17 +288,17 @@ public:
     void    SetEntries( std::unique_ptr<SvxEntries> entries ) { mpEntries = std::move(entries); }
 
     void    SetMain() { bIsMain = true; }
-    bool    IsMain() { return bIsMain; }
+    bool    IsMain() const { return bIsMain; }
 
     void    SetParentData( bool bValue = true ) { bIsParentData = bValue; }
-    bool    IsParentData() { return bIsParentData; }
+    bool    IsParentData() const { return bIsParentData; }
 
     void    SetModified( bool bValue = true ) { bIsModified = bValue; }
-    bool    IsModified() { return bIsModified; }
+    bool    IsModified() const { return bIsModified; }
 
-    bool    IsMovable();
-    bool    IsDeletable();
-    bool    IsRenamable();
+    bool    IsMovable() const;
+    bool    IsDeletable() const;
+    bool    IsRenamable() const;
 
     void    SetVisible( bool b ) { bIsVisible = b; }
     bool    IsVisible() const { return bIsVisible; }
@@ -314,7 +306,7 @@ public:
     void    SetBackupGraphic( css::uno::Reference< css::graphic::XGraphic > const & graphic )
                 { xBackupGraphic = graphic; }
 
-    const css::uno::Reference< css::graphic::XGraphic >& GetBackupGraphic()
+    const css::uno::Reference< css::graphic::XGraphic >& GetBackupGraphic() const
                 { return xBackupGraphic; }
 
     sal_Int32   GetStyle() const { return nStyle; }
@@ -326,7 +318,7 @@ class SvxMenuEntriesListBox
 protected:
     std::unique_ptr<weld::TreeView> m_xControl;
     ScopedVclPtr<VirtualDevice> m_xDropDown;
-    VclPtr<SvxConfigPage> pPage;
+    SvxConfigPage* m_pPage;
 
 public:
     SvxMenuEntriesListBox(std::unique_ptr<weld::TreeView> xControl, SvxConfigPage* pPage);
@@ -351,11 +343,6 @@ public:
     {
         m_xControl->insert(nullptr, pos, nullptr, &rId,
                            nullptr, nullptr, nullptr, false, nullptr);
-    }
-
-    void insert(int pos, const OUString& rId, const OUString& rStr, const OUString* pImage = nullptr)
-    {
-        m_xControl->insert(pos, rStr, &rId, pImage, nullptr);
     }
 
     DECL_LINK(KeyInputHdl, const KeyEvent&, bool);
@@ -417,11 +404,11 @@ protected:
     std::unique_ptr<weld::Button>              m_xRemoveCommandButton;
 
 
-    SvxConfigPage(TabPageParent, const SfxItemSet&);
+    SvxConfigPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet&);
 
     DECL_LINK(MoveHdl, weld::Button&, void);
     DECL_LINK(SelectFunctionHdl, weld::TreeView&, void);
-    DECL_LINK(FunctionDoubleClickHdl, weld::TreeView&, void);
+    DECL_LINK(FunctionDoubleClickHdl, weld::TreeView&, bool);
     DECL_LINK(SelectSaveInLocation, weld::ComboBox&, void);
     DECL_LINK(SelectElementHdl, weld::ComboBox&, void);
     DECL_LINK(ImplUpdateDataHdl, Timer*, void);
@@ -448,7 +435,7 @@ protected:
 
     void                InsertEntryIntoUI(SvxConfigEntry* pNewEntryData,
                                           int nPos, int nStartCol);
-    void InsertEntryIntoNotebookbarTabUI(OUString& sClassId ,OUString& sUIItemId, OUString& sUIItemCommand, int nPos,
+    void InsertEntryIntoNotebookbarTabUI(const OUString& sClassId, const OUString& sUIItemId, const OUString& sUIItemCommand, int nPos,
                                          int nStartCol);
 
     SvxEntries*     FindParentForChild( SvxEntries* pParentEntries,
@@ -464,9 +451,8 @@ public:
 
     SaveInData*     GetSaveInData() { return pCurrentSaveInData; }
 
-    int             AddFunction(int nTarget = -1,
-                                bool bFront = false,
-                                bool bAllowDuplicates = false);
+    int             AddFunction(int nTarget,
+                                bool bAllowDuplicates);
 
     virtual void    MoveEntry( bool bMoveUp );
 
@@ -497,7 +483,7 @@ public:
         GetFrameWithDefaultAndIdentify( css::uno::Reference< css::frame::XFrame >& _inout_rxFrame );
 
     OUString    GetScriptURL() const;
-    OUString    GetSelectedDisplayName();
+    OUString    GetSelectedDisplayName() const;
 };
 
 class SvxMainMenuOrganizerDialog : public weld::GenericDialogController
@@ -590,7 +576,7 @@ public:
     SvxNewToolbarDialog(weld::Window* pWindow, const OUString& rName);
     virtual ~SvxNewToolbarDialog() override;
 
-    OUString GetName()
+    OUString GetName() const
     {
         return m_xEdtName->get_text();
     }

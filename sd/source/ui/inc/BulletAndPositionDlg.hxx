@@ -23,11 +23,8 @@
 #include <vector>
 #include <memory>
 
-#include <sfx2/tabdlg.hxx>
-#include <svx/Palette.hxx>
 #include <editeng/numdef.hxx>
 #include <editeng/svxenum.hxx>
-#include <svtools/ctrlbox.hxx>
 #include <vcl/weld.hxx>
 #include "View.hxx"
 #include <cui/numberingpreview.hxx>
@@ -57,6 +54,7 @@ class SvxBulletAndPositionDlg : public weld::GenericDialogController
 
     std::unique_ptr<SvxNumRule> pActNum;
     std::unique_ptr<SvxNumRule> pSaveNum;
+    const SfxItemSet& rFirstStateSet;
 
     Size aInitSize[SVX_MAX_NUM];
 
@@ -83,7 +81,7 @@ class SvxBulletAndPositionDlg : public weld::GenericDialogController
     std::unique_ptr<weld::Entry> m_xPrefixED;
     std::unique_ptr<weld::Label> m_xSuffixFT;
     std::unique_ptr<weld::Entry> m_xSuffixED;
-    std::unique_ptr<weld::Expander> m_xBeforeAfter;
+    std::unique_ptr<weld::Frame> m_xBeforeAfter;
     std::unique_ptr<weld::Label> m_xBulColorFT;
     std::unique_ptr<ColorListBox> m_xBulColLB;
     std::unique_ptr<weld::Label> m_xBulRelSizeFT;
@@ -111,6 +109,7 @@ class SvxBulletAndPositionDlg : public weld::GenericDialogController
     std::unique_ptr<weld::RadioButton> m_xSlideRB;
     std::unique_ptr<weld::RadioButton> m_xSelectionRB;
     std::unique_ptr<weld::ToggleButton> m_xApplyToMaster;
+    std::unique_ptr<weld::Button> m_xReset;
 
     void InitControls();
     /** To switch between the numbering type
@@ -138,17 +137,18 @@ class SvxBulletAndPositionDlg : public weld::GenericDialogController
     DECL_LINK(SelectCenterAlignmentHdl_Impl, weld::ToggleButton&, void);
     DECL_LINK(SelectRightAlignmentHdl_Impl, weld::ToggleButton&, void);
     DECL_LINK(ApplyToMasterHdl_Impl, weld::ToggleButton&, void);
+    DECL_LINK(ResetHdl_Impl, weld::Button&, void);
     void EditModifyHdl_Impl(const weld::Entry*);
     void InitPosAndSpaceMode();
     void SetAlignmentHdl_Impl(SvxAdjust);
 
 public:
-    SvxBulletAndPositionDlg(weld::Window* pWindow, const SfxItemSet& rSet, ::sd::View* pView);
+    SvxBulletAndPositionDlg(weld::Window* pWindow, const SfxItemSet& rSet, const ::sd::View* pView);
     virtual ~SvxBulletAndPositionDlg() override;
 
     SfxItemSet* GetOutputItemSet(SfxItemSet* rSet);
-    bool IsApplyToMaster();
-    bool IsSlideScope();
+    bool IsApplyToMaster() const;
+    bool IsSlideScope() const;
     void Reset(const SfxItemSet* rSet);
 
     void SetCharFmts(const OUString& rNumName, const OUString& rBulletName)

@@ -18,17 +18,15 @@
  */
 
 #include <limits.h>
-#include <tools/poly.hxx>
+
+#include <o3tl/float_int_conversion.hxx>
 #include <sal/log.hxx>
 
-#include <vcl/bitmap.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/event.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/timer.hxx>
-#include <vcl/metric.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/window.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/dockwin.hxx>
@@ -36,10 +34,7 @@
 #include <vcl/builder.hxx>
 
 #include <window.h>
-#include <fontinstance.hxx>
-#include <outdev.h>
 #include <svdata.hxx>
-#include <salbmp.hxx>
 #include <salgdi.hxx>
 #include <salframe.hxx>
 #include <scrwnd.hxx>
@@ -585,9 +580,9 @@ static void lcl_HandleScrollHelper( ScrollBar* pScrl, double nN, bool isMultiply
     {
         long nNewPos = pScrl->GetThumbPos();
 
-        if ( nN == -LONG_MAX )
+        if ( nN == double(-LONG_MAX) )
             nNewPos += pScrl->GetPageSize();
-        else if ( nN == LONG_MAX )
+        else if ( nN == double(LONG_MAX) )
             nNewPos -= pScrl->GetPageSize();
         else
         {
@@ -598,9 +593,9 @@ static void lcl_HandleScrollHelper( ScrollBar* pScrl, double nN, bool isMultiply
 
             const double fVal = nNewPos - nN;
 
-            if ( fVal < LONG_MIN )
+            if ( !o3tl::convertsToAtLeast(fVal, LONG_MIN) )
                 nNewPos = LONG_MIN;
-            else if ( fVal > LONG_MAX )
+            else if ( !o3tl::convertsToAtMost(fVal, LONG_MAX) )
                 nNewPos = LONG_MAX;
             else
                 nNewPos = static_cast<long>(fVal);
@@ -657,17 +652,18 @@ bool Window::HandleScrollCommand( const CommandEvent& rCmd,
                         if ( nScrollLines == COMMAND_WHEEL_PAGESCROLL )
                         {
                             if ( pData->GetDelta() < 0 )
-                                nLines = -LONG_MAX;
+                                nLines = double(-LONG_MAX);
                             else
-                                nLines = LONG_MAX;
+                                nLines = double(LONG_MAX);
                         }
                         else
                             nLines = pData->GetNotchDelta() * nScrollLines;
                         if ( nLines )
                         {
-                            ImplHandleScroll(nullptr, 0L, pData->IsHorz() ? pHScrl : pVScrl,
-                                pData->IsHorz() && pHScrl && (AllSettings::GetLayoutRTL() == pHScrl->IsRTLEnabled())
-                                    ? -nLines : nLines);
+                            ImplHandleScroll( nullptr,
+                                          0L,
+                                          pData->IsHorz() ? pHScrl : pVScrl,
+                                          nLines );
                             bRet = true;
                         }
                     }
@@ -750,23 +746,26 @@ bool Window::HandleScrollCommand( const CommandEvent& rCmd,
 
             case CommandEventId::Gesture:
             {
-                const CommandGestureData* pData = rCmd.GetGestureData();
-                if (pData->meEventType == GestureEventType::PanningBegin)
+                if (pVScrl)
                 {
-                    mpWindowImpl->mpFrameData->mnTouchPanPosition = pVScrl->GetThumbPos();
+                    const CommandGestureData* pData = rCmd.GetGestureData();
+                    if (pData->meEventType == GestureEventType::PanningBegin)
+                    {
+                        mpWindowImpl->mpFrameData->mnTouchPanPosition = pVScrl->GetThumbPos();
+                    }
+                    else if(pData->meEventType == GestureEventType::PanningUpdate)
+                    {
+                        long nOriginalPosition = mpWindowImpl->mpFrameData->mnTouchPanPosition;
+                        pVScrl->DoScroll(nOriginalPosition + (pData->mfOffset / pVScrl->GetVisibleSize()));
+                    }
+                    if (pData->meEventType == GestureEventType::PanningEnd)
+                    {
+                        mpWindowImpl->mpFrameData->mnTouchPanPosition = -1;
+                    }
+                    bRet = true;
                 }
-                else if(pData->meEventType == GestureEventType::PanningUpdate)
-                {
-                    long nOriginalPosition = mpWindowImpl->mpFrameData->mnTouchPanPosition;
-                    pVScrl->DoScroll(nOriginalPosition + (pData->mfOffset / pVScrl->GetVisibleSize()));
-                }
-                if (pData->meEventType == GestureEventType::PanningEnd)
-                {
-                    mpWindowImpl->mpFrameData->mnTouchPanPosition = -1;
-                }
-                bRet = true;
+                break;
             }
-            break;
 
             case CommandEventId::AutoScroll:
             {

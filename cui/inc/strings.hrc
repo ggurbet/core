@@ -224,9 +224,6 @@
 // $(ROW) can be a number or the caption of the row in quotes
 #define RID_SVXSTR_DIAGRAM_ROW                      NC_("RID_SVXSTR_DIAGRAM_ROW", "Data Series $(ROW)")
 
-#define RID_SVXSTR_DRIVER_NAME                      NC_("RID_SVXSTR_DRIVER_NAME", "Driver name")
-#define RID_SVXSTR_POOLED_FLAG                      NC_("RID_SVXSTR_POOLED_FLAG", "Pool")
-#define RID_SVXSTR_POOL_TIMEOUT                     NC_("RID_SVXSTR_POOL_TIMEOUT", "Timeout")
 #define RID_SVXSTR_YES                              NC_("RID_SVXSTR_YES", "Yes")
 #define RID_SVXSTR_NO                               NC_("RID_SVXSTR_NO", "No")
 
@@ -254,17 +251,16 @@
 #define RID_SVXSTR_ERROR_TYPE_LABEL                 NC_("RID_SVXSTR_ERROR_TYPE_LABEL", "Type:")
 #define RID_SVXSTR_ERROR_MESSAGE_LABEL              NC_("RID_SVXSTR_ERROR_MESSAGE_LABEL", "Message:")
 
-//abbreviation for "[Load]"
-#define RID_SVXSTR_HEADER1                          NC_("RID_SVXSTR_HEADER1", "[L]")
-//abbreviation for "[Save]"
-#define RID_SVXSTR_HEADER2                          NC_("RID_SVXSTR_HEADER2", "[S]")
 #define RID_SVXSTR_CHG_MATH                         NC_("RID_SVXSTR_CHG_MATH", "MathType to %PRODUCTNAME Math or reverse")
 #define RID_SVXSTR_CHG_WRITER                       NC_("RID_SVXSTR_CHG_WRITER", "WinWord to %PRODUCTNAME Writer or reverse")
 #define RID_SVXSTR_CHG_CALC                         NC_("RID_SVXSTR_CHG_CALC", "Excel to %PRODUCTNAME Calc or reverse")
 #define RID_SVXSTR_CHG_IMPRESS                      NC_("RID_SVXSTR_CHG_IMPRESS", "PowerPoint to %PRODUCTNAME Impress or reverse")
 #define RID_SVXSTR_CHG_SMARTART                     NC_("RID_SVXSTR_CHG_SMARTART", "SmartArt to %PRODUCTNAME shapes or reverse")
+#define RID_SVXSTR_CHG_VISIO                        NC_("RID_SVXSTR_CHG_VISIO", "Visio to %PRODUCTNAME Draw or reverse")
+#define RID_SVXSTR_CHG_PDF                          NC_("RID_SVXSTR_CHG_PDF", "PDF to %PRODUCTNAME Draw or reverse")
 
 #define RID_SVXSTR_OPT_DOUBLE_DICTS                 NC_("RID_SVXSTR_OPT_DOUBLE_DICTS", "The specified name already exists.\nPlease enter a new name.")
+#define RID_SVXSTR_OPT_INVALID_DICT_NAME            NC_("RID_SVXSTR_OPT_INVALID_DICT_NAME", "The specified name is invalid.\nPlease enter a new name.")
 /* To translators:
    Please, try to find a similar *short* translation to avoid
    to get narrow "New" field in the "Edit custom dictionary" window,
@@ -383,6 +379,8 @@
 
 #define RID_SVXSTR_REGISTERED_DATABASES             NC_("RID_SVXSTR_REGISTERED_DATABASES", "Registered Databases")
 
+#define RID_SVXSTR_CANNOTCONVERTURL_ERR             NC_("RID_SVXSTR_CANNOTCONVERTURL_ERR", "The URL <%1> cannot be converted to a filesystem path.")
+
 #define RID_SVXSTR_ABOUT_VERSION                    NC_("aboutdialog|textbuffer1", "Version: %ABOUTBOXPRODUCTVERSION%ABOUTBOXPRODUCTVERSIONSUFFIX")
 #define RID_SVXSTR_ABOUT_COPYRIGHT                  NC_("aboutdialog|copyright", "Copyright © 2000–2019 LibreOffice contributors.")
 #define RID_SVXSTR_ABOUT_CREDITS_URL                NC_("aboutdialog|link", "https://www.libreoffice.org/about-us/credits/")
@@ -395,6 +393,8 @@
 #define RID_SVXSTR_ABOUT_RELEASE_NOTES              NC_("aboutdialog|releasenotes", "~Release Notes")
 #define RID_SVXSTR_ABOUT_WEBSITE                    NC_("aboutdialog|website", "~Website")
 #define RID_SVXSTR_ABOUT_CREDITS                    NC_("aboutdialog|credits", "Cre~dits")
+
+#define RID_SVXSTR_EDIT_PATHS                       NC_("optpathspage|editpaths", "Edit Paths: %1")
 
 #endif
 

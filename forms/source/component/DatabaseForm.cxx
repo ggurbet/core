@@ -305,7 +305,7 @@ ODatabaseForm::ODatabaseForm( const ODatabaseForm& _cloneSource )
 
             Reference< XPropertySetInfo > xDestPSI( getPropertySetInfo(), UNO_SET_THROW );
 
-            Sequence< Property > aSourceProperties( xSourcePSI->getProperties() );
+            const Sequence< Property > aSourceProperties( xSourcePSI->getProperties() );
             for ( auto const & sourceProperty : aSourceProperties )
             {
                 if ( xDestPSI->hasPropertyByName( sourceProperty.Name ) )
@@ -631,7 +631,8 @@ void ODatabaseForm::AppendComponent(HtmlSuccessfulObjList& rList, const Referenc
 
                 // Find the right control
                 bool bFound = false;
-                for( auto const& xControl : xControlContainer->getControls() )
+                const Sequence<Reference<XControl>> aControls = xControlContainer->getControls();
+                for( auto const& xControl : aControls )
                 {
                     Reference<XPropertySet>  xModel(xControl->getModel(), UNO_QUERY);
                     if ((bFound = xModel == xComponentSet))
@@ -924,11 +925,8 @@ void ODatabaseForm::InsertTextPart( INetMIMEMessage& rParent, const OUString& rN
     // Header
     //TODO: Encode rName into a properly formatted Content-Disposition header
     // field as per RFC 2231:
-    OUStringBuffer aContentDisp;
-    aContentDisp.append("form-data; name=\"");
-    aContentDisp.append(rName);
-    aContentDisp.append('\"');
-    pChild->SetContentDisposition(aContentDisp.makeStringAndClear());
+    OUString aContentDisp = "form-data; name=\"" + rName + "\"";
+    pChild->SetContentDisposition(aContentDisp);
 
     rtl_TextEncoding eSystemEncoding = osl_getThreadTextEncoding();
     const sal_Char* pBestMatchingEncoding = rtl_getBestMimeCharsetFromTextEncoding( eSystemEncoding );
@@ -988,14 +986,14 @@ void ODatabaseForm::InsertFilePart( INetMIMEMessage& rParent, const OUString& rN
     // Header
     //TODO: Encode rName and aFileName into a properly formatted
     // Content-Disposition header field as per RFC 2231:
-    OUStringBuffer aContentDisp;
-    aContentDisp.append("form-data; name=\"");
-    aContentDisp.append(rName);
-    aContentDisp.append('\"');
-    aContentDisp.append("; filename=\"");
-    aContentDisp.append(aFileName);
-    aContentDisp.append('\"');
-    pChild->SetContentDisposition(aContentDisp.makeStringAndClear());
+    OUString aContentDisp =
+        "form-data; name=\"" +
+        rName +
+        "\""
+        "; filename=\"" +
+        aFileName +
+        "\"";
+    pChild->SetContentDisposition(aContentDisp);
     pChild->SetContentType( aContentType );
     pChild->SetContentTransferEncoding("8bit");
 
@@ -2718,6 +2716,21 @@ void ODatabaseForm::stopSharingConnection( )
     }
 }
 
+namespace
+{
+    Reference<css::awt::XWindow> GetDialogParentWindow(const Reference<XModel>& rModel)
+    {
+        if (!rModel.is())
+            return nullptr;
+        Reference<XController> xController(rModel->getCurrentController());
+        if (!xController.is())
+            return nullptr;
+        Reference<XFrame> xFrame(xController->getFrame());
+        if (!xFrame.is())
+            return nullptr;
+        return xFrame->getContainerWindow();
+    }
+}
 
 bool ODatabaseForm::implEnsureConnection()
 {
@@ -2759,9 +2772,15 @@ bool ODatabaseForm::implEnsureConnection()
 
         if (m_xAggregateSet.is())
         {
+            //Dig out a suitable parent for any warning dialogs
+            Reference<css::awt::XWindow> m_xDialogParent;
+            Reference<XChild> xParent(m_xParent, UNO_QUERY);
+            if (xParent.is())
+                m_xDialogParent = GetDialogParentWindow(getXModel(xParent->getParent()));
+
             Reference< XConnection >  xConnection = connectRowset(
                 Reference<XRowSet> (m_xAggregate, UNO_QUERY),
-                m_xContext
+                m_xContext, m_xDialogParent
             );
             return xConnection.is();
         }
@@ -2993,7 +3012,7 @@ void SAL_CALL ODatabaseForm::rowSetChanged(const EventObject& /*event*/)
     // if our parent is an ODatabaseForm, too, then after this rowSetChanged we'll get a "reloaded"
     // or a "loaded" event.
     // If somebody gave us another parent which is an XRowSet but doesn't handle an execute as
-    // "load" respectively "reload" ... can't do anything ....
+    // "load" respectively "reload"... can't do anything...
 }
 
 
@@ -3696,7 +3715,7 @@ void SAL_CALL ODatabaseForm::propertyChange( const PropertyChangeEvent& evt )
 
 OUString SAL_CALL ODatabaseForm::getImplementationName()
 {
-    return OUString( "com.sun.star.comp.forms.ODatabaseForm" );
+    return "com.sun.star.comp.forms.ODatabaseForm";
 }
 
 
@@ -3708,7 +3727,7 @@ Sequence< OUString > SAL_CALL ODatabaseForm::getSupportedServiceNames()
     if (query_aggregation(m_xAggregate, xInfo))
         aServices = xInfo->getSupportedServiceNames();
 
-    // concat with out own services
+    // concat without own services
     return ::comphelper::concatSequences(
         css::uno::Sequence<OUString> {
             FRM_SUN_FORMCOMPONENT, "com.sun.star.form.FormComponents",
@@ -3729,7 +3748,7 @@ const sal_uInt16 DONTAPPLYFILTER    = 0x0002;
 
 OUString ODatabaseForm::getServiceName()
 {
-    return OUString(FRM_COMPONENT_FORM);  // old (non-sun) name for compatibility !
+    return FRM_COMPONENT_FORM;  // old (non-sun) name for compatibility !
 }
 
 void SAL_CALL ODatabaseForm::write(const Reference<XObjectOutputStream>& _rxOutStream)

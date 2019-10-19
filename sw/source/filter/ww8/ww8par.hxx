@@ -548,8 +548,8 @@ namespace sw
             explicit Position(const SwPosition &rPos);
             Position(const Position &rPos);
             operator SwPosition() const;
-            const SwNodeIndex& GetPtNode() { return maPtNode; };
-            sal_Int32 GetPtContent() { return mnPtContent; };
+            const SwNodeIndex& GetPtNode() const { return maPtNode; };
+            sal_Int32 GetPtContent() const { return mnPtContent; };
         };
     }
 }
@@ -571,11 +571,11 @@ class WW8FieldEntry
         WW8FieldEntry &operator=(const WW8FieldEntry &rOther) throw();
         void Swap(WW8FieldEntry &rOther) throw();
 
-        SwNodeIndex GetPtNode() { return maStartPos.GetPtNode(); };
-        sal_Int32 GetPtContent() { return maStartPos.GetPtContent(); };
+        SwNodeIndex GetPtNode() const { return maStartPos.GetPtNode(); };
+        sal_Int32 GetPtContent() const { return maStartPos.GetPtContent(); };
 
-        const OUString& GetBookmarkName() { return msBookmarkName;}
-        const OUString& GetBookmarkCode() { return msMarkCode;}
+        const OUString& GetBookmarkName() const { return msBookmarkName;}
+        const OUString& GetBookmarkCode() const { return msMarkCode;}
         void SetBookmarkName(const OUString& bookmarkName);
         void SetBookmarkType(const OUString& bookmarkType);
         void SetBookmarkCode(const OUString& bookmarkCode);
@@ -1042,7 +1042,6 @@ struct WW8TabBandDesc
     WW8TabBandDesc();
     WW8TabBandDesc(WW8TabBandDesc const & rBand);    // deep copy
     ~WW8TabBandDesc();
-    static void setcelldefaults(WW8_TCell *pCells, short nCells);
     void ReadDef(bool bVer67, const sal_uInt8* pS, short nLen);
     void ProcessDirection(const sal_uInt8* pParams);
     void ProcessSprmTSetBRC(int nBrcVer, const sal_uInt8* pParamsTSetBRC, sal_uInt16 nParamsLen);
@@ -1342,7 +1341,7 @@ private:
 
     bool m_bEmbeddObj;        // EmbeddField is being read
 
-    bool m_bCurrentAND_fNumberAcross; // current active Annotated List Deskriptor - ROW flag
+    bool m_bCurrentAND_fNumberAcross; // current active Annotated List Descriptor - ROW flag
 
     bool m_bNoLnNumYet;       // no Line Numbering has been activated yet (we import
                             //     the very 1st Line Numbering and ignore the rest)
@@ -1376,6 +1375,7 @@ private:
     cp_vector m_aEndParaPos;
     WW8_CP m_aCurrAttrCP;
     bool m_bOnLoadingMain:1;
+    bool m_bNotifyMacroEventRead:1;
 
     const SprmReadInfo& GetSprmReadInfo(sal_uInt16 nId) const;
 
@@ -1489,8 +1489,8 @@ private:
     void SetAttributesAtGrfNode(SvxMSDffImportRec const* pRecord,
             SwFrameFormat const *pFlyFormat, WW8_FSPA const *pF);
 
-    bool IsDropCap();
-    bool IsListOrDropcap() { return (!m_xCurrentItemSet  || m_bDropCap); };
+    bool IsDropCap() const;
+    bool IsListOrDropcap() const { return (!m_xCurrentItemSet  || m_bDropCap); };
 
     //Apo == Absolutely Positioned Object, MSWord's old-style frames
     std::unique_ptr<WW8FlyPara> ConstructApo(const ApoTestResults &rApo,
@@ -1911,6 +1911,7 @@ public:     // really private, but can only be done public
 
     void PostProcessAttrs();
     void ReadEmbeddedData(SvStream& rStrm, SwDocShell const * pDocShell, struct HyperLinksTable& hlStr);
+    void NotifyMacroEventRead();
 };
 
 bool CanUseRemoteLink(const OUString &rGrfName);

@@ -304,7 +304,7 @@ void SwAttrIter::SeekFwd(const sal_Int32 nOldPos, const sal_Int32 nNewPos)
 
 bool SwAttrIter::Seek(TextFrameIndex const nNewPos)
 {
-    // note: nNewPos isn't necessarily a index returned from GetNextAttr
+    // note: nNewPos isn't necessarily an index returned from GetNextAttr
     std::pair<SwTextNode const*, sal_Int32> const newPos( m_pMergedPara
         ? sw::MapViewToModel(*m_pMergedPara, nNewPos)
         : std::make_pair(m_pTextNode, sal_Int32(nNewPos)));
@@ -339,6 +339,7 @@ bool SwAttrIter::Seek(TextFrameIndex const nNewPos)
         // items at all; it can only apply a previously effective item.
         // So do this by recreating the font from scratch.
         // Apply new para items:
+        assert(m_pMergedPara);
         InitFontAndAttrHandler(*m_pMergedPara->pParaPropsNode, *newPos.first,
                                m_pMergedPara->mergedText, nullptr, nullptr);
         // reset to next
@@ -437,7 +438,7 @@ bool SwAttrIter::Seek(TextFrameIndex const nNewPos)
 static void InsertCharAttrs(SfxPoolItem const** pAttrs, SfxItemSet const& rItems)
 {
     SfxItemIter iter(rItems);
-    for (SfxPoolItem const* pItem = iter.FirstItem(); pItem; pItem = iter.NextItem())
+    for (SfxPoolItem const* pItem = iter.GetCurItem(); pItem; pItem = iter.NextItem())
     {
         auto const nWhich(pItem->Which());
         if (isCHRATR(nWhich) && RES_CHRATR_RSID != nWhich)
@@ -531,7 +532,7 @@ static bool CanSkipOverRedline(
                         // store the effective items & compare all at the end
                         SfxItemSet const& rSet((pAttr->Which() == RES_TXTATR_CHARFMT)
                             ? static_cast<SfxItemSet const&>(pAttr->GetCharFormat().GetCharFormat()->GetAttrSet())
-                            : *pAttr->GetAutoFormat().GetStyleHandle().get());
+                            : *pAttr->GetAutoFormat().GetStyleHandle());
                         InsertCharAttrs(activeCharAttrsStart, rSet);
                     }
                     break;
@@ -621,7 +622,7 @@ static bool CanSkipOverRedline(
                         }
                         SfxItemSet const& rSet((pAttr->Which() == RES_TXTATR_CHARFMT)
                             ? static_cast<SfxItemSet const&>(pAttr->GetCharFormat().GetCharFormat()->GetAttrSet())
-                            : *pAttr->GetAutoFormat().GetStyleHandle().get());
+                            : *pAttr->GetAutoFormat().GetStyleHandle());
                         InsertCharAttrs(activeCharAttrsEnd, rSet);
 
                     }
@@ -706,16 +707,18 @@ static sal_Int32 GetNextAttrImpl(SwTextNode const*const pTextNode,
     while (p < l)
     {
         sal_Unicode aChar = pStr[p];
-        if (aChar < CH_TXT_ATR_FORMELEMENT
-            || aChar > CH_TXT_ATR_FIELDEND)
+        switch (aChar)
         {
-            ++p;
-        }
-        else
-        {
-            break;
+            case CH_TXT_ATR_FORMELEMENT:
+            case CH_TXT_ATR_FIELDSTART:
+            case CH_TXT_ATR_FIELDSEP:
+            case CH_TXT_ATR_FIELDEND:
+                goto break_; // sigh...
+            default:
+                ++p;
         }
     }
+break_:
     assert(p <= nNext);
     if (p < l)
     {

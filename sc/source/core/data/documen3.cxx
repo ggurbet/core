@@ -204,7 +204,7 @@ bool ScDocument::IsAddressInRangeName( RangeNameScope eScope, const ScAddress& r
     else
         pRangeNames= GetRangeName(rAddress.Tab());
 
-    for (auto& rEntry : *pRangeNames)
+    for (const auto& rEntry : *pRangeNames)
     {
         if (rEntry.second->IsValidReference(aNameRange))
         {
@@ -490,28 +490,28 @@ ScLinkMode ScDocument::GetLinkMode( SCTAB nTab ) const
     return ScLinkMode::NONE;
 }
 
-const OUString ScDocument::GetLinkDoc( SCTAB nTab ) const
+OUString ScDocument::GetLinkDoc( SCTAB nTab ) const
 {
     if (ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab])
         return maTabs[nTab]->GetLinkDoc();
     return OUString();
 }
 
-const OUString ScDocument::GetLinkFlt( SCTAB nTab ) const
+OUString ScDocument::GetLinkFlt( SCTAB nTab ) const
 {
     if (ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab])
         return maTabs[nTab]->GetLinkFlt();
     return OUString();
 }
 
-const OUString ScDocument::GetLinkOpt( SCTAB nTab ) const
+OUString ScDocument::GetLinkOpt( SCTAB nTab ) const
 {
     if (ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab])
         return maTabs[nTab]->GetLinkOpt();
     return OUString();
 }
 
-const OUString ScDocument::GetLinkTab( SCTAB nTab ) const
+OUString ScDocument::GetLinkTab( SCTAB nTab ) const
 {
     if (ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab])
         return maTabs[nTab]->GetLinkTab();

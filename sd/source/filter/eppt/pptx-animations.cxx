@@ -59,7 +59,6 @@
 #include "pptexanimations.hxx"
 #include "pptx-animations.hxx"
 #include "../ppt/pptanimations.hxx"
-#include <comphelper/stl_types.hxx>
 
 using namespace ::com::sun::star::animations;
 using namespace ::com::sun::star::container;
@@ -542,7 +541,7 @@ class NodeContext
     OUString msEffectPresetId;
     OUString msEffectPresetSubType;
 
-    /// constructor helper for initializing user datas.
+    /// constructor helper for initializing user data.
     void initUserData();
 
     /// constructor helper to initialize maChildNodes.
@@ -574,7 +573,7 @@ struct Cond
 
     Cond(const Any& rAny, bool bIsMainSeqChild);
 
-    bool isValid() { return msDelay.getLength() || mpEvent; }
+    bool isValid() const { return msDelay.getLength() || mpEvent; }
     const char* getDelay() const { return msDelay.getLength() ? msDelay.getStr() : nullptr; }
 };
 
@@ -628,8 +627,8 @@ class PPTXAnimationExport
     void WriteAnimationTarget(const Any& rTarget);
     void WriteAnimationCondList(const Any& rAny, sal_Int32 nToken);
     void WriteAnimationCond(const Cond& rCond);
-    bool isMainSeqChild();
-    const Reference<XAnimationNode>& getCurrentNode();
+    bool isMainSeqChild() const;
+    const Reference<XAnimationNode>& getCurrentNode() const;
 
     PowerPointExport& mrPowerPointExport;
     const FSHelperPtr& mpFS;
@@ -665,13 +664,13 @@ PPTXAnimationExport::PPTXAnimationExport(PowerPointExport& rExport, const FSHelp
 {
 }
 
-bool PPTXAnimationExport::isMainSeqChild()
+bool PPTXAnimationExport::isMainSeqChild() const
 {
     assert(mpContext);
     return mpContext->isMainSeqChild();
 }
 
-const Reference<XAnimationNode>& PPTXAnimationExport::getCurrentNode()
+const Reference<XAnimationNode>& PPTXAnimationExport::getCurrentNode() const
 {
     assert(mpContext);
     return mpContext->getNode();
@@ -731,9 +730,9 @@ void PPTXAnimationExport::WriteAnimationCondList(const Any& rAny, sal_Int32 nTok
     Sequence<Any> aCondSeq;
     if (rAny >>= aCondSeq)
     {
-        for (int i = 0; i < aCondSeq.getLength(); i++)
+        for (const auto& rCond : std::as_const(aCondSeq))
         {
-            Cond aCond(aCondSeq[i], bIsMainSeqChild);
+            Cond aCond(rCond, bIsMainSeqChild);
             if (aCond.isValid())
                 aList.push_back(aCond);
         }
@@ -1258,7 +1257,7 @@ void PPTXAnimationExport::WriteAnimations(const Reference<XDrawPage>& rXDrawPage
     if (!xEnumerationAccess.is())
         return;
 
-    Reference<XEnumeration> xEnumeration(xEnumerationAccess->createEnumeration(), UNO_QUERY);
+    Reference<XEnumeration> xEnumeration = xEnumerationAccess->createEnumeration();
     if (!(xEnumeration.is() && xEnumeration->hasMoreElements()))
         return;
 
@@ -1372,7 +1371,7 @@ bool NodeContext::initChildNodes()
     Reference<XEnumerationAccess> xEnumerationAccess(mxNode, UNO_QUERY);
     if (xEnumerationAccess.is())
     {
-        Reference<XEnumeration> xEnumeration(xEnumerationAccess->createEnumeration(), UNO_QUERY);
+        Reference<XEnumeration> xEnumeration = xEnumerationAccess->createEnumeration();
         bool bIsMainSeq = mnEffectNodeType == EffectNodeType::MAIN_SEQUENCE;
         bool bIsIterateChild = mxNode->getType() == AnimationNodeType::ITERATE;
         if (xEnumeration.is())

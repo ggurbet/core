@@ -17,9 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <string.h>
-
-#include <xmloff/xmltoken.hxx>
 #include <xmloff/attrlist.hxx>
 #include <comphelper/servicehelper.hxx>
 #include "MutableAttrList.hxx"
@@ -66,13 +63,16 @@ namespace
     class theXMLMutableAttributeListUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theXMLMutableAttributeListUnoTunnelId> {};
 }
 
+const css::uno::Sequence<sal_Int8>& XMLMutableAttributeList::getUnoTunnelId() throw()
+{
+    return theXMLMutableAttributeListUnoTunnelId::get().getSeq();
+}
+
 // XUnoTunnel
 sal_Int64 SAL_CALL XMLMutableAttributeList::getSomething(
         const Sequence< sal_Int8 >& rId )
 {
-    if( rId.getLength() == 16 &&
-        0 == memcmp( theXMLMutableAttributeListUnoTunnelId::get().getSeq().getConstArray(),
-                     rId.getConstArray(), 16 ) )
+    if( isUnoTunnelId<XMLMutableAttributeList>(rId) )
     {
         return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
     }

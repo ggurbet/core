@@ -58,16 +58,6 @@ namespace o3tl
     template<> struct typed_flags<ToolBoxMenuType> : is_typed_flags<ToolBoxMenuType, 0x0003> {};
 }
 
-// small, large, size32 force an exact toolbox size for proper alignment
-// DontCare will let the toolbox decide about its size
-enum class ToolBoxButtonSize
-{
-    DontCare,
-    Small,
-    Large,
-    Size32,
-};
-
 enum class ToolBoxLayoutMode
 {
     Normal,  // traditional layout, items are centered in the toolbar
@@ -413,7 +403,7 @@ public:
     bool                IsItemReallyVisible( sal_uInt16 nItemId ) const;
 
     void                SetItemCommand( sal_uInt16 nItemId, const OUString& rCommand );
-    const OUString      GetItemCommand( sal_uInt16 nItemId ) const;
+    OUString            GetItemCommand( sal_uInt16 nItemId ) const;
 
     using Window::SetQuickHelpText;
     void                SetQuickHelpText( sal_uInt16 nItemId, const OUString& rText );
@@ -521,6 +511,8 @@ public:
     void SetToolBoxTextPosition( ToolBoxTextPosition ePosition );
 
     void SetLineSpacing(bool b) { mbLineSpacing = b; }
+
+    virtual boost::property_tree::ptree DumpAsPropertyTree() override;
 };
 
 inline void ToolBox::CheckItem( sal_uInt16 nItemId, bool bCheck )

@@ -42,17 +42,13 @@
 #include <vcl/weld.hxx>
 #include <osl/diagnose.h>
 
-#include <map>
-
 namespace basctl
 {
-
-using std::map;
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 
-MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame >& xDocFrame, bool bCreateEntries)
+MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame >& xDocFrame)
     : SfxDialogController(pParnt, "modules/BasicIDE/ui/basicmacrodialog.ui", "BasicMacroDialog")
     , m_xDocumentFrame(xDocFrame)
     // the Sfx doesn't ask the BasicManager whether modified or not
@@ -79,6 +75,8 @@ MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame 
 {
     m_xBasicBox->set_size_request(m_xBasicBox->get_approximate_digit_width() * 30, m_xBasicBox->get_height_rows(18));
     m_xMacroBox->set_size_request(m_xMacroBox->get_approximate_digit_width() * 30, m_xMacroBox->get_height_rows(18));
+    // tdf#70813 The macros should be listed alphabetically
+    m_xMacroBox->make_sorted();
 
     m_aMacrosInTxtBaseStr = m_xMacrosInTxt->get_label();
 
@@ -109,8 +107,7 @@ MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame 
     if (SfxDispatcher* pDispatcher = GetDispatcher())
         pDispatcher->Execute( SID_BASICIDE_STOREALLMODULESOURCES );
 
-    if (bCreateEntries)
-        m_xBasicBox->ScanAllEntries();
+    m_xBasicBox->ScanAllEntries();
 }
 
 MacroChooser::~MacroChooser()
@@ -175,7 +172,6 @@ void MacroChooser::RestoreMacroDescription()
 short MacroChooser::run()
 {
     RestoreMacroDescription();
-    m_xRunButton->grab_focus();
 
     // #104198 Check if "wrong" document is active
     bool bSelectedEntry = m_xBasicBox->get_cursor(m_xBasicBoxIter.get());
@@ -211,6 +207,9 @@ short MacroChooser::run()
 
     CheckButtons();
     UpdateFields();
+
+    // tdf#62955 - Allow searching a name with typing the first letter
+    m_xBasicBox->get_widget().grab_focus();
 
     if ( StarBASIC::IsRunning() )
         m_xCloseButton->grab_focus();
@@ -434,7 +433,7 @@ void MacroChooser::CheckButtons()
     }
 }
 
-IMPL_LINK_NOARG(MacroChooser, MacroDoubleClickHdl, weld::TreeView&, void)
+IMPL_LINK_NOARG(MacroChooser, MacroDoubleClickHdl, weld::TreeView&, bool)
 {
     SbMethod* pMethod = GetMacro();
     SbModule* pModule = pMethod ? pMethod->GetModule() : nullptr;
@@ -447,17 +446,18 @@ IMPL_LINK_NOARG(MacroChooser, MacroDoubleClickHdl, weld::TreeView&, void)
             Application::CreateMessageDialog(m_xDialog.get(), VclMessageType::Warning,
                                              VclButtonsType::Ok, IDEResId(RID_STR_CANNOTRUNMACRO)));
         xError->run();
-        return;
+        return true;
     }
 
     StoreMacroDescription();
     if (nMode == Recording)
     {
         if (pMethod && !QueryReplaceMacro(pMethod->GetName(), m_xDialog.get()))
-            return;
+            return true;
     }
 
     m_xDialog->response(Macro_OkRun);
+    return true;
 }
 
 IMPL_LINK_NOARG(MacroChooser, MacroSelectHdl, weld::TreeView&, void)
@@ -475,32 +475,22 @@ IMPL_LINK_NOARG(MacroChooser, BasicSelectHdl, weld::TreeView&, void)
     {
         m_xMacrosInTxt->set_label(m_aMacrosInTxtBaseStr + " " + pModule->GetName());
 
-        // The macros should be called in the same order that they
-        // are written down in the module.
+        m_xMacroBox->freeze();
 
-        map< sal_uInt16, SbMethod* > aMacros;
         size_t nMacroCount = pModule->GetMethods()->Count();
         for ( size_t iMeth = 0; iMeth  < nMacroCount; iMeth++ )
         {
             SbMethod* pMethod = static_cast<SbMethod*>(pModule->GetMethods()->Get( iMeth ));
-            if( pMethod->IsHidden() )
+            assert(pMethod && "Method not found!");
+            if (pMethod->IsHidden())
                 continue;
-            DBG_ASSERT( pMethod, "Method not found! (NULL)" );
-            sal_uInt16 nStart, nEnd;
-            pMethod->GetLineRange( nStart, nEnd );
-            aMacros.emplace( nStart, pMethod );
+            m_xMacroBox->append_text(pMethod->GetName());
         }
 
-        m_xMacroBox->freeze();
-        for (auto const& macro : aMacros)
-            m_xMacroBox->append_text(macro.second->GetName());
         m_xMacroBox->thaw();
 
-        if (m_xMacroBox->n_children())
-        {
-            m_xMacroBox->get_iter_first(*m_xMacroBoxIter);
+        if (m_xMacroBox->get_iter_first(*m_xMacroBoxIter))
             m_xMacroBox->set_cursor(*m_xMacroBoxIter);
-        }
     }
 
     UpdateFields();

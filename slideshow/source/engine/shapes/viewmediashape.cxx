@@ -127,11 +127,7 @@ namespace slideshow
             // shutdown player window
             if( mxPlayerWindow.is() )
             {
-                uno::Reference< lang::XComponent > xComponent( mxPlayerWindow, uno::UNO_QUERY );
-
-                if( xComponent.is() )
-                    xComponent->dispose();
-
+                mxPlayerWindow->dispose();
                 mxPlayerWindow.clear();
             }
 
@@ -321,7 +317,7 @@ namespace slideshow
                     }
                     catch( uno::Exception& )
                     {
-                        SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
+                        TOOLS_WARN_EXCEPTION( "slideshow", "" );
                     }
                 }
             }
@@ -382,8 +378,7 @@ namespace slideshow
             {
                 if( !rMediaURL.isEmpty() )
                 {
-                    mxPlayer.set( avmedia::MediaWindow::createPlayer( rMediaURL, ""/*TODO!*/, &rMimeType ),
-                        uno::UNO_QUERY );
+                    mxPlayer = avmedia::MediaWindow::createPlayer( rMediaURL, ""/*TODO!*/, &rMimeType );
                 }
             }
             catch( uno::RuntimeException& )
@@ -483,7 +478,7 @@ namespace slideshow
             }
             catch( uno::Exception& )
             {
-                SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
+                TOOLS_WARN_EXCEPTION( "slideshow", "" );
             }
         }
     }

@@ -101,7 +101,7 @@ void SAL_CALL OFormattedField::dispose()
 
 OUString OFormattedField::getImplementationName_Static(  )
 {
-    return OUString("com.sun.star.comp.report.OFormattedField");
+    return "com.sun.star.comp.report.OFormattedField";
 }
 
 
@@ -112,11 +112,7 @@ OUString SAL_CALL OFormattedField::getImplementationName(  )
 
 uno::Sequence< OUString > OFormattedField::getSupportedServiceNames_Static(  )
 {
-    uno::Sequence< OUString > aServices(2);
-    aServices[0] = SERVICE_FORMATTEDFIELD;
-    aServices[1] = "com.sun.star.awt.UnoControlFormattedFieldModel";
-
-    return aServices;
+    return { SERVICE_FORMATTEDFIELD, "com.sun.star.awt.UnoControlFormattedFieldModel" };
 }
 
 uno::Sequence< OUString > SAL_CALL OFormattedField::getSupportedServiceNames(  )
@@ -357,7 +353,7 @@ OUString SAL_CALL OFormattedField::getShapeType(  )
     ::osl::MutexGuard aGuard(m_aMutex);
     if ( m_aProps.aComponent.m_xShape.is() )
         return m_aProps.aComponent.m_xShape->getShapeType();
-    return OUString("com.sun.star.drawing.ControlShape");
+    return "com.sun.star.drawing.ControlShape";
 }
 
 

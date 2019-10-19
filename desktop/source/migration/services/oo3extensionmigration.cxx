@@ -57,7 +57,7 @@ namespace migration
 
 OUString OO3ExtensionMigration_getImplementationName()
 {
-    return OUString( "com.sun.star.comp.desktop.migration.OOo3Extensions" );
+    return "com.sun.star.comp.desktop.migration.OOo3Extensions";
 }
 
 
@@ -195,10 +195,9 @@ bool OO3ExtensionMigration::scanDescriptionXml( const OUString& sDescriptionXmlU
 
                     try
                     {
-                        uno::Reference< xml::dom::XNode > xRootNode( xRoot, uno::UNO_QUERY );
                         uno::Reference< xml::dom::XNode > xNode(
                             xPath->selectSingleNode(
-                                xRootNode, "desc:identifier/@value" ));
+                                xRoot, "desc:identifier/@value" ));
                         if ( xNode.is() )
                             aExtIdentifier = xNode->getNodeValue();
                     }
@@ -215,7 +214,7 @@ bool OO3ExtensionMigration::scanDescriptionXml( const OUString& sDescriptionXmlU
         if ( !aExtIdentifier.isEmpty() )
         {
             // scan extension identifier and try to match with our black list entries
-            for (OUString & i : m_aBlackList)
+            for (const OUString & i : m_aBlackList)
             {
                 utl::SearchParam param(i, utl::SearchParam::SearchType::Regexp);
                 utl::TextSearch  ts(param, LANGUAGE_DONTKNOW);
@@ -240,7 +239,7 @@ bool OO3ExtensionMigration::scanDescriptionXml( const OUString& sDescriptionXmlU
         // Try to use the folder name to match our black list
         // as some extensions don't provide an identifier in the
         // description.xml!
-        for (OUString & i : m_aBlackList)
+        for (const OUString & i : m_aBlackList)
         {
             utl::SearchParam param(i, utl::SearchParam::SearchType::Regexp);
             utl::TextSearch  ts(param, LANGUAGE_DONTKNOW);
@@ -340,8 +339,8 @@ Any OO3ExtensionMigration::execute( const Sequence< beans::NamedValue >& )
     if ( aStatus == ::utl::Bootstrap::PATH_EXISTS )
     {
         // copy all extensions
-        OUString sSourceDir( m_sSourceDir );
-        sSourceDir += "/user/uno_packages/cache/uno_packages";
+        OUString sSourceDir = m_sSourceDir +
+            "/user/uno_packages/cache/uno_packages";
         TStringVector aExtensionToMigrate;
         scanUserExtensions( sSourceDir, aExtensionToMigrate );
         for (auto const& extensionToMigrate : aExtensionToMigrate)

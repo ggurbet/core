@@ -19,11 +19,14 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_MAILMERGEWIZARD_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_MAILMERGEWIZARD_HXX
 
-#include <svtools/roadmapwizard.hxx>
+#include <vcl/roadmapwizard.hxx>
 #include <rtl/ustring.hxx>
 
 class SwView;
 class SwMailMergeConfigItem;
+
+using vcl::WizardTypes::WizardState;
+using vcl::WizardTypes::CommitPageReason;
 
 #define MM_DOCUMENTSELECTPAGE   0
 #define MM_OUTPUTTYPETPAGE      1
@@ -31,7 +34,7 @@ class SwMailMergeConfigItem;
 #define MM_GREETINGSPAGE        3
 #define MM_LAYOUTPAGE           4
 
-class SwMailMergeWizard : public ::svt::RoadmapWizard
+class SwMailMergeWizard : public ::vcl::RoadmapWizardMachine
 {
     SwView* const           m_pSwView;
     OUString                sDocumentURL;
@@ -48,14 +51,12 @@ class SwMailMergeWizard : public ::svt::RoadmapWizard
 
     sal_uInt16              m_nRestartPage;
 
-    using svt::OWizardMachine::skipUntil;
+    using vcl::WizardMachine::skipUntil;
 
 protected:
-    virtual VclPtr<TabPage>         createPage( WizardState _nState ) override;
+    virtual std::unique_ptr<BuilderPage> createPage( WizardState _nState ) override;
     virtual void                    enterState( WizardState _nState ) override;
 
-// roadmap feature ??
-//    virtual sal_Bool            prepareLeaveCurrentState( CommitPageReason _eReason );
     virtual OUString                getStateDisplayName( WizardState _nState ) const override;
 
 public:
@@ -63,7 +64,7 @@ public:
     virtual ~SwMailMergeWizard() override;
 
     SwView*                     GetSwView() {return m_pSwView;}
-    SwMailMergeConfigItem&      GetConfigItem() { return *m_xConfigItem.get();}
+    SwMailMergeConfigItem&      GetConfigItem() { return *m_xConfigItem;}
 
     void                    SetReloadDocument(const OUString& rURL) {sDocumentURL = rURL;}
     const OUString&         GetReloadDocument() const {return sDocumentURL;}
@@ -77,11 +78,9 @@ public:
     void                    SetRestartPage(sal_uInt16 nPage) { m_nRestartPage = nPage;}
 
     bool                skipUntil( sal_uInt16 nPage)
-                                {return ::svt::RoadmapWizard::skipUntil(WizardState(nPage));}
+                                {return ::vcl::RoadmapWizardMachine::skipUntil(WizardState(nPage));}
 
-    using svt::RoadmapWizard::updateRoadmapItemLabel;
-
-    virtual short           Execute() override;
+    virtual short           run() override;
 };
 #endif
 

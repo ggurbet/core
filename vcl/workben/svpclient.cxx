@@ -78,7 +78,7 @@ SAL_IMPLEMENT_MAIN()
         ::Main();
         DeInitVCL();
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
         TOOLS_WARN_EXCEPTION("vcl", "Fatal");
         return 1;
@@ -180,11 +180,10 @@ void MyWin::parseList( const OString& rList )
             aElementType = OStringToOUString( aLine.copy( 13 ), RTL_TEXTENCODING_ASCII_US );
         else
         {
-            OUStringBuffer aNewElement( 64 );
-            aNewElement.append( aElementType );
-            aNewElement.append( ": " );
-            aNewElement.append( OStringToOUString( aLine, RTL_TEXTENCODING_ASCII_US ) );
-            m_aSvpBitmaps->InsertEntry( aNewElement.makeStringAndClear() );
+            OUString aNewElement =
+                aElementType + ": " +
+                OStringToOUString( aLine, RTL_TEXTENCODING_ASCII_US );
+            m_aSvpBitmaps->InsertEntry( aNewElement );
         }
     }
 }
@@ -255,10 +254,10 @@ IMPL_LINK_NOARG( MyWin, SelectHdl, ListBox&, void)
     if( nPos == -1 )
         return;
 
-    OStringBuffer aCommand( 64 );
-    aCommand.append( "get " );
-    aCommand.append( OUStringToOString( aEntry.copy( nPos+2 ), RTL_TEXTENCODING_ASCII_US ) );
-    OString aAnswer( processCommand( aCommand.makeStringAndClear() ) );
+    OString aCommand =
+        "get " +
+        OUStringToOString( aEntry.copy( nPos+2 ), RTL_TEXTENCODING_ASCII_US );
+    OString aAnswer( processCommand( aCommand ) );
     SvMemoryStream aStream( aAnswer.getLength() );
     aStream.WriteBytes( aAnswer.getStr(), aAnswer.getLength() );
     aStream.Seek( STREAM_SEEK_TO_BEGIN );

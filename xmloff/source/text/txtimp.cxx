@@ -26,6 +26,7 @@
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/text/ReferenceFieldSource.hpp>
 #include <com/sun/star/text/XChapterNumberingSupplier.hpp>
+#include <com/sun/star/text/XTextFrame.hpp>
 #include <com/sun/star/text/XTextFieldsSupplier.hpp>
 #include <com/sun/star/text/XTextFramesSupplier.hpp>
 #include <com/sun/star/text/XTextGraphicObjectsSupplier.hpp>
@@ -52,7 +53,6 @@
 #include "XMLTextFrameHyperlinkContext.hxx"
 #include "XMLSectionImportContext.hxx"
 #include "XMLIndexTOCContext.hxx"
-#include <xmloff/XMLFontStylesContext.hxx>
 #include <xmloff/XMLEventsImportContext.hxx>
 #include "XMLTrackedChangesImportContext.hxx"
 #include "XMLChangeImportContext.hxx"
@@ -491,6 +491,7 @@ static const SvXMLTokenMapEntry aTextFieldAttrTokenMap[] =
                 XML_TOK_TEXTFIELD_REFERENCE_LANGUAGE },
     { XML_NAMESPACE_TEXT, XML_REFERENCE_LANGUAGE,
                 XML_TOK_TEXTFIELD_REFERENCE_LANGUAGE },
+    { XML_NAMESPACE_LO_EXT, XML_RESOLVED, XML_TOK_TEXT_RESOLVED },
 
     XML_TOKEN_MAP_END
 };
@@ -1100,7 +1101,7 @@ void XMLTextImportHelper::SetCursor( const Reference < XTextCursor > & rCursor )
 {
     m_xImpl->m_xCursor.set(rCursor);
     m_xImpl->m_xText.set(rCursor->getText());
-    m_xImpl->m_xCursorAsRange.set( rCursor, UNO_QUERY );
+    m_xImpl->m_xCursorAsRange = rCursor;
 }
 
 void XMLTextImportHelper::ResetCursor()
@@ -2440,8 +2441,8 @@ sal_Int32 XMLTextImportHelper::GetDataStyleKey(const OUString& sStyleName,
     // get appropriate context
 
 
-    // first check if it's a impress and draw only number format
-    // this is needed since its also a SvXMLNumFormatContext,
+    // first check if it's an Impress and draw only number format
+    // this is needed since it's also a SvXMLNumFormatContext,
     // that was needed to support them for controls in impress/draw also
     const SdXMLNumberFormatImportContext* pSdNumStyle = dynamic_cast<const SdXMLNumberFormatImportContext*>( pStyle  );
     if( pSdNumStyle )
@@ -2662,7 +2663,7 @@ OUString XMLTextImportHelper::getCurrentFieldType()
     }
 }
 
-bool XMLTextImportHelper::hasCurrentFieldCtx()
+bool XMLTextImportHelper::hasCurrentFieldCtx() const
 {
     return !m_xImpl->m_FieldStack.empty();
 }
@@ -2861,7 +2862,7 @@ void XMLTextImportHelper::SetChangesProtectionKey(const Sequence<sal_Int8> &)
 }
 
 
-OUString const & XMLTextImportHelper::GetOpenRedlineId()
+OUString const & XMLTextImportHelper::GetOpenRedlineId() const
 {
     return m_xImpl->m_sOpenRedlineIdentifier;
 }
@@ -2882,7 +2883,7 @@ XMLTextImportHelper::SetCellParaStyleDefault(OUString const& rNewValue)
     m_xImpl->m_sCellParaStyleDefault = rNewValue;
 }
 
-OUString const& XMLTextImportHelper::GetCellParaStyleDefault()
+OUString const& XMLTextImportHelper::GetCellParaStyleDefault() const
 {
     return m_xImpl->m_sCellParaStyleDefault;
 }

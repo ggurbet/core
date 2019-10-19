@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_mpl.h>
-
 #include <scitems.hxx>
 #include <sfx2/childwin.hxx>
 #include <sfx2/dispatch.hxx>
@@ -30,26 +28,19 @@
 #include <scres.hrc>
 #include <global.hxx>
 #include <scmod.hxx>
-#include <docsh.hxx>
 #include <document.hxx>
 #include <uiitems.hxx>
-#include <pivot.hxx>
 #include <namedlg.hxx>
 #include <namedefdlg.hxx>
 #include <solvrdlg.hxx>
 #include <optsolver.hxx>
 #include <tabopdlg.hxx>
-#include <autoform.hxx>
-#include <autofmt.hxx>
 #include <consdlg.hxx>
 #include <filtdlg.hxx>
 #include <dbnamdlg.hxx>
 #include <areasdlg.hxx>
-#include <rangeutl.hxx>
 #include <crnrdlg.hxx>
 #include <formula.hxx>
-#include <formulacell.hxx>
-#include <acredlin.hxx>
 #include <highred.hxx>
 #include <simpref.hxx>
 #include <funcdesc.hxx>
@@ -59,6 +50,7 @@
 #include <condformatdlg.hxx>
 #include <xmlsourcedlg.hxx>
 #include <condformatdlgitem.hxx>
+#include <formdata.hxx>
 
 #include <RandomNumberGeneratorDialog.hxx>
 #include <SamplingDialog.hxx>
@@ -79,7 +71,6 @@
 
 #include <comphelper/lok.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
-#include <sfx2/lokhelper.hxx>
 
 void ScTabViewShell::SetCurRefDlgId( sal_uInt16 nNew )
 {
@@ -408,26 +399,26 @@ std::unique_ptr<SfxModelessDialogController> ScTabViewShell::CreateRefDialogCont
         }
         case WID_CONDFRMT_REF:
         {
-            bool        bFound      = false;
             const ScCondFormatDlgItem* pDlgItem = nullptr;
             // Get the pool item stored by Conditional Format Manager Dialog.
-            const SfxPoolItem* pItem = nullptr;
             auto itemsRange = GetPool().GetItemSurrogates(SCITEM_CONDFORMATDLGDATA);
             if (itemsRange.begin() != itemsRange.end())
             {
-                pItem = *itemsRange.begin();
+                const SfxPoolItem* pItem = *itemsRange.begin();
                 pDlgItem = static_cast<const ScCondFormatDlgItem*>(pItem);
-                bFound = true;
             }
 
-            ScViewData& rViewData = GetViewData();
-            rViewData.SetRefTabNo( rViewData.GetTabNo() );
+            if (pDlgItem)
+            {
+                ScViewData& rViewData = GetViewData();
+                rViewData.SetRefTabNo( rViewData.GetTabNo() );
 
-            xResult.reset(new ScCondFormatDlg(pB, pCW, pParent, &rViewData, pDlgItem));
+                xResult.reset(new ScCondFormatDlg(pB, pCW, pParent, &rViewData, pDlgItem));
 
-            // Remove the pool item stored by Conditional Format Manager Dialog.
-            if ( bFound && pItem )
-                GetPool().Remove( *pItem );
+                // Remove the pool item stored by Conditional Format Manager Dialog.
+                GetPool().Remove(*pDlgItem);
+            }
+
             break;
         }
     }
@@ -607,7 +598,7 @@ bool ScTabViewShell::UseSubTotal(ScRangeList* pRangeList)
     return bSubTotal;
 }
 
-const OUString ScTabViewShell::DoAutoSum(bool& rRangeFinder, bool& rSubTotal, const OpCode eCode)
+OUString ScTabViewShell::DoAutoSum(bool& rRangeFinder, bool& rSubTotal, const OpCode eCode)
 {
     OUString aFormula;
     const ScMarkData& rMark = GetViewData().GetMarkData();
@@ -675,6 +666,16 @@ const OUString ScTabViewShell::DoAutoSum(bool& rRangeFinder, bool& rSubTotal, co
         aFormula = GetAutoSumFormula( aRangeList, rSubTotal, aAddr , eCode);
     }
     return aFormula;
+}
+
+void ScTabViewShell::InitFormEditData()
+{
+    mpFormEditData.reset(new ScFormEditData);
+}
+
+void ScTabViewShell::ClearFormEditData()
+{
+    mpFormEditData.reset();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

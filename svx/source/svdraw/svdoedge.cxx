@@ -37,6 +37,7 @@
 #include <svx/svdhdl.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/svdoedge.hxx>
+#include <svx/svdopath.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdpool.hxx>
@@ -405,11 +406,6 @@ void SdrEdgeObj::RecalcSnapRect()
 void SdrEdgeObj::TakeUnrotatedSnapRect(tools::Rectangle& rRect) const
 {
     rRect=GetSnapRect();
-}
-
-bool SdrEdgeObj::IsNode() const
-{
-    return true;
 }
 
 SdrGluePoint SdrEdgeObj::GetVertexGluePoint(sal_uInt16 nNum) const
@@ -1854,7 +1850,7 @@ bool SdrEdgeObj::hasSpecialDrag() const
     return true;
 }
 
-SdrObject* SdrEdgeObj::getFullDragClone() const
+SdrObjectUniquePtr SdrEdgeObj::getFullDragClone() const
 {
     // use Clone operator
     SdrEdgeObj* pRetval(CloneSdrObject(getSdrModelFromSdrObject()));
@@ -1863,7 +1859,7 @@ SdrObject* SdrEdgeObj::getFullDragClone() const
     pRetval->ConnectToNode(true, GetConnectedNode(true));
     pRetval->ConnectToNode(false, GetConnectedNode(false));
 
-    return pRetval;
+    return SdrObjectUniquePtr(pRetval);
 }
 
 bool SdrEdgeObj::beginSpecialDrag(SdrDragStat& rDrag) const
@@ -1944,7 +1940,7 @@ bool SdrEdgeObj::applySpecialDrag(SdrDragStat& rDragStat)
             }
         }
 
-        // reset edge info's offsets, this is a end point drag
+        // reset edge info's offsets, this is an end point drag
         aEdgeInfo.aObj1Line2 = Point();
         aEdgeInfo.aObj1Line3 = Point();
         aEdgeInfo.aObj2Line2 = Point();
@@ -1993,10 +1989,7 @@ OUString SdrEdgeObj::getSpecialDragComment(const SdrDragStat& rDrag) const
     }
     else
     {
-        OUString aStr;
-        ImpTakeDescriptionStr(STR_DragEdgeTail, aStr);
-
-        return aStr;
+        return ImpGetDescriptionStr(STR_DragEdgeTail);
     }
 }
 
@@ -2163,8 +2156,7 @@ bool SdrEdgeObj::ImpFindConnector(const Point& rPt, const SdrPageView& rPV, SdrO
         no--;
         SdrObject* pObj=pOL->GetObj(no);
         if (rVisLayer.IsSet(pObj->GetLayer()) && pObj->IsVisible() &&      // only visible objects
-            (pThis==nullptr || pObj!=static_cast<SdrObject const *>(pThis)) && // don't connect it to itself
-            pObj->IsNode())
+            (pThis==nullptr || pObj!=static_cast<SdrObject const *>(pThis))) // don't connect it to itself
         {
             tools::Rectangle aObjBound(pObj->GetCurrentBoundRect());
             if (aObjBound.IsOver(aMouseRect)) {
@@ -2400,15 +2392,15 @@ void SdrEdgeObj::NbcShear(const Point& rRef, long nAngle, double tn, bool bVShea
     }
 }
 
-SdrObject* SdrEdgeObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
+SdrObjectUniquePtr SdrEdgeObj::DoConvertToPolyObj(bool bBezier, bool bAddText) const
 {
     basegfx::B2DPolyPolygon aPolyPolygon;
     aPolyPolygon.append(pEdgeTrack->getB2DPolygon());
-    SdrObject* pRet = ImpConvertMakeObj(aPolyPolygon, false, bBezier);
+    SdrObjectUniquePtr pRet = ImpConvertMakeObj(aPolyPolygon, false, bBezier);
 
     if(bAddText)
     {
-        pRet = ImpConvertAddText(pRet, bBezier);
+        pRet = ImpConvertAddText(std::move(pRet), bBezier);
     }
 
     return pRet;

@@ -19,7 +19,6 @@
 
 #include <unx/cairotextrender.hxx>
 
-#include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <unotools/configmgr.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/sysdata.hxx>
@@ -27,14 +26,12 @@
 #include <vcl/fontcharmap.hxx>
 #include <sal/log.hxx>
 
-#include <unx/printergfx.hxx>
 #include <unx/genpspgraphics.h>
 #include <unx/geninst.h>
 #include <unx/glyphcache.hxx>
 #include <unx/fc_fontoptions.hxx>
 #include <unx/freetype_glyphcache.hxx>
 #include <PhysicalFontFace.hxx>
-#include <impfont.hxx>
 #include <impfontmetricdata.hxx>
 
 #include <cairo.h>
@@ -184,7 +181,7 @@ void CairoTextRender::DrawTextLayout(const GenericSalLayout& rLayout, const SalG
     while (rLayout.GetNextGlyph(&pGlyph, aPos, nStart))
     {
         cairo_glyph_t aGlyph;
-        aGlyph.index = pGlyph->m_aGlyphId;
+        aGlyph.index = pGlyph->glyphId();
         aGlyph.x = aPos.X();
         aGlyph.y = aPos.Y();
         cairo_glyphs.push_back(aGlyph);
@@ -203,6 +200,22 @@ void CairoTextRender::DrawTextLayout(const GenericSalLayout& rLayout, const SalG
     int nWidth = rFSD.mnWidth ? rFSD.mnWidth : nHeight;
     if (nWidth == 0 || nHeight == 0)
         return;
+
+    int nRatio = nWidth * 10 / nHeight;
+    if (nRatio > 100 && rFSD.maTargetName == "OpenSymbol" && FreetypeFont::AlmostHorizontalDrainsRenderingPool())
+    {
+        // tdf#127189 FreeType <= 2.8 will fail to render stretched horizontal
+        // brace glyphs in starmath at a fairly low stretch ratio. The failure
+        // will set CAIRO_STATUS_FREETYPE_ERROR on the surface which cannot be
+        // cleared, so all further painting to the surface fails.
+
+        // This appears fixed in >= freetype 2.9
+
+        // Restrict this bodge to a stretch ratio > ~10 of the OpenSymbol font
+        // where it has been seen in practice.
+        SAL_WARN("vcl", "rendering text would fail with stretch ratio of: " << nRatio << ", with FreeType <= 2.8");
+        return;
+    }
 
     /*
      * It might be ideal to cache surface and cairo context between calls and
@@ -330,6 +343,10 @@ void CairoTextRender::DrawTextLayout(const GenericSalLayout& rLayout, const SalG
 
         cairo_set_font_matrix(cr, &m);
         cairo_show_glyphs(cr, &cairo_glyphs[nStartIndex], nLen);
+        if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+        {
+            SAL_WARN("vcl", "rendering text failed with stretch ratio of: " << nRatio << ", " << cairo_status_to_string(cairo_status(cr)));
+        }
 
 #if OSL_DEBUG_LEVEL > 2
         //draw origin
@@ -346,13 +363,12 @@ void CairoTextRender::DrawTextLayout(const GenericSalLayout& rLayout, const SalG
     releaseCairoContext(cr);
 }
 
-const FontCharMapRef CairoTextRender::GetFontCharMap() const
+FontCharMapRef CairoTextRender::GetFontCharMap() const
 {
     if( !mpFreetypeFont[0] )
         return nullptr;
 
-    const FontCharMapRef xFCMap = mpFreetypeFont[0]->GetFontCharMap();
-    return xFCMap;
+    return mpFreetypeFont[0]->GetFontCharMap();
 }
 
 bool CairoTextRender::GetFontCapabilities(vcl::FontCapabilities &rGetImplFontCapabilities) const

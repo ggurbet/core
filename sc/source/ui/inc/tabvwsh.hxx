@@ -20,6 +20,7 @@
 #ifndef INCLUDED_SC_SOURCE_UI_INC_TABVWSH_HXX
 #define INCLUDED_SC_SOURCE_UI_INC_TABVWSH_HXX
 
+#include <com/sun/star/drawing/QRCode.hpp>
 #include <formula/errorcodes.hxx>
 #include <formula/opcode.hxx>
 #include <svx/fmshell.hxx>
@@ -88,6 +89,7 @@ enum ObjectSelectionType
     OST_Media
 };
 
+class ScFormEditData;
 class SC_DLLPUBLIC ScTabViewShell: public SfxViewShell, public ScDBFunc
 {
 private:
@@ -112,6 +114,7 @@ private:
 
     std::unique_ptr<FmFormShell> pFormShell;
 
+    std::unique_ptr<ScFormEditData> mpFormEditData;
     std::unique_ptr<ScInputHandler, o3tl::default_delete<ScInputHandler>> mpInputHandler;              // for OLE input cell
 
     std::unique_ptr<::editeng::SvxBorderLine> pCurFrameLine;
@@ -161,7 +164,6 @@ private:
     bool    mbInSwitch;
     OUString   maName;
     OUString   maScope;
-
 private:
     void    Construct( TriState nForceDesignMode );
 
@@ -171,6 +173,7 @@ private:
     void            DoReadUserDataSequence( const css::uno::Sequence< css::beans::PropertyValue >& rSettings );
     bool            IsSignatureLineSelected();
     bool            IsSignatureLineSigned();
+    bool            IsQRCodeSelected();
 
     DECL_LINK( SimpleRefClose, const OUString*, void );
     DECL_LINK( SimpleRefDone, const OUString&, void );
@@ -294,7 +297,7 @@ public:
 
     void            SetFormShellAtTop( bool bSet );
 
-    ObjectSelectionType GetCurObjectSelectionType() { return eCurOST; }
+    ObjectSelectionType GetCurObjectSelectionType() const { return eCurOST; }
 
     virtual ErrCode DoVerb(long nVerb) override;
 
@@ -316,7 +319,7 @@ public:
                                           SfxPrinterChangeFlags nDiffFlags = SFX_PRINTER_ALL ) override;
 
     virtual bool            HasPrintOptionsPage() const override;
-    virtual VclPtr<SfxTabPage> CreatePrintOptionsPage(TabPageParent pParent, const SfxItemSet &rOptions) override;
+    virtual std::unique_ptr<SfxTabPage> CreatePrintOptionsPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet &rOptions) override;
 
     void            ConnectObject( const SdrOle2Obj* pObj );
     void            ActivateObject( SdrOle2Obj* pObj, long nVerb );
@@ -363,7 +366,7 @@ public:
     void    AddAccessibilityObject( SfxListener& rObject );
     void    RemoveAccessibilityObject( SfxListener& rObject );
     void    BroadcastAccessibility( const SfxHint &rHint );
-    bool    HasAccessibilityObjects();
+    bool    HasAccessibilityObjects() const;
 
     bool    ExecuteRetypePassDlg(ScPasswordHash eDesiredHash);
 
@@ -372,7 +375,7 @@ public:
     bool IsActive() const { return bIsActive; }
     OUString GetFormula(const ScAddress& rAddress);
     bool    UseSubTotal(ScRangeList* pRangeList);
-    const   OUString DoAutoSum(bool& rRangeFinder, bool& rSubTotal, const OpCode eCode);
+    OUString DoAutoSum(bool& rRangeFinder, bool& rSubTotal, const OpCode eCode);
 
     // ugly hack to call Define Names from Manage Names
     void    SwitchBetweenRefDialogs(SfxModelessDialogController* pDialog);
@@ -391,6 +394,10 @@ public:
     static bool isAnyEditViewInRange(bool bColumns, SCCOLROW nStart, SCCOLROW nEnd);
     css::uno::Reference<css::drawing::XShapes> getSelectedXShapes();
     static  css::uno::Reference<css::datatransfer::XTransferable2> GetClipData(vcl::Window* pWin);
+
+    void InitFormEditData();
+    void ClearFormEditData();
+    ScFormEditData* GetFormEditData() { return mpFormEditData.get(); }
 };
 
 #endif

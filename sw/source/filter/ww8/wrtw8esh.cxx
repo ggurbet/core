@@ -113,7 +113,7 @@ using namespace sw::types;
 using ::com::sun::star::beans::XPropertySet;
 using ::com::sun::star::drawing::XShape;
 
-bool SwBasicEscherEx::IsRelUrl()
+bool SwBasicEscherEx::IsRelUrl() const
 {
     SvtSaveOptions aSaveOpt;
     bool bRelUrl = false;
@@ -123,7 +123,7 @@ bool SwBasicEscherEx::IsRelUrl()
     return bRelUrl;
 }
 
-OUString SwBasicEscherEx::GetBasePath()
+OUString SwBasicEscherEx::GetBasePath() const
 {
     OUString sDocUrl;
     SfxMedium * pMedium = rWrt.GetWriter().GetMedia();
@@ -438,7 +438,7 @@ void WW8Export::DoComboBox(const OUString &rName,
                              const OUString &rHelp,
                              const OUString &rToolTip,
                              const OUString &rSelected,
-                             uno::Sequence<OUString> &rListItems)
+                             const uno::Sequence<OUString> &rListItems)
 {
     OutputField(nullptr, ww::eFORMDROPDOWN, FieldString(ww::eFORMDROPDOWN),
              FieldFlags::Start | FieldFlags::CmdStart);
@@ -534,7 +534,7 @@ PlcDrawObj::~PlcDrawObj()
 {
 }
 
-//Its irritating to have to change the RTL frames position into LTR ones
+//It's irritating to have to change the RTL frames position into LTR ones
 //so that word will have to place them in the right place. Doubly so that
 //the SO drawings and writer frames have different ideas themselves as to
 //how to be positioned when in RTL mode!
@@ -1007,10 +1007,10 @@ void WW8Export::AppendFlyInFlys(const ww8::Frame& rFrameFormat,
             0x03, 0x6a, 0, 0, 0, 0, // sprmCObjLocation
             0x55, 0x08, 1           // sprmCFSpec
         };
-                                                // fSpec-Attribut true
+                                                // fSpec-Attribute true
 
         // A special character is required in the text for DrawObjects,
-        // therefore a fSpec-Attribut
+        // therefore a fSpec-Attribute
         m_pChpPlc->AppendFkpEntry( Strm().Tell() );
         WriteChar( 0x8 );
         m_pChpPlc->AppendFkpEntry( Strm().Tell(), sizeof( aSpec8 ), aSpec8 );
@@ -1219,7 +1219,7 @@ bool MSWord_SdrAttrIter::IsTextAttr(sal_Int32 nSwPos)
 // HasItem is used for the consolidation  of the double attribute Underline and
 // WordLineMode as a TextItem. OutAttr() calls the output function, which can
 // query for other items at the start position of attribute via HasItem().
-// Only attributes with a end can be queried.
+// Only attributes with an end can be queried.
 // The search is done with bDeep.
 const SfxPoolItem* MSWord_SdrAttrIter::HasTextItem(sal_uInt16 nWhich) const
 {
@@ -1319,7 +1319,7 @@ void MSWord_SdrAttrIter::OutParaAttr(bool bCharAttr, const std::set<sal_uInt16>*
                 if (m_rExport.CollapseScriptsforWordOk(nScript,nWhich))
                     m_rExport.AttrOutput().OutputItem(*pI);
             }
-        } while( !aIter.IsAtEnd() && nullptr != ( pItem = aIter.NextItem() ) );
+        } while ((pItem = aIter.NextItem()));
         m_rExport.SetCurItemSet( pOldSet );
     }
 }
@@ -1584,16 +1584,6 @@ void SwBasicEscherEx::WriteGrfBullet(const Graphic& rGrf)
     OString aUniqueId = aGraphicObject.GetUniqueID();
     if ( !aUniqueId.isEmpty() )
     {
-        const MapMode aMap100mm( MapUnit::Map100thMM );
-        Size    aSize( rGrf.GetPrefSize() );
-        if ( MapUnit::MapPixel == rGrf.GetPrefMapMode().GetMapUnit() )
-        {
-            aSize = Application::GetDefaultDevice()->PixelToLogic(aSize, aMap100mm );
-        }
-        else
-        {
-            aSize = OutputDevice::LogicToLogic( aSize,rGrf.GetPrefMapMode(), aMap100mm );
-        }
         sal_uInt32 nBlibId = mxGlobal->GetBlibID( *(mxGlobal->QueryPictureStream()), aGraphicObject );
         if (nBlibId)
             aPropOpt.AddOpt(ESCHER_Prop_pib, nBlibId, true);
@@ -1663,20 +1653,6 @@ sal_Int32 SwBasicEscherEx::WriteGrfFlyFrame(const SwFrameFormat& rFormat, sal_uI
 
         if (!aUniqueId.isEmpty())
         {
-            const   MapMode aMap100mm( MapUnit::Map100thMM );
-            Size    aSize( aGraphic.GetPrefSize() );
-
-            if ( MapUnit::MapPixel == aGraphic.GetPrefMapMode().GetMapUnit() )
-            {
-                aSize = Application::GetDefaultDevice()->PixelToLogic(
-                    aSize, aMap100mm );
-            }
-            else
-            {
-                aSize = OutputDevice::LogicToLogic( aSize,
-                    aGraphic.GetPrefMapMode(), aMap100mm );
-            }
-
             sal_uInt32 nBlibId = mxGlobal->GetBlibID( *QueryPictureStream(), aGraphicObject);
             if (nBlibId)
                 aPropOpt.AddOpt(ESCHER_Prop_pib, nBlibId, true);
@@ -1886,20 +1862,6 @@ void SwBasicEscherEx::WriteBrushAttr(const SvxBrushItem &rBrush,
         OString aUniqueId = pGraphicObject->GetUniqueID();
         if (!aUniqueId.isEmpty())
         {
-            const Graphic &rGraphic = pGraphicObject->GetGraphic();
-            Size aSize(rGraphic.GetPrefSize());
-            const MapMode aMap100mm(MapUnit::Map100thMM);
-            if (MapUnit::MapPixel == rGraphic.GetPrefMapMode().GetMapUnit())
-            {
-                aSize = Application::GetDefaultDevice()->PixelToLogic(
-                    aSize, aMap100mm);
-            }
-            else
-            {
-                aSize = OutputDevice::LogicToLogic(aSize,
-                    rGraphic.GetPrefMapMode(), aMap100mm);
-            }
-
             sal_uInt32 nBlibId = mxGlobal->GetBlibID(*QueryPictureStream(), *pGraphicObject);
             if (nBlibId)
                 rPropOpt.AddOpt(ESCHER_Prop_fillBlip,nBlibId,true);
@@ -2920,6 +2882,9 @@ sal_Int32 SwEscherEx::WriteTextFlyFrame(const DrawObj &rObj, sal_uInt32 nShapeId
         case SvxFrameDirection::Vertical_RL_TB:
             nFlow=mso_txflTtoBA;
         break;
+        case SvxFrameDirection::Vertical_LR_BT:
+            nFlow = mso_txflBtoT;
+        break;
     }
     aPropOpt.AddOpt( ESCHER_Prop_txflTextFlow, nFlow );
 
@@ -2945,7 +2910,7 @@ void SwBasicEscherEx::WriteOLEPicture(EscherPropertyContainer &rPropOpt,
     OString aId = aGraphicObject.GetUniqueID();
     if (!aId.isEmpty())
     {
-        // SJ: the fourth parameter (VisArea) should be set..
+        // SJ: the third parameter (pVisArea) should be set...
         sal_uInt32 nBlibId = mxGlobal->GetBlibID( *QueryPictureStream(), aGraphicObject, pVisArea);
         if (nBlibId)
             rPropOpt.AddOpt(ESCHER_Prop_pib, nBlibId, true);
@@ -3050,7 +3015,7 @@ SwMSConvertControls::SwMSConvertControls( SfxObjectShell const *pDSh, SwPaM *pP 
 
 
 // in transitioning away old filter for ole/ocx controls, ReadOCXStream has been made pure virtual in
-// filter/source/msocximex.cxx, so.. we need an implementation here
+// filter/source/msocximex.cxx, so... we need an implementation here
 bool  SwMSConvertControls::ReadOCXStream( tools::SvRef<SotStorage> const & rSrc1,
         css::uno::Reference< css::drawing::XShape > *pShapeRef,
         bool bFloatingCtrl )
@@ -3084,10 +3049,9 @@ void SwMSConvertControls::ExportControl(WW8Export &rWW8Wrt, const SdrUnoObj& rFo
     tools::SvRef<SotStorage> xObjPool = rWW8Wrt.GetWriter().GetStorage().OpenSotStorage(SL::aObjectPool);
 
     //Create a destination storage for the microsoft control
-    OUStringBuffer sStorageName;
     sal_uInt32 nObjId = ++mnObjectId;
-    sStorageName.append('_').append( static_cast<sal_Int64>( nObjId ));
-    tools::SvRef<SotStorage> xOleStg = xObjPool->OpenSotStorage(sStorageName.makeStringAndClear());
+    OUString sStorageName = "_" + OUString::number( static_cast<sal_Int64>( nObjId ));
+    tools::SvRef<SotStorage> xOleStg = xObjPool->OpenSotStorage(sStorageName);
 
     if (!xOleStg.is())
         return;

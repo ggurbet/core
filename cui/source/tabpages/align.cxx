@@ -20,24 +20,16 @@
 #include <align.hxx>
 
 #include <editeng/svxenum.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/svxids.hrc>
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 #include <bitmaps.hlst>
 #include <svx/rotmodit.hxx>
 
-#include <svx/algitem.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <editeng/justifyitem.hxx>
-#include <svx/dlgutil.hxx>
-#include <sfx2/app.hxx>
-#include <sfx2/module.hxx>
 #include <svl/cjkoptions.hxx>
-#include <svl/languageoptions.hxx>
-#include <svx/flagsdef.hxx>
 #include <svl/intitem.hxx>
-#include <sfx2/request.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/event.hxx>
 
@@ -104,8 +96,8 @@ void lcl_SetJustifyMethodToItemSet(SfxItemSet& rSet, sal_uInt16 nWhichJM, const 
 
 }//namespace
 
-AlignmentTabPage::AlignmentTabPage(TabPageParent pParent, const SfxItemSet& rCoreAttrs)
-    : SfxTabPage(pParent, "cui/ui/cellalignment.ui", "CellAlignPage", &rCoreAttrs)
+AlignmentTabPage::AlignmentTabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rCoreAttrs)
+    : SfxTabPage(pPage, pController, "cui/ui/cellalignment.ui", "CellAlignPage", &rCoreAttrs)
     , m_aVsRefEdge(nullptr)
     // text alignment
     , m_xLbHorAlign(m_xBuilder->weld_combo_box("comboboxHorzAlign"))
@@ -163,20 +155,14 @@ AlignmentTabPage::AlignmentTabPage(TabPageParent pParent, const SfxItemSet& rCor
 
 AlignmentTabPage::~AlignmentTabPage()
 {
-    disposeOnce();
-}
-
-void AlignmentTabPage::dispose()
-{
     m_xCtrlDial.reset();
     m_xVsRefEdge.reset();
     m_xLbFrameDir.reset();
-    SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> AlignmentTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
+std::unique_ptr<SfxTabPage> AlignmentTabPage::Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rAttrSet)
 {
-    return VclPtr<AlignmentTabPage>::Create(pParent, *rAttrSet);
+    return std::make_unique<AlignmentTabPage>(pPage, pController, *rAttrSet);
 }
 
 bool AlignmentTabPage::FillItemSet( SfxItemSet* rSet )
@@ -590,15 +576,6 @@ DeactivateRC AlignmentTabPage::DeactivatePage( SfxItemSet* _pSet )
     if( _pSet )
         FillItemSet( _pSet );
     return DeactivateRC::LeavePage;
-}
-
-void AlignmentTabPage::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    SfxTabPage::DataChanged( rDCEvt );
-    if( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
-    {
-        InitVsRefEgde();
-    }
 }
 
 void AlignmentTabPage::InitVsRefEgde()

@@ -20,7 +20,7 @@ def get_url_for_data_file(file_name):
     return get_srcdir_url() + "/sw/qa/uitest/writer_tests/data/" + file_name
 
 #TSCP: add advanced classification dialog https://cgit.freedesktop.org/libreoffice/core/commit/?id=71ee09947d5a71105d64fd225bb3672dfa7ce834
-# This adds a advanced classification dialog, which enables the user
+# This adds an advanced classification dialog, which enables the user
 # to manually construct a header/footer message from classification
 # properties in cases where the user needs more control. All the
 # text is inserted as fields into the end document and can be changed
@@ -51,7 +51,6 @@ class classification(UITestCase):
         writer_doc = self.ui_test.create_doc_in_start_center("writer")
         document = self.ui_test.get_component()
         xWriterDoc = self.xUITest.getTopFocusWindow()
-        xWriterEdit = xWriterDoc.getChild("writer_edit")
         self.ui_test.execute_dialog_through_command(".uno:ClassificationDialog")
         xDialog = self.xUITest.getTopFocusWindow()
         classificationEditWindow = xDialog.getChild("classificationEditWindow")
@@ -118,7 +117,6 @@ class classification(UITestCase):
         writer_doc = self.ui_test.create_doc_in_start_center("writer")
         document = self.ui_test.get_component()
         xWriterDoc = self.xUITest.getTopFocusWindow()
-        xWriterEdit = xWriterDoc.getChild("writer_edit")
         #+ new file and do it only for Paragraph classification (no watermark!)
         self.ui_test.execute_dialog_through_command(".uno:ParagraphClassificationDialog")
         xDialog = self.xUITest.getTopFocusWindow()
@@ -149,7 +147,6 @@ class classification(UITestCase):
         writer_doc = self.ui_test.create_doc_in_start_center("writer")
         document = self.ui_test.get_component()
         xWriterDoc = self.xUITest.getTopFocusWindow()
-        xWriterEdit = xWriterDoc.getChild("writer_edit")
         #+ new file and do it only for Paragraph classification (no watermark!)
         self.ui_test.execute_dialog_through_command(".uno:ParagraphClassificationDialog")
         xDialog = self.xUITest.getTopFocusWindow()

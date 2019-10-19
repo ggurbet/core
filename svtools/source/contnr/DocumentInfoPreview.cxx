@@ -18,7 +18,6 @@
  */
 
 #include <sal/config.h>
-#include <sal/log.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
@@ -28,19 +27,13 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <rtl/ustring.hxx>
-#include <svl/inettype.hxx>
 #include <svtools/DocumentInfoPreview.hxx>
-#include <svtools/imagemgr.hxx>
 #include <svtools/svmedit2.hxx>
-#include <vcl/builder.hxx>
 #include <vcl/txtattr.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/builderfactory.hxx>
 #include <tools/datetime.hxx>
 #include <tools/diagnose_ex.h>
-#include <tools/urlobj.hxx>
-#include <unotools/ucbhelper.hxx>
 #include <unotools/localedatawrapper.hxx>
 
 #include <templwin.hrc>
@@ -67,8 +60,6 @@ void ODocumentInfoPreview::dispose()
     m_pEditWin.disposeAndClear();
     Window::dispose();
 }
-
-VCL_BUILDER_FACTORY_ARGS(ODocumentInfoPreview, WB_BORDER | WB_READONLY)
 
 void ODocumentInfoPreview::Resize() {
     m_pEditWin->SetPosSizePixel(Point(0, 0), GetOutputSize());
@@ -103,9 +94,9 @@ void ODocumentInfoPreview::fill(
         xDocProps->getUserDefinedProperties(), css::uno::UNO_QUERY_THROW);
     css::uno::Reference< css::beans::XPropertySetInfo > info(
         user->getPropertySetInfo());
-    css::uno::Sequence< css::beans::Property > props(info->getProperties());
-    for (sal_Int32 i = 0; i < props.getLength(); ++i) {
-        OUString name(props[i].Name);
+    const css::uno::Sequence< css::beans::Property > props(info->getProperties());
+    for (const auto& rProp : props) {
+        OUString name(rProp.Name);
         css::uno::Any aAny(user->getPropertyValue(name));
         css::uno::Reference< css::script::XTypeConverter > conv(
             css::script::Converter::create(

@@ -201,7 +201,7 @@ namespace
                                 xConnection,
                                 rController.getNumberFormatter(),
                                 _rLocale,
-                                static_cast<sal_Char>(_sDecimal.toChar()),
+                                _sDecimal,
                                 &rController.getParser().getContext());
         }
         return aCondition;
@@ -1341,14 +1341,14 @@ namespace
                                                         xConnection,
                                                         rController.getNumberFormatter(),
                                                         aLocale,
-                                                        static_cast<sal_Char>(sDecimal.toChar()),
+                                                        sDecimal,
                                                         &rController.getParser().getContext());
 
                     pValueExp->parseNodeToPredicateStr( aColumnName,
                                                         xConnection,
                                                         rController.getNumberFormatter(),
                                                         aLocale,
-                                                        static_cast<sal_Char>(sDecimal.toChar()),
+                                                        sDecimal,
                                                         &rController.getParser().getContext());
 
                     // don't display the column name
@@ -1417,7 +1417,7 @@ namespace
                                                     xConnection,
                                                     rController.getNumberFormatter(),
                                                     aLocale,
-                                                    static_cast<sal_Char>(sDecimal.toChar()),
+                                                    sDecimal,
                                                     &rController.getParser().getContext());
 
                 OTableFieldDescRef aDragLeft = new OTableFieldDesc();
@@ -1472,7 +1472,7 @@ namespace
                                                 xConnection,
                                                 rController.getNumberFormatter(),
                                                 _pView->getLocale(),
-                                                static_cast<sal_Char>(_pView->getDecimalSeparator().toChar()),
+                                                _pView->getDecimalSeparator(),
                                                 &rController.getParser().getContext());
 
             pFunction->parseNodeToStr(  aColumnName,
@@ -1633,7 +1633,7 @@ namespace
                                                 xConnection,
                                                 rController.getNumberFormatter(),
                                                 _pView->getLocale(),
-                                                static_cast<sal_Char>(_pView->getDecimalSeparator().toChar()),
+                                                _pView->getDecimalSeparator(),
                                                 &rController.getParser().getContext());
                 }
             }
@@ -1675,7 +1675,7 @@ namespace
                                                             xConnection,
                                                             rController.getNumberFormatter(),
                                                             _pView->getLocale(),
-                                                            static_cast<sal_Char>(_pView->getDecimalSeparator().toChar()),
+                                                            _pView->getDecimalSeparator(),
                                                             &rController.getParser().getContext());
             }
 
@@ -1957,7 +1957,7 @@ namespace
                     }
                     else
                     {
-                        // there already exists a window for this alias ....
+                        // there already exists a window for this alias...
                         if ( !aKeyComp( pExistentWin->GetData()->GetComposedName(), sComposedName ) )
                             // ... but for another complete table name -> new window
                             pTableView->AddTabWin(sComposedName, sAlias);
@@ -2115,7 +2115,7 @@ namespace
                                                             xConnection,
                                                             rController.getNumberFormatter(),
                                                             _pView->getLocale(),
-                                                            static_cast<sal_Char>(_pView->getDecimalSeparator().toChar()),
+                                                            _pView->getDecimalSeparator(),
                                                             &rController.getParser().getContext());
 
                         sal_Int32 nFunctionType = FKT_NONE;
@@ -2280,7 +2280,7 @@ namespace
                                                             xConnection,
                                                             rController.getNumberFormatter(),
                                                             _pView->getLocale(),
-                                                            static_cast<sal_Char>(_pView->getDecimalSeparator().toChar()),
+                                                            _pView->getDecimalSeparator(),
                                                             &rController.getParser().getContext());
                         _pView->fillFunctionInfo(pArgument,sCondition,aDragLeft);
                         aDragLeft->SetFunctionType(FKT_OTHER);
@@ -2569,7 +2569,7 @@ void OQueryDesignView::copy()
         m_pSelectionBox->copy();
 }
 
-bool OQueryDesignView::isCutAllowed()
+bool OQueryDesignView::isCutAllowed() const
 {
     bool bAllowed = false;
     if ( SELECTION == m_eChildFocus )
@@ -2577,7 +2577,7 @@ bool OQueryDesignView::isCutAllowed()
     return bAllowed;
 }
 
-bool OQueryDesignView::isPasteAllowed()
+bool OQueryDesignView::isPasteAllowed() const
 {
     bool bAllowed = false;
     if ( SELECTION == m_eChildFocus )
@@ -2585,7 +2585,7 @@ bool OQueryDesignView::isPasteAllowed()
     return bAllowed;
 }
 
-bool OQueryDesignView::isCopyAllowed()
+bool OQueryDesignView::isCopyAllowed() const
 {
     bool bAllowed = false;
     if ( SELECTION == m_eChildFocus )
@@ -2915,7 +2915,7 @@ std::unique_ptr<OSQLParseNode> OQueryDesignView::getPredicateTreeFromEntry(const
     // special handling for functions
     if ( pEntry->GetFunctionType() & (FKT_OTHER | FKT_AGGREGATE | FKT_NUMERIC) )
     {
-        // we have a function here so we have to distinguish the type of return vOUalue
+        // we have a function here so we have to distinguish the type of return value
         OUString sFunction;
         if ( pEntry->isNumericOrAggregateFunction() )
             sFunction = pEntry->GetFunction().getToken(0, '(');

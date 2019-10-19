@@ -152,11 +152,7 @@ void MediaWindowImpl::dispose()
         mxPlayerWindow->removeKeyListener( uno::Reference< awt::XKeyListener >( pEventsIf, uno::UNO_QUERY ) );
         mxPlayerWindow->removeMouseListener( uno::Reference< awt::XMouseListener >( pEventsIf, uno::UNO_QUERY ) );
         mxPlayerWindow->removeMouseMotionListener( uno::Reference< awt::XMouseMotionListener >( pEventsIf, uno::UNO_QUERY ) );
-
-        uno::Reference< lang::XComponent > xComponent( mxPlayerWindow, uno::UNO_QUERY );
-        if (xComponent.is())
-            xComponent->dispose();
-
+        mxPlayerWindow->dispose();
         mxPlayerWindow.clear();
     }
 
@@ -187,24 +183,22 @@ uno::Reference<media::XPlayer> MediaWindowImpl::createPlayer(const OUString& rUR
     {
         return xPlayer;
     }
-    uno::Reference<uno::XComponentContext> xContext(::comphelper::getProcessComponentContext());
 
     if (!pMimeType || *pMimeType == AVMEDIA_MIMETYPE_COMMON)
     {
+        uno::Reference<uno::XComponentContext> xContext(::comphelper::getProcessComponentContext());
 
-        static const char * aServiceManagers[] =
+        static OUStringLiteral aServiceManagers[] =
         {
             AVMEDIA_MANAGER_SERVICE_PREFERRED,
             AVMEDIA_MANAGER_SERVICE_NAME,
         };
 
-        for (sal_uInt32 i = 0; !xPlayer.is() && i < SAL_N_ELEMENTS( aServiceManagers ); ++i)
+        for (const auto& rServiceName : aServiceManagers)
         {
-            const OUString aServiceName(aServiceManagers[i],
-                                        strlen( aServiceManagers[i]),
-                                        RTL_TEXTENCODING_ASCII_US);
-
-            xPlayer = createPlayer(rURL, aServiceName, xContext);
+            xPlayer = createPlayer(rURL, rServiceName, xContext);
+            if (xPlayer)
+                break;
         }
     }
 
@@ -222,7 +216,7 @@ uno::Reference< media::XPlayer > MediaWindowImpl::createPlayer(
             xContext->getServiceManager()->createInstanceWithContext(rManagerServName, xContext),
             uno::UNO_QUERY );
         if( xManager.is() )
-            xPlayer.set( xManager->createPlayer( rURL ), uno::UNO_QUERY );
+            xPlayer = xManager->createPlayer( rURL );
         else
             SAL_INFO( "avmedia", "failed to create media player service " << rManagerServName );
     } catch ( const uno::Exception & )

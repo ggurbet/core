@@ -19,18 +19,16 @@
 
 #include <com/sun/star/frame/XDesktop.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <com/sun/star/script/BasicErrorException.hpp>
 #include <com/sun/star/sheet/XCalculatable.hpp>
 #include <com/sun/star/sheet/XCellRangeAddressable.hpp>
-#include <com/sun/star/sheet/XCellRangeReferrer.hpp>
 #include <com/sun/star/sheet/XNamedRanges.hpp>
 #include <com/sun/star/sheet/XSpreadsheetView.hpp>
-#include <com/sun/star/sheet/XSpreadsheets.hpp>
 #include <com/sun/star/task/XStatusIndicatorSupplier.hpp>
 #include <com/sun/star/task/XStatusIndicator.hpp>
 #include <com/sun/star/util/PathSettings.hpp>
 #include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <ooo/vba/XCommandBars.hpp>
-#include <ooo/vba/XExecutableDialog.hpp>
 #include <ooo/vba/excel/XApplicationOutgoing.hpp>
 #include <ooo/vba/excel/XlCalculation.hpp>
 #include <ooo/vba/excel/XlMousePointer.hpp>
@@ -41,13 +39,11 @@
 #include "vbaapplication.hxx"
 #include "vbaworkbooks.hxx"
 #include "vbaworkbook.hxx"
-#include "vbaworksheets.hxx"
 #include "vbarange.hxx"
 #include "vbawsfunction.hxx"
 #include "vbadialogs.hxx"
 #include "vbawindow.hxx"
 #include "vbawindows.hxx"
-#include "vbaglobals.hxx"
 #include "vbamenubars.hxx"
 #include <tabvwsh.hxx>
 #include <gridwin.hxx>
@@ -59,7 +55,6 @@
 #include "vbaassistant.hxx"
 #include <sc.hrc>
 #include <macromgr.hxx>
-#include <defaultsoptions.hxx>
 #include "vbafiledialog.hxx"
 
 #include <osl/file.hxx>
@@ -67,17 +62,10 @@
 
 #include <sfx2/bindings.hxx>
 #include <sfx2/request.hxx>
-#include <sfx2/objsh.hxx>
-#include <sfx2/viewfrm.hxx>
 #include <sfx2/app.hxx>
 #include <vcl/svapp.hxx>
 
-#include <toolkit/awt/vclxwindow.hxx>
-
 #include <tools/diagnose_ex.h>
-#include <tools/urlobj.hxx>
-
-#include <docuno.hxx>
 
 #include <basic/sbx.hxx>
 #include <basic/sbstar.hxx>
@@ -87,13 +75,11 @@
 
 #include <convuno.hxx>
 #include <cellsuno.hxx>
-#include <miscuno.hxx>
 #include <unonames.hxx>
 #include <docsh.hxx>
 #include <vbahelper/helperdecl.hxx>
 #include "excelvbahelper.hxx"
 
-#include <basic/sbmod.hxx>
 #include <basic/sbxobj.hxx>
 
 #include <viewutil.hxx>
@@ -568,11 +554,11 @@ uno::Reference< excel::XWorksheet > SAL_CALL
 ScVbaApplication::getActiveSheet()
 {
     uno::Reference< excel::XWorksheet > result;
-    uno::Reference< excel::XWorkbook > xWorkbook( getActiveWorkbook(), uno::UNO_QUERY );
+    uno::Reference< excel::XWorkbook > xWorkbook = getActiveWorkbook();
     if ( xWorkbook.is() )
     {
-        uno::Reference< excel::XWorksheet > xWorksheet(
-            xWorkbook->getActiveSheet(), uno::UNO_QUERY );
+        uno::Reference< excel::XWorksheet > xWorksheet =
+            xWorkbook->getActiveSheet();
         if ( xWorksheet.is() )
         {
             result = xWorksheet;
@@ -723,8 +709,7 @@ ScVbaApplication::setCursor( sal_Int32 _cursor )
         {
             case excel::XlMousePointer::xlNorthwestArrow:
             {
-                PointerStyle nPointer( PointerStyle::Arrow );
-                setCursorHelper( xModel, nPointer, false );
+                setCursorHelper( xModel, PointerStyle::Arrow, false );
                 break;
             }
             case excel::XlMousePointer::xlWait:
@@ -757,7 +742,7 @@ ScVbaApplication::setCursor( sal_Int32 _cursor )
 OUString SAL_CALL
 ScVbaApplication::getName()
 {
-    return OUString("Microsoft Excel" );
+    return "Microsoft Excel";
 }
 
 // #TODO #FIXME get/setDisplayAlerts are just stub impl
@@ -984,12 +969,12 @@ ScVbaApplication::getOperatingSystem()
     // TODO Solution should contain the version number of the operating system
     // too.
 #if   defined(_WIN32)
-        return OUString("Windows");
+        return "Windows";
 #elif defined(MACOSX)
-        return OUString("Macintosh");
+        return "Macintosh";
 #elif defined(UNX)
         // M. Office is not available on Unix systems, so it is not documented.
-        return OUString("Unix");
+        return "Unix";
 #else
         return OUString("Unknown");
 #endif
@@ -1376,7 +1361,7 @@ ScVbaApplication::MenuBars( const uno::Any& aIndex )
 uno::Any SAL_CALL
 ScVbaApplication::Rows( const uno::Any& aIndex )
 {
-    uno::Reference< excel::XWorksheet > xWorksheet( getActiveSheet(), uno::UNO_QUERY );
+    uno::Reference< excel::XWorksheet > xWorksheet = getActiveSheet();
     if ( xWorksheet.is() )
         return uno::Any( xWorksheet->Rows( aIndex ) );
     return uno::Any();
@@ -1434,7 +1419,7 @@ void SAL_CALL ScVbaApplication::Undo()
 OUString SAL_CALL
 ScVbaApplication::getIID()
 {
-    return OUString("{82154425-0FBF-11d4-8313-005004526AB4}");
+    return "{82154425-0FBF-11d4-8313-005004526AB4}";
 }
 
 // XConnectable
@@ -1442,7 +1427,7 @@ ScVbaApplication::getIID()
 OUString SAL_CALL
 ScVbaApplication::GetIIDForClassItselfNotCoclass()
 {
-    return OUString("{82154426-0FBF-11D4-8313-005004526AB4}");
+    return "{82154426-0FBF-11D4-8313-005004526AB4}";
 }
 
 TypeAndIID SAL_CALL
@@ -1478,7 +1463,7 @@ ScVbaApplication::CallSinks( const OUString& Method, uno::Sequence< uno::Any >& 
 OUString
 ScVbaApplication::getServiceImplName()
 {
-    return OUString("ScVbaApplication");
+    return "ScVbaApplication";
 }
 
 uno::Sequence< OUString >

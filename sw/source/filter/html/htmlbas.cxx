@@ -119,7 +119,7 @@ void SwHTMLParser::EndScript()
             aLibName = "Standard";
 
         // get module library container
-        Reference< script::XLibraryContainer > xModLibContainer( pDocSh->GetBasicContainer(), UNO_QUERY );
+        Reference< script::XLibraryContainer > xModLibContainer = pDocSh->GetBasicContainer();
 
         if ( xModLibContainer.is() )
         {
@@ -161,7 +161,7 @@ void SwHTMLParser::EndScript()
         }
 
         // get dialog library container
-        Reference< script::XLibraryContainer > xDlgLibContainer( pDocSh->GetDialogContainer(), UNO_QUERY );
+        Reference< script::XLibraryContainer > xDlgLibContainer = pDocSh->GetDialogContainer();
 
         if ( xDlgLibContainer.is() )
         {
@@ -278,16 +278,16 @@ void SwHTMLWriter::OutBasic()
             {
                 bFirst = false;
                 OutNewLine();
-                OStringBuffer sOut;
-                sOut.append('<').append(OOO_STRING_SVTOOLS_HTML_meta)
-                    .append(' ').append(OOO_STRING_SVTOOLS_HTML_O_httpequiv)
-                    .append("=\"")
-                    .append(OOO_STRING_SVTOOLS_HTML_META_content_script_type)
-                    .append("\" ").append(OOO_STRING_SVTOOLS_HTML_O_content)
-                    .append("=\"text/x-");
-                Strm().WriteCharPtr( sOut.getStr() );
+                OString sOut =
+                    "<" OOO_STRING_SVTOOLS_HTML_meta
+                    " " OOO_STRING_SVTOOLS_HTML_O_httpequiv
+                    "=\""
+                    OOO_STRING_SVTOOLS_HTML_META_content_script_type
+                    "\" " OOO_STRING_SVTOOLS_HTML_O_content
+                    "=\"text/x-";
+                Strm().WriteOString( sOut );
                 // Entities aren't welcome here
-                Strm().WriteCharPtr( OUStringToOString(sLang, m_eDestEnc).getStr() )
+                Strm().WriteOString( OUStringToOString(sLang, m_eDestEnc) )
                    .WriteCharPtr( "\">" );
             }
 

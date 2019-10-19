@@ -19,9 +19,10 @@
 #ifndef INCLUDED_SW_SOURCE_UI_ENVELP_SWUILABIMP_HXX
 #define INCLUDED_SW_SOURCE_UI_ENVELP_SWUILABIMP_HXX
 
-#include <labimp.hxx>
-#include <com/sun/star/text/XAutoTextContainer2.hpp>
-#include <vcl/layout.hxx>
+#include <label.hxx>
+#include <labimg.hxx>
+#include <labrec.hxx>
+#include <sfx2/tabdlg.hxx>
 
 class SwLabPage : public SfxTabPage
 {
@@ -53,15 +54,12 @@ class SwLabPage : public SfxTabPage
     void DisplayFormat  ();
     SwLabRec* GetSelectedEntryPos();
 
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 public:
-    SwLabPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwLabPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
 
     virtual ~SwLabPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
 
     virtual void ActivatePage(const SfxItemSet& rSet) override;
     virtual DeactivateRC DeactivatePage(SfxItemSet* pSet) override;
@@ -99,14 +97,11 @@ class SwPrivateDataPage : public SfxTabPage
     std::unique_ptr<weld::Entry> m_xHomePageED;
     std::unique_ptr<weld::Entry> m_xMailED;
 
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 public:
-    SwPrivateDataPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwPrivateDataPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwPrivateDataPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
 
     virtual void ActivatePage(const SfxItemSet& rSet) override;
     virtual DeactivateRC DeactivatePage(SfxItemSet* pSet) override;
@@ -131,14 +126,11 @@ class SwBusinessDataPage : public SfxTabPage
     std::unique_ptr<weld::Entry> m_xHomePageED;
     std::unique_ptr<weld::Entry> m_xMailED;
 
-    using TabPage::ActivatePage;
-    using TabPage::DeactivatePage;
-
 public:
-    SwBusinessDataPage(TabPageParent pParent, const SfxItemSet& rSet);
+    SwBusinessDataPage(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet& rSet);
     virtual ~SwBusinessDataPage() override;
 
-    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rSet);
+    static std::unique_ptr<SfxTabPage> Create(weld::Container* pPage, weld::DialogController* pController, const SfxItemSet* rSet);
 
     virtual void ActivatePage(const SfxItemSet& rSet) override;
     virtual DeactivateRC DeactivatePage(SfxItemSet* pSet) override;
